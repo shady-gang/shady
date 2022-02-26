@@ -34,7 +34,7 @@ void destroy_arena(struct IrArena* arena) {
     free(arena);
 }
 
-static void* arena_alloc(struct IrArena* arena, size_t size) {
+void* arena_alloc(struct IrArena* arena, size_t size) {
     // arena is full
     if (size > arena->available) {
         assert(arena->nblocks <= arena->maxblocks);

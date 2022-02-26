@@ -50,7 +50,7 @@ struct Terminator {
             const struct Continuation* target;
             const struct Nodes args;
         } jump;
-        struct Branch {} branch;
+        //struct Branch {} branch;
     } payload;
 };
 
@@ -97,9 +97,9 @@ struct StructuredLoop {
     struct Nodes bodyInstructions;
 };
 
-struct Return {};
-struct Continue {};
-struct Break {};
+//struct Return {};
+//struct Continue {};
+//struct Break {};
 
 // types
 
@@ -123,6 +123,7 @@ struct Type {
     enum TypeTag tag;
     union TypesUnion {
         struct RecordType {
+            char* name;
             struct Types members;
         } record;
         struct ContType {
@@ -162,6 +163,13 @@ struct Types         types(struct IrArena*, int count, struct Type*[]);
 #define NODEDEF(struct_name, short_name) const struct Node* short_name(struct IrArena*, struct struct_name);
 NODES()
 #undef NODEDEF
+
+struct Type* void_type(struct IrArena* arena);
+struct Type* int_type(struct IrArena* arena, bool uniform);
+struct Type* float_type(struct IrArena* arena, bool uniform);
+struct Type* record_type(struct IrArena* arena, char* name, struct Types members);
+struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params);
+struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, struct Type* return_type);
 
 #define SHADY_IR_H
 
