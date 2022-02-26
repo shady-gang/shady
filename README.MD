@@ -30,6 +30,9 @@ float4 diffuse(float3 n) {
 ## Codegen for a divergent call
 
 ```
+struct Material {
+  cont (varying float3, cont (varying float4)) evaluate;
+};
 
 const uniform Material[] materials;
 extern uniform float3 sunDir;
@@ -47,7 +50,7 @@ void main() {
       case 1: main_bb1(args[0], args[1] as float); break;
     }
   }
-}]([](__))
+}
 
 void main_bb0() {
   varying Material mat = materials[matId];
@@ -58,26 +61,31 @@ void main_bb0() {
 
 // non-uniform iteration continue
 @masked
-void main_divergent_call_loop_head(varying cont float4 divergent_target, varying float4 join_value, varying bool mask) {
-  if (any(mask)) {
-    uniform cont float4 voted_next = alive_vote(divergent_target);
-    
+cont main_divergent_call_loop_head(varying cont (varying float4) divergent_target, varying float4 join_value, varying bool mask) {
+
+  cont main_divergent_call_loop_exit() {
+      main_end(join_value)
+  }
+  
+  cont main_divergent_call_loop_continue() {
+    uniform cont (varying float4) voted_next = first_active_lane(mask, divergent_target);
+      
     // call the function uniformingly, but with a mask, and special handling of the result
-    varying float4 return_join_value, varying bool return_mask = callc voted_next(normal, return_wrap, nmask);
-    
+    varying float4 return_join_value = callc voted_next(normal, return_wrap, nmask);
+      
     // depending on if we actually executed what we just returned from, we accept the new join value or keep the old one
     varying float4 merged_join_value = mask ? return_join_value : join_value;
-    
-    // kill invocations which are now satisfied
-    varying bool nmask = mask & !return_mask;
       
+    // kill invocations which are now satisfied
+    varying bool nmask = mask & voted_next != divergent_target;
+        
     main_divergent_call_loop_head(divergent_target, merged_join_value, nmask)
-  } else {
-    main_end(join_value)
   }
-}
 
-void main_divergent_call_loop_head(varying cont float4 divergent_target, varying float4 join_value, varying bool mask) {
+  uniform cont (varying cont (varying float4), varying float4) next = 
+    any(mask) ?
+      main_divergent_call_loop_continue : main_divergent_call_loop_exit;
+  next()
 }
 
 void main_end(float4 a0) {
@@ -99,8 +107,8 @@ TODO: clarify when using some static storage is possible (it has something to do
 
 ```
 @masked
-void main_divergent_call_loop_head(varying cont float4 divergent_target, varying float4 join_value, varying bool mask) {
-  if (any(mask)) {
+cont main_divergent_call_loop_head(varying cont float4 divergent_target, varying float4 join_value, varying bool mask) {
+  cont main_divergent_call_loop_head() {
     // save this state, we need it later when returning from the call
     push divergent_target;
     push join_value;
@@ -110,25 +118,27 @@ void main_divergent_call_loop_head(varying cont float4 divergent_target, varying
     
     // call the function uniformingly, but with a mask, and special handling of the result
     voted_next(normal, return_wrap, nmask)
-  } else {
-    main_end(join_value)
   }
-}
-
-@masked
-void return_wrap(varying float4 join_value, varying bool mask) {
-  // we return from the call. We now need the old state back
-  varying bool oldmask = pop;
-  varying float4 old_join_value = pop;
-  varying divergent_target = pop;
   
-  // depending on if we actually executed what we just returned from, we accept the new join value or keep the old one
-  varying float4 merged_join_value = mask ? join_value : old_join_value;
+  cont main_divergent_call_loop_exit() { ... }
   
-  // kill invocations which are now satisfied
-  varying bool nmask = oldmask & !mask;
+  @masked @indirect_reachable
+  void return_wrap(varying float4 ret_value, varying bool ret_mask) {
+    // we return from the call. We now need the old state back
+    varying bool mask = pop;
+    varying float4 join_value = pop;
+    varying divergent_target = pop;
     
-  main_divergent_call_loop_head(divergent_target, merged_join_value, nmask)
+    // depending on if we actually executed what we just returned from, we accept the new join value or keep the old one
+    varying float4 merged_join_value = ret_mask ? ret_value : join_value;
+    
+    // kill invocations which are now satisfied
+    varying bool nmask = mask & !ret_mask;
+      
+    main_divergent_call_loop_head(divergent_target, merged_join_value, nmask)
+  }
+  
+  ...
 }
 ```
 
