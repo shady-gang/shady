@@ -74,35 +74,35 @@ const struct Type* infer_var(struct IrArena* arena, struct Variable variable) {
     return variable.type;
 }
 
-struct Type* void_type(struct IrArena* arena) {
+const struct Type* void_type(struct IrArena* arena) {
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = Void;
     type->uniform = true;
     return type;
 }
 
-struct Type* noret_type(struct IrArena* arena) {
+const struct Type* noret_type(struct IrArena* arena) {
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = NoRet;
     type->uniform = true;
     return type;
 }
 
-struct Type* int_type(struct IrArena* arena, bool uniform) {
+const struct Type* int_type(struct IrArena* arena, bool uniform) {
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = Int;
     type->uniform = uniform;
     return type;
 }
 
-struct Type* float_type(struct IrArena* arena, bool uniform) {
+const const struct Type* float_type(struct IrArena* arena, bool uniform) {
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = Float;
     type->uniform = uniform;
     return type;
 }
 
-struct Type* record_type(struct IrArena* arena, const char* name, struct Types members) {
+const struct Type* record_type(struct IrArena* arena, const char* name, struct Types members) {
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = RecordType;
     bool uniform = true;
@@ -115,7 +115,7 @@ struct Type* record_type(struct IrArena* arena, const char* name, struct Types m
     return type;
 }
 
-struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params) {
+const struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params) {
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = ContType;
     type->uniform = uniform;
@@ -123,7 +123,7 @@ struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params)
     return type;
 }
 
-struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, struct Type* return_type) {
+const struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, const struct Type* return_type) {
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = FnType;
     type->uniform = uniform;

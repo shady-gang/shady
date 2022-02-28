@@ -158,20 +158,20 @@ struct IrArena* new_arena();
 void destroy_arena(struct IrArena*);
 struct IrArena* rebuild_arena(struct IrArena*);
 
-struct Nodes         nodes(struct IrArena*, size_t count, struct Node*[]);
-struct Variables variables(struct IrArena*, size_t count, struct Variable*[]);
-struct Types         types(struct IrArena*, size_t count, struct Type*[]);
+struct Nodes         nodes(struct IrArena*, size_t count, const struct Node*[]);
+struct Variables variables(struct IrArena*, size_t count, const struct Variable*[]);
+struct Types         types(struct IrArena*, size_t count, const struct Type*[]);
 
 #define NODEDEF(struct_name, short_name) const struct Node* short_name(struct IrArena*, struct struct_name);
 NODES()
 #undef NODEDEF
 
-struct Type* void_type(struct IrArena* arena);
-struct Type* int_type(struct IrArena* arena, bool uniform);
-struct Type* float_type(struct IrArena* arena, bool uniform);
-struct Type* record_type(struct IrArena* arena, const char* name, struct Types members);
-struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params);
-struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, struct Type* return_type);
+const struct Type* void_type(struct IrArena* arena);
+const struct Type* int_type(struct IrArena* arena, bool uniform);
+const struct Type* float_type(struct IrArena* arena, bool uniform);
+const struct Type* record_type(struct IrArena* arena, const char* name, struct Types members);
+const struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params);
+const struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, const struct Type* return_type);
 
 const char* string(struct IrArena* arena, size_t size, const char* start);
 

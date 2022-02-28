@@ -27,6 +27,11 @@ bool is_uniform_or_error(enum ParsedDivergence divergence) {
 #define ctxparams char* contents, struct IrArena* arena, struct Tokenizer* tokenizer
 #define ctx contents, arena, tokenizer
 
+void expect(bool condition) {
+    if (!condition)
+        assert(false);
+}
+
 bool accept_token(ctxparams, enum TokenTag tag) {
     if (curr_token(tokenizer).tag == tag) {
         next_token(tokenizer);
@@ -62,7 +67,7 @@ const struct Type* accept_type(ctxparams, enum ParsedDivergence divergence_hint)
         expect_type = true;
     }
 
-    struct Type* parsed_type = NULL;
+    const struct Type* parsed_type = NULL;
 
     if (accept_token(ctx, int_tok)) {
         parsed_type = int_type(arena, is_uniform_or_error(divergence));
@@ -79,15 +84,15 @@ const struct Type* accept_type(ctxparams, enum ParsedDivergence divergence_hint)
 }
 
 struct Variables eat_parameters(ctxparams) {
-    assert(accept_token(ctx, lpar_tok));
+    expect(accept_token(ctx, lpar_tok));
     struct List* params = new_list(struct Variable*);
     while (true) {
         if (accept_token(ctx, rpar_tok))
             break;
         const struct Type* type = accept_type(ctx, Unknown);
-        assert(type);
+        expect(type);
         const char* id = accept_identifier(ctx);
-        assert(id);
+        expect(id);
 
         const struct Node* node = var(arena, (struct Variable) {
             .name = id,
@@ -98,29 +103,55 @@ struct Variables eat_parameters(ctxparams) {
 
         if (accept_token(ctx, comma_tok))
             continue;
-        assert(accept_token(ctx, rpar_tok));
+        expect(accept_token(ctx, rpar_tok));
     }
 
-    struct Variables variables2 = variables(arena, params->elements, (struct Variable**) params->alloc);
+    struct Variables variables2 = variables(arena, params->elements, (const struct Variable**) params->alloc);
     destroy_list(params);
     return variables2;
 }
 
-const struct Node* accept_decl(ctxparams) {
-    if (accept_token(ctx, fn_tok)) {
-        const struct Type* return_type = accept_type(ctx, Uniform);
-        assert(return_type);
-        const char* id = accept_identifier(ctx);
-        assert(id);
+struct Nodes eat_block(ctxparams) {
+    expect(accept_token(ctx, lbracket_tok));
+    expect(accept_token(ctx, rbracket_tok));
+    return nodes(arena, 0, NULL);
+}
+
+const struct Node* eat_decl(ctxparams) {
+    const struct Type* type = accept_type(ctx, Uniform);
+    expect(type);
+    const char* id = accept_identifier(ctx);
+    expect(id);
+
+    if (curr_token(tokenizer).tag == lpar_tok) {
         struct Variables parameters = eat_parameters(ctx);
 
-        return fn(arena, (struct Function){
-            .params = parameters,
-            .return_type = return_type,
-            .instructions = nodes(arena, 0, NULL)
-        });
+        if (accept_token(ctx, semi_tok)) {
+            const struct Type* param_types[parameters.count];
+            for (size_t i = 0; i < parameters.count; i++)
+                param_types[i] = parameters.variables[i]->type;
+
+            type = fn_type(arena, true, types(arena, parameters.count, param_types), type);
+        } else {
+            struct Nodes instructions = eat_block(ctx);
+
+            return fn(arena, (struct Function) {
+                .params = parameters,
+                .return_type = type,
+                .instructions = instructions
+            });
+        }
     }
-    return NULL;
+
+    expect(accept_token(ctx, semi_tok));
+
+    return var_decl(arena, (struct VariableDecl) {
+       .variable = var(arena, (struct Variable) {
+           .type = type,
+           .name = id
+       }),
+       .init = NULL
+    });
 }
 
 void parse(char* contents, struct IrArena* arena) {
@@ -136,12 +167,13 @@ void parse(char* contents, struct IrArena* arena) {
             printf("parsed identifier: %s\n", id);
             continue;
         }*/
-        const struct Node* decl = accept_decl(ctx);
+        const struct Node* decl = eat_decl(ctx);
         if (decl) {
             printf("decl parsed\n");
+            continue;
         }
 
-        printf("No idea what to parse here... (tok=(tag = %d, pos = %zu))", token.tag, token.start);
+        printf("No idea what to parse here... (tok=(tag = %d, pos = %zu))\n", token.tag, token.start);
         exit(-3);
     }
 }

@@ -56,12 +56,18 @@ bool can_make_up_identifier(char c) {
 }
 
 struct Token next_token(struct Tokenizer* tokenizer) {
+    printf("hm: ");
+
     if (tokenizer->remaining == 0) {
         tokenizer->str = strtok(tokenizer->rest, whitespace);
         if (tokenizer->str == NULL) {
-            return (struct Token) {
-                .tag = EOF_tok
+
+            printf("EOF\n");
+            struct Token token = (struct Token) {
+                    .tag = EOF_tok
             };
+            tokenizer->current = token;
+            return token;
         }
         tokenizer->remaining = strlen(tokenizer->str);
         tokenizer->rest = tokenizer->str + tokenizer->remaining + 1;
@@ -106,6 +112,8 @@ struct Token next_token(struct Tokenizer* tokenizer) {
     tokenizer->remaining -= token_size;
     tokenizer->str+= token_size;
     tokenizer->current = token;
+
+    printf("(tok=(tag = %d, pos = %zu))\n", token.tag, token.start);
     return token;
 }
 
