@@ -3,8 +3,14 @@
 #define TOKENS() \
 TOKEN(EOF, NULL) \
 TOKEN(identifier, NULL) \
+TOKEN(struct, "struct") \
+TOKEN(fn, "fn") \
+TOKEN(cont, "cont") \
+TOKEN(uniform, "uniform") \
+TOKEN(varying, "varying") \
 TOKEN(void, "void") \
 TOKEN(int, "int") \
+TOKEN(float, "float") \
 TOKEN(lpar, "(") \
 TOKEN(rpar, ")") \
 TOKEN(lbracket, "{") \
@@ -29,6 +35,7 @@ struct Token {
     size_t end;
 };
 
+struct Token curr_token(struct Tokenizer* tokenizer);
 struct Token next_token(struct Tokenizer* tokenizer);
 
 #define SHADY_TOKEN_H

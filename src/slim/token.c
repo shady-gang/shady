@@ -25,6 +25,7 @@ struct Tokenizer {
     char* rest;
     char* original;
     size_t remaining;
+    struct Token current;
 };
 
 struct Tokenizer* new_tokenizer(char* str) {
@@ -35,6 +36,7 @@ struct Tokenizer* new_tokenizer(char* str) {
         .original = str,
         .remaining = 0,
     };
+    next_token(tokenizer);
     return tokenizer;
 }
 
@@ -103,5 +105,10 @@ struct Token next_token(struct Tokenizer* tokenizer) {
     token.end = token.start + token_size;
     tokenizer->remaining -= token_size;
     tokenizer->str+= token_size;
+    tokenizer->current = token;
     return token;
+}
+
+struct Token curr_token(struct Tokenizer* tokenizer) {
+    return tokenizer->current;
 }

@@ -2,6 +2,7 @@
 #include "implem.h"
 
 #include "stdlib.h"
+#include "string.h"
 #include "assert.h"
 
 #define alloc_size 1024 * 1024
@@ -85,3 +86,11 @@ struct Types types(struct IrArena*, int count, struct Type* in_types[]);
 
 NODES()
 #undef NODEDEF
+
+const char* string(struct IrArena* arena, int size, char* str) {
+    char* new_str = (char*) arena_alloc(arena, size + 1);
+    strncpy(new_str, str, size);
+    new_str[size] = 0;
+    assert(strlen(new_str) == size);
+    return new_str;
+}
