@@ -52,7 +52,7 @@ void* arena_alloc(struct IrArena* arena, size_t size) {
     assert(size <= arena->available);
 
     size_t in_block = alloc_size - arena->available;
-    void* allocated = arena->blocks[arena->nblocks - 1] + in_block;
+    void* allocated = (void*) ((size_t) arena->blocks[arena->nblocks - 1] + in_block);
     arena->available -= size;
     return allocated;
 }
@@ -104,7 +104,7 @@ struct Types types(struct IrArena* arena, int count, struct Type* in_types[])  {
 NODES()
 #undef NODEDEF
 
-const char* string(struct IrArena* arena, int size, char* str) {
+const char* string(struct IrArena* arena, size_t size, char* str) {
     char* new_str = (char*) arena_alloc(arena, size + 1);
     strncpy(new_str, str, size);
     new_str[size] = 0;

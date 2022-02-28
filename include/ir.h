@@ -1,6 +1,7 @@
 #ifndef SHADY_IR_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 struct IrArena;
 struct Node;
@@ -17,24 +18,24 @@ struct Type;
   NODEDEF(Function, fn) \
 
 struct Variable {
-    struct Type* type;
-    char* name;
+    const struct Type* type;
+    const char* name;
 };
 
 struct Variables {
     int count;
-    struct Variable** variables;
+    const struct Variable** variables;
 };
 
 struct Nodes {
     int count;
-    struct Node** nodes;
+    const struct Node** nodes;
 };
 
 /// Function with _structured_ control flow
 struct Function {
     struct Variables params;
-    struct Type* return_type;
+    const struct Type* return_type;
     struct Nodes instructions;
 };
 
@@ -64,16 +65,16 @@ struct Continuation {
 // Nodes
 
 struct VariableDecl {
-    struct Node* variable;
-    struct Node* init;
+    const struct Node* variable;
+    const struct Node* init;
 };
 
 struct ExpressionEval {
-    struct Node* expr;
+    const struct Node* expr;
 };
 
 struct Call {
-    struct Node* callee;
+    const struct Node* callee;
     struct Nodes args;
 };
 
@@ -82,13 +83,13 @@ struct Call {
 // they don't need merge blocks because they are instructions and so that is taken care of by the containing node
 
 struct StructuredSelection {
-    struct Node* condition;
+    const struct Node* condition;
     struct Nodes ifTrue;
     struct Nodes ifFalse;
 };
 
 struct StructuredSwitch {
-    struct Node* condition;
+    const struct Node* condition;
     struct Nodes ifTrue;
     struct Nodes ifFalse;
 };
@@ -116,7 +117,7 @@ enum TypeTag {
 
 struct Types {
     int count;
-    struct Type** types;
+    const struct Type** types;
 };
 
 struct Type {
@@ -124,7 +125,7 @@ struct Type {
     enum TypeTag tag;
     union TypesUnion {
         struct RecordType {
-            char* name;
+            const char* name;
             struct Types members;
         } record;
         struct ContType {
@@ -132,7 +133,7 @@ struct Type {
         } cont;
         struct FnType {
             struct Types param_types;
-            struct Type* return_type;
+            const struct Type* return_type;
         } fn;
     } payload;
 };
@@ -144,7 +145,7 @@ NODES()
 };
 
 struct Node {
-    struct Type* type;
+    const struct Type* type;
     enum NodeTag tag;
     union NodesUnion {
 #define NODEDEF(struct_name, short_name) struct struct_name short_name;
@@ -172,7 +173,7 @@ struct Type* record_type(struct IrArena* arena, char* name, struct Types members
 struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params);
 struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, struct Type* return_type);
 
-const char* string(struct IrArena* arena, int size, char* start);
+const char* string(struct IrArena* arena, size_t size, char* start);
 
 #define SHADY_IR_H
 

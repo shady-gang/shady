@@ -94,7 +94,7 @@ struct Variables eat_parameters(ctxparams) {
             .type = type
         });
 
-        append_list(struct Variable*, params, &node->payload.var);
+        append_list(struct Variable*, params, node->payload.var);
 
         if (accept_token(ctx, comma_tok))
             continue;
