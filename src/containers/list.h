@@ -22,7 +22,7 @@ void append_list_impl(struct List* list, void* element);
 #define pop_list(T, list) * ((T*) pop_list_impl(list))
 void* pop_list_impl(struct List* list);
 
-void add_list_impl(struct List* list, int index);
-void remove_list_impl(struct List* list, int index);
+void add_list_impl(struct List* list, size_t index);
+void remove_list_impl(struct List* list, size_t index);
 
 #endif

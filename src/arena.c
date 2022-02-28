@@ -59,32 +59,32 @@ void* arena_alloc(struct IrArena* arena, size_t size) {
 
 struct IrArena* rebuild_arena(struct IrArena*);
 
-struct Nodes nodes(struct IrArena* arena, int count, struct Node* in_nodes[]) {
+struct Nodes nodes(struct IrArena* arena, size_t count, struct Node* in_nodes[]) {
     struct Nodes nodes = {
         .count = count,
         .nodes = arena_alloc(arena, count * sizeof(size_t))
     };
-    for (int i = 0; i < count; i++)
+    for (size_t i = 0; i < count; i++)
         nodes.nodes[i] = in_nodes[i];
     return nodes;
 }
 
-struct Variables variables(struct IrArena* arena, int count, struct Variable* in_vars[]) {
+struct Variables variables(struct IrArena* arena, size_t count, struct Variable* in_vars[]) {
     struct Variables variables = {
             .count = count,
             .variables = arena_alloc(arena, count * sizeof(size_t))
     };
-    for (int i = 0; i < count; i++)
+    for (size_t i = 0; i < count; i++)
         variables.variables[i] = in_vars[i];
     return variables;
 }
 
-struct Types types(struct IrArena* arena, int count, struct Type* in_types[])  {
+struct Types types(struct IrArena* arena, size_t count, struct Type* in_types[])  {
     struct Types types = {
             .count = count,
             .types = arena_alloc(arena, count * sizeof(size_t))
     };
-    for (int i = 0; i < count; i++)
+    for (size_t i = 0; i < count; i++)
         types.types[i] = in_types[i];
     return types;
 }

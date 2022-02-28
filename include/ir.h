@@ -23,12 +23,12 @@ struct Variable {
 };
 
 struct Variables {
-    int count;
+    size_t count;
     const struct Variable** variables;
 };
 
 struct Nodes {
-    int count;
+    size_t count;
     const struct Node** nodes;
 };
 
@@ -116,7 +116,7 @@ enum TypeTag {
 };
 
 struct Types {
-    int count;
+    size_t count;
     const struct Type** types;
 };
 
@@ -158,9 +158,9 @@ struct IrArena* new_arena();
 void destroy_arena(struct IrArena*);
 struct IrArena* rebuild_arena(struct IrArena*);
 
-struct Nodes         nodes(struct IrArena*, int count, struct Node*[]);
-struct Variables variables(struct IrArena*, int count, struct Variable*[]);
-struct Types         types(struct IrArena*, int count, struct Type*[]);
+struct Nodes         nodes(struct IrArena*, size_t count, struct Node*[]);
+struct Variables variables(struct IrArena*, size_t count, struct Variable*[]);
+struct Types         types(struct IrArena*, size_t count, struct Type*[]);
 
 #define NODEDEF(struct_name, short_name) const struct Node* short_name(struct IrArena*, struct struct_name);
 NODES()

@@ -1,6 +1,6 @@
 #include "implem.h"
 
-bool is_subtype(struct Type* supertype, struct Type* type) {
+bool is_subtype(const struct Type* supertype, const struct Type* type) {
     // uniform T <: varying T
     if (supertype->uniform && !type->uniform)
         return false;
@@ -8,9 +8,9 @@ bool is_subtype(struct Type* supertype, struct Type* type) {
         return false;
     switch (supertype->tag) {
         case RecordType: {
-            struct Types* supermembers = &supertype->payload.record.members;
-            struct Types* members = &type->payload.record.members;
-            for (int i = 0; i < members->count; i++) {
+            const struct Types* supermembers = &supertype->payload.record.members;
+            const struct Types* members = &type->payload.record.members;
+            for (size_t i = 0; i < members->count; i++) {
                 if (!is_subtype(supermembers->types[i], members->types[i]))
                     return false;
             }
@@ -19,8 +19,8 @@ bool is_subtype(struct Type* supertype, struct Type* type) {
             if (!is_subtype(supertype->payload.fn.return_type, type->payload.fn.return_type))
                 return false;
 
-            struct Types* superparams = &supertype->payload.fn.param_types;
-            struct Types* params = &type->payload.fn.param_types;
+            const struct Types* superparams = &supertype->payload.fn.param_types;
+            const struct Types* params = &type->payload.fn.param_types;
             goto check_params;
         case ContType:
             superparams = &supertype->payload.fn.param_types;
@@ -31,7 +31,7 @@ bool is_subtype(struct Type* supertype, struct Type* type) {
             if (params->count != superparams->count)
                 return false;
 
-            for (int i = 0; i < params->count; i++) {
+            for (size_t i = 0; i < params->count; i++) {
                 if (!is_subtype(params->types[i], superparams->types[i]))
                     return false;
             }
@@ -41,36 +41,36 @@ bool is_subtype(struct Type* supertype, struct Type* type) {
     return true;
 }
 
-void check_subtype(struct Type* supertype, struct Type* type) {
+void check_subtype(const struct Type* supertype, const struct Type* type) {
     if (!is_subtype(supertype, type))
         error("is not a subtype")
 }
 
-struct Type* infer_call(struct IrArena* arena, struct Call call) {
-    struct Type* callee_type = call.callee->type;
+const struct Type* infer_call(struct IrArena* arena, struct Call call) {
+    const struct Type* callee_type = call.callee->type;
     if (callee_type->tag != FnType)
         error("Callees must have a function type");
     if (callee_type->payload.fn.param_types.count != call.args.count)
         error("Mismatched argument counts");
-    for (int i = 0; i < call.args.count; i++) {
+    for (size_t i = 0; i < call.args.count; i++) {
         // TODO
     }
     return callee_type->payload.fn.return_type;
 }
 
-struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
+const struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
 
 }
 
-struct Type* infer_var_decl(struct IrArena* arena, struct VariableDecl call) {
+const struct Type* infer_var_decl(struct IrArena* arena, struct VariableDecl call) {
 
 }
 
-struct Type* infer_expr_eval(struct IrArena* arena, struct ExpressionEval call) {
+const struct Type* infer_expr_eval(struct IrArena* arena, struct ExpressionEval call) {
 
 }
 
-struct Type* infer_var(struct IrArena* arena, struct Variable variable) {
+const struct Type* infer_var(struct IrArena* arena, struct Variable variable) {
     return variable.type;
 }
 
@@ -106,7 +106,7 @@ struct Type* record_type(struct IrArena* arena, char* name, struct Types members
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = RecordType;
     bool uniform = true;
-    for (int i = 0; i < members.count; i++) {
+    for (size_t i = 0; i < members.count; i++) {
         uniform &= members.types[i]->uniform;
     }
     type->uniform = uniform;
