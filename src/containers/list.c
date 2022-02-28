@@ -35,3 +35,50 @@ void* pop_list_impl(struct List* list) {
     void* last = (void*) ((size_t)(list->alloc) - list->elem_size);
     return last;
 }
+
+void add_list_impl(struct List* list, size_t index, void* element) {
+    size_t old_elements_count = list->elements;
+    if (list->elements == list->space)
+        grow_list(list);
+
+    size_t element_size = list->elem_size;
+    void* insert_at = (void*) ((size_t) list->alloc + element_size * index);
+    void* dst = (void*) ((size_t) list->alloc + element_size * (index + 1));
+    size_t amount = old_elements_count - index;
+    memmove(dst, insert_at, element_size * amount);
+    memcpy(insert_at, element, element_size);
+
+    list->elements++;
+}
+
+void delete_list_impl(struct List* list, size_t index) {
+    size_t old_elements_count = list->elements;
+
+    size_t element_size = list->elem_size;
+
+    void* hole_at = (void*) ((size_t) list->alloc + element_size * index);
+    void* fill_with = (void*) ((size_t) list->alloc + element_size * (index + 1));
+    size_t amount = old_elements_count - index;
+    memmove(hole_at, fill_with, element_size * amount);
+
+    list->elements--;
+}
+
+void* remove_list_impl(struct List* list, size_t index) {
+    size_t old_elements_count = list->elements;
+
+    size_t element_size = list->elem_size;
+    char temp[element_size];
+
+    void* hole_at = (void*) ((size_t) list->alloc + element_size * index);
+    void* fill_with = (void*) ((size_t) list->alloc + element_size * (index + 1));
+    size_t amount = old_elements_count - index;
+    memcpy(&temp, hole_at, element_size);
+    memmove(hole_at, fill_with, element_size * amount);
+
+    list->elements--;
+
+    void* end = (void*) ((size_t) list->alloc + element_size * list->elements);
+    memcpy(end, &temp, element_size);
+    return end;
+}

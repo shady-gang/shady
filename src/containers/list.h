@@ -22,7 +22,13 @@ void append_list_impl(struct List* list, void* element);
 #define pop_list(T, list) * ((T*) pop_list_impl(list))
 void* pop_list_impl(struct List* list);
 
-void add_list_impl(struct List* list, size_t index);
-void remove_list_impl(struct List* list, size_t index);
+#define add_list(T, list, i, e) add_list_impl(list, i, (void*) &(e))
+void add_list_impl(struct List* list, size_t index, void* element);
+
+#define delete_list(T, list, i) delete_list_impl(list, index)
+void delete_list_impl(struct List* list, size_t index);
+
+#define remove_list(T, list, i) *(T*) remove_list_impl(list, index)
+void* remove_list_impl(struct List* list, size_t index);
 
 #endif

@@ -169,11 +169,11 @@ NODES()
 struct Type* void_type(struct IrArena* arena);
 struct Type* int_type(struct IrArena* arena, bool uniform);
 struct Type* float_type(struct IrArena* arena, bool uniform);
-struct Type* record_type(struct IrArena* arena, char* name, struct Types members);
+struct Type* record_type(struct IrArena* arena, const char* name, struct Types members);
 struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params);
 struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, struct Type* return_type);
 
-const char* string(struct IrArena* arena, size_t size, char* start);
+const char* string(struct IrArena* arena, size_t size, const char* start);
 
 #define SHADY_IR_H
 

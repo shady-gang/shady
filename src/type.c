@@ -102,7 +102,7 @@ struct Type* float_type(struct IrArena* arena, bool uniform) {
     return type;
 }
 
-struct Type* record_type(struct IrArena* arena, char* name, struct Types members) {
+struct Type* record_type(struct IrArena* arena, const char* name, struct Types members) {
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = RecordType;
     bool uniform = true;
