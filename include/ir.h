@@ -6,14 +6,15 @@ struct IrArena;
 struct Node;
 struct Type;
 
-#define Nodes() \
+#define INSTRUCTIONS() \
   NODEDEF(VariableDecl, var_decl) \
   NODEDEF(ExpressionEval, expr_eval) \
   NODEDEF(Call, call) \
 
 #define NODES() \
-  Nodes() \
+  INSTRUCTIONS() \
   NODEDEF(Variable, var) \
+  NODEDEF(Function, fn) \
 
 struct Variable {
     struct Type* type;
@@ -114,8 +115,8 @@ enum TypeTag {
 };
 
 struct Types {
-    int ntypes;
-    struct Type* types;
+    int count;
+    struct Type** types;
 };
 
 struct Type {
@@ -170,6 +171,8 @@ struct Type* float_type(struct IrArena* arena, bool uniform);
 struct Type* record_type(struct IrArena* arena, char* name, struct Types members);
 struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params);
 struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, struct Type* return_type);
+
+const char* string(struct IrArena* arena, int size, char* start);
 
 #define SHADY_IR_H
 

@@ -69,8 +69,25 @@ struct Nodes nodes(struct IrArena* arena, int count, struct Node* in_nodes[]) {
     return nodes;
 }
 
-struct Variables variables(struct IrArena*, int count, struct Variable* in_vars[]);
-struct Types types(struct IrArena*, int count, struct Type* in_types[]);
+struct Variables variables(struct IrArena* arena, int count, struct Variable* in_vars[]) {
+    struct Variables variables = {
+            .count = count,
+            .variables = arena_alloc(arena, count * sizeof(size_t))
+    };
+    for (int i = 0; i < count; i++)
+        variables.variables[i] = in_vars[i];
+    return variables;
+}
+
+struct Types types(struct IrArena* arena, int count, struct Type* in_types[])  {
+    struct Types types = {
+            .count = count,
+            .types = arena_alloc(arena, count * sizeof(size_t))
+    };
+    for (int i = 0; i < count; i++)
+        types.types[i] = in_types[i];
+    return types;
+}
 
 #define NODEDEF(struct_name, short_name) const struct Node* short_name(struct IrArena* arena, struct struct_name in_node) { \
     struct Node* node = (struct Node*) arena_alloc(arena, sizeof(struct Node));                                             \

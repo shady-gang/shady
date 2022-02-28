@@ -16,6 +16,7 @@ TOKEN(rpar, ")") \
 TOKEN(lbracket, "{") \
 TOKEN(rbracket, "}") \
 TOKEN(semi, ";") \
+TOKEN(comma, ",") \
 TOKEN(LIST_END, NULL)
 
 void init_tokenizer_constants();

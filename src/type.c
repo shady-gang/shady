@@ -10,8 +10,8 @@ bool is_subtype(struct Type* supertype, struct Type* type) {
         case RecordType: {
             struct Types* supermembers = &supertype->payload.record.members;
             struct Types* members = &type->payload.record.members;
-            for (int i = 0; i < members->ntypes; i++) {
-                if (!is_subtype(&supermembers->types[i], &members->types[i]))
+            for (int i = 0; i < members->count; i++) {
+                if (!is_subtype(supermembers->types[i], members->types[i]))
                     return false;
             }
         }
@@ -28,11 +28,11 @@ bool is_subtype(struct Type* supertype, struct Type* type) {
             goto check_params;
         default: goto post_switch;
         check_params:
-            if (params->ntypes != superparams->ntypes)
+            if (params->count != superparams->count)
                 return false;
 
-            for (int i = 0; i < params->ntypes; i++) {
-                if (!is_subtype(&params->types[i], &superparams->types[i]))
+            for (int i = 0; i < params->count; i++) {
+                if (!is_subtype(params->types[i], superparams->types[i]))
                     return false;
             }
         return false;
@@ -50,12 +50,16 @@ struct Type* infer_call(struct IrArena* arena, struct Call call) {
     struct Type* callee_type = call.callee->type;
     if (callee_type->tag != FnType)
         error("Callees must have a function type");
-    if (callee_type->payload.fn.param_types.ntypes != call.args.count)
+    if (callee_type->payload.fn.param_types.count != call.args.count)
         error("Mismatched argument counts");
     for (int i = 0; i < call.args.count; i++) {
         // TODO
     }
     return callee_type->payload.fn.return_type;
+}
+
+struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
+
 }
 
 struct Type* infer_var_decl(struct IrArena* arena, struct VariableDecl call) {
@@ -102,8 +106,8 @@ struct Type* record_type(struct IrArena* arena, char* name, struct Types members
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = RecordType;
     bool uniform = true;
-    for (int i = 0; i < members.ntypes; i++) {
-        uniform &= members.types[i].uniform;
+    for (int i = 0; i < members.count; i++) {
+        uniform &= members.types[i]->uniform;
     }
     type->uniform = uniform;
     type->payload.record.name = name;

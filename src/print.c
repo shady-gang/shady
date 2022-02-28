@@ -31,9 +31,9 @@ void print_type(const struct Type* type) {
         case ContType: {
             printf("cont (");
             const struct Types *params = &type->payload.cont.param_types;
-            for (int i = 0; i < params->ntypes; i++) {
-                print_type(&params->types[i]);
-                if (i < params->ntypes - 1)
+            for (int i = 0; i < params->count; i++) {
+                print_type(params->types[i]);
+                if (i < params->count - 1)
                     printf(", ");
             }
             printf(")");
@@ -41,9 +41,9 @@ void print_type(const struct Type* type) {
         } case FnType: {
             printf("fn (");
             const struct Types *params = &type->payload.fn.param_types;
-            for (int i = 0; i < params->ntypes; i++) {
-                print_type(&params->types[i]);
-                if (i < params->ntypes - 1)
+            for (int i = 0; i < params->count; i++) {
+                print_type(params->types[i]);
+                if (i < params->count - 1)
                     printf(", ");
             }
             printf(") ");
