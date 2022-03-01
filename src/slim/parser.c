@@ -136,6 +136,7 @@ const struct Node* eat_decl(ctxparams) {
             struct Nodes instructions = eat_block(ctx);
 
             return fn(arena, (struct Function) {
+                .name = id,
                 .params = parameters,
                 .return_type = type,
                 .instructions = instructions
@@ -154,26 +155,28 @@ const struct Node* eat_decl(ctxparams) {
     });
 }
 
-void parse(char* contents, struct IrArena* arena) {
+struct Program parse(char* contents, struct IrArena* arena) {
     struct Tokenizer* tokenizer = new_tokenizer(contents);
+
+    struct List* top_level = new_list(struct Node*);
 
     while (true) {
         struct Token token = curr_token(tokenizer);
         if (token.tag == EOF_tok)
             break;
 
-        /*char* id = accept_identifier(ctx);
-        if (id) {
-            printf("parsed identifier: %s\n", id);
-            continue;
-        }*/
         const struct Node* decl = eat_decl(ctx);
         if (decl) {
             printf("decl parsed\n");
+            append_list(struct Node*, top_level, decl);
             continue;
         }
 
         printf("No idea what to parse here... (tok=(tag = %d, pos = %zu))\n", token.tag, token.start);
         exit(-3);
     }
+
+    return (struct Program) {
+        .declarations_and_definitions = nodes(arena, top_level->elements, read_list(const struct Node*, top_level))
+    };
 }

@@ -34,6 +34,7 @@ struct Nodes {
 
 /// Function with _structured_ control flow
 struct Function {
+    const char* name;
     struct Variables params;
     const struct Type* return_type;
     struct Nodes instructions;
@@ -174,6 +175,14 @@ const struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types p
 const struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, const struct Type* return_type);
 
 const char* string(struct IrArena* arena, size_t size, const char* start);
+
+struct Program {
+    struct Nodes declarations_and_definitions;
+};
+
+void print_program(const struct Program* program);
+void print_node(const struct Node* node, bool);
+void print_type(const struct Type* type);
 
 #define SHADY_IR_H
 

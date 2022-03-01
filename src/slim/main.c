@@ -4,7 +4,7 @@
 #include "ir.h"
 #include "token.h"
 
-void parse(char* contents, struct IrArena* arena);
+struct Program parse(char* contents, struct IrArena* arena);
 
 char* read_file(char* filename) {
     FILE *f = fopen(filename, "rb");
@@ -40,18 +40,8 @@ int main(int argc, char** argv) {
             return -1;
         } else {
             printf("Parsing: \n%s\n", contents);
-            parse(contents, arena);
-            /*struct Tokenizer* tokenizer = new_tokenizer(contents);
-
-            while (true) {
-                struct Token token = next_token(tokenizer);
-                if (token.tag == EOF_tok)
-                    break;
-                printf("Token: %zu %zu %d ", token.start, token.end, token.tag);
-                for (size_t i = token.start; i < token.end; i++)
-                    printf("%c", contents[i]);
-                printf("\n");
-            }*/
+            struct Program program = parse(contents, arena);
+            print_program(&program);
         }
 
         free(contents);
