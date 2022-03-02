@@ -7,6 +7,7 @@
 #include "stdio.h"
 
 void* arena_alloc(struct IrArena* arena, size_t size);
+void emit(struct Program program, FILE* output);
 
 #define NODEDEF(struct_name, short_name) const struct Type* infer_##short_name(struct IrArena*, struct struct_name);
 NODES()

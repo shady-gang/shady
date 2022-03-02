@@ -5,6 +5,7 @@
 #include "token.h"
 
 struct Program parse(char* contents, struct IrArena* arena);
+void emit(struct Program program, FILE* output);
 
 char* read_file(char* filename) {
     FILE *f = fopen(filename, "rb");
@@ -42,6 +43,10 @@ int main(int argc, char** argv) {
             printf("Parsing: \n%s\n", contents);
             struct Program program = parse(contents, arena);
             print_program(&program);
+
+            FILE *output = fopen("out.spv", "wb");
+            emit(program, output);
+            fclose(output);
         }
 
         free(contents);
