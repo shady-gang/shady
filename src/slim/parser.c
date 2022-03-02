@@ -20,6 +20,7 @@ bool is_uniform_or_error(enum ParsedDivergence divergence) {
         case Unknown: error("We need an explicit divergence annotation");
         case Uniform: return true;
         case Varying: return false;
+        default: SHADY_UNREACHABLE;
     }
 }
 

@@ -12,9 +12,16 @@ void* arena_alloc(struct IrArena* arena, size_t size);
 NODES()
 #undef NODEDEF
 
+#ifdef _MSC_VER
+#define SHADY_UNREACHABLE __assume(0)
+#else
+#define SHADY_UNREACHABLE __builtin_unreachable()
+#endif
+
 #define error(...) {             \
   fprintf (stderr, __VA_ARGS__); \
   exit(-1);                      \
+  SHADY_UNREACHABLE;             \
 }
 
 #endif

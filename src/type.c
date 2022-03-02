@@ -14,6 +14,7 @@ bool is_subtype(const struct Type* supertype, const struct Type* type) {
                 if (!is_subtype(supermembers->types[i], members->types[i]))
                     return false;
             }
+            goto post_switch;
         }
         case FnType:
             if (!is_subtype(supertype->payload.fn.return_type, type->payload.fn.return_type))
@@ -59,15 +60,15 @@ const struct Type* infer_call(struct IrArena* arena, struct Call call) {
 }
 
 const struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
-
+    SHADY_UNREACHABLE;
 }
 
 const struct Type* infer_var_decl(struct IrArena* arena, struct VariableDecl call) {
-
+    SHADY_UNREACHABLE;
 }
 
 const struct Type* infer_expr_eval(struct IrArena* arena, struct ExpressionEval call) {
-
+    SHADY_UNREACHABLE;
 }
 
 const struct Type* infer_var(struct IrArena* arena, struct Variable variable) {
@@ -95,7 +96,7 @@ const struct Type* int_type(struct IrArena* arena, bool uniform) {
     return type;
 }
 
-const const struct Type* float_type(struct IrArena* arena, bool uniform) {
+const struct Type* float_type(struct IrArena* arena, bool uniform) {
     struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
     type->tag = Float;
     type->uniform = uniform;

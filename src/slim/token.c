@@ -14,7 +14,7 @@ static const char* token_strings[] = {
 static size_t token_strings_size[LIST_END_tok];
 void init_tokenizer_constants() {
     for (int i = 0; i < LIST_END_tok; i++) {
-        token_strings_size[i] = token_strings[i] == NULL ? -1 : strlen(token_strings[i]);
+        token_strings_size[i] = token_strings[i] == NULL ? -1U : strlen(token_strings[i]);
     }
 }
 
