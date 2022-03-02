@@ -28,9 +28,12 @@ bool is_uniform_or_error(enum ParsedDivergence divergence) {
 #define ctxparams char* contents, struct IrArena* arena, struct Tokenizer* tokenizer
 #define ctx contents, arena, tokenizer
 
-void expect(bool condition) {
-    if (!condition)
-        assert(false);
+#define expect(condition) expect_impl(condition, #condition)
+void expect_impl(bool condition, const char* err) {
+    if (!condition) {
+        fprintf(stderr, "expected to parse: %s\n", err);
+        exit(-4);
+    }
 }
 
 bool accept_token(ctxparams, enum TokenTag tag) {
@@ -148,10 +151,11 @@ const struct Node* eat_decl(ctxparams) {
     expect(accept_token(ctx, semi_tok));
 
     return var_decl(arena, (struct VariableDecl) {
-       .variable = var(arena, (struct Variable) {
-           .type = type,
-           .name = id
-       }),
+        .address_space = Private,
+        .variable = var(arena, (struct Variable) {
+            .type = type,
+            .name = id
+        }),
        .init = NULL
     });
 }
@@ -177,7 +181,11 @@ struct Program parse(char* contents, struct IrArena* arena) {
         exit(-3);
     }
 
+    struct Nodes top_level_nodes = nodes(arena, top_level->elements, read_list(const struct Node*, top_level));
+    destroy_list(top_level);
+    destroy_tokenizer(tokenizer);
+
     return (struct Program) {
-        .declarations_and_definitions = nodes(arena, top_level->elements, read_list(const struct Node*, top_level))
+        .declarations_and_definitions = top_level_nodes,
     };
 }

@@ -23,6 +23,7 @@ void init_tokenizer_constants();
 
 struct Tokenizer;
 struct Tokenizer* new_tokenizer(char* str);
+void destroy_tokenizer(struct Tokenizer*);
 
 enum TokenTag {
 #define TOKEN(name, str) name##_tok,

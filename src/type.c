@@ -60,15 +60,19 @@ const struct Type* infer_call(struct IrArena* arena, struct Call call) {
 }
 
 const struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
-    SHADY_UNREACHABLE;
+    // TODO check function
+    struct Types types = reserve_types(arena, fn.params.count);
+    for (size_t i = 0; i < types.count; i++)
+        types.types[i] = fn.params.variables[i]->type;
+    return fn_type(arena, true, types, fn.return_type);
 }
 
-const struct Type* infer_var_decl(struct IrArena* arena, struct VariableDecl call) {
-    SHADY_UNREACHABLE;
+const struct Type* infer_var_decl(struct IrArena* arena, struct VariableDecl decl) {
+    return ptr_type(arena, decl.variable->type, decl.address_space);
 }
 
-const struct Type* infer_expr_eval(struct IrArena* arena, struct ExpressionEval call) {
-    SHADY_UNREACHABLE;
+const struct Type* infer_expr_eval(struct IrArena* arena, struct ExpressionEval expr) {
+    SHADY_NOT_IMPLEM;
 }
 
 const struct Type* infer_var(struct IrArena* arena, struct Variable variable) {
@@ -130,5 +134,14 @@ const struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types par
     type->uniform = uniform;
     type->payload.fn.param_types = params;
     type->payload.fn.return_type = return_type;
+    return type;
+}
+
+const struct Type* ptr_type(struct IrArena* arena, const struct Type* pointed_type, enum AddressSpace address_space) {
+    struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
+    type->tag = PtrType;
+    type->uniform = pointed_type;
+    type->payload.ptr.pointed_type = pointed_type;
+    type->payload.ptr.address_space = address_space;
     return type;
 }

@@ -40,7 +40,7 @@ extern uniform float3 sunDir;
 flat in varying int matId;
      in varying float3 normal;
 
-[uniform private int _next = 0;
+uniform private int _next = 0;
 uniform varying int[16] _args; // parameters to forward to the next basic block
 
 void main() {

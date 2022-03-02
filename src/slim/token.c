@@ -40,6 +40,10 @@ struct Tokenizer* new_tokenizer(char* str) {
     return tokenizer;
 }
 
+void destroy_tokenizer(struct Tokenizer* tokenizer) {
+    free(tokenizer);
+}
+
 bool is_alpha(char c) {
     return c >= 'A' && c <= 'z';
 }

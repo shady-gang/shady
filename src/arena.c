@@ -19,7 +19,7 @@ struct IrArena* new_arena() {
     *arena = (struct IrArena) {
         .nblocks = 0,
         .maxblocks = 256,
-        .blocks = malloc(256),
+        .blocks = malloc(256 * sizeof(size_t)),
         .available = 0
     };
     for (int i = 0; i < arena->maxblocks; i++)
@@ -59,31 +59,46 @@ void* arena_alloc(struct IrArena* arena, size_t size) {
 
 struct IrArena* rebuild_arena(struct IrArena*);
 
-struct Nodes nodes(struct IrArena* arena, size_t count, const struct Node* in_nodes[]) {
+struct Nodes reserve_nodes(struct IrArena* arena, size_t count) {
     struct Nodes nodes = {
         .count = count,
         .nodes = arena_alloc(arena, count * sizeof(size_t))
     };
+    return nodes;
+}
+
+struct Variables reserve_variables(struct IrArena* arena, size_t count) {
+    struct Variables variables = {
+        .count = count,
+        .variables = arena_alloc(arena, count * sizeof(size_t))
+    };
+    return variables;
+}
+
+struct Types reserve_types(struct IrArena* arena, size_t count)  {
+    struct Types types = {
+        .count = count,
+        .types = arena_alloc(arena, count * sizeof(size_t))
+    };
+    return types;
+}
+
+struct Nodes nodes(struct IrArena* arena, size_t count, const struct Node* in_nodes[]) {
+    struct Nodes nodes = reserve_nodes(arena, count);
     for (size_t i = 0; i < count; i++)
         nodes.nodes[i] = in_nodes[i];
     return nodes;
 }
 
 struct Variables variables(struct IrArena* arena, size_t count, const struct Variable* in_vars[]) {
-    struct Variables variables = {
-        .count = count,
-        .variables = arena_alloc(arena, count * sizeof(size_t))
-    };
+    struct Variables variables = reserve_variables(arena, count);
     for (size_t i = 0; i < count; i++)
         variables.variables[i] = in_vars[i];
     return variables;
 }
 
 struct Types types(struct IrArena* arena, size_t count, const struct Type* in_types[])  {
-    struct Types types = {
-        .count = count,
-        .types = arena_alloc(arena, count * sizeof(size_t))
-    };
+    struct Types types = reserve_types(arena, count);
     for (size_t i = 0; i < count; i++)
         types.types[i] = in_types[i];
     return types;

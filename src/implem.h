@@ -18,10 +18,14 @@ NODES()
 #define SHADY_UNREACHABLE __builtin_unreachable()
 #endif
 
+#define SHADY_NOT_IMPLEM {    \
+  error("not implemented\n"); \
+  SHADY_UNREACHABLE;          \
+}
+
 #define error(...) {             \
   fprintf (stderr, __VA_ARGS__); \
   exit(-1);                      \
-  SHADY_UNREACHABLE;             \
 }
 
 #endif

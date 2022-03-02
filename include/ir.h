@@ -7,6 +7,13 @@ struct IrArena;
 struct Node;
 struct Type;
 
+enum AddressSpace {
+    Generic,
+    Private,
+    Shared,
+    Global
+};
+
 #define INSTRUCTIONS() \
   NODEDEF(VariableDecl, var_decl) \
   NODEDEF(ExpressionEval, expr_eval) \
@@ -66,6 +73,7 @@ struct Continuation {
 // Nodes
 
 struct VariableDecl {
+    enum AddressSpace address_space;
     const struct Node* variable;
     const struct Node* init;
 };
@@ -113,7 +121,8 @@ enum TypeTag {
     Float,
     RecordType,
     ContType,
-    FnType
+    FnType,
+    PtrType,
 };
 
 struct Types {
@@ -136,6 +145,10 @@ struct Type {
             struct Types param_types;
             const struct Type* return_type;
         } fn;
+        struct PtrType {
+            struct Type* pointed_type;
+            enum AddressSpace address_space;
+        } ptr;
     } payload;
 };
 
@@ -163,6 +176,11 @@ struct Nodes         nodes(struct IrArena*, size_t count, const struct Node*[]);
 struct Variables variables(struct IrArena*, size_t count, const struct Variable*[]);
 struct Types         types(struct IrArena*, size_t count, const struct Type*[]);
 
+struct Nodes         reserve_nodes(struct IrArena*, size_t count);
+struct Variables reserve_variables(struct IrArena*, size_t count);
+struct Types         reserve_types(struct IrArena*, size_t count);
+
+
 #define NODEDEF(struct_name, short_name) const struct Node* short_name(struct IrArena*, struct struct_name);
 NODES()
 #undef NODEDEF
@@ -173,6 +191,7 @@ const struct Type* float_type(struct IrArena* arena, bool uniform);
 const struct Type* record_type(struct IrArena* arena, const char* name, struct Types members);
 const struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params);
 const struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, const struct Type* return_type);
+const struct Type* ptr_type(struct IrArena* arena, const struct Type* pointed_type, enum AddressSpace);
 
 const char* string(struct IrArena* arena, size_t size, const char* start);
 
