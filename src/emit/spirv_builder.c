@@ -1,0 +1,631 @@
+#include "spirv_builder.h"
+
+#include "../containers/list.h"
+
+#include <string.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <assert.h>
+
+typedef struct List* SpvSectionBuilder;
+
+struct SpvBasicBlockBuilder;
+struct SpvFnBuilder;
+struct SpvFileBuilder;
+
+SpvId generate_fresh_id(struct SpvFileBuilder*);
+
+inline static int div_roundup(int a, int b) {
+    if (a % b == 0)
+        return a / b;
+    else
+        return (a / b) + 1;
+}
+
+inline static void output_word(SpvSectionBuilder data, uint32_t word) {
+    append_list(uint32_t, data, word);
+}
+
+#define op(opcode, size) op_(target_data, opcode, size)
+inline static void op_(SpvSectionBuilder data, SpvOp op, int ops_size) {
+    uint32_t lower = op & 0xFFFFu;
+    uint32_t upper = (ops_size << 16) & 0xFFFF0000u;
+    output_word(data, lower | upper);
+}
+
+#define ref_id(i) ref_id_(target_data, i)
+inline static void ref_id_(SpvSectionBuilder data, SpvId id) {
+    assert(id != 0);
+    output_word(data, id);
+}
+
+#define literal_name(str) literal_name_(target_data, str)
+inline static void literal_name_(SpvSectionBuilder data, const char* str) {
+    int i = 0;
+    uint32_t cword = 0;
+    while (str[0] != '0') {
+        char c = str[0];
+        str = &str[1];
+        cword = cword | (c & 0xFF) << (i * 8);
+        i++;
+        if (i == 4) {
+            output_word(data, cword);
+            cword = 0;
+            i = 0;
+        }
+    }
+    output_word(data, cword);
+}
+
+#define literal_int(i) literal_int_(target_data, i)
+inline static void literal_int_(SpvSectionBuilder data, uint32_t i) {
+    output_word(data, i);
+}
+
+#define copy_section(section) copy_section_(target_data, section)
+inline static void copy_section_(SpvSectionBuilder target, SpvSectionBuilder source) {
+    for (size_t i = 0; i < source->elements; i++)
+        literal_int_(target, read_list(uint32_t, source)[i]);
+}
+
+struct PhiOp {
+    SpvId value;
+    SpvId basic_block;
+};
+
+struct Phi {
+    SpvId type;
+    SpvId value;
+    struct List* preds;
+};
+
+struct SpvBasicBlockBuilder {
+    struct SpvFileBuilder* file_builder;
+    struct List* section_data;
+
+    struct List* phis;
+    SpvId label;
+};
+
+// It is tiresome to pass the context over and over again. Let's not !
+// We use this macro to save us some typing
+#define target_data bb_builder->section_data
+
+SpvId undef(struct SpvBasicBlockBuilder* bb_builder, SpvId type) {
+    op(SpvOpUndef, 3);
+    ref_id(type);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(id);
+    return id;
+}
+
+SpvId composite(struct SpvBasicBlockBuilder* bb_builder, SpvId aggregate_t, size_t elements_count, SpvId elements[]) {
+    op(SpvOpCompositeConstruct, 3u + elements_count);
+    ref_id(aggregate_t);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(id);
+    for (size_t i = 0; i < elements_count; i++)
+        ref_id(elements[i]);
+    return id;
+}
+
+SpvId extract(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId composite, size_t indices_count, uint32_t indices[]) {
+    op(SpvOpCompositeExtract, 4u + indices_count);
+    ref_id(target_type);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(id);
+    ref_id(composite);
+    for (size_t i = 0; i < indices_count; i++)
+        literal_int(indices[i]);
+    return id;
+}
+
+SpvId insert(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId object, SpvId composite, size_t indices_count, uint32_t indices[]) {
+    op(SpvOpCompositeInsert, 5 + indices_count);
+    ref_id(target_type);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(id);
+    ref_id(object);
+    ref_id(composite);
+    for (size_t i = 0; i < indices_count; i++)
+        literal_int(indices[i]);
+    return id;
+}
+
+SpvId vector_extract_dynamic(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId vector, SpvId index) {
+    op(SpvOpVectorExtractDynamic, 5);
+    ref_id(target_type);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(id);
+    ref_id(vector);
+    ref_id(index);
+    return id;
+}
+
+SpvId vector_insert_dynamic(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId vector, SpvId component, SpvId index) {
+    op(SpvOpVectorInsertDynamic, 6);
+    ref_id(target_type);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(id);
+    ref_id(vector);
+    ref_id(component);
+    ref_id(index);
+    return id;
+}
+
+// Used for almost all conversion operations
+SpvId convert(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId target_type, SpvId value) {
+    op(op, 4);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(target_type);
+    ref_id(id);
+    ref_id(value);
+    return id;
+}
+
+SpvId access_chain(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId element, size_t indices_count, SpvId indices[]) {
+    op(SpvOpAccessChain, 4 + indices_count);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(target_type);
+    ref_id(id);
+    ref_id(element);
+    for (size_t i = 0; i < indices_count; i++)
+        ref_id(indices[i]);
+    return id;
+}
+
+SpvId ptr_access_chain(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId base, SpvId element, size_t indices_count, SpvId indices[]) {
+    op(SpvOpPtrAccessChain, 5 + indices_count);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(target_type);
+    ref_id(id);
+    ref_id(base);
+    ref_id(element);
+    for (size_t i = 0; i < indices_count; i++)
+        ref_id(indices[i]);
+    return id;
+}
+
+SpvId load(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId pointer, size_t operands_count, uint32_t operands[]) {
+    op(SpvOpLoad, 4 + operands_count);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(target_type);
+    ref_id(id);
+    ref_id(pointer);
+    for (size_t i = 0; i < operands_count; i++)
+        literal_int(operands[i]);
+    return id;
+}
+
+void store(struct SpvBasicBlockBuilder* bb_builder, SpvId value, SpvId pointer, size_t operands_count, uint32_t operands[]) {
+    op(SpvOpStore, 3 + operands_count);
+    ref_id(pointer);
+    ref_id(value);
+    for (size_t i = 0; i < operands_count; i++)
+        literal_int(operands[i]);
+}
+
+SpvId binop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, SpvId lhs, SpvId rhs) {
+    op(op, 5);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(result_type);
+    ref_id(id);
+    ref_id(lhs);
+    ref_id(rhs);
+    return id;
+}
+
+void branch(struct SpvBasicBlockBuilder* bb_builder, SpvId target) {
+    op(SpvOpBranch, 2);
+    ref_id(target);
+}
+
+void branch_conditional(struct SpvBasicBlockBuilder* bb_builder, SpvId condition, SpvId true_target, SpvId false_target) {
+    op(SpvOpBranchConditional, 4);
+    ref_id(condition);
+    ref_id(true_target);
+    ref_id(false_target);
+}
+
+void selection_merge(struct SpvBasicBlockBuilder* bb_builder, SpvId merge_bb, SpvSelectionControlMask selection_control) {
+    op(SpvOpSelectionMerge, 3);
+    ref_id(merge_bb);
+    literal_int(selection_control);
+}
+
+void loop_merge(struct SpvBasicBlockBuilder* bb_builder, SpvId merge_bb, SpvId continue_bb, SpvLoopControlMask loop_control, size_t loop_control_ops_count, uint32_t loop_control_ops[]) {
+    op(SpvOpLoopMerge, 4 + loop_control_ops_count);
+    ref_id(merge_bb);
+    ref_id(continue_bb);
+    literal_int(loop_control);
+
+    for (size_t i = 0; i < loop_control_ops_count; i++)
+        literal_int(loop_control_ops[i]);
+}
+
+SpvId call(struct SpvBasicBlockBuilder* bb_builder, SpvId return_type, SpvId callee, size_t arguments_count, SpvId arguments[]) {
+    op(SpvOpFunctionCall, 4u + arguments_count);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(return_type);
+    ref_id(id);
+    ref_id(callee);
+    for (size_t i = 0; i < arguments_count; i++)
+        ref_id(arguments[i]);
+    return id;
+}
+
+SpvId ext_instruction(struct SpvBasicBlockBuilder* bb_builder, SpvId return_type, SpvId set, uint32_t instruction, size_t arguments_count, SpvId arguments[]) {
+    op(SpvOpExtInst, 5 + arguments_count);
+    SpvId id = generate_fresh_id(bb_builder->file_builder);
+    ref_id(return_type);
+    ref_id(id);
+    ref_id(set);
+    literal_int(instruction);
+    for (size_t i = 0; i < arguments_count; i++)
+        ref_id(arguments[i]);
+    return id;
+}
+
+void return_void(struct SpvBasicBlockBuilder* bb_builder) {
+    op(SpvOpReturn, 1);
+}
+
+void return_value(struct SpvBasicBlockBuilder* bb_builder, SpvId value) {
+    op(SpvOpReturnValue, 2);
+    ref_id(value);
+}
+
+void unreachable(struct SpvBasicBlockBuilder* bb_builder) {
+    op(SpvOpUnreachable, 1);
+}
+
+struct SpvFnBuilder {
+    struct SpvFileBuilder* file_builder;
+    SpvId function_id;
+
+    SpvId fn_type;
+    SpvId fn_ret_type;
+    //std::vector<SpvBasicBlockBuilder*> bbs;
+    struct List* bbs;
+
+    // Contains OpFunctionParams
+    SpvSectionBuilder header;
+
+    SpvSectionBuilder variables;
+};
+
+#undef target_data
+#define target_data fn_builder->header
+
+SpvId parameter(struct SpvFnBuilder* fn_builder, SpvId param_type) {
+    op(SpvOpFunctionParameter, 3);
+    SpvId id = generate_fresh_id(fn_builder->file_builder);
+    ref_id(param_type);
+    ref_id(id);
+    return id;
+}
+
+#undef target_data
+#define target_data fn_builder->variables
+
+SpvId local_variable(struct SpvFnBuilder* fn_builder, SpvId type, SpvStorageClass storage_class) {
+    op(SpvOpVariable, 4);
+    ref_id(type);
+    SpvId id = generate_fresh_id(fn_builder->file_builder);
+    ref_id(id);
+    literal_int(storage_class);
+    return id;
+}
+
+struct SpvFileBuilder {
+    SpvAddressingModel addressing_model;
+    SpvMemoryModel memory_model;
+
+    uint32_t bound;
+
+    // Ordered as per https://www.khronos.org/registry/spir-v/specs/unified1/SPIRV.pdf#subsection.2.4
+    SpvSectionBuilder capabilities;
+    SpvSectionBuilder extensions;
+    SpvSectionBuilder ext_inst_import;
+    SpvSectionBuilder entry_points;
+    SpvSectionBuilder execution_modes;
+    SpvSectionBuilder debug_string_source;
+    SpvSectionBuilder debug_names;
+    SpvSectionBuilder debug_module_processed;
+    SpvSectionBuilder annotations;
+    SpvSectionBuilder types_constants;
+    SpvSectionBuilder fn_decls;
+    SpvSectionBuilder fn_defs;
+};
+
+#undef target_data
+#define target_data file_builder->debug_names
+
+void name(struct SpvFileBuilder* file_builder, SpvId id, const char* str) {
+    assert(id < file_builder->bound);
+    op(SpvOpName, 2 + div_roundup(strlen(str) + 1, 4));
+    ref_id(id);
+    literal_name(str);
+}
+
+#undef target_data
+#define target_data file_builder->types_constants
+
+SpvId declare_bool_type(struct SpvFileBuilder* file_builder) {
+    op(SpvOpTypeBool, 2);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    return id;
+}
+
+SpvId declare_int_type(struct SpvFileBuilder* file_builder, int width, bool signed_) {
+    op(SpvOpTypeInt, 4);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    literal_int(width);
+    literal_int(signed_ ? 1 : 0);
+    return id;
+}
+
+SpvId declare_float_type(struct SpvFileBuilder* file_builder, int width) {
+    op(SpvOpTypeFloat, 3);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    literal_int(width);
+    return id;
+}
+
+SpvId declare_void_type(struct SpvFileBuilder* file_builder) {
+    op(SpvOpTypeVoid, 2);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    return id;
+}
+
+SpvId declare_ptr_type(struct SpvFileBuilder* file_builder, SpvStorageClass storage_class, SpvId element_type) {
+    op(SpvOpTypePointer, 4);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    literal_int(storage_class);
+    ref_id(element_type);
+    return id;
+}
+
+SpvId declare_array_type(struct SpvFileBuilder* file_builder, SpvId element_type, SpvId dim) {
+    op(SpvOpTypeArray, 4);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    ref_id(element_type);
+    ref_id(dim);
+    return id;
+}
+
+SpvId declare_fn_type(struct SpvFileBuilder* file_builder, size_t args_count, SpvId args_types[], SpvId codom) {
+    op(SpvOpTypeFunction, 3 + args_count);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    ref_id(codom);
+    for (size_t i = 0; i < args_count; i++)
+        ref_id(args_types[i]);
+    return id;
+}
+
+SpvId declare_struct_type(struct SpvFileBuilder* file_builder, size_t members_count, SpvId members[]) {
+    op(SpvOpTypeStruct, 2 + members_count);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    for (size_t i = 0; i < members_count; i++)
+        ref_id(members[i]);
+    return id;
+}
+
+SpvId declare_vector_type(struct SpvFileBuilder* file_builder, SpvId component_type, uint32_t dim) {
+    op(SpvOpTypeVector, 4);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    ref_id(component_type);
+    literal_int(dim);
+    return id;
+}
+
+SpvId bool_constant(struct SpvFileBuilder* file_builder, SpvId type, bool value) {
+    op(value ? SpvOpConstantTrue : SpvOpConstantFalse, 3);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(type);
+    ref_id(id);
+    return id;
+}
+
+SpvId constant(struct SpvFileBuilder* file_builder, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]) {
+    op(SpvOpConstant, 3 + bit_pattern_size);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(type);
+    ref_id(id);
+    for (size_t i = 0; i < bit_pattern_size; i++)
+        literal_int(bit_pattern[i]);
+    return id;
+}
+
+SpvId constant_composite(struct SpvFileBuilder* file_builder, SpvId type, size_t ops_count, SpvId ops[]) {
+    op(SpvOpConstantComposite, 3 + ops_count);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(type);
+    ref_id(id);
+    for (size_t i = 0; i < ops_count; i++)
+        ref_id(ops[i]);
+    return id;
+}
+
+SpvId global_variable(struct SpvFileBuilder* file_builder, SpvId type, SpvStorageClass storage_class) {
+    op(SpvOpVariable, 4);
+    ref_id(type);
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    literal_int(storage_class);
+    return id;
+}
+
+#undef target_data
+#define target_data file_builder->annotations
+
+void decorate(struct SpvFileBuilder* file_builder, SpvId target, SpvDecoration decoration, size_t extras_count, uint32_t extras[]) {
+    op(SpvOpDecorate, 3 + extras_count);
+    ref_id(target);
+    literal_int(decoration);
+    for (size_t i = 0; i < extras_count; i++)
+        literal_int(extras[i]);
+}
+
+void decorate_member(struct SpvFileBuilder* file_builder, SpvId target, uint32_t member, SpvDecoration decoration, size_t extras_count, uint32_t extras[]) {
+    op(SpvOpMemberDecorate, 4 + extras_count);
+    ref_id(target);
+    literal_int(member);
+    literal_int(decoration);
+    for (size_t i = 0; i < extras_count; i++)
+        literal_int(extras[i]);
+}
+
+#undef target_data
+#define target_data file_builder->debug_string_source
+
+SpvId debug_string(struct SpvFileBuilder* file_builder, const char* string) {
+    op(SpvOpString, 2 + div_roundup(strlen(string) + 1, 4));
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    literal_name(string);
+    return id;
+}
+
+#undef target_data
+#define target_data file_builder->fn_defs
+
+SpvId define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuilder* fn_builder) {
+    op(SpvOpFunction, 5);
+    ref_id(fn_builder->fn_ret_type);
+    ref_id(fn_builder->function_id);
+    literal_int(SpvFunctionControlMaskNone);
+    ref_id(fn_builder->fn_type);
+
+    // Includes stuff like OpFunctionParameters
+    copy_section(fn_builder->header);
+
+    bool first = true;
+    for (size_t i = 0; i < fn_builder->bbs->elements; i++) {
+        op(SpvOpLabel, 2);
+        struct SpvBasicBlockBuilder* bb = &read_list(struct SpvBasicBlockBuilder, fn_builder->bbs)[i];
+        ref_id(bb->label);
+
+        if (first) {
+            // Variables are to be defined in the first BB
+            copy_section(fn_builder->variables);
+            first = false;
+        }
+
+        for (size_t j = 0; j < bb->phis->elements; j++) {
+            struct Phi* phi = &read_list(struct Phi, bb->phis)[j];
+
+            op(SpvOpPhi, 3 + 2 * phi->preds->elements);
+            ref_id(phi->type);
+            ref_id(phi->value);
+            assert(phi->preds->elements != 0);
+            for (size_t k = 0; k < phi->preds->elements; k++) {
+                struct PhiOp* pred = &read_list(struct PhiOp, phi->preds)[k];
+                ref_id(pred->value);
+                ref_id(pred->basic_block);
+            }
+        }
+
+        copy_section(bb->section_data);
+    }
+
+    op(SpvOpFunctionEnd, 1);
+    return fn_builder->function_id;
+}
+
+#undef target_data
+#define target_data file_builder->entry_points
+
+void declare_entry_point(struct SpvFileBuilder* file_builder, SpvExecutionModel execution_model, SpvId entry_point, const char* name, size_t interface_elements_count, SpvId interface_elements[]) {
+    op(SpvOpEntryPoint, 3 + div_roundup(strlen(name) + 1, 4) + interface_elements_count);
+    literal_int(execution_model);
+    ref_id(entry_point);
+    literal_name(name);
+    for (size_t i = 0; i < interface_elements_count; i++)
+        ref_id(interface_elements[i]);
+}
+
+void execution_mode(struct SpvFileBuilder* file_builder, SpvId entry_point, SpvExecutionMode execution_mode, size_t payloads_count, uint32_t payloads[]) {
+    op(SpvOpExecutionMode, 3 + payloads_count);
+    ref_id(entry_point);
+    literal_int(execution_mode);
+    for (size_t i = 0; i < payloads_count; i++)
+        literal_int(payloads[i]);
+}
+
+#undef target_data
+#define target_data file_builder->capabilities
+
+void capability(struct SpvFileBuilder* file_builder, SpvCapability cap) {
+    op(SpvOpCapability, 2);
+    literal_int(cap);
+}
+
+#undef target_data
+#define target_data file_builder->extensions
+
+void extension(struct SpvFileBuilder* file_builder, const char* name) {
+    op(SpvOpExtension, 1 + div_roundup(strlen(name) + 1, 4));
+    literal_name(name);
+}
+
+#undef target_data
+#define target_data file_builder->ext_inst_import
+
+SpvId extended_import(struct SpvFileBuilder* file_builder, const char* name) {
+    op(SpvOpExtInstImport, 2 + div_roundup(strlen(name) + 1, 4));
+    SpvId id = generate_fresh_id(file_builder);
+    ref_id(id);
+    literal_name(name);
+    return id;
+}
+
+/*void output_word_le(struct List* output, uint32_t word) {
+    char c;
+    c = (char)((word >> 0) & 0xFFu);
+    append_list(char, output, c);
+    c = (char)((word >> 8) & 0xFFu);
+    append_list(char, output, c);
+    c = (char)((word >> 16) & 0xFFu);
+    append_list(char, output, c);
+    c = (char)((word >> 24) & 0xFFu);
+    append_list(char, output, c);
+}*/
+
+#undef target_data
+#define target_data final_output
+
+void merge_sections(SpvSectionBuilder final_output, struct SpvFileBuilder* file_builder) {
+    literal_int(SpvMagicNumber);
+    literal_int(SpvVersion); // TODO: target a specific spirv version
+    literal_int(0); // TODO get a magic number ?
+    literal_int(file_builder->bound);
+    literal_int(0); // instruction schema padding
+
+    copy_section(file_builder->capabilities);
+    copy_section(file_builder->extensions);
+    copy_section(file_builder->ext_inst_import);
+
+    op(SpvOpMemoryModel, 3);
+    literal_int(file_builder->addressing_model);
+    literal_int(file_builder->memory_model);
+
+    copy_section(file_builder->entry_points);
+    copy_section(file_builder->execution_modes);
+    copy_section(file_builder->debug_string_source);
+    copy_section(file_builder->debug_names);
+    copy_section(file_builder->debug_module_processed);
+    copy_section(file_builder->annotations);
+    copy_section(file_builder->types_constants);
+    copy_section(file_builder->fn_decls);
+    copy_section(file_builder->fn_defs);
+}
