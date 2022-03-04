@@ -1,6 +1,7 @@
 #include "dict.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 
@@ -12,6 +13,7 @@ inline static size_t div_roundup(size_t a, size_t b) {
 }
 
 inline static size_t align_offset(size_t offset, size_t alignment) {
+    if (!alignment) return offset;
     return div_roundup(offset, alignment) * alignment;
 }
 
@@ -37,10 +39,11 @@ struct Dict {
     size_t bucket_entry_size;
 
     KeyHash (*hash_fn) (void*);
+    bool (*cmp_fn) (void*, void*);
     void* alloc;
 };
 
-struct Dict* new_dict_impl(size_t key_size, size_t value_size, size_t key_align, size_t value_align, KeyHash (*hash_fn)(void*)) {
+struct Dict* new_dict_impl(size_t key_size, size_t value_size, size_t key_align, size_t value_align, KeyHash (*hash_fn)(void*), bool (*cmp_fn) (void*, void*)) {
     // offset of key is obviously zero
     size_t value_offset = align_offset(key_size, value_align);
     size_t tag_offset = align_offset(value_offset + value_size, alignof(struct BucketTag));
@@ -64,6 +67,8 @@ struct Dict* new_dict_impl(size_t key_size, size_t value_size, size_t key_align,
         .bucket_entry_size = bucket_entry_size,
 
         .hash_fn = hash_fn,
+        .cmp_fn = cmp_fn,
+
         .alloc = malloc(bucket_entry_size * init_size)
     };
     // zero-init
@@ -80,7 +85,7 @@ size_t entries_count_dict(struct Dict* dict) {
     return dict->entries_count;
 }
 
-void* find_key_impl(struct Dict* dict, void* key) {
+void* find_key_dict_impl(struct Dict* dict, void* key) {
     KeyHash hash = dict->hash_fn(key);
     size_t pos = hash % dict->size;
     const size_t init_pos = pos;
@@ -88,13 +93,12 @@ void* find_key_impl(struct Dict* dict, void* key) {
     while (true) {
         size_t bucket = alloc_base + pos * dict->bucket_entry_size;
 
-        struct BucketTag tag = *(struct BucketTag*) (void*) (bucket + dict->tag_offset);
         void* in_dict_key = (void*) bucket;
-        void* in_dict_value = (void*) (bucket + dict->value_offset);
-        if (tag.is_present) {
+        struct BucketTag* tag = (struct BucketTag*) (void*) (bucket + dict->tag_offset);
+        if (tag->is_present) {
             // If the key is identical, we found our guy !
-            if (memcmp(in_dict_key, key, dict->key_size) == 0)
-                return in_dict_value;
+            if (dict->cmp_fn(in_dict_key, key))
+                return in_dict_key;
 
             // Otherwise, do a crappy linear scan...
             pos++;
@@ -109,9 +113,28 @@ void* find_key_impl(struct Dict* dict, void* key) {
     return NULL;
 }
 
-bool insert_dict_impl_no_out_ptr(struct Dict* dict, void* key, void* value) {
+void* find_value_dict_impl(struct Dict* dict, void* key) {
+    void* found = find_key_dict_impl(dict, key);
+    if (found)
+        return (void*) ((size_t)found + dict->value_offset);
+    return NULL;
+}
+
+bool insert_dict_impl_and_get_result(struct Dict* dict, void* key, void* value) {
     void* dont_care;
     return insert_dict_impl(dict, key, value, &dont_care);
+}
+
+void* insert_dict_impl_and_get_key(struct Dict* dict, void* key, void* value) {
+    void* do_care;
+    insert_dict_impl(dict, key, value, &do_care);
+    return do_care;
+}
+
+void* insert_dict_impl_and_get_value(struct Dict* dict, void* key, void* value) {
+    void* do_care;
+    insert_dict_impl(dict, key, value, &do_care);
+    return (void*) ((size_t)do_care + dict->value_offset);
 }
 
 void rehash(struct Dict* dict, void* old_alloc, size_t old_size) {
@@ -120,16 +143,18 @@ void rehash(struct Dict* dict, void* old_alloc, size_t old_size) {
     for(size_t pos = 0; pos < old_size; pos++) {
         size_t bucket = alloc_base + pos * dict->bucket_entry_size;
 
-        struct BucketTag tag = *(struct BucketTag*) (void*) (bucket + dict->tag_offset);
-        if (tag.is_present) {
+        struct BucketTag* tag = (struct BucketTag*) (void*) (bucket + dict->tag_offset);
+        if (tag->is_present) {
             void* key = (void*) bucket;
             void* value = (void*) (bucket + dict->value_offset);
-            insert_dict_impl_no_out_ptr(dict, key, value);
+            insert_dict_impl_and_get_result(dict, key, value);
         }
     }
 }
 
 void grow_and_rehash(struct Dict* dict) {
+    printf("grow_rehash");
+
     void* old_alloc = dict->alloc;
     size_t old_size = dict->size;
 
@@ -143,7 +168,7 @@ void grow_and_rehash(struct Dict* dict) {
 }
 
 bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr) {
-    void* existing = find_dict_impl(dict, key);
+    void* existing = find_key_dict_impl(dict, key);
     if (existing) {
         *out_ptr = existing;
         return false;
@@ -172,17 +197,19 @@ bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr)
             assert(pos != init_pos);
         } else break;
     }
+    assert(pos < dict->size);
 
     size_t bucket = alloc_base + pos * dict->bucket_entry_size;
-    struct BucketTag tag = *(struct BucketTag*) (void*) (bucket + dict->tag_offset);
+    struct BucketTag* tag = (struct BucketTag*) (void*) (bucket + dict->tag_offset);
     void* in_dict_key = (void*) bucket;
     void* in_dict_value = (void*) (bucket + dict->value_offset);
-    assert(!tag.is_present);
+    assert(!tag->is_present);
 
-    tag.is_present = true;
+    tag->is_present = true;
     memcpy(in_dict_key,   key,   dict->key_size);
-    memcpy(in_dict_value, value, dict->value_size);
-    *out_ptr = in_dict_value;
+    if (dict->value_size)
+        memcpy(in_dict_value, value, dict->value_size);
+    *out_ptr = in_dict_key;
 
     return true;
 }

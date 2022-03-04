@@ -7,20 +7,14 @@
 
 #define alloc_size 1024 * 1024
 
-struct IrArena {
-    int nblocks;
-    int maxblocks;
-    void** blocks;
-    size_t available;
-};
-
 struct IrArena* new_arena() {
     struct IrArena* arena = malloc(sizeof(struct IrArena));
     *arena = (struct IrArena) {
         .nblocks = 0,
         .maxblocks = 256,
         .blocks = malloc(256 * sizeof(size_t)),
-        .available = 0
+        .available = 0,
+        .type_table = new_type_table()
     };
     for (int i = 0; i < arena->maxblocks; i++)
         arena->blocks[i] = NULL;
@@ -28,6 +22,7 @@ struct IrArena* new_arena() {
 }
 
 void destroy_arena(struct IrArena* arena) {
+    destroy_type_table(arena->type_table);
     for (int i = 0; i < arena->nblocks; i++) {
         free(arena->blocks[i]);
     }
@@ -106,6 +101,7 @@ struct Types types(struct IrArena* arena, size_t count, const struct Type* in_ty
 
 #define NODEDEF(struct_name, short_name) const struct Node* short_name(struct IrArena* arena, struct struct_name in_node) { \
     struct Node* node = (struct Node*) arena_alloc(arena, sizeof(struct Node));                                             \
+    memset((void*) node, 0, sizeof(struct Node));                                                                           \
     *node = (struct Node) {                                                                                                 \
       .type = infer_##short_name(arena, in_node),                                                                           \
       .tag = struct_name##_TAG,                                                                                             \

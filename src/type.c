@@ -1,5 +1,45 @@
 #include "implem.h"
 
+#include "dict.h"
+#include "murmur3.h"
+
+#include <string.h>
+#include <assert.h>
+
+KeyHash hash_type_ptr(struct Type** type) {
+    uint32_t out[4];
+    MurmurHash3_x64_128(*type, sizeof(struct Type), 0x1234567, &out);
+    uint32_t final = 0;
+    final ^= out[0];
+    final ^= out[1];
+    final ^= out[2];
+    final ^= out[3];
+    printf("hash of :");
+    print_type(*type);
+    printf(" = [%u] %u\n", final, final % 32);
+    return final;
+}
+
+bool compare_type_ptr(struct Type** a, struct Type** b) {
+    return memcmp(*a, *b, sizeof(struct Type)) == 0;
+}
+
+struct TypeTable {
+    struct Dict* set;
+};
+
+struct TypeTable* new_type_table() {
+    struct TypeTable* table = (struct TypeTable*) malloc(sizeof (struct TypeTable));
+    *table = (struct TypeTable) {
+        .set = new_set(struct Type*, hash_type_ptr, compare_type_ptr)
+    };
+    return table;
+}
+void destroy_type_table(struct TypeTable* table) {
+    destroy_dict(table->set);
+    free(table);
+}
+
 bool is_subtype(const struct Type* supertype, const struct Type* type) {
     // uniform T <: varying T
     if (supertype->uniform && !type->uniform)
@@ -79,69 +119,97 @@ const struct Type* infer_var(struct IrArena* arena, struct Variable variable) {
     return variable.type;
 }
 
+#define type_ctor_prelude struct Type type; \
+memset((void*)&type, 0, sizeof(struct Type));
+
+#define type_ctor_epilogue struct Type* localptr = &type;                            \
+struct Type** found = find_key_dict(struct Type*, arena->type_table->set, localptr); \
+if (found) return *found;                                                            \
+struct Type* globalptr = arena_alloc(arena, sizeof(struct Type));                    \
+*globalptr = type;                                                                   \
+bool result = insert_or_get_set(struct Type*, arena->type_table->set, globalptr);    \
+assert(result);                                                                      \
+return globalptr;                                                                    \
+
 const struct Type* void_type(struct IrArena* arena) {
-    struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
-    type->tag = Void;
-    type->uniform = true;
-    return type;
+    type_ctor_prelude
+
+    type.tag = Void;
+    type.uniform = true;
+
+    type_ctor_epilogue
 }
 
 const struct Type* noret_type(struct IrArena* arena) {
-    struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
-    type->tag = NoRet;
-    type->uniform = true;
-    return type;
+    type_ctor_prelude
+
+    type.tag = NoRet;
+    type.uniform = true;
+
+    type_ctor_epilogue
 }
 
 const struct Type* int_type(struct IrArena* arena, bool uniform) {
-    struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
-    type->tag = Int;
-    type->uniform = uniform;
-    return type;
+    type_ctor_prelude
+
+    type.tag = Int;
+    type.uniform = uniform;
+
+    type_ctor_epilogue
 }
 
 const struct Type* float_type(struct IrArena* arena, bool uniform) {
-    struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
-    type->tag = Float;
-    type->uniform = uniform;
-    return type;
+    type_ctor_prelude
+
+    type.tag = Float;
+    type.uniform = uniform;
+
+    type_ctor_epilogue
 }
 
 const struct Type* record_type(struct IrArena* arena, const char* name, struct Types members) {
-    struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
-    type->tag = RecordType;
+    type_ctor_prelude
+
+    type.tag = RecordType;
     bool uniform = true;
     for (size_t i = 0; i < members.count; i++) {
         uniform &= members.types[i]->uniform;
     }
-    type->uniform = uniform;
-    type->payload.record.name = name;
-    type->payload.record.members = members;
-    return type;
+    type.uniform = uniform;
+    type.payload.record.name = name;
+    type.payload.record.members = members;
+
+    type_ctor_epilogue
 }
 
 const struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params) {
-    struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
-    type->tag = ContType;
-    type->uniform = uniform;
-    type->payload.cont.param_types = params;
-    return type;
+    type_ctor_prelude
+
+    type.tag = ContType;
+    type.uniform = uniform;
+    type.payload.cont.param_types = params;
+
+    type_ctor_epilogue
 }
 
 const struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, const struct Type* return_type) {
-    struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
-    type->tag = FnType;
-    type->uniform = uniform;
-    type->payload.fn.param_types = params;
-    type->payload.fn.return_type = return_type;
-    return type;
+    type_ctor_prelude
+
+    type.tag = FnType;
+    type.uniform = uniform;
+    type.payload.fn.param_types = params;
+    type.payload.fn.return_type = return_type;
+
+    type_ctor_epilogue
 }
 
 const struct Type* ptr_type(struct IrArena* arena, const struct Type* pointed_type, enum AddressSpace address_space) {
-    struct Type* type = (struct Type*) arena_alloc(arena, sizeof(struct Type));
-    type->tag = PtrType;
-    type->uniform = pointed_type;
-    type->payload.ptr.pointed_type = pointed_type;
-    type->payload.ptr.address_space = address_space;
-    return type;
+    type_ctor_prelude
+
+    type.tag = PtrType;
+    type.uniform = pointed_type;
+    type.payload.ptr.pointed_type = pointed_type;
+    type.payload.ptr.address_space = address_space;
+
+    type_ctor_epilogue
 }

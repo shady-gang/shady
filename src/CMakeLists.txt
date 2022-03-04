@@ -13,4 +13,4 @@ set(SHADY_SOURCES
 
 add_library(shady ${SHADY_SOURCES})
 target_link_libraries(shady murmur3 containers)
-target_include_directories(shady PUBLIC ../include)
+target_include_directories(shady PUBLIC ../include containers/ ../murmur3)

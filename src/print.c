@@ -96,5 +96,9 @@ void print_type(const struct Type* type) {
             print_type(type->payload.fn.return_type);
             break;
         }
+        case PtrType: {
+            printf("ptr");
+            break;
+        }
     }
 }

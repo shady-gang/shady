@@ -135,7 +135,8 @@ const struct Node* eat_decl(ctxparams) {
             for (size_t i = 0; i < parameters.count; i++)
                 param_types[i] = parameters.variables[i]->type;
 
-            type = fn_type(arena, true, types(arena, parameters.count, param_types), type);
+            const struct Type* ret_type = type;
+            type = fn_type(arena, true, types(arena, parameters.count, param_types), ret_type);
         } else {
             struct Nodes instructions = eat_block(ctx);
 

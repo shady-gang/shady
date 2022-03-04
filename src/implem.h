@@ -6,8 +6,21 @@
 #include "stdlib.h"
 #include "stdio.h"
 
+struct IrArena {
+    int nblocks;
+    int maxblocks;
+    void** blocks;
+    size_t available;
+
+    struct TypeTable* type_table;
+};
+
 void* arena_alloc(struct IrArena* arena, size_t size);
 void emit(struct Program program, FILE* output);
+
+struct TypeTable;
+struct TypeTable* new_type_table();
+void destroy_type_table(struct TypeTable*);
 
 #define NODEDEF(struct_name, short_name) const struct Type* infer_##short_name(struct IrArena*, struct struct_name);
 NODES()
