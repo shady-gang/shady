@@ -1,8 +1,7 @@
 #ifndef SHADY_LIST_H
 #define SHADY_LIST_H
 
-#include <stdlib.h>
-#include <string.h>
+#include <stddef.h>
 
 struct List {
     size_t elements;
@@ -15,6 +14,8 @@ struct List {
 struct List* new_list_impl(size_t elem_size);
 
 void destroy_list(struct List* list);
+
+size_t entries_count_list(struct List* list);
 
 #define append_list(T, list, element) append_list_impl(list, (void*) &(element))
 void append_list_impl(struct List* list, void* element);

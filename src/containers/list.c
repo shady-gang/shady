@@ -1,5 +1,8 @@
 #include "list.h"
-#include "assert.h"
+
+#include <assert.h>
+#include <string.h>
+#include <stdlib.h>
 
 struct List* new_list_impl(size_t elem_size) {
     struct List* list = (struct List*) malloc(sizeof (struct List));
@@ -15,6 +18,10 @@ struct List* new_list_impl(size_t elem_size) {
 void destroy_list(struct List* list) {
     free(list->alloc);
     free(list);
+}
+
+size_t entries_count_list(struct List* list) {
+    return list->elements;
 }
 
 void grow_list(struct List* list) {
