@@ -8,10 +8,10 @@ struct Node;
 struct Type;
 
 enum AddressSpace {
-    Generic,
-    Private,
-    Shared,
-    Global
+    AsGeneric,
+    AsPrivate,
+    AsShared,
+    AsGlobal
 };
 
 #define INSTRUCTIONS() \

@@ -6,7 +6,7 @@
 #include <string.h>
 #include <assert.h>
 
-KeyHash hash_type_ptr(struct Type** type) {
+KeyHash hash_type(struct Type** type) {
     uint32_t out[4];
     MurmurHash3_x64_128(*type, sizeof(struct Type), 0x1234567, &out);
     uint32_t final = 0;
@@ -20,7 +20,7 @@ KeyHash hash_type_ptr(struct Type** type) {
     return final;
 }
 
-bool compare_type_ptr(struct Type** a, struct Type** b) {
+bool compare_type(struct Type** a, struct Type** b) {
     return memcmp(*a, *b, sizeof(struct Type)) == 0;
 }
 
@@ -31,7 +31,7 @@ struct TypeTable {
 struct TypeTable* new_type_table() {
     struct TypeTable* table = (struct TypeTable*) malloc(sizeof (struct TypeTable));
     *table = (struct TypeTable) {
-        .set = new_set(struct Type*, hash_type_ptr, compare_type_ptr)
+        .set = new_set(struct Type*, hash_type, compare_type)
     };
     return table;
 }
@@ -127,7 +127,7 @@ struct Type** found = find_key_dict(struct Type*, arena->type_table->set, localp
 if (found) return *found;                                                            \
 struct Type* globalptr = arena_alloc(arena, sizeof(struct Type));                    \
 *globalptr = type;                                                                   \
-bool result = insert_or_get_set(struct Type*, arena->type_table->set, globalptr);    \
+bool result = insert_set_get_result(struct Type*, arena->type_table->set, globalptr);    \
 assert(result);                                                                      \
 return globalptr;                                                                    \
 

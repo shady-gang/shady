@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <assert.h>
 
 typedef struct List* SpvSectionBuilder;
@@ -424,7 +425,7 @@ SpvId spvb_vector_type(struct SpvFileBuilder* file_builder, SpvId component_type
     return id;
 }
 
-SpvId bool_constant(struct SpvFileBuilder* file_builder, SpvId type, bool value) {
+SpvId spvb_bool_constant(struct SpvFileBuilder* file_builder, SpvId type, bool value) {
     op(value ? SpvOpConstantTrue : SpvOpConstantFalse, 3);
     SpvId id = generate_fresh_id(file_builder);
     ref_id(type);
@@ -432,7 +433,7 @@ SpvId bool_constant(struct SpvFileBuilder* file_builder, SpvId type, bool value)
     return id;
 }
 
-SpvId constant(struct SpvFileBuilder* file_builder, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]) {
+SpvId spvb_constant(struct SpvFileBuilder* file_builder, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]) {
     op(SpvOpConstant, 3 + bit_pattern_size);
     SpvId id = generate_fresh_id(file_builder);
     ref_id(type);
@@ -442,7 +443,7 @@ SpvId constant(struct SpvFileBuilder* file_builder, SpvId type, size_t bit_patte
     return id;
 }
 
-SpvId constant_composite(struct SpvFileBuilder* file_builder, SpvId type, size_t ops_count, SpvId ops[]) {
+SpvId spvb_constant_composite(struct SpvFileBuilder* file_builder, SpvId type, size_t ops_count, SpvId ops[]) {
     op(SpvOpConstantComposite, 3 + ops_count);
     SpvId id = generate_fresh_id(file_builder);
     ref_id(type);
@@ -452,7 +453,7 @@ SpvId constant_composite(struct SpvFileBuilder* file_builder, SpvId type, size_t
     return id;
 }
 
-SpvId global_variable(struct SpvFileBuilder* file_builder, SpvId type, SpvStorageClass storage_class) {
+SpvId spvb_global_variable(struct SpvFileBuilder* file_builder, SpvId type, SpvStorageClass storage_class) {
     op(SpvOpVariable, 4);
     ref_id(type);
     SpvId id = generate_fresh_id(file_builder);
@@ -464,7 +465,7 @@ SpvId global_variable(struct SpvFileBuilder* file_builder, SpvId type, SpvStorag
 #undef target_data
 #define target_data file_builder->annotations
 
-void decorate(struct SpvFileBuilder* file_builder, SpvId target, SpvDecoration decoration, size_t extras_count, uint32_t extras[]) {
+void spvb_decorate(struct SpvFileBuilder* file_builder, SpvId target, SpvDecoration decoration, size_t extras_count, uint32_t extras[]) {
     op(SpvOpDecorate, 3 + extras_count);
     ref_id(target);
     literal_int(decoration);
@@ -472,7 +473,7 @@ void decorate(struct SpvFileBuilder* file_builder, SpvId target, SpvDecoration d
         literal_int(extras[i]);
 }
 
-void decorate_member(struct SpvFileBuilder* file_builder, SpvId target, uint32_t member, SpvDecoration decoration, size_t extras_count, uint32_t extras[]) {
+void spvb_decorate_member(struct SpvFileBuilder* file_builder, SpvId target, uint32_t member, SpvDecoration decoration, size_t extras_count, uint32_t extras[]) {
     op(SpvOpMemberDecorate, 4 + extras_count);
     ref_id(target);
     literal_int(member);
@@ -484,7 +485,7 @@ void decorate_member(struct SpvFileBuilder* file_builder, SpvId target, uint32_t
 #undef target_data
 #define target_data file_builder->debug_string_source
 
-SpvId debug_string(struct SpvFileBuilder* file_builder, const char* string) {
+SpvId spvb_debug_string(struct SpvFileBuilder* file_builder, const char* string) {
     op(SpvOpString, 2 + div_roundup(strlen(string) + 1, 4));
     SpvId id = generate_fresh_id(file_builder);
     ref_id(id);
@@ -495,7 +496,7 @@ SpvId debug_string(struct SpvFileBuilder* file_builder, const char* string) {
 #undef target_data
 #define target_data file_builder->fn_defs
 
-SpvId define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuilder* fn_builder) {
+SpvId spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuilder* fn_builder) {
     op(SpvOpFunction, 5);
     ref_id(fn_builder->fn_ret_type);
     ref_id(fn_builder->function_id);
@@ -628,8 +629,9 @@ inline static void merge_sections(SpvSectionBuilder final_output, struct SpvFile
 
 void spvb_build_function(struct SpvFileBuilder* file_builder);
 
-void spvb_build_file(void (*init_builder)(struct SpvFileBuilder*), SpvSectionBuilder output) {
-    struct SpvFileBuilder file_builder = {
+struct SpvFileBuilder* spvb_begin() {
+    struct SpvFileBuilder* file_builder = (struct SpvFileBuilder*) malloc(sizeof(struct SpvFileBuilder));
+    *file_builder = (struct SpvFileBuilder) {
         .bound = 1,
         .capabilities = new_list(uint32_t),
         .extensions = new_list(uint32_t),
@@ -644,20 +646,26 @@ void spvb_build_file(void (*init_builder)(struct SpvFileBuilder*), SpvSectionBui
         .fn_decls = new_list(uint32_t),
         .fn_defs = new_list(uint32_t),
     };
-
-    init_builder(&file_builder);
-    merge_sections(output, &file_builder);
-
-    destroy_list(file_builder.fn_defs);
-    destroy_list(file_builder.fn_decls);
-    destroy_list(file_builder.types_constants);
-    destroy_list(file_builder.annotations);
-    destroy_list(file_builder.debug_module_processed);
-    destroy_list(file_builder.debug_names);
-    destroy_list(file_builder.debug_string_source);
-    destroy_list(file_builder.execution_modes);
-    destroy_list(file_builder.entry_points);
-    destroy_list(file_builder.ext_inst_import);
-    destroy_list(file_builder.extensions);
-    destroy_list(file_builder.capabilities);
+    return file_builder;
 }
+
+void spvb_finish(struct SpvFileBuilder* file_builder, SpvSectionBuilder output) {
+    merge_sections(output, file_builder);
+
+    destroy_list(file_builder->fn_defs);
+    destroy_list(file_builder->fn_decls);
+    destroy_list(file_builder->types_constants);
+    destroy_list(file_builder->annotations);
+    destroy_list(file_builder->debug_module_processed);
+    destroy_list(file_builder->debug_names);
+    destroy_list(file_builder->debug_string_source);
+    destroy_list(file_builder->execution_modes);
+    destroy_list(file_builder->entry_points);
+    destroy_list(file_builder->ext_inst_import);
+    destroy_list(file_builder->extensions);
+    destroy_list(file_builder->capabilities);
+
+    free(file_builder);
+}
+
+

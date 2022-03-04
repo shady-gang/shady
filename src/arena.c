@@ -31,6 +31,8 @@ void destroy_arena(struct IrArena* arena) {
 }
 
 void* arena_alloc(struct IrArena* arena, size_t size) {
+    if (size == 0)
+        return NULL;
     // arena is full
     if (size > arena->available) {
         assert(arena->nblocks <= arena->maxblocks);
@@ -48,6 +50,7 @@ void* arena_alloc(struct IrArena* arena, size_t size) {
 
     size_t in_block = alloc_size - arena->available;
     void* allocated = (void*) ((size_t) arena->blocks[arena->nblocks - 1] + in_block);
+    memset(allocated, 0, size);
     arena->available -= size;
     return allocated;
 }

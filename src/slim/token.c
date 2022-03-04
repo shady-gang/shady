@@ -25,6 +25,8 @@ struct Tokenizer {
     char* rest;
     char* original;
     size_t remaining;
+    size_t original_size;
+    size_t pos;
     struct Token current;
 };
 
@@ -34,6 +36,7 @@ struct Tokenizer* new_tokenizer(char* str) {
         .str = NULL,
         .rest = str,
         .original = str,
+        .original_size = strlen(str),
         .remaining = 0,
     };
     next_token(tokenizer);
@@ -63,7 +66,10 @@ struct Token next_token(struct Tokenizer* tokenizer) {
     printf("hm: ");
 
     if (tokenizer->remaining == 0) {
-        tokenizer->str = strtok(tokenizer->rest, whitespace);
+        if (tokenizer->rest == NULL)
+            tokenizer->str = NULL;
+        else
+            tokenizer->str = strtok(tokenizer->rest, whitespace);
         if (tokenizer->str == NULL) {
 
             printf("EOF\n");
@@ -74,7 +80,12 @@ struct Token next_token(struct Tokenizer* tokenizer) {
             return token;
         }
         tokenizer->remaining = strlen(tokenizer->str);
-        tokenizer->rest = tokenizer->str + tokenizer->remaining + 1;
+        tokenizer->rest = tokenizer->str + tokenizer->remaining;
+        if ((size_t)(void*)tokenizer->rest == (size_t)(void*) tokenizer->original + tokenizer->original_size) {
+            tokenizer->rest = NULL;
+        } else {
+            tokenizer->rest = &tokenizer->rest[1];
+        }
     }
 
     struct Token token = {

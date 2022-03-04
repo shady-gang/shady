@@ -18,17 +18,21 @@ void destroy_dict(struct Dict*);
 
 size_t entries_count_dict(struct Dict*);
 
-#define find_value_dict(K, T, dict, key) (T*) find_value_dict_impl(dict, (void*) (&(key))
+#define find_value_dict(K, T, dict, key) (T*) find_value_dict_impl(dict, (void*) (&(key)))
 #define find_key_dict(K, dict, key) (K*) find_key_dict_impl(dict, (void*) (&(key)))
 void* find_key_dict_impl(struct Dict*, void*);
 void* find_value_dict_impl(struct Dict*, void*);
 
-#define insert_dict(K, V, dict, key, value) insert_dict_impl_no_out_ptr(dict, (void*) (&(key)), &(void*) (&(value)))
-bool insert_dict_impl(struct Dict*, void* key, void* value, void** out_ptr);
+#define insert_dict_and_get_value(K, V, dict, key, value) *(V*) insert_dict_and_get_value_impl(dict, (void*) (&(key)), (void*) (&(value)))
+void* insert_dict_and_get_value_impl(struct Dict*, void* key, void* value);
 
-#define insert_or_get_set(K, dict, key) (K*) insert_dict_impl_and_get_key(dict, (void*) (&(key)), NULL)
-void* insert_dict_impl_and_get_value(struct Dict*, void* key, void* value);
-void* insert_dict_impl_and_get_key(struct Dict*, void* key, void* value);
-bool insert_dict_impl_and_get_result(struct Dict*, void* key, void* value);
+#define insert_dict_and_get_key(K, V, dict, key, value) *(K*) insert_dict_and_get_key_impl(dict, (void*) (&(key)), (void*) (&(value)))
+#define      insert_set_get_key(K, dict, key)           *(K*) insert_dict_impl_and_get_key(dict, (void*) (&(key)), NULL)
+void* insert_dict_and_get_key_impl(struct Dict*, void* key, void* value);
+
+#define insert_dict_and_get_result(K, V, dict, key, value) insert_dict_and_get_result_impl(dict, (void*) (&(key)), (void*) (&(value)))
+#define      insert_set_get_result(K, dict, key)           insert_dict_and_get_result_impl(dict, (void*) (&(key)), NULL)
+bool insert_dict_and_get_result_impl(struct Dict*, void* key, void* value);
+
 
 #endif

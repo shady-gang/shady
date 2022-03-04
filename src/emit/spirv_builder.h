@@ -69,6 +69,7 @@ void  spvb_extension(struct SpvFileBuilder* file_builder, const char* name);
 
 SpvId spvb_extended_import(struct SpvFileBuilder* file_builder, const char* name);
 
-void  spvb_build_file(void (*init_builder)(struct SpvFileBuilder*), SpvSectionBuilder output);
+struct SpvFileBuilder* spvb_begin();
+void  spvb_finish(struct SpvFileBuilder*, SpvSectionBuilder output);
 
 #endif

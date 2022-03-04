@@ -120,18 +120,19 @@ void* find_value_dict_impl(struct Dict* dict, void* key) {
     return NULL;
 }
 
-bool insert_dict_impl_and_get_result(struct Dict* dict, void* key, void* value) {
+bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr);
+bool insert_dict_and_get_result_impl(struct Dict* dict, void* key, void* value) {
     void* dont_care;
     return insert_dict_impl(dict, key, value, &dont_care);
 }
 
-void* insert_dict_impl_and_get_key(struct Dict* dict, void* key, void* value) {
+void* insert_dict_and_get_key_impl(struct Dict* dict, void* key, void* value) {
     void* do_care;
     insert_dict_impl(dict, key, value, &do_care);
     return do_care;
 }
 
-void* insert_dict_impl_and_get_value(struct Dict* dict, void* key, void* value) {
+void* insert_dict_and_get_value_impl(struct Dict* dict, void* key, void* value) {
     void* do_care;
     insert_dict_impl(dict, key, value, &do_care);
     return (void*) ((size_t)do_care + dict->value_offset);
@@ -147,7 +148,7 @@ void rehash(struct Dict* dict, void* old_alloc, size_t old_size) {
         if (tag->is_present) {
             void* key = (void*) bucket;
             void* value = (void*) (bucket + dict->value_offset);
-            insert_dict_impl_and_get_result(dict, key, value);
+            insert_dict_and_get_result_impl(dict, key, value);
         }
     }
 }

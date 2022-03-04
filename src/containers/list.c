@@ -25,8 +25,8 @@ size_t entries_count_list(struct List* list) {
 }
 
 void grow_list(struct List* list) {
-    list->space *= 2;
-    list->alloc = realloc(list->alloc, list->space);
+    list->space = list->space * 2;
+    list->alloc = realloc(list->alloc, list->space * list->elem_size);
 }
 
 void append_list_impl(struct List* list, void* element) {

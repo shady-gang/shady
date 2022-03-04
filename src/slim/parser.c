@@ -152,7 +152,7 @@ const struct Node* eat_decl(ctxparams) {
     expect(accept_token(ctx, semi_tok));
 
     return var_decl(arena, (struct VariableDecl) {
-        .address_space = Private,
+        .address_space = AsPrivate,
         .variable = var(arena, (struct Variable) {
             .type = type,
             .name = id
