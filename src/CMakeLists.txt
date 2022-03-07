@@ -5,7 +5,7 @@ add_library(murmur3 ../murmur3/murmur3.c)
 
 set(SHADY_SOURCES
     arena.c
-    implem.h
+    node.c
     type.c
     print.c
     emit/emit.c

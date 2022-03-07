@@ -55,7 +55,9 @@ void* arena_alloc(struct IrArena* arena, size_t size) {
     return allocated;
 }
 
-struct IrArena* rebuild_arena(struct IrArena*);
+struct IrArena* rebuild_arena(struct IrArena* arena) {
+    SHADY_NOT_IMPLEM
+}
 
 struct Nodes reserve_nodes(struct IrArena* arena, size_t count) {
     struct Nodes nodes = {
@@ -101,22 +103,6 @@ struct Types types(struct IrArena* arena, size_t count, const struct Type* in_ty
         types.types[i] = in_types[i];
     return types;
 }
-
-#define NODEDEF(struct_name, short_name) const struct Node* short_name(struct IrArena* arena, struct struct_name in_node) { \
-    struct Node* node = (struct Node*) arena_alloc(arena, sizeof(struct Node));                                             \
-    memset((void*) node, 0, sizeof(struct Node));                                                                           \
-    *node = (struct Node) {                                                                                                 \
-      .type = infer_##short_name(arena, in_node),                                                                           \
-      .tag = struct_name##_TAG,                                                                                             \
-      .payload = (union NodesUnion) {                                                                                       \
-          .short_name = in_node                                                                                             \
-      }                                                                                                                     \
-    };                                                                                                                      \
-    return node;                                                                                                            \
-}
-
-NODES()
-#undef NODEDEF
 
 const char* string(struct IrArena* arena, size_t size, const char* str) {
     char* new_str = (char*) arena_alloc(arena, size + 1);

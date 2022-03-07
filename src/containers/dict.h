@@ -7,6 +7,8 @@
 #include <stdalign.h>
 
 typedef uint32_t KeyHash;
+typedef KeyHash (*HashFn)(void*);
+typedef bool (*CmpFn)(void*, void*);
 
 struct Dict;
 

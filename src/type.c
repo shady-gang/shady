@@ -31,7 +31,7 @@ struct TypeTable {
 struct TypeTable* new_type_table() {
     struct TypeTable* table = (struct TypeTable*) malloc(sizeof (struct TypeTable));
     *table = (struct TypeTable) {
-        .set = new_set(struct Type*, hash_type, compare_type)
+        .set = new_set(struct Type*, (HashFn) hash_type, (CmpFn) compare_type)
     };
     return table;
 }

@@ -8,8 +8,11 @@
 #include <stdio.h>
 #include <stdint.h>
 
-KeyHash hash_type(struct Type** type);
-bool compare_type(struct Type** a, struct Type** b);
+KeyHash hash_type(struct Type**);
+bool compare_type(struct Type**, struct Type**);
+
+KeyHash hash_node(struct Node**);
+bool compare_node(struct Node**, struct Type**);
 
 struct SpvEmitter {
     struct SpvFileBuilder* file_builder;
@@ -27,8 +30,8 @@ SpvStorageClass emit_addr_space(enum AddressSpace address_space) {
     }
 }
 
-SpvId emit_op(struct SpvEmitter* emitter, struct Node* node);
-SpvId emit_type(struct SpvEmitter* emitter, struct Type* type) {
+SpvId emit_op(struct SpvEmitter* emitter, const struct Node* node);
+SpvId emit_type(struct SpvEmitter* emitter, const struct Type* type) {
     SpvId* existing = find_value_dict(struct Type*, SpvId, emitter->type_ids, type);
     if (existing)
         return *existing;
@@ -55,17 +58,16 @@ SpvId emit_type(struct SpvEmitter* emitter, struct Type* type) {
 void emit(struct Program program, FILE* output) {
     struct List* words = new_list(uint32_t);
 
-
     struct SpvFileBuilder* file_builder = spvb_begin();
 
     struct SpvEmitter emitter = {
         .file_builder = file_builder,
-        .type_ids = new_dict(struct Type*, SpvId, hash_type, compare_type),
-        .node_ids = new_dict(struct Node*, SpvId, hash_type, compare_type),
+        .type_ids = new_dict(struct Type*, SpvId, (HashFn) hash_type, (CmpFn) compare_type),
+        .node_ids = new_dict(struct Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
     for (size_t i = 0; i < program.declarations_and_definitions.count; i++) {
-        struct Node* node = program.declarations_and_definitions.nodes[i];
+        const struct Node* node = program.declarations_and_definitions.nodes[i];
         switch (node->tag) {
             case VariableDecl_TAG:
                 spvb_global_variable(file_builder, emit_type(&emitter, node->type), emit_addr_space(node->payload.var_decl.address_space));
