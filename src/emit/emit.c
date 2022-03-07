@@ -69,10 +69,11 @@ void emit(struct Program program, FILE* output) {
     for (size_t i = 0; i < program.declarations_and_definitions.count; i++) {
         const struct Node* node = program.declarations_and_definitions.nodes[i];
         switch (node->tag) {
-            case VariableDecl_TAG:
-                spvb_global_variable(file_builder, emit_type(&emitter, node->type), emit_addr_space(node->payload.var_decl.address_space));
+            case VariableDecl_TAG: {
+                SpvId id = spvb_global_variable(file_builder, emit_type(&emitter, node->type), emit_addr_space(node->payload.var_decl.address_space));
+                spvb_name(file_builder, id, node->payload.var_decl.variable->payload.var.name);
                 break;
-            case Function_TAG:
+            } case Function_TAG:
                 break;
             default:
                 exit(666);

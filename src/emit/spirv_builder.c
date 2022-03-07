@@ -95,7 +95,7 @@ inline static void ref_id_(SpvSectionBuilder data, SpvId id) {
 inline static void literal_name_(SpvSectionBuilder data, const char* str) {
     int i = 0;
     uint32_t cword = 0;
-    while (str[0] != '0') {
+    while (str[0] != '\0') {
         char c = str[0];
         str = &str[1];
         cword = cword | (c & 0xFF) << (i * 8);
