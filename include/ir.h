@@ -7,6 +7,8 @@ struct IrArena;
 struct Node;
 struct Type;
 
+typedef const char* String;
+
 enum AddressSpace {
     AsGeneric,
     AsPrivate,
@@ -35,21 +37,21 @@ struct Nodes {
 
 struct Strings {
     size_t count;
-    const char** strings;
+    String* strings;
 };
 
 struct Variable {
     const struct Type* type;
-    const char* name;
+    String name;
 };
 
 struct UntypedNumber {
-    const char* plaintext;
+    String plaintext;
 };
 
 /// Function with _structured_ control flow
 struct Function {
-    const char* name;
+    String name;
     struct Nodes params;
     struct Nodes instructions;
     const struct Type* return_type;
@@ -177,7 +179,7 @@ struct Type {
             const struct Type* type;
         } qualified;
         struct RecordType {
-            const char* name;
+            String name;
             struct Types members;
         } record;
         struct ContType {
@@ -218,13 +220,20 @@ struct IrConfig {
     bool check_types;
 };
 
-struct IrArena* new_arena();
+struct IrArena* new_arena(struct IrConfig);
 void destroy_arena(struct IrArena*);
 
 struct Rewriter;
 
 typedef struct Node* (*NodeRewriteFn)(struct Rewriter*, const struct Node*);
 typedef struct Type* (*TypeRewriteFn)(struct Rewriter*, const struct Type*);
+
+/// Applies the rewriter to all nodes in the collection
+struct Nodes rewrite_nodes(struct Rewriter* rewriter, struct Nodes old_nodes);
+/// Applies the rewriter to all types in the collection
+struct Types rewrite_types(struct Rewriter* rewriter, struct Types old_types);
+
+struct Strings import_strings(struct Rewriter* rewriter, struct Strings old_strings);
 
 struct Rewriter {
     struct IrArena* src_arena;
@@ -262,7 +271,8 @@ const struct Type* fn_type(struct IrArena* arena, struct Types params, const str
 const struct Type* ptr_type(struct IrArena* arena, const struct Type* pointed_type, enum AddressSpace);
 const struct Type* qualified_type(struct IrArena* arena, bool is_uniform, const struct Type*);
 
-const char* string(struct IrArena* arena, size_t size, const char* start);
+String string_sized(struct IrArena* arena, size_t size, const char* start);
+String string(struct IrArena* arena, const char* start);
 
 void print_program(const struct Program* program);
 void print_node(const struct Node* node, bool);

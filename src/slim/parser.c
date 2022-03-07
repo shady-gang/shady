@@ -36,7 +36,7 @@ const char* accept_identifier(ctxparams) {
     if (tok.tag == identifier_tok) {
         next_token(tokenizer);
         size_t size = tok.end - tok.start;
-        return string(arena, (int) size, &contents[tok.start]);
+        return string_sized(arena, (int) size, &contents[tok.start]);
     }
     return NULL;
 }
@@ -146,7 +146,7 @@ const struct Node* accept_literal(ctxparams) {
             next_token(tokenizer);
             size_t size = tok.end - tok.start;
             return untyped_number(arena, (struct UntypedNumber) {
-                .plaintext = string(arena, (int) size, &contents[tok.start])
+                .plaintext = string_sized(arena, (int) size, &contents[tok.start])
             });
             //int64_t value = strtol(&contents[tok.start], NULL, 10)
             //return untyped_number(value);

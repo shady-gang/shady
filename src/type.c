@@ -14,9 +14,9 @@ KeyHash hash_type(struct Type** type) {
     final ^= out[1];
     final ^= out[2];
     final ^= out[3];
-    printf("hash of :");
-    print_type(*type);
-    printf(" = [%u] %u\n", final, final % 32);
+    //printf("hash of :");
+    //print_type(*type);
+    //printf(" = [%u] %u\n", final, final % 32);
     return final;
 }
 
@@ -125,12 +125,16 @@ const struct Type* infer_call(struct IrArena* arena, struct Call call) {
     return callee_type->payload.fn.return_type;
 }
 
-const struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
-    // TODO check function
+// This is a pretty good helper fn
+const struct Type* derive_fn_type(struct IrArena* arena, struct Function fn) {
     struct Types types = reserve_types(arena, fn.params.count);
     for (size_t i = 0; i < types.count; i++)
         types.types[i] = fn.params.nodes[i]->type;
     return fn_type(arena, types, fn.return_type);
+}
+
+const struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
+    return derive_fn_type(arena, fn);
 }
 
 const struct Type* infer_var_decl(struct IrArena* arena, struct VariableDecl decl) {

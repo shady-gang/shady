@@ -12,7 +12,7 @@ struct IrArena {
     void** blocks;
     size_t available;
 
-    bool typed;
+    struct IrConfig config;
 
     struct TypeTable* type_table;
 };

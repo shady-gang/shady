@@ -7,14 +7,14 @@
 
 #define alloc_size 1024 * 1024
 
-struct IrArena* new_arena() {
+struct IrArena* new_arena(struct IrConfig config) {
     struct IrArena* arena = malloc(sizeof(struct IrArena));
     *arena = (struct IrArena) {
         .nblocks = 0,
         .maxblocks = 256,
         .blocks = malloc(256 * sizeof(size_t)),
         .available = 0,
-        .typed = false,
+        .config = config,
         .type_table = new_type_table()
     };
     for (int i = 0; i < arena->maxblocks; i++)
@@ -101,10 +101,15 @@ struct Strings strings(struct IrArena* arena, size_t count, const char* in_strs[
     return strings;
 }
 
-const char* string(struct IrArena* arena, size_t size, const char* str) {
+const char* string_sized(struct IrArena* arena, size_t size, const char* str) {
     char* new_str = (char*) arena_alloc(arena, size + 1);
     strncpy(new_str, str, size);
     new_str[size] = '\0';
     assert(strlen(new_str) == size);
     return new_str;
 }
+
+const char* string(struct IrArena* arena, const char* str) {
+    return string_sized(arena, strlen(str), str);
+}
+

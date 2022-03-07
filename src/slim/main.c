@@ -4,6 +4,8 @@
 #include "ir.h"
 #include "token.h"
 
+#include "../passes/passes.h"
+
 struct Program parse(char* contents, struct IrArena* arena);
 void emit(struct Program program, FILE* output);
 
@@ -27,11 +29,15 @@ char* read_file(char* filename) {
 int main(int argc, char** argv) {
     init_tokenizer_constants();
 
-    struct IrArena* arena = new_arena();
+    struct IrArena* arena = new_arena((struct IrConfig) {
+        .check_types = false
+    });
 
     if (argc <= 1)
         printf("Usage: slim source.slim\n");
     else {
+        struct Program program;
+
         char* filename = argv[1];
         printf("compiling %s\n", filename);
 
@@ -41,15 +47,28 @@ int main(int argc, char** argv) {
             return -1;
         } else {
             printf("Parsing: \n%s\n", contents);
-            struct Program program = parse(contents, arena);
-            print_program(&program);
-
-            FILE *output = fopen("out.spv", "wb");
-            emit(program, output);
-            fclose(output);
+            program = parse(contents, arena);
         }
 
         free(contents);
+
+        print_program(&program);
+
+
+        struct IrArena* narena = new_arena((struct IrConfig) {
+            .check_types = true
+        });
+        struct Program new_program = bind_program(arena, narena, &program);
+
+        program = new_program;
+        destroy_arena(arena);
+        arena = narena;
+
+        print_program(&program);
+
+        FILE *output = fopen("out.spv", "wb");
+        emit(program, output);
+        fclose(output);
     }
 
     destroy_arena(arena);
