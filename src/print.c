@@ -53,12 +53,13 @@ void print_node(const struct Node* node, bool is_decl) {
 }
 
 void print_type(const struct Type* type) {
-    if (type->uniform)
-        printf("uniform ");
-    else
-        printf("varying ");
-
     switch (type->tag) {
+        case QualType:
+            if (type->payload.qualified.is_uniform)
+                printf("uniform ");
+            else
+                printf("varying ");
+            print_type(type->payload.qualified.type);
         case NoRet:
             printf("!");
             break;

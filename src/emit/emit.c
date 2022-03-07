@@ -66,6 +66,9 @@ void emit(struct Program program, FILE* output) {
         .node_ids = new_dict(struct Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
+    spvb_capability(file_builder, SpvCapabilityShader);
+    spvb_capability(file_builder, SpvCapabilityLinkage);
+
     for (size_t i = 0; i < program.declarations_and_definitions.count; i++) {
         const struct Node* node = program.declarations_and_definitions.nodes[i];
         switch (node->tag) {

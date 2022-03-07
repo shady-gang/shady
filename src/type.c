@@ -41,12 +41,15 @@ void destroy_type_table(struct TypeTable* table) {
 }
 
 bool is_subtype(const struct Type* supertype, const struct Type* type) {
-    // uniform T <: varying T
-    if (supertype->uniform && !type->uniform)
-        return false;
     if (supertype->tag != type->tag)
         return false;
     switch (supertype->tag) {
+        case QualType: {
+            // uniform T <: varying T
+            if (supertype->payload.qualified.is_uniform && !type->payload.qualified.is_uniform)
+                return false;
+            return is_subtype(supertype->payload.qualified.type, type->payload.qualified.type);
+        }
         case RecordType: {
             const struct Types* supermembers = &supertype->payload.record.members;
             const struct Types* members = &type->payload.record.members;
@@ -104,7 +107,7 @@ const struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
     struct Types types = reserve_types(arena, fn.params.count);
     for (size_t i = 0; i < types.count; i++)
         types.types[i] = fn.params.variables[i]->type;
-    return fn_type(arena, true, types, fn.return_type);
+    return fn_type(arena, types, fn.return_type);
 }
 
 const struct Type* infer_var_decl(struct IrArena* arena, struct VariableDecl decl) {
@@ -117,6 +120,10 @@ const struct Type* infer_expr_eval(struct IrArena* arena, struct ExpressionEval 
 
 const struct Type* infer_var(struct IrArena* arena, struct Variable variable) {
     return variable.type;
+}
+
+const struct Type* infer_untyped_number(struct IrArena* arena, struct UntypedNumber variable) {
+    SHADY_NOT_IMPLEM;
 }
 
 #define type_ctor_prelude struct Type type; \
@@ -135,7 +142,6 @@ const struct Type* void_type(struct IrArena* arena) {
     type_ctor_prelude
 
     type.tag = Void;
-    type.uniform = true;
 
     type_ctor_epilogue
 }
@@ -144,25 +150,22 @@ const struct Type* noret_type(struct IrArena* arena) {
     type_ctor_prelude
 
     type.tag = NoRet;
-    type.uniform = true;
 
     type_ctor_epilogue
 }
 
-const struct Type* int_type(struct IrArena* arena, bool uniform) {
+const struct Type* int_type(struct IrArena* arena) {
     type_ctor_prelude
 
     type.tag = Int;
-    type.uniform = uniform;
 
     type_ctor_epilogue
 }
 
-const struct Type* float_type(struct IrArena* arena, bool uniform) {
+const struct Type* float_type(struct IrArena* arena) {
     type_ctor_prelude
 
     type.tag = Float;
-    type.uniform = uniform;
 
     type_ctor_epilogue
 }
@@ -171,32 +174,25 @@ const struct Type* record_type(struct IrArena* arena, const char* name, struct T
     type_ctor_prelude
 
     type.tag = RecordType;
-    bool uniform = true;
-    for (size_t i = 0; i < members.count; i++) {
-        uniform &= members.types[i]->uniform;
-    }
-    type.uniform = uniform;
     type.payload.record.name = name;
     type.payload.record.members = members;
 
     type_ctor_epilogue
 }
 
-const struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params) {
+const struct Type* cont_type(struct IrArena* arena, struct Types params) {
     type_ctor_prelude
 
     type.tag = ContType;
-    type.uniform = uniform;
     type.payload.cont.param_types = params;
 
     type_ctor_epilogue
 }
 
-const struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, const struct Type* return_type) {
+const struct Type* fn_type(struct IrArena* arena, struct Types params, const struct Type* return_type) {
     type_ctor_prelude
 
     type.tag = FnType;
-    type.uniform = uniform;
     type.payload.fn.param_types = params;
     type.payload.fn.return_type = return_type;
 
@@ -207,9 +203,20 @@ const struct Type* ptr_type(struct IrArena* arena, const struct Type* pointed_ty
     type_ctor_prelude
 
     type.tag = PtrType;
-    type.uniform = pointed_type;
     type.payload.ptr.pointed_type = pointed_type;
     type.payload.ptr.address_space = address_space;
+
+    type_ctor_epilogue
+}
+
+const struct Type* qualified_type(struct IrArena* arena, bool is_uniform, const struct Type* unqualified) {
+    type_ctor_prelude
+
+    // TODO check unqualified is truly unqualified
+
+    type.tag = QualType;
+    type.payload.qualified.is_uniform = is_uniform;
+    type.payload.qualified.type = unqualified;
 
     type_ctor_epilogue
 }

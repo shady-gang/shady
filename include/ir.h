@@ -22,21 +22,26 @@ enum AddressSpace {
 #define NODES() \
   INSTRUCTIONS() \
   NODEDEF(Variable, var) \
+  NODEDEF(UntypedNumber, untyped_number) \
   NODEDEF(Function, fn) \
-
-struct Variable {
-    const struct Type* type;
-    const char* name;
-};
 
 struct Variables {
     size_t count;
     const struct Variable** variables;
 };
 
+struct UntypedNumber {
+    const char* plaintext;
+};
+
 struct Nodes {
     size_t count;
     const struct Node** nodes;
+};
+
+struct Variable {
+    const struct Type* type;
+    const char* name;
 };
 
 /// Function with _structured_ control flow
@@ -123,6 +128,7 @@ enum TypeTag {
     ContType,
     FnType,
     PtrType,
+    QualType,
 };
 
 struct Types {
@@ -130,10 +136,19 @@ struct Types {
     const struct Type** types;
 };
 
+enum DivergenceQualifier {
+    Unknown,
+    Uniform,
+    Varying
+};
+
 struct Type {
-    bool uniform;
     enum TypeTag tag;
     union TypesUnion {
+        struct QualifiedType {
+            bool is_uniform;
+            const struct Type* type;
+        } qualified;
         struct RecordType {
             const char* name;
             struct Types members;
@@ -186,12 +201,13 @@ NODES()
 #undef NODEDEF
 
 const struct Type* void_type(struct IrArena* arena);
-const struct Type* int_type(struct IrArena* arena, bool uniform);
-const struct Type* float_type(struct IrArena* arena, bool uniform);
+const struct Type* int_type(struct IrArena* arena);
+const struct Type* float_type(struct IrArena* arena);
 const struct Type* record_type(struct IrArena* arena, const char* name, struct Types members);
-const struct Type* cont_type(struct IrArena* arena, bool uniform, struct Types params);
-const struct Type* fn_type(struct IrArena* arena, bool uniform, struct Types params, const struct Type* return_type);
+const struct Type* cont_type(struct IrArena* arena, struct Types params);
+const struct Type* fn_type(struct IrArena* arena, struct Types params, const struct Type* return_type);
 const struct Type* ptr_type(struct IrArena* arena, const struct Type* pointed_type, enum AddressSpace);
+const struct Type* qualified_type(struct IrArena* arena, bool is_uniform, const struct Type*);
 
 const char* string(struct IrArena* arena, size_t size, const char* start);
 

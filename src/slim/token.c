@@ -11,6 +11,12 @@ static const char* token_strings[] = {
 #undef TOKEN
 };
 
+static const char* token_tags[] = {
+#define TOKEN(name, str) #name,
+        TOKENS()
+#undef TOKEN
+};
+
 static size_t token_strings_size[LIST_END_tok];
 void init_tokenizer_constants() {
     for (int i = 0; i < LIST_END_tok; i++) {
@@ -63,15 +69,12 @@ bool can_make_up_identifier(char c) {
 }
 
 struct Token next_token(struct Tokenizer* tokenizer) {
-    printf("hm: ");
-
     if (tokenizer->remaining == 0) {
         if (tokenizer->rest == NULL)
             tokenizer->str = NULL;
         else
             tokenizer->str = strtok(tokenizer->rest, whitespace);
         if (tokenizer->str == NULL) {
-
             printf("EOF\n");
             struct Token token = (struct Token) {
                     .tag = EOF_tok
@@ -102,6 +105,18 @@ struct Token next_token(struct Tokenizer* tokenizer) {
                 token_size++;
             } else break;
         }
+    } else if (is_digit(tokenizer->str[0])) {
+        token.tag = dec_lit_tok;
+
+        if (tokenizer->str[0] == '0' && tokenizer->str[1] == 'x') {
+            token.tag = hex_lit_tok;
+            tokenizer->str = &tokenizer->str[2];
+        }
+
+        while (is_digit(tokenizer->str[0])) {
+            token_size++;
+        }
+        goto parsed_successfully;
     }
 
     for (int i = 0; i < LIST_END_tok; i++) {
@@ -128,7 +143,7 @@ struct Token next_token(struct Tokenizer* tokenizer) {
     tokenizer->str+= token_size;
     tokenizer->current = token;
 
-    printf("(tok=(tag = %d, pos = %zu))\n", token.tag, token.start);
+    printf("(tok=(tag = %s, pos = %zu))\n", token_tags[token.tag], token.start);
     return token;
 }
 

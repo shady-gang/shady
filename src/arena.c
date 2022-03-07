@@ -107,7 +107,7 @@ struct Types types(struct IrArena* arena, size_t count, const struct Type* in_ty
 const char* string(struct IrArena* arena, size_t size, const char* str) {
     char* new_str = (char*) arena_alloc(arena, size + 1);
     strncpy(new_str, str, size);
-    new_str[size] = 0;
+    new_str[size] = '\0';
     assert(strlen(new_str) == size);
     return new_str;
 }
