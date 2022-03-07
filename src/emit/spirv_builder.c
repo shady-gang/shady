@@ -603,7 +603,7 @@ SpvId spvb_extended_import(struct SpvFileBuilder* file_builder, const char* name
 
 inline static void merge_sections(SpvSectionBuilder final_output, struct SpvFileBuilder* file_builder) {
     literal_int(SpvMagicNumber);
-    literal_int(SpvVersion); // TODO: target a specific spirv version
+    literal_int(0x00010500);
     literal_int(0); // TODO get a magic number ?
     literal_int(file_builder->bound);
     literal_int(0); // instruction schema padding
