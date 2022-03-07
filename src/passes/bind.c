@@ -80,8 +80,8 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
     }
 }
 
-struct Program bind_program(struct IrArena* src_arena, struct IrArena* dst_arena, struct Program* src_program) {
-    const struct Node* new_top_level[src_program->declarations_and_definitions.count];
+struct Program bind_program(struct IrArena* src_arena, struct IrArena* dst_arena, struct Program src_program) {
+    const struct Node* new_top_level[src_program.declarations_and_definitions.count];
 
     struct List* bound_variables = new_list(struct BindEntry);
     struct BindRewriter ctx = {
@@ -94,8 +94,8 @@ struct Program bind_program(struct IrArena* src_arena, struct IrArena* dst_arena
         .bound_variables = bound_variables
     };
 
-    for (size_t i = 0; i < src_program->declarations_and_definitions.count; i++) {
-        const struct Node* decl = src_program->declarations_and_definitions.nodes[i];
+    for (size_t i = 0; i < src_program.declarations_and_definitions.count; i++) {
+        const struct Node* decl = src_program.declarations_and_definitions.nodes[i];
         switch (decl->tag) {
             case VariableDecl_TAG: {
                 struct BindEntry entry = {
@@ -123,11 +123,11 @@ struct Program bind_program(struct IrArena* src_arena, struct IrArena* dst_arena
         }
     }
 
-    for (size_t i = 0; i < src_program->declarations_and_definitions.count; i++) {
-        new_top_level[i] = bind_node(&ctx, src_program->declarations_and_definitions.nodes[i]);
+    for (size_t i = 0; i < src_program.declarations_and_definitions.count; i++) {
+        new_top_level[i] = bind_node(&ctx, src_program.declarations_and_definitions.nodes[i]);
     }
 
     destroy_list(bound_variables);
 
-    return (struct Program) { nodes(dst_arena, src_program->declarations_and_definitions.count, new_top_level) };
+    return (struct Program) { nodes(dst_arena, src_program.declarations_and_definitions.count, new_top_level) };
 }

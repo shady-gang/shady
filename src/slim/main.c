@@ -58,9 +58,9 @@ int main(int argc, char** argv) {
         struct IrArena* narena = new_arena((struct IrConfig) {
             .check_types = true
         });
-        struct Program new_program = bind_program(arena, narena, &program);
 
-        program = new_program;
+        program = bind_program(arena, narena, program);
+
         destroy_arena(arena);
         arena = narena;
 
