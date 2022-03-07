@@ -12,6 +12,8 @@ struct IrArena {
     void** blocks;
     size_t available;
 
+    bool typed;
+
     struct TypeTable* type_table;
 };
 
@@ -21,6 +23,9 @@ void emit(struct Program program, FILE* output);
 struct TypeTable;
 struct TypeTable* new_type_table();
 void destroy_type_table(struct TypeTable*);
+
+const struct Type* noret_type(struct IrArena* arena);
+const struct Type* needs_infer(struct IrArena* arena);
 
 #define NODEDEF(struct_name, short_name) const struct Type* infer_##short_name(struct IrArena*, struct struct_name);
 NODES()

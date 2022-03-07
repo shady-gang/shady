@@ -9,7 +9,7 @@
     struct Node* node = (struct Node*) arena_alloc(arena, sizeof(struct Node));                                             \
     memset((void*) node, 0, sizeof(struct Node));                                                                           \
     *node = (struct Node) {                                                                                                 \
-      .type = infer_##short_name(arena, in_node),                                                                           \
+      .type = arena->typed ? infer_##short_name(arena, in_node) : NULL,                                                     \
       .tag = struct_name##_TAG,                                                                                             \
       .payload = (union NodesUnion) {                                                                                       \
           .short_name = in_node                                                                                             \

@@ -10,6 +10,7 @@ TOKEN(varying, "varying") \
 TOKEN(struct, "struct") \
 TOKEN(union, "union") \
 TOKEN(var, "var") \
+TOKEN(let, "let") \
 TOKEN(fn, "fn") \
 TOKEN(ptr, "ptr") \
 TOKEN(cont, "cont") \
@@ -17,12 +18,15 @@ TOKEN(void, "void") \
 TOKEN(int, "int") \
 TOKEN(float, "float") \
 TOKEN(return, "return") \
+TOKEN(add, "add") \
+TOKEN(sub, "sub") \
 TOKEN(lpar, "(") \
 TOKEN(rpar, ")") \
 TOKEN(lbracket, "{") \
 TOKEN(rbracket, "}") \
 TOKEN(semi, ";") \
 TOKEN(comma, ",") \
+TOKEN(equal, "=") \
 TOKEN(LIST_END, NULL)
 
 void init_tokenizer_constants();

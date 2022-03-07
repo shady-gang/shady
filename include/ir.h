@@ -18,20 +18,19 @@ enum AddressSpace {
   NODEDEF(VariableDecl, var_decl) \
   NODEDEF(ExpressionEval, expr_eval) \
   NODEDEF(Call, call) \
+  NODEDEF(Let, let)  \
+  NODEDEF(Return, fn_ret) \
 
 #define NODES() \
   INSTRUCTIONS() \
   NODEDEF(Variable, var) \
   NODEDEF(UntypedNumber, untyped_number) \
   NODEDEF(Function, fn) \
+  NODEDEF(PrimOp, primop) \
 
 struct Variables {
     size_t count;
     const struct Variable** variables;
-};
-
-struct UntypedNumber {
-    const char* plaintext;
 };
 
 struct Nodes {
@@ -39,9 +38,18 @@ struct Nodes {
     const struct Node** nodes;
 };
 
+struct Strings {
+    size_t count;
+    const char** strings;
+};
+
 struct Variable {
     const struct Type* type;
     const char* name;
+};
+
+struct UntypedNumber {
+    const char* plaintext;
 };
 
 /// Function with _structured_ control flow
@@ -83,12 +91,32 @@ struct VariableDecl {
     const struct Node* init;
 };
 
+struct Let {
+    struct Strings names;
+    const struct Node* target;
+};
+
 struct ExpressionEval {
     const struct Node* expr;
 };
 
 struct Call {
     const struct Node* callee;
+    struct Nodes args;
+};
+
+#define OPS() \
+OP(add) \
+OP(sub)       \
+
+enum Op {
+#define OP(name) name##_op,
+OPS()
+#undef OP
+};
+
+struct PrimOp {
+    enum Op op;
     struct Nodes args;
 };
 
@@ -113,7 +141,10 @@ struct StructuredLoop {
     struct Nodes bodyInstructions;
 };
 
-//struct Return {};
+struct Return {
+    struct Nodes values;
+};
+
 //struct Continue {};
 //struct Break {};
 
@@ -129,6 +160,7 @@ enum TypeTag {
     FnType,
     PtrType,
     QualType,
+    NeedsInfer,
 };
 
 struct Types {
@@ -190,11 +222,12 @@ struct IrArena* rebuild_arena(struct IrArena*);
 struct Nodes         nodes(struct IrArena*, size_t count, const struct Node*[]);
 struct Variables variables(struct IrArena*, size_t count, const struct Variable*[]);
 struct Types         types(struct IrArena*, size_t count, const struct Type*[]);
+struct Strings     strings(struct IrArena*, size_t count, const char*[]);
 
 struct Nodes         reserve_nodes(struct IrArena*, size_t count);
 struct Variables reserve_variables(struct IrArena*, size_t count);
 struct Types         reserve_types(struct IrArena*, size_t count);
-
+struct Strings     reserve_strings(struct IrArena*, size_t count);
 
 #define NODEDEF(struct_name, short_name) const struct Node* short_name(struct IrArena*, struct struct_name);
 NODES()

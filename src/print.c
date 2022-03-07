@@ -30,7 +30,7 @@ void print_instructions(const struct Nodes instructions) {
 void print_node(const struct Node* node, bool is_decl) {
     switch (node->tag) {
         case VariableDecl_TAG:
-            print_type(node->payload.var_decl.variable->type);
+            print_type(node->payload.var_decl.variable->payload.var.type);
             printf(" %s", node->payload.var_decl.variable->payload.var.name);
             if (node->payload.var_decl.init) {
                 printf(" = ");
@@ -53,6 +53,10 @@ void print_node(const struct Node* node, bool is_decl) {
 }
 
 void print_type(const struct Type* type) {
+    if (type == NULL) {
+        printf("?");
+        return;
+    }
     switch (type->tag) {
         case QualType:
             if (type->payload.qualified.is_uniform)

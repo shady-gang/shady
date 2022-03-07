@@ -14,6 +14,7 @@ struct IrArena* new_arena() {
         .maxblocks = 256,
         .blocks = malloc(256 * sizeof(size_t)),
         .available = 0,
+        .typed = false,
         .type_table = new_type_table()
     };
     for (int i = 0; i < arena->maxblocks; i++)
@@ -83,6 +84,14 @@ struct Types reserve_types(struct IrArena* arena, size_t count)  {
     return types;
 }
 
+struct Strings reserve_strings(struct IrArena* arena, size_t count)  {
+    struct Strings strings = {
+        .count = count,
+        .strings = arena_alloc(arena, count * sizeof(size_t))
+    };
+    return strings;
+}
+
 struct Nodes nodes(struct IrArena* arena, size_t count, const struct Node* in_nodes[]) {
     struct Nodes nodes = reserve_nodes(arena, count);
     for (size_t i = 0; i < count; i++)
@@ -102,6 +111,13 @@ struct Types types(struct IrArena* arena, size_t count, const struct Type* in_ty
     for (size_t i = 0; i < count; i++)
         types.types[i] = in_types[i];
     return types;
+}
+
+struct Strings strings(struct IrArena* arena, size_t count, const char* in_strs[])  {
+    struct Strings strings = reserve_strings(arena, count);
+    for (size_t i = 0; i < count; i++)
+        strings.strings[i] = in_strs[i];
+    return strings;
 }
 
 const char* string(struct IrArena* arena, size_t size, const char* str) {

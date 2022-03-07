@@ -70,6 +70,7 @@ bool is_subtype(const struct Type* supertype, const struct Type* type) {
             superparams = &supertype->payload.fn.param_types;
             params = &type->payload.fn.param_types;
             goto check_params;
+        case PtrType: SHADY_NOT_IMPLEM;
         default: goto post_switch;
         check_params:
             if (params->count != superparams->count)
@@ -88,6 +89,24 @@ bool is_subtype(const struct Type* supertype, const struct Type* type) {
 void check_subtype(const struct Type* supertype, const struct Type* type) {
     if (!is_subtype(supertype, type))
         error("is not a subtype")
+}
+
+enum DivergenceQualifier resolve_divergence_impl(const struct Type* type, bool allow_qualifier_types) {
+    switch (type->tag) {
+        case QualType: {
+            if (!allow_qualifier_types)
+                error("Uniformity qualifier information found in inappropriate context...")
+            return resolve_divergence_impl(type->payload.qualified.type, false);
+        }
+        case Void:
+            return Uniform;
+        case NoRet:
+        case Int:
+        case Float:
+            return Unknown;
+
+        default: SHADY_NOT_IMPLEM;
+    }
 }
 
 const struct Type* infer_call(struct IrArena* arena, struct Call call) {
@@ -122,8 +141,33 @@ const struct Type* infer_var(struct IrArena* arena, struct Variable variable) {
     return variable.type;
 }
 
-const struct Type* infer_untyped_number(struct IrArena* arena, struct UntypedNumber variable) {
-    SHADY_NOT_IMPLEM;
+const struct Type* infer_untyped_number(struct IrArena* arena, struct UntypedNumber untyped) {
+    return needs_infer(arena);
+}
+
+const struct Type* infer_let(struct IrArena* arena, struct Let let) {
+    return let.target->type;
+}
+
+const struct Type* infer_fn_ret(struct IrArena* arena, struct Return fn_ret) {
+    return noret_type(arena);
+}
+
+const struct Type* infer_primop(struct IrArena* arena, struct PrimOp primop) {
+    switch (primop.op) {
+        case sub_op:
+        case add_op: {
+            bool is_result_uniform = true;
+            for (size_t i = 0; i < primop.args.count; i++) {
+                enum DivergenceQualifier op_div = resolve_divergence_impl(primop.args.nodes[i]->type, true);
+                assert(op_div != Unknown); // we expect all operands to be clearly known !
+                is_result_uniform ^= op_div == Uniform;
+            }
+
+            return qualified_type(arena, is_result_uniform, int_type(arena));
+        }
+        default: SHADY_NOT_IMPLEM;
+    }
 }
 
 #define type_ctor_prelude struct Type type; \
@@ -137,6 +181,14 @@ struct Type* globalptr = arena_alloc(arena, sizeof(struct Type));               
 bool result = insert_set_get_result(struct Type*, arena->type_table->set, globalptr);    \
 assert(result);                                                                      \
 return globalptr;                                                                    \
+
+const struct Type* needs_infer(struct IrArena* arena) {
+    type_ctor_prelude
+
+    type.tag = NeedsInfer;
+
+    type_ctor_epilogue
+}
 
 const struct Type* void_type(struct IrArena* arena) {
     type_ctor_prelude

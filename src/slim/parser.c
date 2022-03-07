@@ -9,6 +9,8 @@
 
 #include "../implem.h"
 
+extern const char* token_tags[];
+
 // to avoid some repetition
 #define ctxparams char* contents, struct IrArena* arena, struct Tokenizer* tokenizer
 #define ctx contents, arena, tokenizer
@@ -102,7 +104,8 @@ struct Variables eat_parameters(ctxparams) {
                 .type = type
             });
 
-            append_list(struct Variable*, params, node->payload.var);
+            struct Variable* varptr = &node->payload.var;
+            append_list(struct Variable*, params, varptr);
 
             if (accept_token(ctx, comma_tok))
                 goto next;
@@ -141,6 +144,7 @@ const struct Node* accept_literal(ctxparams) {
     struct Token tok = curr_token(tokenizer);
     switch (tok.tag) {
         case dec_lit_tok: {
+            next_token(tokenizer);
             size_t size = tok.end - tok.start;
             return untyped_number(arena, (struct UntypedNumber) {
                 .plaintext = string(arena, (int) size, &contents[tok.start])
@@ -165,12 +169,89 @@ const struct Node* accept_value(ctxparams) {
     return accept_literal(ctx);
 }
 
+struct Strings eat_identifiers(ctxparams) {
+    struct List* list = new_list(const char*);
+    while (true) {
+        const char* id = accept_identifier(ctx);
+        expect(id);
+
+        append_list(const char*, list, id);
+
+        if (accept_token(ctx, comma_tok))
+            continue;
+        else
+            break;
+    }
+
+    struct Strings final = strings(arena, list->elements, (const char**) list->alloc);
+    destroy_list(list);
+    return final;
+}
+
+struct Nodes eat_values(ctxparams, enum TokenTag separator) {
+    struct List* list = new_list( struct Node*);
+
+    bool expect = false;
+    while (true) {
+        const struct Node* val = accept_value(ctx);
+        if (!val) {
+            if (expect)
+                error("expected value but got none")
+            else
+                break;
+        }
+
+        append_list(struct Node*, list, val);
+
+        if (separator != 0) {
+            if (accept_token(ctx, separator))
+                expect = true;
+            else
+                break;
+        }
+    }
+
+    struct Nodes final = nodes(arena, list->elements, (const struct Node**) list->alloc);
+    destroy_list(list);
+    return final;
+}
+
+const struct Node* eat_computation(ctxparams) {
+    struct Token tok = curr_token(tokenizer);
+    switch (tok.tag) {
+        case add_tok: {
+            next_token(tokenizer);
+            struct Nodes args = eat_values(ctx, 0);
+            expect(accept_token(ctx, semi_tok));
+            return primop(arena, (struct PrimOp) {
+                .op = add_op,
+                .args = args
+            });
+        }
+        default: error("cannot parse a computation");
+    }
+}
+
 const struct Node* accept_instruction(ctxparams) {
     struct Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
         case return_tok: {
             next_token(tokenizer);
-            const struct Node* value = accept_value(ctx);
+            struct Nodes values = eat_values(ctx, 0);
+            expect(accept_token(ctx, semi_tok));
+            return fn_ret(arena, (struct Return) {
+                .values = values
+            });
+        }
+        case let_tok: {
+            next_token(tokenizer);
+            struct Strings ids = eat_identifiers(ctx);
+            expect(accept_token(ctx, equal_tok));
+            const struct Node* comp = eat_computation(ctx);
+            return let(arena, (struct Let) {
+                .names = ids,
+                .target = comp
+            });
         }
         default: break;
     }
@@ -185,8 +266,12 @@ struct Nodes eat_block(ctxparams) {
             break;
 
         const struct Node* instruction = accept_instruction(ctx);
-        expect(instruction);
-        append_list(struct Node*, instructions, instruction);
+        if (instruction)
+            append_list(struct Node*, instructions, instruction);
+        else {
+            expect(accept_token(ctx, rbracket_tok));
+            break;
+        }
     }
     struct Nodes block = nodes(arena, entries_count_list(instructions), read_list(const struct Node*, instructions));
     destroy_list(instructions);
@@ -256,7 +341,7 @@ struct Program parse(char* contents, struct IrArena* arena) {
             continue;
         }
 
-        printf("No idea what to parse here... (tok=(tag = %d, pos = %zu))\n", token.tag, token.start);
+        printf("No idea what to parse here... (tok=(tag = %s, pos = %zu))\n", token_tags[token.tag], token.start);
         exit(-3);
     }
 

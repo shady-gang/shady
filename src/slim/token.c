@@ -11,7 +11,7 @@ static const char* token_strings[] = {
 #undef TOKEN
 };
 
-static const char* token_tags[] = {
+const char* token_tags[] = {
 #define TOKEN(name, str) #name,
         TOKENS()
 #undef TOKEN
@@ -113,7 +113,7 @@ struct Token next_token(struct Tokenizer* tokenizer) {
             tokenizer->str = &tokenizer->str[2];
         }
 
-        while (is_digit(tokenizer->str[0])) {
+        while (is_digit(tokenizer->str[token_size])) {
             token_size++;
         }
         goto parsed_successfully;
