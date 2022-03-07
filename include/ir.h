@@ -20,18 +20,13 @@ enum AddressSpace {
   NODEDEF(Call, call) \
   NODEDEF(Let, let)  \
   NODEDEF(Return, fn_ret) \
+  NODEDEF(PrimOp, primop) \
 
 #define NODES() \
   INSTRUCTIONS() \
   NODEDEF(Variable, var) \
   NODEDEF(UntypedNumber, untyped_number) \
   NODEDEF(Function, fn) \
-  NODEDEF(PrimOp, primop) \
-
-struct Variables {
-    size_t count;
-    const struct Variable** variables;
-};
 
 struct Nodes {
     size_t count;
@@ -55,9 +50,9 @@ struct UntypedNumber {
 /// Function with _structured_ control flow
 struct Function {
     const char* name;
-    struct Variables params;
-    const struct Type* return_type;
+    struct Nodes params;
     struct Nodes instructions;
+    const struct Type* return_type;
 };
 
 struct Continuation;
@@ -78,7 +73,7 @@ struct Terminator {
 };
 
 struct Continuation {
-    struct Variables params;
+    struct Nodes params;
     struct Nodes instructions;
     struct Terminator terminator;
 };
@@ -215,17 +210,42 @@ struct Node {
     } payload;
 };
 
+struct Program {
+    struct Nodes declarations_and_definitions;
+};
+
+struct IrConfig {
+    bool check_types;
+};
+
 struct IrArena* new_arena();
 void destroy_arena(struct IrArena*);
-struct IrArena* rebuild_arena(struct IrArena*);
+
+struct Rewriter;
+
+typedef struct Node* (*NodeRewriteFn)(struct Rewriter*, const struct Node*);
+typedef struct Type* (*TypeRewriteFn)(struct Rewriter*, const struct Type*);
+
+struct Rewriter {
+    struct IrArena* src_arena;
+    struct IrArena* dst_arena;
+
+    NodeRewriteFn rewrite_node;
+    TypeRewriteFn rewrite_type;
+};
+
+/// Rewrites a node using the rewriter to provide the node and type operands
+const struct Node* recreate_node_identity(struct Rewriter*, const struct Node*);
+/// Rewrites a type using the rewriter to provide the type operands
+const struct Type* recreate_type_identity(struct Rewriter*, const struct Type*);
+
+typedef struct Program (*RewritePass)(struct IrArena* src_arena, struct Program* src_program, struct IrArena* dst_arena);
 
 struct Nodes         nodes(struct IrArena*, size_t count, const struct Node*[]);
-struct Variables variables(struct IrArena*, size_t count, const struct Variable*[]);
 struct Types         types(struct IrArena*, size_t count, const struct Type*[]);
 struct Strings     strings(struct IrArena*, size_t count, const char*[]);
 
 struct Nodes         reserve_nodes(struct IrArena*, size_t count);
-struct Variables reserve_variables(struct IrArena*, size_t count);
 struct Types         reserve_types(struct IrArena*, size_t count);
 struct Strings     reserve_strings(struct IrArena*, size_t count);
 
@@ -243,10 +263,6 @@ const struct Type* ptr_type(struct IrArena* arena, const struct Type* pointed_ty
 const struct Type* qualified_type(struct IrArena* arena, bool is_uniform, const struct Type*);
 
 const char* string(struct IrArena* arena, size_t size, const char* start);
-
-struct Program {
-    struct Nodes declarations_and_definitions;
-};
 
 void print_program(const struct Program* program);
 void print_node(const struct Node* node, bool);

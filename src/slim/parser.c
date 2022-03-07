@@ -86,9 +86,9 @@ const struct Type* expect_qualified_type(ctxparams) {
     return qualified_type(arena, qualifier == Uniform, unqualified);
 }
 
-struct Variables eat_parameters(ctxparams) {
+struct Nodes eat_parameters(ctxparams) {
     expect(accept_token(ctx, lpar_tok));
-    struct List* params = new_list(struct Variable*);
+    struct List* params = new_list(struct Node*);
     while (true) {
         if (accept_token(ctx, rpar_tok))
             break;
@@ -104,15 +104,14 @@ struct Variables eat_parameters(ctxparams) {
                 .type = type
             });
 
-            struct Variable* varptr = &node->payload.var;
-            append_list(struct Variable*, params, varptr);
+            append_list(struct Node*, params, node);
 
             if (accept_token(ctx, comma_tok))
                 goto next;
         }
     }
 
-    struct Variables variables2 = variables(arena, params->elements, (const struct Variable**) params->alloc);
+    struct Nodes variables2 = nodes(arena, params->elements, (const struct Node**) params->alloc);
     destroy_list(params);
     return variables2;
 }
@@ -287,7 +286,7 @@ const struct Node* accept_fn_decl(ctxparams) {
     const char* id = accept_identifier(ctx);
     expect(id);
     expect(curr_token(tokenizer).tag == lpar_tok);
-    struct Variables parameters = eat_parameters(ctx);
+    struct Nodes parameters = eat_parameters(ctx);
     struct Nodes instructions = eat_block(ctx);
     return fn(arena, (struct Function) {
         .name = id,

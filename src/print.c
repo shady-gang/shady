@@ -9,12 +9,12 @@ void print_program(const struct Program* program) {
     }
 }
 
-void print_param_list(const struct Variables vars, bool use_names) {
+void print_param_list(const struct Nodes vars, bool use_names) {
     printf("(");
     for (size_t i = 0; i < vars.count; i++) {
-        print_type(vars.variables[i]->type);
+        print_type(vars.nodes[i]->payload.var.type);
         if (use_names)
-            printf(" %s", vars.variables[i]->name);
+            printf(" %s", vars.nodes[i]->payload.var.name);
         if (i < vars.count - 1)
             printf(", ");
     }

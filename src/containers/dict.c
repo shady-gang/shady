@@ -25,6 +25,7 @@ static size_t init_size = 32;
 
 struct BucketTag {
     bool is_present;
+    bool is_thombstone;
 };
 
 struct Dict {
@@ -76,6 +77,28 @@ struct Dict* new_dict_impl(size_t key_size, size_t value_size, size_t key_align,
     return dict;
 }
 
+struct Dict* clone_dict(struct Dict* source) {
+    struct Dict* dict = (struct Dict*) malloc(sizeof(struct Dict));
+    *dict = (struct Dict) {
+        .entries_count = source->entries_count,
+        .size = source->size,
+
+        .key_size = source->key_size,
+        .value_size = source->value_size,
+
+        .value_offset = source->value_offset,
+        .tag_offset = source->tag_offset,
+        .bucket_entry_size = source->bucket_entry_size,
+
+        .hash_fn = source->hash_fn,
+        .cmp_fn = source->cmp_fn,
+
+        .alloc = malloc(source->bucket_entry_size * source->size)
+    };
+    memcpy(dict->alloc, source->alloc, source->bucket_entry_size * source->size);
+    return dict;
+}
+
 void destroy_dict(struct Dict* dict) {
     free(dict->alloc);
     free(dict);
@@ -95,9 +118,9 @@ void* find_key_dict_impl(struct Dict* dict, void* key) {
 
         void* in_dict_key = (void*) bucket;
         struct BucketTag* tag = (struct BucketTag*) (void*) (bucket + dict->tag_offset);
-        if (tag->is_present) {
+        if (tag->is_present || tag->is_thombstone) {
             // If the key is identical, we found our guy !
-            if (dict->cmp_fn(in_dict_key, key))
+            if (tag->is_present && dict->cmp_fn(in_dict_key, key))
                 return in_dict_key;
 
             // Otherwise, do a crappy linear scan...
@@ -118,6 +141,17 @@ void* find_value_dict_impl(struct Dict* dict, void* key) {
     if (found)
         return (void*) ((size_t)found + dict->value_offset);
     return NULL;
+}
+
+bool remove_dict_impl(struct Dict* dict, void* key) {
+    void* found = find_key_dict_impl(dict, key);
+    if (found) {
+        struct BucketTag* tag = (void *) ((size_t) found + dict->tag_offset);
+        tag->is_present = false;
+        tag->is_thombstone = true;
+        return true;
+    }
+    return false;
 }
 
 bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr);
@@ -207,6 +241,7 @@ bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr)
     assert(!tag->is_present);
 
     tag->is_present = true;
+    tag->is_thombstone = false;
     memcpy(in_dict_key,   key,   dict->key_size);
     if (dict->value_size)
         memcpy(in_dict_value, value, dict->value_size);

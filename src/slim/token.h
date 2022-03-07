@@ -18,6 +18,7 @@ TOKEN(void, "void") \
 TOKEN(int, "int") \
 TOKEN(float, "float") \
 TOKEN(return, "return") \
+TOKEN(const, "const") \
 TOKEN(add, "add") \
 TOKEN(sub, "sub") \
 TOKEN(lpar, "(") \

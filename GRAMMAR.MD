@@ -10,22 +10,23 @@ DECL := VAR_DECL | FN_DECL;
 VAR_DECL := var MQTYPE IDENTIFIER ;
             var MQTYPE IDENTIFIER = VALUE;
 
+VAR := IDENTIFIER;
+
 FN_DECL := fn RET_TYPE IDENTIFIER PARAMS BLOCK
 
 PARAMS := ( [QTYPE IDENTIFIER [(, QTYPE IDENTIFIER)*]] )
 
 BLOCK := { (INSTRUCTION;)* }
 
-INSTRUCTION := let IDENTIFIER [(, IDENTIFIER)*] = COMP;
-               VAR_DECL;
-               IDENTIFIER := VALUE;
-               if VALUE then BLOCK else BLOCK;
-               while VALUE do BLOCK;
-               return VALUE [(, VALUE)*];
-               
-COMP := OP VALUE+
+INSTRUCTION := let IDENTIFIER [(, IDENTIFIER)*] = OP VALUES; // PrimOp
+             | VAR_DECL;                                     // local variable
+             | IDENTIFIER := VALUE;                          // stores
+             | if VALUE then BLOCK else BLOCK;               // selection construct
+             | while VALUE do BLOCK;                         // loop construct
+             | return VALUES];
 
 VALUE := VAR | LITERAL
+VALUES := VALUE+
 
 TYPE := void | int | float | ptr DATA_TYPE | fn RET_TYPE ( [QTYPE [(, QTYPE)*]] )
 

@@ -7,7 +7,10 @@ set(SHADY_SOURCES
     arena.c
     node.c
     type.c
+    rewrite.c
     print.c
+    passes/bind.c
+    passes/infer.c
     emit/emit.c
     emit/spirv_builder.c)
 

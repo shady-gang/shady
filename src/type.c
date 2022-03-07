@@ -109,6 +109,10 @@ enum DivergenceQualifier resolve_divergence_impl(const struct Type* type, bool a
     }
 }
 
+enum DivergenceQualifier resolve_divergence(const struct Type* type) {
+    return resolve_divergence_impl(type, true);
+}
+
 const struct Type* infer_call(struct IrArena* arena, struct Call call) {
     const struct Type* callee_type = call.callee->type;
     if (callee_type->tag != FnType)
@@ -125,7 +129,7 @@ const struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
     // TODO check function
     struct Types types = reserve_types(arena, fn.params.count);
     for (size_t i = 0; i < types.count; i++)
-        types.types[i] = fn.params.variables[i]->type;
+        types.types[i] = fn.params.nodes[i]->type;
     return fn_type(arena, types, fn.return_type);
 }
 
@@ -159,7 +163,7 @@ const struct Type* infer_primop(struct IrArena* arena, struct PrimOp primop) {
         case add_op: {
             bool is_result_uniform = true;
             for (size_t i = 0; i < primop.args.count; i++) {
-                enum DivergenceQualifier op_div = resolve_divergence_impl(primop.args.nodes[i]->type, true);
+                enum DivergenceQualifier op_div = resolve_divergence(primop.args.nodes[i]->type);
                 assert(op_div != Unknown); // we expect all operands to be clearly known !
                 is_result_uniform ^= op_div == Uniform;
             }

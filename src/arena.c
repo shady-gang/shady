@@ -56,24 +56,12 @@ void* arena_alloc(struct IrArena* arena, size_t size) {
     return allocated;
 }
 
-struct IrArena* rebuild_arena(struct IrArena* arena) {
-    SHADY_NOT_IMPLEM
-}
-
 struct Nodes reserve_nodes(struct IrArena* arena, size_t count) {
     struct Nodes nodes = {
         .count = count,
         .nodes = arena_alloc(arena, count * sizeof(size_t))
     };
     return nodes;
-}
-
-struct Variables reserve_variables(struct IrArena* arena, size_t count) {
-    struct Variables variables = {
-        .count = count,
-        .variables = arena_alloc(arena, count * sizeof(size_t))
-    };
-    return variables;
 }
 
 struct Types reserve_types(struct IrArena* arena, size_t count)  {
@@ -97,13 +85,6 @@ struct Nodes nodes(struct IrArena* arena, size_t count, const struct Node* in_no
     for (size_t i = 0; i < count; i++)
         nodes.nodes[i] = in_nodes[i];
     return nodes;
-}
-
-struct Variables variables(struct IrArena* arena, size_t count, const struct Variable* in_vars[]) {
-    struct Variables variables = reserve_variables(arena, count);
-    for (size_t i = 0; i < count; i++)
-        variables.variables[i] = in_vars[i];
-    return variables;
 }
 
 struct Types types(struct IrArena* arena, size_t count, const struct Type* in_types[])  {

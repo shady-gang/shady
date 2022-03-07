@@ -16,6 +16,7 @@ struct Dict;
 #define new_set(K, hash, cmp) new_dict_impl(sizeof(K), 0, alignof(K), 0, hash, cmp)
 struct Dict* new_dict_impl(size_t key_size, size_t value_size, size_t key_align, size_t value_align, KeyHash (*)(void*), bool (*)(void*, void*));
 
+struct Dict* clone_dict(struct Dict*);
 void destroy_dict(struct Dict*);
 
 size_t entries_count_dict(struct Dict*);
@@ -24,6 +25,9 @@ size_t entries_count_dict(struct Dict*);
 #define find_key_dict(K, dict, key) (K*) find_key_dict_impl(dict, (void*) (&(key)))
 void* find_key_dict_impl(struct Dict*, void*);
 void* find_value_dict_impl(struct Dict*, void*);
+
+#define remove_dict(K, dict, key) remove_dict_impl(dict, (void*) (&(key)))
+bool remove_dict_impl(struct Dict* dict, void* key);
 
 #define insert_dict_and_get_value(K, V, dict, key, value) *(V*) insert_dict_and_get_value_impl(dict, (void*) (&(key)), (void*) (&(value)))
 void* insert_dict_and_get_value_impl(struct Dict*, void* key, void* value);
