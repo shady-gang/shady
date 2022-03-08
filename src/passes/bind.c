@@ -33,26 +33,41 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
 
     struct Rewriter* rewriter = &ctx->rewriter;
     switch (node->tag) {
+        case Root_TAG: {
+            const struct Root* src_root = &node->payload.root;
+            const size_t count = src_root->variables.count;
+
+            const struct Node* new_variables[count];
+            const struct Node* new_definitions[count];
+
+            for (size_t i = 0; i < count; i++) {
+                const struct Node* variable = src_root->variables.nodes[i];
+
+                const struct Node* new_variable = var(rewriter->dst_arena, (struct Variable) {
+                    .name = string(rewriter->dst_arena, variable->payload.var.name),
+                    .type = ctx->rewriter.rewrite_type(rewriter, variable->payload.var.type)
+                });
+
+                struct BindEntry entry = {
+                    .id = variable->payload.var.name,
+                    .bound_node = new_variable
+                };
+                append_list(struct BindEntry, ctx->bound_variables, entry);
+                new_variables[i] = new_variable;
+            }
+
+            for (size_t i = 0; i < count; i++)
+                new_definitions[i] = bind_node(ctx, src_root->definitions.nodes[i]);
+
+            return root(rewriter->dst_arena, (struct Root) {
+                .variables = nodes(rewriter->dst_arena, count, new_variables),
+                .definitions = nodes(rewriter->dst_arena, count, new_definitions)
+            });
+        }
         case Variable_TAG: {
             assert(node->payload.var.type == NULL);
             return resolve(ctx, node->payload.var.name);
         }
-        /*case VariableDecl_TAG: {
-            const struct Node* new_variable = var(rewriter->dst_arena, (struct Variable) {
-                .name = string(rewriter->dst_arena, node->payload.var_decl.variable->payload.var.name),
-                .type = rewriter->rewrite_type(rewriter, node->payload.var_decl.variable->payload.var.type)
-            });
-            struct BindEntry entry = {
-                .id = string(ctx->rewriter.dst_arena, node->payload.var_decl.variable->payload.var.name),
-                .bound_node = new_variable
-            };
-            append_list(struct BindEntry, ctx->bound_variables, entry);
-            return var_decl(ctx->rewriter.dst_arena, (struct VariableDecl){
-                .variable = new_variable,
-                .address_space = node->payload.var_decl.address_space,
-                .init = rewriter->rewrite_node(rewriter, node->payload.var_decl.init)
-            });
-        }*/
         case Let_TAG: {
             size_t outputs_count = node->payload.let.variables.count;
             const struct Node* noutputs[outputs_count];
@@ -112,12 +127,6 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
 }
 
 const struct Node* bind_program(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Node* source) {
-    const struct Root* src_root = &source->payload.root;
-    const size_t count = src_root->variables.count;
-
-    const struct Node* new_variables[count];
-    const struct Node* new_definitions[count];
-
     struct List* bound_variables = new_list(struct BindEntry);
     struct BindRewriter ctx = {
         .rewriter = {
@@ -129,30 +138,8 @@ const struct Node* bind_program(struct IrArena* src_arena, struct IrArena* dst_a
         .bound_variables = bound_variables
     };
 
-    for (size_t i = 0; i < count; i++) {
-        const struct Node* variable = src_root->variables.nodes[i];
-
-        const struct Node* new_variable = var(dst_arena, (struct Variable) {
-            .name = string(dst_arena, variable->payload.var.name),
-            .type = ctx.rewriter.rewrite_type(&ctx.rewriter, variable->payload.var.type)
-        });
-
-        struct BindEntry entry = {
-            .id = variable->payload.var.name,
-            .bound_node = new_variable
-        };
-        append_list(struct BindEntry, bound_variables, entry);
-        new_variables[i] = new_variable;
-    }
-
-    for (size_t i = 0; i < count; i++) {
-        new_definitions[i] = bind_node(&ctx, src_root->definitions.nodes[i]);
-    }
+    const struct Node* rewritten = ctx.rewriter.rewrite_node(&ctx.rewriter, source);
 
     destroy_list(bound_variables);
-
-    return root(dst_arena, (struct Root) {
-        .variables = nodes(dst_arena, count, new_variables),
-        .definitions = nodes(dst_arena, count, new_definitions)
-    });
+    return rewritten;
 }
