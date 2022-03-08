@@ -30,7 +30,7 @@ KeyHash hash_node(struct Node** node) {
     final ^= out[2];
     final ^= out[3];
     printf("hash of :");
-    print_node(*node, NULL);
+    print_node(*node);
     printf(" = [%u] %u\n", final, final % 32);
     return final;
 }

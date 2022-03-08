@@ -9,8 +9,7 @@
 
 struct BindEntry {
     const char* id;
-    // const struct Node* old_node;
-    const struct Node* new_node;
+    const struct Node* bound_node;
 };
 
 struct BindRewriter {
@@ -22,7 +21,7 @@ static const struct Node* resolve(struct BindRewriter* ctx, const char* id) {
     for (size_t i = 0; i < entries_count_list(ctx->bound_variables); i++) {
         const struct BindEntry* entry = &read_list(const struct BindEntry, ctx->bound_variables)[i];
         if (strcmp(entry->id, id) == 0) {
-            return entry->new_node;
+            return entry->bound_node;
         }
     }
     error("could not resolve variable %s", id)
@@ -45,7 +44,7 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
             });
             struct BindEntry entry = {
                 .id = string(ctx->rewriter.dst_arena, node->payload.var_decl.variable->payload.var.name),
-                .new_node = new_variable
+                .bound_node = new_variable
             };
             append_list(struct BindEntry, ctx->bound_variables, entry);
             return var_decl(ctx->rewriter.dst_arena, (struct VariableDecl){
@@ -66,7 +65,7 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
                 noutputs[p] = new_binding;
                 struct BindEntry entry = {
                     .id = string(ctx->rewriter.dst_arena, old_var->name),
-                    .new_node = new_binding
+                    .bound_node = new_binding
                 };
                 append_list(struct BindEntry, ctx->bound_variables, entry);
                 printf("Bound %s\n", entry.id);
@@ -91,7 +90,7 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
                 nparams[p] = new_param;
                 struct BindEntry entry = {
                     .id = string(ctx->rewriter.dst_arena, old_param->name),
-                    .new_node = new_param
+                    .bound_node = new_param
                 };
                 append_list(struct BindEntry, ctx->bound_variables, entry);
                 printf("Bound %s\n", entry.id);
@@ -112,8 +111,9 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
     }
 }
 
-const struct Program* bind_program(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Program* src_program) {
-    const size_t count = src_program->variables.count;
+const struct Node* bind_program(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Node* source) {
+    const struct Root* src_root = &source->payload.root;
+    const size_t count = src_root->variables.count;
 
     const struct Node* new_variables[count];
     const struct Node* new_definitions[count];
@@ -130,7 +130,7 @@ const struct Program* bind_program(struct IrArena* src_arena, struct IrArena* ds
     };
 
     for (size_t i = 0; i < count; i++) {
-        const struct Node* variable = src_program->variables.nodes[i];
+        const struct Node* variable = src_root->variables.nodes[i];
 
         const struct Node* new_variable = var(dst_arena, (struct Variable) {
             .name = string(dst_arena, variable->payload.var.name),
@@ -139,20 +139,20 @@ const struct Program* bind_program(struct IrArena* src_arena, struct IrArena* ds
 
         struct BindEntry entry = {
             .id = variable->payload.var.name,
-            .new_node = new_variable
+            .bound_node = new_variable
         };
         append_list(struct BindEntry, bound_variables, entry);
         new_variables[i] = new_variable;
     }
 
     for (size_t i = 0; i < count; i++) {
-        new_definitions[i] = bind_node(&ctx, src_program->definitions.nodes[i]);
+        new_definitions[i] = bind_node(&ctx, src_root->definitions.nodes[i]);
     }
 
     destroy_list(bound_variables);
 
-    return &program(dst_arena, (struct Program) {
+    return root(dst_arena, (struct Root) {
         .variables = nodes(dst_arena, count, new_variables),
         .definitions = nodes(dst_arena, count, new_definitions)
-    })->payload.program;
+    });
 }

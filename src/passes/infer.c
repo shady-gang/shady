@@ -58,11 +58,11 @@ const struct Node* type_decl(ctxparams, const struct Node* decl) {
     }
 }*/
 
-const struct Program* type_program(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Program* src_program) {
+const struct Node* type_program(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Node* src_program) {
     /*const struct Node* new_top_level[src_program.declarations_and_definitions.count];
     for (size_t i = 0; i < src_program.declarations_and_definitions.count; i++) {
         new_top_level[i] = type_decl(ctx, src_program.declarations_and_definitions.nodes[i]);
     }
-    return (struct Program) { nodes(dst_arena, src_program.declarations_and_definitions.count, new_top_level) };*/
+    return (struct Root) { nodes(dst_arena, src_program.declarations_and_definitions.count, new_top_level) };*/
     SHADY_NOT_IMPLEM
 }

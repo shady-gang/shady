@@ -1,17 +1,5 @@
 #include "implem.h"
 
-void print_program(const struct Program* program) {
-    for (size_t i = 0; i < program->variables.count; i++) {
-        // Some top-level variables do not have definitions !
-        if (program->definitions.nodes[i])
-            print_node(program->definitions.nodes[i], program->variables.nodes[i]->payload.var.name);
-        else print_node(program->variables.nodes[i], program->variables.nodes[i]->payload.var.name);
-
-        if (i < program->variables.count - 1)
-            printf("\n");
-    }
-}
-
 void print_param_list(const struct Nodes vars, bool use_names) {
     printf("(");
     for (size_t i = 0; i < vars.count; i++) {
@@ -30,14 +18,27 @@ void print_instructions(const struct Nodes instructions) {
 
 }
 
-void print_node(const struct Node* node, const char* def_name) {
+void print_node_impl(const struct Node* node, const char* def_name) {
     switch (node->tag) {
+        case Root_TAG: {
+            const struct Root* top_level = &node->payload.root;
+            for (size_t i = 0; i < top_level->variables.count; i++) {
+                // Some top-level variables do not have definitions !
+                if (top_level->definitions.nodes[i])
+                    print_node_impl(top_level->definitions.nodes[i], top_level->variables.nodes[i]->payload.var.name);
+                else print_node_impl(top_level->variables.nodes[i], top_level->variables.nodes[i]->payload.var.name);
+
+                if (i < top_level->variables.count - 1)
+                    printf("\n");
+            }
+            break;
+        }
         case VariableDecl_TAG:
             print_type(node->payload.var_decl.variable->payload.var.type);
             printf(" %s", node->payload.var_decl.variable->payload.var.name);
             if (node->payload.var_decl.init) {
                 printf(" = ");
-                print_node(node->payload.var_decl.init, NULL);
+                print_node(node->payload.var_decl.init);
             }
             printf(";\n");
             break;
@@ -62,6 +63,10 @@ void print_node(const struct Node* node, const char* def_name) {
             break;
         default: error("dunno how to print this");
     }
+}
+
+void print_node(const struct Node* node) {
+    return print_node_impl(node, NULL);
 }
 
 void print_type(const struct Type* type) {

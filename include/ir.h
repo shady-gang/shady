@@ -29,7 +29,7 @@ enum AddressSpace {
   NODEDEF(Variable, var) \
   NODEDEF(UntypedNumber, untyped_number) \
   NODEDEF(Function, fn) \
-  NODEDEF(Program, program) \
+  NODEDEF(Root, root) \
 
 struct Nodes {
     size_t count;
@@ -142,7 +142,7 @@ struct Return {
     struct Nodes values;
 };
 
-struct Program {
+struct Root {
     struct Nodes variables;
     struct Nodes definitions;
 };
@@ -249,7 +249,8 @@ const struct Node* recreate_node_identity(struct Rewriter*, const struct Node*);
 /// Rewrites a type using the rewriter to provide the type operands
 const struct Type* recreate_type_identity(struct Rewriter*, const struct Type*);
 
-typedef struct Program (*RewritePass)(struct IrArena* src_arena, struct IrArena* dst_arena, struct Program* src_program);
+/// Rewrites a whole program, starting at the root
+typedef const struct Node* (RewritePass)(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Node* src_root);
 
 struct Nodes         nodes(struct IrArena*, size_t count, const struct Node*[]);
 struct Types         types(struct IrArena*, size_t count, const struct Type*[]);
@@ -275,8 +276,7 @@ const struct Type* qualified_type(struct IrArena* arena, bool is_uniform, const 
 String string_sized(struct IrArena* arena, size_t size, const char* start);
 String string(struct IrArena* arena, const char* start);
 
-void print_program(const struct Program* program);
-void print_node(const struct Node* node, const char*);
+void print_node(const struct Node* node);
 void print_type(const struct Type* type);
 
 #define SHADY_IR_H

@@ -61,7 +61,8 @@ SpvId emit_type(struct SpvEmitter* emitter, const struct Type* type) {
     return new;
 }
 
-void emit(const struct Program* program, FILE* output) {
+void emit(const struct Node* root_node, FILE* output) {
+    const struct Root* top_level = &root_node->payload.root;
     struct List* words = new_list(uint32_t);
 
     struct SpvFileBuilder* file_builder = spvb_begin();
@@ -75,9 +76,9 @@ void emit(const struct Program* program, FILE* output) {
     spvb_capability(file_builder, SpvCapabilityShader);
     spvb_capability(file_builder, SpvCapabilityLinkage);
 
-    for (size_t i = 0; i < program->variables.count; i++) {
-        const struct Node* variable = program->variables.nodes[i];
-        const struct Node* definition = program->definitions.nodes[i];
+    for (size_t i = 0; i < top_level->variables.count; i++) {
+        const struct Node* variable = top_level->variables.nodes[i];
+        const struct Node* definition = top_level->definitions.nodes[i];
 
         enum DivergenceQualifier qual;
         const struct Type* unqualified_type = strip_qualifier(variable->type, &qual);

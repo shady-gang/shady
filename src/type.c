@@ -190,7 +190,7 @@ const struct Type* infer_primop(struct IrArena* arena, struct PrimOp primop) {
     }
 }
 
-const struct Type* infer_program(struct IrArena* arena, struct Program program) {
+const struct Type* infer_root(struct IrArena* arena, struct Root program) {
     return NULL;
 }
 

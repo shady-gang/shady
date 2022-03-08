@@ -6,9 +6,6 @@
 
 #include "../passes/passes.h"
 
-const struct Program* parse(char* contents, struct IrArena* arena);
-void emit(const struct Program* program, FILE* output);
-
 char* read_file(char* filename) {
     FILE *f = fopen(filename, "rb");
     if (f == NULL)
@@ -36,7 +33,7 @@ int main(int argc, char** argv) {
     if (argc <= 1)
         printf("Usage: slim source.slim\n");
     else {
-        const struct Program* program;
+        const struct Node* program;
 
         char* filename = argv[1];
         printf("compiling %s\n", filename);
@@ -53,11 +50,11 @@ int main(int argc, char** argv) {
         free(contents);
 
         printf("Parsed program successfully: \n");
-        print_program(program);
+        print_node(program);
 
         program = bind_program(arena, arena, program);
         printf("Bound program successfully: \n");
-        print_program(program);
+        print_node(program);
 
         struct IrArena* typed_arena = new_arena((struct IrConfig) {
             .check_types = true
@@ -66,7 +63,7 @@ int main(int argc, char** argv) {
         destroy_arena(arena);
         arena = typed_arena;
         printf("Typed program successfully: \n");
-        print_program(&program);
+        print_node(&program);
 
         FILE *output = fopen("out.spv", "wb");
         emit(program, output);

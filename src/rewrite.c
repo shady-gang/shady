@@ -31,17 +31,17 @@ const struct Node* recreate_node_identity(struct Rewriter* rewriter, const struc
     if (node == NULL)
         return NULL;
     switch (node->tag) {
-        case Program_TAG: {
-            size_t count = node->payload.program.variables.count;
+        case Root_TAG: {
+            size_t count = node->payload.root.variables.count;
             const struct Node* new_variables[count];
             const struct Node* new_definitions[count];
 
             for (size_t i = 0; i < count; i++) {
-                new_variables[i] = rewriter->rewrite_node(rewriter, node->payload.program.variables.nodes[i]);
-                new_definitions[i] = rewriter->rewrite_node(rewriter, node->payload.program.definitions.nodes[i]);
+                new_variables[i] = rewriter->rewrite_node(rewriter, node->payload.root.variables.nodes[i]);
+                new_definitions[i] = rewriter->rewrite_node(rewriter, node->payload.root.definitions.nodes[i]);
             }
 
-            return program(rewriter->dst_arena, (struct Program) {
+            return root(rewriter->dst_arena, (struct Root) {
                 .variables = nodes(rewriter->dst_arena, count, new_variables),
                 .definitions = nodes(rewriter->dst_arena, count, new_definitions)
             });
