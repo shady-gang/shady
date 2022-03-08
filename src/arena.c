@@ -112,4 +112,3 @@ const char* string_sized(struct IrArena* arena, size_t size, const char* str) {
 const char* string(struct IrArena* arena, const char* str) {
     return string_sized(arena, strlen(str), str);
 }
-

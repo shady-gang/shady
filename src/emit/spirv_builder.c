@@ -116,7 +116,7 @@ inline static void literal_int_(SpvSectionBuilder data, uint32_t i) {
 
 #define copy_section(section) copy_section_(target_data, section)
 inline static void copy_section_(SpvSectionBuilder target, SpvSectionBuilder source) {
-    for (size_t i = 0; i < source->elements; i++)
+    for (size_t i = 0; i < source->elements_count; i++)
         literal_int_(target, read_list(uint32_t, source)[i]);
 }
 
@@ -507,7 +507,7 @@ SpvId spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuil
     copy_section(fn_builder->header);
 
     bool first = true;
-    for (size_t i = 0; i < fn_builder->bbs->elements; i++) {
+    for (size_t i = 0; i < fn_builder->bbs->elements_count; i++) {
         op(SpvOpLabel, 2);
         struct SpvBasicBlockBuilder* bb = &read_list(struct SpvBasicBlockBuilder, fn_builder->bbs)[i];
         ref_id(bb->label);
@@ -518,14 +518,14 @@ SpvId spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuil
             first = false;
         }
 
-        for (size_t j = 0; j < bb->phis->elements; j++) {
+        for (size_t j = 0; j < bb->phis->elements_count; j++) {
             struct Phi* phi = &read_list(struct Phi, bb->phis)[j];
 
-            op(SpvOpPhi, 3 + 2 * phi->preds->elements);
+            op(SpvOpPhi, 3 + 2 * phi->preds->elements_count);
             ref_id(phi->type);
             ref_id(phi->value);
-            assert(phi->preds->elements != 0);
-            for (size_t k = 0; k < phi->preds->elements; k++) {
+            assert(phi->preds->elements_count != 0);
+            for (size_t k = 0; k < phi->preds->elements_count; k++) {
                 struct PhiOp* pred = &read_list(struct PhiOp, phi->preds)[k];
                 ref_id(pred->value);
                 ref_id(pred->basic_block);

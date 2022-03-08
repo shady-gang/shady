@@ -111,7 +111,7 @@ struct Nodes eat_parameters(ctxparams) {
         }
     }
 
-    struct Nodes variables2 = nodes(arena, params->elements, (const struct Node**) params->alloc);
+    struct Nodes variables2 = nodes(arena, params->elements_count, (const struct Node**) params->alloc);
     destroy_list(params);
     return variables2;
 }
@@ -134,7 +134,7 @@ struct Types eat_parameter_types(ctxparams) {
         }
     }
 
-    struct Types types2 = types(arena, params->elements, (const struct Type**) params->alloc);
+    struct Types types2 = types(arena, params->elements_count, (const struct Type**) params->alloc);
     destroy_list(params);
     return types2;
 }
@@ -182,7 +182,7 @@ struct Strings eat_identifiers(ctxparams) {
             break;
     }
 
-    struct Strings final = strings(arena, list->elements, (const char**) list->alloc);
+    struct Strings final = strings(arena, list->elements_count, (const char**) list->alloc);
     destroy_list(list);
     return final;
 }
@@ -210,7 +210,7 @@ struct Nodes eat_values(ctxparams, enum TokenTag separator) {
         }
     }
 
-    struct Nodes final = nodes(arena, list->elements, (const struct Node**) list->alloc);
+    struct Nodes final = nodes(arena, list->elements_count, (const struct Node**) list->alloc);
     destroy_list(list);
     return final;
 }
@@ -344,7 +344,7 @@ struct Program parse(char* contents, struct IrArena* arena) {
         exit(-3);
     }
 
-    struct Nodes top_level_nodes = nodes(arena, top_level->elements, read_list(const struct Node*, top_level));
+    struct Nodes top_level_nodes = nodes(arena, top_level->elements_count, read_list(const struct Node*, top_level));
     destroy_list(top_level);
     destroy_tokenizer(tokenizer);
 

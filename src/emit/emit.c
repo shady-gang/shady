@@ -87,7 +87,7 @@ void emit(struct Program program, FILE* output) {
     destroy_dict(emitter.type_ids);
     destroy_dict(emitter.node_ids);
 
-    fwrite(words->alloc, words->elements, 4, output);
+    fwrite(words->alloc, words->elements_count, 4, output);
 
     destroy_list(words);
 }

@@ -4,9 +4,9 @@
 #include <stddef.h>
 
 struct List {
-    size_t elements;
+    size_t elements_count;
     size_t space;
-    size_t elem_size;
+    size_t element_size;
     void* alloc;
 };
 
