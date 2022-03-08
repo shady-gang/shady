@@ -18,15 +18,10 @@ struct BindRewriter {
     struct List* bound_variables;
 };
 
-const struct Node* resolve(struct BindRewriter* ctx, const char* id) {
+static const struct Node* resolve(struct BindRewriter* ctx, const char* id) {
     for (size_t i = 0; i < entries_count_list(ctx->bound_variables); i++) {
         const struct BindEntry* entry = &read_list(const struct BindEntry, ctx->bound_variables)[i];
         if (strcmp(entry->id, id) == 0) {
-            /*if (entry->new_node == NULL) {
-                switch (entry->old_node) {
-
-                }
-            }*/
             return entry->new_node;
         }
     }
@@ -117,8 +112,8 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
     }
 }
 
-struct Program bind_program(struct IrArena* src_arena, struct IrArena* dst_arena, struct Program src_program) {
-    const size_t count = src_program.variables.count;
+const struct Program* bind_program(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Program* src_program) {
+    const size_t count = src_program->variables.count;
 
     const struct Node* new_variables[count];
     const struct Node* new_definitions[count];
@@ -135,7 +130,7 @@ struct Program bind_program(struct IrArena* src_arena, struct IrArena* dst_arena
     };
 
     for (size_t i = 0; i < count; i++) {
-        const struct Node* variable = src_program.variables.nodes[i];
+        const struct Node* variable = src_program->variables.nodes[i];
 
         const struct Node* new_variable = var(dst_arena, (struct Variable) {
             .name = string(dst_arena, variable->payload.var.name),
@@ -151,13 +146,13 @@ struct Program bind_program(struct IrArena* src_arena, struct IrArena* dst_arena
     }
 
     for (size_t i = 0; i < count; i++) {
-        new_definitions[i] = bind_node(&ctx, src_program.definitions.nodes[i]);
+        new_definitions[i] = bind_node(&ctx, src_program->definitions.nodes[i]);
     }
 
     destroy_list(bound_variables);
 
-    return (struct Program) {
+    return &program(dst_arena, (struct Program) {
         .variables = nodes(dst_arena, count, new_variables),
         .definitions = nodes(dst_arena, count, new_definitions)
-    };
+    })->payload.program;
 }

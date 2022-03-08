@@ -29,6 +29,7 @@ enum AddressSpace {
   NODEDEF(Variable, var) \
   NODEDEF(UntypedNumber, untyped_number) \
   NODEDEF(Function, fn) \
+  NODEDEF(Program, program) \
 
 struct Nodes {
     size_t count;
@@ -141,6 +142,11 @@ struct Return {
     struct Nodes values;
 };
 
+struct Program {
+    struct Nodes variables;
+    struct Nodes definitions;
+};
+
 //struct Continue {};
 //struct Break {};
 
@@ -211,11 +217,6 @@ struct Node {
     } payload;
 };
 
-struct Program {
-    struct Nodes variables;
-    struct Nodes definitions;
-};
-
 struct IrConfig {
     bool check_types;
 };
@@ -248,7 +249,7 @@ const struct Node* recreate_node_identity(struct Rewriter*, const struct Node*);
 /// Rewrites a type using the rewriter to provide the type operands
 const struct Type* recreate_type_identity(struct Rewriter*, const struct Type*);
 
-typedef struct Program (*RewritePass)(struct IrArena* src_arena, struct Program* src_program, struct IrArena* dst_arena);
+typedef struct Program (*RewritePass)(struct IrArena* src_arena, struct IrArena* dst_arena, struct Program* src_program);
 
 struct Nodes         nodes(struct IrArena*, size_t count, const struct Node*[]);
 struct Types         types(struct IrArena*, size_t count, const struct Type*[]);

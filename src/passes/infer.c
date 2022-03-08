@@ -3,12 +3,32 @@
 #include "../implem.h"
 #include "../type.h"
 
+#include "list.h"
+
 #include <assert.h>
+#include <string.h>
 
-#define ctxparams struct IrArena* src_arena, struct IrArena* dst_arena
-#define ctx src_arena, dst_arena
+struct BindEntry {
+    const char* id;
+    const struct Node* typed;
+};
 
-const struct Node* type_value(ctxparams, const struct Node* value, const struct Type* expected_type) {
+struct BindRewriter {
+    struct Rewriter rewriter;
+    struct List* typed_variables;
+};
+
+static const struct Node* resolve(struct BindRewriter* ctx, const char* id) {
+    for (size_t i = 0; i < entries_count_list(ctx->typed_variables); i++) {
+        const struct BindEntry* entry = &read_list(const struct BindEntry, ctx->typed_variables)[i];
+        if (strcmp(entry->id, id) == 0) {
+            return entry->typed;
+        }
+    }
+    error("could not resolve variable %s", id)
+}
+
+/*const struct Node* type_value(ctxparams, const struct Node* value, const struct Type* expected_type) {
     switch (value->tag) {
         case Variable_TAG: {
             const struct Type* inferred_type = expected_type;
@@ -36,9 +56,9 @@ const struct Node* type_decl(ctxparams, const struct Node* decl) {
         case Function_TAG:
         default: error("not a decl");
     }
-}
+}*/
 
-struct Program infer_types(ctxparams, struct Program src_program) {
+const struct Program* type_program(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Program* src_program) {
     /*const struct Node* new_top_level[src_program.declarations_and_definitions.count];
     for (size_t i = 0; i < src_program.declarations_and_definitions.count; i++) {
         new_top_level[i] = type_decl(ctx, src_program.declarations_and_definitions.nodes[i]);

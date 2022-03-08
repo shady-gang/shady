@@ -190,6 +190,10 @@ const struct Type* infer_primop(struct IrArena* arena, struct PrimOp primop) {
     }
 }
 
+const struct Type* infer_program(struct IrArena* arena, struct Program program) {
+    return NULL;
+}
+
 #define type_ctor_prelude struct Type type; \
 memset((void*)&type, 0, sizeof(struct Type));
 

@@ -345,7 +345,7 @@ struct TopLevelDecl accept_var_decl(ctxparams) {
     };
 }
 
-struct Program parse(char* contents, struct IrArena* arena) {
+const struct Program* parse(char* contents, struct IrArena* arena) {
     struct Tokenizer* tokenizer = new_tokenizer(contents);
 
     struct List* top_level = new_list(struct TopLevelDecl);
@@ -386,8 +386,8 @@ struct Program parse(char* contents, struct IrArena* arena) {
     destroy_list(top_level);
     destroy_tokenizer(tokenizer);
 
-    return (struct Program) {
+    return &program(arena, (struct Program) {
         .variables = variables,
         .definitions = definitions
-    };
+    })->payload.program;
 }

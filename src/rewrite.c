@@ -3,22 +3,6 @@
 
 #include "list.h"
 
-struct Program rewrite_program(struct Rewriter* rewriter, const struct Program* src_program) {
-    size_t count = src_program->variables.count;
-    const struct Node* new_variables[count];
-    const struct Node* new_definitions[count];
-
-    for (size_t i = 0; i < count; i++) {
-        new_variables[i] = rewriter->rewrite_node(rewriter, src_program->variables.nodes[i]);
-        new_definitions[i] = rewriter->rewrite_node(rewriter, src_program->definitions.nodes[i]);
-    }
-
-    return (struct Program) {
-        .variables = nodes(rewriter->dst_arena, count, new_variables),
-        .definitions = nodes(rewriter->dst_arena, count, new_definitions)
-    };
-}
-
 struct Nodes rewrite_nodes(struct Rewriter* rewriter, struct Nodes old_nodes) {
     size_t count = old_nodes.count;
     const struct Node* arr[count];
@@ -47,6 +31,21 @@ const struct Node* recreate_node_identity(struct Rewriter* rewriter, const struc
     if (node == NULL)
         return NULL;
     switch (node->tag) {
+        case Program_TAG: {
+            size_t count = node->payload.program.variables.count;
+            const struct Node* new_variables[count];
+            const struct Node* new_definitions[count];
+
+            for (size_t i = 0; i < count; i++) {
+                new_variables[i] = rewriter->rewrite_node(rewriter, node->payload.program.variables.nodes[i]);
+                new_definitions[i] = rewriter->rewrite_node(rewriter, node->payload.program.definitions.nodes[i]);
+            }
+
+            return program(rewriter->dst_arena, (struct Program) {
+                .variables = nodes(rewriter->dst_arena, count, new_variables),
+                .definitions = nodes(rewriter->dst_arena, count, new_definitions)
+            });
+        }
         case Function_TAG:      return fn(rewriter->dst_arena, (struct Function) {
            .return_type = rewriter->rewrite_type(rewriter, node->payload.fn.return_type),
            .instructions = rewrite_nodes(rewriter, node->payload.fn.instructions),
