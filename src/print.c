@@ -1,10 +1,13 @@
 #include "implem.h"
 
 void print_program(const struct Program* program) {
-    for (size_t i = 0; i < program->declarations_and_definitions.count; i++) {
-        print_node(program->declarations_and_definitions.nodes[i], true);
+    for (size_t i = 0; i < program->variables.count; i++) {
+        // Some top-level variables do not have definitions !
+        if (program->definitions.nodes[i])
+            print_node(program->definitions.nodes[i], program->variables.nodes[i]->payload.var.name);
+        else print_node(program->variables.nodes[i], program->variables.nodes[i]->payload.var.name);
 
-        if (i < program->declarations_and_definitions.count - 1)
+        if (i < program->variables.count - 1)
             printf("\n");
     }
 }
@@ -27,20 +30,29 @@ void print_instructions(const struct Nodes instructions) {
 
 }
 
-void print_node(const struct Node* node, bool is_decl) {
+void print_node(const struct Node* node, const char* def_name) {
     switch (node->tag) {
         case VariableDecl_TAG:
             print_type(node->payload.var_decl.variable->payload.var.type);
             printf(" %s", node->payload.var_decl.variable->payload.var.name);
             if (node->payload.var_decl.init) {
                 printf(" = ");
-                print_node(node->payload.var_decl.init, false);
+                print_node(node->payload.var_decl.init, NULL);
             }
             printf(";\n");
             break;
+        case Variable_TAG:
+            if (def_name) {
+                printf("var ");
+                print_type(node->payload.var.type);
+                printf(" %s;\n", node->payload.var.name);
+            } else
+                printf(" %s", node->payload.var.name);
+            break;
         case Function_TAG:
             print_type(node->payload.fn.return_type);
-            printf(" %s", node->payload.fn.name);
+            if (def_name)
+                printf(" %s", def_name);
             print_param_list(node->payload.fn.params, true);
             printf(" {\n");
             indent++;
@@ -48,7 +60,7 @@ void print_node(const struct Node* node, bool is_decl) {
             indent--;
             printf("}\n");
             break;
-        default: error("unhandled node");
+        default: error("dunno how to print this");
     }
 }
 
@@ -64,6 +76,7 @@ void print_type(const struct Type* type) {
             else
                 printf("varying ");
             print_type(type->payload.qualified.type);
+            break;
         case NoRet:
             printf("!");
             break;

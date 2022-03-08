@@ -1,13 +1,14 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <assert.h>
-
-#include "ir.h"
 #include "token.h"
 
 #include "../containers/list.h"
 
+#include "ir.h"
 #include "../implem.h"
+#include "../type.h"
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
 
 extern const char* token_tags[];
 
@@ -245,10 +246,18 @@ const struct Node* accept_instruction(ctxparams) {
         case let_tok: {
             next_token(tokenizer);
             struct Strings ids = eat_identifiers(ctx);
+            size_t bindings_count = ids.count;
+            const struct Node* bindings[bindings_count];
+            for (size_t i = 0; i < bindings_count; i++)
+                bindings[i] = var(arena, (struct Variable) {
+                    .name = ids.strings[i],
+                    .type = NULL, // type inference will be required for those
+                });
+
             expect(accept_token(ctx, equal_tok));
             const struct Node* comp = eat_computation(ctx);
             return let(arena, (struct Let) {
-                .names = ids,
+                .variables = nodes(arena, bindings_count, bindings),
                 .target = comp
             });
         }
@@ -277,9 +286,15 @@ struct Nodes eat_block(ctxparams) {
     return block;
 }
 
-const struct Node* accept_fn_decl(ctxparams) {
+struct TopLevelDecl {
+    bool empty;
+    const struct Node* variable;
+    const struct Node* definition;
+};
+
+struct TopLevelDecl accept_fn_decl(ctxparams) {
     if (!accept_token(ctx, fn_tok))
-        return NULL;
+        return (struct TopLevelDecl) { .empty = true };
 
     const struct Type* type = expect_maybe_qualified_type(ctx);
     expect(type);
@@ -288,55 +303,71 @@ const struct Node* accept_fn_decl(ctxparams) {
     expect(curr_token(tokenizer).tag == lpar_tok);
     struct Nodes parameters = eat_parameters(ctx);
     struct Nodes instructions = eat_block(ctx);
-    return fn(arena, (struct Function) {
-        .name = id,
+
+    const struct Node* function = fn(arena, (struct Function) {
         .params = parameters,
         .return_type = type,
         .instructions = instructions
     });
+
+    const struct Node* variable = var(arena, (struct Variable) {
+        .name = id,
+        .type = derive_fn_type(arena, &function->payload.fn)
+    });
+
+    return (struct TopLevelDecl) {
+        .empty = false,
+        .variable = variable,
+        .definition = function
+    };
 }
 
-const struct Node* accept_var_decl(ctxparams) {
+struct TopLevelDecl accept_var_decl(ctxparams) {
     if (!accept_token(ctx, var_tok))
-        return NULL;
+        return (struct TopLevelDecl) { .empty = true };
 
     const struct Type* type = expect_maybe_qualified_type(ctx);
     expect(type);
     const char* id = accept_identifier(ctx);
     expect(id);
 
-    // TODO accept init
     expect(accept_token(ctx, semi_tok));
 
-    return var_decl(arena, (struct VariableDecl) {
-        .address_space = AsPrivate,
-        .variable = var(arena, (struct Variable) {
-            .type = type,
-            .name = id
-        }),
-       .init = NULL
+    const struct Node* variable = var(arena, (struct Variable) {
+        .type = type,
+        .name = id
     });
+
+    return (struct TopLevelDecl) {
+        .empty = false,
+        .variable = variable,
+        .definition = NULL
+    };
 }
 
 struct Program parse(char* contents, struct IrArena* arena) {
     struct Tokenizer* tokenizer = new_tokenizer(contents);
 
-    struct List* top_level = new_list(struct Node*);
+    struct List* top_level = new_list(struct TopLevelDecl);
 
     while (true) {
         struct Token token = curr_token(tokenizer);
         if (token.tag == EOF_tok)
             break;
 
-        const struct Node* decl = accept_fn_decl(ctx);
-        if (!decl)
+        struct TopLevelDecl decl = accept_fn_decl(ctx);
+        if (decl.empty)
             decl = accept_var_decl(ctx);
         
-        if (decl) {
-            printf("decl parsed :");
-            print_node(decl, true);
+        if (!decl.empty) {
+            expect(decl.variable->payload.var.type != NULL && "top-level declarations require types");
+
+            printf("decl %s parsed :", decl.variable->payload.var.name);
+            if (decl.definition)
+                print_node(decl.definition, decl.variable->payload.var.name);
             printf("\n");
-            append_list(struct Node*, top_level, decl);
+
+            append_list(struct TopLevelDecl, top_level, decl);
             continue;
         }
 
@@ -344,11 +375,19 @@ struct Program parse(char* contents, struct IrArena* arena) {
         exit(-3);
     }
 
-    struct Nodes top_level_nodes = nodes(arena, top_level->elements_count, read_list(const struct Node*, top_level));
+    struct Nodes variables = reserve_nodes(arena, top_level->elements_count);
+    struct Nodes definitions = reserve_nodes(arena, top_level->elements_count);
+
+    for (size_t i = 0; i < top_level->elements_count; i++) {
+        variables.nodes[i] = read_list(struct TopLevelDecl, top_level)[i].variable;
+        definitions.nodes[i] = read_list(struct TopLevelDecl, top_level)[i].definition;
+    }
+
     destroy_list(top_level);
     destroy_tokenizer(tokenizer);
 
     return (struct Program) {
-        .declarations_and_definitions = top_level_nodes,
+        .variables = variables,
+        .definitions = definitions
     };
 }

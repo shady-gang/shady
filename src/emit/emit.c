@@ -2,11 +2,13 @@
 #include "dict.h"
 
 #include "../implem.h"
+#include "../type.h"
 
 #include "spirv_builder.h"
 
 #include <stdio.h>
 #include <stdint.h>
+#include <assert.h>
 
 KeyHash hash_type(struct Type**);
 bool compare_type(struct Type**, struct Type**);
@@ -47,8 +49,12 @@ SpvId emit_type(struct SpvEmitter* emitter, const struct Type* type) {
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
             break;
         }
-        default:
-            exit(667);
+        case QualType: {
+            // SPIR-V does not care about our type qualifiers.
+            new = emit_type(emitter, type->payload.qualified.type);
+            break;
+        }
+        default: error("Don't know how to emit type\n")
     }
 
     insert_dict_and_get_result(struct Type*, SpvId, emitter->type_ids, type, new);
@@ -69,17 +75,25 @@ void emit(struct Program program, FILE* output) {
     spvb_capability(file_builder, SpvCapabilityShader);
     spvb_capability(file_builder, SpvCapabilityLinkage);
 
-    for (size_t i = 0; i < program.declarations_and_definitions.count; i++) {
-        const struct Node* node = program.declarations_and_definitions.nodes[i];
-        switch (node->tag) {
-            case VariableDecl_TAG: {
-                SpvId id = spvb_global_variable(file_builder, emit_type(&emitter, node->type), emit_addr_space(node->payload.var_decl.address_space));
-                spvb_name(file_builder, id, node->payload.var_decl.variable->payload.var.name);
+    for (size_t i = 0; i < program.variables.count; i++) {
+        const struct Node* variable = program.variables.nodes[i];
+        const struct Node* definition = program.definitions.nodes[i];
+
+        enum DivergenceQualifier qual;
+        const struct Type* unqualified_type = strip_qualifier(variable->type, &qual);
+
+        switch (unqualified_type->tag) {
+            case FnType: {
+                assert(qual == Uniform && "top-level functions should never be non-uniform");
+                printf("TODO: emit fn\n");
                 break;
-            } case Function_TAG:
+            } case PtrType: { // this is some global variable
+                SpvId id = spvb_global_variable(file_builder, emit_type(&emitter, unqualified_type), emit_addr_space(unqualified_type->payload.ptr.address_space));
+                spvb_name(file_builder, id, variable->payload.var.name);
                 break;
-            default:
-                exit(666);
+            } default: { // it must be some global constant
+                SHADY_NOT_IMPLEM
+            }
         }
     }
 

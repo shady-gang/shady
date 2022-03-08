@@ -1,5 +1,6 @@
 #include "ir.h"
 #include "implem.h"
+#include "type.h"
 
 #include "stdlib.h"
 #include "string.h"

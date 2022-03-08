@@ -51,7 +51,6 @@ struct UntypedNumber {
 
 /// Function with _structured_ control flow
 struct Function {
-    String name;
     struct Nodes params;
     struct Nodes instructions;
     const struct Type* return_type;
@@ -89,7 +88,7 @@ struct VariableDecl {
 };
 
 struct Let {
-    struct Strings names;
+    struct Nodes variables;
     const struct Node* target;
 };
 
@@ -213,7 +212,8 @@ struct Node {
 };
 
 struct Program {
-    struct Nodes declarations_and_definitions;
+    struct Nodes variables;
+    struct Nodes definitions;
 };
 
 struct IrConfig {
@@ -275,7 +275,7 @@ String string_sized(struct IrArena* arena, size_t size, const char* start);
 String string(struct IrArena* arena, const char* start);
 
 void print_program(const struct Program* program);
-void print_node(const struct Node* node, bool);
+void print_node(const struct Node* node, const char*);
 void print_type(const struct Type* type);
 
 #define SHADY_IR_H

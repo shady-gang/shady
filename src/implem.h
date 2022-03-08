@@ -20,17 +20,6 @@ struct IrArena {
 void* arena_alloc(struct IrArena* arena, size_t size);
 void emit(struct Program program, FILE* output);
 
-struct TypeTable;
-struct TypeTable* new_type_table();
-void destroy_type_table(struct TypeTable*);
-
-bool is_subtype(const struct Type* supertype, const struct Type* type);
-void check_subtype(const struct Type* supertype, const struct Type* type);
-enum DivergenceQualifier resolve_divergence(const struct Type* type);
-
-const struct Type* noret_type(struct IrArena* arena);
-const struct Type* needs_infer(struct IrArena* arena);
-
 #define NODEDEF(struct_name, short_name) const struct Type* infer_##short_name(struct IrArena*, struct struct_name);
 NODES()
 #undef NODEDEF

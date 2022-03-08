@@ -52,18 +52,20 @@ int main(int argc, char** argv) {
 
         free(contents);
 
+        printf("Parsed program successfully: \n");
         print_program(&program);
 
+        program = bind_program(arena, arena, program);
+        printf("Bound program successfully: \n");
+        print_program(&program);
 
-        struct IrArena* narena = new_arena((struct IrConfig) {
+        struct IrArena* typed_arena = new_arena((struct IrConfig) {
             .check_types = true
         });
-
-        program = bind_program(arena, narena, program);
-
+        program = infer_types(arena, typed_arena, program);
         destroy_arena(arena);
-        arena = narena;
-
+        arena = typed_arena;
+        printf("Typed program successfully: \n");
         print_program(&program);
 
         FILE *output = fopen("out.spv", "wb");

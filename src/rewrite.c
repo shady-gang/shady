@@ -1,16 +1,22 @@
 #include "implem.h"
+#include "type.h"
 
 #include "list.h"
 
 struct Program rewrite_program(struct Rewriter* rewriter, const struct Program* src_program) {
-    size_t count = src_program->declarations_and_definitions.count;
-    const struct Node* new_top_level[count];
+    size_t count = src_program->variables.count;
+    const struct Node* new_variables[count];
+    const struct Node* new_definitions[count];
 
     for (size_t i = 0; i < count; i++) {
-        new_top_level[i] = rewriter->rewrite_node(rewriter, src_program->declarations_and_definitions.nodes[i]);
+        new_variables[i] = rewriter->rewrite_node(rewriter, src_program->variables.nodes[i]);
+        new_definitions[i] = rewriter->rewrite_node(rewriter, src_program->definitions.nodes[i]);
     }
 
-    return (struct Program) { nodes(rewriter->dst_arena, count, new_top_level) };
+    return (struct Program) {
+        .variables = nodes(rewriter->dst_arena, count, new_variables),
+        .definitions = nodes(rewriter->dst_arena, count, new_definitions)
+    };
 }
 
 struct Nodes rewrite_nodes(struct Rewriter* rewriter, struct Nodes old_nodes) {
@@ -42,9 +48,8 @@ const struct Node* recreate_node_identity(struct Rewriter* rewriter, const struc
         return NULL;
     switch (node->tag) {
         case Function_TAG:      return fn(rewriter->dst_arena, (struct Function) {
-           .name = string(rewriter->dst_arena, node->payload.fn.name),
            .return_type = rewriter->rewrite_type(rewriter, node->payload.fn.return_type),
-           .instructions = rewrite_nodes(rewriter, node->payload.fn.params),
+           .instructions = rewrite_nodes(rewriter, node->payload.fn.instructions),
            .params = rewrite_nodes(rewriter, node->payload.fn.params),
         });
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (struct UntypedNumber) {
@@ -64,7 +69,7 @@ const struct Node* recreate_node_identity(struct Rewriter* rewriter, const struc
             .args = rewrite_nodes(rewriter, node->payload.call.args)
         });
         case Let_TAG:           return let(rewriter->dst_arena, (struct Let) {
-            .names = import_strings(rewriter->dst_arena, node->payload.let.names),
+            .variables = rewrite_nodes(rewriter, node->payload.let.variables),
             .target = rewriter->rewrite_node(rewriter, node->payload.let.target)
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (struct Return) {

@@ -1,3 +1,5 @@
+#include "type.h"
+
 #include "implem.h"
 
 #include "dict.h"
@@ -113,6 +115,16 @@ enum DivergenceQualifier resolve_divergence(const struct Type* type) {
     return resolve_divergence_impl(type, true);
 }
 
+const struct Type* strip_qualifier(const struct Type* type, enum DivergenceQualifier* qual_out) {
+    if (type->tag == QualType) {
+        *qual_out = type->payload.qualified.is_uniform ? Uniform : Varying;
+        return type->payload.qualified.type;
+    } else {
+        *qual_out = Unknown;
+        return type;
+    }
+}
+
 const struct Type* infer_call(struct IrArena* arena, struct Call call) {
     const struct Type* callee_type = call.callee->type;
     if (callee_type->tag != FnType)
@@ -126,15 +138,15 @@ const struct Type* infer_call(struct IrArena* arena, struct Call call) {
 }
 
 // This is a pretty good helper fn
-const struct Type* derive_fn_type(struct IrArena* arena, struct Function fn) {
-    struct Types types = reserve_types(arena, fn.params.count);
+const struct Type* derive_fn_type(struct IrArena* arena, const struct Function* fn) {
+    struct Types types = reserve_types(arena, fn->params.count);
     for (size_t i = 0; i < types.count; i++)
-        types.types[i] = fn.params.nodes[i]->type;
-    return fn_type(arena, types, fn.return_type);
+        types.types[i] = fn->params.nodes[i]->type;
+    return fn_type(arena, types, fn->return_type);
 }
 
 const struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
-    return derive_fn_type(arena, fn);
+    return derive_fn_type(arena, &fn);
 }
 
 const struct Type* infer_var_decl(struct IrArena* arena, struct VariableDecl decl) {

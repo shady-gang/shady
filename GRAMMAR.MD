@@ -5,14 +5,15 @@ For the front-end mode, we can easily extend this by redefining `VALUE` as an ar
 ```
 PROGRAM := (DECL)*
 
-DECL := VAR_DECL | FN_DECL;
+DECL := def 
 
-VAR_DECL := var MQTYPE IDENTIFIER ;
+// this is just syntax sugar BS ...
+VAR_DECL := var MQTYPE IDENTIFIER;
             var MQTYPE IDENTIFIER = VALUE;
 
-VAR := IDENTIFIER;
+VAR := IDENTIFIER
 
-FN_DECL := fn RET_TYPE IDENTIFIER PARAMS BLOCK
+FN_DECL := fn RET_TYPE PARAMS BLOCK
 
 PARAMS := ( [QTYPE IDENTIFIER [(, QTYPE IDENTIFIER)*]] )
 

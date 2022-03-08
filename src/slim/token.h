@@ -1,5 +1,7 @@
 #ifndef SHADY_TOKEN_H
 
+#include <stddef.h>
+
 #define TOKENS() \
 TOKEN(EOF, NULL) \
 TOKEN(identifier, NULL) \
