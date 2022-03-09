@@ -125,7 +125,7 @@ const struct Type* strip_qualifier(const struct Type* type, enum DivergenceQuali
     }
 }
 
-const struct Type* infer_call(struct IrArena* arena, struct Call call) {
+const struct Type* check_type_call(struct IrArena* arena, struct Call call) {
     const struct Type* callee_type = call.callee->type;
     if (callee_type->tag != FnType)
         error("Callees must have a function type");
@@ -145,35 +145,35 @@ const struct Type* derive_fn_type(struct IrArena* arena, const struct Function* 
     return fn_type(arena, types(arena, fn->params.count, ptypes), fn->return_type);
 }
 
-const struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
+const struct Type* check_type_fn(struct IrArena* arena, struct Function fn) {
     return derive_fn_type(arena, &fn);
 }
 
-const struct Type* infer_var_decl(struct IrArena* arena, struct VariableDecl decl) {
+const struct Type* check_type_var_decl(struct IrArena* arena, struct VariableDecl decl) {
     return ptr_type(arena, decl.variable->type, decl.address_space);
 }
 
-const struct Type* infer_expr_eval(struct IrArena* arena, struct ExpressionEval expr) {
+const struct Type* check_type_expr_eval(struct IrArena* arena, struct ExpressionEval expr) {
     SHADY_NOT_IMPLEM;
 }
 
-const struct Type* infer_var(struct IrArena* arena, struct Variable variable) {
+const struct Type* check_type_var(struct IrArena* arena, struct Variable variable) {
     return variable.type;
 }
 
-const struct Type* infer_untyped_number(struct IrArena* arena, struct UntypedNumber untyped) {
+const struct Type* check_type_untyped_number(struct IrArena* arena, struct UntypedNumber untyped) {
     error("should never happen");
 }
 
-const struct Type* infer_let(struct IrArena* arena, struct Let let) {
+const struct Type* check_type_let(struct IrArena* arena, struct Let let) {
     return let.target->type;
 }
 
-const struct Type* infer_fn_ret(struct IrArena* arena, struct Return fn_ret) {
+const struct Type* check_type_fn_ret(struct IrArena* arena, struct Return fn_ret) {
     return noret_type(arena);
 }
 
-const struct Type* infer_primop(struct IrArena* arena, struct PrimOp primop) {
+const struct Type* check_type_primop(struct IrArena* arena, struct PrimOp primop) {
     switch (primop.op) {
         case sub_op:
         case add_op: {
@@ -190,7 +190,7 @@ const struct Type* infer_primop(struct IrArena* arena, struct PrimOp primop) {
     }
 }
 
-const struct Type* infer_root(struct IrArena* arena, struct Root program) {
+const struct Type* check_type_root(struct IrArena* arena, struct Root program) {
     return NULL;
 }
 

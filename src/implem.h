@@ -25,10 +25,6 @@ struct IrArena {
 
 void* arena_alloc(struct IrArena* arena, size_t size);
 
-#define NODEDEF(struct_name, short_name) const struct Type* infer_##short_name(struct IrArena*, struct struct_name);
-NODES()
-#undef NODEDEF
-
 #ifdef _MSC_VER
 #define SHADY_UNREACHABLE __assume(0)
 #else

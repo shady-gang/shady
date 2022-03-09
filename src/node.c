@@ -1,4 +1,5 @@
 #include "implem.h"
+#include "type.h"
 
 #include "murmur3.h"
 #include "dict.h"
@@ -9,7 +10,7 @@
     struct Node* node = (struct Node*) arena_alloc(arena, sizeof(struct Node));                                             \
     memset((void*) node, 0, sizeof(struct Node));                                                                           \
     *node = (struct Node) {                                                                                                 \
-      .type = arena->config.check_types ? infer_##short_name(arena, in_node) : NULL,                                                     \
+      .type = arena->config.check_types ? check_type_##short_name(arena, in_node) : NULL,                                                     \
       .tag = struct_name##_TAG,                                                                                             \
       .payload = (union NodesUnion) {                                                                                       \
           .short_name = in_node                                                                                             \
