@@ -258,10 +258,6 @@ struct Nodes         nodes(struct IrArena*, size_t count, const struct Node*[]);
 struct Types         types(struct IrArena*, size_t count, const struct Type*[]);
 struct Strings     strings(struct IrArena*, size_t count, const char*[]);
 
-struct Nodes         reserve_nodes(struct IrArena*, size_t count);
-struct Types         reserve_types(struct IrArena*, size_t count);
-struct Strings     reserve_strings(struct IrArena*, size_t count);
-
 #define NODEDEF(struct_name, short_name) const struct Node* short_name(struct IrArena*, struct struct_name);
 NODES()
 #undef NODEDEF

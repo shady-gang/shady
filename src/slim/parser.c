@@ -375,19 +375,21 @@ const struct Node* parse(char* contents, struct IrArena* arena) {
         exit(-3);
     }
 
-    struct Nodes variables = reserve_nodes(arena, top_level->elements_count);
-    struct Nodes definitions = reserve_nodes(arena, top_level->elements_count);
+    size_t count = top_level->elements_count;
 
-    for (size_t i = 0; i < top_level->elements_count; i++) {
-        variables.nodes[i] = read_list(struct TopLevelDecl, top_level)[i].variable;
-        definitions.nodes[i] = read_list(struct TopLevelDecl, top_level)[i].definition;
+    const struct Node* variables[count];
+    const struct Node* definitions[count];
+
+    for (size_t i = 0; i < count; i++) {
+        variables[i] = read_list(struct TopLevelDecl, top_level)[i].variable;
+        definitions[i] = read_list(struct TopLevelDecl, top_level)[i].definition;
     }
 
     destroy_list(top_level);
     destroy_tokenizer(tokenizer);
 
     return root(arena, (struct Root) {
-        .variables = variables,
-        .definitions = definitions
+        .variables = nodes(arena, count, variables),
+        .definitions = nodes(arena, count, definitions)
     });
 }

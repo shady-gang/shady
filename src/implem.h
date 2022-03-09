@@ -14,6 +14,12 @@ struct IrArena {
 
     struct IrConfig config;
 
+    struct Dict* string_set;
+
+    struct Dict* nodes_set;
+    struct Dict* types_set;
+    struct Dict* strings_set;
+
     struct TypeTable* type_table;
 };
 

@@ -2,11 +2,26 @@
 #include "implem.h"
 #include "type.h"
 
-#include "stdlib.h"
-#include "string.h"
-#include "assert.h"
+#include "dict.h"
+#include "murmur3.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 
 #define alloc_size 1024 * 1024
+
+KeyHash hash_types(struct Types* types) ;
+bool compare_types(struct Types* a, struct Types* b);
+
+KeyHash hash_nodes(struct Nodes* nodes);
+bool compare_nodes(struct Nodes* a, struct Nodes* b);
+
+KeyHash hash_strings(struct Strings* strings);
+bool compare_strings(struct Strings* a, struct Strings* b);
+
+KeyHash hash_string(const char** string);
+bool compare_string(const char** a, const char** b);
 
 struct IrArena* new_arena(struct IrConfig config) {
     struct IrArena* arena = malloc(sizeof(struct IrArena));
@@ -16,7 +31,13 @@ struct IrArena* new_arena(struct IrConfig config) {
         .blocks = malloc(256 * sizeof(size_t)),
         .available = 0,
         .config = config,
-        .type_table = new_type_table()
+        .type_table = new_type_table(),
+
+        .string_set = new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
+
+        .nodes_set   = new_set(struct Nodes, (HashFn) hash_nodes, (CmpFn) compare_nodes),
+        .types_set   = new_set(struct Types, (HashFn) hash_types, (CmpFn) compare_types),
+        .strings_set = new_set(struct Strings, (HashFn) hash_strings, (CmpFn) compare_strings),
     };
     for (int i = 0; i < arena->maxblocks; i++)
         arena->blocks[i] = NULL;
@@ -24,6 +45,10 @@ struct IrArena* new_arena(struct IrConfig config) {
 }
 
 void destroy_arena(struct IrArena* arena) {
+    destroy_dict(arena->strings_set),
+    destroy_dict(arena->string_set),
+    destroy_dict(arena->types_set),
+    destroy_dict(arena->types_set),
     destroy_type_table(arena->type_table);
     for (int i = 0; i < arena->nblocks; i++) {
         free(arena->blocks[i]);
@@ -57,59 +82,146 @@ void* arena_alloc(struct IrArena* arena, size_t size) {
     return allocated;
 }
 
-struct Nodes reserve_nodes(struct IrArena* arena, size_t count) {
-    struct Nodes nodes = {
-        .count = count,
-        .nodes = arena_alloc(arena, count * sizeof(size_t))
-    };
-    return nodes;
-}
-
-struct Types reserve_types(struct IrArena* arena, size_t count)  {
-    struct Types types = {
-        .count = count,
-        .types = arena_alloc(arena, count * sizeof(size_t))
-    };
-    return types;
-}
-
-struct Strings reserve_strings(struct IrArena* arena, size_t count)  {
-    struct Strings strings = {
-        .count = count,
-        .strings = arena_alloc(arena, count * sizeof(size_t))
-    };
-    return strings;
-}
-
 struct Nodes nodes(struct IrArena* arena, size_t count, const struct Node* in_nodes[]) {
-    struct Nodes nodes = reserve_nodes(arena, count);
+    struct Nodes tmp = {
+        .count = count,
+        .nodes = in_nodes
+    };
+    const struct Nodes* found = find_key_dict(struct Nodes, arena->nodes_set, tmp);
+    if (found)
+        return *found;
+
+    struct Nodes nodes;
+    nodes.count = count;
+    nodes.nodes = arena_alloc(arena, sizeof(struct Node*) * count);
     for (size_t i = 0; i < count; i++)
         nodes.nodes[i] = in_nodes[i];
+
+    insert_set_get_result(struct Nodes, arena->nodes_set, nodes);
     return nodes;
 }
 
 struct Types types(struct IrArena* arena, size_t count, const struct Type* in_types[])  {
-    struct Types types = reserve_types(arena, count);
+    struct Types tmp = {
+        .count = count,
+        .types = in_types
+    };
+    const struct Types* found = find_key_dict(struct Types, arena->types_set, tmp);
+    if (found)
+        return *found;
+
+    struct Types types;
+    types.count = count;
+    types.types = arena_alloc(arena, sizeof(struct Type*) * count);
     for (size_t i = 0; i < count; i++)
         types.types[i] = in_types[i];
+
+    insert_set_get_result(struct Types, arena->types_set, types);
     return types;
 }
 
 struct Strings strings(struct IrArena* arena, size_t count, const char* in_strs[])  {
-    struct Strings strings = reserve_strings(arena, count);
+    struct Strings tmp = {
+        .count = count,
+        .strings = in_strs,
+    };
+    const struct Strings* found = find_key_dict(struct Strings, arena->strings_set, tmp);
+    if (found)
+        return *found;
+
+    struct Strings strings;
+    strings.count = count;
+    strings.strings = arena_alloc(arena, sizeof(const char*) * count);
     for (size_t i = 0; i < count; i++)
         strings.strings[i] = in_strs[i];
+
+    insert_set_get_result(struct Strings, arena->strings_set, strings);
     return strings;
 }
 
-const char* string_sized(struct IrArena* arena, size_t size, const char* str) {
-    char* new_str = (char*) arena_alloc(arena, size + 1);
-    strncpy(new_str, str, size);
+/// takes care of structural sharing
+static const char* string_impl(struct IrArena* arena, size_t size, const char* zero_terminated) {
+    const char** ptr = &zero_terminated;
+    const char** found = find_key_dict(const char*, arena->string_set, ptr);
+    if (found)
+        return *found;
+
+    char* new_str = (char*) arena_alloc(arena, strlen(zero_terminated) + 1);
+    strncpy(new_str, zero_terminated, size);
     new_str[size] = '\0';
-    assert(strlen(new_str) == size);
+
+    insert_set_get_result(const char*, arena->string_set, new_str);
     return new_str;
 }
 
+const char* string_sized(struct IrArena* arena, size_t size, const char* str) {
+    char new_str[size + 1];
+    strncpy(new_str, str, size);
+    new_str[size] = '\0';
+    assert(strlen(new_str) == size);
+    return string_impl(arena, size, str);
+}
+
 const char* string(struct IrArena* arena, const char* str) {
-    return string_sized(arena, strlen(str), str);
+    return string_impl(arena, strlen(str), str);
+}
+
+KeyHash hash_types(struct Types* types) {
+    uint32_t out[4];
+    MurmurHash3_x64_128((types)->types, (int) (sizeof(struct Type*) * (types)->count), 0x1234567, &out);
+    uint32_t final = 0;
+    final ^= out[0];
+    final ^= out[1];
+    final ^= out[2];
+    final ^= out[3];
+    return final;
+}
+
+bool compare_types(struct Types* a, struct Types* b) {
+    return a->count == b->count && memcmp(a->types, b->types, sizeof(struct Node*) * (a->count)) == 0;
+}
+
+KeyHash hash_nodes(struct Nodes* nodes) {
+    uint32_t out[4];
+    MurmurHash3_x64_128((nodes)->nodes, (int) (sizeof(struct Node*) * (nodes)->count), 0x1234567, &out);
+    uint32_t final = 0;
+    final ^= out[0];
+    final ^= out[1];
+    final ^= out[2];
+    final ^= out[3];
+    return final;
+}
+
+bool compare_nodes(struct Nodes* a, struct Nodes* b) {
+    return a->count == b->count && memcmp(a->nodes, b->nodes, sizeof(struct Node*) * (a->count)) == 0;
+}
+
+KeyHash hash_strings(struct Strings* strings) {
+    uint32_t out[4];
+    MurmurHash3_x64_128(strings->strings, (int) (sizeof(const char*) * strings->count), 0x1234567, &out);
+    uint32_t final = 0;
+    final ^= out[0];
+    final ^= out[1];
+    final ^= out[2];
+    final ^= out[3];
+    return final;
+}
+
+bool compare_strings(struct Strings* a, struct Strings* b) {
+    return a->count == b->count && memcmp(a->strings, b->strings, sizeof(const char*) * a->count) == 0;
+}
+
+KeyHash hash_string(const char** string) {
+    uint32_t out[4];
+    MurmurHash3_x64_128(*string, (int) strlen(*string), 0x1234567, &out);
+    uint32_t final = 0;
+    final ^= out[0];
+    final ^= out[1];
+    final ^= out[2];
+    final ^= out[3];
+    return final;
+}
+
+bool compare_string(const char** a, const char** b) {
+    return strlen(*a) == strlen(*b) && strcmp(*a, *b) == 0;
 }

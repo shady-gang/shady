@@ -139,10 +139,10 @@ const struct Type* infer_call(struct IrArena* arena, struct Call call) {
 
 // This is a pretty good helper fn
 const struct Type* derive_fn_type(struct IrArena* arena, const struct Function* fn) {
-    struct Types types = reserve_types(arena, fn->params.count);
-    for (size_t i = 0; i < types.count; i++)
-        types.types[i] = fn->params.nodes[i]->type;
-    return fn_type(arena, types, fn->return_type);
+    const struct Type* ptypes[fn->params.count];
+    for (size_t i = 0; i < fn->params.count; i++)
+        ptypes[i] = fn->params.nodes[i]->type;
+    return fn_type(arena, types(arena, fn->params.count, ptypes), fn->return_type);
 }
 
 const struct Type* infer_fn(struct IrArena* arena, struct Function fn) {
