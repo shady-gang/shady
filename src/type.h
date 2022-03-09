@@ -12,7 +12,6 @@ void check_subtype(const struct Type* supertype, const struct Type* type);
 enum DivergenceQualifier resolve_divergence(const struct Type* type);
 
 const struct Type* noret_type(struct IrArena* arena);
-const struct Type* needs_infer(struct IrArena* arena);
 
 const struct Type* derive_fn_type(struct IrArena* arena, const struct Function* fn);
 

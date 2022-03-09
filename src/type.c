@@ -162,7 +162,7 @@ const struct Type* infer_var(struct IrArena* arena, struct Variable variable) {
 }
 
 const struct Type* infer_untyped_number(struct IrArena* arena, struct UntypedNumber untyped) {
-    return needs_infer(arena);
+    error("should never happen");
 }
 
 const struct Type* infer_let(struct IrArena* arena, struct Let let) {
@@ -205,14 +205,6 @@ struct Type* globalptr = arena_alloc(arena, sizeof(struct Type));               
 bool result = insert_set_get_result(struct Type*, arena->type_table->set, globalptr);    \
 assert(result);                                                                      \
 return globalptr;                                                                    \
-
-const struct Type* needs_infer(struct IrArena* arena) {
-    type_ctor_prelude
-
-    type.tag = NeedsInfer;
-
-    type_ctor_epilogue
-}
 
 const struct Type* void_type(struct IrArena* arena) {
     type_ctor_prelude

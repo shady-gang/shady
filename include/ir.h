@@ -162,7 +162,6 @@ enum TypeTag {
     FnType,
     PtrType,
     QualType,
-    NeedsInfer,
 };
 
 struct Types {
