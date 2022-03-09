@@ -45,7 +45,7 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
 
                 const struct Node* new_variable = var(rewriter->dst_arena, (struct Variable) {
                     .name = string(rewriter->dst_arena, variable->payload.var.name),
-                    .type = ctx->rewriter.rewrite_type(rewriter, variable->payload.var.type)
+                    .type = rewrite_type(rewriter, variable->payload.var.type)
                 });
 
                 struct BindEntry entry = {
@@ -75,7 +75,7 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
                 const struct Variable* old_var = &node->payload.let.variables.nodes[p]->payload.var;
                 const struct Node* new_binding = var(rewriter->dst_arena, (struct Variable) {
                     .name = string(rewriter->dst_arena, old_var->name),
-                    .type = rewriter->rewrite_type(rewriter, old_var->type)
+                    .type = rewrite_type(rewriter, old_var->type)
                 });
                 noutputs[p] = new_binding;
                 struct BindEntry entry = {
@@ -88,7 +88,7 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
 
             return let(rewriter->dst_arena, (struct Let) {
                 .variables = nodes(rewriter->dst_arena, outputs_count, noutputs),
-                .target = rewriter->rewrite_node(rewriter, node->payload.let.target)
+                .target = rewrite_node(rewriter, node->payload.let.target)
             });
         }
         case Function_TAG: {
@@ -100,7 +100,7 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
                 const struct Variable* old_param = &node->payload.fn.params.nodes[p]->payload.var;
                 const struct Node* new_param = var(rewriter->dst_arena, (struct Variable) {
                     .name = string(rewriter->dst_arena, old_param->name),
-                    .type = rewriter->rewrite_type(rewriter, old_param->type)
+                    .type = rewrite_type(rewriter, old_param->type)
                 });
                 nparams[p] = new_param;
                 struct BindEntry entry = {
@@ -112,7 +112,7 @@ const struct Node* bind_node(struct BindRewriter* ctx, const struct Node* node) 
             }
 
             const struct Node* new_fn = fn(rewriter->dst_arena, (struct Function) {
-                .return_type = rewriter->rewrite_type(rewriter, node->payload.fn.return_type),
+                .return_type = rewrite_type(rewriter, node->payload.fn.return_type),
                 .instructions = rewrite_nodes(rewriter, node->payload.fn.instructions),
                 .params = nodes(rewriter->dst_arena, params_count, nparams),
             });
@@ -132,13 +132,13 @@ const struct Node* bind_program(struct IrArena* src_arena, struct IrArena* dst_a
         .rewriter = {
             .src_arena = src_arena,
             .dst_arena = dst_arena,
-            .rewrite_node = (NodeRewriteFn) bind_node,
-            .rewrite_type = (TypeRewriteFn) recreate_type_identity
+            .rewrite_node_fn = (NodeRewriteFn) bind_node,
+            .rewrite_type_fn = (TypeRewriteFn) recreate_type_identity
         },
         .bound_variables = bound_variables
     };
 
-    const struct Node* rewritten = ctx.rewriter.rewrite_node(&ctx.rewriter, source);
+    const struct Node* rewritten = rewrite_node(&ctx.rewriter, source);
 
     destroy_list(bound_variables);
     return rewritten;

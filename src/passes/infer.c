@@ -13,12 +13,13 @@ struct BindEntry {
     const struct Node* typed;
 };
 
-struct BindRewriter {
+struct TypeRewriter {
     struct Rewriter rewriter;
     struct List* typed_variables;
+    const struct Type* const expected_type;
 };
 
-static const struct Node* resolve(struct BindRewriter* ctx, const char* id) {
+static const struct Node* resolve(struct TypeRewriter* ctx, const char* id) {
     for (size_t i = 0; i < entries_count_list(ctx->typed_variables); i++) {
         const struct BindEntry* entry = &read_list(const struct BindEntry, ctx->typed_variables)[i];
         if (strcmp(entry->id, id) == 0) {
@@ -28,41 +29,50 @@ static const struct Node* resolve(struct BindRewriter* ctx, const char* id) {
     error("could not resolve variable %s", id)
 }
 
-/*const struct Node* type_value(ctxparams, const struct Node* value, const struct Type* expected_type) {
-    switch (value->tag) {
-        case Variable_TAG: {
-            const struct Type* inferred_type = expected_type;
-            assert(value->payload.var.type);
-            if (value->payload.var.type) {
-                check_subtype(expected_type, value->payload.var.type);
-                inferred_type = value->payload.var.type;
-            }
-            assert(resolve_divergence(inferred_type) != Unknown);
-            return var(dst_arena, (struct Variable) {
-                .name = value->payload.var.name,
-                .type = inferred_type
-            });
-        }
-        case UntypedNumber_TAG: {
-            if (!expected_type) error("it is impossible to infer numbers without context");
-        }
-        default: error("not a value");
-    }
+struct TypeRewriter set_expected_type(struct TypeRewriter* octx, struct Type* expected_type) {
+    return (struct TypeRewriter) { octx->rewriter, octx->typed_variables, expected_type };
 }
 
-const struct Node* type_decl(ctxparams, const struct Node* decl) {
-    switch (decl->tag) {
-        case VariableDecl_TAG:
-        case Function_TAG:
-        default: error("not a decl");
-    }
-}*/
+const struct Node* type_node(struct TypeRewriter* ctx, const struct Node* node) {
+    if (node == NULL)
+        return NULL;
+
+    /*switch (node->tag) {
+        case Root_TAG: {
+            size_t count = node->payload.root.variables.count;
+            const struct Node* new_variables[count];
+            const struct Node* new_definitions[count];
+
+            for (size_t i = 0; i < count; i++) {
+                new_variables[i] = rewrite_node(rewriter, node->payload.root.variables.nodes[i]);
+                new_definitions[i] = rewrite_node(rewriter, node->payload.root.definitions.nodes[i]);
+            }
+
+            return root(rewriter->dst_arena, (struct Root) {
+                .variables = nodes(rewriter->dst_arena, count, new_variables),
+                .definitions = nodes(rewriter->dst_arena, count, new_definitions)
+            });
+        }
+        case Function_TAG: {
+            struct TypeRewriter nctx = { ctx->rewriter, ctx->typed_variables, NULL };
+            struct Nodes nparams = rewrite_nodes(&nctx.rewriter, node->payload.fn.params);
+            return fn(rewriter->dst_arena, (struct Function) {
+               .return_type = rewrite_type_(rewriter, node->payload.fn.return_type),
+               .instructions = rewrite_nodes(rewriter, node->payload.fn.instructions),
+               .params = nparams,
+            });
+        }
+        default: {
+            struct TypeRewriter nctx = { ctx->rewriter, ctx->typed_variables, ctx->expected_type };
+            const struct Node* typed = recreate_node_identity(&nctx.rewriter, node);
+            assert(typed->type);
+            if (ctx->expected_type)
+                assert(is_subtype(typed->type, ctx->expected_type));
+            return typed;
+        }
+    }*/
+}
 
 const struct Node* type_program(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Node* src_program) {
-    /*const struct Node* new_top_level[src_program.declarations_and_definitions.count];
-    for (size_t i = 0; i < src_program.declarations_and_definitions.count; i++) {
-        new_top_level[i] = type_decl(ctx, src_program.declarations_and_definitions.nodes[i]);
-    }
-    return (struct Root) { nodes(dst_arena, src_program.declarations_and_definitions.count, new_top_level) };*/
     SHADY_NOT_IMPLEM
 }

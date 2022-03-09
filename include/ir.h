@@ -240,9 +240,12 @@ struct Rewriter {
     struct IrArena* src_arena;
     struct IrArena* dst_arena;
 
-    NodeRewriteFn rewrite_node;
-    TypeRewriteFn rewrite_type;
+    NodeRewriteFn rewrite_node_fn;
+    TypeRewriteFn rewrite_type_fn;
 };
+
+const struct Node* rewrite_node(struct Rewriter*, const struct Node*);
+const struct Type* rewrite_type(struct Rewriter*, const struct Type*);
 
 /// Rewrites a node using the rewriter to provide the node and type operands
 const struct Node* recreate_node_identity(struct Rewriter*, const struct Node*);
