@@ -5,7 +5,8 @@
 
 struct IrArena;
 struct Node;
-struct Type;
+
+#define Type Node
 
 typedef const char* String;
 
@@ -16,20 +17,32 @@ enum AddressSpace {
     AsGlobal
 };
 
-#define INSTRUCTIONS() \
-  NODEDEF(VariableDecl, var_decl) \
-  NODEDEF(ExpressionEval, expr_eval) \
-  NODEDEF(Call, call) \
-  NODEDEF(Let, let)  \
-  NODEDEF(Return, fn_ret) \
-  NODEDEF(PrimOp, primop) \
+#define INSTRUCTION_NODES() \
+  NODEDEF(true, true, VariableDecl, var_decl) \
+  NODEDEF(true, true, ExpressionEval, expr_eval) \
+  NODEDEF(true, true, Call, call) \
+  NODEDEF(true, true, Let, let)  \
+  NODEDEF(true, true, Return, fn_ret) \
+  NODEDEF(true, true, PrimOp, primop) \
+
+#define TYPE_NODES() \
+NODEDEF(false, false, NoRet, noret_type) \
+NODEDEF(false, false, Void, void_type) \
+NODEDEF(false, false, Int, int_type) \
+NODEDEF(false, false, Float, float_type) \
+NODEDEF(false, true, RecordType, record_type) \
+NODEDEF(false, true, FnType, fn_type) \
+NODEDEF(false, true, ContType, cont_type) \
+NODEDEF(false, true, PtrType, ptr_type) \
+NODEDEF(false, true, QualifiedType, qualified_type) \
 
 #define NODES() \
-  INSTRUCTIONS() \
-  NODEDEF(Variable, var) \
-  NODEDEF(UntypedNumber, untyped_number) \
-  NODEDEF(Function, fn) \
-  NODEDEF(Root, root) \
+  INSTRUCTION_NODES() \
+  TYPE_NODES() \
+  NODEDEF(true, true, Variable, var) \
+  NODEDEF(true, true, UntypedNumber, untyped_number) \
+  NODEDEF(true, true, Function, fn) \
+  NODEDEF(true, true, Root, root) \
 
 struct Nodes {
     size_t count;
@@ -147,23 +160,6 @@ struct Root {
     struct Nodes definitions;
 };
 
-//struct Continue {};
-//struct Break {};
-
-// types
-
-enum TypeTag {
-    NoRet,
-    Void,
-    Int,
-    Float,
-    RecordType,
-    ContType,
-    FnType,
-    PtrType,
-    QualType,
-};
-
 struct Types {
     size_t count;
     const struct Type** types;
@@ -175,33 +171,32 @@ enum DivergenceQualifier {
     Varying
 };
 
-struct Type {
-    enum TypeTag tag;
-    union TypesUnion {
-        struct QualifiedType {
-            bool is_uniform;
-            const struct Type* type;
-        } qualified;
-        struct RecordType {
-            String name;
-            struct Types members;
-        } record;
-        struct ContType {
-            struct Types param_types;
-        } cont;
-        struct FnType {
-            struct Types param_types;
-            const struct Type* return_type;
-        } fn;
-        struct PtrType {
-            struct Type* pointed_type;
-            enum AddressSpace address_space;
-        } ptr;
-    } payload;
+struct QualifiedType {
+    bool is_uniform;
+    const struct Type* type;
+};
+
+struct RecordType {
+    String name;
+    struct Types members;
+};
+
+struct ContType {
+    struct Types param_types;
+};
+
+struct FnType {
+    struct Types param_types;
+    const struct Type* return_type;
+};
+
+struct PtrType {
+    enum AddressSpace address_space;
+    const struct Type* pointed_type;
 };
 
 enum NodeTag {
-#define NODEDEF(struct_name, short_name) struct_name##_TAG,
+#define NODEDEF(_, _2, struct_name, short_name) struct_name##_TAG,
 NODES()
 #undef NODEDEF
 };
@@ -210,7 +205,9 @@ struct Node {
     const struct Type* type;
     enum NodeTag tag;
     union NodesUnion {
-#define NODEDEF(struct_name, short_name) struct struct_name short_name;
+#define NODE_PAYLOAD_true(u, o) struct u o;
+#define NODE_PAYLOAD_false(u, o)
+#define NODEDEF(_, has_payload, struct_name, short_name) NODE_PAYLOAD_##has_payload(struct_name, short_name)
         NODES()
 #undef NODEDEF
     } payload;
@@ -258,18 +255,11 @@ struct Nodes         nodes(struct IrArena*, size_t count, const struct Node*[]);
 struct Types         types(struct IrArena*, size_t count, const struct Type*[]);
 struct Strings     strings(struct IrArena*, size_t count, const char*[]);
 
-#define NODEDEF(struct_name, short_name) const struct Node* short_name(struct IrArena*, struct struct_name);
+#define NODE_CTOR_true(struct_name, short_name) const struct Node* short_name(struct IrArena*, struct struct_name);
+#define NODE_CTOR_false(struct_name, short_name) const struct Node* short_name(struct IrArena*);
+#define NODEDEF(_, has_payload, struct_name, short_name) NODE_CTOR_##has_payload(struct_name, short_name)
 NODES()
 #undef NODEDEF
-
-const struct Type* void_type(struct IrArena* arena);
-const struct Type* int_type(struct IrArena* arena);
-const struct Type* float_type(struct IrArena* arena);
-const struct Type* record_type(struct IrArena* arena, const char* name, struct Types members);
-const struct Type* cont_type(struct IrArena* arena, struct Types params);
-const struct Type* fn_type(struct IrArena* arena, struct Types params, const struct Type* return_type);
-const struct Type* ptr_type(struct IrArena* arena, const struct Type* pointed_type, enum AddressSpace);
-const struct Type* qualified_type(struct IrArena* arena, bool is_uniform, const struct Type*);
 
 String string_sized(struct IrArena* arena, size_t size, const char* start);
 String string(struct IrArena* arena, const char* start);

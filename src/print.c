@@ -75,31 +75,31 @@ void print_type(const struct Type* type) {
         return;
     }
     switch (type->tag) {
-        case QualType:
-            if (type->payload.qualified.is_uniform)
+        case QualifiedType_TAG:
+            if (type->payload.qualified_type.is_uniform)
                 printf("uniform ");
             else
                 printf("varying ");
-            print_type(type->payload.qualified.type);
+            print_type(type->payload.qualified_type.type);
             break;
-        case NoRet:
+        case NoRet_TAG:
             printf("!");
             break;
-        case Void:
+        case Void_TAG:
             printf("void");
             break;
-        case Int:
+        case Int_TAG:
             printf("int");
             break;
-        case Float:
+        case Float_TAG:
             printf("float");
             break;
-        case RecordType:
-            printf("struct %s", type->payload.record.name);
+        case RecordType_TAG:
+            printf("struct %s", type->payload.record_type.name);
             break;
-        case ContType: {
+        case ContType_TAG: {
             printf("cont (");
-            const struct Types *params = &type->payload.cont.param_types;
+            const struct Types *params = &type->payload.cont_type.param_types;
             for (size_t i = 0; i < params->count; i++) {
                 print_type(params->types[i]);
                 if (i < params->count - 1)
@@ -107,21 +107,21 @@ void print_type(const struct Type* type) {
             }
             printf(")");
             break;
-        } case FnType: {
+        } case FnType_TAG: {
             printf("fn (");
-            const struct Types *params = &type->payload.fn.param_types;
+            const struct Types *params = &type->payload.fn_type.param_types;
             for (size_t i = 0; i < params->count; i++) {
                 print_type(params->types[i]);
                 if (i < params->count - 1)
                     printf(", ");
             }
             printf(") ");
-            print_type(type->payload.fn.return_type);
+            print_type(type->payload.fn_type.return_type);
             break;
         }
-        case PtrType: {
+        case PtrType_TAG: {
             printf("ptr[");
-            print_type(type->payload.ptr.pointed_type);
+            print_type(type->payload.ptr_type.pointed_type);
             printf("]");
             break;
         }

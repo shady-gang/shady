@@ -14,13 +14,12 @@ struct IrArena {
 
     struct IrConfig config;
 
+    struct Dict* node_set;
     struct Dict* string_set;
 
     struct Dict* nodes_set;
     struct Dict* types_set;
     struct Dict* strings_set;
-
-    struct TypeTable* type_table;
 };
 
 void* arena_alloc(struct IrArena* arena, size_t size);

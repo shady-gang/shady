@@ -23,6 +23,9 @@ bool compare_strings(struct Strings* a, struct Strings* b);
 KeyHash hash_string(const char** string);
 bool compare_string(const char** a, const char** b);
 
+KeyHash hash_node(const struct Node**);
+bool compare_node(const struct Node** a, const struct Node** b);
+
 struct IrArena* new_arena(struct IrConfig config) {
     struct IrArena* arena = malloc(sizeof(struct IrArena));
     *arena = (struct IrArena) {
@@ -31,8 +34,8 @@ struct IrArena* new_arena(struct IrConfig config) {
         .blocks = malloc(256 * sizeof(size_t)),
         .available = 0,
         .config = config,
-        .type_table = new_type_table(),
 
+        .node_set = new_set(const struct Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .string_set = new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
 
         .nodes_set   = new_set(struct Nodes, (HashFn) hash_nodes, (CmpFn) compare_nodes),
@@ -45,11 +48,10 @@ struct IrArena* new_arena(struct IrConfig config) {
 }
 
 void destroy_arena(struct IrArena* arena) {
-    destroy_dict(arena->strings_set),
-    destroy_dict(arena->string_set),
-    destroy_dict(arena->types_set),
-    destroy_dict(arena->types_set),
-    destroy_type_table(arena->type_table);
+    destroy_dict(arena->strings_set);
+    destroy_dict(arena->string_set);
+    destroy_dict(arena->types_set);
+    destroy_dict(arena->node_set);
     for (int i = 0; i < arena->nblocks; i++) {
         free(arena->blocks[i]);
     }

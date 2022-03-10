@@ -16,7 +16,7 @@ struct BindEntry {
 struct TypeRewriter {
     struct Rewriter rewriter;
     struct List* typed_variables;
-    const struct Type* const expected_type;
+    const struct Type* expected_type;
 };
 
 static const struct Node* resolve(struct TypeRewriter* ctx, const char* id) {
@@ -29,13 +29,11 @@ static const struct Node* resolve(struct TypeRewriter* ctx, const char* id) {
     error("could not resolve variable %s", id)
 }
 
-struct TypeRewriter set_expected_type(struct TypeRewriter* octx, struct Type* expected_type) {
-    return (struct TypeRewriter) { octx->rewriter, octx->typed_variables, expected_type };
-}
-
-const struct Node* type_node(struct TypeRewriter* ctx, const struct Node* node) {
+const struct Node* type_node(const struct TypeRewriter* ctx, const struct Node* node) {
     if (node == NULL)
         return NULL;
+
+    struct IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     /*switch (node->tag) {
         case Root_TAG: {
@@ -44,20 +42,38 @@ const struct Node* type_node(struct TypeRewriter* ctx, const struct Node* node) 
             const struct Node* new_definitions[count];
 
             for (size_t i = 0; i < count; i++) {
-                new_variables[i] = rewrite_node(rewriter, node->payload.root.variables.nodes[i]);
-                new_definitions[i] = rewrite_node(rewriter, node->payload.root.definitions.nodes[i]);
+                struct TypeRewriter nctx = *ctx;
+                nctx.expected_type = NULL;
+                new_variables[i] = rewrite_node(&nctx.rewriter, node->payload.root.variables.nodes[i]);
+
+                nctx.expected_type = new_variables[i]->type;
+                new_definitions[i] = rewrite_node(&nctx.rewriter, node->payload.root.definitions.nodes[i]);
             }
 
-            return root(rewriter->dst_arena, (struct Root) {
-                .variables = nodes(rewriter->dst_arena, count, new_variables),
-                .definitions = nodes(rewriter->dst_arena, count, new_definitions)
+            return root(dst_arena, (struct Root) {
+                .variables = nodes(dst_arena, count, new_variables),
+                .definitions = nodes(dst_arena, count, new_definitions)
             });
         }
+        case Let_TAG: {
+            struct TypeRewriter vars_infer_ctx = *ctx;
+            vars_infer_ctx.expected_type = NULL;
+
+            struct Nodes nvars = rewrite_nodes(&vars_infer_ctx.rewriter, node->payload.let.variables);
+        }
         case Function_TAG: {
-            struct TypeRewriter nctx = { ctx->rewriter, ctx->typed_variables, NULL };
-            struct Nodes nparams = rewrite_nodes(&nctx.rewriter, node->payload.fn.params);
-            return fn(rewriter->dst_arena, (struct Function) {
-               .return_type = rewrite_type_(rewriter, node->payload.fn.return_type),
+            struct TypeRewriter param_infer_ctx = *ctx;
+            param_infer_ctx.expected_type = NULL;
+            struct Nodes nparams = rewrite_nodes(&param_infer_ctx.rewriter, node->payload.fn.params);
+
+            size_t icount = node->payload.fn.instructions.count;
+            struct Node* ninstructions[icount];
+            for (size_t i = 0; i < icount; i++) {
+                ninstructions[i] = rewrite_node(rewriter, node->payload.fn.instructions),
+            }
+
+            return fn(dst_arena, (struct Function) {
+               .return_type = rewrite_type(rewriter, node->payload.fn.return_type),
                .instructions = rewrite_nodes(rewriter, node->payload.fn.instructions),
                .params = nparams,
             });

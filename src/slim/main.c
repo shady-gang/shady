@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
         destroy_arena(arena);
         arena = typed_arena;
         printf("Typed program successfully: \n");
-        print_node(&program);
+        print_node(program);
 
         FILE *output = fopen("out.spv", "wb");
         emit(program, output);

@@ -77,14 +77,14 @@ const struct Type* expect_maybe_qualified_type(ctxparams) {
     if (qualifier == Unknown)
         return unqualified;
     else
-        return qualified_type(arena, qualifier == Uniform, unqualified);
+        return qualified_type(arena, (struct QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
 }
 
 const struct Type* expect_qualified_type(ctxparams) {
     enum DivergenceQualifier qualifier = accept_uniformity_qualifier(ctx);
     expect(qualifier != Unknown);
     const struct Type* unqualified = expect_unqualified_type(ctx);
-    return qualified_type(arena, qualifier == Uniform, unqualified);
+    return qualified_type(arena, (struct QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
 }
 
 struct Nodes eat_parameters(ctxparams) {

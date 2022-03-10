@@ -8,71 +8,37 @@
 #include <string.h>
 #include <assert.h>
 
-KeyHash hash_type(struct Type** type) {
-    uint32_t out[4];
-    MurmurHash3_x64_128(*type, sizeof(struct Type), 0x1234567, &out);
-    uint32_t final = 0;
-    final ^= out[0];
-    final ^= out[1];
-    final ^= out[2];
-    final ^= out[3];
-    //printf("hash of :");
-    //print_type(*type);
-    //printf(" = [%u] %u\n", final, final % 32);
-    return final;
-}
-
-bool compare_type(struct Type** a, struct Type** b) {
-    return memcmp(*a, *b, sizeof(struct Type)) == 0;
-}
-
-struct TypeTable {
-    struct Dict* set;
-};
-
-struct TypeTable* new_type_table() {
-    struct TypeTable* table = (struct TypeTable*) malloc(sizeof (struct TypeTable));
-    *table = (struct TypeTable) {
-        .set = new_set(struct Type*, (HashFn) hash_type, (CmpFn) compare_type)
-    };
-    return table;
-}
-void destroy_type_table(struct TypeTable* table) {
-    destroy_dict(table->set);
-    free(table);
-}
-
 bool is_subtype(const struct Type* supertype, const struct Type* type) {
     if (supertype->tag != type->tag)
         return false;
     switch (supertype->tag) {
-        case QualType: {
+        case QualifiedType_TAG: {
             // uniform T <: varying T
-            if (supertype->payload.qualified.is_uniform && !type->payload.qualified.is_uniform)
+            if (supertype->payload.qualified_type.is_uniform && !type->payload.qualified_type.is_uniform)
                 return false;
-            return is_subtype(supertype->payload.qualified.type, type->payload.qualified.type);
+            return is_subtype(supertype->payload.qualified_type.type, type->payload.qualified_type.type);
         }
-        case RecordType: {
-            const struct Types* supermembers = &supertype->payload.record.members;
-            const struct Types* members = &type->payload.record.members;
+        case RecordType_TAG: {
+            const struct Types* supermembers = &supertype->payload.record_type.members;
+            const struct Types* members = &type->payload.record_type.members;
             for (size_t i = 0; i < members->count; i++) {
                 if (!is_subtype(supermembers->types[i], members->types[i]))
                     return false;
             }
             goto post_switch;
         }
-        case FnType:
+        case FnType_TAG:
             if (!is_subtype(supertype->payload.fn.return_type, type->payload.fn.return_type))
                 return false;
 
-            const struct Types* superparams = &supertype->payload.fn.param_types;
-            const struct Types* params = &type->payload.fn.param_types;
+            const struct Types* superparams = &supertype->payload.fn_type.param_types;
+            const struct Types* params = &type->payload.fn_type.param_types;
             goto check_params;
-        case ContType:
-            superparams = &supertype->payload.fn.param_types;
-            params = &type->payload.fn.param_types;
+        case ContType_TAG:
+            superparams = &supertype->payload.fn_type.param_types;
+            params = &type->payload.fn_type.param_types;
             goto check_params;
-        case PtrType: SHADY_NOT_IMPLEM;
+        case PtrType_TAG: SHADY_NOT_IMPLEM;
         default: goto post_switch;
         check_params:
             if (params->count != superparams->count)
@@ -95,16 +61,16 @@ void check_subtype(const struct Type* supertype, const struct Type* type) {
 
 enum DivergenceQualifier resolve_divergence_impl(const struct Type* type, bool allow_qualifier_types) {
     switch (type->tag) {
-        case QualType: {
+        case QualifiedType_TAG: {
             if (!allow_qualifier_types)
                 error("Uniformity qualifier information found in inappropriate context...")
-            return resolve_divergence_impl(type->payload.qualified.type, false);
+            return resolve_divergence_impl(type->payload.qualified_type.type, false);
         }
-        case Void:
+        case Void_TAG:
             return Uniform;
-        case NoRet:
-        case Int:
-        case Float:
+        case NoRet_TAG:
+        case Int_TAG:
+        case Float_TAG:
             return Unknown;
 
         default: SHADY_NOT_IMPLEM;
@@ -116,9 +82,9 @@ enum DivergenceQualifier resolve_divergence(const struct Type* type) {
 }
 
 const struct Type* strip_qualifier(const struct Type* type, enum DivergenceQualifier* qual_out) {
-    if (type->tag == QualType) {
-        *qual_out = type->payload.qualified.is_uniform ? Uniform : Varying;
-        return type->payload.qualified.type;
+    if (type->tag == QualifiedType_TAG) {
+        *qual_out = type->payload.qualified_type.is_uniform ? Uniform : Varying;
+        return type->payload.qualified_type.type;
     } else {
         *qual_out = Unknown;
         return type;
@@ -127,9 +93,9 @@ const struct Type* strip_qualifier(const struct Type* type, enum DivergenceQuali
 
 const struct Type* check_type_call(struct IrArena* arena, struct Call call) {
     const struct Type* callee_type = call.callee->type;
-    if (callee_type->tag != FnType)
+    if (callee_type->tag != FnType_TAG)
         error("Callees must have a function type");
-    if (callee_type->payload.fn.param_types.count != call.args.count)
+    if (callee_type->payload.fn_type.param_types.count != call.args.count)
         error("Mismatched argument counts");
     for (size_t i = 0; i < call.args.count; i++) {
         // TODO
@@ -142,7 +108,7 @@ const struct Type* derive_fn_type(struct IrArena* arena, const struct Function* 
     const struct Type* ptypes[fn->params.count];
     for (size_t i = 0; i < fn->params.count; i++)
         ptypes[i] = fn->params.nodes[i]->type;
-    return fn_type(arena, types(arena, fn->params.count, ptypes), fn->return_type);
+    return fn_type(arena, (struct FnType) { .param_types = types(arena, fn->params.count, ptypes), .return_type = fn->return_type });
 }
 
 const struct Type* check_type_fn(struct IrArena* arena, struct Function fn) {
@@ -150,7 +116,7 @@ const struct Type* check_type_fn(struct IrArena* arena, struct Function fn) {
 }
 
 const struct Type* check_type_var_decl(struct IrArena* arena, struct VariableDecl decl) {
-    return ptr_type(arena, decl.variable->type, decl.address_space);
+    return ptr_type(arena, (struct PtrType) { .address_space = decl.address_space, .pointed_type = decl.variable->type });
 }
 
 const struct Type* check_type_expr_eval(struct IrArena* arena, struct ExpressionEval expr) {
@@ -184,7 +150,7 @@ const struct Type* check_type_primop(struct IrArena* arena, struct PrimOp primop
                 is_result_uniform ^= op_div == Uniform;
             }
 
-            return qualified_type(arena, is_result_uniform, int_type(arena));
+            return qualified_type(arena, (struct QualifiedType) { .is_uniform = is_result_uniform, .type = int_type(arena) });
         }
         default: SHADY_NOT_IMPLEM;
     }
@@ -192,99 +158,4 @@ const struct Type* check_type_primop(struct IrArena* arena, struct PrimOp primop
 
 const struct Type* check_type_root(struct IrArena* arena, struct Root program) {
     return NULL;
-}
-
-#define type_ctor_prelude struct Type type; \
-memset((void*)&type, 0, sizeof(struct Type));
-
-#define type_ctor_epilogue struct Type* localptr = &type;                            \
-struct Type** found = find_key_dict(struct Type*, arena->type_table->set, localptr); \
-if (found) return *found;                                                            \
-struct Type* globalptr = arena_alloc(arena, sizeof(struct Type));                    \
-*globalptr = type;                                                                   \
-bool result = insert_set_get_result(struct Type*, arena->type_table->set, globalptr);    \
-assert(result);                                                                      \
-return globalptr;                                                                    \
-
-const struct Type* void_type(struct IrArena* arena) {
-    type_ctor_prelude
-
-    type.tag = Void;
-
-    type_ctor_epilogue
-}
-
-const struct Type* noret_type(struct IrArena* arena) {
-    type_ctor_prelude
-
-    type.tag = NoRet;
-
-    type_ctor_epilogue
-}
-
-const struct Type* int_type(struct IrArena* arena) {
-    type_ctor_prelude
-
-    type.tag = Int;
-
-    type_ctor_epilogue
-}
-
-const struct Type* float_type(struct IrArena* arena) {
-    type_ctor_prelude
-
-    type.tag = Float;
-
-    type_ctor_epilogue
-}
-
-const struct Type* record_type(struct IrArena* arena, const char* name, struct Types members) {
-    type_ctor_prelude
-
-    type.tag = RecordType;
-    type.payload.record.name = name;
-    type.payload.record.members = members;
-
-    type_ctor_epilogue
-}
-
-const struct Type* cont_type(struct IrArena* arena, struct Types params) {
-    type_ctor_prelude
-
-    type.tag = ContType;
-    type.payload.cont.param_types = params;
-
-    type_ctor_epilogue
-}
-
-const struct Type* fn_type(struct IrArena* arena, struct Types params, const struct Type* return_type) {
-    type_ctor_prelude
-
-    type.tag = FnType;
-    type.payload.fn.param_types = params;
-    type.payload.fn.return_type = return_type;
-
-    type_ctor_epilogue
-}
-
-const struct Type* ptr_type(struct IrArena* arena, const struct Type* pointed_type, enum AddressSpace address_space) {
-    type_ctor_prelude
-
-    type.tag = PtrType;
-    type.payload.ptr.pointed_type = pointed_type;
-    type.payload.ptr.address_space = address_space;
-
-    type_ctor_epilogue
-}
-
-const struct Type* qualified_type(struct IrArena* arena, bool is_uniform, const struct Type* unqualified) {
-    type_ctor_prelude
-
-    // TODO check unqualified is truly unqualified
-
-    type.tag = QualType;
-    type.payload.qualified.is_uniform = is_uniform;
-    type.payload.qualified.type = unqualified;
-
-    type_ctor_epilogue
 }

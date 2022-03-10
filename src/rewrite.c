@@ -89,21 +89,23 @@ const struct Type* recreate_type_identity(struct Rewriter* rewriter, const struc
     if (type == NULL)
         return NULL;
     switch (type->tag) {
-        case NoRet:      return noret_type(rewriter->dst_arena);
-        case Void:       return void_type(rewriter->dst_arena);
-        case Int:        return int_type(rewriter->dst_arena);
-        case Float:      return float_type(rewriter->dst_arena);
-        case RecordType: return record_type(rewriter->dst_arena,
-                                            string(rewriter->dst_arena, type->payload.record.name),
-                                            rewrite_types(rewriter, type->payload.record.members));
-        case ContType:   return cont_type(rewriter->dst_arena, rewrite_types(rewriter, type->payload.cont.param_types));
-        case FnType:     return fn_type(rewriter->dst_arena, rewrite_types(rewriter, type->payload.fn.param_types), rewriter->rewrite_type_fn(rewriter, type->payload.fn.return_type));
-        case PtrType:    return ptr_type(rewriter->dst_arena,
-                                               rewriter->rewrite_type_fn(rewriter, type->payload.ptr.pointed_type),
-                                               type->payload.ptr.address_space);
-        case QualType:   return qualified_type(rewriter->dst_arena,
-                                               type->payload.qualified.is_uniform,
-                                               rewriter->rewrite_type_fn(rewriter, type->payload.qualified.type));
+        case NoRet_TAG:         return noret_type(rewriter->dst_arena);
+        case Void_TAG:          return void_type(rewriter->dst_arena);
+        case Int_TAG:           return int_type(rewriter->dst_arena);
+        case Float_TAG:         return float_type(rewriter->dst_arena);
+        case RecordType_TAG:    return record_type(rewriter->dst_arena, (struct RecordType) {
+                                    .name = string(rewriter->dst_arena, type->payload.record_type.name),
+                                    .members = rewrite_types(rewriter, type->payload.record_type.members)});
+        case ContType_TAG:      return cont_type(rewriter->dst_arena, (struct ContType) { .param_types = rewrite_types(rewriter, type->payload.cont_type.param_types) });
+        case FnType_TAG:        return fn_type(rewriter->dst_arena, (struct FnType) {
+                                    .param_types = rewrite_types(rewriter, type->payload.fn_type.param_types),
+                                    .return_type = rewriter->rewrite_type_fn(rewriter, type->payload.fn_type.return_type)});
+        case PtrType_TAG:       return ptr_type(rewriter->dst_arena, (struct PtrType) {
+                                    .address_space = type->payload.ptr_type.address_space,
+                                    .pointed_type = rewriter->rewrite_type_fn(rewriter, type->payload.ptr_type.pointed_type)});
+        case QualifiedType_TAG: return qualified_type(rewriter->dst_arena, (struct QualifiedType) {
+                                    .is_uniform = type->payload.qualified_type.is_uniform,
+                                    .type = rewriter->rewrite_type_fn(rewriter, type->payload.qualified_type.type)});
         default: error("unhandled type");
     }
 }
