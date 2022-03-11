@@ -162,11 +162,6 @@ struct Root {
     struct Nodes definitions;
 };
 
-struct Types {
-    size_t count;
-    const struct Type** types;
-};
-
 enum DivergenceQualifier {
     Unknown,
     Uniform,
@@ -180,15 +175,15 @@ struct QualifiedType {
 
 struct RecordType {
     String name;
-    struct Types members;
+    struct Nodes members;
 };
 
 struct ContType {
-    struct Types param_types;
+    struct Nodes param_types;
 };
 
 struct FnType {
-    struct Types param_types;
+    struct Nodes param_types;
     const struct Type* return_type;
 };
 
@@ -229,8 +224,6 @@ typedef struct Type* (*TypeRewriteFn)(struct Rewriter*, const struct Type*);
 
 /// Applies the rewriter to all nodes in the collection
 struct Nodes rewrite_nodes(struct Rewriter* rewriter, struct Nodes old_nodes);
-/// Applies the rewriter to all types in the collection
-struct Types rewrite_types(struct Rewriter* rewriter, struct Types old_types);
 
 struct Strings import_strings(struct Rewriter* rewriter, struct Strings old_strings);
 
@@ -254,7 +247,6 @@ const struct Type* recreate_type_identity(struct Rewriter*, const struct Type*);
 typedef const struct Node* (RewritePass)(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Node* src_root);
 
 struct Nodes         nodes(struct IrArena*, size_t count, const struct Node*[]);
-struct Types         types(struct IrArena*, size_t count, const struct Type*[]);
 struct Strings     strings(struct IrArena*, size_t count, const char*[]);
 
 #define NODE_CTOR_true(struct_name, short_name) const struct Node* short_name(struct IrArena*, struct struct_name);

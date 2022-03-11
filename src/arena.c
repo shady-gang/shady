@@ -11,9 +11,6 @@
 
 #define alloc_size 1024 * 1024
 
-KeyHash hash_types(struct Types* types) ;
-bool compare_types(struct Types* a, struct Types* b);
-
 KeyHash hash_nodes(struct Nodes* nodes);
 bool compare_nodes(struct Nodes* a, struct Nodes* b);
 
@@ -39,7 +36,6 @@ struct IrArena* new_arena(struct IrConfig config) {
         .string_set = new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
 
         .nodes_set   = new_set(struct Nodes, (HashFn) hash_nodes, (CmpFn) compare_nodes),
-        .types_set   = new_set(struct Types, (HashFn) hash_types, (CmpFn) compare_types),
         .strings_set = new_set(struct Strings, (HashFn) hash_strings, (CmpFn) compare_strings),
     };
     for (int i = 0; i < arena->maxblocks; i++)
@@ -50,7 +46,6 @@ struct IrArena* new_arena(struct IrConfig config) {
 void destroy_arena(struct IrArena* arena) {
     destroy_dict(arena->strings_set);
     destroy_dict(arena->string_set);
-    destroy_dict(arena->types_set);
     destroy_dict(arena->node_set);
     for (int i = 0; i < arena->nblocks; i++) {
         free(arena->blocks[i]);
@@ -103,25 +98,6 @@ struct Nodes nodes(struct IrArena* arena, size_t count, const struct Node* in_no
     return nodes;
 }
 
-struct Types types(struct IrArena* arena, size_t count, const struct Type* in_types[])  {
-    struct Types tmp = {
-        .count = count,
-        .types = in_types
-    };
-    const struct Types* found = find_key_dict(struct Types, arena->types_set, tmp);
-    if (found)
-        return *found;
-
-    struct Types types;
-    types.count = count;
-    types.types = arena_alloc(arena, sizeof(struct Type*) * count);
-    for (size_t i = 0; i < count; i++)
-        types.types[i] = in_types[i];
-
-    insert_set_get_result(struct Types, arena->types_set, types);
-    return types;
-}
-
 struct Strings strings(struct IrArena* arena, size_t count, const char* in_strs[])  {
     struct Strings tmp = {
         .count = count,
@@ -166,21 +142,6 @@ const char* string_sized(struct IrArena* arena, size_t size, const char* str) {
 
 const char* string(struct IrArena* arena, const char* str) {
     return string_impl(arena, strlen(str), str);
-}
-
-KeyHash hash_types(struct Types* types) {
-    uint32_t out[4];
-    MurmurHash3_x64_128((types)->types, (int) (sizeof(struct Type*) * (types)->count), 0x1234567, &out);
-    uint32_t final = 0;
-    final ^= out[0];
-    final ^= out[1];
-    final ^= out[2];
-    final ^= out[3];
-    return final;
-}
-
-bool compare_types(struct Types* a, struct Types* b) {
-    return a->count == b->count && memcmp(a->types, b->types, sizeof(struct Node*) * (a->count)) == 0;
 }
 
 KeyHash hash_nodes(struct Nodes* nodes) {

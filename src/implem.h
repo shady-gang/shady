@@ -18,7 +18,6 @@ struct IrArena {
     struct Dict* string_set;
 
     struct Dict* nodes_set;
-    struct Dict* types_set;
     struct Dict* strings_set;
 };
 

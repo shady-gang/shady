@@ -11,14 +11,6 @@ struct Nodes rewrite_nodes(struct Rewriter* rewriter, struct Nodes old_nodes) {
     return nodes(rewriter->dst_arena, count, arr);
 }
 
-struct Types rewrite_types(struct Rewriter* rewriter, struct Types old_types) {
-    size_t count = old_types.count;
-    const struct Type* arr[count];
-    for (size_t i = 0; i < count; i++)
-        arr[i] = rewriter->rewrite_type_fn(rewriter, old_types.types[i]);
-    return types(rewriter->dst_arena, count, arr);
-}
-
 struct Strings import_strings(struct Rewriter* rewriter, struct Strings old_strings) {
     size_t count = old_strings.count;
     String arr[count];
@@ -95,10 +87,10 @@ const struct Type* recreate_type_identity(struct Rewriter* rewriter, const struc
         case Float_TAG:         return float_type(rewriter->dst_arena);
         case RecordType_TAG:    return record_type(rewriter->dst_arena, (struct RecordType) {
                                     .name = string(rewriter->dst_arena, type->payload.record_type.name),
-                                    .members = rewrite_types(rewriter, type->payload.record_type.members)});
-        case ContType_TAG:      return cont_type(rewriter->dst_arena, (struct ContType) { .param_types = rewrite_types(rewriter, type->payload.cont_type.param_types) });
+                                    .members = rewrite_nodes(rewriter, type->payload.record_type.members)});
+        case ContType_TAG:      return cont_type(rewriter->dst_arena, (struct ContType) { .param_types = rewrite_nodes(rewriter, type->payload.cont_type.param_types) });
         case FnType_TAG:        return fn_type(rewriter->dst_arena, (struct FnType) {
-                                    .param_types = rewrite_types(rewriter, type->payload.fn_type.param_types),
+                                    .param_types = rewrite_nodes(rewriter, type->payload.fn_type.param_types),
                                     .return_type = rewriter->rewrite_type_fn(rewriter, type->payload.fn_type.return_type)});
         case PtrType_TAG:       return ptr_type(rewriter->dst_arena, (struct PtrType) {
                                     .address_space = type->payload.ptr_type.address_space,

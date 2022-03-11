@@ -122,9 +122,9 @@ void print_node_impl(const struct Node* node, const char* def_name) {
             break;
         case ContType_TAG: {
             printf("cont (");
-            const struct Types *params = &node->payload.cont_type.param_types;
+            const struct Nodes* params = &node->payload.cont_type.param_types;
             for (size_t i = 0; i < params->count; i++) {
-                print_node(params->types[i]);
+                print_node(params->nodes[i]);
                 if (i < params->count - 1)
                     printf(", ");
             }
@@ -132,9 +132,9 @@ void print_node_impl(const struct Node* node, const char* def_name) {
             break;
         } case FnType_TAG: {
             printf("fn (");
-            const struct Types *params = &node->payload.fn_type.param_types;
+            const struct Nodes* params = &node->payload.fn_type.param_types;
             for (size_t i = 0; i < params->count; i++) {
-                print_node(params->types[i]);
+                print_node(params->nodes[i]);
                 if (i < params->count - 1)
                     printf(", ");
             }

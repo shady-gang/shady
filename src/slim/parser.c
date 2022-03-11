@@ -117,7 +117,7 @@ struct Nodes eat_parameters(ctxparams) {
     return variables2;
 }
 
-struct Types eat_parameter_types(ctxparams) {
+struct Nodes eat_parameter_types(ctxparams) {
     expect(accept_token(ctx, lpar_tok));
     struct List* params = new_list(struct Type*);
     while (true) {
@@ -135,7 +135,7 @@ struct Types eat_parameter_types(ctxparams) {
         }
     }
 
-    struct Types types2 = types(arena, params->elements_count, (const struct Type**) params->alloc);
+    struct Nodes types2 = nodes(arena, params->elements_count, (const struct Type**) params->alloc);
     destroy_list(params);
     return types2;
 }

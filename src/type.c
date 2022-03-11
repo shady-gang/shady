@@ -19,10 +19,10 @@ bool is_subtype(const struct Type* supertype, const struct Type* type) {
             return is_subtype(supertype->payload.qualified_type.type, type->payload.qualified_type.type);
         }
         case RecordType_TAG: {
-            const struct Types* supermembers = &supertype->payload.record_type.members;
-            const struct Types* members = &type->payload.record_type.members;
+            const struct Nodes* supermembers = &supertype->payload.record_type.members;
+            const struct Nodes* members = &type->payload.record_type.members;
             for (size_t i = 0; i < members->count; i++) {
-                if (!is_subtype(supermembers->types[i], members->types[i]))
+                if (!is_subtype(supermembers->nodes[i], members->nodes[i]))
                     return false;
             }
             goto post_switch;
@@ -31,8 +31,8 @@ bool is_subtype(const struct Type* supertype, const struct Type* type) {
             if (!is_subtype(supertype->payload.fn.return_type, type->payload.fn.return_type))
                 return false;
 
-            const struct Types* superparams = &supertype->payload.fn_type.param_types;
-            const struct Types* params = &type->payload.fn_type.param_types;
+            const struct Nodes* superparams = &supertype->payload.fn_type.param_types;
+            const struct Nodes* params = &type->payload.fn_type.param_types;
             goto check_params;
         case ContType_TAG:
             superparams = &supertype->payload.fn_type.param_types;
@@ -45,7 +45,7 @@ bool is_subtype(const struct Type* supertype, const struct Type* type) {
                 return false;
 
             for (size_t i = 0; i < params->count; i++) {
-                if (!is_subtype(params->types[i], superparams->types[i]))
+                if (!is_subtype(params->nodes[i], superparams->nodes[i]))
                     return false;
             }
         return false;
@@ -108,7 +108,7 @@ const struct Type* derive_fn_type(struct IrArena* arena, const struct Function* 
     const struct Type* ptypes[fn->params.count];
     for (size_t i = 0; i < fn->params.count; i++)
         ptypes[i] = fn->params.nodes[i]->type;
-    return fn_type(arena, (struct FnType) { .param_types = types(arena, fn->params.count, ptypes), .return_type = fn->return_type });
+    return fn_type(arena, (struct FnType) { .param_types = nodes(arena, fn->params.count, ptypes), .return_type = fn->return_type });
 }
 
 const struct Type* check_type_fn(struct IrArena* arena, struct Function fn) {
