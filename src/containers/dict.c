@@ -30,6 +30,7 @@ struct BucketTag {
 
 struct Dict {
     size_t entries_count;
+    size_t thombstones_count;
     size_t size;
 
     size_t key_size;
@@ -58,6 +59,7 @@ struct Dict* new_dict_impl(size_t key_size, size_t value_size, size_t key_align,
     struct Dict* dict = (struct Dict*) malloc(sizeof(struct Dict));
     *dict = (struct Dict) {
         .entries_count = 0,
+        .thombstones_count = 0,
         .size = init_size,
 
         .key_size = key_size,
@@ -81,6 +83,7 @@ struct Dict* clone_dict(struct Dict* source) {
     struct Dict* dict = (struct Dict*) malloc(sizeof(struct Dict));
     *dict = (struct Dict) {
         .entries_count = source->entries_count,
+        .thombstones_count = source->thombstones_count,
         .size = source->size,
 
         .key_size = source->key_size,
@@ -149,6 +152,7 @@ bool remove_dict_impl(struct Dict* dict, void* key) {
         struct BucketTag* tag = (void *) ((size_t) found + dict->tag_offset);
         tag->is_present = false;
         tag->is_thombstone = true;
+        dict->thombstones_count++;
         return true;
     }
     return false;
@@ -194,8 +198,11 @@ void grow_and_rehash(struct Dict* dict) {
     size_t old_size = dict->size;
 
     dict->entries_count = 0;
+    dict->thombstones_count = 0;
     dict->size *= 2;
     dict->alloc = malloc(dict->size * dict->bucket_entry_size);
+    // zero-allocated so all the bucket flags are false
+    memset(dict->alloc, 0, dict->size * dict->bucket_entry_size);
 
     rehash(dict, old_alloc, old_size);
 
@@ -209,7 +216,7 @@ bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr)
         return false;
     }
 
-    float load_factor = (float) dict->entries_count / (float) dict->size;
+    float load_factor = (float) (dict->entries_count + dict->thombstones_count) / (float) dict->size;
     if (load_factor > 0.6)
         grow_and_rehash(dict);
 
@@ -241,8 +248,11 @@ bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr)
     assert(!tag->is_present);
 
     tag->is_present = true;
+    dict->entries_count++;
+    if (tag->is_thombstone)
+        dict->thombstones_count--;
     tag->is_thombstone = false;
-    memcpy(in_dict_key,   key,   dict->key_size);
+    memcpy(in_dict_key, key, dict->key_size);
     if (dict->value_size)
         memcpy(in_dict_value, value, dict->value_size);
     *out_ptr = in_dict_key;
