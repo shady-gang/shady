@@ -26,14 +26,14 @@ char* read_file(char* filename) {
 int main(int argc, char** argv) {
     init_tokenizer_constants();
 
-    struct IrArena* arena = new_arena((struct IrConfig) {
+    IrArena* arena = new_arena((IrConfig) {
         .check_types = false
     });
 
     if (argc <= 1)
         printf("Usage: slim source.slim\n");
     else {
-        const struct Node* program;
+        const Node* program;
 
         char* filename = argv[1];
         printf("compiling %s\n", filename);
@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
         printf("Bound program successfully: \n");
         print_node(program);
 
-        struct IrArena* typed_arena = new_arena((struct IrConfig) {
+        IrArena* typed_arena = new_arena((IrConfig) {
             .check_types = true
         });
         program = type_program(arena, typed_arena, program);

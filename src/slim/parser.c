@@ -13,7 +13,7 @@
 extern const char* token_tags[];
 
 // to avoid some repetition
-#define ctxparams char* contents, struct IrArena* arena, struct Tokenizer* tokenizer
+#define ctxparams char* contents, IrArena* arena, struct Tokenizer* tokenizer
 #define ctx contents, arena, tokenizer
 
 #define expect(condition) expect_impl(condition, #condition)
@@ -42,8 +42,8 @@ const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-const struct Type* expect_unqualified_type(ctxparams) {
-    const struct Type* parsed_type = NULL;
+const Type* expect_unqualified_type(ctxparams) {
+    const Type* parsed_type = NULL;
 
     if (accept_token(ctx, int_tok)) {
         parsed_type = int_type(arena);
@@ -62,8 +62,8 @@ const struct Type* expect_unqualified_type(ctxparams) {
     return parsed_type;
 }
 
-enum DivergenceQualifier accept_uniformity_qualifier(ctxparams) {
-    enum DivergenceQualifier divergence = Unknown;
+DivergenceQualifier accept_uniformity_qualifier(ctxparams) {
+    DivergenceQualifier divergence = Unknown;
     if (accept_token(ctx, uniform_tok))
         divergence = Uniform;
     else if (accept_token(ctx, varying_tok))
@@ -71,82 +71,82 @@ enum DivergenceQualifier accept_uniformity_qualifier(ctxparams) {
     return divergence;
 }
 
-const struct Type* expect_maybe_qualified_type(ctxparams) {
-    enum DivergenceQualifier qualifier = accept_uniformity_qualifier(ctx);
-    const struct Type* unqualified = expect_unqualified_type(ctx);
+const Type* expect_maybe_qualified_type(ctxparams) {
+    DivergenceQualifier qualifier = accept_uniformity_qualifier(ctx);
+    const Type* unqualified = expect_unqualified_type(ctx);
     if (qualifier == Unknown)
         return unqualified;
     else
-        return qualified_type(arena, (struct QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
+        return qualified_type(arena, (QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
 }
 
-const struct Type* expect_qualified_type(ctxparams) {
-    enum DivergenceQualifier qualifier = accept_uniformity_qualifier(ctx);
+const Type* expect_qualified_type(ctxparams) {
+    DivergenceQualifier qualifier = accept_uniformity_qualifier(ctx);
     expect(qualifier != Unknown);
-    const struct Type* unqualified = expect_unqualified_type(ctx);
-    return qualified_type(arena, (struct QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
+    const Type* unqualified = expect_unqualified_type(ctx);
+    return qualified_type(arena, (QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
 }
 
-struct Nodes eat_parameters(ctxparams) {
+Nodes eat_parameters(ctxparams) {
     expect(accept_token(ctx, lpar_tok));
-    struct List* params = new_list(struct Node*);
+    struct List* params = new_list(Node*);
     while (true) {
         if (accept_token(ctx, rpar_tok))
             break;
 
         next: {
-            const struct Type* type = expect_qualified_type(ctx);
+            const Type* type = expect_qualified_type(ctx);
             expect(type);
             const char* id = accept_identifier(ctx);
             expect(id);
 
-            const struct Node* node = var(arena, (struct Variable) {
+            const Node* node = var(arena, (Variable) {
                 .name = id,
                 .type = type
             });
 
-            append_list(struct Node*, params, node);
+            append_list(Node*, params, node);
 
             if (accept_token(ctx, comma_tok))
                 goto next;
         }
     }
 
-    struct Nodes variables2 = nodes(arena, params->elements_count, (const struct Node**) params->alloc);
+    Nodes variables2 = nodes(arena, params->elements_count, (const Node**) params->alloc);
     destroy_list(params);
     return variables2;
 }
 
-struct Nodes eat_parameter_types(ctxparams) {
+Nodes eat_parameter_types(ctxparams) {
     expect(accept_token(ctx, lpar_tok));
-    struct List* params = new_list(struct Type*);
+    struct List* params = new_list(Type*);
     while (true) {
         if (accept_token(ctx, rpar_tok))
             break;
 
         next: {
-            const struct Type* type = expect_qualified_type(ctx);
+            const Type* type = expect_qualified_type(ctx);
             expect(type);
 
-            append_list(struct Type*, params, type);
+            append_list(Type*, params, type);
 
             if (accept_token(ctx, comma_tok))
                 goto next;
         }
     }
 
-    struct Nodes types2 = nodes(arena, params->elements_count, (const struct Type**) params->alloc);
+    Nodes types2 = nodes(arena, params->elements_count, (const Type**) params->alloc);
     destroy_list(params);
     return types2;
 }
 
-const struct Node* accept_literal(ctxparams) {
+const Node* accept_literal(ctxparams) {
     struct Token tok = curr_token(tokenizer);
     switch (tok.tag) {
         case dec_lit_tok: {
             next_token(tokenizer);
             size_t size = tok.end - tok.start;
-            return untyped_number(arena, (struct UntypedNumber) {
+            return untyped_number(arena, (UntypedNumber) {
                 .plaintext = string_sized(arena, (int) size, &contents[tok.start])
             });
             //int64_t value = strtol(&contents[tok.start], NULL, 10)
@@ -157,10 +157,10 @@ const struct Node* accept_literal(ctxparams) {
     }
 }
 
-const struct Node* accept_value(ctxparams) {
+const Node* accept_value(ctxparams) {
     const char* id = accept_identifier(ctx);
     if (id) {
-        return var(arena, (struct Variable) {
+        return var(arena, (Variable) {
             .type = NULL,
             .name = id
         });
@@ -169,7 +169,7 @@ const struct Node* accept_value(ctxparams) {
     return accept_literal(ctx);
 }
 
-struct Strings eat_identifiers(ctxparams) {
+Strings eat_identifiers(ctxparams) {
     struct List* list = new_list(const char*);
     while (true) {
         const char* id = accept_identifier(ctx);
@@ -183,17 +183,17 @@ struct Strings eat_identifiers(ctxparams) {
             break;
     }
 
-    struct Strings final = strings(arena, list->elements_count, (const char**) list->alloc);
+    Strings final = strings(arena, list->elements_count, (const char**) list->alloc);
     destroy_list(list);
     return final;
 }
 
-struct Nodes eat_values(ctxparams, enum TokenTag separator) {
-    struct List* list = new_list( struct Node*);
+Nodes eat_values(ctxparams, enum TokenTag separator) {
+    struct List* list = new_list( Node*);
 
     bool expect = false;
     while (true) {
-        const struct Node* val = accept_value(ctx);
+        const Node* val = accept_value(ctx);
         if (!val) {
             if (expect)
                 error("expected value but got none")
@@ -201,7 +201,7 @@ struct Nodes eat_values(ctxparams, enum TokenTag separator) {
                 break;
         }
 
-        append_list(struct Node*, list, val);
+        append_list(Node*, list, val);
 
         if (separator != 0) {
             if (accept_token(ctx, separator))
@@ -211,19 +211,19 @@ struct Nodes eat_values(ctxparams, enum TokenTag separator) {
         }
     }
 
-    struct Nodes final = nodes(arena, list->elements_count, (const struct Node**) list->alloc);
+    Nodes final = nodes(arena, list->elements_count, (const Node**) list->alloc);
     destroy_list(list);
     return final;
 }
 
-const struct Node* eat_computation(ctxparams) {
+const Node* eat_computation(ctxparams) {
     struct Token tok = curr_token(tokenizer);
     switch (tok.tag) {
         case add_tok: {
             next_token(tokenizer);
-            struct Nodes args = eat_values(ctx, 0);
+            Nodes args = eat_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
-            return primop(arena, (struct PrimOp) {
+            return primop(arena, (PrimOp) {
                 .op = add_op,
                 .args = args
             });
@@ -232,31 +232,31 @@ const struct Node* eat_computation(ctxparams) {
     }
 }
 
-const struct Node* accept_instruction(ctxparams) {
+const Node* accept_instruction(ctxparams) {
     struct Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
         case return_tok: {
             next_token(tokenizer);
-            struct Nodes values = eat_values(ctx, 0);
+            Nodes values = eat_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
-            return fn_ret(arena, (struct Return) {
+            return fn_ret(arena, (Return) {
                 .values = values
             });
         }
         case let_tok: {
             next_token(tokenizer);
-            struct Strings ids = eat_identifiers(ctx);
+            Strings ids = eat_identifiers(ctx);
             size_t bindings_count = ids.count;
-            const struct Node* bindings[bindings_count];
+            const Node* bindings[bindings_count];
             for (size_t i = 0; i < bindings_count; i++)
-                bindings[i] = var(arena, (struct Variable) {
+                bindings[i] = var(arena, (Variable) {
                     .name = ids.strings[i],
                     .type = NULL, // type inference will be required for those
                 });
 
             expect(accept_token(ctx, equal_tok));
-            const struct Node* comp = eat_computation(ctx);
-            return let(arena, (struct Let) {
+            const Node* comp = eat_computation(ctx);
+            return let(arena, (Let) {
                 .variables = nodes(arena, bindings_count, bindings),
                 .target = comp
             });
@@ -266,51 +266,51 @@ const struct Node* accept_instruction(ctxparams) {
     return NULL;
 }
 
-struct Nodes eat_block(ctxparams) {
+Nodes eat_block(ctxparams) {
     expect(accept_token(ctx, lbracket_tok));
-    struct List* instructions = new_list(struct Node*);
+    struct List* instructions = new_list(Node*);
     while (true) {
         if (accept_token(ctx, rbracket_tok))
             break;
 
-        const struct Node* instruction = accept_instruction(ctx);
+        const Node* instruction = accept_instruction(ctx);
         if (instruction)
-            append_list(struct Node*, instructions, instruction);
+            append_list(Node*, instructions, instruction);
         else {
             expect(accept_token(ctx, rbracket_tok));
             break;
         }
     }
-    struct Nodes block = nodes(arena, entries_count_list(instructions), read_list(const struct Node*, instructions));
+    Nodes block = nodes(arena, entries_count_list(instructions), read_list(const Node*, instructions));
     destroy_list(instructions);
     return block;
 }
 
 struct TopLevelDecl {
     bool empty;
-    const struct Node* variable;
-    const struct Node* definition;
+    const Node* variable;
+    const Node* definition;
 };
 
 struct TopLevelDecl accept_fn_decl(ctxparams) {
     if (!accept_token(ctx, fn_tok))
         return (struct TopLevelDecl) { .empty = true };
 
-    const struct Type* type = expect_maybe_qualified_type(ctx);
+    const Type* type = expect_maybe_qualified_type(ctx);
     expect(type);
     const char* id = accept_identifier(ctx);
     expect(id);
     expect(curr_token(tokenizer).tag == lpar_tok);
-    struct Nodes parameters = eat_parameters(ctx);
-    struct Nodes instructions = eat_block(ctx);
+    Nodes parameters = eat_parameters(ctx);
+    Nodes instructions = eat_block(ctx);
 
-    const struct Node* function = fn(arena, (struct Function) {
+    const Node* function = fn(arena, (Function) {
         .params = parameters,
         .return_type = type,
         .instructions = instructions
     });
 
-    const struct Node* variable = var(arena, (struct Variable) {
+    const Node* variable = var(arena, (Variable) {
         .name = id,
         .type = derive_fn_type(arena, &function->payload.fn)
     });
@@ -326,14 +326,14 @@ struct TopLevelDecl accept_var_decl(ctxparams) {
     if (!accept_token(ctx, var_tok))
         return (struct TopLevelDecl) { .empty = true };
 
-    const struct Type* type = expect_maybe_qualified_type(ctx);
+    const Type* type = expect_maybe_qualified_type(ctx);
     expect(type);
     const char* id = accept_identifier(ctx);
     expect(id);
 
     expect(accept_token(ctx, semi_tok));
 
-    const struct Node* variable = var(arena, (struct Variable) {
+    const Node* variable = var(arena, (Variable) {
         .type = type,
         .name = id
     });
@@ -345,7 +345,7 @@ struct TopLevelDecl accept_var_decl(ctxparams) {
     };
 }
 
-const struct Node* parse(char* contents, struct IrArena* arena) {
+const Node* parse(char* contents, IrArena* arena) {
     struct Tokenizer* tokenizer = new_tokenizer(contents);
 
     struct List* top_level = new_list(struct TopLevelDecl);
@@ -377,8 +377,8 @@ const struct Node* parse(char* contents, struct IrArena* arena) {
 
     size_t count = top_level->elements_count;
 
-    const struct Node* variables[count];
-    const struct Node* definitions[count];
+    const Node* variables[count];
+    const Node* definitions[count];
 
     for (size_t i = 0; i < count; i++) {
         variables[i] = read_list(struct TopLevelDecl, top_level)[i].variable;
@@ -388,7 +388,7 @@ const struct Node* parse(char* contents, struct IrArena* arena) {
     destroy_list(top_level);
     destroy_tokenizer(tokenizer);
 
-    return root(arena, (struct Root) {
+    return root(arena, (Root) {
         .variables = nodes(arena, count, variables),
         .definitions = nodes(arena, count, definitions)
     });

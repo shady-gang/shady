@@ -4,8 +4,8 @@
 
 #include <stdio.h>
 
-const struct Node* parse(char* contents, struct IrArena* arena);
-void emit(const struct Node* root, FILE* output);
+const Node* parse(char* contents, IrArena* arena);
+void emit(const Node* root, FILE* output);
 
 RewritePass bind_program;
 RewritePass type_program;

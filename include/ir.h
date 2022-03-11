@@ -3,19 +3,20 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-struct IrArena;
-struct Node;
+typedef struct IrArena_ IrArena;
 
-#define Type Node
+struct Node_;
+typedef struct Node_ Node;
+typedef struct Node_ Type;
 
 typedef const char* String;
 
-enum AddressSpace {
+typedef enum AddressSpace_ {
     AsGeneric,
     AsPrivate,
     AsShared,
     AsGlobal
-};
+} AddressSpace;
 
 #define INSTRUCTION_NODES() \
   NODEDEF(true, true, VariableDecl, var_decl) \
@@ -44,165 +45,163 @@ NODEDEF(false, true, QualifiedType, qualified_type) \
   NODEDEF(true, true, Function, fn) \
   NODEDEF(true, true, Root, root) \
 
-struct Nodes {
+typedef struct Nodes_ {
     size_t count;
-    const struct Node** nodes;
-};
+    const Node** nodes;
+} Nodes;
 
-struct Strings {
+typedef struct Strings_ {
     size_t count;
     String* strings;
-};
+} Strings;
 
-struct Variable {
-    const struct Type* type;
+typedef struct Variable_ {
+    const Type* type;
     String name;
-};
+} Variable;
 
-struct UntypedNumber {
+typedef struct UntypedNumber_ {
     String plaintext;
-};
+} UntypedNumber;
 
 /// Function with _structured_ control flow
-struct Function {
-    struct Nodes params;
-    struct Nodes instructions;
-    const struct Type* return_type;
-};
+typedef struct Function_ {
+    Nodes params;
+    Nodes instructions;
+    const Type* return_type;
+} Function;
 
-struct Continuation;
-
-enum TerminatorTag {
+typedef enum TerminatorTag_ {
     Jump, Branch, Die
-};
+} TerminatorTag;
 
-struct Terminator {
-    enum TerminatorTag tag;
+typedef struct Terminator_ {
+    TerminatorTag tag;
     union {
         struct Jump {
-            const struct Continuation* target;
-            const struct Nodes args;
+            const Node* target;
+            const Nodes args;
         } jump;
         //struct Branch {} branch;
     } payload;
-};
+} Terminator;
 
-struct Continuation {
-    struct Nodes params;
-    struct Nodes instructions;
-    struct Terminator terminator;
-};
+typedef struct Continuation_ {
+    Nodes params;
+    Nodes instructions;
+    Terminator terminator;
+} Continuation;
 
 // Nodes
 
-struct VariableDecl {
-    enum AddressSpace address_space;
-    const struct Node* variable;
-    const struct Node* init;
-};
+typedef struct VariableDecl_ {
+    AddressSpace address_space;
+    const Node* variable;
+    const Node* init;
+} VariableDecl;
 
-struct Let {
-    struct Nodes variables;
-    const struct Node* target;
-};
+typedef struct Let_ {
+    Nodes variables;
+    const Node* target;
+} Let;
 
-struct ExpressionEval {
-    const struct Node* expr;
-};
+typedef struct ExpressionEval_ {
+    const Node* expr;
+} ExpressionEval;
 
-struct Call {
-    const struct Node* callee;
-    struct Nodes args;
-};
+typedef struct Call_ {
+    const Node* callee;
+    Nodes args;
+} Call;
 
 #define PRIMOPS() \
 PRIMOP(add) \
 PRIMOP(sub)       \
 
-enum Op {
+typedef enum Op_ {
 #define PRIMOP(name) name##_op,
 PRIMOPS()
 #undef PRIMOP
-};
+} Op;
 
 extern const char* primop_names[];
 
-struct PrimOp {
-    enum Op op;
-    struct Nodes args;
-};
+typedef struct PrimOp_ {
+    Op op;
+    Nodes args;
+} PrimOp;
 
 // Those things are "meta" instructions, they contain other instructions.
 // they map to SPIR-V structured control flow constructs directly
 // they don't need merge blocks because they are instructions and so that is taken care of by the containing node
 
-struct StructuredSelection {
-    const struct Node* condition;
-    struct Nodes ifTrue;
-    struct Nodes ifFalse;
-};
+typedef struct StructuredSelection_ {
+    const Node* condition;
+    Nodes ifTrue;
+    Nodes ifFalse;
+} StructuredSelection;
 
-struct StructuredSwitch {
-    const struct Node* condition;
-    struct Nodes ifTrue;
-    struct Nodes ifFalse;
-};
+typedef struct StructuredSwitch_ {
+    const Node* condition;
+    Nodes ifTrue;
+    Nodes ifFalse;
+} StructuredSwitch;
 
-struct StructuredLoop {
-    struct Node* condition;
-    struct Nodes bodyInstructions;
-};
+typedef struct StructuredLoop_ {
+    Node* condition;
+    Nodes bodyInstructions;
+} StructuredLoop;
 
-struct Return {
-    struct Nodes values;
-};
+typedef struct Return_ {
+    Nodes values;
+} Return;
 
-struct Root {
-    struct Nodes variables;
-    struct Nodes definitions;
-};
+typedef struct Root_ {
+    Nodes variables;
+    Nodes definitions;
+} Root;
 
-enum DivergenceQualifier {
+typedef enum DivergenceQualifier_ {
     Unknown,
     Uniform,
     Varying
-};
+} DivergenceQualifier;
 
-struct QualifiedType {
+typedef struct QualifiedType_ {
     bool is_uniform;
-    const struct Type* type;
-};
+    const Type* type;
+} QualifiedType;
 
-struct RecordType {
+typedef struct RecordType_ {
     String name;
-    struct Nodes members;
-};
+    Nodes members;
+} RecordType;
 
-struct ContType {
-    struct Nodes param_types;
-};
+typedef struct ContType_ {
+    Nodes param_types;
+} ContType;
 
-struct FnType {
-    struct Nodes param_types;
-    const struct Type* return_type;
-};
+typedef struct FnType_ {
+    Nodes param_types;
+    const Type* return_type;
+} FnType;
 
-struct PtrType {
-    enum AddressSpace address_space;
-    const struct Type* pointed_type;
-};
+typedef struct PtrType_ {
+    AddressSpace address_space;
+    const Type* pointed_type;
+} PtrType;
 
-enum NodeTag {
+typedef enum NodeTag_ {
 #define NODEDEF(_, _2, struct_name, short_name) struct_name##_TAG,
 NODES()
 #undef NODEDEF
-};
+} NodeTag;
 
-struct Node {
-    const struct Type* type;
-    enum NodeTag tag;
+struct Node_ {
+    const Type* type;
+    NodeTag tag;
     union NodesUnion {
-#define NODE_PAYLOAD_true(u, o) struct u o;
+#define NODE_PAYLOAD_true(u, o) u o;
 #define NODE_PAYLOAD_false(u, o)
 #define NODEDEF(_, has_payload, struct_name, short_name) NODE_PAYLOAD_##has_payload(struct_name, short_name)
         NODES()
@@ -210,50 +209,50 @@ struct Node {
     } payload;
 };
 
-struct IrConfig {
+typedef struct IrConfig_ {
     bool check_types;
-};
+} IrConfig;
 
-struct IrArena* new_arena(struct IrConfig);
-void destroy_arena(struct IrArena*);
+IrArena* new_arena(IrConfig);
+void destroy_arena(IrArena*);
 
-struct Rewriter;
+typedef struct Rewriter_ Rewriter;
 
-typedef struct Node* (*RewriteFn)(struct Rewriter*, const struct Node*);
+typedef Node* (*RewriteFn)(Rewriter*, const Node*);
 
 /// Applies the rewriter to all nodes in the collection
-struct Nodes rewrite_nodes(struct Rewriter* rewriter, struct Nodes old_nodes);
+Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes);
 
-struct Strings import_strings(struct Rewriter* rewriter, struct Strings old_strings);
+Strings import_strings(Rewriter* rewriter, Strings old_strings);
 
-struct Rewriter {
-    struct IrArena* src_arena;
-    struct IrArena* dst_arena;
+typedef struct Rewriter_ {
+    IrArena* src_arena;
+    IrArena* dst_arena;
 
     RewriteFn rewrite_fn;
-};
+} Rewriter_;
 
-const struct Node* rewrite_node(struct Rewriter*, const struct Node*);
+const Node* rewrite_node(Rewriter*, const Node*);
 
 /// Rewrites a node using the rewriter to provide the node and type operands
-const struct Node* recreate_node_identity(struct Rewriter*, const struct Node*);
+const Node* recreate_node_identity(Rewriter*, const Node*);
 
 /// Rewrites a whole program, starting at the root
-typedef const struct Node* (RewritePass)(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Node* src_root);
+typedef const Node* (RewritePass)(IrArena* src_arena, IrArena* dst_arena, const Node* src_root);
 
-struct Nodes         nodes(struct IrArena*, size_t count, const struct Node*[]);
-struct Strings     strings(struct IrArena*, size_t count, const char*[]);
+Nodes         nodes(IrArena*, size_t count, const Node*[]);
+Strings     strings(IrArena*, size_t count, const char*[]);
 
-#define NODE_CTOR_true(struct_name, short_name) const struct Node* short_name(struct IrArena*, struct struct_name);
-#define NODE_CTOR_false(struct_name, short_name) const struct Node* short_name(struct IrArena*);
+#define NODE_CTOR_true(struct_name, short_name) const Node* short_name(IrArena*, struct_name);
+#define NODE_CTOR_false(struct_name, short_name) const Node* short_name(IrArena*);
 #define NODEDEF(_, has_payload, struct_name, short_name) NODE_CTOR_##has_payload(struct_name, short_name)
 NODES()
 #undef NODEDEF
 
-String string_sized(struct IrArena* arena, size_t size, const char* start);
-String string(struct IrArena* arena, const char* start);
+String string_sized(IrArena* arena, size_t size, const char* start);
+String string(IrArena* arena, const char* start);
 
-void print_node(const struct Node* node);
+void print_node(const Node* node);
 
 #define SHADY_IR_H
 

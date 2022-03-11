@@ -7,20 +7,20 @@ struct TypeTable;
 struct TypeTable* new_type_table();
 void destroy_type_table(struct TypeTable*);
 
-bool is_subtype(const struct Type* supertype, const struct Type* type);
-void check_subtype(const struct Type* supertype, const struct Type* type);
-enum DivergenceQualifier resolve_divergence(const struct Type* type);
+bool is_subtype(const Type* supertype, const Type* type);
+void check_subtype(const Type* supertype, const Type* type);
+DivergenceQualifier resolve_divergence(const Type* type);
 
-#define DEFINE_NODE_CHECK_FN_true(struct_name, short_name) const struct Type* check_type_##short_name(struct IrArena*, struct struct_name);
+#define DEFINE_NODE_CHECK_FN_true(struct_name, short_name) const Type* check_type_##short_name(IrArena*, struct_name);
 #define DEFINE_NODE_CHECK_FN_false(struct_name, short_name)
 #define NODEDEF(has_typing_fn, _, struct_name, short_name) DEFINE_NODE_CHECK_FN_##has_typing_fn(struct_name, short_name)
 NODES()
 #undef NODEDEF
 
-const struct Type* noret_type(struct IrArena* arena);
+const Type* noret_type(IrArena* arena);
 
-const struct Type* derive_fn_type(struct IrArena* arena, const struct Function* fn);
+const Type* derive_fn_type(IrArena* arena, const Function* fn);
 
-const struct Type* strip_qualifier(const struct Type* type, enum DivergenceQualifier* qual_out);
+const Type* strip_qualifier(const Type* type, DivergenceQualifier* qual_out);
 
 #endif

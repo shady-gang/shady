@@ -10,15 +10,15 @@
 #include <stdint.h>
 #include <assert.h>
 
-KeyHash hash_node(struct Node**);
-bool compare_node(struct Node**, struct Type**);
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
 
 struct SpvEmitter {
     struct SpvFileBuilder* file_builder;
     struct Dict* node_ids;
 };
 
-SpvStorageClass emit_addr_space(enum AddressSpace address_space) {
+SpvStorageClass emit_addr_space(AddressSpace address_space) {
     switch(address_space) {
         case AsGeneric: return SpvStorageClassGeneric;
         case AsPrivate: return SpvStorageClassPrivate;
@@ -28,8 +28,8 @@ SpvStorageClass emit_addr_space(enum AddressSpace address_space) {
     }
 }
 
-SpvId emit_op(struct SpvEmitter* emitter, const struct Node* node);
-SpvId emit_type(struct SpvEmitter* emitter, const struct Type* type) {
+SpvId emit_op(struct SpvEmitter* emitter, const Node* node);
+SpvId emit_type(struct SpvEmitter* emitter, const Type* type) {
     SpvId* existing = find_value_dict(struct Type*, SpvId, emitter->node_ids, type);
     if (existing)
         return *existing;
@@ -57,8 +57,8 @@ SpvId emit_type(struct SpvEmitter* emitter, const struct Type* type) {
     return new;
 }
 
-void emit(const struct Node* root_node, FILE* output) {
-    const struct Root* top_level = &root_node->payload.root;
+void emit(const Node* root_node, FILE* output) {
+    const Root* top_level = &root_node->payload.root;
     struct List* words = new_list(uint32_t);
 
     struct SpvFileBuilder* file_builder = spvb_begin();
@@ -72,11 +72,11 @@ void emit(const struct Node* root_node, FILE* output) {
     spvb_capability(file_builder, SpvCapabilityLinkage);
 
     for (size_t i = 0; i < top_level->variables.count; i++) {
-        const struct Node* variable = top_level->variables.nodes[i];
-        const struct Node* definition = top_level->definitions.nodes[i];
+        const Node* variable = top_level->variables.nodes[i];
+        const Node* definition = top_level->definitions.nodes[i];
 
-        enum DivergenceQualifier qual;
-        const struct Type* unqualified_type = strip_qualifier(variable->type, &qual);
+        DivergenceQualifier qual;
+        const Type* unqualified_type = strip_qualifier(variable->type, &qual);
 
         switch (unqualified_type->tag) {
             case FnType_TAG: {

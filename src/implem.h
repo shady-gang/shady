@@ -6,22 +6,22 @@
 #include "stdlib.h"
 #include "stdio.h"
 
-struct IrArena {
+typedef struct IrArena_ {
     int nblocks;
     int maxblocks;
     void** blocks;
     size_t available;
 
-    struct IrConfig config;
+    IrConfig config;
 
     struct Dict* node_set;
     struct Dict* string_set;
 
     struct Dict* nodes_set;
     struct Dict* strings_set;
-};
+} IrArena_;
 
-void* arena_alloc(struct IrArena* arena, size_t size);
+void* arena_alloc(IrArena* arena, size_t size);
 
 #ifdef _MSC_VER
 #define SHADY_UNREACHABLE __assume(0)

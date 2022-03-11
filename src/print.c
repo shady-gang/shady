@@ -2,7 +2,7 @@
 
 extern const char* node_tags[];
 
-void print_param_list(const struct Nodes vars, bool use_names) {
+void print_param_list(const Nodes vars, bool use_names) {
     printf("(");
     for (size_t i = 0; i < vars.count; i++) {
         print_node(vars.nodes[i]->payload.var.type);
@@ -16,7 +16,7 @@ void print_param_list(const struct Nodes vars, bool use_names) {
 
 static int indent = 0;
 
-void print_instructions(const struct Nodes instructions) {
+void print_instructions(const Nodes instructions) {
     for(size_t i = 0; i < instructions.count; i++) {
         printf("   ");
         print_node(instructions.nodes[i]);
@@ -24,14 +24,14 @@ void print_instructions(const struct Nodes instructions) {
     }
 }
 
-void print_node_impl(const struct Node* node, const char* def_name) {
+void print_node_impl(const Node* node, const char* def_name) {
     if (node == NULL) {
         printf("?");
         return;
     }
     switch (node->tag) {
         case Root_TAG: {
-            const struct Root* top_level = &node->payload.root;
+            const Root* top_level = &node->payload.root;
             for (size_t i = 0; i < top_level->variables.count; i++) {
                 // Some top-level variables do not have definitions !
                 if (top_level->definitions.nodes[i])
@@ -122,7 +122,7 @@ void print_node_impl(const struct Node* node, const char* def_name) {
             break;
         case ContType_TAG: {
             printf("cont (");
-            const struct Nodes* params = &node->payload.cont_type.param_types;
+            const Nodes* params = &node->payload.cont_type.param_types;
             for (size_t i = 0; i < params->count; i++) {
                 print_node(params->nodes[i]);
                 if (i < params->count - 1)
@@ -132,7 +132,7 @@ void print_node_impl(const struct Node* node, const char* def_name) {
             break;
         } case FnType_TAG: {
             printf("fn (");
-            const struct Nodes* params = &node->payload.fn_type.param_types;
+            const Nodes* params = &node->payload.fn_type.param_types;
             for (size_t i = 0; i < params->count; i++) {
                 print_node(params->nodes[i]);
                 if (i < params->count - 1)
@@ -152,6 +152,6 @@ void print_node_impl(const struct Node* node, const char* def_name) {
     }
 }
 
-void print_node(const struct Node* node) {
-    return print_node_impl(node, NULL);
+void print_node(const Node* node) {
+    print_node_impl(node, NULL);
 }
