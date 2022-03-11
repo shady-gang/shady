@@ -219,8 +219,7 @@ void destroy_arena(struct IrArena*);
 
 struct Rewriter;
 
-typedef struct Node* (*NodeRewriteFn)(struct Rewriter*, const struct Node*);
-typedef struct Type* (*TypeRewriteFn)(struct Rewriter*, const struct Type*);
+typedef struct Node* (*RewriteFn)(struct Rewriter*, const struct Node*);
 
 /// Applies the rewriter to all nodes in the collection
 struct Nodes rewrite_nodes(struct Rewriter* rewriter, struct Nodes old_nodes);
@@ -231,17 +230,13 @@ struct Rewriter {
     struct IrArena* src_arena;
     struct IrArena* dst_arena;
 
-    NodeRewriteFn rewrite_node_fn;
-    TypeRewriteFn rewrite_type_fn;
+    RewriteFn rewrite_fn;
 };
 
 const struct Node* rewrite_node(struct Rewriter*, const struct Node*);
-const struct Type* rewrite_type(struct Rewriter*, const struct Type*);
 
 /// Rewrites a node using the rewriter to provide the node and type operands
 const struct Node* recreate_node_identity(struct Rewriter*, const struct Node*);
-/// Rewrites a type using the rewriter to provide the type operands
-const struct Type* recreate_type_identity(struct Rewriter*, const struct Type*);
 
 /// Rewrites a whole program, starting at the root
 typedef const struct Node* (RewritePass)(struct IrArena* src_arena, struct IrArena* dst_arena, const struct Node* src_root);
