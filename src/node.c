@@ -18,15 +18,15 @@
 #define NODEDEF(has_typing_fn, has_payload, struct_name, short_name) const struct Node* short_name(struct IrArena* arena LAST_ARG_##has_payload(struct_name)) { \
     struct Node node;                                                                                                                                           \
     memset((void*) &node, 0, sizeof(struct Node));                                                                                                              \
-    struct Node* ptr = &node;                                                                                                                                   \
-    const struct Node** found = find_key_dict(const struct Node*, arena->node_set, ptr);                                                                        \
-    if (found)                                                                                                                                                  \
-        return *found;                                                                                                                                          \
     node = (struct Node) {                                                                                                                                      \
       .type = CALL_TYPING_METHOD_##has_typing_fn(short_name),                                                                                                   \
       .tag = struct_name##_TAG,                                                                                                                                 \
       SET_PAYLOAD_##has_payload(short_name)                                                                                                                     \
     };                                                                                                                                                          \
+    struct Node* ptr = &node;                                                                                                                                   \
+    const struct Node** found = find_key_dict(const struct Node*, arena->node_set, ptr);                                                                        \
+    if (found)                                                                                                                                                  \
+        return *found;                                                                                                                                          \
     struct Node* alloc = (struct Node*) arena_alloc(arena, sizeof(struct Node));                                                                                \
     *alloc = node;                                                                                                                                              \
     insert_set_get_result(const struct Node*, arena->node_set, alloc);                                                                                          \
