@@ -17,7 +17,11 @@ void print_param_list(const struct Nodes vars, bool use_names) {
 static int indent = 0;
 
 void print_instructions(const struct Nodes instructions) {
-
+    for(size_t i = 0; i < instructions.count; i++) {
+        printf("   ");
+        print_node(instructions.nodes[i]);
+        printf(";\n");
+    }
 }
 
 void print_node_impl(const struct Node* node, const char* def_name) {
