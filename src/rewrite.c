@@ -41,7 +41,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             });
         }
         case Function_TAG:      return fn(rewriter->dst_arena, (Function) {
-           .return_type = rewriter->rewrite_fn(rewriter, node->payload.fn.return_type),
+           .return_types = rewrite_nodes(rewriter, node->payload.fn.return_types),
            .instructions = rewrite_nodes(rewriter, node->payload.fn.instructions),
            .params = rewrite_nodes(rewriter, node->payload.fn.params),
         });
@@ -73,7 +73,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .args = rewrite_nodes(rewriter, node->payload.primop.args)
         });
         case NoRet_TAG:         return noret_type(rewriter->dst_arena);
-        case Void_TAG:          return void_type(rewriter->dst_arena);
         case Int_TAG:           return int_type(rewriter->dst_arena);
         case Float_TAG:         return float_type(rewriter->dst_arena);
         case RecordType_TAG:    return record_type(rewriter->dst_arena, (RecordType) {
@@ -82,7 +81,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case ContType_TAG:      return cont_type(rewriter->dst_arena, (ContType) { .param_types = rewrite_nodes(rewriter, node->payload.cont_type.param_types) });
         case FnType_TAG:        return fn_type(rewriter->dst_arena, (FnType) {
                                     .param_types = rewrite_nodes(rewriter, node->payload.fn_type.param_types),
-                                    .return_type = rewriter->rewrite_fn(rewriter, node->payload.fn_type.return_type)});
+                                    .return_types = rewrite_nodes(rewriter, node->payload.fn_type.return_types)});
         case PtrType_TAG:       return ptr_type(rewriter->dst_arena, (PtrType) {
                                     .address_space = node->payload.ptr_type.address_space,
                                     .pointed_type = rewriter->rewrite_fn(rewriter, node->payload.ptr_type.pointed_type)});

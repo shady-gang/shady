@@ -16,7 +16,6 @@ TOKEN(let, "let") \
 TOKEN(fn, "fn") \
 TOKEN(ptr, "ptr") \
 TOKEN(cont, "cont") \
-TOKEN(void, "void") \
 TOKEN(int, "int") \
 TOKEN(float, "float") \
 TOKEN(return, "return") \

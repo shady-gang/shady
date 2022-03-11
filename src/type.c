@@ -28,8 +28,11 @@ bool is_subtype(const Type* supertype, const Type* type) {
             goto post_switch;
         }
         case FnType_TAG:
-            if (!is_subtype(supertype->payload.fn.return_type, type->payload.fn.return_type))
+            if (supertype->payload.fn.return_types.count != type->payload.fn.return_types.count)
                 return false;
+            for (size_t i = 0; i < type->payload.fn.return_types.count; i++)
+                if (!is_subtype(supertype->payload.fn.return_types.nodes[i], type->payload.fn.return_types.nodes[i]))
+                    return false;
 
             const Nodes* superparams = &supertype->payload.fn_type.param_types;
             const Nodes* params = &type->payload.fn_type.param_types;
@@ -66,8 +69,6 @@ DivergenceQualifier resolve_divergence_impl(const Type* type, bool allow_qualifi
                 error("Uniformity qualifier information found in inappropriate context...")
             return resolve_divergence_impl(type->payload.qualified_type.type, false);
         }
-        case Void_TAG:
-            return Uniform;
         case NoRet_TAG:
         case Int_TAG:
         case Float_TAG:
@@ -100,7 +101,8 @@ const Type* check_type_call(IrArena* arena, Call call) {
     for (size_t i = 0; i < call.args.count; i++) {
         // TODO
     }
-    return callee_type->payload.fn.return_type;
+    //return callee_type->payload.fn.return_type;
+    return NULL;
 }
 
 // This is a pretty good helper fn
@@ -108,7 +110,7 @@ const Type* derive_fn_type(IrArena* arena, const Function* fn) {
     const Type* ptypes[fn->params.count];
     for (size_t i = 0; i < fn->params.count; i++)
         ptypes[i] = fn->params.nodes[i]->type;
-    return fn_type(arena, (FnType) { .param_types = nodes(arena, fn->params.count, ptypes), .return_type = fn->return_type });
+    return fn_type(arena, (FnType) { .param_types = nodes(arena, fn->params.count, ptypes), .return_types = fn->return_types });
 }
 
 const Type* check_type_fn(IrArena* arena, Function fn) {

@@ -28,7 +28,6 @@ typedef enum AddressSpace_ {
 
 #define TYPE_NODES() \
 NODEDEF(false, false, NoRet, noret_type) \
-NODEDEF(false, false, Void, void_type) \
 NODEDEF(false, false, Int, int_type) \
 NODEDEF(false, false, Float, float_type) \
 NODEDEF(false, true, RecordType, record_type) \
@@ -68,7 +67,7 @@ typedef struct UntypedNumber_ {
 typedef struct Function_ {
     Nodes params;
     Nodes instructions;
-    const Type* return_type;
+    Nodes return_types;
 } Function;
 
 typedef enum TerminatorTag_ {
@@ -183,7 +182,7 @@ typedef struct ContType_ {
 
 typedef struct FnType_ {
     Nodes param_types;
-    const Type* return_type;
+    Nodes return_types;
 } FnType;
 
 typedef struct PtrType_ {

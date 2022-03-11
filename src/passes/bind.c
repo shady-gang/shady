@@ -112,7 +112,7 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             }
 
             const Node* new_fn = fn(rewriter->dst_arena, (Function) {
-                .return_type = rewrite_node(rewriter, node->payload.fn.return_type),
+                .return_types = rewrite_nodes(rewriter, node->payload.fn.return_types),
                 .instructions = rewrite_nodes(rewriter, node->payload.fn.instructions),
                 .params = nodes(rewriter->dst_arena, params_count, nparams),
             });
