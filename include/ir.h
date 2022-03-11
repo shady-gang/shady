@@ -115,15 +115,17 @@ struct Call {
     struct Nodes args;
 };
 
-#define OPS() \
-OP(add) \
-OP(sub)       \
+#define PRIMOPS() \
+PRIMOP(add) \
+PRIMOP(sub)       \
 
 enum Op {
-#define OP(name) name##_op,
-OPS()
-#undef OP
+#define PRIMOP(name) name##_op,
+PRIMOPS()
+#undef PRIMOP
 };
+
+extern const char* primop_names[];
 
 struct PrimOp {
     enum Op op;
@@ -265,7 +267,6 @@ String string_sized(struct IrArena* arena, size_t size, const char* start);
 String string(struct IrArena* arena, const char* start);
 
 void print_node(const struct Node* node);
-void print_type(const struct Type* type);
 
 #define SHADY_IR_H
 

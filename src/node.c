@@ -36,6 +36,18 @@
 NODES()
 #undef NODEDEF
 
+const char* node_tags[] = {
+#define NODEDEF(_, _2, _3, str) #str,
+NODES()
+#undef NODEDEF
+};
+
+const char* primop_names[] = {
+#define PRIMOP(str) #str,
+PRIMOPS()
+#undef PRIMOP
+};
+
 KeyHash hash_node(struct Node** node) {
     uint32_t out[4];
     MurmurHash3_x64_128(*node, sizeof(struct Node), 0x1234567, &out);
