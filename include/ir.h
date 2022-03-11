@@ -41,6 +41,7 @@ NODEDEF(false, true, QualifiedType, qualified_type) \
   TYPE_NODES() \
   NODEDEF(true, true, Variable, var) \
   NODEDEF(true, true, UntypedNumber, untyped_number) \
+  NODEDEF(true, true, IntLiteral, int_literal) \
   NODEDEF(true, true, Function, fn) \
   NODEDEF(true, true, Root, root) \
 
@@ -62,6 +63,10 @@ typedef struct Variable_ {
 typedef struct UntypedNumber_ {
     String plaintext;
 } UntypedNumber;
+
+typedef struct IntLiteral_ {
+    int value;
+} IntLiteral;
 
 /// Function with _structured_ control flow
 typedef struct Function_ {

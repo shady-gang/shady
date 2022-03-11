@@ -133,6 +133,10 @@ const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
     error("should never happen");
 }
 
+const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
+    return int_type(arena);
+}
+
 const Type* check_type_let(IrArena* arena, Let let) {
     return let.target->type;
 }
