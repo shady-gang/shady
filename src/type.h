@@ -17,6 +17,9 @@ DivergenceQualifier resolve_divergence(const Type* type);
 NODES()
 #undef NODEDEF
 
+Nodes op_params(IrArena* arena, Op op);
+Nodes op_yields(IrArena* arena, Op op);
+
 const Type* noret_type(IrArena* arena);
 
 const Type* derive_fn_type(IrArena* arena, const Function* fn);

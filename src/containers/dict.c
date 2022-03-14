@@ -6,6 +6,7 @@
 #include <assert.h>
 
 inline static size_t div_roundup(size_t a, size_t b) {
+    //return (a + b - 1) / b;
     if (a % b == 0)
         return a / b;
     else

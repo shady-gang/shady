@@ -9,6 +9,7 @@ set(SHADY_SOURCES
     type.c
     rewrite.c
     print.c
+    transform/import.c
     passes/bind.c
     passes/infer.c
     emit/emit.c

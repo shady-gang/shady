@@ -222,11 +222,12 @@ void destroy_arena(IrArena*);
 
 typedef struct Rewriter_ Rewriter;
 
-typedef Node* (*RewriteFn)(Rewriter*, const Node*);
+typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
 
 /// Applies the rewriter to all nodes in the collection
 Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes);
 
+const Node* import_node(IrArena*, const Node*);
 Strings import_strings(Rewriter* rewriter, Strings old_strings);
 
 typedef struct Rewriter_ {

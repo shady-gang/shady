@@ -155,7 +155,24 @@ const Type* check_type_fn_ret(IrArena* arena, Return fn_ret) {
     return noret_type(arena);
 }
 
+Nodes op_params(IrArena* arena, Op op) {
+    switch (op) {
+        case add_op:
+        case sub_op: return nodes(arena, 2, (const Type*[]){ int_type(arena), int_type(arena) });
+            default: error("unhandled op params");
+    }
+}
+
+Nodes op_yields(IrArena* arena, Op op) {
+    switch (op) {
+        case add_op:
+        case sub_op: return nodes(arena, 1, (const Type*[]) { int_type(arena) });
+        default: error("unhandled op yield");
+    }
+}
+
 const Type* check_type_primop(IrArena* arena, PrimOp primop) {
+    // TODO check params
     switch (primop.op) {
         case sub_op:
         case add_op: {

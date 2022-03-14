@@ -36,7 +36,11 @@ void* arena_alloc(IrArena* arena, size_t size);
 
 #define error(...) {             \
   fprintf (stderr, __VA_ARGS__); \
-  exit(-1);                      \
+  error_impl();                  \
+}
+
+static void error_impl() {
+    exit(-1);
 }
 
 #endif
