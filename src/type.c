@@ -8,6 +8,16 @@
 #include <string.h>
 #include <assert.h>
 
+bool is_type(const Node* node) {
+    switch (node->tag) {
+#define NODEDEF(_, _2, name, _3) case name##_TAG:
+TYPE_NODES()
+#undef NODEDEF
+                 return true;
+        default: return false;
+    }
+}
+
 bool is_subtype(const Type* supertype, const Type* type) {
     if (supertype->tag != type->tag)
         return false;

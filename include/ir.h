@@ -253,6 +253,8 @@ Strings     strings(IrArena*, size_t count, const char*[]);
 NODES()
 #undef NODEDEF
 
+bool is_type(const Node*);
+
 String string_sized(IrArena* arena, size_t size, const char* start);
 String string(IrArena* arena, const char* start);
 

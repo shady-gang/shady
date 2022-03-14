@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <assert.h>
 
+extern const char* node_tags[];
+
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
@@ -75,6 +77,7 @@ void emit(const Node* root_node, FILE* output) {
         const Node* variable = top_level->variables.nodes[i];
         const Node* definition = top_level->definitions.nodes[i];
 
+        assert(variable->type);
         DivergenceQualifier qual;
         const Type* unqualified_type = strip_qualifier(variable->type, &qual);
 
@@ -88,7 +91,7 @@ void emit(const Node* root_node, FILE* output) {
                 spvb_name(file_builder, id, variable->payload.var.name);
                 break;
             } default: { // it must be some global constant
-                SHADY_NOT_IMPLEM
+                error("idk %s\n", node_tags[unqualified_type->tag]);
             }
         }
     }
