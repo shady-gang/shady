@@ -46,6 +46,7 @@ IrArena* new_arena(IrConfig config) {
 void destroy_arena(IrArena* arena) {
     destroy_dict(arena->strings_set);
     destroy_dict(arena->string_set);
+    destroy_dict(arena->nodes_set);
     destroy_dict(arena->node_set);
     for (int i = 0; i < arena->nblocks; i++) {
         free(arena->blocks[i]);
