@@ -177,7 +177,6 @@ typedef struct QualifiedType_ {
 } QualifiedType;
 
 typedef struct RecordType_ {
-    String name;
     Nodes members;
 } RecordType;
 

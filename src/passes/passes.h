@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 const Node* parse(char* contents, IrArena* arena);
-void emit(const Node* root, FILE* output);
+void emit(IrArena*, const Node* root, FILE* output);
 
 RewritePass bind_program;
 RewritePass type_program;

@@ -68,7 +68,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Int_TAG:           return int_type(rewriter->dst_arena);
         case Float_TAG:         return float_type(rewriter->dst_arena);
         case RecordType_TAG:    return record_type(rewriter->dst_arena, (RecordType) {
-                                    .name = string(rewriter->dst_arena, node->payload.record_type.name),
                                     .members = rewrite_nodes(rewriter, node->payload.record_type.members)});
         case ContType_TAG:      return cont_type(rewriter->dst_arena, (ContType) { .param_types = rewrite_nodes(rewriter, node->payload.cont_type.param_types) });
         case FnType_TAG:        return fn_type(rewriter->dst_arena, (FnType) {

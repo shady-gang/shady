@@ -50,7 +50,7 @@ SpvId spvb_fn_type(struct SpvFileBuilder* file_builder, size_t args_count, SpvId
 SpvId spvb_struct_type(struct SpvFileBuilder* file_builder, size_t members_count, SpvId members[]);
 SpvId spvb_vector_type(struct SpvFileBuilder* file_builder, SpvId component_type, uint32_t dim);
 SpvId spvb_bool_constant(struct SpvFileBuilder* file_builder, SpvId type, bool value);
-SpvId spvb_constant(struct SpvFileBuilder* file_builder, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]);
+void spvb_constant(struct SpvFileBuilder* file_builder, SpvId result, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]);
 SpvId spvb_constant_composite(struct SpvFileBuilder* file_builder, SpvId type, size_t ops_count, SpvId ops[]);
 SpvId spvb_global_variable(struct SpvFileBuilder* file_builder, SpvId type, SpvStorageClass storage_class);
 
@@ -59,7 +59,7 @@ void  spvb_decorate_member(struct SpvFileBuilder* file_builder, SpvId target, ui
 
 SpvId spvb_debug_string(struct SpvFileBuilder* file_builder, const char* string);
 
-SpvId spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuilder* fn_builder);
+void spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuilder* fn_builder);
 
 void  spvb_declare_entry_point(struct SpvFileBuilder* file_builder, SpvExecutionModel execution_model, SpvId entry_point, const char* name, size_t interface_elements_count, SpvId interface_elements[]);
 void  spvb_execution_mode(struct SpvFileBuilder* file_builder, SpvId entry_point, SpvExecutionMode execution_mode, size_t payloads_count, uint32_t payloads[]);
@@ -71,5 +71,12 @@ SpvId spvb_extended_import(struct SpvFileBuilder* file_builder, const char* name
 
 struct SpvFileBuilder* spvb_begin();
 void  spvb_finish(struct SpvFileBuilder*, SpvSectionBuilder output);
+
+struct SpvFnBuilder* spvb_begin_fn(struct SpvFileBuilder*, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type);
+struct SpvBasicBlockBuilder* spvb_begin_bb(struct SpvFnBuilder*, SpvId label);
+
+SpvId fn_ret_type_id(struct SpvFnBuilder*);
+
+SpvId spvb_fresh_id(struct SpvFileBuilder* file_builder);
 
 #endif

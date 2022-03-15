@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
         print_node(program);
 
         FILE *output = fopen("out.spv", "wb");
-        emit(program, output);
+        emit(arena, program, output);
         fclose(output);
     }
 

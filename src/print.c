@@ -138,7 +138,14 @@ void print_node_impl(const Node* node, const char* def_name) {
             printf("float");
             break;
         case RecordType_TAG:
-            printf("struct %s", node->payload.record_type.name);
+            printf("struct {");
+            const Nodes* members = &node->payload.record_type.members;
+            for (size_t i = 0; i < members->count; i++) {
+                print_node(members->nodes[i]);
+                if (i < members->count - 1)
+                    printf(", ");
+            }
+            printf("}");
             break;
         case ContType_TAG: {
             printf("cont (");
