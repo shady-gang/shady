@@ -19,12 +19,12 @@ typedef enum AddressSpace_ {
 } AddressSpace;
 
 #define INSTRUCTION_NODES() \
-  NODEDEF(true, true, VariableDecl, var_decl) \
-  NODEDEF(true, true, ExpressionEval, expr_eval) \
-  NODEDEF(true, true, Call, call) \
-  NODEDEF(true, true, Let, let)  \
-  NODEDEF(true, true, Return, fn_ret) \
-  NODEDEF(true, true, PrimOp, primop) \
+NODEDEF(true, true, VariableDecl, var_decl) \
+NODEDEF(true, true, ExpressionEval, expr_eval) \
+NODEDEF(true, true, Call, call) \
+NODEDEF(true, true, Let, let)  \
+NODEDEF(true, true, Return, fn_ret) \
+NODEDEF(true, true, PrimOp, primop) \
 
 #define TYPE_NODES() \
 NODEDEF(false, false, NoRet, noret_type) \
@@ -37,13 +37,13 @@ NODEDEF(false, true, PtrType, ptr_type) \
 NODEDEF(false, true, QualifiedType, qualified_type) \
 
 #define NODES() \
-  INSTRUCTION_NODES() \
-  TYPE_NODES() \
-  NODEDEF(true, true, Variable, var) \
-  NODEDEF(true, true, UntypedNumber, untyped_number) \
-  NODEDEF(true, true, IntLiteral, int_literal) \
-  NODEDEF(true, true, Function, fn) \
-  NODEDEF(true, true, Root, root) \
+INSTRUCTION_NODES() \
+TYPE_NODES() \
+NODEDEF(true, true, Variable, var) \
+NODEDEF(true, true, UntypedNumber, untyped_number) \
+NODEDEF(true, true, IntLiteral, int_literal) \
+NODEDEF(true, true, Function, fn) \
+NODEDEF(true, true, Root, root) \
 
 typedef struct Nodes_ {
     size_t count;
@@ -227,8 +227,10 @@ typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
 /// Applies the rewriter to all nodes in the collection
 Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes);
 
-const Node* import_node(IrArena*, const Node*);
-Strings import_strings(Rewriter* rewriter, Strings old_strings);
+/// bring in a node unmodified into a new arena
+const Node* import_node   (IrArena*, const Node*);
+Nodes       import_nodes  (IrArena*, Nodes);
+Strings     import_strings(IrArena*, Strings);
 
 typedef struct Rewriter_ {
     IrArena* src_arena;

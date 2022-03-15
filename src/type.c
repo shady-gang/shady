@@ -72,12 +72,13 @@ void check_subtype(const Type* supertype, const Type* type) {
         error("is not a subtype")
 }
 
-DivergenceQualifier resolve_divergence_impl(const Type* type, bool allow_qualifier_types) {
+static DivergenceQualifier resolve_divergence_impl(const Type* type, bool allow_qualifier_types) {
     switch (type->tag) {
         case QualifiedType_TAG: {
             if (!allow_qualifier_types)
                 error("Uniformity qualifier information found in inappropriate context...")
-            return resolve_divergence_impl(type->payload.qualified_type.type, false);
+            resolve_divergence_impl(type->payload.qualified_type.type, false);
+            return type->payload.qualified_type.is_uniform ? Uniform : Varying;
         }
         case NoRet_TAG:
         case Int_TAG:
@@ -144,7 +145,10 @@ const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
 }
 
 const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
-    return int_type(arena);
+    return qualified_type(arena, (QualifiedType) {
+        .is_uniform = true,
+        .type = int_type(arena)
+    });
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {

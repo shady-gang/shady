@@ -37,6 +37,7 @@ void* arena_alloc(IrArena* arena, size_t size);
 #define error(...) {             \
   fprintf (stderr, __VA_ARGS__); \
   error_impl();                  \
+  SHADY_UNREACHABLE;             \
 }
 
 static void error_impl() {

@@ -26,7 +26,7 @@ INSTRUCTION := let IDENTIFIER [(, IDENTIFIER)*] = OP VALUES; // PrimOp
              | while VALUE do BLOCK;                         // loop construct
              | return VALUES];
 
-VALUE := VAR | LITERAL
+VALUE := VAR | LITERAL | FN_DECL
 VALUES := VALUE+
 
 TYPE := void | int | float | ptr DATA_TYPE | fn RET_TYPE ( [QTYPE [(, QTYPE)*]] )

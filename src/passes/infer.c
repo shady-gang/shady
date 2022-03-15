@@ -14,7 +14,6 @@ struct BindEntry {
 };
 
 struct TypeRewriter {
-    // Rewriter rewriter;
     IrArena* dst_arena;
     struct List* typed_variables;
     const Nodes* current_fn_expected_return_types;
@@ -30,9 +29,7 @@ static const Node* resolve(const struct TypeRewriter* ctx, const char* id) {
     error("could not resolve variable %s", id)
 }
 
-const Node* handle_binder(struct TypeRewriter* ctx, const Node* node, const Type* inferred_ty) {
-    const char* name = node->payload.var.name;
-
+const Node* new_binder(struct TypeRewriter* ctx, const char* name, const Type* inferred_ty) {
     const Node* fresh = var(ctx->dst_arena, (Variable) {
         .name = name,
         .type = inferred_ty
@@ -45,21 +42,50 @@ const Node* handle_binder(struct TypeRewriter* ctx, const Node* node, const Type
     return fresh;
 }
 
+const Node* type_instruction(struct TypeRewriter* ctx, const Node* node);
+
+Nodes type_block(struct TypeRewriter* ctx, const Nodes* block) {
+    const Node* ninstructions[block->count];
+    for (size_t i = 0; i < block->count; i++)
+        ninstructions[i] = type_instruction(ctx, block->nodes[i]);
+    return nodes(ctx->dst_arena, block->count, ninstructions);
+}
+
 const Node* type_value(struct TypeRewriter* ctx, const Node* node, const Node* expected_type) {
     IrArena* dst_arena = ctx->dst_arena;
     switch (node->tag) {
         case Variable_TAG:
             return resolve(ctx, node->payload.var.name);
         case UntypedNumber_TAG: {
+            // TODO handle different prim types
             assert(expected_type == int_type(dst_arena));
             long v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
             return int_literal(dst_arena, (IntLiteral) { .value = (int) v });
+        }
+        case Function_TAG: {
+            // TODO handle expected_type
+            const Node* nparams[node->payload.fn.params.count];
+            for (size_t i = 0; i < node->payload.fn.params.count; i++)
+               nparams[i] = new_binder(ctx, node->payload.fn.params.nodes[i]->payload.var.name, import_node(dst_arena, node->payload.fn.params.nodes[i]->payload.var.type));
+
+            Nodes nret_types = import_nodes(ctx->dst_arena, node->payload.fn.return_types);
+
+            // Handle the insides of the function
+            struct TypeRewriter instrs_infer_ctx = *ctx;
+            instrs_infer_ctx.current_fn_expected_return_types = &nret_types;
+            Nodes ninstructions = type_block(&instrs_infer_ctx, &node->payload.fn.instructions);
+
+            return fn(dst_arena, (Function) {
+               .return_types = nret_types,
+               .instructions = ninstructions,
+               .params = nodes(dst_arena, node->payload.fn.params.count, nparams),
+            });
         }
         default: error("not a value");
     }
 }
 
-const Node* type_primop_or_call(struct TypeRewriter* ctx, const Node* node, const Type* expected_types[], const Type* inferred_param_tys[]) {
+const Node* type_primop_or_call(struct TypeRewriter* ctx, const Node* node, size_t expected_yield_count, const Type* expected_yield_types[], const Type* actual_yield_types[]) {
     IrArena* dst_arena = ctx->dst_arena;
 
     switch (node->tag) {
@@ -70,11 +96,12 @@ const Node* type_primop_or_call(struct TypeRewriter* ctx, const Node* node, cons
             assert(argsc == param_tys.count);
             const Node* nargs[argsc];
             for (size_t i = 0; i < argsc; i++)
-                nargs[i] = type_value(ctx, node->payload.primop.args.nodes[i], expected_types[i]);
+                nargs[i] = type_value(ctx, node->payload.primop.args.nodes[i], param_tys.nodes[i]);
 
-            // Nodes yield_tys = op_params(dst_arena, node->payload.primop.op);
-            for (size_t i = 0; i < argsc; i++)
-                inferred_param_tys[i] = node->type;
+            Nodes yield_tys = op_yields(dst_arena, node->payload.primop.op);
+            assert(expected_yield_count == yield_tys.count);
+            for (size_t i = 0; i < yield_tys.count; i++)
+                actual_yield_types[i] = yield_tys.nodes[i];
 
             return primop(dst_arena, (PrimOp) {
                 .op = node->payload.primop.op,
@@ -88,115 +115,91 @@ const Node* type_primop_or_call(struct TypeRewriter* ctx, const Node* node, cons
 const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
     switch (node->tag) {
         case Let_TAG: {
-            const size_t varsc = node->payload.let.variables.count;
+            const size_t count = node->payload.let.variables.count;
 
             // first import the type annotations (if set)
-            const Type* expected_types[varsc];
-            for (size_t i = 0; i < varsc; i++)
-                expected_types[i] = import_node(ctx->dst_arena, node->payload.let.variables.nodes[i]->type);
+            const Type* expected_types[count];
+            for (size_t i = 0; i < count; i++)
+                expected_types[i] = import_node(ctx->dst_arena, node->payload.let.variables.nodes[i]->payload.var.type);
 
-            const Type* actual_types[varsc];
-            const Node* rewritten_rhs = type_primop_or_call(ctx, node->payload.let.target, expected_types, actual_types);
+            const Type* actual_types[count];
+            const Node* rewritten_rhs = type_primop_or_call(ctx, node->payload.let.target, count, expected_types, actual_types);
 
             struct TypeRewriter vars_infer_ctx = *ctx;
-            const Node* nvars[varsc];
-            for (size_t i = 0; i < varsc; i++)
-                nvars[i] = handle_binder(&vars_infer_ctx, node->payload.let.variables.nodes[i], actual_types[i]);
+            const Node* nvars[count];
+            for (size_t i = 0; i < count; i++)
+                nvars[i] = new_binder(&vars_infer_ctx, node->payload.let.variables.nodes[i]->payload.var.name, actual_types[i]);
 
             return let(ctx->dst_arena, (Let) {
-                .variables = nodes(ctx->dst_arena, varsc, nvars),
+                .variables = nodes(ctx->dst_arena, count, nvars),
                 .target = rewritten_rhs,
+            });
+        }
+        case Return_TAG: {
+            const Nodes* old_values = &node->payload.fn_ret.values;
+            const Node* nvalues[old_values->count];
+            for (size_t i = 0; i < old_values->count; i++)
+                nvalues[i] = type_value(ctx, old_values->nodes[i], NULL);
+            return fn_ret(ctx->dst_arena, (Return) {
+                .values = nodes(ctx->dst_arena, old_values->count, nvalues)
             });
         }
         default: error("not an instruction");
     }
 }
 
-const Node* type_node(struct TypeRewriter* ctx, const Node* node) {
+const Node* type_root(struct TypeRewriter* ctx, const Node* node) {
     if (node == NULL)
         return NULL;
 
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
-
     switch (node->tag) {
         case Root_TAG: {
-            assert(ctx->expectation == None);
             assert(ctx->current_fn_expected_return_types == NULL);
             size_t count = node->payload.root.variables.count;
             const Node* new_variables[count];
             const Node* new_definitions[count];
 
+            const Type* expected_types[count];
+            for (size_t i = 0; i < count; i++)
+                expected_types[i] = import_node(ctx->dst_arena, node->payload.root.variables.nodes[i]->payload.var.type);
+
             for (size_t i = 0; i < count; i++) {
-                struct TypeRewriter nctx = *ctx;
-                nctx.expectation = None;
-                new_variables[i] = handle_binder(ctx, node->payload.root.variables.nodes[i]);
-            }
-            for (size_t i = 0; i < count; i++) {
-                struct TypeRewriter nctx = *ctx;
-                nctx.expectation = YieldType;
-                nctx.expectation_payload.expected_type = new_variables[i]->type;
-                new_definitions[i] = rewrite_node(&nctx.rewriter, node->payload.root.definitions.nodes[i]);
+                assert(node->payload.root.definitions.nodes[i]);
+                new_definitions[i] = type_value(ctx, node->payload.root.definitions.nodes[i], expected_types[i]);
             }
 
-            return root(dst_arena, (Root) {
-                .variables = nodes(dst_arena, count, new_variables),
-                .definitions = nodes(dst_arena, count, new_definitions)
+            for (size_t i = 0; i < count; i++) {
+                const Variable* oldvar = &node->payload.root.variables.nodes[i]->payload.var;
+                const Type* imported_ty = import_node(ctx->dst_arena, oldvar->type);
+                new_variables[i] = new_binder(ctx, oldvar->name, imported_ty);
+            }
+
+            return root(ctx->dst_arena, (Root) {
+                .variables = nodes(ctx->dst_arena, count, new_variables),
+                .definitions = nodes(ctx->dst_arena, count, new_definitions)
             });
         }
-
-        case Function_TAG: {
-            assert(ctx->current_fn_expected_return_types == NULL);
-
-            const Node* nparams[node->payload.fn.params.count];
-            struct TypeRewriter param_infer_ctx = *ctx;
-            param_infer_ctx.expectation = None;
-            for (size_t i = 0; i < node->payload.fn.params.count; i++)
-               nparams[i] = handle_binder(&param_infer_ctx, node->payload.fn.params.nodes[i]);
-
-            struct TypeRewriter rtypes_infer_ctx = *ctx;
-            rtypes_infer_ctx.expectation = None;
-            Nodes nret_types = rewrite_nodes(&rtypes_infer_ctx.rewriter, node->payload.fn.return_types);
-
-            struct TypeRewriter instrs_infer_ctx = *ctx;
-            instrs_infer_ctx.expectation = None;
-            instrs_infer_ctx.current_fn_expected_return_types = &nret_types;
-
-            size_t icount = node->payload.fn.instructions.count;
-            const Node* ninstructions[icount];
-            for (size_t i = 0; i < icount; i++) {
-                ninstructions[i] = rewrite_node(&instrs_infer_ctx.rewriter, node->payload.fn.instructions.nodes[i]);
-            }
-
-            return fn(dst_arena, (Function) {
-               .return_types = nret_types,
-               .instructions = nodes(dst_arena, icount, ninstructions),
-               .params = nodes(dst_arena, node->payload.fn.params.count, nparams),
-            });
-        }
-        default: {
+        /*default: {
             struct TypeRewriter nctx = *ctx;
             const Node* typed = recreate_node_identity(&nctx.rewriter, node);
             assert(typed->type || is_type(typed));
             if (ctx->expectation == YieldType)
                 assert(is_subtype(typed->type, ctx->expectation_payload.expected_type));
             return typed;
-        }
+        }*/
+        default: error("not a root node");
     }
 }
 
 const Node* type_program(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* bound_variables = new_list(struct BindEntry);
     struct TypeRewriter ctx = {
-            .rewriter = {
-                    .src_arena = src_arena,
-                    .dst_arena = dst_arena,
-                    .rewrite_fn = (RewriteFn) type_node,
-            },
+            .dst_arena = dst_arena,
             .typed_variables = bound_variables,
-            .expectation = None
+            .current_fn_expected_return_types = NULL,
     };
 
-    const Node* rewritten = rewrite_node(&ctx.rewriter, src_program);
+    const Node* rewritten = type_root(&ctx, src_program);
 
     destroy_list(bound_variables);
     return rewritten;

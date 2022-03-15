@@ -80,6 +80,9 @@ void print_node_impl(const Node* node, const char* def_name) {
         case UntypedNumber_TAG:
             printf("%s", node->payload.untyped_number.plaintext);
             break;
+        case IntLiteral_TAG:
+            printf("%d", node->payload.int_literal.value);
+            break;
         case PrimOp_TAG:
             printf("%s", primop_names[node->payload.primop.op]);
             for (size_t i = 0; i < node->payload.primop.args.count; i++) {

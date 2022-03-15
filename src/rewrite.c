@@ -11,14 +11,6 @@ Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
     return nodes(rewriter->dst_arena, count, arr);
 }
 
-Strings import_strings(Rewriter* rewriter, Strings old_strings) {
-    size_t count = old_strings.count;
-    String arr[count];
-    for (size_t i = 0; i < count; i++)
-        arr[i] = string(rewriter->dst_arena, old_strings.strings[i]);
-    return strings(rewriter->dst_arena, count, arr);
-}
-
 const Node* rewrite_node(Rewriter* rewriter, const Node* node) { return rewriter->rewrite_fn(rewriter, node); }
 
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {

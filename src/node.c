@@ -16,21 +16,21 @@
 #define SET_PAYLOAD_false(_)
 
 #define NODEDEF(has_typing_fn, has_payload, struct_name, short_name) const Node* short_name(IrArena* arena LAST_ARG_##has_payload(struct_name)) { \
-    Node node;                                                                                                                                           \
-    memset((void*) &node, 0, sizeof(Node));                                                                                                              \
-    node = (Node) {                                                                                                                                      \
-      .type = CALL_TYPING_METHOD_##has_typing_fn(short_name),                                                                                                   \
-      .tag = struct_name##_TAG,                                                                                                                                 \
-      SET_PAYLOAD_##has_payload(short_name)                                                                                                                     \
-    };                                                                                                                                                          \
-    Node* ptr = &node;                                                                                                                                   \
+    Node node;                                                                                                                                    \
+    memset((void*) &node, 0, sizeof(Node));                                                                                                       \
+    node = (Node) {                                                                                                                               \
+      .type = CALL_TYPING_METHOD_##has_typing_fn(short_name),                                                                                     \
+      .tag = struct_name##_TAG,                                                                                                                   \
+      SET_PAYLOAD_##has_payload(short_name)                                                                                                       \
+    };                                                                                                                                            \
+    Node* ptr = &node;                                                                                                                            \
     const Node** found = find_key_dict(const Node*, arena->node_set, ptr);                                                                        \
-    if (found)                                                                                                                                                  \
-        return *found;                                                                                                                                          \
-    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));                                                                                \
-    *alloc = node;                                                                                                                                              \
-    insert_set_get_result(const Node*, arena->node_set, alloc);                                                                                          \
-    return alloc;                                                                                                                                               \
+    if (found)                                                                                                                                    \
+        return *found;                                                                                                                            \
+    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));                                                                                       \
+    *alloc = node;                                                                                                                                \
+    insert_set_get_result(const Node*, arena->node_set, alloc);                                                                                   \
+    return alloc;                                                                                                                                 \
 }
 
 NODES()
