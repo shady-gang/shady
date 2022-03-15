@@ -72,27 +72,6 @@ void check_subtype(const Type* supertype, const Type* type) {
         error("is not a subtype")
 }
 
-static DivergenceQualifier resolve_divergence_impl(const Type* type, bool allow_qualifier_types) {
-    switch (type->tag) {
-        case QualifiedType_TAG: {
-            if (!allow_qualifier_types)
-                error("Uniformity qualifier information found in inappropriate context...")
-            resolve_divergence_impl(type->payload.qualified_type.type, false);
-            return type->payload.qualified_type.is_uniform ? Uniform : Varying;
-        }
-        case NoRet_TAG:
-        case Int_TAG:
-        case Float_TAG:
-            return Unknown;
-
-        default: SHADY_NOT_IMPLEM;
-    }
-}
-
-DivergenceQualifier resolve_divergence(const Type* type) {
-    return resolve_divergence_impl(type, true);
-}
-
 const Type* strip_qualifier(const Type* type, DivergenceQualifier* qual_out) {
     if (type->tag == QualifiedType_TAG) {
         *qual_out = type->payload.qualified_type.is_uniform ? Uniform : Varying;
@@ -103,8 +82,37 @@ const Type* strip_qualifier(const Type* type, DivergenceQualifier* qual_out) {
     }
 }
 
-const Type* check_type_call(IrArena* arena, Call call) {
-    const Type* callee_type = call.callee->type;
+DivergenceQualifier get_qualifier(const Type* type) {
+    DivergenceQualifier result;
+    strip_qualifier(type, &result);
+    return result;
+}
+
+Nodes extract_variable_types(IrArena* arena, const Nodes* variables) {
+    const Type* arr[variables->count];
+    for (size_t i = 0; i < variables->count; i++)
+        arr[i] = variables->nodes[i]->payload.var.type;
+    return nodes(arena, variables->count, arr);
+}
+
+const Type* derive_fn_type(IrArena* arena, const Function* fn) {
+    return fn_type(arena, (FnType) { .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
+}
+
+#define empty() nodes(arena, 0, NULL)
+#define singleton(t) singleton_impl(arena, t)
+Nodes singleton_impl(IrArena* arena, const Type* type) {
+    const Type* arr[] = { type };
+    return nodes(arena, 1, arr);
+}
+
+const Type* ensure_value_t(Nodes yields) {
+    assert(yields.count == 1);
+    return yields.nodes[0];
+}
+
+Nodes check_type_call(IrArena* arena, Call call) {
+    const Type* callee_type = ensure_value_t(call.callee->yields);
     if (callee_type->tag != FnType_TAG)
         error("Callees must have a function type");
     if (callee_type->payload.fn_type.param_types.count != call.args.count)
@@ -112,51 +120,53 @@ const Type* check_type_call(IrArena* arena, Call call) {
     for (size_t i = 0; i < call.args.count; i++) {
         // TODO
     }
-    //return callee_type->payload.fn.return_type;
-    return NULL;
+    return callee_type->payload.fn.return_types;
 }
 
-// This is a pretty good helper fn
-const Type* derive_fn_type(IrArena* arena, const Function* fn) {
-    const Type* ptypes[fn->params.count];
-    for (size_t i = 0; i < fn->params.count; i++)
-        ptypes[i] = fn->params.nodes[i]->type;
-    return fn_type(arena, (FnType) { .param_types = nodes(arena, fn->params.count, ptypes), .return_types = fn->return_types });
+Nodes check_type_fn(IrArena* arena, Function fn) {
+    return singleton(qualified_type(arena, (QualifiedType) {
+        .is_uniform = true,
+        .type = derive_fn_type(arena, &fn)
+    }));
 }
 
-const Type* check_type_fn(IrArena* arena, Function fn) {
-    return derive_fn_type(arena, &fn);
+Nodes check_type_var_decl(IrArena* arena, VariableDecl decl) {
+    SHADY_NOT_IMPLEM
+    //return ptr_type(arena, (PtrType) { .address_space = decl.address_space, .pointed_type = decl.variable->type });
 }
 
-const Type* check_type_var_decl(IrArena* arena, VariableDecl decl) {
-    return ptr_type(arena, (PtrType) { .address_space = decl.address_space, .pointed_type = decl.variable->type });
-}
-
-const Type* check_type_expr_eval(IrArena* arena, ExpressionEval expr) {
+Nodes check_type_expr_eval(IrArena* arena, ExpressionEval expr) {
     SHADY_NOT_IMPLEM;
 }
 
-const Type* check_type_var(IrArena* arena, Variable variable) {
-    return variable.type;
+Nodes check_type_var(IrArena* arena, Variable variable) {
+    assert(get_qualifier(variable.type) != Unknown);
+    return singleton(variable.type);
 }
 
-const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
+Nodes check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
     error("should never happen");
 }
 
-const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
-    return qualified_type(arena, (QualifiedType) {
+Nodes check_type_int_literal(IrArena* arena, IntLiteral lit) {
+    return singleton(qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = int_type(arena)
-    });
+    }));
 }
 
-const Type* check_type_let(IrArena* arena, Let let) {
-    return let.target->type;
+Nodes check_type_let(IrArena* arena, Let let) {
+    Nodes var_tys = extract_variable_types(arena, &let.variables);
+    Nodes yields = let.target->yields;
+    if (yields.count != var_tys.count)
+        error("let variables count != yield count from operation")
+    for (size_t i = 0; i < var_tys.count; i++)
+        check_subtype(var_tys.nodes[i], yields.nodes[i]);
+    return var_tys;
 }
 
-const Type* check_type_fn_ret(IrArena* arena, Return fn_ret) {
-    return noret_type(arena);
+Nodes check_type_fn_ret(IrArena* arena, Return fn_ret) {
+    return empty();
 }
 
 Nodes op_params(IrArena* arena, Op op) {
@@ -175,24 +185,25 @@ Nodes op_yields(IrArena* arena, Op op) {
     }
 }
 
-const Type* check_type_primop(IrArena* arena, PrimOp primop) {
+Nodes check_type_primop(IrArena* arena, PrimOp primop) {
     // TODO check params
     switch (primop.op) {
         case sub_op:
         case add_op: {
             bool is_result_uniform = true;
             for (size_t i = 0; i < primop.args.count; i++) {
-                DivergenceQualifier op_div = resolve_divergence(primop.args.nodes[i]->type);
+                const Node* arg = primop.args.nodes[i];
+                DivergenceQualifier op_div = get_qualifier(ensure_value_t(arg->yields));
                 assert(op_div != Unknown); // we expect all operands to be clearly known !
                 is_result_uniform ^= op_div == Uniform;
             }
 
-            return qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = int_type(arena) });
+            return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = int_type(arena) }));
         }
         default: SHADY_NOT_IMPLEM;
     }
 }
 
-const Type* check_type_root(IrArena* arena, Root program) {
-    return NULL;
+Nodes check_type_root(IrArena* arena, Root program) {
+    return empty();
 }

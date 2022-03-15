@@ -9,8 +9,8 @@
 #define LAST_ARG_true(struct_name) ,struct_name in_node
 #define LAST_ARG_false(struct_name)
 
-#define CALL_TYPING_METHOD_true(short_name) arena->config.check_types ? check_type_##short_name(arena, in_node) : NULL
-#define CALL_TYPING_METHOD_false(short_name) NULL
+#define CALL_TYPING_METHOD_true(short_name) arena->config.check_types ? check_type_##short_name(arena, in_node) : nodes(arena, 0, NULL)
+#define CALL_TYPING_METHOD_false(short_name) nodes(arena, 0, NULL)
 
 #define SET_PAYLOAD_true(short_name) .payload = (union NodesUnion) { .short_name = in_node }
 #define SET_PAYLOAD_false(_)
@@ -19,7 +19,7 @@
     Node node;                                                                                                                                    \
     memset((void*) &node, 0, sizeof(Node));                                                                                                       \
     node = (Node) {                                                                                                                               \
-      .type = CALL_TYPING_METHOD_##has_typing_fn(short_name),                                                                                     \
+      .yields = CALL_TYPING_METHOD_##has_typing_fn(short_name),                                                                                   \
       .tag = struct_name##_TAG,                                                                                                                   \
       SET_PAYLOAD_##has_payload(short_name)                                                                                                       \
     };                                                                                                                                            \

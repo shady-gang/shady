@@ -77,9 +77,9 @@ void emit(const Node* root_node, FILE* output) {
         const Node* variable = top_level->variables.nodes[i];
         const Node* definition = top_level->definitions.nodes[i];
 
-        assert(variable->type);
+        assert(variable->payload.var.type);
         DivergenceQualifier qual;
-        const Type* unqualified_type = strip_qualifier(variable->type, &qual);
+        const Type* unqualified_type = strip_qualifier(variable->payload.var.type, &qual);
 
         switch (unqualified_type->tag) {
             case FnType_TAG: {

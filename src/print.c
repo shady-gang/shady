@@ -24,6 +24,8 @@ void print_instructions(const Nodes instructions) {
     }
 }
 
+bool pretty_print = false;
+
 void print_node_impl(const Node* node, const char* def_name) {
     if (node == NULL) {
         printf("?");
@@ -33,10 +35,22 @@ void print_node_impl(const Node* node, const char* def_name) {
         case Root_TAG: {
             const Root* top_level = &node->payload.root;
             for (size_t i = 0; i < top_level->variables.count; i++) {
+                const Variable* var = &top_level->variables.nodes[i]->payload.var;
                 // Some top-level variables do not have definitions !
-                if (top_level->definitions.nodes[i])
-                    print_node_impl(top_level->definitions.nodes[i], top_level->variables.nodes[i]->payload.var.name);
-                else print_node_impl(top_level->variables.nodes[i], top_level->variables.nodes[i]->payload.var.name);
+                if (pretty_print) {
+                    if (top_level->definitions.nodes[i])
+                        print_node_impl(top_level->definitions.nodes[i], var->name);
+                    else print_node_impl(top_level->variables.nodes[i], var->name);
+                } else {
+                    printf("let ");
+                    print_node_impl(var->type, NULL);
+                    printf(" %s", var->name);
+                    if (top_level->definitions.nodes[i]) {
+                        printf(" = ");
+                        print_node_impl(top_level->definitions.nodes[i], NULL);
+                    }
+                    printf(";");
+                }
 
                 if (i < top_level->variables.count - 1)
                     printf("\n");

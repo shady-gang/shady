@@ -323,6 +323,13 @@ struct TopLevelDecl accept_var_decl(ctxparams) {
     const char* id = accept_identifier(ctx);
     expect(id);
 
+    // unspecified global variables default to varying
+    if (get_qualifier(mqtype) == Unknown)
+        mqtype = qualified_type(arena, (QualifiedType) {
+            .is_uniform = false,
+            .type = mqtype
+        });
+
     expect(accept_token(ctx, semi_tok));
 
     const Node* variable = var(arena, (Variable) {

@@ -29,7 +29,8 @@ static const Node* resolve(const struct TypeRewriter* ctx, const char* id) {
     error("could not resolve variable %s", id)
 }
 
-const Node* new_binder(struct TypeRewriter* ctx, const char* name, const Type* inferred_ty) {
+const Node* new_binder(struct TypeRewriter* ctx, const char* oldname, const Type* inferred_ty) {
+    const char* name = string(ctx->dst_arena, oldname);
     const Node* fresh = var(ctx->dst_arena, (Variable) {
         .name = name,
         .type = inferred_ty
@@ -51,7 +52,7 @@ Nodes type_block(struct TypeRewriter* ctx, const Nodes* block) {
     return nodes(ctx->dst_arena, block->count, ninstructions);
 }
 
-const Node* type_value(struct TypeRewriter* ctx, const Node* node, const Node* expected_type) {
+static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, const Node* expected_type) {
     IrArena* dst_arena = ctx->dst_arena;
     switch (node->tag) {
         case Variable_TAG:
@@ -85,6 +86,12 @@ const Node* type_value(struct TypeRewriter* ctx, const Node* node, const Node* e
     }
 }
 
+const Node* type_value(struct TypeRewriter* ctx, const Node* node, const Node* expected_type) {
+    const Node* typed = type_value_impl(ctx, node, expected_type);
+    assert(typed->yields.count == 1);
+    return typed;
+}
+
 const Node* type_primop_or_call(struct TypeRewriter* ctx, const Node* node, size_t expected_yield_count, const Type* expected_yield_types[], const Type* actual_yield_types[]) {
     IrArena* dst_arena = ctx->dst_arena;
 
@@ -98,15 +105,17 @@ const Node* type_primop_or_call(struct TypeRewriter* ctx, const Node* node, size
             for (size_t i = 0; i < argsc; i++)
                 nargs[i] = type_value(ctx, node->payload.primop.args.nodes[i], param_tys.nodes[i]);
 
-            Nodes yield_tys = op_yields(dst_arena, node->payload.primop.op);
+            const Node* new = primop(dst_arena, (PrimOp) {
+                .op = node->payload.primop.op,
+                .args = nodes(dst_arena, argsc, nargs)
+            });
+
+            const Nodes yield_tys = new->yields;
             assert(expected_yield_count == yield_tys.count);
             for (size_t i = 0; i < yield_tys.count; i++)
                 actual_yield_types[i] = yield_tys.nodes[i];
 
-            return primop(dst_arena, (PrimOp) {
-                .op = node->payload.primop.op,
-                .args = nodes(dst_arena, argsc, nargs)
-            });
+            return new;
         }
         default: error("not a primop or a call");
     }
@@ -159,19 +168,25 @@ const Node* type_root(struct TypeRewriter* ctx, const Node* node) {
             const Node* new_variables[count];
             const Node* new_definitions[count];
 
-            const Type* expected_types[count];
-            for (size_t i = 0; i < count; i++)
-                expected_types[i] = import_node(ctx->dst_arena, node->payload.root.variables.nodes[i]->payload.var.type);
-
-            for (size_t i = 0; i < count; i++) {
-                assert(node->payload.root.definitions.nodes[i]);
-                new_definitions[i] = type_value(ctx, node->payload.root.definitions.nodes[i], expected_types[i]);
-            }
-
             for (size_t i = 0; i < count; i++) {
                 const Variable* oldvar = &node->payload.root.variables.nodes[i]->payload.var;
                 const Type* imported_ty = import_node(ctx->dst_arena, oldvar->type);
-                new_variables[i] = new_binder(ctx, oldvar->name, imported_ty);
+
+                // Some top-level stuff does not have a definition
+                if (node->payload.root.definitions.nodes[i] == NULL) {
+                    new_variables[i] = new_binder(ctx, oldvar->name, imported_ty);
+                    new_definitions[i] = NULL;
+                } else {
+                    new_definitions[i] = type_value(ctx, node->payload.root.definitions.nodes[i], imported_ty);
+                }
+            }
+
+            for (size_t i = 0; i < count; i++) {
+                if (node->payload.root.definitions.nodes[i] == NULL) continue;
+
+                const Variable* oldvar = &node->payload.root.variables.nodes[i]->payload.var;
+                assert(new_definitions[i]->yields.count == 1);
+                new_variables[i] = new_binder(ctx, oldvar->name, new_definitions[i]->yields.nodes[0]);
             }
 
             return root(ctx->dst_arena, (Root) {
