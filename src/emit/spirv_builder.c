@@ -528,16 +528,22 @@ void spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuild
                 ref_id(pred->value);
                 ref_id(pred->basic_block);
             }
+
+            destroy_list(phi->preds);
         }
 
         copy_section(bb->section_data);
+
+        destroy_list(bb->phis);
+        destroy_list(bb->section_data);
+        free(bb);
     }
 
     op(SpvOpFunctionEnd, 1);
 
-    free(fn_builder->bbs);
-    free(fn_builder->header);
-    free(fn_builder->variables);
+    destroy_list(fn_builder->bbs);
+    destroy_list(fn_builder->header);
+    destroy_list(fn_builder->variables);
     free(fn_builder);
 }
 
