@@ -61,6 +61,8 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
             return int_literal(dst_arena, (IntLiteral) { .value = (int) v });
         }
         case Function_TAG: {
+            size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
+
             // TODO handle expected_type
             const Node* nparams[node->payload.fn.params.count];
             for (size_t i = 0; i < node->payload.fn.params.count; i++)
@@ -73,11 +75,16 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
             instrs_infer_ctx.current_fn_expected_return_types = &nret_types;
             Nodes ninstructions = type_block(&instrs_infer_ctx, &node->payload.fn.instructions);
 
-            return fn(dst_arena, (Function) {
+            const Node* fun = fn(dst_arena, (Function) {
                .return_types = nret_types,
                .instructions = ninstructions,
                .params = nodes(dst_arena, node->payload.fn.params.count, nparams),
             });
+
+            while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
+                pop_list(struct BindEntry, ctx->typed_variables);
+
+            return fun;
         }
         default: error("not a value");
     }
