@@ -32,6 +32,8 @@ IrArena* new_arena(IrConfig config) {
         .available = 0,
         .config = config,
 
+        .next_free_id = 0,
+
         .node_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .string_set = new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
 
@@ -53,6 +55,10 @@ void destroy_arena(IrArena* arena) {
     }
     free(arena->blocks);
     free(arena);
+}
+
+VarId fresh_id(IrArena* arena) {
+    return arena->next_free_id++;
 }
 
 void* arena_alloc(IrArena* arena, size_t size) {

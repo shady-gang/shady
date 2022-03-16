@@ -14,6 +14,8 @@ typedef struct IrArena_ {
 
     IrConfig config;
 
+    VarId next_free_id;
+
     struct Dict* node_set;
     struct Dict* string_set;
 
@@ -22,6 +24,8 @@ typedef struct IrArena_ {
 } IrArena_;
 
 void* arena_alloc(IrArena* arena, size_t size);
+
+VarId fresh_id(IrArena*);
 
 #ifdef _MSC_VER
 #define SHADY_UNREACHABLE __assume(0)

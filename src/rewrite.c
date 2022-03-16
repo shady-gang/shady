@@ -40,10 +40,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
             .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext)
         });
-        case Variable_TAG:      return var(rewriter->dst_arena, (Variable) {
-            .name = string(rewriter->dst_arena, node->payload.var.name),
-            .type = rewriter->rewrite_fn(rewriter, node->payload.var.type)
-        });
+        case Variable_TAG:      return var(rewriter->dst_arena, rewriter->rewrite_fn(rewriter, node->payload.var.type), string(rewriter->dst_arena, node->payload.var.name));
         case VariableDecl_TAG:  return var_decl(rewriter->dst_arena, (VariableDecl) {
             .address_space = node->payload.var_decl.address_space,
             .variable = rewriter->rewrite_fn(rewriter, node->payload.var_decl.variable),

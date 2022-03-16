@@ -98,10 +98,7 @@ Nodes expect_parameters(ctxparams) {
             const char* id = accept_identifier(ctx);
             expect(id);
 
-            const Node* node = var(arena, (Variable) {
-                .name = id,
-                .type = qtype
-            });
+            const Node* node = var(arena, qtype, id);
 
             append_list(Node*, params, node);
 
@@ -153,8 +150,7 @@ const Node* accept_literal(ctxparams) {
 const Node* accept_value(ctxparams) {
     const char* id = accept_identifier(ctx);
     if (id) {
-        return var(arena, (Variable) {
-            .type = NULL,
+        return unbound(arena, (Unbound) {
             .name = id
         });
     }
@@ -242,10 +238,7 @@ const Node* accept_instruction(ctxparams) {
             size_t bindings_count = ids.count;
             const Node* bindings[bindings_count];
             for (size_t i = 0; i < bindings_count; i++)
-                bindings[i] = var(arena, (Variable) {
-                    .name = ids.strings[i],
-                    .type = NULL, // type inference will be required for those
-                });
+                bindings[i] = var(arena, NULL, ids.strings[i]);
 
             expect(accept_token(ctx, equal_tok));
             const Node* comp = expect_computation(ctx);
@@ -302,10 +295,7 @@ struct TopLevelDecl accept_fn_decl(ctxparams) {
         .instructions = instructions
     });
 
-    const Node* variable = var(arena, (Variable) {
-        .name = id,
-        .type = derive_fn_type(arena, &function->payload.fn)
-    });
+    const Node* variable = var(arena, derive_fn_type(arena, &function->payload.fn), id);
 
     return (struct TopLevelDecl) {
         .empty = false,
@@ -332,10 +322,7 @@ struct TopLevelDecl accept_var_decl(ctxparams) {
 
     expect(accept_token(ctx, semi_tok));
 
-    const Node* variable = var(arena, (Variable) {
-        .type = mqtype,
-        .name = id
-    });
+    const Node* variable = var(arena, mqtype, id);
 
     return (struct TopLevelDecl) {
         .empty = false,

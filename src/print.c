@@ -67,12 +67,10 @@ void print_node_impl(const Node* node, const char* def_name) {
             printf(";\n");
             break;
         case Variable_TAG:
-            if (def_name) {
-                printf("var ");
-                print_node(node->payload.var.type);
-                printf(" %s;\n", node->payload.var.name);
-            } else
-                printf("%s", node->payload.var.name);
+            printf("%s_%d", node->payload.var.name, node->payload.var.id);
+            break;
+        case Unbound_TAG:
+            printf("`%s`", node->payload.unbound.name);
             break;
         case Function_TAG:
             printf("fn ");

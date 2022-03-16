@@ -31,10 +31,7 @@ static const Node* resolve(const struct TypeRewriter* ctx, const char* id) {
 
 const Node* new_binder(struct TypeRewriter* ctx, const char* oldname, const Type* inferred_ty) {
     const char* name = string(ctx->dst_arena, oldname);
-    const Node* fresh = var(ctx->dst_arena, (Variable) {
-        .name = name,
-        .type = inferred_ty
-    });
+    const Node* fresh = var(ctx->dst_arena, inferred_ty, name);
     struct BindEntry entry = {
         .id = name,
         .typed = fresh

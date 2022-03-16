@@ -18,32 +18,37 @@ typedef enum AddressSpace_ {
     AsGlobal
 } AddressSpace;
 
+typedef int VarId;
+
+// NODEDEF(has_type_check_fn, has_payload, StructName, short_name)
+
 #define INSTRUCTION_NODES() \
-NODEDEF(true, true, VariableDecl, var_decl) \
-NODEDEF(true, true, ExpressionEval, expr_eval) \
-NODEDEF(true, true, Call, call) \
-NODEDEF(true, true, Let, let)  \
-NODEDEF(true, true, Return, fn_ret) \
-NODEDEF(true, true, PrimOp, primop) \
+NODEDEF(1, 1, 1, VariableDecl, var_decl) \
+NODEDEF(1, 1, 1, ExpressionEval, expr_eval) \
+NODEDEF(1, 1, 1, Call, call) \
+NODEDEF(1, 1, 1, Let, let)  \
+NODEDEF(1, 1, 1, Return, fn_ret) \
+NODEDEF(1, 1, 1, PrimOp, primop) \
 
 #define TYPE_NODES() \
-NODEDEF(false, false, NoRet, noret_type) \
-NODEDEF(false, false, Int, int_type) \
-NODEDEF(false, false, Float, float_type) \
-NODEDEF(false, true, RecordType, record_type) \
-NODEDEF(false, true, FnType, fn_type) \
-NODEDEF(false, true, ContType, cont_type) \
-NODEDEF(false, true, PtrType, ptr_type) \
-NODEDEF(false, true, QualifiedType, qualified_type) \
+NODEDEF(1, 0, 0, NoRet, noret_type) \
+NODEDEF(1, 0, 0, Int, int_type) \
+NODEDEF(1, 0, 0, Float, float_type) \
+NODEDEF(1, 0, 1, RecordType, record_type) \
+NODEDEF(1, 0, 1, FnType, fn_type) \
+NODEDEF(1, 0, 1, ContType, cont_type) \
+NODEDEF(1, 0, 1, PtrType, ptr_type) \
+NODEDEF(1, 0, 1, QualifiedType, qualified_type) \
 
 #define NODES() \
 INSTRUCTION_NODES() \
 TYPE_NODES() \
-NODEDEF(true, true, Variable, var) \
-NODEDEF(true, true, UntypedNumber, untyped_number) \
-NODEDEF(true, true, IntLiteral, int_literal) \
-NODEDEF(true, true, Function, fn) \
-NODEDEF(true, true, Root, root) \
+NODEDEF(0, 1, 1, Variable, var) \
+NODEDEF(1, 0, 1, Unbound, unbound) \
+NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
+NODEDEF(1, 1, 1, IntLiteral, int_literal) \
+NODEDEF(1, 1, 1, Function, fn) \
+NODEDEF(1, 1, 1, Root, root) \
 
 typedef struct Nodes_ {
     size_t count;
@@ -57,8 +62,13 @@ typedef struct Strings_ {
 
 typedef struct Variable_ {
     const Type* type;
+    VarId id;
     String name;
 } Variable;
+
+typedef struct Unbound_ {
+    String name;
+} Unbound;
 
 typedef struct UntypedNumber_ {
     String plaintext;
@@ -195,7 +205,7 @@ typedef struct PtrType_ {
 } PtrType;
 
 typedef enum NodeTag_ {
-#define NODEDEF(_, _2, struct_name, short_name) struct_name##_TAG,
+#define NODEDEF(_, _2, _3, struct_name, short_name) struct_name##_TAG,
 NODES()
 #undef NODEDEF
 } NodeTag;
@@ -204,9 +214,9 @@ struct Node_ {
     Nodes yields;
     NodeTag tag;
     union NodesUnion {
-#define NODE_PAYLOAD_true(u, o) u o;
-#define NODE_PAYLOAD_false(u, o)
-#define NODEDEF(_, has_payload, struct_name, short_name) NODE_PAYLOAD_##has_payload(struct_name, short_name)
+#define NODE_PAYLOAD_1(u, o) u o;
+#define NODE_PAYLOAD_0(u, o)
+#define NODEDEF(_, _2, has_payload, struct_name, short_name) NODE_PAYLOAD_##has_payload(struct_name, short_name)
         NODES()
 #undef NODEDEF
     } payload;
@@ -249,11 +259,16 @@ typedef const Node* (RewritePass)(IrArena* src_arena, IrArena* dst_arena, const 
 Nodes         nodes(IrArena*, size_t count, const Node*[]);
 Strings     strings(IrArena*, size_t count, const char*[]);
 
-#define NODE_CTOR_true(struct_name, short_name) const Node* short_name(IrArena*, struct_name);
-#define NODE_CTOR_false(struct_name, short_name) const Node* short_name(IrArena*);
-#define NODEDEF(_, has_payload, struct_name, short_name) NODE_CTOR_##has_payload(struct_name, short_name)
+#define NODE_CTOR_DECL_1(struct_name, short_name) const Node* short_name(IrArena*, struct_name);
+#define NODE_CTOR_DECL_0(struct_name, short_name) const Node* short_name(IrArena*);
+
+#define NODE_CTOR_1(has_payload, struct_name, short_name) NODE_CTOR_DECL_##has_payload(struct_name, short_name)
+#define NODE_CTOR_0(has_payload, struct_name, short_name)
+
+#define NODEDEF(autogen_ctor, _, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_payload, struct_name, short_name)
 NODES()
 #undef NODEDEF
+const Node* var(IrArena* arena, const Type* type, const char* name);
 
 bool is_type(const Node*);
 

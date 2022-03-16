@@ -43,10 +43,7 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             for (size_t i = 0; i < count; i++) {
                 const Node* variable = src_root->variables.nodes[i];
 
-                const Node* new_variable = var(rewriter->dst_arena, (Variable) {
-                    .name = string(rewriter->dst_arena, variable->payload.var.name),
-                    .type = rewrite_node(rewriter, variable->payload.var.type)
-                });
+                const Node* new_variable = var(rewriter->dst_arena, rewrite_node(rewriter, variable->payload.var.type), string(rewriter->dst_arena, variable->payload.var.name));
 
                 struct BindEntry entry = {
                     .id = variable->payload.var.name,
@@ -64,19 +61,16 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                 .definitions = nodes(rewriter->dst_arena, count, new_definitions)
             });
         }
-        case Variable_TAG: {
-            assert(node->payload.var.type == NULL);
-            return resolve(ctx, node->payload.var.name);
+        case Variable_TAG: error("the binders should be handled such that this node is never reached");
+        case Unbound_TAG: {
+            return resolve(ctx, node->payload.unbound.name);
         }
         case Let_TAG: {
             size_t outputs_count = node->payload.let.variables.count;
             const Node* noutputs[outputs_count];
             for (size_t p = 0; p < outputs_count; p++) {
                 const Variable* old_var = &node->payload.let.variables.nodes[p]->payload.var;
-                const Node* new_binding = var(rewriter->dst_arena, (Variable) {
-                    .name = string(rewriter->dst_arena, old_var->name),
-                    .type = rewrite_node(rewriter, old_var->type)
-                });
+                const Node* new_binding = var(rewriter->dst_arena, rewrite_node(rewriter, old_var->type), string(rewriter->dst_arena, old_var->name));
                 noutputs[p] = new_binding;
                 struct BindEntry entry = {
                     .id = string(ctx->rewriter.dst_arena, old_var->name),
@@ -98,10 +92,7 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             const Node* nparams[params_count];
             for (size_t p = 0; p < params_count; p++) {
                 const Variable* old_param = &node->payload.fn.params.nodes[p]->payload.var;
-                const Node* new_param = var(rewriter->dst_arena, (Variable) {
-                    .name = string(rewriter->dst_arena, old_param->name),
-                    .type = rewrite_node(rewriter, old_param->type)
-                });
+                const Node* new_param = var(rewriter->dst_arena, rewrite_node(rewriter, old_param->type), string(rewriter->dst_arena, old_param->name));
                 nparams[p] = new_param;
                 struct BindEntry entry = {
                     .id = string(ctx->rewriter.dst_arena, old_param->name),

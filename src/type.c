@@ -10,7 +10,7 @@
 
 bool is_type(const Node* node) {
     switch (node->tag) {
-#define NODEDEF(_, _2, name, _3) case name##_TAG:
+#define NODEDEF(_, _2, _3, name, _4) case name##_TAG:
 TYPE_NODES()
 #undef NODEDEF
                  return true;

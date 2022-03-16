@@ -6,16 +6,16 @@
 
 #include <string.h>
 
-#define LAST_ARG_true(struct_name) ,struct_name in_node
-#define LAST_ARG_false(struct_name)
+#define LAST_ARG_1(struct_name) ,struct_name in_node
+#define LAST_ARG_0(struct_name)
 
-#define CALL_TYPING_METHOD_true(short_name) arena->config.check_types ? check_type_##short_name(arena, in_node) : nodes(arena, 0, NULL)
-#define CALL_TYPING_METHOD_false(short_name) nodes(arena, 0, NULL)
+#define CALL_TYPING_METHOD_1(short_name) arena->config.check_types ? check_type_##short_name(arena, in_node) : nodes(arena, 0, NULL)
+#define CALL_TYPING_METHOD_0(short_name) nodes(arena, 0, NULL)
 
-#define SET_PAYLOAD_true(short_name) .payload = (union NodesUnion) { .short_name = in_node }
-#define SET_PAYLOAD_false(_)
+#define SET_PAYLOAD_1(short_name) .payload = (union NodesUnion) { .short_name = in_node }
+#define SET_PAYLOAD_0(_)
 
-#define NODEDEF(has_typing_fn, has_payload, struct_name, short_name) const Node* short_name(IrArena* arena LAST_ARG_##has_payload(struct_name)) { \
+#define NODE_CTOR_1(has_typing_fn, has_payload, struct_name, short_name) const Node* short_name(IrArena* arena LAST_ARG_##has_payload(struct_name)) { \
     Node node;                                                                                                                                    \
     memset((void*) &node, 0, sizeof(Node));                                                                                                       \
     node = (Node) {                                                                                                                               \
@@ -33,11 +33,37 @@
     return alloc;                                                                                                                                 \
 }
 
+#define NODE_CTOR_0(has_typing_fn, has_payload, struct_name, short_name)
+#define NODEDEF(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_typing_fn, has_payload, struct_name, short_name)
 NODES()
 #undef NODEDEF
 
+const Node* var(IrArena* arena, const Type* type, const char* name) {
+    Variable variable = {
+        .type = type,
+        .name = string(arena, name),
+        .id = fresh_id(arena)
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+      .yields = arena->config.check_types ? check_type_var(arena, variable) : nodes(arena, 0, NULL),
+      .tag = Variable_TAG,
+      .payload.var = variable
+    };
+    Node* ptr = &node;
+    const Node** found = find_key_dict(const Node*, arena->node_set, ptr);
+    if (found)
+        return *found;
+    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
+    *alloc = node;
+    insert_set_get_result(const Node*, arena->node_set, alloc);
+    return alloc;
+}
+
 const char* node_tags[] = {
-#define NODEDEF(_, _2, _3, str) #str,
+#define NODEDEF(_, _2, _3, _4, str) #str,
 NODES()
 #undef NODEDEF
 };
@@ -56,9 +82,9 @@ KeyHash hash_node(Node** node) {
     final ^= out[1];
     final ^= out[2];
     final ^= out[3];
-    printf("hash of :");
-    print_node(*node);
-    printf(" = [%u] %u\n", final, final % 32);
+    //printf("hash of :");
+    //print_node(*node);
+    //printf(" = [%u] %u\n", final, final % 32);
     return final;
 }
 
