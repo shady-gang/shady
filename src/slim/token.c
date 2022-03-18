@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include "token.h"
 
@@ -24,13 +25,8 @@ void init_tokenizer_constants() {
     }
 }
 
-const char whitespace[] = " \t\b\n";
-
 struct Tokenizer {
     char* str;
-    char* rest;
-    char* original;
-    size_t remaining;
     size_t original_size;
     size_t pos;
     struct Token current;
@@ -39,11 +35,9 @@ struct Tokenizer {
 struct Tokenizer* new_tokenizer(char* str) {
     struct Tokenizer* tokenizer = (struct Tokenizer*) malloc(sizeof(struct Tokenizer));
     *tokenizer = (struct Tokenizer) {
-        .str = NULL,
-        .rest = str,
-        .original = str,
+        .str = str,
         .original_size = strlen(str),
-        .remaining = 0,
+        .pos = 0
     };
     next_token(tokenizer);
     return tokenizer;
@@ -53,67 +47,67 @@ void destroy_tokenizer(struct Tokenizer* tokenizer) {
     free(tokenizer);
 }
 
-bool is_alpha(char c) {
-    return c >= 'A' && c <= 'z';
-}
+const char whitespace[] = { ' ', '\t', '\b', '\n' };
 
-bool is_digit(char c) {
-    return c >= '0' && c <= '9';
-}
+static inline bool is_alpha(char c) { return c >= 'A' && c <= 'z'; }
+static inline bool is_digit(char c) { return c >= '0' && c <= '9'; }
+static inline bool is_whitespace(char c) { for (size_t i = 0; i < sizeof(whitespace); i++) { if(c == whitespace[i]) return true; } return false; }
+static inline bool can_start_identifier(char c) { return is_alpha(c) || c == '_'; }
+static inline bool can_make_up_identifier(char c) { return can_start_identifier(c) || is_digit(c); }
 
-bool can_start_identifier(char c) {
-    return is_alpha(c) || c == '_';
-}
-bool can_make_up_identifier(char c) {
-    return can_start_identifier(c) || is_digit(c);
+static void eat_whitespace_and_comments(struct Tokenizer* tokenizer) {
+    while (tokenizer->pos < tokenizer->original_size) {
+        if (is_whitespace(tokenizer->str[tokenizer->pos])) {
+            tokenizer->pos++;
+        } else if (tokenizer->pos + 2 <= tokenizer->original_size && tokenizer->str[tokenizer->pos] == '/' && tokenizer->str[tokenizer->pos + 1] == '/') {
+            while (tokenizer->pos < tokenizer->original_size) {
+                if (tokenizer->str[tokenizer->pos] == '\n')
+                    break;
+                tokenizer->pos++;
+            }
+        } else
+            break;
+    }
 }
 
 struct Token next_token(struct Tokenizer* tokenizer) {
-    if (tokenizer->remaining == 0) {
-        if (tokenizer->rest == NULL)
-            tokenizer->str = NULL;
-        else
-            tokenizer->str = strtok(tokenizer->rest, whitespace);
-        if (tokenizer->str == NULL) {
-            printf("EOF\n");
-            struct Token token = (struct Token) {
-                    .tag = EOF_tok
-            };
-            tokenizer->current = token;
-            return token;
-        }
-        tokenizer->remaining = strlen(tokenizer->str);
-        tokenizer->rest = tokenizer->str + tokenizer->remaining;
-        if ((size_t)(void*)tokenizer->rest == (size_t)(void*) tokenizer->original + tokenizer->original_size) {
-            tokenizer->rest = NULL;
-        } else {
-            tokenizer->rest = &tokenizer->rest[1];
-        }
+    eat_whitespace_and_comments(tokenizer);
+    if (tokenizer->pos == tokenizer->original_size) {
+        printf("EOF\n");
+        struct Token token = (struct Token) {
+                .tag = EOF_tok
+        };
+        tokenizer->current = token;
+        return token;
     }
 
+    assert(tokenizer->pos <= tokenizer->original_size);
+
     struct Token token = {
-        .start = (size_t)tokenizer->str - (size_t)tokenizer->original,
+        .start = tokenizer->pos,
     };
+
+    const char* slice = &tokenizer->str[tokenizer->pos];
 
     size_t token_size = 0;
     // First, try to do alphanumeric tokenization
     bool can_be_identifier = false;
-    if (can_start_identifier(tokenizer->str[0])) {
+    if (can_start_identifier(slice[0])) {
         can_be_identifier = true;
-        while (token_size <= tokenizer->remaining) {
-            if (can_make_up_identifier(tokenizer->str[token_size])) {
+        while (tokenizer->pos + token_size <= tokenizer->original_size) {
+            if (can_make_up_identifier(slice[token_size])) {
                 token_size++;
             } else break;
         }
-    } else if (is_digit(tokenizer->str[0])) {
+    } else if (is_digit(slice[0])) {
         token.tag = dec_lit_tok;
 
-        if (tokenizer->str[0] == '0' && tokenizer->str[1] == 'x') {
+        if (slice[0] == '0' && slice[1] == 'x') {
             token.tag = hex_lit_tok;
-            tokenizer->str = &tokenizer->str[2];
+            slice = &slice[2];
         }
 
-        while (is_digit(tokenizer->str[token_size])) {
+        while (is_digit(slice[token_size])) {
             token_size++;
         }
         goto parsed_successfully;
@@ -121,7 +115,7 @@ struct Token next_token(struct Tokenizer* tokenizer) {
 
     for (int i = 0; i < LIST_END_tok; i++) {
         size_t tok_size = token_strings_size[i];
-        if (tokenizer->remaining >= tok_size && strncmp(token_strings[i], tokenizer->str, tok_size) == 0) {
+        if (tokenizer->pos + tok_size <= tokenizer->original_size && strncmp(token_strings[i], slice, tok_size) == 0) {
             token.tag = i;
             token_size = tok_size;
             goto parsed_successfully;
@@ -134,13 +128,13 @@ struct Token next_token(struct Tokenizer* tokenizer) {
         goto parsed_successfully;
     }
 
-    printf("We don't know how to tokenize %s...\n", tokenizer->str);
+    printf("We don't know how to tokenize %.16s...\n", slice);
     exit(-2);
 
     parsed_successfully:
     token.end = token.start + token_size;
-    tokenizer->remaining -= token_size;
-    tokenizer->str+= token_size;
+
+    tokenizer->pos += token_size;
     tokenizer->current = token;
 
     printf("(tok=(tag = %s, pos = %zu))\n", token_tags[token.tag], token.start);
