@@ -451,12 +451,13 @@ SpvId spvb_constant_composite(struct SpvFileBuilder* file_builder, SpvId type, s
     return id;
 }
 
-SpvId spvb_global_variable(struct SpvFileBuilder* file_builder, SpvId type, SpvStorageClass storage_class) {
-    op(SpvOpVariable, 4);
+SpvId spvb_global_variable(struct SpvFileBuilder* file_builder, SpvId id, SpvId type, SpvStorageClass storage_class, bool has_initializer, SpvId initializer) {
+    op(SpvOpVariable, has_initializer ? 5 : 4);
     ref_id(type);
-    SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
     literal_int(storage_class);
+    if (has_initializer)
+        ref_id(initializer);
     return id;
 }
 

@@ -112,7 +112,7 @@ Nodes expect_parameters(ctxparams) {
     return variables2;
 }
 
-Nodes expect_types(ctxparams, enum TokenTag separator, bool expect_qualified) {
+Nodes accept_types(ctxparams, enum TokenTag separator, bool expect_qualified) {
     struct List* types = new_list(Type*);
     while (true) {
         const Type* type = expect_qualified ? accept_qualified_type(ctx) : accept_maybe_qualified_type(ctx);
@@ -147,6 +147,8 @@ const Node* accept_literal(ctxparams) {
     }
 }
 
+const Node* accept_function(ctxparams);
+
 const Node* accept_value(ctxparams) {
     const char* id = accept_identifier(ctx);
     if (id) {
@@ -155,7 +157,10 @@ const Node* accept_value(ctxparams) {
         });
     }
 
-    return accept_literal(ctx);
+    const Node* lit = accept_literal(ctx);
+    if (lit) return lit;
+
+    return accept_function(ctx);
 }
 
 Strings expect_identifiers(ctxparams) {
@@ -278,51 +283,88 @@ struct TopLevelDecl {
     const Node* definition;
 };
 
-struct TopLevelDecl accept_fn_decl(ctxparams) {
-    if (!accept_token(ctx, fn_tok))
+const Node* accept_function(ctxparams) {
+      if (!accept_token(ctx, fn_tok))
+          return NULL;
+
+      Nodes types = accept_types(ctx, comma_tok, false);
+      expect(curr_token(tokenizer).tag == lpar_tok);
+      Nodes parameters = expect_parameters(ctx);
+      Nodes instructions = expect_block(ctx);
+
+      const Node* function = fn(arena, (Function) {
+          .params = parameters,
+          .return_types = types,
+          .instructions = instructions
+      });
+
+      return function;
+  }
+
+struct TopLevelDecl accept_def(ctxparams) {
+    if (!accept_token(ctx, def_tok))
         return (struct TopLevelDecl) { .empty = true };
 
-    Nodes types = expect_types(ctx, comma_tok, false);
+    const Type* type = accept_unqualified_type(ctx);
     const char* id = accept_identifier(ctx);
     expect(id);
-    expect(curr_token(tokenizer).tag == lpar_tok);
-    Nodes parameters = expect_parameters(ctx);
-    Nodes instructions = expect_block(ctx);
+    expect(accept_token(ctx, equal_tok));
+    const Node* value = accept_value(ctx);
+    assert(value);
 
-    const Node* function = fn(arena, (Function) {
-        .params = parameters,
-        .return_types = types,
-        .instructions = instructions
-    });
+    expect(accept_token(ctx, semi_tok));
 
-    const Node* variable = var(arena, derive_fn_type(arena, &function->payload.fn), id);
+    const Node* variable = var(arena, type, id);
 
     return (struct TopLevelDecl) {
         .empty = false,
         .variable = variable,
-        .definition = function
+        .definition = value
     };
 }
 
 struct TopLevelDecl accept_var_decl(ctxparams) {
-    if (!accept_token(ctx, var_tok))
+    AddressSpace as;
+    if (accept_token(ctx, private_tok))
+        as = AsPrivate;
+    else if (accept_token(ctx, shared_tok))
+        as = AsShared;
+    else if (accept_token(ctx, global_tok))
+        as = AsGlobal;
+    else if (accept_token(ctx, input_tok))
+        as = AsInput;
+    else if (accept_token(ctx, output_tok))
+        as = AsOutput;
+    else
         return (struct TopLevelDecl) { .empty = true };
 
-    const Type* mqtype = accept_maybe_qualified_type(ctx);
-    expect(mqtype);
+    const Type* type = accept_unqualified_type(ctx);
+    expect(type);
+
+    type = ptr_type(arena, (PtrType) {
+        .pointed_type = type,
+        .address_space = as
+    });
+
+    // global variables are uniform (remember our global variables are _pointers_ to the data manipulated)
+    type = qualified_type(arena, (QualifiedType) {
+        .type = type,
+        .is_uniform = true
+    });
+
     const char* id = accept_identifier(ctx);
     expect(id);
 
     // unspecified global variables default to varying
-    if (get_qualifier(mqtype) == Unknown)
+    /*if (get_qualifier(mqtype) == Unknown)
         mqtype = qualified_type(arena, (QualifiedType) {
             .is_uniform = false,
             .type = mqtype
-        });
+        });*/
 
     expect(accept_token(ctx, semi_tok));
 
-    const Node* variable = var(arena, mqtype, id);
+    const Node* variable = var(arena, type, id);
 
     return (struct TopLevelDecl) {
         .empty = false,
@@ -341,12 +383,12 @@ const Node* parse(char* contents, IrArena* arena) {
         if (token.tag == EOF_tok)
             break;
 
-        struct TopLevelDecl decl = accept_fn_decl(ctx);
+        struct TopLevelDecl decl = accept_def(ctx);
         if (decl.empty)
             decl = accept_var_decl(ctx);
         
         if (!decl.empty) {
-            expect(decl.variable->payload.var.type != NULL && "top-level declarations require types");
+            // expect(decl.variable->payload.var.type != NULL && "top-level declarations require types");
 
             printf("decl %s parsed :", decl.variable->payload.var.name);
             if (decl.definition)

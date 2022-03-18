@@ -11,10 +11,16 @@ TOKEN(uniform, "uniform") \
 TOKEN(varying, "varying") \
 TOKEN(struct, "struct") \
 TOKEN(union, "union") \
+TOKEN(private, "private") \
+TOKEN(shared, "shared") \
+TOKEN(global, "global") \
+TOKEN(input, "input") \
+TOKEN(output, "output") \
 TOKEN(var, "var") \
 TOKEN(let, "let") \
-TOKEN(fn, "fn") \
+TOKEN(def, "def") \
 TOKEN(ptr, "ptr") \
+TOKEN(fn, "fn") \
 TOKEN(cont, "cont") \
 TOKEN(int, "int") \
 TOKEN(float, "float") \

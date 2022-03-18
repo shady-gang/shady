@@ -15,7 +15,9 @@ typedef enum AddressSpace_ {
     AsGeneric,
     AsPrivate,
     AsShared,
-    AsGlobal
+    AsGlobal,
+    AsInput,
+    AsOutput,
 } AddressSpace;
 
 typedef int VarId;

@@ -22,12 +22,12 @@ struct SpvEmitter {
     struct Dict* node_ids;
 };
 
-SpvStorageClass emit_addr_space(AddressSpace address_space) {
+SpvStorageClass emit_addr_space(AddressSpace address_space, bool is_for_variable_decl) {
     switch(address_space) {
         case AsGeneric: return SpvStorageClassGeneric;
         case AsPrivate: return SpvStorageClassPrivate;
         case AsShared: return SpvStorageClassCrossWorkgroup;
-        case AsGlobal: return SpvStorageClassPhysicalStorageBuffer;
+        case AsGlobal: return is_for_variable_decl ? SpvStorageClassStorageBuffer : SpvStorageClassPhysicalStorageBuffer;
         default: SHADY_UNREACHABLE;
     }
 }
@@ -159,7 +159,7 @@ SpvId emit_type(struct SpvEmitter* emitter, const Type* type) {
             break;
         case PtrType_TAG: {
             SpvId pointee = emit_type(emitter, type->payload.ptr_type.pointed_type);
-            SpvStorageClass sc = emit_addr_space(type->payload.ptr_type.address_space);
+            SpvStorageClass sc = emit_addr_space(type->payload.ptr_type.address_space, false);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
             break;
         }
@@ -207,45 +207,30 @@ void emit(IrArena* arena, const Node* root_node, FILE* output) {
 
     spvb_capability(file_builder, SpvCapabilityShader);
     spvb_capability(file_builder, SpvCapabilityLinkage);
+    spvb_capability(file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
 
     SpvId ids[top_level->variables.count];
     for (size_t i = 0; i < top_level->variables.count; i++) {
         const Node* variable = top_level->variables.nodes[i];
         ids[i] = spvb_fresh_id(file_builder);
         insert_dict_and_get_result(struct Node*, SpvId, emitter.node_ids, variable, ids[i]);
+        spvb_name(file_builder, ids[i], variable->payload.var.name);
     }
 
     for (size_t i = 0; i < top_level->variables.count; i++) {
         const Node* definition = top_level->definitions.nodes[i];
 
+        DivergenceQualifier qual;
+        const Type* type = strip_qualifier(top_level->variables.nodes[i]->payload.var.type, &qual);
+
         if (definition == NULL) {
-            printf("Warning: NULL definition\n");
+            assert(qual == Uniform && "the _pointers_ to externals (descriptors mostly) should be uniform");
+            assert(type->tag == PtrType_TAG);
+            spvb_global_variable(file_builder, ids[i], emit_type(&emitter, type), emit_addr_space(type->payload.ptr_type.address_space, true), false, 0);
             continue;
         }
 
         emit_value(&emitter, definition, &ids[i]);
-
-        /*switch (definition->tag) {
-            default: error("we don't know how to emit %s\n", node_tags[definition->tag]);
-        }
-
-        assert(variable->payload.var.type);
-        DivergenceQualifier qual;
-        const Type* unqualified_type = strip_qualifier(variable->payload.var.type, &qual);
-
-        switch (unqualified_type->tag) {
-            case FnType_TAG: {
-                assert(qual == Uniform && "top-level functions should never be non-uniform");
-                printf("TODO: emit fn\n");
-                break;
-            } case PtrType_TAG: { // this is some global variable
-                SpvId id = spvb_global_variable(file_builder, emit_type(&emitter, unqualified_type), emit_addr_space(unqualified_type->payload.ptr_type.address_space));
-                spvb_name(file_builder, id, variable->payload.var.name);
-                break;
-            } default: { // it must be some global constant
-                error("idk %s\n", node_tags[unqualified_type->tag]);
-            }
-        }*/
     }
 
     spvb_finish(file_builder, words);

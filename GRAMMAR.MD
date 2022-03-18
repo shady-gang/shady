@@ -5,11 +5,11 @@ For the front-end mode, we can easily extend this by redefining `VALUE` as an ar
 ```
 PROGRAM := (DECL)*
 
-DECL := def 
+DECL := def [TYPE] IDENTIFIER = VALUE // constant definition
+        VAR_DECL
 
-// this is just syntax sugar BS ...
-VAR_DECL := var MQTYPE IDENTIFIER;
-            var MQTYPE IDENTIFIER = VALUE;
+VAR_DECL := var ADDRESS_SPACE TYPE IDENTIFIER = VALUE;
+            var ADDRESS_SPACE TYPE IDENTIFIER;
 
 VAR := IDENTIFIER
 
