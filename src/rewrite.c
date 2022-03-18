@@ -5,7 +5,7 @@
 
 Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
     size_t count = old_nodes.count;
-    const Node* arr[count];
+    LARRAY(const Node*, arr, count);
     for (size_t i = 0; i < count; i++)
         arr[i] = rewriter->rewrite_fn(rewriter, old_nodes.nodes[i]);
     return nodes(rewriter->dst_arena, count, arr);
@@ -19,8 +19,8 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     switch (node->tag) {
         case Root_TAG: {
             size_t count = node->payload.root.variables.count;
-            const Node* new_variables[count];
-            const Node* new_definitions[count];
+            LARRAY(const Node*, new_variables, count);
+            LARRAY(const Node*, new_definitions, count);
 
             for (size_t i = 0; i < count; i++) {
                 new_variables[i] = rewriter->rewrite_fn(rewriter, node->payload.root.variables.nodes[i]);

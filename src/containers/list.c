@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "../local_array.h"
+
 struct List* new_list_impl(size_t elem_size) {
     struct List* list = (struct List*) malloc(sizeof (struct List));
     *list = (struct List) {
@@ -76,7 +78,7 @@ void* remove_list_impl(struct List* list, size_t index) {
     size_t old_elements_count = list->elements_count;
 
     size_t element_size = list->element_size;
-    char temp[element_size];
+    LARRAY(char, temp, element_size);
 
     void* hole_at = (void*) ((size_t) list->alloc + element_size * index);
     void* fill_with = (void*) ((size_t) list->alloc + element_size * (index + 1));
