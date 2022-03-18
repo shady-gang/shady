@@ -3,6 +3,8 @@
 
 #include "ir.h"
 
+#include "local_array.h"
+
 #include "stdlib.h"
 #include "stdio.h"
 

@@ -43,7 +43,7 @@ const Node* new_binder(struct TypeRewriter* ctx, const char* oldname, const Type
 const Node* type_instruction(struct TypeRewriter* ctx, const Node* node);
 
 Nodes type_block(struct TypeRewriter* ctx, const Nodes* block) {
-    const Node* ninstructions[block->count];
+    LARRAY(const Node*, ninstructions, block->count);
     for (size_t i = 0; i < block->count; i++)
         ninstructions[i] = type_instruction(ctx, block->nodes[i]);
     return nodes(ctx->dst_arena, block->count, ninstructions);
@@ -64,7 +64,7 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
             size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
 
             // TODO handle expected_type
-            const Node* nparams[node->payload.fn.params.count];
+            LARRAY(const Node*, nparams, node->payload.fn.params.count);
             for (size_t i = 0; i < node->payload.fn.params.count; i++)
                nparams[i] = new_binder(ctx, node->payload.fn.params.nodes[i]->payload.var.name, import_node(dst_arena, node->payload.fn.params.nodes[i]->payload.var.type));
 
@@ -105,7 +105,7 @@ const Node* type_primop_or_call(struct TypeRewriter* ctx, const Node* node, size
             Nodes param_tys = op_params(dst_arena, node->payload.primop.op);
             const size_t argsc = node->payload.primop.args.count;
             assert(argsc == param_tys.count);
-            const Node* nargs[argsc];
+            LARRAY(const Node*, nargs, argsc);
             for (size_t i = 0; i < argsc; i++)
                 nargs[i] = type_value(ctx, node->payload.primop.args.nodes[i], param_tys.nodes[i]);
 
@@ -131,15 +131,15 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
             const size_t count = node->payload.let.variables.count;
 
             // first import the type annotations (if set)
-            const Type* expected_types[count];
+            LARRAY(const Type*, expected_types, count);
             for (size_t i = 0; i < count; i++)
                 expected_types[i] = import_node(ctx->dst_arena, node->payload.let.variables.nodes[i]->payload.var.type);
 
-            const Type* actual_types[count];
+            LARRAY(const Type*, actual_types, count);
             const Node* rewritten_rhs = type_primop_or_call(ctx, node->payload.let.target, count, expected_types, actual_types);
 
             struct TypeRewriter vars_infer_ctx = *ctx;
-            const Node* nvars[count];
+            LARRAY(const Node*, nvars, count);
             for (size_t i = 0; i < count; i++)
                 nvars[i] = new_binder(&vars_infer_ctx, node->payload.let.variables.nodes[i]->payload.var.name, actual_types[i]);
 
@@ -150,7 +150,7 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
         }
         case Return_TAG: {
             const Nodes* old_values = &node->payload.fn_ret.values;
-            const Node* nvalues[old_values->count];
+            LARRAY(const Node*, nvalues, old_values->count);
             for (size_t i = 0; i < old_values->count; i++)
                 nvalues[i] = type_value(ctx, old_values->nodes[i], NULL);
             return fn_ret(ctx->dst_arena, (Return) {
@@ -169,8 +169,8 @@ const Node* type_root(struct TypeRewriter* ctx, const Node* node) {
         case Root_TAG: {
             assert(ctx->current_fn_expected_return_types == NULL);
             size_t count = node->payload.root.variables.count;
-            const Node* new_variables[count];
-            const Node* new_definitions[count];
+            LARRAY(const Node*, new_variables, count);
+            LARRAY(const Node*, new_definitions, count);
 
             for (size_t i = 0; i < count; i++) {
                 const Variable* oldvar = &node->payload.root.variables.nodes[i]->payload.var;

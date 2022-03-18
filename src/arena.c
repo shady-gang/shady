@@ -140,7 +140,8 @@ static const char* string_impl(IrArena* arena, size_t size, const char* zero_ter
 }
 
 const char* string_sized(IrArena* arena, size_t size, const char* str) {
-    char new_str[size + 1];
+    LARRAY(char, new_str, size + 1);
+
     strncpy(new_str, str, size);
     new_str[size] = '\0';
     assert(strlen(new_str) == size);

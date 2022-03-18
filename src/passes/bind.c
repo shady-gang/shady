@@ -37,8 +37,8 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             const Root* src_root = &node->payload.root;
             const size_t count = src_root->variables.count;
 
-            const Node* new_variables[count];
-            const Node* new_definitions[count];
+            LARRAY(const Node*, new_variables, count);
+            LARRAY(const Node*, new_definitions, count);
 
             for (size_t i = 0; i < count; i++) {
                 const Node* variable = src_root->variables.nodes[i];
@@ -67,7 +67,7 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
         }
         case Let_TAG: {
             size_t outputs_count = node->payload.let.variables.count;
-            const Node* noutputs[outputs_count];
+            LARRAY(const Node*, noutputs, outputs_count);
             for (size_t p = 0; p < outputs_count; p++) {
                 const Variable* old_var = &node->payload.let.variables.nodes[p]->payload.var;
                 const Node* new_binding = var(rewriter->dst_arena, rewrite_node(rewriter, old_var->type), string(rewriter->dst_arena, old_var->name));
@@ -89,7 +89,7 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             size_t old_bound_variables_size = entries_count_list(ctx->bound_variables);
 
             size_t params_count = node->payload.fn.params.count;
-            const Node* nparams[params_count];
+            LARRAY(const Node*, nparams, params_count);
             for (size_t p = 0; p < params_count; p++) {
                 const Variable* old_param = &node->payload.fn.params.nodes[p]->payload.var;
                 const Node* new_param = var(rewriter->dst_arena, rewrite_node(rewriter, old_param->type), string(rewriter->dst_arena, old_param->name));

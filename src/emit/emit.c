@@ -41,7 +41,7 @@ void emit_primop_call(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, stru
         case Call_TAG: SHADY_NOT_IMPLEM;
         case PrimOp_TAG: {
             const Nodes* args = &node->payload.primop.args;
-            SpvId arr[args->count];
+            LARRAY(SpvId, arr, args->count);
             for (size_t i = 0; i < args->count; i++)
                 arr[i] = emit_value(emitter, args->nodes[i], NULL);
 
@@ -63,7 +63,7 @@ void emit_instruction(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, stru
     switch (instruction->tag) {
         case Let_TAG: {
             const Nodes* variables = &instruction->payload.let.variables;
-            SpvId out[variables->count];
+            LARRAY(SpvId, out, variables->count);
             emit_primop_call(emitter, fnb, bbb, instruction->payload.let.target, out);
             for (size_t i = 0; i < variables->count; i++) {
                 spvb_name(emitter->file_builder, out[i], variables->nodes[i]->payload.var.name);
@@ -77,7 +77,7 @@ void emit_instruction(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, stru
                 case 0: spvb_return_void(bbb); return;
                 case 1: spvb_return_value(bbb, emit_value(emitter, ret_values->nodes[0], NULL)); return;
                 default: {
-                    SpvId arr[ret_values->count];
+                    LARRAY(SpvId, arr, ret_values->count);
                     for (size_t i = 0; i < ret_values->count; i++)
                         arr[i] = emit_value(emitter, ret_values->nodes[i], NULL);
                     SpvId return_that = spvb_composite(bbb, fn_ret_type_id(fnb), ret_values->count, arr);
@@ -164,7 +164,7 @@ SpvId emit_type(struct SpvEmitter* emitter, const Type* type) {
             break;
         }
         case RecordType_TAG: {
-            SpvId members[type->payload.record_type.members.count];
+            LARRAY(SpvId, members, type->payload.record_type.members.count);
             for (size_t i = 0; i < type->payload.record_type.members.count; i++)
                 members[i] = emit_type(emitter, type->payload.record_type.members.nodes[i]);
             new = spvb_struct_type(emitter->file_builder, type->payload.record_type.members.count, members);
@@ -172,7 +172,7 @@ SpvId emit_type(struct SpvEmitter* emitter, const Type* type) {
         }
         case FnType_TAG: {
             const FnType * fnt = &type->payload.fn_type;
-            SpvId params[fnt->param_types.count];
+            LARRAY(SpvId, params, fnt->param_types.count);
             for (size_t i = 0; i < fnt->param_types.count; i++)
                 params[i] = emit_type(emitter, fnt->param_types.nodes[i]);
 
@@ -209,7 +209,7 @@ void emit(IrArena* arena, const Node* root_node, FILE* output) {
     spvb_capability(file_builder, SpvCapabilityLinkage);
     spvb_capability(file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
 
-    SpvId ids[top_level->variables.count];
+    LARRAY(SpvId, ids, top_level->variables.count);
     for (size_t i = 0; i < top_level->variables.count; i++) {
         const Node* variable = top_level->variables.nodes[i];
         ids[i] = spvb_fresh_id(file_builder);

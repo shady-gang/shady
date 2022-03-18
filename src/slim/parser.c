@@ -241,7 +241,7 @@ const Node* accept_instruction(ctxparams) {
             next_token(tokenizer);
             Strings ids = expect_identifiers(ctx);
             size_t bindings_count = ids.count;
-            const Node* bindings[bindings_count];
+            LARRAY(const Node*, bindings, bindings_count);
             for (size_t i = 0; i < bindings_count; i++)
                 bindings[i] = var(arena, NULL, ids.strings[i]);
 
@@ -405,8 +405,8 @@ const Node* parse(char* contents, IrArena* arena) {
 
     size_t count = top_level->elements_count;
 
-    const Node* variables[count];
-    const Node* definitions[count];
+    LARRAY(const Node*, variables, count);
+    LARRAY(const Node*, definitions, count);
 
     for (size_t i = 0; i < count; i++) {
         variables[i] = read_list(struct TopLevelDecl, top_level)[i].variable;

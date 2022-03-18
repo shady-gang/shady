@@ -89,7 +89,7 @@ DivergenceQualifier get_qualifier(const Type* type) {
 }
 
 Nodes extract_variable_types(IrArena* arena, const Nodes* variables) {
-    const Type* arr[variables->count];
+    LARRAY(const Type*, arr, variables->count);
     for (size_t i = 0; i < variables->count; i++)
         arr[i] = variables->nodes[i]->payload.var.type;
     return nodes(arena, variables->count, arr);
