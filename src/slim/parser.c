@@ -329,8 +329,11 @@ struct TopLevelDecl accept_var_decl(ctxparams) {
         as = AsPrivate;
     else if (accept_token(ctx, shared_tok))
         as = AsShared;
-    else if (accept_token(ctx, global_tok))
-        as = AsGlobal;
+    // the global address space cannot be used here
+    //else if (accept_token(ctx, global_tok))
+    //    as = AsGlobal;
+    else if (accept_token(ctx, extern_tok))
+        as = AsExternal;
     else if (accept_token(ctx, input_tok))
         as = AsInput;
     else if (accept_token(ctx, output_tok))

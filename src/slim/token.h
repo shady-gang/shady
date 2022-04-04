@@ -16,6 +16,7 @@ TOKEN(shared, "shared") \
 TOKEN(global, "global") \
 TOKEN(input, "input") \
 TOKEN(output, "output") \
+TOKEN(extern, "extern") \
 TOKEN(var, "var") \
 TOKEN(let, "let") \
 TOKEN(def, "def") \

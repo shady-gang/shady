@@ -12,12 +12,15 @@ typedef struct Node_ Type;
 typedef const char* String;
 
 typedef enum AddressSpace_ {
+    AsInput,
+    AsOutput,
     AsGeneric,
     AsPrivate,
     AsShared,
     AsGlobal,
-    AsInput,
-    AsOutput,
+
+    /// special addressing space for top-level variables
+    AsExternal,
 } AddressSpace;
 
 typedef int VarId;

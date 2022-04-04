@@ -22,13 +22,18 @@ struct SpvEmitter {
     struct Dict* node_ids;
 };
 
-SpvStorageClass emit_addr_space(AddressSpace address_space, bool is_for_variable_decl) {
+SpvStorageClass emit_addr_space(AddressSpace address_space) {
     switch(address_space) {
         case AsGeneric: return SpvStorageClassGeneric;
         case AsPrivate: return SpvStorageClassPrivate;
         case AsShared: return SpvStorageClassCrossWorkgroup;
-        case AsGlobal: return is_for_variable_decl ? SpvStorageClassStorageBuffer : SpvStorageClassPhysicalStorageBuffer;
-        default: SHADY_UNREACHABLE;
+        case AsInput: return SpvStorageClassInput;
+        case AsOutput: return SpvStorageClassOutput;
+        case AsGlobal: return SpvStorageClassPhysicalStorageBuffer;
+
+        // TODO: depending on platform, use push constants/ubos/ssbos here
+        case AsExternal: return SpvStorageClassStorageBuffer;
+        default: SHADY_NOT_IMPLEM;
     }
 }
 
@@ -159,7 +164,7 @@ SpvId emit_type(struct SpvEmitter* emitter, const Type* type) {
             break;
         case PtrType_TAG: {
             SpvId pointee = emit_type(emitter, type->payload.ptr_type.pointed_type);
-            SpvStorageClass sc = emit_addr_space(type->payload.ptr_type.address_space, false);
+            SpvStorageClass sc = emit_addr_space(type->payload.ptr_type.address_space);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
             break;
         }
@@ -226,7 +231,7 @@ void emit(IrArena* arena, const Node* root_node, FILE* output) {
         if (definition == NULL) {
             assert(qual == Uniform && "the _pointers_ to externals (descriptors mostly) should be uniform");
             assert(type->tag == PtrType_TAG);
-            spvb_global_variable(file_builder, ids[i], emit_type(&emitter, type), emit_addr_space(type->payload.ptr_type.address_space, true), false, 0);
+            spvb_global_variable(file_builder, ids[i], emit_type(&emitter, type), emit_addr_space(type->payload.ptr_type.address_space), false, 0);
             continue;
         }
 
