@@ -49,7 +49,7 @@ SpvId spvb_array_type(struct SpvFileBuilder* file_builder, SpvId element_type, S
 SpvId spvb_fn_type(struct SpvFileBuilder* file_builder, size_t args_count, SpvId args_types[], SpvId codom);
 SpvId spvb_struct_type(struct SpvFileBuilder* file_builder, size_t members_count, SpvId members[]);
 SpvId spvb_vector_type(struct SpvFileBuilder* file_builder, SpvId component_type, uint32_t dim);
-SpvId spvb_bool_constant(struct SpvFileBuilder* file_builder, SpvId type, bool value);
+void spvb_bool_constant(struct SpvFileBuilder* file_builder, SpvId result, SpvId type, bool value);
 void spvb_constant(struct SpvFileBuilder* file_builder, SpvId result, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]);
 SpvId spvb_constant_composite(struct SpvFileBuilder* file_builder, SpvId type, size_t ops_count, SpvId ops[]);
 SpvId spvb_global_variable(struct SpvFileBuilder* file_builder, SpvId id, SpvId type, SpvStorageClass storage_class, bool has_initializer, SpvId initializer);

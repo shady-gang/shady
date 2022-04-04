@@ -47,6 +47,8 @@ const Type* accept_unqualified_type(ctxparams) {
         return int_type(arena);
     } else if (accept_token(ctx, float_tok)) {
         return float_type(arena);
+    } else if (accept_token(ctx, bool__tok)) {
+        return bool_type(arena);
     } else if (accept_token(ctx, ptr_tok)) {
         SHADY_NOT_IMPLEM
     } else if (accept_token(ctx, fn_tok)) {
@@ -142,7 +144,8 @@ const Node* accept_literal(ctxparams) {
             //int64_t value = strtol(&contents[tok.start], NULL, 10)
             //return untyped_number(value);
         }
-
+        case true__tok: next_token(tokenizer); return true_lit(arena);
+        case false__tok: next_token(tokenizer); return false_lit(arena);
         default: return NULL;
     }
 }

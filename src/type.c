@@ -155,6 +155,9 @@ Nodes check_type_int_literal(IrArena* arena, IntLiteral lit) {
     }));
 }
 
+Nodes check_type_true_lit(IrArena* arena) { return singleton(bool_type(arena)); }
+Nodes check_type_false_lit(IrArena* arena) { return singleton(bool_type(arena)); }
+
 Nodes check_type_let(IrArena* arena, Let let) {
     Nodes var_tys = extract_variable_types(arena, &let.variables);
     Nodes yields = let.target->yields;

@@ -95,6 +95,12 @@ void print_node_impl(const Node* node, const char* def_name) {
         case IntLiteral_TAG:
             printf("%d", node->payload.int_literal.value);
             break;
+        case True_TAG:
+            printf("true");
+            break;
+        case False_TAG:
+            printf("false");
+            break;
         case PrimOp_TAG:
             printf("%s", primop_names[node->payload.primop.op]);
             for (size_t i = 0; i < node->payload.primop.args.count; i++) {
@@ -131,6 +137,9 @@ void print_node_impl(const Node* node, const char* def_name) {
             break;
         case Int_TAG:
             printf("int");
+            break;
+        case Bool_TAG:
+            printf("bool");
             break;
         case Float_TAG:
             printf("float");

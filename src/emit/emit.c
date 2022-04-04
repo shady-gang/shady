@@ -133,6 +133,14 @@ SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_
             spvb_constant(emitter->file_builder, new, ty, 1, arr);
             break;
         }
+        case True_TAG: {
+            spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), true);
+            break;
+        }
+        case False_TAG: {
+            spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), false);
+            break;
+        }
         case Function_TAG: {
             const Node* fn_type = derive_fn_type(emitter->arena, &node->payload.fn);
 
@@ -161,6 +169,9 @@ SpvId emit_type(struct SpvEmitter* emitter, const Type* type) {
     switch (type->tag) {
         case Int_TAG:
             new = spvb_int_type(emitter->file_builder, 32, true);
+            break;
+        case Bool_TAG:
+            new = spvb_bool_type(emitter->file_builder);
             break;
         case PtrType_TAG: {
             SpvId pointee = emit_type(emitter, type->payload.ptr_type.pointed_type);

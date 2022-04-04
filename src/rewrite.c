@@ -40,6 +40,8 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
             .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext)
         });
+        case True_TAG:          return true_lit(rewriter->dst_arena);
+        case False_TAG:         return false_lit(rewriter->dst_arena);
         case Variable_TAG:      return var(rewriter->dst_arena, rewriter->rewrite_fn(rewriter, node->payload.var.type), string(rewriter->dst_arena, node->payload.var.name));
         case VariableDecl_TAG:  return var_decl(rewriter->dst_arena, (VariableDecl) {
             .address_space = node->payload.var_decl.address_space,
@@ -63,6 +65,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         });
         case NoRet_TAG:         return noret_type(rewriter->dst_arena);
         case Int_TAG:           return int_type(rewriter->dst_arena);
+        case Bool_TAG:           return bool_type(rewriter->dst_arena);
         case Float_TAG:         return float_type(rewriter->dst_arena);
         case RecordType_TAG:    return record_type(rewriter->dst_arena, (RecordType) {
                                     .members = rewrite_nodes(rewriter, node->payload.record_type.members)});

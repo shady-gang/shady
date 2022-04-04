@@ -86,6 +86,8 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
 
             return fun;
         }
+        case True_TAG: return true_lit(dst_arena);
+        case False_TAG: return false_lit(dst_arena);
         default: error("not a value");
     }
 }

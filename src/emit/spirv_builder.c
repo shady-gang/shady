@@ -425,12 +425,11 @@ SpvId spvb_vector_type(struct SpvFileBuilder* file_builder, SpvId component_type
     return id;
 }
 
-SpvId spvb_bool_constant(struct SpvFileBuilder* file_builder, SpvId type, bool value) {
+void spvb_bool_constant(struct SpvFileBuilder* file_builder, SpvId result, SpvId type, bool value) {
     op(value ? SpvOpConstantTrue : SpvOpConstantFalse, 3);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(type);
-    ref_id(id);
-    return id;
+    ref_id(result);
 }
 
 void spvb_constant(struct SpvFileBuilder* file_builder, SpvId result, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]) {

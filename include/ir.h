@@ -25,7 +25,7 @@ typedef enum AddressSpace_ {
 
 typedef int VarId;
 
-// NODEDEF(has_type_check_fn, has_payload, StructName, short_name)
+// NODEDEF(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name)
 
 #define INSTRUCTION_NODES() \
 NODEDEF(1, 1, 1, VariableDecl, var_decl) \
@@ -39,6 +39,7 @@ NODEDEF(1, 1, 1, PrimOp, primop) \
 NODEDEF(1, 0, 0, NoRet, noret_type) \
 NODEDEF(1, 0, 0, Int, int_type) \
 NODEDEF(1, 0, 0, Float, float_type) \
+NODEDEF(1, 0, 0, Bool, bool_type) \
 NODEDEF(1, 0, 1, RecordType, record_type) \
 NODEDEF(1, 0, 1, FnType, fn_type) \
 NODEDEF(1, 0, 1, ContType, cont_type) \
@@ -52,6 +53,8 @@ NODEDEF(0, 1, 1, Variable, var) \
 NODEDEF(1, 0, 1, Unbound, unbound) \
 NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
 NODEDEF(1, 1, 1, IntLiteral, int_literal) \
+NODEDEF(1, 1, 0, True, true_lit) \
+NODEDEF(1, 1, 0, False, false_lit) \
 NODEDEF(1, 1, 1, Function, fn) \
 NODEDEF(1, 1, 1, Root, root) \
 
