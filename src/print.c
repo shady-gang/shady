@@ -15,10 +15,12 @@ void print_param_list(const Nodes vars, bool use_names) {
 }
 
 static int indent = 0;
+#define INDENT for (int j = 0; j < indent; j++) \
+    printf("   ");
 
 void print_instructions(const Nodes instructions) {
     for(size_t i = 0; i < instructions.count; i++) {
-        printf("   ");
+        INDENT
         print_node(instructions.nodes[i]);
         printf(";\n");
     }
@@ -117,6 +119,19 @@ void print_node_impl(const Node* node, const char* def_name) {
             }
             printf(" = ");
             print_node(node->payload.let.target);
+            break;
+        case StructuredSelection_TAG:
+            printf("if ");
+            print_node(node->payload.selection.condition);
+            printf(" {\n");
+            indent++;
+            print_instructions(node->payload.selection.ifTrue);
+            indent--;
+            INDENT printf("} else {\n");
+            indent++;
+            print_instructions(node->payload.selection.ifFalse);
+            indent--;
+            INDENT printf("}\n");
             break;
         case Return_TAG:
             printf("return");

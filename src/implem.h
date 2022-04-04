@@ -29,10 +29,15 @@ void* arena_alloc(IrArena* arena, size_t size);
 
 VarId fresh_id(IrArena*);
 
+
+#ifdef NDEBUG
 #ifdef _MSC_VER
 #define SHADY_UNREACHABLE __assume(0)
 #else
 #define SHADY_UNREACHABLE __builtin_unreachable()
+#endif
+#else
+#define SHADY_UNREACHABLE exit(69)
 #endif
 
 #define SHADY_NOT_IMPLEM {    \

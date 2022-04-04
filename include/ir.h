@@ -34,6 +34,7 @@ NODEDEF(1, 1, 1, Call, call) \
 NODEDEF(1, 1, 1, Let, let)  \
 NODEDEF(1, 1, 1, Return, fn_ret) \
 NODEDEF(1, 1, 1, PrimOp, primop) \
+NODEDEF(1, 1, 1, StructuredSelection, selection) \
 
 #define TYPE_NODES() \
 NODEDEF(1, 0, 0, NoRet, noret_type) \

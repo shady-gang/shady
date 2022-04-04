@@ -150,6 +150,18 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
                 .target = rewritten_rhs,
             });
         }
+        case StructuredSelection_TAG: {
+            const Node* condition = type_value(ctx, node->payload.selection.condition, bool_type(ctx->dst_arena));
+
+            struct TypeRewriter instrs_infer_ctx = *ctx;
+            Nodes ifTrue = type_block(&instrs_infer_ctx, &node->payload.selection.ifTrue);
+            Nodes ifFalse = type_block(&instrs_infer_ctx, &node->payload.selection.ifFalse);
+            return selection(ctx->dst_arena, (StructuredSelection) {
+                .condition = condition,
+                .ifTrue = ifTrue,
+                .ifFalse = ifFalse
+            });
+        }
         case Return_TAG: {
             const Nodes* old_values = &node->payload.fn_ret.values;
             LARRAY(const Node*, nvalues, old_values->count);

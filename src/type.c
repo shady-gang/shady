@@ -88,6 +88,11 @@ DivergenceQualifier get_qualifier(const Type* type) {
     return result;
 }
 
+const Type* without_qualifier(const Type* type) {
+    DivergenceQualifier dontcare;
+    return strip_qualifier(type, &dontcare);
+}
+
 Nodes extract_variable_types(IrArena* arena, const Nodes* variables) {
     LARRAY(const Type*, arr, variables->count);
     for (size_t i = 0; i < variables->count; i++)
@@ -169,6 +174,12 @@ Nodes check_type_let(IrArena* arena, Let let) {
 }
 
 Nodes check_type_fn_ret(IrArena* arena, Return fn_ret) {
+    return empty();
+}
+
+Nodes check_type_selection(IrArena* arena, StructuredSelection sel) {
+    if (sel.condition->yields.count != 1 || without_qualifier(sel.condition->yields.nodes[0]) != bool_type(arena))
+        error("condition of a selection should be bool");
     return empty();
 }
 

@@ -56,6 +56,11 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .variables = rewrite_nodes(rewriter, node->payload.let.variables),
             .target = rewriter->rewrite_fn(rewriter, node->payload.let.target)
         });
+        case StructuredSelection_TAG: return selection(rewriter->dst_arena, (StructuredSelection) {
+            .condition = rewriter->rewrite_fn(rewriter, node->payload.selection.condition),
+            .ifTrue = rewrite_nodes(rewriter, node->payload.selection.ifTrue),
+            .ifFalse = rewrite_nodes(rewriter, node->payload.selection.ifFalse),
+        });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
             .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
         });

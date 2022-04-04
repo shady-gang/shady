@@ -219,7 +219,6 @@ const Node* expect_computation(ctxparams) {
         case add_tok: {
             next_token(tokenizer);
             Nodes args = expect_values(ctx, 0);
-            expect(accept_token(ctx, semi_tok));
             return primop(arena, (PrimOp) {
                 .op = add_op,
                 .args = args
@@ -228,6 +227,8 @@ const Node* expect_computation(ctxparams) {
         default: error("cannot parse a computation");
     }
 }
+
+Nodes expect_block(ctxparams);
 
 const Node* accept_instruction(ctxparams) {
     struct Token current_token = curr_token(tokenizer);
@@ -250,9 +251,26 @@ const Node* accept_instruction(ctxparams) {
 
             expect(accept_token(ctx, equal_tok));
             const Node* comp = expect_computation(ctx);
+            expect(accept_token(ctx, semi_tok));
             return let(arena, (Let) {
                 .variables = nodes(arena, bindings_count, bindings),
                 .target = comp
+            });
+        }
+        case if_tok: {
+            next_token(tokenizer);
+            const Node* condition = accept_value(ctx);
+            expect(condition);
+            Nodes if_true = expect_block(ctx);
+            bool has_else = accept_token(ctx, else_tok);
+            Nodes if_false = nodes(arena, 0, NULL);
+            if (has_else) {
+                if_false = expect_block(ctx);
+            }
+            return selection(arena, (StructuredSelection) {
+                .condition = condition,
+                .ifTrue = if_true,
+                .ifFalse = if_false
             });
         }
         default: break;

@@ -39,7 +39,7 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
 
 SpvId emit_type(struct SpvEmitter* emitter, const Type* type);
 SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_id);
-SpvId emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Nodes block);
+bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Nodes block, SpvId entryBBID, SpvId* joinBB);
 
 void emit_primop_call(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* node, SpvId out[]) {
     switch (node->tag) {
@@ -64,7 +64,7 @@ void emit_primop_call(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, stru
     }
 }
 
-void emit_instruction(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* instruction) {
+struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, bool* is_final_instruction, const Node* instruction) {
     switch (instruction->tag) {
         case Let_TAG: {
             const Nodes* variables = &instruction->payload.let.variables;
@@ -74,36 +74,74 @@ void emit_instruction(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, stru
                 spvb_name(emitter->file_builder, out[i], variables->nodes[i]->payload.var.name);
                 insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variables->nodes[i], out[i]);
             }
-            break;
+            return bbb;
+        }
+        case StructuredSelection_TAG: {
+            SpvId condition = emit_value(emitter, instruction->payload.selection.condition, NULL);
+            SpvId join_branch = spvb_fresh_id(emitter->file_builder);
+
+            SpvId true_branch = spvb_fresh_id(emitter->file_builder);
+            SpvId false_branch = spvb_fresh_id(emitter->file_builder);
+
+            bool uses_join = false;
+            uses_join |= !emit_block(emitter, fnb, instruction->payload.selection.ifTrue, true_branch, &join_branch);
+            uses_join |= !emit_block(emitter, fnb, instruction->payload.selection.ifFalse, false_branch, &join_branch);
+
+            spvb_selection_merge(bbb, join_branch, 0);
+            spvb_branch_conditional(bbb, condition, true_branch, false_branch);
+
+            // If nobody uses the join branch, that means we're eventually returning in both branches
+            if (!uses_join) {
+                struct SpvBasicBlockBuilder* unreachable_bb_builder = spvb_begin_bb(fnb, join_branch);
+                spvb_unreachable(unreachable_bb_builder);
+
+                *is_final_instruction = true;
+                return NULL;
+            } else {
+                struct SpvBasicBlockBuilder* bbb_rest = spvb_begin_bb(fnb, join_branch);
+                return bbb_rest;
+            }
         }
         case Return_TAG: {
+            *is_final_instruction = true;
             const Nodes* ret_values = &instruction->payload.fn_ret.values;
             switch (ret_values->count) {
-                case 0: spvb_return_void(bbb); return;
-                case 1: spvb_return_value(bbb, emit_value(emitter, ret_values->nodes[0], NULL)); return;
+                case 0: spvb_return_void(bbb); return NULL;
+                case 1: spvb_return_value(bbb, emit_value(emitter, ret_values->nodes[0], NULL)); return NULL;
                 default: {
                     LARRAY(SpvId, arr, ret_values->count);
                     for (size_t i = 0; i < ret_values->count; i++)
                         arr[i] = emit_value(emitter, ret_values->nodes[i], NULL);
                     SpvId return_that = spvb_composite(bbb, fn_ret_type_id(fnb), ret_values->count, arr);
                     spvb_return_value(bbb, return_that);
+                    return NULL;
                 }
             }
-            break;
         }
         default: error("TODO: emit instruction");
     }
+    SHADY_UNREACHABLE;
 }
 
-SpvId emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Nodes block) {
-    SpvId bbid = spvb_fresh_id(emitter->file_builder);
-    struct SpvBasicBlockBuilder* bbb = spvb_begin_bb(fnb, bbid);
+bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Nodes block, SpvId entryBBID, SpvId* join_bb) {
+    struct SpvBasicBlockBuilder* basicblock_builder = spvb_begin_bb(fnb, entryBBID);
+    bool terminated = false;
 
-    // TODO split the BB if we encounter control flow
-    for (size_t i = 0; i < block.count; i++)
-        emit_instruction(emitter, fnb, bbb, block.nodes[i]);
+    for (size_t i = 0; i < block.count; i++) {
+        assert(!terminated && "another instruction in the block came after a terminator !");
+        basicblock_builder = emit_instruction(emitter, fnb, basicblock_builder, &terminated, block.nodes[i]);
+    }
 
-    return bbid;
+    if (!terminated) {
+        if (join_bb != NULL)
+            spvb_branch(basicblock_builder, *join_bb);
+        else if (fn_ret_type_id(fnb) == emitter->void_t)
+            spvb_return_void(basicblock_builder);
+        else
+            error("this non-void returning function fails to return")
+    }
+
+    return terminated;
 }
 
 SpvId nodes2codom(struct SpvEmitter* emitter, Nodes return_types) {
@@ -151,7 +189,8 @@ SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_
                 insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
             }
 
-            emit_block(emitter, fn_builder, node->payload.fn.instructions);
+            SpvId bbid = spvb_fresh_id(emitter->file_builder);
+            emit_block(emitter, fn_builder, node->payload.fn.instructions, bbid, NULL);
             spvb_define_function(emitter->file_builder, fn_builder);
             break;
         }
