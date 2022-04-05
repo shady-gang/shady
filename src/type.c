@@ -135,6 +135,10 @@ Nodes check_type_fn(IrArena* arena, Function fn) {
     }));
 }
 
+Nodes check_type_cont(IrArena* arena, Continuation cont) {
+    return empty();
+}
+
 Nodes check_type_var_decl(IrArena* arena, VariableDecl decl) {
     SHADY_NOT_IMPLEM
     //return ptr_type(arena, (PtrType) { .address_space = decl.address_space, .pointed_type = decl.variable->type });

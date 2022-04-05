@@ -57,6 +57,7 @@ NODEDEF(1, 1, 1, IntLiteral, int_literal) \
 NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
 NODEDEF(1, 1, 1, Function, fn) \
+NODEDEF(1, 1, 1, Continuation, cont) \
 NODEDEF(1, 1, 1, Root, root) \
 
 typedef struct Nodes_ {
@@ -87,10 +88,17 @@ typedef struct IntLiteral_ {
     int value;
 } IntLiteral;
 
+typedef struct Block_ {
+    Nodes instructions;
+
+    Strings continuations_names;
+    Nodes continuations;
+} Block;
+
 /// Function with _structured_ control flow
 typedef struct Function_ {
     Nodes params;
-    Nodes instructions;
+    Block block;
     Nodes return_types;
 } Function;
 
@@ -102,8 +110,8 @@ typedef struct Terminator_ {
     TerminatorTag tag;
     union {
         struct Jump {
-            const Node* target;
-            const Nodes args;
+            Node const* target;
+            Nodes args;
         } jump;
         //struct Branch {} branch;
     } payload;
@@ -111,8 +119,8 @@ typedef struct Terminator_ {
 
 typedef struct Continuation_ {
     Nodes params;
-    Nodes instructions;
-    Terminator terminator;
+    Block block;
+    // Terminator terminator;
 } Continuation;
 
 // Nodes
@@ -160,8 +168,8 @@ typedef struct PrimOp_ {
 
 typedef struct StructuredSelection_ {
     const Node* condition;
-    Nodes ifTrue;
-    Nodes ifFalse;
+    Block ifTrue;
+    Block ifFalse;
 } StructuredSelection;
 
 typedef struct StructuredSwitch_ {
@@ -244,6 +252,8 @@ typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
 
 /// Applies the rewriter to all nodes in the collection
 Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes);
+
+Block rewrite_block(Rewriter* rewriter, Block block);
 
 /// bring in a node unmodified into a new arena
 const Node* import_node   (IrArena*, const Node*);

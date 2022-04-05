@@ -39,7 +39,7 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
 
 SpvId emit_type(struct SpvEmitter* emitter, const Type* type);
 SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_id);
-bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Nodes block, SpvId entryBBID, SpvId* joinBB);
+bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Block block, SpvId entryBBID, SpvId* joinBB);
 
 void emit_primop_call(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* node, SpvId out[]) {
     switch (node->tag) {
@@ -123,13 +123,13 @@ struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct
     SHADY_UNREACHABLE;
 }
 
-bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Nodes block, SpvId entryBBID, SpvId* join_bb) {
+bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Block block, SpvId entryBBID, SpvId* join_bb) {
     struct SpvBasicBlockBuilder* basicblock_builder = spvb_begin_bb(fnb, entryBBID);
     bool terminated = false;
 
-    for (size_t i = 0; i < block.count; i++) {
+    for (size_t i = 0; i < block.instructions.count; i++) {
         assert(!terminated && "another instruction in the block came after a terminator !");
-        basicblock_builder = emit_instruction(emitter, fnb, basicblock_builder, &terminated, block.nodes[i]);
+        basicblock_builder = emit_instruction(emitter, fnb, basicblock_builder, &terminated, block.instructions.nodes[i]);
     }
 
     if (!terminated) {
@@ -139,6 +139,10 @@ bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Nodes bloc
             spvb_return_void(basicblock_builder);
         else
             error("this non-void returning function fails to return")
+    }
+
+    for (size_t i = 0; i < block.continuations.count; i++) {
+        SHADY_NOT_IMPLEM
     }
 
     return terminated;
@@ -190,7 +194,7 @@ SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_
             }
 
             SpvId bbid = spvb_fresh_id(emitter->file_builder);
-            emit_block(emitter, fn_builder, node->payload.fn.instructions, bbid, NULL);
+            emit_block(emitter, fn_builder, node->payload.fn.block, bbid, NULL);
             spvb_define_function(emitter->file_builder, fn_builder);
             break;
         }

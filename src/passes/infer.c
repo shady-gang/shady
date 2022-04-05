@@ -42,11 +42,12 @@ const Node* new_binder(struct TypeRewriter* ctx, const char* oldname, const Type
 
 const Node* type_instruction(struct TypeRewriter* ctx, const Node* node);
 
-Nodes type_block(struct TypeRewriter* ctx, const Nodes* block) {
-    LARRAY(const Node*, ninstructions, block->count);
+Block type_block(struct TypeRewriter* ctx, const Block* block) {
+    /*LARRAY(const Node*, ninstructions, block->count);
     for (size_t i = 0; i < block->count; i++)
         ninstructions[i] = type_instruction(ctx, block->nodes[i]);
-    return nodes(ctx->dst_arena, block->count, ninstructions);
+    return nodes(ctx->dst_arena, block->count, ninstructions);*/
+    SHADY_NOT_IMPLEM
 }
 
 static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, const Node* expected_type) {
@@ -73,11 +74,11 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
             // Handle the insides of the function
             struct TypeRewriter instrs_infer_ctx = *ctx;
             instrs_infer_ctx.current_fn_expected_return_types = &nret_types;
-            Nodes ninstructions = type_block(&instrs_infer_ctx, &node->payload.fn.instructions);
+            Block nblock = type_block(&instrs_infer_ctx, &node->payload.fn.block);
 
             const Node* fun = fn(dst_arena, (Function) {
                .return_types = nret_types,
-               .instructions = ninstructions,
+               .block = nblock,
                .params = nodes(dst_arena, node->payload.fn.params.count, nparams),
             });
 
@@ -154,8 +155,8 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
             const Node* condition = type_value(ctx, node->payload.selection.condition, bool_type(ctx->dst_arena));
 
             struct TypeRewriter instrs_infer_ctx = *ctx;
-            Nodes ifTrue = type_block(&instrs_infer_ctx, &node->payload.selection.ifTrue);
-            Nodes ifFalse = type_block(&instrs_infer_ctx, &node->payload.selection.ifFalse);
+            Block ifTrue = type_block(&instrs_infer_ctx, &node->payload.selection.ifTrue);
+            Block ifFalse = type_block(&instrs_infer_ctx, &node->payload.selection.ifFalse);
             return selection(ctx->dst_arena, (StructuredSelection) {
                 .condition = condition,
                 .ifTrue = ifTrue,

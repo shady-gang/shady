@@ -2,6 +2,8 @@
 
 extern const char* node_tags[];
 
+void print_node_impl(const Node* node, const char* def_name);
+
 void print_param_list(const Nodes vars, bool use_names) {
     printf("(");
     for (size_t i = 0; i < vars.count; i++) {
@@ -18,11 +20,19 @@ static int indent = 0;
 #define INDENT for (int j = 0; j < indent; j++) \
     printf("   ");
 
-void print_instructions(const Nodes instructions) {
-    for(size_t i = 0; i < instructions.count; i++) {
+void print_block(Block block) {
+    for(size_t i = 0; i < block.instructions.count; i++) {
         INDENT
-        print_node(instructions.nodes[i]);
+        print_node(block.instructions.nodes[i]);
         printf(";\n");
+    }
+
+    if (block.continuations.count > 0) {
+        printf("\n");
+    }
+    for(size_t i = 0; i < block.continuations.count; i++) {
+        INDENT
+        print_node_impl(block.continuations.nodes[i], block.continuations_names.strings[i]);
     }
 }
 
@@ -83,13 +93,24 @@ void print_node_impl(const Node* node, const char* def_name) {
                     printf(", ");
             }
             if (def_name)
-                printf(" %s", def_name);
+                printf("%s ", def_name);
             print_param_list(node->payload.fn.params, true);
             printf(" {\n");
             indent++;
-            print_instructions(node->payload.fn.instructions);
+            print_block(node->payload.fn.block);
             indent--;
-            printf("}\n");
+            INDENT printf("}\n");
+            break;
+        case Continuation_TAG:
+            printf("cont ");
+            if (def_name)
+                printf("%s ", def_name);
+            print_param_list(node->payload.fn.params, true);
+            printf(" {\n");
+            indent++;
+            print_block(node->payload.fn.block);
+            indent--;
+            INDENT printf("}\n");
             break;
         case UntypedNumber_TAG:
             printf("%s", node->payload.untyped_number.plaintext);
@@ -125,11 +146,11 @@ void print_node_impl(const Node* node, const char* def_name) {
             print_node(node->payload.selection.condition);
             printf(" {\n");
             indent++;
-            print_instructions(node->payload.selection.ifTrue);
+            print_block(node->payload.selection.ifTrue);
             indent--;
             INDENT printf("} else {\n");
             indent++;
-            print_instructions(node->payload.selection.ifFalse);
+            print_block(node->payload.selection.ifFalse);
             indent--;
             INDENT printf("}\n");
             break;

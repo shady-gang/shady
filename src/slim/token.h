@@ -53,6 +53,7 @@ TOKEN(rpar, ")") \
 TOKEN(lbracket, "{") \
 TOKEN(rbracket, "}") \
 TOKEN(semi, ";") \
+TOKEN(colon, ":") \
 TOKEN(comma, ",") \
 TOKEN(equal, "=") \
 TOKEN(LIST_END, NULL)

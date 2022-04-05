@@ -17,7 +17,9 @@ FN_DECL := fn RET_TYPE PARAMS BLOCK
 
 PARAMS := ( [QTYPE IDENTIFIER [(, QTYPE IDENTIFIER)*]] )
 
-BLOCK := { (INSTRUCTION;)* }
+BLOCK := { (INSTRUCTION;)* (CONTINUATION)* }
+
+CONTINUATION := cont PARAMS BLOCK
 
 INSTRUCTION := let IDENTIFIER [(, IDENTIFIER)*] = OP VALUES; // PrimOp
              | VAR_DECL;                                     // local variable

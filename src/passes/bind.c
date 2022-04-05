@@ -104,7 +104,7 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
 
             const Node* new_fn = fn(rewriter->dst_arena, (Function) {
                 .return_types = rewrite_nodes(rewriter, node->payload.fn.return_types),
-                .instructions = rewrite_nodes(rewriter, node->payload.fn.instructions),
+                .block = rewrite_block(rewriter, node->payload.fn.block),
                 .params = nodes(rewriter->dst_arena, params_count, nparams),
             });
 
@@ -112,6 +112,33 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                 pop_list(struct BindEntry, ctx->bound_variables);
 
             return new_fn;
+        }
+        case Continuation_TAG: {
+            size_t old_bound_variables_size = entries_count_list(ctx->bound_variables);
+
+            size_t params_count = node->payload.cont.params.count;
+            LARRAY(const Node*, nparams, params_count);
+            for (size_t p = 0; p < params_count; p++) {
+                const Variable* old_param = &node->payload.cont.params.nodes[p]->payload.var;
+                const Node* new_param = var(rewriter->dst_arena, rewrite_node(rewriter, old_param->type), string(rewriter->dst_arena, old_param->name));
+                nparams[p] = new_param;
+                struct BindEntry entry = {
+                    .id = string(ctx->rewriter.dst_arena, old_param->name),
+                    .bound_node = new_param
+                };
+                append_list(struct BindEntry, ctx->bound_variables, entry);
+                printf("Bound %s\n", entry.id);
+            }
+
+            const Node* new_cont = cont(rewriter->dst_arena, (Continuation) {
+                .block = rewrite_block(rewriter, node->payload.cont.block),
+                .params = nodes(rewriter->dst_arena, params_count, nparams),
+            });
+
+            while (entries_count_list(ctx->bound_variables) > old_bound_variables_size)
+                pop_list(struct BindEntry, ctx->bound_variables);
+
+            return new_cont;
         }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }

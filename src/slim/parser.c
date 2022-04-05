@@ -42,6 +42,9 @@ const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
+const Node* accept_function(ctxparams);
+Block expect_block(ctxparams);
+
 const Type* accept_unqualified_type(ctxparams) {
     if (accept_token(ctx, int_tok)) {
         return int_type(arena);
@@ -150,8 +153,6 @@ const Node* accept_literal(ctxparams) {
     }
 }
 
-const Node* accept_function(ctxparams);
-
 const Node* accept_value(ctxparams) {
     const char* id = accept_identifier(ctx);
     if (id) {
@@ -228,8 +229,6 @@ const Node* expect_computation(ctxparams) {
     }
 }
 
-Nodes expect_block(ctxparams);
-
 const Node* accept_instruction(ctxparams) {
     struct Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
@@ -261,9 +260,10 @@ const Node* accept_instruction(ctxparams) {
             next_token(tokenizer);
             const Node* condition = accept_value(ctx);
             expect(condition);
-            Nodes if_true = expect_block(ctx);
+            Block if_true = expect_block(ctx);
             bool has_else = accept_token(ctx, else_tok);
-            Nodes if_false = nodes(arena, 0, NULL);
+            // default to an empty block
+            Block if_false = { .instructions = nodes(arena, 0, NULL), .continuations = nodes(arena, 0, NULL)};
             if (has_else) {
                 if_false = expect_block(ctx);
             }
@@ -278,9 +278,13 @@ const Node* accept_instruction(ctxparams) {
     return NULL;
 }
 
-Nodes expect_block(ctxparams) {
+Block expect_block(ctxparams) {
     expect(accept_token(ctx, lbracket_tok));
     struct List* instructions = new_list(Node*);
+
+    Nodes continuations = nodes(arena, 0, NULL);
+    Strings continuations_names = strings(arena, 0, NULL);
+
     while (true) {
         if (accept_token(ctx, rbracket_tok))
             break;
@@ -289,13 +293,44 @@ Nodes expect_block(ctxparams) {
         if (instruction)
             append_list(Node*, instructions, instruction);
         else {
+            if (curr_token(tokenizer).tag == identifier_tok) {
+                struct List* conts = new_list(Node*);
+                struct List* names = new_list(const char*);
+                while (true) {
+                    const char* identifier = accept_identifier(ctx);
+                    if (!identifier)
+                        break;
+                    expect(accept_token(ctx, colon_tok));
+
+                    Nodes parameters = expect_parameters(ctx);
+                    Block block = expect_block(ctx);
+
+                    const Node* continuation = cont(arena, (Continuation) {
+                        .block = block,
+                        .params = parameters
+                    });
+                    append_list(Node*, conts, continuation);
+                    append_list(char const*, names, identifier);
+                }
+
+                continuations = nodes(arena, entries_count_list(conts), read_list(const Node*, conts));
+                continuations_names = strings(arena, entries_count_list(names), read_list(const char*, names));
+                destroy_list(conts);
+                destroy_list(names);
+            }
+
             expect(accept_token(ctx, rbracket_tok));
             break;
         }
     }
-    Nodes block = nodes(arena, entries_count_list(instructions), read_list(const Node*, instructions));
+    Nodes instrs = nodes(arena, entries_count_list(instructions), read_list(const Node*, instructions));
     destroy_list(instructions);
-    return block;
+
+    return (Block) {
+        .instructions = instrs,
+        .continuations = continuations,
+        .continuations_names = continuations_names
+    };
 }
 
 struct TopLevelDecl {
@@ -311,12 +346,12 @@ const Node* accept_function(ctxparams) {
       Nodes types = accept_types(ctx, comma_tok, false);
       expect(curr_token(tokenizer).tag == lpar_tok);
       Nodes parameters = expect_parameters(ctx);
-      Nodes instructions = expect_block(ctx);
+      Block block = expect_block(ctx);
 
       const Node* function = fn(arena, (Function) {
           .params = parameters,
           .return_types = types,
-          .instructions = instructions
+          .block = block
       });
 
       return function;

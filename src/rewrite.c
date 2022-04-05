@@ -13,6 +13,14 @@ Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
 
 const Node* rewrite_node(Rewriter* rewriter, const Node* node) { return rewriter->rewrite_fn(rewriter, node); }
 
+Block rewrite_block(Rewriter* rewriter, Block block) {
+    return (Block) {
+        .instructions = rewrite_nodes(rewriter, block.instructions),
+        .continuations_names = import_strings(rewriter->dst_arena, block.continuations_names),
+        .continuations = rewrite_nodes(rewriter, block.continuations),
+    };
+}
+
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;
@@ -34,8 +42,12 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         }
         case Function_TAG:      return fn(rewriter->dst_arena, (Function) {
            .return_types = rewrite_nodes(rewriter, node->payload.fn.return_types),
-           .instructions = rewrite_nodes(rewriter, node->payload.fn.instructions),
+           .block = rewrite_block(rewriter, node->payload.fn.block),
            .params = rewrite_nodes(rewriter, node->payload.fn.params),
+        });
+        case Continuation_TAG: return cont(rewriter->dst_arena, (Continuation) {
+           .block = rewrite_block(rewriter, node->payload.cont.block),
+           .params = rewrite_nodes(rewriter, node->payload.cont.params),
         });
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
             .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext)
@@ -58,8 +70,8 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         });
         case StructuredSelection_TAG: return selection(rewriter->dst_arena, (StructuredSelection) {
             .condition = rewriter->rewrite_fn(rewriter, node->payload.selection.condition),
-            .ifTrue = rewrite_nodes(rewriter, node->payload.selection.ifTrue),
-            .ifFalse = rewrite_nodes(rewriter, node->payload.selection.ifFalse),
+            .ifTrue = rewrite_block(rewriter, node->payload.selection.ifTrue),
+            .ifFalse = rewrite_block(rewriter, node->payload.selection.ifFalse),
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
             .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
