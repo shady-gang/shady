@@ -193,7 +193,7 @@ void rehash(struct Dict* dict, void* old_alloc, size_t old_size) {
 }
 
 void grow_and_rehash(struct Dict* dict) {
-    printf("grow_rehash");
+    //printf("grow_rehash\n");
 
     void* old_alloc = dict->alloc;
     size_t old_size = dict->size;

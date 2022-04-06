@@ -39,7 +39,7 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
 
 SpvId emit_type(struct SpvEmitter* emitter, const Type* type);
 SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_id);
-bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Block block, SpvId entryBBID, SpvId* joinBB);
+bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node* block, SpvId entryBBID, SpvId* joinBB);
 
 void emit_primop_call(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* node, SpvId out[]) {
     switch (node->tag) {
@@ -123,13 +123,17 @@ struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct
     SHADY_UNREACHABLE;
 }
 
-bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Block block, SpvId entryBBID, SpvId* join_bb) {
+bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node* node, SpvId entryBBID, SpvId* join_bb) {
     struct SpvBasicBlockBuilder* basicblock_builder = spvb_begin_bb(fnb, entryBBID);
     bool terminated = false;
 
-    for (size_t i = 0; i < block.instructions.count; i++) {
+    const Block* block = &node->payload.block;
+
+    // First: reserve IDs for internal conts
+
+    for (size_t i = 0; i < block->instructions.count; i++) {
         assert(!terminated && "another instruction in the block came after a terminator !");
-        basicblock_builder = emit_instruction(emitter, fnb, basicblock_builder, &terminated, block.instructions.nodes[i]);
+        basicblock_builder = emit_instruction(emitter, fnb, basicblock_builder, &terminated, block->instructions.nodes[i]);
     }
 
     if (!terminated) {
@@ -141,7 +145,7 @@ bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, Block bloc
             error("this non-void returning function fails to return")
     }
 
-    for (size_t i = 0; i < block.continuations.count; i++) {
+    for (size_t i = 0; i < block->continuations.count; i++) {
         SHADY_NOT_IMPLEM
     }
 

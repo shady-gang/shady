@@ -41,13 +41,47 @@ const Node* new_binder(struct TypeRewriter* ctx, const char* oldname, const Type
 }
 
 const Node* type_instruction(struct TypeRewriter* ctx, const Node* node);
+const Node* type_value(struct TypeRewriter* ctx, const Node* node, const Node* expected_type);
 
-Block type_block(struct TypeRewriter* ctx, const Block* block) {
-    /*LARRAY(const Node*, ninstructions, block->count);
-    for (size_t i = 0; i < block->count; i++)
-        ninstructions[i] = type_instruction(ctx, block->nodes[i]);
-    return nodes(ctx->dst_arena, block->count, ninstructions);*/
-    SHADY_NOT_IMPLEM
+const Node* type_block(struct TypeRewriter* ctx, const Node* node) {
+    // const Block* block = &node->payload.block;
+    size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
+
+    size_t count = node->payload.block.continuations_vars.count;
+    LARRAY(const Node*, ninstructions, node->payload.block.instructions.count);
+    LARRAY(const Node*, new_variables, count);
+    LARRAY(const Node*, new_definitions, count);
+
+    for (size_t i = 0; i < count; i++) {
+        const Variable* oldvar = &node->payload.block.continuations_vars.nodes[i]->payload.var;
+        const Type* imported_ty = import_node(ctx->dst_arena, oldvar->type);
+        new_variables[i] = new_binder(ctx, oldvar->name, imported_ty);
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        const Variable* oldvar = &node->payload.block.continuations_vars.nodes[i]->payload.var;
+        const Type* imported_ty = import_node(ctx->dst_arena, oldvar->type);
+
+        // Some top-level stuff does not have a definition
+        new_definitions[i] = type_value(ctx, node->payload.block.continuations.nodes[i], imported_ty);
+        assert(new_definitions[i]->yields.count == 1);
+    }
+
+    for (size_t i = 0; i < node->payload.block.instructions.count; i++)
+        ninstructions[i] = type_instruction(ctx, node->payload.block.instructions.nodes[i]);
+
+    Nodes typed_instructions = nodes(ctx->dst_arena, node->payload.block.instructions.count, ninstructions);
+    Nodes typed_conts_vars = nodes(ctx->dst_arena, count, new_variables);
+    Nodes typed_conts = nodes(ctx->dst_arena, count, new_definitions);
+
+    while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
+        pop_list(struct BindEntry, ctx->typed_variables);
+
+    return block(ctx->dst_arena, (Block) {
+        .instructions = typed_instructions,
+        .continuations_vars = typed_conts_vars,
+        .continuations = typed_conts
+    });
 }
 
 static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, const Node* expected_type) {
@@ -60,6 +94,28 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
             assert(expected_type == int_type(dst_arena));
             long v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
             return int_literal(dst_arena, (IntLiteral) { .value = (int) v });
+        }
+        case Continuation_TAG: {
+            size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
+
+            // TODO handle expected_type
+            LARRAY(const Node*, nparams, node->payload.cont.params.count);
+            for (size_t i = 0; i < node->payload.cont.params.count; i++)
+               nparams[i] = new_binder(ctx, node->payload.cont.params.nodes[i]->payload.var.name, import_node(dst_arena, node->payload.cont.params.nodes[i]->payload.var.type));
+
+            // Handle the insides of the function
+            struct TypeRewriter instrs_infer_ctx = *ctx;
+            const Node* nblock = type_block(&instrs_infer_ctx, node->payload.cont.block);
+
+            const Node* continuation = cont(dst_arena, (Continuation) {
+               .block = nblock,
+               .params = nodes(dst_arena, node->payload.cont.params.count, nparams),
+            });
+
+            while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
+                pop_list(struct BindEntry, ctx->typed_variables);
+
+            return continuation;
         }
         case Function_TAG: {
             size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
@@ -74,7 +130,7 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
             // Handle the insides of the function
             struct TypeRewriter instrs_infer_ctx = *ctx;
             instrs_infer_ctx.current_fn_expected_return_types = &nret_types;
-            Block nblock = type_block(&instrs_infer_ctx, &node->payload.fn.block);
+            const Node* nblock = type_block(&instrs_infer_ctx, node->payload.fn.block);
 
             const Node* fun = fn(dst_arena, (Function) {
                .return_types = nret_types,
@@ -155,8 +211,8 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
             const Node* condition = type_value(ctx, node->payload.selection.condition, bool_type(ctx->dst_arena));
 
             struct TypeRewriter instrs_infer_ctx = *ctx;
-            Block ifTrue = type_block(&instrs_infer_ctx, &node->payload.selection.ifTrue);
-            Block ifFalse = type_block(&instrs_infer_ctx, &node->payload.selection.ifFalse);
+            const Node* ifTrue = type_block(&instrs_infer_ctx, node->payload.selection.ifTrue);
+            const Node* ifFalse = type_block(&instrs_infer_ctx, node->payload.selection.ifFalse);
             return selection(ctx->dst_arena, (StructuredSelection) {
                 .condition = condition,
                 .ifTrue = ifTrue,
@@ -167,7 +223,7 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
             const Nodes* old_values = &node->payload.fn_ret.values;
             LARRAY(const Node*, nvalues, old_values->count);
             for (size_t i = 0; i < old_values->count; i++)
-                nvalues[i] = type_value(ctx, old_values->nodes[i], NULL);
+                nvalues[i] = type_value(ctx, old_values->nodes[i], ctx->current_fn_expected_return_types->nodes[i]);
             return fn_ret(ctx->dst_arena, (Return) {
                 .values = nodes(ctx->dst_arena, old_values->count, nvalues)
             });
@@ -213,14 +269,6 @@ const Node* type_root(struct TypeRewriter* ctx, const Node* node) {
                 .definitions = nodes(ctx->dst_arena, count, new_definitions)
             });
         }
-        /*default: {
-            struct TypeRewriter nctx = *ctx;
-            const Node* typed = recreate_node_identity(&nctx.rewriter, node);
-            assert(typed->type || is_type(typed));
-            if (ctx->expectation == YieldType)
-                assert(is_subtype(typed->type, ctx->expectation_payload.expected_type));
-            return typed;
-        }*/
         default: error("not a root node");
     }
 }

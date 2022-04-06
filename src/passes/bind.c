@@ -85,6 +85,38 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                 .target = rewrite_node(rewriter, node->payload.let.target)
             });
         }
+        case Block_TAG: {
+            size_t old_bound_variables_size = entries_count_list(ctx->bound_variables);
+
+            size_t inner_conts_count = node->payload.block.continuations_vars.count;
+
+            LARRAY(const Node*, nvars, inner_conts_count);
+            LARRAY(const Node*, nconts, inner_conts_count);
+
+            for (size_t p = 0; p < inner_conts_count; p++) {
+                const Variable* old_var = &node->payload.block.continuations_vars.nodes[p]->payload.var;
+
+                const Node* new_var = var(rewriter->dst_arena, rewrite_node(rewriter, old_var->type), string(rewriter->dst_arena, old_var->name));
+                nvars[p] = new_var;
+                struct BindEntry entry = {
+                    .id = string(ctx->rewriter.dst_arena, old_var->name),
+                    .bound_node = new_var
+                };
+                append_list(struct BindEntry, ctx->bound_variables, entry);
+                printf("Bound %s\n", entry.id);
+            }
+
+            const Node* new_block = block(rewriter->dst_arena, (Block) {
+                .continuations_vars = nodes(rewriter->dst_arena, inner_conts_count, nvars),
+                .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
+                .continuations = rewrite_nodes(rewriter, node->payload.block.continuations),
+            });
+
+            while (entries_count_list(ctx->bound_variables) > old_bound_variables_size)
+                pop_list(struct BindEntry, ctx->bound_variables);
+
+            return new_block;
+        }
         case Function_TAG: {
             size_t old_bound_variables_size = entries_count_list(ctx->bound_variables);
 
@@ -104,7 +136,7 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
 
             const Node* new_fn = fn(rewriter->dst_arena, (Function) {
                 .return_types = rewrite_nodes(rewriter, node->payload.fn.return_types),
-                .block = rewrite_block(rewriter, node->payload.fn.block),
+                .block = bind_node(ctx, node->payload.fn.block),
                 .params = nodes(rewriter->dst_arena, params_count, nparams),
             });
 
@@ -131,7 +163,7 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             }
 
             const Node* new_cont = cont(rewriter->dst_arena, (Continuation) {
-                .block = rewrite_block(rewriter, node->payload.cont.block),
+                .block = bind_node(ctx, node->payload.cont.block),
                 .params = nodes(rewriter->dst_arena, params_count, nparams),
             });
 

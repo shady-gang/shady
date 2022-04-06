@@ -20,22 +20,6 @@ static int indent = 0;
 #define INDENT for (int j = 0; j < indent; j++) \
     printf("   ");
 
-void print_block(Block block) {
-    for(size_t i = 0; i < block.instructions.count; i++) {
-        INDENT
-        print_node(block.instructions.nodes[i]);
-        printf(";\n");
-    }
-
-    if (block.continuations.count > 0) {
-        printf("\n");
-    }
-    for(size_t i = 0; i < block.continuations.count; i++) {
-        INDENT
-        print_node_impl(block.continuations.nodes[i], block.continuations_names.strings[i]);
-    }
-}
-
 bool pretty_print = false;
 
 void print_node_impl(const Node* node, const char* def_name) {
@@ -97,7 +81,7 @@ void print_node_impl(const Node* node, const char* def_name) {
             print_param_list(node->payload.fn.params, true);
             printf(" {\n");
             indent++;
-            print_block(node->payload.fn.block);
+            print_node(node->payload.fn.block);
             indent--;
             INDENT printf("}\n");
             break;
@@ -108,10 +92,27 @@ void print_node_impl(const Node* node, const char* def_name) {
             print_param_list(node->payload.fn.params, true);
             printf(" {\n");
             indent++;
-            print_block(node->payload.fn.block);
+            print_node(node->payload.fn.block);
             indent--;
             INDENT printf("}\n");
             break;
+        case Block_TAG: {
+            const Block* block = &node->payload.block;
+            for(size_t i = 0; i < block->instructions.count; i++) {
+                INDENT
+                print_node(block->instructions.nodes[i]);
+                printf(";\n");
+            }
+
+            if (block->continuations.count > 0) {
+                printf("\n");
+            }
+            for(size_t i = 0; i < block->continuations.count; i++) {
+                INDENT
+                print_node_impl(block->continuations.nodes[i], block->continuations_vars.nodes[i]->payload.var.name);
+            }
+            break;
+        }
         case UntypedNumber_TAG:
             printf("%s", node->payload.untyped_number.plaintext);
             break;
@@ -146,11 +147,11 @@ void print_node_impl(const Node* node, const char* def_name) {
             print_node(node->payload.selection.condition);
             printf(" {\n");
             indent++;
-            print_block(node->payload.selection.ifTrue);
+            print_node(node->payload.selection.ifTrue);
             indent--;
             INDENT printf("} else {\n");
             indent++;
-            print_block(node->payload.selection.ifFalse);
+            print_node(node->payload.selection.ifFalse);
             indent--;
             INDENT printf("}\n");
             break;

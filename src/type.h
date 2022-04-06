@@ -27,6 +27,7 @@ const Type* ensure_value_t(Nodes yields);
 const Type* noret_type(IrArena* arena);
 
 const Type* derive_fn_type(IrArena* arena, const Function* fn);
+const Type* derive_cont_type(IrArena* arena, const Continuation* fn);
 
 const Type* strip_qualifier(const Type* type, DivergenceQualifier* qual_out);
 DivergenceQualifier get_qualifier(const Type* type);

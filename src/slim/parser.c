@@ -43,7 +43,7 @@ const char* accept_identifier(ctxparams) {
 }
 
 const Node* accept_function(ctxparams);
-Block expect_block(ctxparams);
+const Node* expect_block(ctxparams);
 
 const Type* accept_unqualified_type(ctxparams) {
     if (accept_token(ctx, int_tok)) {
@@ -260,10 +260,10 @@ const Node* accept_instruction(ctxparams) {
             next_token(tokenizer);
             const Node* condition = accept_value(ctx);
             expect(condition);
-            Block if_true = expect_block(ctx);
+            const Node* if_true = expect_block(ctx);
             bool has_else = accept_token(ctx, else_tok);
             // default to an empty block
-            Block if_false = { .instructions = nodes(arena, 0, NULL), .continuations = nodes(arena, 0, NULL)};
+            const Node* if_false = block(arena, (Block) { .instructions = nodes(arena, 0, NULL), .continuations = nodes(arena, 0, NULL)});
             if (has_else) {
                 if_false = expect_block(ctx);
             }
@@ -278,12 +278,12 @@ const Node* accept_instruction(ctxparams) {
     return NULL;
 }
 
-Block expect_block(ctxparams) {
+const Node* expect_block(ctxparams) {
     expect(accept_token(ctx, lbracket_tok));
     struct List* instructions = new_list(Node*);
 
     Nodes continuations = nodes(arena, 0, NULL);
-    Strings continuations_names = strings(arena, 0, NULL);
+    Nodes continuations_names = nodes(arena, 0, NULL);
 
     while (true) {
         if (accept_token(ctx, rbracket_tok))
@@ -295,7 +295,7 @@ Block expect_block(ctxparams) {
         else {
             if (curr_token(tokenizer).tag == identifier_tok) {
                 struct List* conts = new_list(Node*);
-                struct List* names = new_list(const char*);
+                struct List* names = new_list(Node*);
                 while (true) {
                     const char* identifier = accept_identifier(ctx);
                     if (!identifier)
@@ -303,18 +303,22 @@ Block expect_block(ctxparams) {
                     expect(accept_token(ctx, colon_tok));
 
                     Nodes parameters = expect_parameters(ctx);
-                    Block block = expect_block(ctx);
+                    const Node* block = expect_block(ctx);
 
                     const Node* continuation = cont(arena, (Continuation) {
                         .block = block,
                         .params = parameters
                     });
+                    const Node* contvar = var(arena, qualified_type(arena, (QualifiedType) {
+                        .type = derive_cont_type(arena, &continuation->payload.cont),
+                        .is_uniform = true
+                    }), identifier);
                     append_list(Node*, conts, continuation);
-                    append_list(char const*, names, identifier);
+                    append_list(Node*, names, contvar);
                 }
 
                 continuations = nodes(arena, entries_count_list(conts), read_list(const Node*, conts));
-                continuations_names = strings(arena, entries_count_list(names), read_list(const char*, names));
+                continuations_names = nodes(arena, entries_count_list(names), read_list(const Node*, names));
                 destroy_list(conts);
                 destroy_list(names);
             }
@@ -326,11 +330,11 @@ Block expect_block(ctxparams) {
     Nodes instrs = nodes(arena, entries_count_list(instructions), read_list(const Node*, instructions));
     destroy_list(instructions);
 
-    return (Block) {
+    return block(arena, (Block) {
         .instructions = instrs,
         .continuations = continuations,
-        .continuations_names = continuations_names
-    };
+        .continuations_vars = continuations_names
+    });
 }
 
 struct TopLevelDecl {
@@ -346,7 +350,7 @@ const Node* accept_function(ctxparams) {
       Nodes types = accept_types(ctx, comma_tok, false);
       expect(curr_token(tokenizer).tag == lpar_tok);
       Nodes parameters = expect_parameters(ctx);
-      Block block = expect_block(ctx);
+      const Node* block = expect_block(ctx);
 
       const Node* function = fn(arena, (Function) {
           .params = parameters,

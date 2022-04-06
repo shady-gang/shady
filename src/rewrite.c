@@ -13,14 +13,6 @@ Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
 
 const Node* rewrite_node(Rewriter* rewriter, const Node* node) { return rewriter->rewrite_fn(rewriter, node); }
 
-Block rewrite_block(Rewriter* rewriter, Block block) {
-    return (Block) {
-        .instructions = rewrite_nodes(rewriter, block.instructions),
-        .continuations_names = import_strings(rewriter->dst_arena, block.continuations_names),
-        .continuations = rewrite_nodes(rewriter, block.continuations),
-    };
-}
-
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;
@@ -40,13 +32,18 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 .definitions = nodes(rewriter->dst_arena, count, new_definitions)
             });
         }
+        case Block_TAG:         return block(rewriter->dst_arena, (Block) {
+            .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
+            .continuations_vars = rewrite_nodes(rewriter, node->payload.block.continuations_vars),
+            .continuations = rewrite_nodes(rewriter, node->payload.block.continuations),
+        });
         case Function_TAG:      return fn(rewriter->dst_arena, (Function) {
            .return_types = rewrite_nodes(rewriter, node->payload.fn.return_types),
-           .block = rewrite_block(rewriter, node->payload.fn.block),
+           .block = rewriter->rewrite_fn(rewriter, node->payload.fn.block),
            .params = rewrite_nodes(rewriter, node->payload.fn.params),
         });
         case Continuation_TAG: return cont(rewriter->dst_arena, (Continuation) {
-           .block = rewrite_block(rewriter, node->payload.cont.block),
+           .block = rewriter->rewrite_fn(rewriter, node->payload.cont.block),
            .params = rewrite_nodes(rewriter, node->payload.cont.params),
         });
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
@@ -70,8 +67,8 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         });
         case StructuredSelection_TAG: return selection(rewriter->dst_arena, (StructuredSelection) {
             .condition = rewriter->rewrite_fn(rewriter, node->payload.selection.condition),
-            .ifTrue = rewrite_block(rewriter, node->payload.selection.ifTrue),
-            .ifFalse = rewrite_block(rewriter, node->payload.selection.ifFalse),
+            .ifTrue = rewriter->rewrite_fn(rewriter, node->payload.selection.ifTrue),
+            .ifFalse = rewriter->rewrite_fn(rewriter, node->payload.selection.ifFalse),
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
             .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
@@ -82,7 +79,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         });
         case NoRet_TAG:         return noret_type(rewriter->dst_arena);
         case Int_TAG:           return int_type(rewriter->dst_arena);
-        case Bool_TAG:           return bool_type(rewriter->dst_arena);
+        case Bool_TAG:          return bool_type(rewriter->dst_arena);
         case Float_TAG:         return float_type(rewriter->dst_arena);
         case RecordType_TAG:    return record_type(rewriter->dst_arena, (RecordType) {
                                     .members = rewrite_nodes(rewriter, node->payload.record_type.members)});

@@ -104,6 +104,10 @@ const Type* derive_fn_type(IrArena* arena, const Function* fn) {
     return fn_type(arena, (FnType) { .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
 }
 
+const Type* derive_cont_type(IrArena* arena, const Continuation * cont) {
+    return cont_type(arena, (ContType) { .param_types = extract_variable_types(arena, &cont->params) });
+}
+
 #define empty() nodes(arena, 0, NULL)
 #define singleton(t) singleton_impl(arena, t)
 Nodes singleton_impl(IrArena* arena, const Type* type) {
@@ -136,7 +140,10 @@ Nodes check_type_fn(IrArena* arena, Function fn) {
 }
 
 Nodes check_type_cont(IrArena* arena, Continuation cont) {
-    return empty();
+    return singleton(qualified_type(arena, (QualifiedType) {
+        .is_uniform = true,
+        .type = derive_cont_type(arena, &cont)
+    }));
 }
 
 Nodes check_type_var_decl(IrArena* arena, VariableDecl decl) {
