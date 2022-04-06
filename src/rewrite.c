@@ -57,13 +57,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .variable = rewriter->rewrite_fn(rewriter, node->payload.var_decl.variable),
             .init = rewriter->rewrite_fn(rewriter, node->payload.var_decl.init),
         });
-        case Call_TAG:          return call(rewriter->dst_arena, (Call) {
-            .callee = rewriter->rewrite_fn(rewriter, node->payload.call.callee),
-            .args = rewrite_nodes(rewriter, node->payload.call.args)
-        });
         case Let_TAG:           return let(rewriter->dst_arena, (Let) {
             .variables = rewrite_nodes(rewriter, node->payload.let.variables),
-            .target = rewriter->rewrite_fn(rewriter, node->payload.let.target)
+            .op = node->payload.let.op,
+            .args = rewrite_nodes(rewriter, node->payload.let.args)
         });
         case StructuredSelection_TAG: return selection(rewriter->dst_arena, (StructuredSelection) {
             .condition = rewriter->rewrite_fn(rewriter, node->payload.selection.condition),
@@ -72,10 +69,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
             .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
-        });
-        case PrimOp_TAG:        return primop(rewriter->dst_arena, (PrimOp) {
-            .op = node->payload.primop.op,
-            .args = rewrite_nodes(rewriter, node->payload.primop.args)
         });
         case NoRet_TAG:         return noret_type(rewriter->dst_arena);
         case Int_TAG:           return int_type(rewriter->dst_arena);

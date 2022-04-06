@@ -82,7 +82,8 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
 
             return let(rewriter->dst_arena, (Let) {
                 .variables = nodes(rewriter->dst_arena, outputs_count, noutputs),
-                .target = rewrite_node(rewriter, node->payload.let.target)
+                .op = node->payload.let.op,
+                .args = rewrite_nodes(rewriter, node->payload.let.args)
             });
         }
         case Block_TAG: {

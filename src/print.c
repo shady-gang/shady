@@ -48,8 +48,7 @@ void print_node_impl(const Node* node, const char* def_name) {
                     printf(";");
                 }
 
-                if (i < top_level->variables.count - 1)
-                    printf("\n");
+                printf("\n");
             }
             break;
         }
@@ -125,13 +124,6 @@ void print_node_impl(const Node* node, const char* def_name) {
         case False_TAG:
             printf("false");
             break;
-        case PrimOp_TAG:
-            printf("%s", primop_names[node->payload.primop.op]);
-            for (size_t i = 0; i < node->payload.primop.args.count; i++) {
-                printf(" ");
-                print_node(node->payload.primop.args.nodes[i]);
-            }
-            break;
         case Let_TAG:
             printf("let");
             for (size_t i = 0; i < node->payload.let.variables.count; i++) {
@@ -140,7 +132,13 @@ void print_node_impl(const Node* node, const char* def_name) {
                 printf(" %s", node->payload.let.variables.nodes[i]->payload.var.name);
             }
             printf(" = ");
-            print_node(node->payload.let.target);
+
+            printf("%s", primop_names[node->payload.let.op]);
+            for (size_t i = 0; i < node->payload.let.args.count; i++) {
+                printf(" ");
+                print_node(node->payload.let.args.nodes[i]);
+            }
+
             break;
         case StructuredSelection_TAG:
             printf("if ");

@@ -41,26 +41,17 @@ SpvId emit_type(struct SpvEmitter* emitter, const Type* type);
 SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_id);
 bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node* block, SpvId entryBBID, SpvId* joinBB);
 
-void emit_primop_call(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* node, SpvId out[]) {
-    switch (node->tag) {
-        case Call_TAG: SHADY_NOT_IMPLEM;
-        case PrimOp_TAG: {
-            const Nodes* args = &node->payload.primop.args;
-            LARRAY(SpvId, arr, args->count);
-            for (size_t i = 0; i < args->count; i++)
-                arr[i] = emit_value(emitter, args->nodes[i], NULL);
+void emit_primop(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, Op op, Nodes args, SpvId out[]) {
+    LARRAY(SpvId, arr, args.count);
+    for (size_t i = 0; i < args.count; i++)
+        arr[i] = emit_value(emitter, args.nodes[i], NULL);
 
-            SpvId i32_t = emit_type(emitter, int_type(emitter->arena));
+    SpvId i32_t = emit_type(emitter, int_type(emitter->arena));
 
-            switch (node->payload.primop.op) {
-                case add_op: {
-                    out[0] = spvb_binop(bbb, SpvOpIAdd, i32_t, arr[0], arr[1]);
-                    return;
-                }
-                default: error("TODO: unhandled op");
-            }
-        }
-        default: error("neither a primop nor a call")
+    switch (op) {
+        case add_op: out[0] = spvb_binop(bbb, SpvOpIAdd, i32_t, arr[0], arr[1]); break;
+        case sub_op: out[0] = spvb_binop(bbb, SpvOpISub, i32_t, arr[0], arr[1]); break;
+        default: error("TODO: unhandled op");
     }
 }
 
@@ -69,7 +60,7 @@ struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct
         case Let_TAG: {
             const Nodes* variables = &instruction->payload.let.variables;
             LARRAY(SpvId, out, variables->count);
-            emit_primop_call(emitter, fnb, bbb, instruction->payload.let.target, out);
+            emit_primop(emitter, fnb, bbb, instruction->payload.let.op, instruction->payload.let.args, out);
             for (size_t i = 0; i < variables->count; i++) {
                 spvb_name(emitter->file_builder, out[i], variables->nodes[i]->payload.var.name);
                 insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variables->nodes[i], out[i]);

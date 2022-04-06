@@ -30,10 +30,8 @@ typedef int VarId;
 #define INSTRUCTION_NODES() \
 NODEDEF(1, 1, 1, VariableDecl, var_decl) \
 NODEDEF(1, 1, 1, ExpressionEval, expr_eval) \
-NODEDEF(1, 1, 1, Call, call) \
 NODEDEF(1, 1, 1, Let, let)  \
 NODEDEF(1, 1, 1, Return, fn_ret) \
-NODEDEF(1, 1, 1, PrimOp, primop) \
 NODEDEF(1, 1, 1, StructuredSelection, selection) \
 
 #define TYPE_NODES() \
@@ -125,22 +123,9 @@ typedef struct VariableDecl_ {
     const Node* init;
 } VariableDecl;
 
-typedef struct Let_ {
-    Nodes variables;
-    const Node* target;
-} Let;
-
-typedef struct ExpressionEval_ {
-    const Node* expr;
-} ExpressionEval;
-
-typedef struct Call_ {
-    const Node* callee;
-    Nodes args;
-} Call;
-
 #define PRIMOPS() \
-PRIMOP(add) \
+PRIMOP(call)      \
+PRIMOP(add)       \
 PRIMOP(sub)       \
 
 typedef enum Op_ {
@@ -149,12 +134,18 @@ PRIMOPS()
 #undef PRIMOP
 } Op;
 
-extern const char* primop_names[];
+typedef struct Let_ {
+    Nodes variables;
 
-typedef struct PrimOp_ {
     Op op;
     Nodes args;
-} PrimOp;
+} Let;
+
+typedef struct ExpressionEval_ {
+    const Node* expr;
+} ExpressionEval;
+
+extern const char* primop_names[];
 
 // Those things are "meta" instructions, they contain other instructions.
 // they map to SPIR-V structured control flow constructs directly

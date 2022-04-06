@@ -155,33 +155,25 @@ const Node* type_value(struct TypeRewriter* ctx, const Node* node, const Node* e
     return typed;
 }
 
-const Node* type_primop_or_call(struct TypeRewriter* ctx, const Node* node, size_t expected_yield_count, const Type* expected_yield_types[], const Type* actual_yield_types[]) {
+Nodes type_primop_or_call(struct TypeRewriter* ctx, Op op, Nodes oldargs, size_t expected_count, const Type* actual_yield_types[]) {
     IrArena* dst_arena = ctx->dst_arena;
 
-    switch (node->tag) {
-        case Call_TAG: SHADY_NOT_IMPLEM
-        case PrimOp_TAG: {
-            Nodes param_tys = op_params(dst_arena, node->payload.primop.op);
-            const size_t argsc = node->payload.primop.args.count;
-            assert(argsc == param_tys.count);
-            LARRAY(const Node*, nargs, argsc);
-            for (size_t i = 0; i < argsc; i++)
-                nargs[i] = type_value(ctx, node->payload.primop.args.nodes[i], param_tys.nodes[i]);
+    Nodes param_tys = op_params(dst_arena, op, oldargs);
 
-            const Node* new = primop(dst_arena, (PrimOp) {
-                .op = node->payload.primop.op,
-                .args = nodes(dst_arena, argsc, nargs)
-            });
+    const size_t argsc = oldargs.count;
+    assert(argsc == param_tys.count);
+    LARRAY(const Node*, nargs, argsc);
+    for (size_t i = 0; i < argsc; i++)
+        nargs[i] = type_value(ctx, oldargs.nodes[i], param_tys.nodes[i]);
 
-            const Nodes yield_tys = new->yields;
-            assert(expected_yield_count == yield_tys.count);
-            for (size_t i = 0; i < yield_tys.count; i++)
-                actual_yield_types[i] = yield_tys.nodes[i];
+    Nodes typed_args = nodes(dst_arena, argsc, nargs);
+    Nodes yield_tys = op_yields(dst_arena, op, typed_args);
 
-            return new;
-        }
-        default: error("not a primop or a call");
-    }
+    assert(expected_count == yield_tys.count);
+    for (size_t i = 0; i < yield_tys.count; i++)
+        actual_yield_types[i] = yield_tys.nodes[i];
+
+    return typed_args;
 }
 
 const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
@@ -189,13 +181,8 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
         case Let_TAG: {
             const size_t count = node->payload.let.variables.count;
 
-            // first import the type annotations (if set)
-            LARRAY(const Type*, expected_types, count);
-            for (size_t i = 0; i < count; i++)
-                expected_types[i] = import_node(ctx->dst_arena, node->payload.let.variables.nodes[i]->payload.var.type);
-
             LARRAY(const Type*, actual_types, count);
-            const Node* rewritten_rhs = type_primop_or_call(ctx, node->payload.let.target, count, expected_types, actual_types);
+            Nodes rewritten_args = type_primop_or_call(ctx, node->payload.let.op, node->payload.let.args, count, actual_types);
 
             struct TypeRewriter vars_infer_ctx = *ctx;
             LARRAY(const Node*, nvars, count);
@@ -204,7 +191,8 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
 
             return let(ctx->dst_arena, (Let) {
                 .variables = nodes(ctx->dst_arena, count, nvars),
-                .target = rewritten_rhs,
+                .op = node->payload.let.op,
+                .args = rewritten_args
             });
         }
         case StructuredSelection_TAG: {

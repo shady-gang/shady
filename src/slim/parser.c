@@ -214,16 +214,14 @@ Nodes expect_values(ctxparams, enum TokenTag separator) {
     return final;
 }
 
-const Node* expect_computation(ctxparams) {
+Nodes expect_computation(ctxparams, Op* op) {
     struct Token tok = curr_token(tokenizer);
     switch (tok.tag) {
         case add_tok: {
             next_token(tokenizer);
             Nodes args = expect_values(ctx, 0);
-            return primop(arena, (PrimOp) {
-                .op = add_op,
-                .args = args
-            });
+            *op = add_op;
+            return args;
         }
         default: error("cannot parse a computation");
     }
@@ -249,11 +247,13 @@ const Node* accept_instruction(ctxparams) {
                 bindings[i] = var(arena, NULL, ids.strings[i]);
 
             expect(accept_token(ctx, equal_tok));
-            const Node* comp = expect_computation(ctx);
+            Op op;
+            Nodes args = expect_computation(ctx, &op);
             expect(accept_token(ctx, semi_tok));
             return let(arena, (Let) {
                 .variables = nodes(arena, bindings_count, bindings),
-                .target = comp
+                .op = op,
+                .args = args
             });
         }
         case if_tok: {

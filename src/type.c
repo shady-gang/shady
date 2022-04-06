@@ -120,7 +120,7 @@ const Type* ensure_value_t(Nodes yields) {
     return yields.nodes[0];
 }
 
-Nodes check_type_call(IrArena* arena, Call call) {
+/*Nodes check_type_call(IrArena* arena, Call call) {
     const Type* callee_type = ensure_value_t(call.callee->yields);
     if (callee_type->tag != FnType_TAG)
         error("Callees must have a function type");
@@ -130,7 +130,7 @@ Nodes check_type_call(IrArena* arena, Call call) {
         // TODO
     }
     return callee_type->payload.fn.return_types;
-}
+}*/
 
 Nodes check_type_fn(IrArena* arena, Function fn) {
     return singleton(qualified_type(arena, (QualifiedType) {
@@ -176,7 +176,7 @@ Nodes check_type_false_lit(IrArena* arena) { return singleton(bool_type(arena));
 
 Nodes check_type_let(IrArena* arena, Let let) {
     Nodes var_tys = extract_variable_types(arena, &let.variables);
-    Nodes yields = let.target->yields;
+    Nodes yields = op_yields(arena, let.op, let.args);
     if (yields.count != var_tys.count)
         error("let variables count != yield count from operation")
     for (size_t i = 0; i < var_tys.count; i++)
@@ -194,7 +194,8 @@ Nodes check_type_selection(IrArena* arena, StructuredSelection sel) {
     return empty();
 }
 
-Nodes op_params(IrArena* arena, Op op) {
+// TODO handle parameters
+Nodes op_params(IrArena* arena, Op op, Nodes args) {
     switch (op) {
         case add_op:
         case sub_op: return nodes(arena, 2, (const Type*[]){ int_type(arena), int_type(arena) });
@@ -202,30 +203,21 @@ Nodes op_params(IrArena* arena, Op op) {
     }
 }
 
-Nodes op_yields(IrArena* arena, Op op) {
+Nodes op_yields(IrArena* arena, Op op, Nodes args) {
     switch (op) {
         case add_op:
-        case sub_op: return nodes(arena, 1, (const Type*[]) { int_type(arena) });
-        default: error("unhandled op yield");
-    }
-}
-
-Nodes check_type_primop(IrArena* arena, PrimOp primop) {
-    // TODO check params
-    switch (primop.op) {
-        case sub_op:
-        case add_op: {
-            bool is_result_uniform = true;
-            for (size_t i = 0; i < primop.args.count; i++) {
-                const Node* arg = primop.args.nodes[i];
-                DivergenceQualifier op_div = get_qualifier(ensure_value_t(arg->yields));
-                assert(op_div != Unknown); // we expect all operands to be clearly known !
-                is_result_uniform ^= op_div == Uniform;
-            }
+        case sub_op: {
+             bool is_result_uniform = true;
+             for (size_t i = 0; i < args.count; i++) {
+                 const Node* arg = args.nodes[i];
+                 DivergenceQualifier op_div = get_qualifier(ensure_value_t(arg->yields));
+                 assert(op_div != Unknown); // we expect all operands to be clearly known !
+                 is_result_uniform ^= op_div == Uniform;
+             }
 
             return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = int_type(arena) }));
         }
-        default: SHADY_NOT_IMPLEM;
+        default: error("unhandled op yield");
     }
 }
 
