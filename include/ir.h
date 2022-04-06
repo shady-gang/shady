@@ -222,7 +222,7 @@ NODES()
 } NodeTag;
 
 struct Node_ {
-    Nodes yields;
+    const Type* type;
     NodeTag tag;
     union NodesUnion {
 #define NODE_PAYLOAD_1(u, o) u o;

@@ -165,7 +165,7 @@ SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_
     switch (node->tag) {
         case Variable_TAG: error("this variable should have been resolved already");
         case IntLiteral_TAG: {
-            SpvId ty = emit_type(emitter, node->yields.nodes[0]);
+            SpvId ty = emit_type(emitter, node->type);
             uint32_t arr[] = { node->payload.int_literal.value };
             spvb_constant(emitter->file_builder, new, ty, 1, arr);
             break;

@@ -64,7 +64,6 @@ const Node* type_block(struct TypeRewriter* ctx, const Node* node) {
 
         // Some top-level stuff does not have a definition
         new_definitions[i] = type_value(ctx, node->payload.block.continuations.nodes[i], imported_ty);
-        assert(new_definitions[i]->yields.count == 1);
     }
 
     for (size_t i = 0; i < node->payload.block.instructions.count; i++)
@@ -151,7 +150,6 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
 
 const Node* type_value(struct TypeRewriter* ctx, const Node* node, const Node* expected_type) {
     const Node* typed = type_value_impl(ctx, node, expected_type);
-    assert(typed->yields.count == 1);
     return typed;
 }
 
@@ -248,8 +246,7 @@ const Node* type_root(struct TypeRewriter* ctx, const Node* node) {
                 if (node->payload.root.definitions.nodes[i] == NULL) continue;
 
                 const Variable* oldvar = &node->payload.root.variables.nodes[i]->payload.var;
-                assert(new_definitions[i]->yields.count == 1);
-                new_variables[i] = new_binder(ctx, oldvar->name, new_definitions[i]->yields.nodes[0]);
+                new_variables[i] = new_binder(ctx, oldvar->name, new_definitions[i]->type);
             }
 
             return root(ctx->dst_arena, (Root) {

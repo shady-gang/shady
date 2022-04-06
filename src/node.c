@@ -9,10 +9,10 @@
 #define LAST_ARG_1(struct_name) ,struct_name in_node
 #define LAST_ARG_0(struct_name)
 
-#define CALL_TYPING_METHOD_11(short_name) arena->config.check_types ? check_type_##short_name(arena, in_node) : nodes(arena, 0, NULL)
-#define CALL_TYPING_METHOD_01(short_name) nodes(arena, 0, NULL)
-#define CALL_TYPING_METHOD_10(short_name) arena->config.check_types ? check_type_##short_name(arena) : nodes(arena, 0, NULL)
-#define CALL_TYPING_METHOD_00(short_name) nodes(arena, 0, NULL)
+#define CALL_TYPING_METHOD_11(short_name) arena->config.check_types ? check_type_##short_name(arena, in_node) : NULL
+#define CALL_TYPING_METHOD_01(short_name) NULL
+#define CALL_TYPING_METHOD_10(short_name) arena->config.check_types ? check_type_##short_name(arena) : NULL
+#define CALL_TYPING_METHOD_00(short_name) NULL
 
 #define SET_PAYLOAD_1(short_name) .payload = (union NodesUnion) { .short_name = in_node }
 #define SET_PAYLOAD_0(_)
@@ -21,7 +21,7 @@
     Node node;                                                                                                                                    \
     memset((void*) &node, 0, sizeof(Node));                                                                                                       \
     node = (Node) {                                                                                                                               \
-      .yields = CALL_TYPING_METHOD_##has_typing_fn##has_payload(short_name),                                                                                   \
+      .type = CALL_TYPING_METHOD_##has_typing_fn##has_payload(short_name),                                                                                   \
       .tag = struct_name##_TAG,                                                                                                                   \
       SET_PAYLOAD_##has_payload(short_name)                                                                                                       \
     };                                                                                                                                            \
@@ -50,7 +50,7 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
-      .yields = arena->config.check_types ? check_type_var(arena, variable) : nodes(arena, 0, NULL),
+      .type = arena->config.check_types ? check_type_var(arena, variable) : NULL,
       .tag = Variable_TAG,
       .payload.var = variable
     };

@@ -108,18 +108,6 @@ const Type* derive_cont_type(IrArena* arena, const Continuation * cont) {
     return cont_type(arena, (ContType) { .param_types = extract_variable_types(arena, &cont->params) });
 }
 
-#define empty() nodes(arena, 0, NULL)
-#define singleton(t) singleton_impl(arena, t)
-Nodes singleton_impl(IrArena* arena, const Type* type) {
-    const Type* arr[] = { type };
-    return nodes(arena, 1, arr);
-}
-
-const Type* ensure_value_t(Nodes yields) {
-    assert(yields.count == 1);
-    return yields.nodes[0];
-}
-
 /*Nodes check_type_call(IrArena* arena, Call call) {
     const Type* callee_type = ensure_value_t(call.callee->yields);
     if (callee_type->tag != FnType_TAG)
@@ -132,66 +120,71 @@ const Type* ensure_value_t(Nodes yields) {
     return callee_type->payload.fn.return_types;
 }*/
 
-Nodes check_type_fn(IrArena* arena, Function fn) {
-    return singleton(qualified_type(arena, (QualifiedType) {
+const Type* check_type_fn(IrArena* arena, Function fn) {
+    return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = derive_fn_type(arena, &fn)
-    }));
+    });
 }
 
-Nodes check_type_cont(IrArena* arena, Continuation cont) {
-    return singleton(qualified_type(arena, (QualifiedType) {
+const Type* check_type_cont(IrArena* arena, Continuation cont) {
+    return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = derive_cont_type(arena, &cont)
-    }));
+    });
 }
 
-Nodes check_type_var_decl(IrArena* arena, VariableDecl decl) {
+const Type* check_type_var_decl(IrArena* arena, VariableDecl decl) {
     SHADY_NOT_IMPLEM
     //return ptr_type(arena, (PtrType) { .address_space = decl.address_space, .pointed_type = decl.variable->type });
 }
 
-Nodes check_type_expr_eval(IrArena* arena, ExpressionEval expr) {
+const Type* check_type_expr_eval(IrArena* arena, ExpressionEval expr) {
     SHADY_NOT_IMPLEM;
 }
 
-Nodes check_type_var(IrArena* arena, Variable variable) {
+const Type* check_type_var(IrArena* arena, Variable variable) {
     assert(get_qualifier(variable.type) != Unknown);
-    return singleton(variable.type);
+    return variable.type;
 }
 
-Nodes check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
+const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
     error("should never happen");
 }
 
-Nodes check_type_int_literal(IrArena* arena, IntLiteral lit) {
-    return singleton(qualified_type(arena, (QualifiedType) {
+const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
+    return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = int_type(arena)
-    }));
+    });
 }
 
-Nodes check_type_true_lit(IrArena* arena) { return singleton(bool_type(arena)); }
-Nodes check_type_false_lit(IrArena* arena) { return singleton(bool_type(arena)); }
+const Type* check_type_true_lit(IrArena* arena) { return bool_type(arena); }
+const Type* check_type_false_lit(IrArena* arena) { return bool_type(arena); }
 
-Nodes check_type_let(IrArena* arena, Let let) {
+const Type* check_type_let(IrArena* arena, Let let) {
     Nodes var_tys = extract_variable_types(arena, &let.variables);
     Nodes yields = op_yields(arena, let.op, let.args);
     if (yields.count != var_tys.count)
         error("let variables count != yield count from operation")
     for (size_t i = 0; i < var_tys.count; i++)
         check_subtype(var_tys.nodes[i], yields.nodes[i]);
-    return var_tys;
+    return NULL;
 }
 
-Nodes check_type_fn_ret(IrArena* arena, Return fn_ret) {
-    return empty();
+const Type* check_type_fn_ret(IrArena* arena, Return fn_ret) {
+    // TODO check it then !
+    return NULL;
 }
 
-Nodes check_type_selection(IrArena* arena, StructuredSelection sel) {
-    if (sel.condition->yields.count != 1 || without_qualifier(sel.condition->yields.nodes[0]) != bool_type(arena))
+const Type* check_type_selection(IrArena* arena, StructuredSelection sel) {
+    if (without_qualifier(sel.condition->type) != bool_type(arena))
         error("condition of a selection should be bool");
-    return empty();
+    return NULL;
+}
+
+const Type* check_type_root(IrArena* arena, Root program) {
+    return NULL;
 }
 
 // TODO handle parameters
@@ -203,6 +196,13 @@ Nodes op_params(IrArena* arena, Op op, Nodes args) {
     }
 }
 
+#define empty() nodes(arena, 0, NULL)
+#define singleton(t) singleton_impl(arena, t)
+Nodes singleton_impl(IrArena* arena, const Type* type) {
+    const Type* arr[] = { type };
+    return nodes(arena, 1, arr);
+}
+
 Nodes op_yields(IrArena* arena, Op op, Nodes args) {
     switch (op) {
         case add_op:
@@ -210,7 +210,7 @@ Nodes op_yields(IrArena* arena, Op op, Nodes args) {
              bool is_result_uniform = true;
              for (size_t i = 0; i < args.count; i++) {
                  const Node* arg = args.nodes[i];
-                 DivergenceQualifier op_div = get_qualifier(ensure_value_t(arg->yields));
+                 DivergenceQualifier op_div = get_qualifier(arg->type);
                  assert(op_div != Unknown); // we expect all operands to be clearly known !
                  is_result_uniform ^= op_div == Uniform;
              }
@@ -219,8 +219,4 @@ Nodes op_yields(IrArena* arena, Op op, Nodes args) {
         }
         default: error("unhandled op yield");
     }
-}
-
-Nodes check_type_root(IrArena* arena, Root program) {
-    return empty();
 }
