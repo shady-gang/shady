@@ -90,7 +90,7 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
             return resolve(ctx, node->payload.var.name);
         case UntypedNumber_TAG: {
             // TODO handle different prim types
-            assert(expected_type == int_type(dst_arena));
+            assert(without_qualifier(expected_type) == int_type(dst_arena));
             long v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
             return int_literal(dst_arena, (IntLiteral) { .value = (int) v });
         }
@@ -174,6 +174,13 @@ Nodes type_primop_or_call(struct TypeRewriter* ctx, Op op, Nodes oldargs, size_t
     return typed_args;
 }
 
+Nodes type_values(struct TypeRewriter* ctx, Nodes old) {
+    LARRAY(const Node*, tmp, old.count);
+    for (size_t i = 0; i < old.count; i++)
+        tmp[i] = type_value(ctx, old.nodes[i], NULL);
+    return nodes(ctx->dst_arena, old.count, tmp);
+}
+
 const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
     switch (node->tag) {
         case Let_TAG: {
@@ -212,6 +219,24 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
                 nvalues[i] = type_value(ctx, old_values->nodes[i], ctx->current_fn_expected_return_types->nodes[i]);
             return fn_ret(ctx->dst_arena, (Return) {
                 .values = nodes(ctx->dst_arena, old_values->count, nvalues)
+            });
+        }
+        case Jump_TAG: {
+            const Node* ntarget = type_value(ctx, node->payload.jump.target, NULL);
+
+            assert(get_qualifier(ntarget->type) == Uniform);
+            assert(without_qualifier(ntarget->type)->tag == ContType_TAG);
+            const ContType* tgt_type = &without_qualifier(ntarget->type)->payload.cont_type;
+
+            LARRAY(const Node*, tmp, node->payload.jump.args.count);
+            for (size_t i = 0; i < node->payload.jump.args.count; i++)
+                tmp[i] = type_value(ctx, node->payload.jump.args.nodes[i], tgt_type->param_types.nodes[i]);
+
+            Nodes new_args = nodes(ctx->dst_arena, node->payload.jump.args.count, tmp);
+
+            return jump(ctx->dst_arena, (Jump) {
+                .target = ntarget,
+                .args = new_args
             });
         }
         default: error("not an instruction");

@@ -67,6 +67,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .ifTrue = rewriter->rewrite_fn(rewriter, node->payload.selection.ifTrue),
             .ifFalse = rewriter->rewrite_fn(rewriter, node->payload.selection.ifFalse),
         });
+        case Jump_TAG:          return jump(rewriter->dst_arena, (Jump) {
+            .target = rewriter->rewrite_fn(rewriter, node->payload.jump.target),
+            .args = rewrite_nodes(rewriter, node->payload.jump.args)
+        });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
             .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
         });

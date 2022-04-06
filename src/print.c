@@ -160,6 +160,27 @@ void print_node_impl(const Node* node, const char* def_name) {
                 print_node(node->payload.fn_ret.values.nodes[i]);
             }
             break;
+        case Jump_TAG:
+            printf("jump ");
+            print_node(node->payload.jump.target);
+            for (size_t i = 0; i < node->payload.jump.args.count; i++) {
+                printf(" ");
+                print_node(node->payload.jump.args.nodes[i]);
+            }
+            break;
+        case Branch_TAG:
+            printf("branch ");
+            print_node(node->payload.branch.condition);
+            printf(" ");
+            print_node(node->payload.branch.trueTarget);
+            printf(" ");
+            print_node(node->payload.branch.falseTarget);
+            printf(" ");
+            for (size_t i = 0; i < node->payload.branch.args.count; i++) {
+                printf(" ");
+                print_node(node->payload.branch.args.nodes[i]);
+            }
+            break;
         case QualifiedType_TAG:
             if (node->payload.qualified_type.is_uniform)
                 printf("uniform ");

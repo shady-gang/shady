@@ -68,8 +68,13 @@ bool is_subtype(const Type* supertype, const Type* type) {
 }
 
 void check_subtype(const Type* supertype, const Type* type) {
-    if (!is_subtype(supertype, type))
-        error("is not a subtype")
+    if (!is_subtype(supertype, type)) {
+        print_node(type);
+        printf(" isn't a subtype of ");
+        print_node(supertype);
+        printf("\n");
+        error("failed check_subtype\n")
+    }
 }
 
 const Type* strip_qualifier(const Type* type, DivergenceQualifier* qual_out) {
@@ -172,7 +177,20 @@ const Type* check_type_let(IrArena* arena, Let let) {
     return NULL;
 }
 
-const Type* check_type_fn_ret(IrArena* arena, Return fn_ret) {
+const Type* check_type_jump(IrArena* arena, Jump jump) {
+    assert(get_qualifier(jump.target->type) == Uniform);
+    assert(without_qualifier(jump.target->type)->tag == ContType_TAG);
+    const ContType* tgt_type = &without_qualifier(jump.target->type)->payload.cont_type;
+    for (size_t i = 0; i < tgt_type->param_types.count; i++)
+        check_subtype(tgt_type->param_types.nodes[i], jump.args.nodes[i]->type);
+    return NULL;
+}
+
+const Type* check_type_branch(IrArena* arena, Branch branch) {
+    SHADY_NOT_IMPLEM;
+}
+
+const Type* check_type_fn_ret(IrArena* arena, Return ret) {
     // TODO check it then !
     return NULL;
 }

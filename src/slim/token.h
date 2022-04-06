@@ -35,6 +35,9 @@ TOKEN(while, "while") \
 TOKEN(bool_, "bool") \
 TOKEN(true_, "true") \
 TOKEN(false_, "false") \
+TOKEN(jump, "jump") \
+TOKEN(branch, "branch") \
+TOKEN(call, "call") \
 TOKEN(eq, "==") \
 TOKEN(neq, "!=") \
 TOKEN(geq, ">=") \

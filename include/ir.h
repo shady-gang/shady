@@ -33,6 +33,8 @@ NODEDEF(1, 1, 1, ExpressionEval, expr_eval) \
 NODEDEF(1, 1, 1, Let, let)  \
 NODEDEF(1, 1, 1, Return, fn_ret) \
 NODEDEF(1, 1, 1, StructuredSelection, selection) \
+NODEDEF(1, 1, 1, Jump, jump) \
+NODEDEF(1, 1, 1, Branch, branch) \
 
 #define TYPE_NODES() \
 NODEDEF(1, 0, 0, NoRet, noret_type) \
@@ -94,25 +96,9 @@ typedef struct Function_ {
     Nodes return_types;
 } Function;
 
-typedef enum TerminatorTag_ {
-    Jump, Branch, Die
-} TerminatorTag;
-
-typedef struct Terminator_ {
-    TerminatorTag tag;
-    union {
-        struct Jump {
-            Node const* target;
-            Nodes args;
-        } jump;
-        //struct Branch {} branch;
-    } payload;
-} Terminator;
-
 typedef struct Continuation_ {
     Nodes params;
     const Node* block;
-    // Terminator terminator;
 } Continuation;
 
 // Nodes
@@ -172,6 +158,17 @@ typedef struct Return_ {
     Nodes values;
 } Return;
 
+typedef struct Jump_ {
+    const Node* target;
+    Nodes args;
+} Jump;
+
+typedef struct Branch_ {
+    const Node* condition;
+    const Node* trueTarget;
+    const Node* falseTarget;
+    Nodes args;
+} Branch;
 
 /// The body inside functions, continuations, if branches ...
 typedef struct Block_ {
