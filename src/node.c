@@ -77,6 +77,13 @@ PRIMOPS()
 };
 
 KeyHash hash_node(Node** node) {
+    if (is_nominal((*node)->tag)) {
+        size_t ptr = (size_t) *node;
+        uint32_t upper = ptr >> 32;
+        uint32_t lower = ptr;
+        return upper ^ lower;
+    }
+
     uint32_t out[4];
     MurmurHash3_x64_128(*node, sizeof(Node), 0x1234567, &out);
     uint32_t final = 0;
@@ -91,5 +98,8 @@ KeyHash hash_node(Node** node) {
 }
 
 bool compare_node(Node** a, Node** b) {
+    if ((*a)->tag != (*b)->tag) return false;
+    if (is_nominal((*a)->tag))
+        return *a == *b;
     return memcmp(*a, *b, sizeof(Node)) == 0;
 }

@@ -218,6 +218,10 @@ NODES()
 #undef NODEDEF
 } NodeTag;
 
+static bool is_nominal(NodeTag tag) {
+    return tag == Continuation_TAG || tag == Function_TAG || tag == Root_TAG;
+}
+
 struct Node_ {
     const Type* type;
     NodeTag tag;
