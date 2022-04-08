@@ -8,7 +8,7 @@
 #include <string.h>
 
 struct BindEntry {
-    const char* id;
+    const char* name;
     const Node* bound_node;
 };
 
@@ -17,14 +17,14 @@ struct BindRewriter {
     struct List* bound_variables;
 };
 
-static const Node* resolve(struct BindRewriter* ctx, const char* id) {
+static const Node* resolve(struct BindRewriter* ctx, const char* name) {
     for (size_t i = 0; i < entries_count_list(ctx->bound_variables); i++) {
         const struct BindEntry* entry = &read_list(const struct BindEntry, ctx->bound_variables)[i];
-        if (strcmp(entry->id, id) == 0) {
+        if (strcmp(entry->name, name) == 0) {
             return entry->bound_node;
         }
     }
-    error("could not resolve variable %s", id)
+    error("could not resolve variable %s", name)
 }
 
 const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
@@ -46,10 +46,11 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                 const Node* new_variable = var(rewriter->dst_arena, rewrite_node(rewriter, variable->payload.var.type), string(rewriter->dst_arena, variable->payload.var.name));
 
                 struct BindEntry entry = {
-                    .id = variable->payload.var.name,
+                    .name = variable->payload.var.name,
                     .bound_node = new_variable
                 };
                 append_list(struct BindEntry, ctx->bound_variables, entry);
+                printf("Bound root def %s\n", entry.name);
                 new_variables[i] = new_variable;
             }
 
@@ -73,11 +74,11 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                 const Node* new_binding = var(rewriter->dst_arena, rewrite_node(rewriter, old_var->type), string(rewriter->dst_arena, old_var->name));
                 noutputs[p] = new_binding;
                 struct BindEntry entry = {
-                    .id = string(ctx->rewriter.dst_arena, old_var->name),
+                    .name = string(ctx->rewriter.dst_arena, old_var->name),
                     .bound_node = new_binding
                 };
                 append_list(struct BindEntry, ctx->bound_variables, entry);
-                printf("Bound %s\n", entry.id);
+                printf("Bound primop result %s\n", entry.name);
             }
 
             return let(rewriter->dst_arena, (Let) {
@@ -100,11 +101,11 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                 const Node* new_var = var(rewriter->dst_arena, rewrite_node(rewriter, old_var->type), string(rewriter->dst_arena, old_var->name));
                 nvars[p] = new_var;
                 struct BindEntry entry = {
-                    .id = string(ctx->rewriter.dst_arena, old_var->name),
+                    .name = string(ctx->rewriter.dst_arena, old_var->name),
                     .bound_node = new_var
                 };
                 append_list(struct BindEntry, ctx->bound_variables, entry);
-                printf("Bound %s\n", entry.id);
+                printf("Bound continuation %s\n", entry.name);
             }
 
             const Node* new_block = block(rewriter->dst_arena, (Block) {
@@ -128,11 +129,11 @@ const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                 const Node* new_param = var(rewriter->dst_arena, rewrite_node(rewriter, old_param->type), string(rewriter->dst_arena, old_param->name));
                 nparams[p] = new_param;
                 struct BindEntry entry = {
-                    .id = string(ctx->rewriter.dst_arena, old_param->name),
+                    .name = string(ctx->rewriter.dst_arena, old_param->name),
                     .bound_node = new_param
                 };
                 append_list(struct BindEntry, ctx->bound_variables, entry);
-                printf("Bound %s\n", entry.id);
+                printf("Bound param %s\n", entry.name);
             }
 
             const Node* new_fn = fn(rewriter->dst_arena, (Function) {

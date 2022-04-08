@@ -4,12 +4,12 @@ extern const char* node_tags[];
 
 void print_node_impl(const Node* node, const char* def_name);
 
-void print_param_list(const Nodes vars, bool use_names) {
+void print_param_list(const Nodes vars) {
     printf("(");
     for (size_t i = 0; i < vars.count; i++) {
-        print_node(vars.nodes[i]->payload.var.type);
-        if (use_names)
-            printf(" %s", vars.nodes[i]->payload.var.name);
+        const Variable* var = &vars.nodes[i]->payload.var;
+        print_node(var->type);
+        printf(" %s_%d", var->name, var->id);
         if (i < vars.count - 1)
             printf(", ");
     }
@@ -69,7 +69,7 @@ void print_node_impl(const Node* node, const char* def_name) {
             break;
         case Function_TAG:
             if (node->payload.fn.is_continuation)
-                printf("cont");
+                printf("cont ");
             else {
                 printf("fn ");
                 const Nodes* returns = &node->payload.fn.return_types;
@@ -81,7 +81,7 @@ void print_node_impl(const Node* node, const char* def_name) {
             }
             if (def_name)
                 printf("%s ", def_name);
-            print_param_list(node->payload.fn.params, true);
+            print_param_list(node->payload.fn.params);
             printf(" {\n");
             indent++;
             print_node(node->payload.fn.block);
@@ -222,7 +222,7 @@ void print_node_impl(const Node* node, const char* def_name) {
                 if (i < params->count - 1)
                     printf(", ");
             }
-            printf(") ");
+            printf(")");
             break;
         }
         case PtrType_TAG: {

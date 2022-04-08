@@ -9,7 +9,7 @@
 #include <string.h>
 
 struct BindEntry {
-    const char* id;
+    VarId id;
     const Node* typed;
 };
 
@@ -19,21 +19,21 @@ struct TypeRewriter {
     const Nodes* current_fn_expected_return_types;
 };
 
-static const Node* resolve(const struct TypeRewriter* ctx, const char* id) {
+static const Node* resolve(const struct TypeRewriter* ctx, VarId id) {
     for (size_t i = 0; i < entries_count_list(ctx->typed_variables); i++) {
         const struct BindEntry* entry = &read_list(const struct BindEntry, ctx->typed_variables)[i];
-        if (strcmp(entry->id, id) == 0) {
+        if (entry->id == id) {
             return entry->typed;
         }
     }
-    error("could not resolve variable %s", id)
+    error("could not resolve variable %d", id)
 }
 
-const Node* new_binder(struct TypeRewriter* ctx, const char* oldname, const Type* inferred_ty) {
-    const char* name = string(ctx->dst_arena, oldname);
+const Node* new_binder(struct TypeRewriter* ctx, const char* old_name, const Type* inferred_ty, const VarId old_id) {
+    const char* name = string(ctx->dst_arena, old_name);
     const Node* fresh = var(ctx->dst_arena, inferred_ty, name);
     struct BindEntry entry = {
-        .id = name,
+        .id = old_id,
         .typed = fresh
     };
     append_list(struct BindEntry, ctx->typed_variables, entry);
@@ -55,7 +55,7 @@ const Node* type_block(struct TypeRewriter* ctx, const Node* node) {
     for (size_t i = 0; i < count; i++) {
         const Variable* oldvar = &node->payload.block.continuations_vars.nodes[i]->payload.var;
         const Type* imported_ty = import_node(ctx->dst_arena, oldvar->type);
-        new_variables[i] = new_binder(ctx, oldvar->name, imported_ty);
+        new_variables[i] = new_binder(ctx, oldvar->name, imported_ty, oldvar->id);
     }
 
     for (size_t i = 0; i < count; i++) {
@@ -87,7 +87,7 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
     IrArena* dst_arena = ctx->dst_arena;
     switch (node->tag) {
         case Variable_TAG:
-            return resolve(ctx, node->payload.var.name);
+            return resolve(ctx, node->payload.var.id);
         case UntypedNumber_TAG: {
             // TODO handle different prim types
             assert(without_qualifier(expected_type) == int_type(dst_arena));
@@ -99,8 +99,11 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
 
             // TODO handle expected_type
             LARRAY(const Node*, nparams, node->payload.fn.params.count);
-            for (size_t i = 0; i < node->payload.fn.params.count; i++)
-               nparams[i] = new_binder(ctx, node->payload.fn.params.nodes[i]->payload.var.name, import_node(dst_arena, node->payload.fn.params.nodes[i]->payload.var.type));
+            for (size_t i = 0; i < node->payload.fn.params.count; i++) {
+                const Variable* old_param = &node->payload.fn.params.nodes[i]->payload.var;
+                const Type* imported_param_type = import_node(dst_arena, node->payload.fn.params.nodes[i]->payload.var.type);
+                nparams[i] = new_binder(ctx, old_param->name, imported_param_type, old_param->id);
+            }
 
             Nodes nret_types = import_nodes(ctx->dst_arena, node->payload.fn.return_types);
 
@@ -166,13 +169,15 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
         case Let_TAG: {
             const size_t count = node->payload.let.variables.count;
 
-            LARRAY(const Type*, actual_types, count);
-            Nodes rewritten_args = type_primop_or_call(ctx, node->payload.let.op, node->payload.let.args, count, actual_types);
+            LARRAY(const Type*, output_types, count);
+            Nodes rewritten_args = type_primop_or_call(ctx, node->payload.let.op, node->payload.let.args, count, output_types);
 
             struct TypeRewriter vars_infer_ctx = *ctx;
             LARRAY(const Node*, nvars, count);
-            for (size_t i = 0; i < count; i++)
-                nvars[i] = new_binder(&vars_infer_ctx, node->payload.let.variables.nodes[i]->payload.var.name, actual_types[i]);
+            for (size_t i = 0; i < count; i++) {
+                const Variable* old_output = &node->payload.let.variables.nodes[i]->payload.var;
+                nvars[i] = new_binder(&vars_infer_ctx, old_output->name, output_types[i], old_output->id);
+            }
 
             return let(ctx->dst_arena, (Let) {
                 .variables = nodes(ctx->dst_arena, count, nvars),
@@ -241,7 +246,7 @@ const Node* type_root(struct TypeRewriter* ctx, const Node* node) {
 
                 // Some top-level stuff does not have a definition
                 if (node->payload.root.definitions.nodes[i] == NULL) {
-                    new_variables[i] = new_binder(ctx, oldvar->name, imported_ty);
+                    new_variables[i] = new_binder(ctx, oldvar->name, imported_ty, oldvar->id);
                     new_definitions[i] = NULL;
                 } else {
                     new_definitions[i] = type_value(ctx, node->payload.root.definitions.nodes[i], imported_ty);
@@ -252,7 +257,7 @@ const Node* type_root(struct TypeRewriter* ctx, const Node* node) {
                 if (node->payload.root.definitions.nodes[i] == NULL) continue;
 
                 const Variable* oldvar = &node->payload.root.variables.nodes[i]->payload.var;
-                new_variables[i] = new_binder(ctx, oldvar->name, new_definitions[i]->type);
+                new_variables[i] = new_binder(ctx, oldvar->name, new_definitions[i]->type, oldvar->id);
             }
 
             return root(ctx->dst_arena, (Root) {
