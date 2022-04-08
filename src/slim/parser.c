@@ -317,12 +317,14 @@ const Node* expect_block(ctxparams) {
                     Nodes parameters = expect_parameters(ctx);
                     const Node* block = expect_block(ctx);
 
-                    const Node* continuation = cont(arena, (Continuation) {
+                    const Node* continuation = fn(arena, (Function) {
+                        .is_continuation = true,
+                        .return_types = nodes(arena, 0, NULL),
                         .block = block,
                         .params = parameters
                     });
                     const Node* contvar = var(arena, qualified_type(arena, (QualifiedType) {
-                        .type = derive_cont_type(arena, &continuation->payload.cont),
+                        .type = derive_fn_type(arena, &continuation->payload.fn),
                         .is_uniform = true
                     }), identifier);
                     append_list(Node*, conts, continuation);
@@ -365,6 +367,7 @@ const Node* accept_function(ctxparams) {
       const Node* block = expect_block(ctx);
 
       const Node* function = fn(arena, (Function) {
+          .is_continuation = false,
           .params = parameters,
           .return_types = types,
           .block = block

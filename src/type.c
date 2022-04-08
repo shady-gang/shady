@@ -35,36 +35,29 @@ bool is_subtype(const Type* supertype, const Type* type) {
                 if (!is_subtype(supermembers->nodes[i], members->nodes[i]))
                     return false;
             }
-            goto post_switch;
+            return true;
         }
         case FnType_TAG:
-            if (supertype->payload.fn.return_types.count != type->payload.fn.return_types.count)
-                return false;
+            if (supertype->payload.fn.is_continuation != type->payload.fn.is_continuation)       return false;
+            // check returns
+            if (supertype->payload.fn.return_types.count != type->payload.fn.return_types.count) return false;
             for (size_t i = 0; i < type->payload.fn.return_types.count; i++)
                 if (!is_subtype(supertype->payload.fn.return_types.nodes[i], type->payload.fn.return_types.nodes[i]))
                     return false;
-
+            // check params
             const Nodes* superparams = &supertype->payload.fn_type.param_types;
             const Nodes* params = &type->payload.fn_type.param_types;
-            goto check_params;
-        case ContType_TAG:
-            superparams = &supertype->payload.fn_type.param_types;
-            params = &type->payload.fn_type.param_types;
-            goto check_params;
-        case PtrType_TAG: SHADY_NOT_IMPLEM;
-        default: goto post_switch;
-        check_params:
-            if (params->count != superparams->count)
-                return false;
-
+            if (params->count != superparams->count) return false;
             for (size_t i = 0; i < params->count; i++) {
                 if (!is_subtype(params->nodes[i], superparams->nodes[i]))
                     return false;
             }
-        return false;
+            return true;
+        case PtrType_TAG: SHADY_NOT_IMPLEM;
+        // simple types without a payload
+        default: return true;
     }
-    post_switch:
-    return true;
+    SHADY_UNREACHABLE;
 }
 
 void check_subtype(const Type* supertype, const Type* type) {
@@ -106,11 +99,7 @@ Nodes extract_variable_types(IrArena* arena, const Nodes* variables) {
 }
 
 const Type* derive_fn_type(IrArena* arena, const Function* fn) {
-    return fn_type(arena, (FnType) { .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
-}
-
-const Type* derive_cont_type(IrArena* arena, const Continuation * cont) {
-    return cont_type(arena, (ContType) { .param_types = extract_variable_types(arena, &cont->params) });
+    return fn_type(arena, (FnType) { .is_continuation = fn->is_continuation, .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
 }
 
 /*Nodes check_type_call(IrArena* arena, Call call) {
@@ -126,16 +115,10 @@ const Type* derive_cont_type(IrArena* arena, const Continuation * cont) {
 }*/
 
 const Type* check_type_fn(IrArena* arena, Function fn) {
+    assert(!fn.is_continuation || fn.return_types.count == 0);
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = derive_fn_type(arena, &fn)
-    });
-}
-
-const Type* check_type_cont(IrArena* arena, Continuation cont) {
-    return qualified_type(arena, (QualifiedType) {
-        .is_uniform = true,
-        .type = derive_cont_type(arena, &cont)
     });
 }
 
@@ -179,8 +162,9 @@ const Type* check_type_let(IrArena* arena, Let let) {
 
 const Type* check_type_jump(IrArena* arena, Jump jump) {
     assert(get_qualifier(jump.target->type) == Uniform);
-    assert(without_qualifier(jump.target->type)->tag == ContType_TAG);
-    const ContType* tgt_type = &without_qualifier(jump.target->type)->payload.cont_type;
+    assert(without_qualifier(jump.target->type)->tag == FnType_TAG);
+    const FnType* tgt_type = &without_qualifier(jump.target->type)->payload.fn_type;
+    assert(tgt_type->is_continuation);
     for (size_t i = 0; i < tgt_type->param_types.count; i++)
         check_subtype(tgt_type->param_types.nodes[i], jump.args.nodes[i]->type);
     return NULL;

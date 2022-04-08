@@ -38,13 +38,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .continuations = rewrite_nodes(rewriter, node->payload.block.continuations),
         });
         case Function_TAG:      return fn(rewriter->dst_arena, (Function) {
+            .is_continuation = node->payload.fn.is_continuation,
            .return_types = rewrite_nodes(rewriter, node->payload.fn.return_types),
            .block = rewriter->rewrite_fn(rewriter, node->payload.fn.block),
            .params = rewrite_nodes(rewriter, node->payload.fn.params),
-        });
-        case Continuation_TAG: return cont(rewriter->dst_arena, (Continuation) {
-           .block = rewriter->rewrite_fn(rewriter, node->payload.cont.block),
-           .params = rewrite_nodes(rewriter, node->payload.cont.params),
         });
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
             .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext)
@@ -80,8 +77,8 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Float_TAG:         return float_type(rewriter->dst_arena);
         case RecordType_TAG:    return record_type(rewriter->dst_arena, (RecordType) {
                                     .members = rewrite_nodes(rewriter, node->payload.record_type.members)});
-        case ContType_TAG:      return cont_type(rewriter->dst_arena, (ContType) { .param_types = rewrite_nodes(rewriter, node->payload.cont_type.param_types) });
         case FnType_TAG:        return fn_type(rewriter->dst_arena, (FnType) {
+                                    .is_continuation = node->payload.fn_type.is_continuation,
                                     .param_types = rewrite_nodes(rewriter, node->payload.fn_type.param_types),
                                     .return_types = rewrite_nodes(rewriter, node->payload.fn_type.return_types)});
         case PtrType_TAG:       return ptr_type(rewriter->dst_arena, (PtrType) {

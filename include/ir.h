@@ -43,7 +43,6 @@ NODEDEF(1, 0, 0, Float, float_type) \
 NODEDEF(1, 0, 0, Bool, bool_type) \
 NODEDEF(1, 0, 1, RecordType, record_type) \
 NODEDEF(1, 0, 1, FnType, fn_type) \
-NODEDEF(1, 0, 1, ContType, cont_type) \
 NODEDEF(1, 0, 1, PtrType, ptr_type) \
 NODEDEF(1, 0, 1, QualifiedType, qualified_type) \
 
@@ -57,7 +56,6 @@ NODEDEF(1, 1, 1, IntLiteral, int_literal) \
 NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
 NODEDEF(1, 1, 1, Function, fn) \
-NODEDEF(1, 1, 1, Continuation, cont) \
 NODEDEF(1, 0, 1, Block, block) \
 NODEDEF(1, 1, 1, Root, root) \
 
@@ -91,15 +89,11 @@ typedef struct IntLiteral_ {
 
 /// Function with _structured_ control flow
 typedef struct Function_ {
+    bool is_continuation;
     Nodes params;
     const Node* block;
     Nodes return_types;
 } Function;
-
-typedef struct Continuation_ {
-    Nodes params;
-    const Node* block;
-} Continuation;
 
 // Nodes
 
@@ -198,12 +192,9 @@ typedef struct RecordType_ {
     Nodes members;
 } RecordType;
 
-typedef struct ContType_ {
-    Nodes param_types;
-} ContType;
-
 typedef struct FnType_ {
     Nodes param_types;
+    bool is_continuation;
     Nodes return_types;
 } FnType;
 
@@ -219,7 +210,7 @@ NODES()
 } NodeTag;
 
 static bool is_nominal(NodeTag tag) {
-    return tag == Continuation_TAG || tag == Function_TAG || tag == Root_TAG;
+    return tag == Function_TAG || tag == Root_TAG;
 }
 
 struct Node_ {

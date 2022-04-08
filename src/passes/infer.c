@@ -94,28 +94,6 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
             long v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
             return int_literal(dst_arena, (IntLiteral) { .value = (int) v });
         }
-        case Continuation_TAG: {
-            size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
-
-            // TODO handle expected_type
-            LARRAY(const Node*, nparams, node->payload.cont.params.count);
-            for (size_t i = 0; i < node->payload.cont.params.count; i++)
-               nparams[i] = new_binder(ctx, node->payload.cont.params.nodes[i]->payload.var.name, import_node(dst_arena, node->payload.cont.params.nodes[i]->payload.var.type));
-
-            // Handle the insides of the function
-            struct TypeRewriter instrs_infer_ctx = *ctx;
-            const Node* nblock = type_block(&instrs_infer_ctx, node->payload.cont.block);
-
-            const Node* continuation = cont(dst_arena, (Continuation) {
-               .block = nblock,
-               .params = nodes(dst_arena, node->payload.cont.params.count, nparams),
-            });
-
-            while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
-                pop_list(struct BindEntry, ctx->typed_variables);
-
-            return continuation;
-        }
         case Function_TAG: {
             size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
 
@@ -126,15 +104,17 @@ static const Node* type_value_impl(struct TypeRewriter* ctx, const Node* node, c
 
             Nodes nret_types = import_nodes(ctx->dst_arena, node->payload.fn.return_types);
 
-            // Handle the insides of the function
+            // Handle the insides of the function - if this is a function indeed
             struct TypeRewriter instrs_infer_ctx = *ctx;
-            instrs_infer_ctx.current_fn_expected_return_types = &nret_types;
+            if (!node->payload.fn.is_continuation)
+                instrs_infer_ctx.current_fn_expected_return_types = &nret_types;
             const Node* nblock = type_block(&instrs_infer_ctx, node->payload.fn.block);
 
             const Node* fun = fn(dst_arena, (Function) {
-               .return_types = nret_types,
-               .block = nblock,
-               .params = nodes(dst_arena, node->payload.fn.params.count, nparams),
+                .is_continuation = node->payload.fn.is_continuation,
+                .return_types = nret_types,
+                .block = nblock,
+                .params = nodes(dst_arena, node->payload.fn.params.count, nparams),
             });
 
             while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
@@ -225,8 +205,9 @@ const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
             const Node* ntarget = type_value(ctx, node->payload.jump.target, NULL);
 
             assert(get_qualifier(ntarget->type) == Uniform);
-            assert(without_qualifier(ntarget->type)->tag == ContType_TAG);
-            const ContType* tgt_type = &without_qualifier(ntarget->type)->payload.cont_type;
+            assert(without_qualifier(ntarget->type)->tag == FnType_TAG);
+            const FnType* tgt_type = &without_qualifier(ntarget->type)->payload.fn_type;
+            assert(tgt_type->is_continuation);
 
             LARRAY(const Node*, tmp, node->payload.jump.args.count);
             for (size_t i = 0; i < node->payload.jump.args.count; i++)

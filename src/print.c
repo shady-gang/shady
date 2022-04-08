@@ -68,24 +68,17 @@ void print_node_impl(const Node* node, const char* def_name) {
             printf("`%s`", node->payload.unbound.name);
             break;
         case Function_TAG:
-            printf("fn ");
-            const Nodes* returns = &node->payload.fn.return_types;
-            for (size_t i = 0; i < returns->count; i++) {
-                print_node(returns->nodes[i]);
-                if (i < returns->count - 1)
-                    printf(", ");
+            if (node->payload.fn.is_continuation)
+                printf("cont");
+            else {
+                printf("fn ");
+                const Nodes* returns = &node->payload.fn.return_types;
+                for (size_t i = 0; i < returns->count; i++) {
+                    print_node(returns->nodes[i]);
+                    if (i < returns->count - 1)
+                        printf(", ");
+                }
             }
-            if (def_name)
-                printf("%s ", def_name);
-            print_param_list(node->payload.fn.params, true);
-            printf(" {\n");
-            indent++;
-            print_node(node->payload.fn.block);
-            indent--;
-            INDENT printf("}\n");
-            break;
-        case Continuation_TAG:
-            printf("cont ");
             if (def_name)
                 printf("%s ", def_name);
             print_param_list(node->payload.fn.params, true);
@@ -210,23 +203,17 @@ void print_node_impl(const Node* node, const char* def_name) {
             }
             printf("}");
             break;
-        case ContType_TAG: {
-            printf("cont (");
-            const Nodes* params = &node->payload.cont_type.param_types;
-            for (size_t i = 0; i < params->count; i++) {
-                print_node(params->nodes[i]);
-                if (i < params->count - 1)
-                    printf(", ");
-            }
-            printf(")");
-            break;
-        } case FnType_TAG: {
-            printf("fn ");
-            const Nodes* returns = &node->payload.fn_type.return_types;
-            for (size_t i = 0; i < returns->count; i++) {
-                print_node(returns->nodes[i]);
-                if (i < returns->count - 1)
-                    printf(", ");
+        case FnType_TAG: {
+            if (node->payload.fn_type.is_continuation)
+                printf("cont");
+            else {
+                printf("fn ");
+                const Nodes* returns = &node->payload.fn_type.return_types;
+                for (size_t i = 0; i < returns->count; i++) {
+                    print_node(returns->nodes[i]);
+                    if (i < returns->count - 1)
+                        printf(", ");
+                }
             }
             printf("(");
             const Nodes* params = &node->payload.fn_type.param_types;
