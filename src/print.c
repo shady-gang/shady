@@ -1,8 +1,15 @@
 #include "implem.h"
+#include "dict.h"
 
 extern const char* node_tags[];
 
-void print_node_impl(const Node* node, const char* def_name);
+struct PrinterCtx {
+    unsigned int indent;
+    bool pretty_print;
+    struct Dict* emitted_fns;
+};
+
+void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name);
 
 void print_param_list(const Nodes vars) {
     printf("(");
@@ -16,13 +23,13 @@ void print_param_list(const Nodes vars) {
     printf(")");
 }
 
-static int indent = 0;
-#define INDENT for (int j = 0; j < indent; j++) \
+//static int indent = 0;
+#define INDENT for (int j = 0; j < ctx->indent; j++) \
     printf("   ");
 
-bool pretty_print = false;
+#define print_node(n) print_node_impl(ctx, n, NULL)
 
-void print_node_impl(const Node* node, const char* def_name) {
+void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name) {
     if (node == NULL) {
         printf("?");
         return;
@@ -33,17 +40,17 @@ void print_node_impl(const Node* node, const char* def_name) {
             for (size_t i = 0; i < top_level->variables.count; i++) {
                 const Variable* var = &top_level->variables.nodes[i]->payload.var;
                 // Some top-level variables do not have definitions !
-                if (pretty_print) {
+                if (ctx->pretty_print) {
                     if (top_level->definitions.nodes[i])
-                        print_node_impl(top_level->definitions.nodes[i], var->name);
-                    else print_node_impl(top_level->variables.nodes[i], var->name);
+                        print_node_impl(ctx, top_level->definitions.nodes[i], var->name);
+                    else print_node_impl(ctx, top_level->variables.nodes[i], var->name);
                 } else {
                     printf("let ");
-                    print_node_impl(var->type, NULL);
+                    print_node(var->type);
                     printf(" %s", var->name);
                     if (top_level->definitions.nodes[i]) {
                         printf(" = ");
-                        print_node_impl(top_level->definitions.nodes[i], NULL);
+                        print_node(top_level->definitions.nodes[i]);
                     }
                     printf(";");
                 }
@@ -83,9 +90,9 @@ void print_node_impl(const Node* node, const char* def_name) {
                 printf("%s ", def_name);
             print_param_list(node->payload.fn.params);
             printf(" {\n");
-            indent++;
+            ctx->indent++;
             print_node(node->payload.fn.block);
-            indent--;
+            ctx->indent--;
             INDENT printf("}\n");
             break;
         case Block_TAG: {
@@ -101,7 +108,7 @@ void print_node_impl(const Node* node, const char* def_name) {
             }
             for(size_t i = 0; i < block->continuations.count; i++) {
                 INDENT
-                print_node_impl(block->continuations.nodes[i], block->continuations_vars.nodes[i]->payload.var.name);
+                print_node_impl(ctx, block->continuations.nodes[i], block->continuations_vars.nodes[i]->payload.var.name);
             }
             break;
         }
@@ -137,13 +144,13 @@ void print_node_impl(const Node* node, const char* def_name) {
             printf("if ");
             print_node(node->payload.selection.condition);
             printf(" {\n");
-            indent++;
+            ctx->indent++;
             print_node(node->payload.selection.ifTrue);
-            indent--;
+            ctx->indent--;
             INDENT printf("} else {\n");
-            indent++;
+            ctx->indent++;
             print_node(node->payload.selection.ifFalse);
-            indent--;
+            ctx->indent--;
             INDENT printf("}\n");
             break;
         case Return_TAG:
@@ -235,6 +242,16 @@ void print_node_impl(const Node* node, const char* def_name) {
     }
 }
 
+#undef print_node
+
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
+
 void print_node(const Node* node) {
-    print_node_impl(node, NULL);
+    struct PrinterCtx ctx = {
+        .indent = 0,
+        .emitted_fns = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
+    };
+    print_node_impl(&ctx, node, NULL);
+    destroy_dict(ctx.emitted_fns);
 }
