@@ -136,10 +136,6 @@ bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node
             error("this non-void returning function fails to return")
     }
 
-    for (size_t i = 0; i < block->continuations.count; i++) {
-        SHADY_NOT_IMPLEM
-    }
-
     return terminated;
 }
 

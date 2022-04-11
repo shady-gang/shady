@@ -34,8 +34,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         }
         case Block_TAG:         return block(rewriter->dst_arena, (Block) {
             .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
-            .continuations_vars = rewrite_nodes(rewriter, node->payload.block.continuations_vars),
-            .continuations = rewrite_nodes(rewriter, node->payload.block.continuations),
         });
         case Function_TAG:      return fn(rewriter->dst_arena, (Function) {
             .is_continuation = node->payload.fn.is_continuation,

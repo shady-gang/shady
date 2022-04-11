@@ -57,6 +57,7 @@ NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
 NODEDEF(1, 1, 1, Function, fn) \
 NODEDEF(1, 0, 1, Block, block) \
+NODEDEF(1, 0, 1, ParsedBlock, parsed_block) \
 NODEDEF(1, 1, 1, Root, root) \
 
 typedef struct Nodes_ {
@@ -89,6 +90,7 @@ typedef struct IntLiteral_ {
 
 /// Function with _structured_ control flow
 typedef struct Function_ {
+    String name;
     bool is_continuation;
     Nodes params;
     const Node* block;
@@ -149,6 +151,7 @@ typedef struct StructuredLoop_ {
 } StructuredLoop;
 
 typedef struct Return_ {
+    const Node* fn;
     Nodes values;
 } Return;
 
@@ -167,10 +170,14 @@ typedef struct Branch_ {
 /// The body inside functions, continuations, if branches ...
 typedef struct Block_ {
     Nodes instructions;
+} Block;
+
+typedef struct ParsedBlock_ {
+    Nodes instructions;
 
     Nodes continuations_vars;
     Nodes continuations;
-} Block;
+} ParsedBlock;
 
 typedef struct Root_ {
     Nodes variables;

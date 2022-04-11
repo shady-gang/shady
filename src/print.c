@@ -75,25 +75,31 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
             printf("`%s`", node->payload.unbound.name);
             break;
         case Function_TAG:
-            if (node->payload.fn.is_continuation)
-                printf("cont ");
+            if (find_key_dict(const Node*, ctx->emitted_fns, node) != NULL)
+                printf("%s", node->payload.fn.name);
             else {
-                printf("fn ");
-                const Nodes* returns = &node->payload.fn.return_types;
-                for (size_t i = 0; i < returns->count; i++) {
-                    print_node(returns->nodes[i]);
-                    if (i < returns->count - 1)
-                        printf(", ");
+                insert_set_get_result(const Node*, ctx->emitted_fns, node);
+                if (node->payload.fn.is_continuation)
+                    printf("cont ");
+                else {
+                    printf("fn ");
+                    const Nodes* returns = &node->payload.fn.return_types;
+                    for (size_t i = 0; i < returns->count; i++) {
+                        print_node(returns->nodes[i]);
+                        if (i < returns->count - 1)
+                            printf(", ");
+                        else
+                            printf(" ");
+                    }
                 }
+                printf("%s ", node->payload.fn.name);
+                print_param_list(node->payload.fn.params);
+                printf(" {\n");
+                ctx->indent++;
+                print_node(node->payload.fn.block);
+                ctx->indent--;
+                INDENT printf("}\n");
             }
-            if (def_name)
-                printf("%s ", def_name);
-            print_param_list(node->payload.fn.params);
-            printf(" {\n");
-            ctx->indent++;
-            print_node(node->payload.fn.block);
-            ctx->indent--;
-            INDENT printf("}\n");
             break;
         case Block_TAG: {
             const Block* block = &node->payload.block;
@@ -102,13 +108,22 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
                 print_node(block->instructions.nodes[i]);
                 printf(";\n");
             }
+            break;
+        }
+        case ParsedBlock_TAG: {
+            const ParsedBlock* pblock = &node->payload.parsed_block;
+            for(size_t i = 0; i < pblock->instructions.count; i++) {
+                INDENT
+                print_node(pblock->instructions.nodes[i]);
+                printf(";\n");
+            }
 
-            if (block->continuations.count > 0) {
+            if (pblock->continuations.count > 0) {
                 printf("\n");
             }
-            for(size_t i = 0; i < block->continuations.count; i++) {
+            for(size_t i = 0; i < pblock->continuations.count; i++) {
                 INDENT
-                print_node_impl(ctx, block->continuations.nodes[i], block->continuations_vars.nodes[i]->payload.var.name);
+                print_node_impl(ctx, pblock->continuations.nodes[i], pblock->continuations_vars.nodes[i]->payload.var.name);
             }
             break;
         }
@@ -151,7 +166,7 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
             ctx->indent++;
             print_node(node->payload.selection.ifFalse);
             ctx->indent--;
-            INDENT printf("}\n");
+            INDENT printf("}");
             break;
         case Return_TAG:
             printf("return");

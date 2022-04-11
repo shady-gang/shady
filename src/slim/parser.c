@@ -42,7 +42,7 @@ const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-const Node* accept_function(ctxparams);
+const Node* accept_function(ctxparams, String);
 const Node* expect_block(ctxparams);
 
 const Type* accept_unqualified_type(ctxparams) {
@@ -164,7 +164,7 @@ const Node* accept_value(ctxparams) {
     const Node* lit = accept_literal(ctx);
     if (lit) return lit;
 
-    return accept_function(ctx);
+    return NULL;
 }
 
 Strings expect_identifiers(ctxparams) {
@@ -236,6 +236,7 @@ const Node* accept_instruction(ctxparams) {
             Nodes values = expect_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
             return fn_ret(arena, (Return) {
+                .fn = NULL,
                 .values = values
             });
         }
@@ -275,7 +276,7 @@ const Node* accept_instruction(ctxparams) {
             const Node* if_true = expect_block(ctx);
             bool has_else = accept_token(ctx, else_tok);
             // default to an empty block
-            const Node* if_false = block(arena, (Block) { .instructions = nodes(arena, 0, NULL), .continuations = nodes(arena, 0, NULL)});
+            const Node* if_false = block(arena, (Block) { .instructions = nodes(arena, 0, NULL) });
             if (has_else) {
                 if_false = expect_block(ctx);
             }
@@ -318,6 +319,7 @@ const Node* expect_block(ctxparams) {
                     const Node* block = expect_block(ctx);
 
                     const Node* continuation = fn(arena, (Function) {
+                        .name = identifier,
                         .is_continuation = true,
                         .return_types = nodes(arena, 0, NULL),
                         .block = block,
@@ -344,7 +346,7 @@ const Node* expect_block(ctxparams) {
     Nodes instrs = nodes(arena, entries_count_list(instructions), read_list(const Node*, instructions));
     destroy_list(instructions);
 
-    return block(arena, (Block) {
+    return parsed_block(arena, (ParsedBlock) {
         .instructions = instrs,
         .continuations = continuations,
         .continuations_vars = continuations_names
@@ -357,24 +359,25 @@ struct TopLevelDecl {
     const Node* definition;
 };
 
-const Node* accept_function(ctxparams) {
-      if (!accept_token(ctx, fn_tok))
-          return NULL;
+const Node* accept_function(ctxparams, String id) {
+    if (!accept_token(ctx, fn_tok))
+        return NULL;
 
-      Nodes types = accept_types(ctx, comma_tok, false);
-      expect(curr_token(tokenizer).tag == lpar_tok);
-      Nodes parameters = expect_parameters(ctx);
-      const Node* block = expect_block(ctx);
+    Nodes types = accept_types(ctx, comma_tok, false);
+    expect(curr_token(tokenizer).tag == lpar_tok);
+    Nodes parameters = expect_parameters(ctx);
+    const Node* block = expect_block(ctx);
 
-      const Node* function = fn(arena, (Function) {
-          .is_continuation = false,
-          .params = parameters,
-          .return_types = types,
-          .block = block
-      });
+    const Node* function = fn(arena, (Function) {
+        .name = id,
+        .is_continuation = false,
+        .params = parameters,
+        .return_types = types,
+        .block = block
+    });
 
-      return function;
-  }
+    return function;
+}
 
 struct TopLevelDecl accept_def(ctxparams) {
     if (!accept_token(ctx, def_tok))
@@ -384,8 +387,10 @@ struct TopLevelDecl accept_def(ctxparams) {
     const char* id = accept_identifier(ctx);
     expect(id);
     expect(accept_token(ctx, equal_tok));
-    const Node* value = accept_value(ctx);
-    assert(value);
+    const Node* definition = accept_value(ctx);
+    if (!definition)
+        definition = accept_function(ctx, id);
+    assert(definition);
 
     expect(accept_token(ctx, semi_tok));
 
@@ -394,7 +399,7 @@ struct TopLevelDecl accept_def(ctxparams) {
     return (struct TopLevelDecl) {
         .empty = false,
         .variable = variable,
-        .definition = value
+        .definition = definition
     };
 }
 
@@ -432,13 +437,6 @@ struct TopLevelDecl accept_var_decl(ctxparams) {
 
     const char* id = accept_identifier(ctx);
     expect(id);
-
-    // unspecified global variables default to varying
-    /*if (get_qualifier(mqtype) == Unknown)
-        mqtype = qualified_type(arena, (QualifiedType) {
-            .is_uniform = false,
-            .type = mqtype
-        });*/
 
     expect(accept_token(ctx, semi_tok));
 
