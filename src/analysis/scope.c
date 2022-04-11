@@ -5,7 +5,7 @@
 
 #include <assert.h>
 
-Scope build_scope(const Node* function);
+static Scope build_scope(const Node* function);
 
 struct List* build_scopes(const Node* root) {
     struct List* scopes = new_list(Scope);
@@ -24,14 +24,25 @@ struct List* build_scopes(const Node* root) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-Scope build_scope(const Node* function) {
+static struct List* get_node_list(struct Dict* d, Node* n) {
+    struct List** found = find_value_dict(const Node*, struct List*, d, n);
+    if (found) return *found;
+    struct List* new = new_list(const Node*);
+    insert_dict_and_get_value(const Node*, struct List*, d, n, new);
+    return new;
+}
+
+static Scope build_scope(const Node* function) {
     assert(function->tag == Function_TAG);
     struct List* contents = new_list(const Node*);
+
+    struct Dict* succs = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node);
+    struct Dict* preds = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node);
 
     struct Dict* done = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct List* queue = new_list(const Node*);
 
-    const Node* entry = function->payload.fn.block;
+    const Node* entry = function;
     append_list(const Node*, queue, entry);
 
     #define enqueue(c) { \
@@ -41,10 +52,12 @@ Scope build_scope(const Node* function) {
 
     while (entries_count_list(queue) > 0) {
         const Node* element = pop_last_list(const Node*, queue);
-        assert(element->tag == Block_TAG);
+        assert(element->tag == Function_TAG);
 
-        for (size_t i = 0; element->payload.block.instructions.count; i++) {
-            const Node* instruction = element->payload.block.instructions.nodes[i];
+        const Block* block = &element->payload.fn.block->payload.block;
+
+        /*for (size_t i = 0; block->instructions.count; i++) {
+            const Node* instruction = block->instructions.nodes[i];
             switch (instruction->tag) {
                 case Let_TAG: break;
                 case StructuredSelection_TAG: {
@@ -57,11 +70,12 @@ Scope build_scope(const Node* function) {
                 }
                 default: error("scope: unhandled instruction");
             }
-        }
-        const Node* terminator = element->payload.block.terminator;
+        }*/
+        const Node* terminator = block->terminator;
         switch (terminator->tag) {
             case Jump_TAG: {
                 const Node* target = terminator->payload.jump.target;
+                // get_node_list(succs, )
                 enqueue(target)
                 break;
             }
@@ -80,4 +94,8 @@ Scope build_scope(const Node* function) {
     destroy_dict(done);
     destroy_list(queue);
     return scope;
+}
+
+void dispose_scope(Scope* scope) {
+    destroy_list(scope->contents);
 }
