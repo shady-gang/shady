@@ -427,7 +427,6 @@ SpvId spvb_vector_type(struct SpvFileBuilder* file_builder, SpvId component_type
 
 void spvb_bool_constant(struct SpvFileBuilder* file_builder, SpvId result, SpvId type, bool value) {
     op(value ? SpvOpConstantTrue : SpvOpConstantFalse, 3);
-    SpvId id = spvb_fresh_id(file_builder);
     ref_id(type);
     ref_id(result);
 }

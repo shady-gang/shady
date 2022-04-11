@@ -36,12 +36,15 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
             .terminator = rewriter->rewrite_fn(rewriter, node->payload.block.terminator)
         });
-        case Function_TAG:      return fn(rewriter->dst_arena, (Function) {
-            .is_continuation = node->payload.fn.is_continuation,
-           .return_types = rewrite_nodes(rewriter, node->payload.fn.return_types),
-           .block = rewriter->rewrite_fn(rewriter, node->payload.fn.block),
-           .params = rewrite_nodes(rewriter, node->payload.fn.params),
-        });
+        case Function_TAG:      {
+            error("recreate_node_identity: sorry we don't support this here")
+            /*return fn(rewriter->dst_arena, (Function) {
+                .is_continuation = node->payload.fn.is_continuation,
+               .return_types = rewrite_nodes(rewriter, node->payload.fn.return_types),
+               .block = rewriter->rewrite_fn(rewriter, node->payload.fn.block),
+               .params = rewrite_nodes(rewriter, node->payload.fn.params),
+            });*/
+        }
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
             .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext)
         });

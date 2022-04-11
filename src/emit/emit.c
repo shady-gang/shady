@@ -113,6 +113,7 @@ void emit_terminator(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struc
         case Join_TAG: {
             assert(join_bb);
             spvb_branch(bbb, *join_bb);
+            return;
         }
         case Unreachable_TAG: {
             spvb_unreachable(bbb);

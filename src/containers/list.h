@@ -20,8 +20,10 @@ size_t entries_count_list(struct List* list);
 #define append_list(T, list, element) append_list_impl(list, (void*) &(element))
 void append_list_impl(struct List* list, void* element);
 
-#define pop_list(T, list) * ((T*) pop_list_impl(list))
+#define pop_last_list(T, list) * ((T*) pop_list_impl(list))
+#define remove_last_list(T, list) (pop_list_impl(list))
 void* pop_list_impl(struct List* list);
+
 
 #define add_list(T, list, i, e) add_list_impl(list, i, (void*) &(e))
 void add_list_impl(struct List* list, size_t index, void* element);

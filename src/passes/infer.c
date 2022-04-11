@@ -18,7 +18,6 @@ struct TypeRewriter {
     IrArena* dst_arena;
     struct List* typed_variables;
     struct Dict* rewritten_fns;
-    // const Nodes* current_fn_expected_return_types;
 };
 
 static const Node* resolve(const struct TypeRewriter* ctx, VarId id) {
@@ -59,7 +58,7 @@ static const Node* type_block(struct TypeRewriter* ctx, const Node* node) {
     const Node* typed_term = type_terminator(ctx, node->payload.block.terminator);
 
     while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
-        pop_list(struct BindEntry, ctx->typed_variables);
+        remove_last_list(struct BindEntry, ctx->typed_variables);
 
     return block(ctx->dst_arena, (Block) {
         .instructions = typed_instructions,
@@ -86,25 +85,15 @@ static const Node* type_fn(struct TypeRewriter* ctx, const Node* node) {
 
     Nodes nret_types = import_nodes(ctx->dst_arena, node->payload.fn.return_types);
 
-    Node* fun = (Node*) fn(dst_arena, (Function) {
-        .name = string(dst_arena, node->payload.fn.name),
-        .is_continuation = node->payload.fn.is_continuation,
-        .params = nodes(dst_arena, node->payload.fn.params.count, nparams),
-        .return_types = nret_types,
-    });
+    Node* fun = fn(dst_arena, node->payload.fn.is_continuation, string(dst_arena, node->payload.fn.name), nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
     bool r = insert_dict_and_get_result(const Node*, Node*, ctx->rewritten_fns, node, fun);
     assert(r && "insertion of fun failed - the dict isn't working as it should");
 
-    // Handle the insides of the function - if this is a function indeed
-    struct TypeRewriter instrs_infer_ctx = *ctx;
-    //if (!node->payload.fn.is_continuation)
-    //    instrs_infer_ctx.current_fn_expected_return_types = &nret_types;
-    const Node* nblock = type_block(&instrs_infer_ctx, node->payload.fn.block);
-
+    const Node* nblock = type_block(ctx, node->payload.fn.block);
     fun->payload.fn.block = nblock;
 
     while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
-        pop_list(struct BindEntry, ctx->typed_variables);
+        remove_last_list(struct BindEntry, ctx->typed_variables);
 
     return fun;
 }
@@ -150,13 +139,6 @@ static Nodes type_primop_or_call(struct TypeRewriter* ctx, Op op, Nodes oldargs,
         actual_yield_types[i] = yield_tys.nodes[i];
 
     return typed_args;
-}
-
-static Nodes type_values(struct TypeRewriter* ctx, Nodes old) {
-    LARRAY(const Node*, tmp, old.count);
-    for (size_t i = 0; i < old.count; i++)
-        tmp[i] = type_value(ctx, old.nodes[i], NULL);
-    return nodes(ctx->dst_arena, old.count, tmp);
 }
 
 static const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
@@ -240,7 +222,6 @@ static const Node* type_root(struct TypeRewriter* ctx, const Node* node) {
 
     switch (node->tag) {
         case Root_TAG: {
-            // assert(ctx->current_fn_expected_return_types == NULL);
             size_t count = node->payload.root.variables.count;
             LARRAY(const Node*, new_variables, count);
             LARRAY(const Node*, new_definitions, count);
@@ -281,10 +262,9 @@ const Node* type_program(IrArena* src_arena, IrArena* dst_arena, const Node* src
     struct List* bound_variables = new_list(struct BindEntry);
     struct Dict* rewritten_fns = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct TypeRewriter ctx = {
-            .dst_arena = dst_arena,
-            .typed_variables = bound_variables,
-            .rewritten_fns = rewritten_fns,
-            // .current_fn_expected_return_types = NULL,
+        .dst_arena = dst_arena,
+        .typed_variables = bound_variables,
+        .rewritten_fns = rewritten_fns,
     };
 
     const Node* rewritten = type_root(&ctx, src_program);

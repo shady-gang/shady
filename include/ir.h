@@ -59,7 +59,7 @@ NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
 NODEDEF(1, 1, 1, IntLiteral, int_literal) \
 NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
-NODEDEF(1, 1, 1, Function, fn) \
+NODEDEF(0, 1, 1, Function, fn) \
 NODEDEF(1, 0, 1, Block, block) \
 NODEDEF(1, 0, 1, ParsedBlock, parsed_block) \
 NODEDEF(1, 1, 1, Root, root) \
@@ -224,7 +224,7 @@ NODES()
 #undef NODEDEF
 } NodeTag;
 
-static bool is_nominal(NodeTag tag) {
+inline static bool is_nominal(NodeTag tag) {
     return tag == Function_TAG || tag == Root_TAG;
 }
 
@@ -287,6 +287,12 @@ Strings     strings(IrArena*, size_t count, const char*[]);
 NODES()
 #undef NODEDEF
 const Node* var(IrArena* arena, const Type* type, const char* name);
+Node* fn(IrArena* arena, bool is_continuation, const char* name, Nodes params, Nodes return_types);
+
+#undef NODE_CTOR_0
+#undef NODE_CTOR_1
+#undef NODE_CTOR_DECL_0
+#undef NODE_CTOR_DECL_1
 
 bool is_type(const Node*);
 

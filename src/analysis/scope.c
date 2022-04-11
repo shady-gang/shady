@@ -40,7 +40,7 @@ Scope build_scope(const Node* function) {
     }
 
     while (entries_count_list(queue) > 0) {
-        const Node* element = pop_list(const Node*, queue);
+        const Node* element = pop_last_list(const Node*, queue);
         assert(element->tag == Block_TAG);
 
         for (size_t i = 0; element->payload.block.instructions.count; i++) {
@@ -53,6 +53,7 @@ Scope build_scope(const Node* function) {
                     const Node* if_false = instruction->payload.selection.ifFalse;
                     if (if_false)
                         enqueue(if_false)
+                    break;
                 }
                 default: error("scope: unhandled instruction");
             }
@@ -62,6 +63,7 @@ Scope build_scope(const Node* function) {
             case Jump_TAG: {
                 const Node* target = terminator->payload.jump.target;
                 enqueue(target)
+                break;
             }
             case Return_TAG:
             case Unreachable_TAG:

@@ -24,7 +24,7 @@ void print_param_list(const Nodes vars) {
 }
 
 //static int indent = 0;
-#define INDENT for (int j = 0; j < ctx->indent; j++) \
+#define INDENT for (unsigned int j = 0; j < ctx->indent; j++) \
     printf("   ");
 
 #define print_node(n) print_node_impl(ctx, n, NULL)

@@ -64,6 +64,32 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
     return alloc;
 }
 
+Node* fn(IrArena* arena, bool is_continuation, const char* name, Nodes params, Nodes return_types) {
+    Function fn = {
+        .name = string(arena, name),
+        .is_continuation = is_continuation,
+        .params = params,
+        .return_types = return_types,
+        .block = NULL,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+      .type = arena->config.check_types ? check_type_fn(arena, fn) : NULL,
+      .tag = Function_TAG,
+      .payload.fn = fn
+    };
+    //Node* ptr = &node;
+    //Node** found = find_key_dict(Node*, arena->node_set, ptr);
+    //if (found)
+    //    return *found;
+    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
+    *alloc = node;
+    //insert_set_get_result(const Node*, arena->node_set, alloc);
+    return alloc;
+}
+
 const char* node_tags[] = {
 #define NODEDEF(_, _2, _3, _4, str) #str,
 NODES()

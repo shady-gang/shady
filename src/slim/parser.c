@@ -337,13 +337,8 @@ const Node* expect_block(ctxparams, bool implicit_join) {
             Nodes parameters = expect_parameters(ctx);
             const Node* block = expect_block(ctx, false);
 
-            const Node* continuation = fn(arena, (Function) {
-                .name = identifier,
-                .is_continuation = true,
-                .return_types = nodes(arena, 0, NULL),
-                .block = block,
-                .params = parameters
-            });
+            Node* continuation = fn(arena, true, identifier, parameters, nodes(arena, 0, NULL));
+            continuation->payload.fn.block= block;
             const Node* contvar = var(arena, qualified_type(arena, (QualifiedType) {
                 .type = derive_fn_type(arena, &continuation->payload.fn),
                 .is_uniform = true
@@ -383,13 +378,8 @@ const Node* accept_function(ctxparams, String id) {
     Nodes parameters = expect_parameters(ctx);
     const Node* block = expect_block(ctx, false);
 
-    const Node* function = fn(arena, (Function) {
-        .name = id,
-        .is_continuation = false,
-        .params = parameters,
-        .return_types = types,
-        .block = block
-    });
+    Node* function = fn(arena, false, id, parameters, types);
+    function->payload.fn.block = block;
 
     return function;
 }

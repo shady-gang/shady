@@ -51,7 +51,7 @@ VarId fresh_id(IrArena*);
   SHADY_UNREACHABLE;             \
 }
 
-static void error_impl() {
+static inline void error_impl() {
     exit(-1);
 }
 
