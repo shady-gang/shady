@@ -29,7 +29,6 @@ typedef int VarId;
 
 #define INSTRUCTION_NODES() \
 NODEDEF(1, 1, 1, VariableDecl, var_decl) \
-NODEDEF(1, 1, 1, ExpressionEval, expr_eval) \
 NODEDEF(1, 1, 1, Let, let)  \
 NODEDEF(1, 1, 1, Return, fn_ret) \
 NODEDEF(1, 1, 1, StructuredSelection, selection) \
@@ -122,10 +121,6 @@ typedef struct Let_ {
     Op op;
     Nodes args;
 } Let;
-
-typedef struct ExpressionEval_ {
-    const Node* expr;
-} ExpressionEval;
 
 extern const char* primop_names[];
 

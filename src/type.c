@@ -127,10 +127,6 @@ const Type* check_type_var_decl(IrArena* arena, VariableDecl decl) {
     //return ptr_type(arena, (PtrType) { .address_space = decl.address_space, .pointed_type = decl.variable->type });
 }
 
-const Type* check_type_expr_eval(IrArena* arena, ExpressionEval expr) {
-    SHADY_NOT_IMPLEM;
-}
-
 const Type* check_type_var(IrArena* arena, Variable variable) {
     assert(get_qualifier(variable.type) != Unknown);
     return variable.type;
