@@ -38,6 +38,7 @@ TOKEN(false_, "false") \
 TOKEN(jump, "jump") \
 TOKEN(branch, "branch") \
 TOKEN(call, "call") \
+TOKEN(unreachable, "unreachable") \
 TOKEN(eq, "==") \
 TOKEN(neq, "!=") \
 TOKEN(geq, ">=") \

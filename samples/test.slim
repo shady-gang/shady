@@ -1,0 +1,41 @@
+// shady example code
+
+def ident = fn int(varying int i) {
+    let j = add i 1;
+    let v = add 5 9;
+    return j
+};
+
+def pair = fn int, int(varying int i) {
+    return i i
+};
+
+def main = fn() {
+    return
+};
+
+def not = fn bool (varying bool b) {
+    if b {
+        return false
+    } else {
+        return true
+    }
+    unreachable
+};
+
+def not2 = fn bool (varying bool b) {
+    if b {
+        return false
+    }
+
+    return true
+};
+
+def int sixtynine = 69;
+
+input   int x;
+output  int y;
+shared  int z;
+private int w;
+extern  int a;
+// global  int a;

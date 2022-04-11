@@ -43,7 +43,7 @@ const char* accept_identifier(ctxparams) {
 }
 
 const Node* accept_function(ctxparams, String);
-const Node* expect_block(ctxparams);
+const Node* expect_block(ctxparams, bool);
 
 const Type* accept_unqualified_type(ctxparams) {
     if (accept_token(ctx, int_tok)) {
@@ -231,15 +231,6 @@ Nodes expect_computation(ctxparams, Op* op) {
 const Node* accept_instruction(ctxparams) {
     struct Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
-        case return_tok: {
-            next_token(tokenizer);
-            Nodes values = expect_values(ctx, 0);
-            expect(accept_token(ctx, semi_tok));
-            return fn_ret(arena, (Return) {
-                .fn = NULL,
-                .values = values
-            });
-        }
         case let_tok: {
             next_token(tokenizer);
             Strings ids = expect_identifiers(ctx);
@@ -258,27 +249,16 @@ const Node* accept_instruction(ctxparams) {
                 .args = args
             });
         }
-        case jump_tok: {
-            next_token(tokenizer);
-            const Node* target = accept_value(ctx);
-            expect(target);
-            Nodes args = expect_values(ctx, 0);
-            expect(accept_token(ctx, semi_tok));
-            return jump(arena, (Jump) {
-                .target = target,
-                .args = args
-            });
-        }
         case if_tok: {
             next_token(tokenizer);
             const Node* condition = accept_value(ctx);
             expect(condition);
-            const Node* if_true = expect_block(ctx);
+            const Node* if_true = expect_block(ctx, true);
             bool has_else = accept_token(ctx, else_tok);
             // default to an empty block
             const Node* if_false = NULL;
             if (has_else) {
-                if_false = expect_block(ctx);
+                if_false = expect_block(ctx, true);
             }
             return selection(arena, (StructuredSelection) {
                 .condition = condition,
@@ -291,7 +271,37 @@ const Node* accept_instruction(ctxparams) {
     return NULL;
 }
 
-const Node* expect_block(ctxparams) {
+const Node* accept_terminator(ctxparams) {
+    struct Token current_token = curr_token(tokenizer);
+    switch (current_token.tag) {
+        case jump_tok: {
+            next_token(tokenizer);
+            const Node* target = accept_value(ctx);
+            expect(target);
+            Nodes args = expect_values(ctx, 0);
+            return jump(arena, (Jump) {
+                .target = target,
+                .args = args
+            });
+        }
+        case return_tok: {
+            next_token(tokenizer);
+            Nodes values = expect_values(ctx, 0);
+            return fn_ret(arena, (Return) {
+                .fn = NULL,
+                .values = values
+            });
+        }
+        case unreachable_tok: {
+            next_token(tokenizer);
+            return unreachable(arena);
+        }
+        default: break;
+    }
+    return NULL;
+}
+
+const Node* expect_block(ctxparams, bool implicit_join) {
     expect(accept_token(ctx, lbracket_tok));
     struct List* instructions = new_list(Node*);
 
@@ -299,57 +309,62 @@ const Node* expect_block(ctxparams) {
     Nodes continuations_names = nodes(arena, 0, NULL);
 
     while (true) {
-        if (accept_token(ctx, rbracket_tok))
-            break;
-
         const Node* instruction = accept_instruction(ctx);
-        if (instruction)
-            append_list(Node*, instructions, instruction);
-        else {
-            if (curr_token(tokenizer).tag == identifier_tok) {
-                struct List* conts = new_list(Node*);
-                struct List* names = new_list(Node*);
-                while (true) {
-                    const char* identifier = accept_identifier(ctx);
-                    if (!identifier)
-                        break;
-                    expect(accept_token(ctx, colon_tok));
-
-                    Nodes parameters = expect_parameters(ctx);
-                    const Node* block = expect_block(ctx);
-
-                    const Node* continuation = fn(arena, (Function) {
-                        .name = identifier,
-                        .is_continuation = true,
-                        .return_types = nodes(arena, 0, NULL),
-                        .block = block,
-                        .params = parameters
-                    });
-                    const Node* contvar = var(arena, qualified_type(arena, (QualifiedType) {
-                        .type = derive_fn_type(arena, &continuation->payload.fn),
-                        .is_uniform = true
-                    }), identifier);
-                    append_list(Node*, conts, continuation);
-                    append_list(Node*, names, contvar);
-                }
-
-                continuations = nodes(arena, entries_count_list(conts), read_list(const Node*, conts));
-                continuations_names = nodes(arena, entries_count_list(names), read_list(const Node*, names));
-                destroy_list(conts);
-                destroy_list(names);
-            }
-
-            expect(accept_token(ctx, rbracket_tok));
-            break;
-        }
+        if (!instruction) break;
+        append_list(Node*, instructions, instruction);
     }
+
     Nodes instrs = nodes(arena, entries_count_list(instructions), read_list(const Node*, instructions));
     destroy_list(instructions);
+
+    const Node* terminator = accept_terminator(ctx);
+    if (!terminator) {
+        if (implicit_join)
+            terminator = join(arena);
+        else
+            error("expected terminator: return, jump, branch ...");
+    }
+
+    if (curr_token(tokenizer).tag == identifier_tok) {
+        struct List* conts = new_list(Node*);
+        struct List* names = new_list(Node*);
+        while (true) {
+            const char* identifier = accept_identifier(ctx);
+            if (!identifier)
+                break;
+            expect(accept_token(ctx, colon_tok));
+
+            Nodes parameters = expect_parameters(ctx);
+            const Node* block = expect_block(ctx, false);
+
+            const Node* continuation = fn(arena, (Function) {
+                .name = identifier,
+                .is_continuation = true,
+                .return_types = nodes(arena, 0, NULL),
+                .block = block,
+                .params = parameters
+            });
+            const Node* contvar = var(arena, qualified_type(arena, (QualifiedType) {
+                .type = derive_fn_type(arena, &continuation->payload.fn),
+                .is_uniform = true
+            }), identifier);
+            append_list(Node*, conts, continuation);
+            append_list(Node*, names, contvar);
+        }
+
+        continuations = nodes(arena, entries_count_list(conts), read_list(const Node*, conts));
+        continuations_names = nodes(arena, entries_count_list(names), read_list(const Node*, names));
+        destroy_list(conts);
+        destroy_list(names);
+    }
+
+    expect(accept_token(ctx, rbracket_tok));
 
     return parsed_block(arena, (ParsedBlock) {
         .instructions = instrs,
         .continuations = continuations,
-        .continuations_vars = continuations_names
+        .continuations_vars = continuations_names,
+        .terminator = terminator,
     });
 }
 
@@ -366,7 +381,7 @@ const Node* accept_function(ctxparams, String id) {
     Nodes types = accept_types(ctx, comma_tok, false);
     expect(curr_token(tokenizer).tag == lpar_tok);
     Nodes parameters = expect_parameters(ctx);
-    const Node* block = expect_block(ctx);
+    const Node* block = expect_block(ctx, false);
 
     const Node* function = fn(arena, (Function) {
         .name = id,

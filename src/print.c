@@ -108,6 +108,9 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
                 print_node(block->instructions.nodes[i]);
                 printf(";\n");
             }
+            INDENT
+            print_node(block->terminator);
+            printf("\n");
             break;
         }
         case ParsedBlock_TAG: {
@@ -117,6 +120,9 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
                 print_node(pblock->instructions.nodes[i]);
                 printf(";\n");
             }
+            INDENT
+            print_node(pblock->terminator);
+            printf("\n");
 
             if (pblock->continuations.count > 0) {
                 printf("\n");
@@ -139,6 +145,7 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
         case False_TAG:
             printf("false");
             break;
+        // ----------------- INSTRUCTIONS
         case Let_TAG:
             printf("let");
             for (size_t i = 0; i < node->payload.let.variables.count; i++) {
@@ -168,6 +175,7 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
             ctx->indent--;
             INDENT printf("}");
             break;
+        // --------------------- TERMINATORS
         case Return_TAG:
             printf("return");
             for (size_t i = 0; i < node->payload.fn_ret.values.count; i++) {
@@ -196,6 +204,13 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
                 print_node(node->payload.branch.args.nodes[i]);
             }
             break;
+        case Unreachable_TAG:
+            printf("unreachable ");
+            break;
+        case Join_TAG:
+            printf("join ");
+            break;
+        // --------------------------- TYPES
         case QualifiedType_TAG:
             if (node->payload.qualified_type.is_uniform)
                 printf("uniform ");

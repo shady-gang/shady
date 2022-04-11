@@ -39,7 +39,7 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
 
 SpvId emit_type(struct SpvEmitter* emitter, const Type* type);
 SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_id);
-bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node* block, SpvId entryBBID, SpvId* joinBB);
+void emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node* block, SpvId entryBBID, SpvId const* joinBB);
 
 void emit_primop(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, Op op, Nodes args, SpvId out[]) {
     LARRAY(SpvId, arr, args.count);
@@ -55,7 +55,7 @@ void emit_primop(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct Sp
     }
 }
 
-struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, bool* is_final_instruction, const Node* instruction) {
+struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* instruction) {
     switch (instruction->tag) {
         case Let_TAG: {
             const Nodes* variables = &instruction->payload.let.variables;
@@ -74,12 +74,9 @@ struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct
             SpvId true_branch = spvb_fresh_id(emitter->file_builder);
             SpvId false_branch = spvb_fresh_id(emitter->file_builder);
 
-            bool uses_join = false;
-            uses_join |= !emit_block(emitter, fnb, instruction->payload.selection.ifTrue, true_branch, &join_branch);
+            emit_block(emitter, fnb, instruction->payload.selection.ifTrue, true_branch, &join_branch);
             if (instruction->payload.selection.ifFalse)
-                uses_join |= !emit_block(emitter, fnb, instruction->payload.selection.ifFalse, false_branch, &join_branch);
-            else
-                uses_join = true;
+                emit_block(emitter, fnb, instruction->payload.selection.ifFalse, false_branch, &join_branch);
 
             spvb_selection_merge(bbb, join_branch, 0);
 
@@ -88,62 +85,50 @@ struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct
             else
                 spvb_branch_conditional(bbb, condition, true_branch, join_branch);
 
-            // If nobody uses the join branch, that means we're eventually returning in both branches
-            if (!uses_join) {
-                struct SpvBasicBlockBuilder* unreachable_bb_builder = spvb_begin_bb(fnb, join_branch);
-                spvb_unreachable(unreachable_bb_builder);
-
-                *is_final_instruction = true;
-                return NULL;
-            } else {
-                struct SpvBasicBlockBuilder* bbb_rest = spvb_begin_bb(fnb, join_branch);
-                return bbb_rest;
-            }
-        }
-        case Return_TAG: {
-            *is_final_instruction = true;
-            const Nodes* ret_values = &instruction->payload.fn_ret.values;
-            switch (ret_values->count) {
-                case 0: spvb_return_void(bbb); return NULL;
-                case 1: spvb_return_value(bbb, emit_value(emitter, ret_values->nodes[0], NULL)); return NULL;
-                default: {
-                    LARRAY(SpvId, arr, ret_values->count);
-                    for (size_t i = 0; i < ret_values->count; i++)
-                        arr[i] = emit_value(emitter, ret_values->nodes[i], NULL);
-                    SpvId return_that = spvb_composite(bbb, fn_ret_type_id(fnb), ret_values->count, arr);
-                    spvb_return_value(bbb, return_that);
-                    return NULL;
-                }
-            }
+            struct SpvBasicBlockBuilder* bbb_rest = spvb_begin_bb(fnb, join_branch);
+            return bbb_rest;
         }
         default: error("TODO: emit instruction");
     }
     SHADY_UNREACHABLE;
 }
 
-bool emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node* node, SpvId entryBBID, SpvId* join_bb) {
+void emit_terminator(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* instruction, SpvId const* join_bb) {
+    switch (instruction->tag) {
+        case Return_TAG: {
+            const Nodes* ret_values = &instruction->payload.fn_ret.values;
+            switch (ret_values->count) {
+                case 0: spvb_return_void(bbb); return;
+                case 1: spvb_return_value(bbb, emit_value(emitter, ret_values->nodes[0], NULL)); return;
+                default: {
+                    LARRAY(SpvId, arr, ret_values->count);
+                    for (size_t i = 0; i < ret_values->count; i++)
+                        arr[i] = emit_value(emitter, ret_values->nodes[i], NULL);
+                    SpvId return_that = spvb_composite(bbb, fn_ret_type_id(fnb), ret_values->count, arr);
+                    spvb_return_value(bbb, return_that);
+                    return;
+                }
+            }
+        }
+        case Join_TAG: {
+            assert(join_bb);
+            spvb_branch(bbb, *join_bb);
+        }
+        case Unreachable_TAG: {
+            spvb_unreachable(bbb);
+            return;
+        }
+        default: error("TODO: emit instruction");
+    }
+    SHADY_UNREACHABLE;
+}
+
+void emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node* node, SpvId entryBBID, SpvId const* join_bb) {
     struct SpvBasicBlockBuilder* basicblock_builder = spvb_begin_bb(fnb, entryBBID);
-    bool terminated = false;
-
     const Block* block = &node->payload.block;
-
-    // First: reserve IDs for internal conts
-
-    for (size_t i = 0; i < block->instructions.count; i++) {
-        assert(!terminated && "another instruction in the block came after a terminator !");
-        basicblock_builder = emit_instruction(emitter, fnb, basicblock_builder, &terminated, block->instructions.nodes[i]);
-    }
-
-    if (!terminated) {
-        if (join_bb != NULL)
-            spvb_branch(basicblock_builder, *join_bb);
-        else if (fn_ret_type_id(fnb) == emitter->void_t)
-            spvb_return_void(basicblock_builder);
-        else
-            error("this non-void returning function fails to return")
-    }
-
-    return terminated;
+    for (size_t i = 0; i < block->instructions.count; i++)
+        basicblock_builder = emit_instruction(emitter, fnb, basicblock_builder, block->instructions.nodes[i]);
+    emit_terminator(emitter, fnb, basicblock_builder, block->terminator, join_bb);
 }
 
 SpvId nodes2codom(struct SpvEmitter* emitter, Nodes return_types) {

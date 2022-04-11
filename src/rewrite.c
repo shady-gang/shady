@@ -34,6 +34,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         }
         case Block_TAG:         return block(rewriter->dst_arena, (Block) {
             .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
+            .terminator = rewriter->rewrite_fn(rewriter, node->payload.block.terminator)
         });
         case Function_TAG:      return fn(rewriter->dst_arena, (Function) {
             .is_continuation = node->payload.fn.is_continuation,
@@ -69,6 +70,8 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
             .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
         });
+        case Unreachable_TAG:   return unreachable(rewriter->dst_arena);
+        case Join_TAG:          return join(rewriter->dst_arena);
         case NoRet_TAG:         return noret_type(rewriter->dst_arena);
         case Int_TAG:           return int_type(rewriter->dst_arena);
         case Bool_TAG:          return bool_type(rewriter->dst_arena);

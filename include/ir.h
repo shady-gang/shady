@@ -30,10 +30,14 @@ typedef int VarId;
 #define INSTRUCTION_NODES() \
 NODEDEF(1, 1, 1, VariableDecl, var_decl) \
 NODEDEF(1, 1, 1, Let, let)  \
-NODEDEF(1, 1, 1, Return, fn_ret) \
 NODEDEF(1, 1, 1, StructuredSelection, selection) \
+
+#define TERMINATOR_NODES() \
+NODEDEF(1, 1, 1, Return, fn_ret) \
 NODEDEF(1, 1, 1, Jump, jump) \
 NODEDEF(1, 1, 1, Branch, branch) \
+NODEDEF(1, 0, 0, Join, join) \
+NODEDEF(1, 0, 0, Unreachable, unreachable) \
 
 #define TYPE_NODES() \
 NODEDEF(1, 0, 0, NoRet, noret_type) \
@@ -47,6 +51,7 @@ NODEDEF(1, 0, 1, QualifiedType, qualified_type) \
 
 #define NODES() \
 INSTRUCTION_NODES() \
+TERMINATOR_NODES() \
 TYPE_NODES() \
 NODEDEF(0, 1, 1, Variable, var) \
 NODEDEF(1, 0, 1, Unbound, unbound) \
@@ -145,6 +150,8 @@ typedef struct StructuredLoop_ {
     Nodes bodyInstructions;
 } StructuredLoop;
 
+// Block terminators
+
 typedef struct Return_ {
     const Node* fn;
     Nodes values;
@@ -162,13 +169,19 @@ typedef struct Branch_ {
     Nodes args;
 } Branch;
 
+//typedef struct Join_ {
+//
+//} Join;
+
 /// The body inside functions, continuations, if branches ...
 typedef struct Block_ {
     Nodes instructions;
+    const Node* terminator;
 } Block;
 
 typedef struct ParsedBlock_ {
     Nodes instructions;
+    const Node* terminator;
 
     Nodes continuations_vars;
     Nodes continuations;

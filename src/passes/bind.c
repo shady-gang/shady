@@ -161,6 +161,7 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
 
             const Node* new_block = block(rewriter->dst_arena, (Block) {
                 .instructions = rewrite_nodes(rewriter, pblock->instructions),
+                .terminator = bind_node(ctx, pblock->terminator)
             });
 
             // Rebuild the actual continuations now
