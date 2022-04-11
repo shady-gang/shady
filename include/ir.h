@@ -135,8 +135,8 @@ extern const char* primop_names[];
 
 typedef struct StructuredSelection_ {
     const Node* condition;
-    const Node* ifTrue;
-    const Node* ifFalse;
+    const Node* if_true;
+    const Node* if_false;
 } StructuredSelection;
 
 typedef struct StructuredSwitch_ {
@@ -164,8 +164,8 @@ typedef struct Jump_ {
 
 typedef struct Branch_ {
     const Node* condition;
-    const Node* trueTarget;
-    const Node* falseTarget;
+    const Node* true_target;
+    const Node* false_target;
     Nodes args;
 } Branch;
 

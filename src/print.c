@@ -167,11 +167,11 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
             print_node(node->payload.selection.condition);
             printf(" {\n");
             ctx->indent++;
-            print_node(node->payload.selection.ifTrue);
+            print_node(node->payload.selection.if_true);
             ctx->indent--;
             INDENT printf("} else {\n");
             ctx->indent++;
-            print_node(node->payload.selection.ifFalse);
+            print_node(node->payload.selection.if_false);
             ctx->indent--;
             INDENT printf("}");
             break;
@@ -195,9 +195,9 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
             printf("branch ");
             print_node(node->payload.branch.condition);
             printf(" ");
-            print_node(node->payload.branch.trueTarget);
+            print_node(node->payload.branch.true_target);
             printf(" ");
-            print_node(node->payload.branch.falseTarget);
+            print_node(node->payload.branch.false_target);
             printf(" ");
             for (size_t i = 0; i < node->payload.branch.args.count; i++) {
                 printf(" ");

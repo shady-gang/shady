@@ -166,12 +166,12 @@ static const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) 
             const Node* condition = type_value(ctx, node->payload.selection.condition, bool_type(ctx->dst_arena));
 
             struct TypeRewriter instrs_infer_ctx = *ctx;
-            const Node* ifTrue = type_block(&instrs_infer_ctx, node->payload.selection.ifTrue);
-            const Node* ifFalse = type_block(&instrs_infer_ctx, node->payload.selection.ifFalse);
+            const Node* ifTrue = type_block(&instrs_infer_ctx, node->payload.selection.if_true);
+            const Node* ifFalse = type_block(&instrs_infer_ctx, node->payload.selection.if_false);
             return selection(ctx->dst_arena, (StructuredSelection) {
                 .condition = condition,
-                .ifTrue = ifTrue,
-                .ifFalse = ifFalse
+                .if_true = ifTrue,
+                .if_false = ifFalse
             });
         }
         default: error("not an instruction");

@@ -63,8 +63,8 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         });
         case StructuredSelection_TAG: return selection(rewriter->dst_arena, (StructuredSelection) {
             .condition = rewriter->rewrite_fn(rewriter, node->payload.selection.condition),
-            .ifTrue = rewriter->rewrite_fn(rewriter, node->payload.selection.ifTrue),
-            .ifFalse = rewriter->rewrite_fn(rewriter, node->payload.selection.ifFalse),
+            .if_true = rewriter->rewrite_fn(rewriter, node->payload.selection.if_true),
+            .if_false = rewriter->rewrite_fn(rewriter, node->payload.selection.if_false),
         });
         case Jump_TAG:          return jump(rewriter->dst_arena, (Jump) {
             .target = rewriter->rewrite_fn(rewriter, node->payload.jump.target),

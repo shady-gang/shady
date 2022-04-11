@@ -48,9 +48,9 @@ Scope build_scope(const Node* function) {
             switch (instruction->tag) {
                 case Let_TAG: break;
                 case StructuredSelection_TAG: {
-                    const Node* if_true = instruction->payload.selection.ifTrue;
+                    const Node* if_true = instruction->payload.selection.if_true;
                     enqueue(if_true);
-                    const Node* if_false = instruction->payload.selection.ifFalse;
+                    const Node* if_false = instruction->payload.selection.if_false;
                     if (if_false)
                         enqueue(if_false)
                     break;

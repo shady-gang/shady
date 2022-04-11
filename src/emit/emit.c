@@ -74,13 +74,13 @@ struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct
             SpvId true_branch = spvb_fresh_id(emitter->file_builder);
             SpvId false_branch = spvb_fresh_id(emitter->file_builder);
 
-            emit_block(emitter, fnb, instruction->payload.selection.ifTrue, true_branch, &join_branch);
-            if (instruction->payload.selection.ifFalse)
-                emit_block(emitter, fnb, instruction->payload.selection.ifFalse, false_branch, &join_branch);
+            emit_block(emitter, fnb, instruction->payload.selection.if_true, true_branch, &join_branch);
+            if (instruction->payload.selection.if_false)
+                emit_block(emitter, fnb, instruction->payload.selection.if_false, false_branch, &join_branch);
 
             spvb_selection_merge(bbb, join_branch, 0);
 
-            if (instruction->payload.selection.ifFalse)
+            if (instruction->payload.selection.if_false)
                 spvb_branch_conditional(bbb, condition, true_branch, false_branch);
             else
                 spvb_branch_conditional(bbb, condition, true_branch, join_branch);

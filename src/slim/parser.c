@@ -262,8 +262,8 @@ const Node* accept_instruction(ctxparams) {
             }
             return selection(arena, (StructuredSelection) {
                 .condition = condition,
-                .ifTrue = if_true,
-                .ifFalse = if_false
+                .if_true = if_true,
+                .if_false = if_false
             });
         }
         default: break;

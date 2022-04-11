@@ -11,6 +11,8 @@ typedef struct Scope_ {
 
 struct List* build_scopes(const Node* root);
 
+void dispose_scope(Scope*);
+
 #define SHADY_SCOPE_H
 
 #endif
