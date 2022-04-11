@@ -46,6 +46,7 @@ static const Node* type_instruction(struct TypeRewriter* ctx, const Node* node);
 static const Node* type_value(struct TypeRewriter* ctx, const Node* node, const Node* expected_type);
 
 static const Node* type_block(struct TypeRewriter* ctx, const Node* node) {
+    if (node == NULL) return NULL;
     size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
 
     LARRAY(const Node*, ninstructions, node->payload.block.instructions.count);

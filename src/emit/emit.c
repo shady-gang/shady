@@ -76,10 +76,17 @@ struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct
 
             bool uses_join = false;
             uses_join |= !emit_block(emitter, fnb, instruction->payload.selection.ifTrue, true_branch, &join_branch);
-            uses_join |= !emit_block(emitter, fnb, instruction->payload.selection.ifFalse, false_branch, &join_branch);
+            if (instruction->payload.selection.ifFalse)
+                uses_join |= !emit_block(emitter, fnb, instruction->payload.selection.ifFalse, false_branch, &join_branch);
+            else
+                uses_join = true;
 
             spvb_selection_merge(bbb, join_branch, 0);
-            spvb_branch_conditional(bbb, condition, true_branch, false_branch);
+
+            if (instruction->payload.selection.ifFalse)
+                spvb_branch_conditional(bbb, condition, true_branch, false_branch);
+            else
+                spvb_branch_conditional(bbb, condition, true_branch, join_branch);
 
             // If nobody uses the join branch, that means we're eventually returning in both branches
             if (!uses_join) {

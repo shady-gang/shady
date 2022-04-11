@@ -276,7 +276,7 @@ const Node* accept_instruction(ctxparams) {
             const Node* if_true = expect_block(ctx);
             bool has_else = accept_token(ctx, else_tok);
             // default to an empty block
-            const Node* if_false = block(arena, (Block) { .instructions = nodes(arena, 0, NULL) });
+            const Node* if_false = NULL;
             if (has_else) {
                 if_false = expect_block(ctx);
             }
