@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct IrArena_ IrArena;
 
@@ -89,7 +90,7 @@ typedef struct UntypedNumber_ {
 } UntypedNumber;
 
 typedef struct IntLiteral_ {
-    int value;
+    int64_t value;
 } IntLiteral;
 
 /// Function with _structured_ control flow
@@ -166,6 +167,8 @@ typedef struct Branch_ {
     const Node* condition;
     const Node* true_target;
     const Node* false_target;
+    const Node* merge_target;
+    const Node* continue_target;
     Nodes args;
 } Branch;
 
@@ -208,8 +211,8 @@ typedef struct RecordType_ {
 } RecordType;
 
 typedef struct FnType_ {
-    Nodes param_types;
     bool is_continuation;
+    Nodes param_types;
     Nodes return_types;
 } FnType;
 
@@ -287,6 +290,7 @@ Strings     strings(IrArena*, size_t count, const char*[]);
 NODES()
 #undef NODEDEF
 const Node* var(IrArena* arena, const Type* type, const char* name);
+const Node* var_with_id(IrArena* arena, const Type* type, const char* name, VarId);
 Node* fn(IrArena* arena, bool is_continuation, const char* name, Nodes params, Nodes return_types);
 
 #undef NODE_CTOR_0
@@ -298,8 +302,13 @@ bool is_type(const Node*);
 
 String string_sized(IrArena* arena, size_t size, const char* start);
 String string(IrArena* arena, const char* start);
+String unique_name(IrArena* arena, const char* start);
 
 void print_node(const Node* node);
+
+extern const char* node_tags[];
+extern const char* primop_names[];
+extern const bool node_type_has_payload[];
 
 #define SHADY_IR_H
 

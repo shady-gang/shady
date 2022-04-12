@@ -167,7 +167,17 @@ const Type* check_type_jump(IrArena* arena, Jump jump) {
 }
 
 const Type* check_type_branch(IrArena* arena, Branch branch) {
-    SHADY_NOT_IMPLEM;
+    // TODO uniform jump or structured jump
+    // assert(get_qualifier(branch.condition->type) == Uniform);
+
+    // branches should be agreed upon
+    assert(get_qualifier(branch.true_target->type) == Uniform);
+    assert(without_qualifier(branch.true_target->type)->tag == FnType_TAG);
+    assert(get_qualifier(branch.false_target->type) == Uniform);
+    assert(without_qualifier(branch.false_target->type)->tag == FnType_TAG);
+
+    // TODO check arguments and that both branches match
+    return NULL;
 }
 
 const Type* check_type_fn_ret(IrArena* arena, Return ret) {

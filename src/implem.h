@@ -45,12 +45,12 @@ VarId fresh_id(IrArena*);
   SHADY_UNREACHABLE;          \
 }
 
-#define error(...) {             \
+#define error(...) {                                        \
   fprintf (stderr, "Error at %s:%d: ", __FILE__, __LINE__); \
-  fprintf (stderr, __VA_ARGS__); \
-  fprintf (stderr, "\n");        \
-  error_impl();                  \
-  SHADY_UNREACHABLE;             \
+  fprintf (stderr, __VA_ARGS__);                            \
+  fprintf (stderr, "\n");                                   \
+  error_impl();                                             \
+  SHADY_UNREACHABLE;                                        \
 }
 
 static inline void error_impl() {

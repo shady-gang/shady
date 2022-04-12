@@ -5,6 +5,7 @@
 #include "dict.h"
 #include "murmur3.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -126,7 +127,8 @@ Strings strings(IrArena* arena, size_t count, const char* in_strs[])  {
 
 /// takes care of structural sharing
 static const char* string_impl(IrArena* arena, size_t size, const char* zero_terminated) {
-    const char** ptr = &zero_terminated;
+    printf("string_impl %d %s\n", size, zero_terminated);
+    const char* ptr = zero_terminated;
     const char** found = find_key_dict(const char*, arena->string_set, ptr);
     if (found)
         return *found;
@@ -134,6 +136,8 @@ static const char* string_impl(IrArena* arena, size_t size, const char* zero_ter
     char* new_str = (char*) arena_alloc(arena, strlen(zero_terminated) + 1);
     strncpy(new_str, zero_terminated, size);
     new_str[size] = '\0';
+
+    printf("fresh str needed %lu\n", (size_t) new_str);
 
     insert_set_get_result(const char*, arena->string_set, new_str);
     return new_str;
@@ -150,6 +154,13 @@ const char* string_sized(IrArena* arena, size_t size, const char* str) {
 
 const char* string(IrArena* arena, const char* str) {
     return string_impl(arena, strlen(str), str);
+}
+
+const char* unique_name(IrArena* arena, const char* str) {
+    char tmp[64];
+    int len = snprintf(tmp, 64, "%s_%d", str, fresh_id(arena));
+    const char* interned = string_impl(arena, len, tmp);
+    return interned;
 }
 
 KeyHash hash_nodes(Nodes* nodes) {

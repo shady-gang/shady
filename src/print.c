@@ -1,8 +1,6 @@
 #include "implem.h"
 #include "dict.h"
 
-extern const char* node_tags[];
-
 struct PrinterCtx {
     unsigned int indent;
     bool pretty_print;

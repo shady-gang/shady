@@ -3,6 +3,8 @@
 
 #include "list.h"
 
+extern const char* node_tags[];
+
 Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
     size_t count = old_nodes.count;
     LARRAY(const Node*, arr, count);
@@ -24,7 +26,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
 
             for (size_t i = 0; i < count; i++) {
                 new_variables[i] = rewriter->rewrite_fn(rewriter, node->payload.root.variables.nodes[i]);
-                new_definitions[i] = rewriter->rewrite_fn(rewriter, node->payload.root.definitions.nodes[i]);
+                if (node->payload.root.definitions.nodes[i])
+                    new_definitions[i] = rewriter->rewrite_fn(rewriter, node->payload.root.definitions.nodes[i]);
+                else
+                    new_definitions[i] = NULL;
             }
 
             return root(rewriter->dst_arena, (Root) {
@@ -48,9 +53,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
             .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext)
         });
+        case IntLiteral_TAG:    return int_literal(rewriter->dst_arena, node->payload.int_literal);
         case True_TAG:          return true_lit(rewriter->dst_arena);
         case False_TAG:         return false_lit(rewriter->dst_arena);
-        case Variable_TAG:      return var(rewriter->dst_arena, rewriter->rewrite_fn(rewriter, node->payload.var.type), string(rewriter->dst_arena, node->payload.var.name));
+        case Variable_TAG:      return var_with_id(rewriter->dst_arena, rewriter->rewrite_fn(rewriter, node->payload.var.type), string(rewriter->dst_arena, node->payload.var.name), node->payload.var.id);
         case VariableDecl_TAG:  return var_decl(rewriter->dst_arena, (VariableDecl) {
             .address_space = node->payload.var_decl.address_space,
             .variable = rewriter->rewrite_fn(rewriter, node->payload.var_decl.variable),
@@ -91,6 +97,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case QualifiedType_TAG: return qualified_type(rewriter->dst_arena, (QualifiedType) {
                                     .is_uniform = node->payload.qualified_type.is_uniform,
                                     .type = rewriter->rewrite_fn(rewriter, node->payload.qualified_type.type)});
-        default: error("unhandled node for rewrite");
+        default: error("unhandled node for rewrite %s", node_tags[node->tag]);
     }
 }
