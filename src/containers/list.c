@@ -92,3 +92,7 @@ void* remove_list_impl(struct List* list, size_t index) {
     memcpy(end, &temp, element_size);
     return end;
 }
+
+void clear_list(struct List* list) {
+    list->elements_count = 0;
+}

@@ -24,6 +24,7 @@ void append_list_impl(struct List* list, void* element);
 #define remove_last_list(T, list) (pop_list_impl(list))
 void* pop_list_impl(struct List* list);
 
+void clear_list(struct List* list);
 
 #define add_list(T, list, i, e) add_list_impl(list, i, (void*) &(e))
 void add_list_impl(struct List* list, size_t index, void* element);
