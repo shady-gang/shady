@@ -227,7 +227,7 @@ SpvId emit_type(struct SpvEmitter* emitter, const Type* type) {
             new = emit_type(emitter, type->payload.qualified_type.type);
             break;
         }
-        default: error("Don't know how to emit type\n")
+        default: error("Don't know how to emit type")
     }
 
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);

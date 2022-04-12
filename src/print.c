@@ -268,7 +268,7 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
             printf("]");
             break;
         }
-        default: error("dunno how to print %s\n", node_tags[node->tag]);
+        default: error("dunno how to print %s", node_tags[node->tag]);
     }
 }
 

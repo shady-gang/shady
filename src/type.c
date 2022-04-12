@@ -66,7 +66,7 @@ void check_subtype(const Type* supertype, const Type* type) {
         printf(" isn't a subtype of ");
         print_node(supertype);
         printf("\n");
-        error("failed check_subtype\n")
+        error("failed check_subtype")
     }
 }
 
