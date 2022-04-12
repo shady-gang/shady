@@ -30,7 +30,7 @@ typedef int VarId;
 #define INSTRUCTION_NODES() \
 NODEDEF(1, 1, 1, VariableDecl, var_decl) \
 NODEDEF(1, 1, 1, Let, let)  \
-NODEDEF(1, 1, 1, StructuredSelection, selection) \
+NODEDEF(1, 1, 1, IfInstr, if_instr) \
 
 #define TERMINATOR_NODES() \
 NODEDEF(1, 1, 1, Return, fn_ret) \
@@ -133,22 +133,22 @@ extern const char* primop_names[];
 // they map to SPIR-V structured control flow constructs directly
 // they don't need merge blocks because they are instructions and so that is taken care of by the containing node
 
-typedef struct StructuredSelection_ {
+typedef struct IfInstr_ {
     const Node* condition;
     const Node* if_true;
     const Node* if_false;
-} StructuredSelection;
+} IfInstr;
 
-typedef struct StructuredSwitch_ {
+typedef struct SwitchInstr_ {
     const Node* condition;
-    Nodes ifTrue;
-    Nodes ifFalse;
-} StructuredSwitch;
+    Nodes case_values;
+    Nodes case_code;
+} SwitchInstr;
 
-typedef struct StructuredLoop_ {
-    Node* condition;
-    Nodes bodyInstructions;
-} StructuredLoop;
+typedef struct WhileInstr_ {
+    const Node* condition;
+    const Node* body;
+} WhileInstr;
 
 // Block terminators
 

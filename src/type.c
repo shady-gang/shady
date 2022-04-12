@@ -175,7 +175,7 @@ const Type* check_type_fn_ret(IrArena* arena, Return ret) {
     return NULL;
 }
 
-const Type* check_type_selection(IrArena* arena, StructuredSelection sel) {
+const Type* check_type_if_instr(IrArena* arena, IfInstr sel) {
     if (without_qualifier(sel.condition->type) != bool_type(arena))
         error("condition of a selection should be bool");
     return NULL;

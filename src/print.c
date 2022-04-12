@@ -162,16 +162,16 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
             }
 
             break;
-        case StructuredSelection_TAG:
+        case IfInstr_TAG:
             printf("if ");
-            print_node(node->payload.selection.condition);
+            print_node(node->payload.if_instr.condition);
             printf(" {\n");
             ctx->indent++;
-            print_node(node->payload.selection.if_true);
+            print_node(node->payload.if_instr.if_true);
             ctx->indent--;
             INDENT printf("} else {\n");
             ctx->indent++;
-            print_node(node->payload.selection.if_false);
+            print_node(node->payload.if_instr.if_false);
             ctx->indent--;
             INDENT printf("}");
             break;

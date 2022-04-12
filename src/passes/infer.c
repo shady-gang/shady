@@ -162,13 +162,13 @@ static const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) 
                 .args = rewritten_args
             });
         }
-        case StructuredSelection_TAG: {
-            const Node* condition = type_value(ctx, node->payload.selection.condition, bool_type(ctx->dst_arena));
+        case IfInstr_TAG: {
+            const Node* condition = type_value(ctx, node->payload.if_instr.condition, bool_type(ctx->dst_arena));
 
             struct TypeRewriter instrs_infer_ctx = *ctx;
-            const Node* ifTrue = type_block(&instrs_infer_ctx, node->payload.selection.if_true);
-            const Node* ifFalse = type_block(&instrs_infer_ctx, node->payload.selection.if_false);
-            return selection(ctx->dst_arena, (StructuredSelection) {
+            const Node* ifTrue = type_block(&instrs_infer_ctx, node->payload.if_instr.if_true);
+            const Node* ifFalse = type_block(&instrs_infer_ctx, node->payload.if_instr.if_false);
+            return if_instr(ctx->dst_arena, (IfInstr) {
                 .condition = condition,
                 .if_true = ifTrue,
                 .if_false = ifFalse

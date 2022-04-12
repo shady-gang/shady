@@ -260,7 +260,7 @@ const Node* accept_instruction(ctxparams) {
             if (has_else) {
                 if_false = expect_block(ctx, true);
             }
-            return selection(arena, (StructuredSelection) {
+            return if_instr(arena, (IfInstr) {
                 .condition = condition,
                 .if_true = if_true,
                 .if_false = if_false

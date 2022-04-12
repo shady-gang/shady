@@ -61,10 +61,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .op = node->payload.let.op,
             .args = rewrite_nodes(rewriter, node->payload.let.args)
         });
-        case StructuredSelection_TAG: return selection(rewriter->dst_arena, (StructuredSelection) {
-            .condition = rewriter->rewrite_fn(rewriter, node->payload.selection.condition),
-            .if_true = rewriter->rewrite_fn(rewriter, node->payload.selection.if_true),
-            .if_false = rewriter->rewrite_fn(rewriter, node->payload.selection.if_false),
+        case IfInstr_TAG:       return if_instr(rewriter->dst_arena, (IfInstr) {
+            .condition = rewriter->rewrite_fn(rewriter, node->payload.if_instr.condition),
+            .if_true = rewriter->rewrite_fn(rewriter, node->payload.if_instr.if_true),
+            .if_false = rewriter->rewrite_fn(rewriter, node->payload.if_instr.if_false),
         });
         case Jump_TAG:          return jump(rewriter->dst_arena, (Jump) {
             .target = rewriter->rewrite_fn(rewriter, node->payload.jump.target),
