@@ -24,20 +24,24 @@ struct List* build_scopes(const Node* root) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-static struct List* get_node_list(struct Dict* d, const Node* n) {
-    struct List** found = find_value_dict(const Node*, struct List*, d, n);
+static CFNode* get_or_create_cf_node(struct Dict* d, const Node* n) {
+    CFNode** found = find_value_dict(const Node*, CFNode*, d, n);
     if (found) return *found;
-    struct List* new = new_list(const Node*);
-    insert_dict(const Node*, struct List*, d, n, new);
+    CFNode* new = malloc(sizeof(CFNode));
+    *new = (CFNode) {
+        .node = n,
+        .succs = new_list(CFNode*),
+        .preds = new_list(CFNode*),
+    };
+    insert_dict(const Node*, CFNode*, d, n, new);
     return new;
 }
 
 static Scope build_scope(const Node* entry) {
     assert(entry->tag == Function_TAG);
-    struct List* contents = new_list(const Node*);
+    struct List* contents = new_list(CFNode*);
 
-    struct Dict* succs = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node);
-    struct Dict* preds = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node);
+    struct Dict* nodes = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node);
 
     struct Dict* done = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct List* queue = new_list(const Node*);
@@ -45,20 +49,19 @@ static Scope build_scope(const Node* entry) {
     #define enqueue(node) {                                         \
         if (!find_key_dict(Node*, done, node)) {                    \
             append_list(Node*, queue, node);                        \
-            append_list(Node*, contents, node);                     \
-            get_node_list(succs, node);                             \
-            get_node_list(preds, node);                             \
+            CFNode* cf_node = get_or_create_cf_node(nodes, node);   \
+            append_list(CFNode*, contents, cf_node);                \
         }                                                           \
     }
 
     enqueue(entry);
 
     #define process_edge(tgt) {                                     \
-        struct List* element_succs = get_node_list(succs, element); \
-        append_list(Node*, element_succs, tgt);                     \
-        struct List* tgt_preds = get_node_list(preds, tgt);         \
-        append_list(Node*, tgt_preds, element);                     \
         assert(tgt);                                                \
+        CFNode* src_node = get_or_create_cf_node(nodes, element);   \
+        CFNode* tgt_node = get_or_create_cf_node(nodes, tgt);       \
+        append_list(CFNode*, src_node->succs, tgt_node);            \
+        append_list(CFNode*, tgt_node->preds, src_node);            \
         enqueue(tgt);                                               \
     }
 
@@ -91,28 +94,36 @@ static Scope build_scope(const Node* entry) {
     }
 
     Scope scope = {
-        .entry = entry,
+        .entry = get_or_create_cf_node(nodes, entry),
+        .size = entries_count_list(contents),
         .contents = contents,
-        .succs = succs,
-        .preds = preds,
+        .rpo = NULL
     };
 
     destroy_dict(done);
     destroy_list(queue);
+
+    //scope.rpo = malloc(sizeof(const Node*) * scope.size);
+
+    //size_t* indexes = malloc(sizeof(size_t) * scope.size);
+    //size_t index = post_order_visit(entry, scope.size);
+    //assert(index == 0);
+
     return scope;
 }
 
 void dispose_scope(Scope* scope) {
-    for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const Node* bb = read_list(const Node*, scope->contents)[i];
-        struct List* sc = *find_value_dict(Node*, struct List*, scope->succs, bb);
-        destroy_list(sc);
-        struct List* pd = *find_value_dict(Node*, struct List*, scope->preds, bb);
-        destroy_list(pd);
+    for (size_t i = 0; i < scope->size; i++) {
+        CFNode* node = read_list(CFNode*, scope->contents)[i];
+        destroy_list(node->preds);
+        destroy_list(node->succs);
+        free(node);
     }
-    destroy_dict(scope->succs);
-    destroy_dict(scope->preds);
     destroy_list(scope->contents);
+}
+
+static size_t post_order_visit(const Node* n, size_t i) {
+    SHADY_NOT_IMPLEM;
 }
 
 static int extra_uniqueness = 0;
@@ -120,21 +131,20 @@ static int extra_uniqueness = 0;
 static void dump_cfg_scope(FILE* output, Scope* scope) {
     extra_uniqueness++;
 
-    const Function* entry = &scope->entry->payload.fn;
+    const Function* entry = &scope->entry->node->payload.fn;
     fprintf(output, "subgraph cluster_%s {\n", entry->name);
     fprintf(output, "label = \"%s\";\n", entry->name);
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const Function* bb = &read_list(const Node*, scope->contents)[i]->payload.fn;
+        const Function* bb = &read_list(const CFNode*, scope->contents)[i]->node->payload.fn;
         fprintf(output, "%s_%d;\n", bb->name, extra_uniqueness);
     }
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const Node* bb_node = read_list(const Node*, scope->contents)[i];
-        const Function* bb = &bb_node->payload.fn;
+        const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
+        const Function* bb = &bb_node->node->payload.fn;
 
-        struct List* sc = *find_value_dict(Node*, struct List*, scope->succs, bb_node);
-        for (size_t j = 0; j < entries_count_list(sc); j++) {
-            const Node* target_node = read_list(Node*, sc)[j];
-            const Function* target_bb = &target_node->payload.fn;
+        for (size_t j = 0; j < entries_count_list(bb_node->succs); j++) {
+            const CFNode* target_node = read_list(CFNode*, bb_node->succs)[j];
+            const Function* target_bb = &target_node->node->payload.fn;
             fprintf(output, "%s_%d -> %s_%d;\n", bb->name, extra_uniqueness, target_bb->name, extra_uniqueness);
         }
         // struct List* pd = *find_value_dict(Node*, struct List*, scope->preds, bb);

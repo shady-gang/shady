@@ -5,11 +5,17 @@
 #include "list.h"
 #include "dict.h"
 
+typedef struct CFNode_ {
+    const Node* node;
+    struct List* succs;
+    struct List* preds;
+} CFNode;
+
 typedef struct Scope_ {
-    const Node* entry;
+    size_t size;
     struct List* contents;
-    struct Dict* succs;
-    struct Dict* preds;
+    const CFNode* entry;
+    const CFNode* rpo;
 } Scope;
 
 struct List* build_scopes(const Node* root);
