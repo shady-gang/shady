@@ -5,9 +5,6 @@
 
 #include <assert.h>
 
-static Scope build_scope(const Node* function);
-static size_t post_order_visit(Scope*, CFNode*, size_t);
-
 struct List* build_scopes(const Node* root) {
     struct List* scopes = new_list(Scope);
 
@@ -34,12 +31,14 @@ static CFNode* get_or_create_cf_node(struct Dict* d, const Node* n) {
         .succs = new_list(CFNode*),
         .preds = new_list(CFNode*),
         .rpo_index = -1,
+        .idom = NULL,
+        .dominates = NULL,
     };
     insert_dict(const Node*, CFNode*, d, n, new);
     return new;
 }
 
-static Scope build_scope(const Node* entry) {
+Scope build_scope(const Node* entry) {
     assert(entry->tag == Function_TAG);
     struct List* contents = new_list(CFNode*);
 
@@ -105,30 +104,13 @@ static Scope build_scope(const Node* entry) {
     };
 
     destroy_dict(done);
+    destroy_dict(nodes);
     destroy_list(queue);
 
-    scope.rpo = malloc(sizeof(const CFNode*) * scope.size);
-    size_t index = post_order_visit(&scope, entry_node, scope.size);
-    assert(index == 0);
-
-    debug_print("RPO: ");
-    for (size_t i = 0; i < scope.size; i++) {
-        debug_print("%s, ", scope.rpo[i]->node->payload.fn.name);
-    }
-    debug_print("\n");
+    compute_rpo(&scope);
+    compute_domtree(&scope);
 
     return scope;
-}
-
-void dispose_scope(Scope* scope) {
-    for (size_t i = 0; i < scope->size; i++) {
-        CFNode* node = read_list(CFNode*, scope->contents)[i];
-        destroy_list(node->preds);
-        destroy_list(node->succs);
-        free(node);
-    }
-    free(scope->rpo);
-    destroy_list(scope->contents);
 }
 
 static size_t post_order_visit(Scope* scope, CFNode* n, size_t i) {
@@ -143,6 +125,82 @@ static size_t post_order_visit(Scope* scope, CFNode* n, size_t i) {
     n->rpo_index = i - 1;
     scope->rpo[n->rpo_index] = n;
     return n->rpo_index;
+}
+
+void compute_rpo(Scope* scope) {
+    scope->rpo = malloc(sizeof(const CFNode*) * scope->size);
+    size_t index = post_order_visit(scope,  scope->entry, scope->size);
+    assert(index == 0);
+
+    debug_print("RPO: ");
+    for (size_t i = 0; i < scope->size; i++) {
+        debug_print("%s, ", scope->rpo[i]->node->payload.fn.name);
+    }
+    debug_print("\n");
+}
+
+CFNode* least_common_ancestor(CFNode* i, CFNode* j) {
+    assert(i && j);
+    while (i->rpo_index != j->rpo_index) {
+        while (i->rpo_index < j->rpo_index) j = j->idom;
+        while (i->rpo_index > j->rpo_index) i = i->idom;
+    }
+    return i;
+}
+
+void compute_domtree(Scope* scope) {
+    for (size_t i = 1; i < scope->size; i++) {
+        CFNode* n = read_list(CFNode*, scope->contents)[i];
+        for (size_t j = 0; j < entries_count_list(n->preds); j++) {
+            CFNode* p = read_list(CFNode*, n->preds)[j];
+            if (p->rpo_index < n->rpo_index) {
+                n->idom = p;
+                goto outer_loop;
+            }
+        }
+        error("no idom found for %s", n->node->payload.fn.name);
+        outer_loop:;
+    }
+
+    bool todo = true;
+    while (todo) {
+        todo = false;
+        for (size_t i = 1; i < scope->size; i++) {
+            CFNode* n = read_list(CFNode*, scope->contents)[i];
+            CFNode* new_idom = NULL;
+            for (size_t j = 0; j < entries_count_list(n->preds); j++) {
+                CFNode* p = read_list(CFNode*, n->preds)[j];
+                new_idom = new_idom ? least_common_ancestor(new_idom, p) : p;
+            }
+            assert(new_idom);
+            if (n->idom != new_idom) {
+                n->idom = new_idom;
+                todo = true;
+            }
+        }
+    }
+
+    for (size_t i = 0; i < scope->size; i++) {
+        CFNode* n = read_list(CFNode*, scope->contents)[i];
+        n->dominates = new_list(CFNode*);
+    }
+    for (size_t i = 1; i < scope->size; i++) {
+        CFNode* n = read_list(CFNode*, scope->contents)[i];
+        append_list(CFNode*, n->idom->dominates, n);
+    }
+}
+
+void dispose_scope(Scope* scope) {
+    for (size_t i = 0; i < scope->size; i++) {
+        CFNode* node = read_list(CFNode*, scope->contents)[i];
+        destroy_list(node->preds);
+        destroy_list(node->succs);
+        if (node->dominates)
+            destroy_list(node->dominates);
+        free(node);
+    }
+    free(scope->rpo);
+    destroy_list(scope->contents);
 }
 
 static int extra_uniqueness = 0;
@@ -166,7 +224,6 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
             const Function* target_bb = &target_node->node->payload.fn;
             fprintf(output, "%s_%d -> %s_%d;\n", bb->name, extra_uniqueness, target_bb->name, extra_uniqueness);
         }
-        // struct List* pd = *find_value_dict(Node*, struct List*, scope->preds, bb);
     }
     fprintf(output, "}\n");
 }

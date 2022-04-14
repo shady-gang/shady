@@ -211,12 +211,6 @@ void grow_and_rehash(struct Dict* dict) {
 }
 
 bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr) {
-    void* existing = find_key_dict_impl(dict, key);
-    if (existing) {
-        *out_ptr = existing;
-        return false;
-    }
-
     float load_factor = (float) (dict->entries_count + dict->thombstones_count) / (float) dict->size;
     if (load_factor > 0.6)
         grow_and_rehash(dict);
@@ -226,19 +220,28 @@ bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr)
     const size_t init_pos = pos;
     const size_t alloc_base = (size_t) dict->alloc;
 
+    bool replacing = false;
+
     // Find an empty spot...
     while (true) {
         size_t bucket = alloc_base + pos * dict->bucket_entry_size;
 
         struct BucketTag tag = *(struct BucketTag*) (void*) (bucket + dict->tag_offset);
-        if (tag.is_present) {
-            pos++;
+        if (!tag.is_present)
+            break;
 
-            if (pos == dict->size)
-                pos = 0;
-            // Make sure to die if we go full circle
-            assert(pos != init_pos);
-        } else break;
+        void* in_dict_key = (void*) bucket;
+        if (dict->cmp_fn(in_dict_key, key)) {
+            replacing = true;
+            break;
+        }
+
+        pos++;
+
+        if (pos == dict->size)
+            pos = 0;
+        // Make sure to die if we go full circle
+        assert(pos != init_pos);
     }
     assert(pos < dict->size);
 
@@ -246,10 +249,11 @@ bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr)
     struct BucketTag* tag = (struct BucketTag*) (void*) (bucket + dict->tag_offset);
     void* in_dict_key = (void*) bucket;
     void* in_dict_value = (void*) (bucket + dict->value_offset);
-    assert(!tag->is_present);
+    assert(!tag->is_present || replacing);
 
     tag->is_present = true;
-    dict->entries_count++;
+    if (!replacing)
+        dict->entries_count++;
     if (tag->is_thombstone)
         dict->thombstones_count--;
     tag->is_thombstone = false;
@@ -258,5 +262,5 @@ bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr)
         memcpy(in_dict_value, value, dict->value_size);
     *out_ptr = in_dict_key;
 
-    return true;
+    return !replacing;
 }
