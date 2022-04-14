@@ -4,9 +4,14 @@
 #include "../implem.h"
 #include "../passes/passes.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+
+const char* input_filename = NULL;
+const char* output_filename = "out.spv";
+
+const char* cfg_output = NULL;
 
 enum SlimErrorCodes {
     NoError,
@@ -14,30 +19,11 @@ enum SlimErrorCodes {
     MissingOutputArg,
     InputFileDoesNotExist,
     IncorrectLogLevel,
-    MoreThanOneFilename
+    MoreThanOneFilename,
+    MissingDumpCfgArg
 };
 
-const char* input_filename = NULL;
-const char* output_filename = "out.spv";
-
-static char* read_file(char* filename) {
-    FILE *f = fopen(filename, "rb");
-    if (f == NULL)
-        return NULL;
-
-    fseek(f, 0, SEEK_END);
-    long fsize = ftell(f);
-    fseek(f, 0, SEEK_SET);  /* same as rewind(f); */
-
-    char *string = malloc(fsize + 1);
-    fread(string, fsize, 1, f);
-    fclose(f);
-
-    string[fsize] = 0;
-    return string;
-}
-
-static void process_arguments(int argc, char** argv) {
+static void process_arguments(int argc, const char** argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--log-level") == 0) {
             i++;
@@ -65,6 +51,13 @@ static void process_arguments(int argc, char** argv) {
                 exit(MissingOutputArg);
             }
             output_filename = argv[i];
+        } else if (strcmp(argv[i], "--dump-cfg") == 0) {
+            i++;
+            if (i == argc) {
+                error_print("--dump-cfg must be followed with a filename");
+                exit(MissingDumpCfgArg);
+            }
+            cfg_output = argv[i];
         } else {
             // assume it is the filename
             if (input_filename) {
@@ -77,11 +70,15 @@ static void process_arguments(int argc, char** argv) {
 
     if (input_filename == NULL) {
         error_print("Usage: slim source.slim\n");
+        error_print("Available arguments: \n");
+        error_print("  --log-level [debug, info, warn, error]\n");
+        error_print("  --output output_filename\n");
+        error_print("  --dump-cfg\n");
         exit(MissingInputArg);
     }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, const char** argv) {
     init_tokenizer_constants();
 
     IrArena* arena = new_arena((IrConfig) {
@@ -98,18 +95,18 @@ int main(int argc, char** argv) {
         error_print("file does not exist\n");
         exit(InputFileDoesNotExist);
     } else {
-        debug_print("Parsing: \n%s\n", contents);
+        info_print("Parsing: \n%s\n", contents);
         program = parse(contents, arena);
     }
 
     free(contents);
 
-    debug_print("Parsed program successfully: \n");
+    info_print("Parsed program successfully: \n");
     print_node(program);
 
     program = bind_program(arena, arena, program);
-    debug_print("Bound program successfully: \n");
-    debug_node(program);
+    info_print("Bound program successfully: \n");
+    info_node(program);
 
     IrArena* typed_arena = new_arena((IrConfig) {
         .check_types = true
@@ -117,18 +114,25 @@ int main(int argc, char** argv) {
     program = type_program(arena, typed_arena, program);
     destroy_arena(arena);
     arena = typed_arena;
-    debug_print("Typed program successfully: \n");
-    debug_node(program);
+    info_print("Typed program successfully: \n");
+    info_node(program);
 
     program = instr2bb(arena, arena, program);
-    debug_print("instr2bb pass: \n");
-    debug_node(program);
+    info_print("instr2bb pass: \n");
+    info_node(program);
 
-    debug_print("Emitting final result ... \n");
+    if (cfg_output) {
+        FILE* cfg_output_f = fopen(cfg_output, "wb");
+        assert(cfg_output_f);
+        dump_cfg(cfg_output_f, program);
+        fclose(cfg_output_f);
+    }
+
+    info_print("Emitting final result ... \n");
     FILE *output = fopen(output_filename, "wb");
     emit(arena, program, output);
     fclose(output);
-    debug_print("Done\n");
+    info_print("Done\n");
 
     destroy_arena(arena);
     return NoError;

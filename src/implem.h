@@ -81,4 +81,7 @@ static inline void error_impl() {
     exit(-1);
 }
 
+char* read_file(const char* filename);
+void dump_cfg(FILE* file, const Node* root);
+
 #endif

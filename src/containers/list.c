@@ -41,8 +41,8 @@ void append_list_impl(struct List* list, void* element) {
 
 void* pop_list_impl(struct List* list) {
     assert(list->elements_count > 0);
-    void* last = (void*) ((size_t)(list->alloc) - list->element_size);
     list->elements_count--;
+    void* last = (void*) ((size_t)(list->alloc) + list->elements_count * list->element_size);
     return last;
 }
 
