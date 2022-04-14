@@ -127,7 +127,6 @@ Strings strings(IrArena* arena, size_t count, const char* in_strs[])  {
 
 /// takes care of structural sharing
 static const char* string_impl(IrArena* arena, size_t size, const char* zero_terminated) {
-    printf("string_impl %d %s\n", size, zero_terminated);
     const char* ptr = zero_terminated;
     const char** found = find_key_dict(const char*, arena->string_set, ptr);
     if (found)
@@ -136,8 +135,6 @@ static const char* string_impl(IrArena* arena, size_t size, const char* zero_ter
     char* new_str = (char*) arena_alloc(arena, strlen(zero_terminated) + 1);
     strncpy(new_str, zero_terminated, size);
     new_str[size] = '\0';
-
-    printf("fresh str needed %lu\n", (size_t) new_str);
 
     insert_set_get_result(const char*, arena->string_set, new_str);
     return new_str;

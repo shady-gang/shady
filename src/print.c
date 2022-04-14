@@ -2,14 +2,17 @@
 #include "dict.h"
 
 struct PrinterCtx {
+    FILE* output;
     unsigned int indent;
     bool pretty_print;
     struct Dict* emitted_fns;
 };
 
+#define printf(...) fprintf(ctx->output, __VA_ARGS__)
+
 void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name);
 
-void print_param_list(const Nodes vars) {
+void print_param_list(struct PrinterCtx* ctx, const Nodes vars) {
     printf("(");
     for (size_t i = 0; i < vars.count; i++) {
         const Variable* var = &vars.nodes[i]->payload.var;
@@ -91,7 +94,7 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
                     }
                 }
                 printf("%s ", node->payload.fn.name);
-                print_param_list(node->payload.fn.params);
+                print_param_list(ctx, node->payload.fn.params);
                 printf(" {\n");
                 ctx->indent++;
                 print_node(node->payload.fn.block);
@@ -271,15 +274,31 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
 }
 
 #undef print_node
+#undef printf
 
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-void print_node(const Node* node) {
+static void print_node_in_output(FILE* output, const Node* node) {
     struct PrinterCtx ctx = {
+        .output = output,
         .indent = 0,
         .emitted_fns = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
     print_node_impl(&ctx, node, NULL);
     destroy_dict(ctx.emitted_fns);
+}
+
+void print_node(const Node* node) {
+    print_node_in_output(stdout, node);
+}
+
+void log_node(LogLevel level, const Node* node) {
+    if (level >= log_level)
+        print_node_in_output(stderr, node);
+}
+
+void dump_node(const Node* node) {
+    print_node(node);
+    printf("\n");
 }

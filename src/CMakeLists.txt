@@ -9,6 +9,7 @@ set(SHADY_SOURCES
     type.c
     rewrite.c
     print.c
+    log.c
     transform/import.c
     analysis/scope.c
     analysis/scope.h

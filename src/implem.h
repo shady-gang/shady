@@ -29,6 +29,30 @@ void* arena_alloc(IrArena* arena, size_t size);
 
 VarId fresh_id(IrArena*);
 
+typedef enum LogLevel_ {
+    DEBUG,
+    INFO,
+    WARN,
+    ERROR
+} LogLevel;
+
+extern LogLevel log_level;
+
+void set_log_level(LogLevel);
+void log_string(LogLevel level, const char* format, ...);
+void log_node(LogLevel level, const Node* node);
+
+#define debug_print(...) log_string(DEBUG, __VA_ARGS__)
+#define debug_node(n)    log_node(DEBUG, n)
+
+#define info_print(...) log_string(INFO, __VA_ARGS__)
+#define info_node(n)    log_node(INFO, n)
+
+#define warn_print(...) log_string(WARN, __VA_ARGS__)
+#define warn_node(n)    log_node(WARN, n)
+
+#define error_print(...) log_string(ERROR, __VA_ARGS__)
+#define error_node(n)    log_node(ERROR, n)
 
 #ifdef NDEBUG
 #ifdef _MSC_VER
