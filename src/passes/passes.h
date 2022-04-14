@@ -6,6 +6,7 @@
 
 const Node* parse(char* contents, IrArena* arena);
 void emit(IrArena*, const Node* root, FILE* output);
+const Node* instr2bb(IrArena* src_arena, IrArena* dst_arena, const Node* src_program);
 
 RewritePass bind_program;
 RewritePass type_program;

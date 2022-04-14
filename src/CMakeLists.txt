@@ -15,6 +15,7 @@ set(SHADY_SOURCES
     analysis/scope.h
     passes/bind.c
     passes/infer.c
+    passes/instr2bb.c
     emit/emit.c
     emit/spirv_builder.c)
 
