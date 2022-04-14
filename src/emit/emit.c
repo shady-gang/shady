@@ -93,10 +93,10 @@ struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct
     SHADY_UNREACHABLE;
 }
 
-void emit_terminator(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* instruction, SpvId const* join_bb) {
-    switch (instruction->tag) {
+void emit_terminator(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* terminator, SpvId const* join_bb) {
+    switch (terminator->tag) {
         case Return_TAG: {
-            const Nodes* ret_values = &instruction->payload.fn_ret.values;
+            const Nodes* ret_values = &terminator->payload.fn_ret.values;
             switch (ret_values->count) {
                 case 0: spvb_return_void(bbb); return;
                 case 1: spvb_return_value(bbb, emit_value(emitter, ret_values->nodes[0], NULL)); return;
@@ -110,6 +110,20 @@ void emit_terminator(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struc
                 }
             }
         }
+        case Jump_TAG: {
+            assert(terminator->payload.jump.args.count == 0 && "TODO: implement bb params");
+            SpvId tgt = emit_value(emitter, terminator->payload.jump.target, NULL);
+            spvb_branch(bbb, tgt);
+            return;
+        }
+        case Branch_TAG: {
+            assert(terminator->payload.branch.args.count == 0 && "TODO: implement bb params");
+            SpvId cond = emit_value(emitter, terminator->payload.branch.condition, NULL);
+            SpvId if_true = emit_value(emitter, terminator->payload.branch.true_target, NULL);
+            SpvId if_false = emit_value(emitter, terminator->payload.branch.false_target, NULL);
+            spvb_branch_conditional(bbb, cond, if_true, if_false);
+            return;
+        }
         case Join_TAG: {
             assert(join_bb);
             spvb_branch(bbb, *join_bb);
@@ -119,7 +133,7 @@ void emit_terminator(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struc
             spvb_unreachable(bbb);
             return;
         }
-        default: error("TODO: emit instruction");
+        default: error("TODO: emit terminator %s", node_tags[terminator->tag]);
     }
     SHADY_UNREACHABLE;
 }
@@ -214,7 +228,8 @@ SpvId emit_type(struct SpvEmitter* emitter, const Type* type) {
             break;
         }
         case FnType_TAG: {
-            const FnType * fnt = &type->payload.fn_type;
+            const FnType* fnt = &type->payload.fn_type;
+            assert(!fnt->is_continuation);
             LARRAY(SpvId, params, fnt->param_types.count);
             for (size_t i = 0; i < fnt->param_types.count; i++)
                 params[i] = emit_type(emitter, fnt->param_types.nodes[i]);
