@@ -9,6 +9,7 @@ struct PrinterCtx {
 };
 
 #define printf(...) fprintf(ctx->output, __VA_ARGS__)
+#define print_node(n) print_node_impl(ctx, n, NULL)
 
 void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name);
 
@@ -27,8 +28,6 @@ void print_param_list(struct PrinterCtx* ctx, const Nodes vars) {
 //static int indent = 0;
 #define INDENT for (unsigned int j = 0; j < ctx->indent; j++) \
     printf("   ");
-
-#define print_node(n) print_node_impl(ctx, n, NULL)
 
 void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name) {
     if (node == NULL) {
