@@ -6,6 +6,7 @@
 #include <assert.h>
 
 static Scope build_scope(const Node* function);
+static size_t post_order_visit(Scope*, CFNode*, size_t);
 
 struct List* build_scopes(const Node* root) {
     struct List* scopes = new_list(Scope);
@@ -32,6 +33,7 @@ static CFNode* get_or_create_cf_node(struct Dict* d, const Node* n) {
         .node = n,
         .succs = new_list(CFNode*),
         .preds = new_list(CFNode*),
+        .rpo_index = -1,
     };
     insert_dict(const Node*, CFNode*, d, n, new);
     return new;
@@ -93,8 +95,10 @@ static Scope build_scope(const Node* entry) {
         }
     }
 
+    CFNode* entry_node = get_or_create_cf_node(nodes, entry);
+
     Scope scope = {
-        .entry = get_or_create_cf_node(nodes, entry),
+        .entry = entry_node,
         .size = entries_count_list(contents),
         .contents = contents,
         .rpo = NULL
@@ -103,11 +107,15 @@ static Scope build_scope(const Node* entry) {
     destroy_dict(done);
     destroy_list(queue);
 
-    //scope.rpo = malloc(sizeof(const Node*) * scope.size);
+    scope.rpo = malloc(sizeof(const CFNode*) * scope.size);
+    size_t index = post_order_visit(&scope, entry_node, scope.size);
+    assert(index == 0);
 
-    //size_t* indexes = malloc(sizeof(size_t) * scope.size);
-    //size_t index = post_order_visit(entry, scope.size);
-    //assert(index == 0);
+    debug_print("RPO: ");
+    for (size_t i = 0; i < scope.size; i++) {
+        debug_print("%s, ", scope.rpo[i]->node->payload.fn.name);
+    }
+    debug_print("\n");
 
     return scope;
 }
@@ -119,11 +127,22 @@ void dispose_scope(Scope* scope) {
         destroy_list(node->succs);
         free(node);
     }
+    free(scope->rpo);
     destroy_list(scope->contents);
 }
 
-static size_t post_order_visit(const Node* n, size_t i) {
-    SHADY_NOT_IMPLEM;
+static size_t post_order_visit(Scope* scope, CFNode* n, size_t i) {
+    n->rpo_index = -2;
+
+    for (size_t j = 0; j < entries_count_list(n->succs); j++) {
+        CFNode* succ = read_list(CFNode*, n->succs)[j];
+        if (succ->rpo_index == -1)
+            i = post_order_visit(scope, succ, i);
+    }
+
+    n->rpo_index = i - 1;
+    scope->rpo[n->rpo_index] = n;
+    return n->rpo_index;
 }
 
 static int extra_uniqueness = 0;

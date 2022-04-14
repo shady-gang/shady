@@ -12,6 +12,6 @@ void log_string(LogLevel level, const char* format, ...) {
     va_list args;
     va_start(args, format);
     if (level >= log_level)
-        fprintf(stderr, format, args);
+        vfprintf(stderr, format, args);
     va_end(args);
 }
