@@ -10,12 +10,10 @@
 #include <stdint.h>
 #include <assert.h>
 
-extern const char* node_tags[];
-
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-struct SpvEmitter {
+struct Emitter {
     IrArena* arena;
     struct SpvFileBuilder* file_builder;
     SpvId void_t;
@@ -37,11 +35,11 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
     }
 }
 
-SpvId emit_type(struct SpvEmitter* emitter, const Type* type);
-SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_id);
-void emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node* block, SpvId entryBBID, SpvId const* joinBB);
+SpvId emit_type(struct Emitter* emitter, const Type* type);
+SpvId emit_value(struct Emitter* emitter, const Node* node, const SpvId* use_id);
+void emit_block(struct Emitter* emitter, struct SpvFnBuilder* fnb, const Node* block, SpvId entryBBID, SpvId const* joinBB);
 
-void emit_primop(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, Op op, Nodes args, SpvId out[]) {
+void emit_primop(struct Emitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, Op op, Nodes args, SpvId out[]) {
     LARRAY(SpvId, arr, args.count);
     for (size_t i = 0; i < args.count; i++)
         arr[i] = emit_value(emitter, args.nodes[i], NULL);
@@ -55,7 +53,7 @@ void emit_primop(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct Sp
     }
 }
 
-struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* instruction) {
+struct SpvBasicBlockBuilder* emit_instruction(struct Emitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* instruction) {
     switch (instruction->tag) {
         case Let_TAG: {
             const Nodes* variables = &instruction->payload.let.variables;
@@ -93,7 +91,7 @@ struct SpvBasicBlockBuilder* emit_instruction(struct SpvEmitter* emitter, struct
     SHADY_UNREACHABLE;
 }
 
-void emit_terminator(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* terminator, SpvId const* join_bb) {
+void emit_terminator(struct Emitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* terminator, SpvId const* join_bb) {
     switch (terminator->tag) {
         case Return_TAG: {
             const Nodes* ret_values = &terminator->payload.fn_ret.values;
@@ -138,7 +136,7 @@ void emit_terminator(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, struc
     SHADY_UNREACHABLE;
 }
 
-void emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node* node, SpvId entryBBID, SpvId const* join_bb) {
+void emit_block(struct Emitter* emitter, struct SpvFnBuilder* fnb, const Node* node, SpvId entryBBID, SpvId const* join_bb) {
     struct SpvBasicBlockBuilder* basicblock_builder = spvb_begin_bb(fnb, entryBBID);
     const Block* block = &node->payload.block;
     for (size_t i = 0; i < block->instructions.count; i++)
@@ -146,7 +144,7 @@ void emit_block(struct SpvEmitter* emitter, struct SpvFnBuilder* fnb, const Node
     emit_terminator(emitter, fnb, basicblock_builder, block->terminator, join_bb);
 }
 
-SpvId nodes2codom(struct SpvEmitter* emitter, Nodes return_types) {
+SpvId nodes2codom(struct Emitter* emitter, Nodes return_types) {
     switch (return_types.count) {
         case 0: return emitter->void_t;
         case 1: return emit_type(emitter, return_types.nodes[0]);
@@ -157,7 +155,7 @@ SpvId nodes2codom(struct SpvEmitter* emitter, Nodes return_types) {
     }
 }
 
-SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_id) {
+SpvId emit_value(struct Emitter* emitter, const Node* node, const SpvId* use_id) {
     SpvId* existing = find_value_dict(struct Node*, SpvId, emitter->node_ids, node);
     if (existing)
         return *existing;
@@ -201,7 +199,7 @@ SpvId emit_value(struct SpvEmitter* emitter, const Node* node, const SpvId* use_
     return new;
 }
 
-SpvId emit_type(struct SpvEmitter* emitter, const Type* type) {
+SpvId emit_type(struct Emitter* emitter, const Type* type) {
     SpvId* existing = find_value_dict(struct Node*, SpvId, emitter->node_ids, type);
     if (existing)
         return *existing;
@@ -255,7 +253,7 @@ void emit(IrArena* arena, const Node* root_node, FILE* output) {
 
     struct SpvFileBuilder* file_builder = spvb_begin();
 
-    struct SpvEmitter emitter = {
+    struct Emitter emitter = {
         .arena = arena,
         .file_builder = file_builder,
         .node_ids = new_dict(struct Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
