@@ -192,7 +192,7 @@ static const Node* type_terminator(struct TypeRewriter* ctx, const Node* node) {
             });
         }
         case Jump_TAG: {
-            const Node* ntarget = type_value(ctx, node->payload.jump.target, NULL);
+            const Node* ntarget = type_fn(ctx, node->payload.jump.target);
 
             assert(get_qualifier(ntarget->type) == Uniform);
             assert(without_qualifier(ntarget->type)->tag == FnType_TAG);

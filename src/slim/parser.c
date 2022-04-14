@@ -318,6 +318,7 @@ const Node* expect_block(ctxparams, bool implicit_join) {
     destroy_list(instructions);
 
     const Node* terminator = accept_terminator(ctx);
+    expect(accept_token(ctx, semi_tok));
     if (!terminator) {
         if (implicit_join)
             terminator = join(arena);
