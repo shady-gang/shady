@@ -68,28 +68,7 @@ struct SpvBasicBlockBuilder* emit_instruction(struct Emitter* emitter, struct Sp
             }
             return bbb;
         }
-        case IfInstr_TAG: {
-            error("we expect this stuff to be gotten rid of by now actually")
-            /*SpvId condition = emit_value(emitter, instruction->payload.if_instr.condition, NULL);
-            SpvId join_branch = spvb_fresh_id(emitter->file_builder);
-
-            SpvId true_branch = spvb_fresh_id(emitter->file_builder);
-            SpvId false_branch = spvb_fresh_id(emitter->file_builder);
-
-            emit_block(emitter, fnb, instruction->payload.if_instr.if_true, true_branch, &join_branch);
-            if (instruction->payload.if_instr.if_false)
-                emit_block(emitter, fnb, instruction->payload.if_instr.if_false, false_branch, &join_branch);
-
-            spvb_selection_merge(bbb, join_branch, 0);
-
-            if (instruction->payload.if_instr.if_false)
-                spvb_branch_conditional(bbb, condition, true_branch, false_branch);
-            else
-                spvb_branch_conditional(bbb, condition, true_branch, join_branch);
-
-            struct SpvBasicBlockBuilder* bbb_rest = spvb_begin_bb(fnb, join_branch);
-            return bbb_rest;*/
-        }
+        case IfInstr_TAG: error("we expect this stuff to be gotten rid of by now actually")
         default: error("TODO: emit instruction");
     }
     SHADY_UNREACHABLE;
