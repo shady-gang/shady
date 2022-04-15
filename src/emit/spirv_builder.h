@@ -14,6 +14,7 @@ struct SpvFileBuilder;
 
 SpvId spvb_undef(struct SpvBasicBlockBuilder* bb_builder, SpvId type);
 SpvId spvb_composite(struct SpvBasicBlockBuilder* bb_builder, SpvId aggregate_t, size_t elements_count, SpvId elements[]);
+SpvId spvb_select(struct SpvBasicBlockBuilder* bb_builder, SpvId type, SpvId condition, SpvId if_true, SpvId if_false);
 SpvId spvb_extract(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId composite, size_t indices_count, uint32_t indices[]);
 SpvId spvb_insert(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId object, SpvId composite, size_t indices_count, uint32_t indices[]);
 SpvId spvb_vector_extract_dynamic(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId vector, SpvId index);
@@ -27,6 +28,7 @@ void  spvb_store(struct SpvBasicBlockBuilder* bb_builder, SpvId value, SpvId poi
 SpvId spvb_binop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, SpvId lhs, SpvId rhs);
 void  spvb_branch(struct SpvBasicBlockBuilder* bb_builder, SpvId target);
 void  spvb_branch_conditional(struct SpvBasicBlockBuilder* bb_builder, SpvId condition, SpvId true_target, SpvId false_target);
+void  spvb_switch(struct SpvBasicBlockBuilder* bb_builder, SpvId selector, SpvId default_target, size_t targets_count, SpvId* targets);
 void  spvb_selection_merge(struct SpvBasicBlockBuilder* bb_builder, SpvId merge_bb, SpvSelectionControlMask selection_control) ;
 void  spvb_loop_merge(struct SpvBasicBlockBuilder* bb_builder, SpvId merge_bb, SpvId continue_bb, SpvLoopControlMask loop_control, size_t loop_control_ops_count, uint32_t loop_control_ops[]);
 SpvId spvb_call(struct SpvBasicBlockBuilder* bb_builder, SpvId return_type, SpvId callee, size_t arguments_count, SpvId arguments[]);

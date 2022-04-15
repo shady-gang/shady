@@ -142,6 +142,17 @@ SpvId spvb_composite(struct SpvBasicBlockBuilder* bb_builder, SpvId aggregate_t,
     return id;
 }
 
+SpvId spvb_select(struct SpvBasicBlockBuilder* bb_builder, SpvId type, SpvId condition, SpvId if_true, SpvId if_false) {
+    op(SpvOpSelect, 6);
+    ref_id(type);
+    SpvId id = spvb_fresh_id(bb_builder->file_builder);
+    ref_id(id);
+    ref_id(condition);
+    ref_id(if_true);
+    ref_id(if_false);
+    return id;
+}
+
 SpvId spvb_extract(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId composite, size_t indices_count, uint32_t indices[]) {
     op(SpvOpCompositeExtract, 4u + indices_count);
     ref_id(target_type);
@@ -258,6 +269,16 @@ void spvb_branch_conditional(struct SpvBasicBlockBuilder* bb_builder, SpvId cond
     ref_id(condition);
     ref_id(true_target);
     ref_id(false_target);
+}
+
+void spvb_switch(struct SpvBasicBlockBuilder* bb_builder, SpvId selector, SpvId default_target, size_t targets_count, SpvId* targets) {
+    op(SpvOpSwitch, 3 + targets_count * 2);
+    ref_id(selector);
+    ref_id(default_target);
+    for (size_t i = 0; i < targets_count; i++) {
+        literal_int(targets[i * 2]);
+        ref_id(targets[i * 2 + 1]);
+    }
 }
 
 void spvb_selection_merge(struct SpvBasicBlockBuilder* bb_builder, SpvId merge_bb, SpvSelectionControlMask selection_control) {

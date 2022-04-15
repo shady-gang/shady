@@ -181,14 +181,16 @@ static const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) 
 static const Node* type_terminator(struct TypeRewriter* ctx, const Node* node) {
     switch (node->tag) {
         case Return_TAG: {
-            Nodes return_types = node->payload.fn_ret.fn->payload.fn.return_types;
+            const Node* imported_fn = type_fn(ctx, node->payload.fn_ret.fn);
+            Nodes return_types = imported_fn->payload.fn.return_types;
 
             const Nodes* old_values = &node->payload.fn_ret.values;
             LARRAY(const Node*, nvalues, old_values->count);
             for (size_t i = 0; i < old_values->count; i++)
                 nvalues[i] = type_value(ctx, old_values->nodes[i], return_types.nodes[i]);
             return fn_ret(ctx->dst_arena, (Return) {
-                .values = nodes(ctx->dst_arena, old_values->count, nvalues)
+                .values = nodes(ctx->dst_arena, old_values->count, nvalues),
+                .fn = imported_fn
             });
         }
         case Jump_TAG: {
