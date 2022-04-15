@@ -62,8 +62,6 @@ TOKEN(comma, ",") \
 TOKEN(equal, "=") \
 TOKEN(LIST_END, NULL)
 
-void init_tokenizer_constants();
-
 struct Tokenizer;
 struct Tokenizer* new_tokenizer(char* str);
 void destroy_tokenizer(struct Tokenizer*);

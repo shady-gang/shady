@@ -19,7 +19,9 @@ const char* token_tags[] = {
 };
 
 static size_t token_strings_size[LIST_END_tok];
-void init_tokenizer_constants() {
+static bool constants_initialized = false;
+
+static void init_tokenizer_constants() {
     for (int i = 0; i < LIST_END_tok; i++) {
         token_strings_size[i] = token_strings[i] == NULL ? -1U : strlen(token_strings[i]);
     }
@@ -33,6 +35,11 @@ struct Tokenizer {
 };
 
 struct Tokenizer* new_tokenizer(char* str) {
+    if (!constants_initialized) {
+        init_tokenizer_constants();
+        constants_initialized = true;
+    }
+
     struct Tokenizer* tokenizer = (struct Tokenizer*) malloc(sizeof(struct Tokenizer));
     *tokenizer = (struct Tokenizer) {
         .str = str,

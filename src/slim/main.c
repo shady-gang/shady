@@ -1,5 +1,4 @@
 #include "ir.h"
-#include "token.h"
 
 #include "../implem.h"
 #include "../passes/passes.h"
@@ -79,8 +78,6 @@ static void process_arguments(int argc, const char** argv) {
 }
 
 int main(int argc, const char** argv) {
-    init_tokenizer_constants();
-
     IrArena* arena = new_arena((IrConfig) {
         .check_types = false
     });
