@@ -1,10 +1,11 @@
+#include "../implem.h"
+#include "token.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
-
-#include "token.h"
 
 static const char* token_strings[] = {
 #define TOKEN(name, str) str,
@@ -80,9 +81,9 @@ static void eat_whitespace_and_comments(struct Tokenizer* tokenizer) {
 struct Token next_token(struct Tokenizer* tokenizer) {
     eat_whitespace_and_comments(tokenizer);
     if (tokenizer->pos == tokenizer->original_size) {
-        printf("EOF\n");
+        debug_print("EOF\n");
         struct Token token = (struct Token) {
-                .tag = EOF_tok
+            .tag = EOF_tok
         };
         tokenizer->current = token;
         return token;
@@ -135,7 +136,7 @@ struct Token next_token(struct Tokenizer* tokenizer) {
         goto parsed_successfully;
     }
 
-    printf("We don't know how to tokenize %.16s...\n", slice);
+    error_print("We don't know how to tokenize %.16s...\n", slice);
     exit(-2);
 
     parsed_successfully:
@@ -144,7 +145,7 @@ struct Token next_token(struct Tokenizer* tokenizer) {
     tokenizer->pos += token_size;
     tokenizer->current = token;
 
-    printf("(tok=(tag = %s, pos = %zu))\n", token_tags[token.tag], token.start);
+    debug_print("(tok=(tag = %s, pos = %zu))\n", token_tags[token.tag], token.start);
     return token;
 }
 
