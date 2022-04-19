@@ -1,7 +1,8 @@
 #include "list.h"
 #include "dict.h"
 
-#include "../implem.h"
+#include "../log.h"
+#include "../local_array.h"
 #include "../type.h"
 #include "../analysis/scope.h"
 

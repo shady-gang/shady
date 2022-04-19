@@ -17,3 +17,7 @@ char* read_file(const char* filename) {
     string[fsize] = 0;
     return string;
 }
+
+void error_die() {
+    exit(-1);
+}

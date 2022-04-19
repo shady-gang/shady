@@ -1,5 +1,6 @@
-#include "implem.h"
 #include "type.h"
+#include "log.h"
+#include "arena.h"
 
 #include "murmur3.h"
 #include "dict.h"

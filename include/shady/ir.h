@@ -259,6 +259,7 @@ typedef enum CompilationResult_ {
 
 CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program);
 void emit_spirv(CompilerConfig* config, IrArena*, const Node* root, FILE* output);
+void dump_cfg(FILE* file, const Node* root);
 
 typedef struct Rewriter_ Rewriter;
 

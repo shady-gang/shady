@@ -1,4 +1,6 @@
-#include "../implem.h"
+#include "shady/ir.h"
+
+#include "../log.h"
 #include "../passes/passes.h"
 
 #include <stdlib.h>
@@ -19,6 +21,8 @@ enum SlimErrorCodes {
     MoreThanOneFilename,
     MissingDumpCfgArg
 };
+
+char* read_file(const char* filename);
 
 static void process_arguments(int argc, const char** argv) {
     for (int i = 1; i < argc; i++) {

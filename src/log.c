@@ -1,5 +1,6 @@
-#include "implem.h"
+#include "log.h"
 
+#include <stdio.h>
 #include <stdarg.h>
 
 LogLevel log_level = ERROR;

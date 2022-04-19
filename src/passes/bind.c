@@ -2,7 +2,8 @@
 
 #include "list.h"
 
-#include "../implem.h"
+#include "../log.h"
+#include "../local_array.h"
 
 #include <assert.h>
 #include <string.h>

@@ -2,8 +2,9 @@
 
 #include "../containers/list.h"
 
-#include "../implem.h"
+#include "../log.h"
 #include "../type.h"
+#include "../local_array.h"
 
 #include <stdlib.h>
 #include <stdio.h>

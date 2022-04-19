@@ -1,7 +1,6 @@
 #include "shady/ir.h"
 #include "passes/passes.h"
-
-#include "implem.h"
+#include "log.h"
 
 CompilerConfig default_compiler_config() {
     return (CompilerConfig) {

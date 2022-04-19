@@ -1,33 +1,7 @@
-#ifndef SHADY_IMPLEM_H
-#define SHADY_IMPLEM_H
+#ifndef SHADY_LOG_H
+#define SHADY_LOG_H
 
-#include "shady/ir.h"
-
-#include "local_array.h"
-
-#include "stdlib.h"
-#include "stdio.h"
-
-typedef struct IrArena_ {
-    int nblocks;
-    int maxblocks;
-    void** blocks;
-    size_t available;
-
-    IrConfig config;
-
-    VarId next_free_id;
-
-    struct Dict* node_set;
-    struct Dict* string_set;
-
-    struct Dict* nodes_set;
-    struct Dict* strings_set;
-} IrArena_;
-
-void* arena_alloc(IrArena* arena, size_t size);
-
-VarId fresh_id(IrArena*);
+typedef struct Node_ Node;
 
 typedef enum LogLevel_ {
     DEBUG,
@@ -61,7 +35,7 @@ void log_node(LogLevel level, const Node* node);
 #define SHADY_UNREACHABLE __builtin_unreachable()
 #endif
 #else
-#define SHADY_UNREACHABLE exit(69)
+#define SHADY_UNREACHABLE error_die()
 #endif
 
 #define SHADY_NOT_IMPLEM {    \
@@ -73,15 +47,10 @@ void log_node(LogLevel level, const Node* node);
   fprintf (stderr, "Error at %s:%d: ", __FILE__, __LINE__); \
   fprintf (stderr, __VA_ARGS__);                            \
   fprintf (stderr, "\n");                                   \
-  error_impl();                                             \
+  error_die();                                              \
   SHADY_UNREACHABLE;                                        \
 }
 
-static inline void error_impl() {
-    exit(-1);
-}
-
-char* read_file(const char* filename);
-void dump_cfg(FILE* file, const Node* root);
+static void error_die();
 
 #endif

@@ -1,9 +1,9 @@
 #include "type.h"
 
-#include "implem.h"
+#include "log.h"
+#include "local_array.h"
 
 #include "dict.h"
-#include "murmur3.h"
 
 #include <string.h>
 #include <assert.h>

@@ -1,8 +1,9 @@
 #include "scope.h"
-#include "../implem.h"
+#include "../log.h"
 
 #include "dict.h"
 
+#include <stdlib.h>
 #include <assert.h>
 
 struct List* build_scopes(const Node* root) {

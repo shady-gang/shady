@@ -1,4 +1,5 @@
-#include "../implem.h"
+#include "shady/ir.h"
+#include "../log.h"
 
 #include "list.h"
 #include "dict.h"
