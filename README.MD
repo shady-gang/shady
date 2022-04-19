@@ -1,160 +1,66 @@
 # Shady
 
-`shady` is a small shading language and IR for demonstration purposes. It is meant to map easily to SPIR-V shaders.
+`shady` is a small shading language and IR for research purposes.
+
+Unlike conventional shading languages, `shady` internally represent control flow using continuations and has annotations for varying and uniform values.
+The plan is to develop a alternative programming model to structured control flow, focusing instead of keeping control flow uniform and using masks to handle divergence explicitly.
+
+Technical discussion for shady and SPIR-V in general can be had on [this discord server](https://twitter.com/gobrosse/status/1441323225128968197)
+
+## Design
+
+ * Written in C11
+ * Hash-consed IR with nominal (functions) and structural (everything else) nodes. Structural nodes are immutable.
+ * The function node encodes both functions and continuations. For many intents, the distinction does not matter.
+ * Function bodies (named "blocks" inside the IR) are made out of lists of instructions without control flow, followed by a terminator
+ * Implicit scoping like in Thorin, but using the CFG to establish scopes rather than the uses of params
+
+## Goals
+
+ * Achieve code generation for arbitrarily complex/divergent/indirect programs using magic (hacks)
+ * Emulate missing features by polyfill/shims
+ * SPIR-V is currently the only target, but since other shading languages offer similar programming models, this could be extended to GLSL, HLSL, MSL, WGSL, ...
 
 ## Syntax
 
-The idea is to keep the syntax C-ish (but saner).
+The syntax is under construction. See [grammar.md](GRAMMAR.MD) for a hopefully not-that-outdated grammar file.
+
+Initially the idea was to have C-like syntax, but that was annoying so the only significant remnant is the type-before-id convention.
+
+The current syntax reflects the IR quite closely, and is not meant to be easy to write real programs in directly. In the future we might add enough syntactic sugar to make that feasible though.
 
 ```
-struct Material {
-  float3 -> float4 evaluate;
+// line comments are supported
+def identity = fn varying int(varying int i) {
+    return i;
 };
 
-const Material[] materials;
-extern float3 sunDir;
-
-flat in int matId;
-     in float3 normal;
-
-void main() {
-  Material mat = materials[matId];
-  glFragColor = mat->evaluate(normal);
-}
-
-float4 diffuse(float3 n) {
-  return float4(1) * dot(n, sunDir);
-}
-```
-
-## Codegen for a divergent call
-
-```
-struct Material {
-  cont (varying float3, cont (varying float4)) evaluate;
+def f = fn int (varying int i) {
+    let j = call identity i;
+    let k = add j 1;
+    return k;
 };
+```
 
-const uniform Material[] materials;
-extern uniform float3 sunDir;
+The textual syntax allows nesting functions. The syntax is superficially similar to C labels, but with an added parameters list. 
+Note that this is mostly for making handwritten examples look nicer, the actual nesting of functions/continuations is determined by the CFG analysis after name binding.
 
-flat in varying int matId;
-     in varying float3 normal;
+```
+def f = fn int (varying bool b) {
+    jump bb1 7;
 
-uniform private int _next = 0;
-uniform varying int[16] _args; // parameters to forward to the next basic block
-
-void main() {
-  while (true) {
-    switch (_next) {
-      case 0: main_bb0(); break;
-      case 1: main_bb1(args[0], args[1] as float); break;
+    bb1: (varying int n) {
+        return n;
     }
-  }
-}
-
-void main_bb0() {
-  varying Material mat = materials[matId];
-  
-  // lowered non-uniform indirect call into a loop
-  main_divergent_call_loop_head(mat->evaluate, undef, true)
-}
-
-// non-uniform iteration continue
-@masked
-cont main_divergent_call_loop_head(varying cont (varying float4) divergent_target, varying float4 join_value, varying bool mask) {
-
-  cont main_divergent_call_loop_exit() {
-      main_end(join_value)
-  }
-  
-  cont main_divergent_call_loop_continue() {
-    uniform cont (varying float4) voted_next = first_active_lane(mask, divergent_target);
-      
-    // call the function uniformingly, but with a mask, and special handling of the result
-    varying float4 return_join_value = callc voted_next(normal, return_wrap, nmask);
-      
-    // depending on if we actually executed what we just returned from, we accept the new join value or keep the old one
-    varying float4 merged_join_value = mask ? return_join_value : join_value;
-      
-    // kill invocations which are now satisfied
-    varying bool nmask = mask & voted_next != divergent_target;
-        
-    main_divergent_call_loop_head(divergent_target, merged_join_value, nmask)
-  }
-
-  uniform cont (varying cont (varying float4), varying float4) next = 
-    any(mask) ?
-      main_divergent_call_loop_continue : main_divergent_call_loop_exit;
-  next()
-}
-
-void main_end(float4 a0) {
-  glFragColor = a0;
-  terminate()
-}
-
-@masked @function @indirect_callable
-void diffuse(float3 n, cont float4 ret, varying bool mask) {
-  ret(float4(1) * dot(n, sunDir), mask)
-}
+};
 ```
 
-## Details of callc implementation
-
-Lower callc by splitting the continuation in two, and saving the variables that outlive the call in the stack.
-
-TODO: clarify when using some static storage is possible (it has something to do with recursion...)
+This is the current syntax for externals/global/IO variables. The `extern` variables are mapped to push constants/ubo/ssbos at the runtime's discretion.
 
 ```
-@masked
-cont main_divergent_call_loop_head(varying cont float4 divergent_target, varying float4 join_value, varying bool mask) {
-  cont main_divergent_call_loop_head() {
-    // save this state, we need it later when returning from the call
-    push divergent_target;
-    push join_value;
-    push mask;
-  
-    uniform cont float4 voted_next = alive_vote(divergent_target);
-    
-    // call the function uniformingly, but with a mask, and special handling of the result
-    voted_next(normal, return_wrap, nmask)
-  }
-  
-  cont main_divergent_call_loop_exit() { ... }
-  
-  @masked @indirect_reachable
-  void return_wrap(varying float4 ret_value, varying bool ret_mask) {
-    // we return from the call. We now need the old state back
-    varying bool mask = pop;
-    varying float4 join_value = pop;
-    varying divergent_target = pop;
-    
-    // depending on if we actually executed what we just returned from, we accept the new join value or keep the old one
-    varying float4 merged_join_value = ret_mask ? ret_value : join_value;
-    
-    // kill invocations which are now satisfied
-    varying bool nmask = mask & !ret_mask;
-      
-    main_divergent_call_loop_head(divergent_target, merged_join_value, nmask)
-  }
-  
-  ...
-}
+input   int x;
+output  int y;
+shared  int z;
+private int w;
+extern  int a;
 ```
-
-Continuation calling conv:
- * regular parameters
- * [return address] if function
- * [execution mask] if potentially divergent
-
-Join points 
-
-## Varying-inference
-
-| Case | Inferred as |
-|--------------|---------|
-| `extern`     | Uniform |
-| `const`      | Uniform |
-| `in`         | Varying |
-| `out`        | Varying |
-| fn parameter | Varying |
