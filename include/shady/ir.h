@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 typedef struct IrArena_ IrArena;
 
@@ -245,6 +246,19 @@ typedef struct IrConfig_ {
 
 IrArena* new_arena(IrConfig);
 void destroy_arena(IrArena*);
+
+typedef struct CompilerConfig_ {
+    bool use_loop_for_fn_body;
+} CompilerConfig;
+
+CompilerConfig default_compiler_config();
+
+typedef enum CompilationResult_ {
+    CompilationNoError
+} CompilationResult;
+
+CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program);
+void emit_spirv(CompilerConfig* config, IrArena*, const Node* root, FILE* output);
 
 typedef struct Rewriter_ Rewriter;
 

@@ -80,6 +80,8 @@ int main(int argc, const char** argv) {
         .check_types = false
     });
 
+    CompilerConfig config = default_compiler_config();
+
     process_arguments(argc, argv);
 
     info_print("compiling %s\n", input_filename);
@@ -99,22 +101,7 @@ int main(int argc, const char** argv) {
     info_print("Parsed program successfully: \n");
     print_node(program);
 
-    program = bind_program(arena, arena, program);
-    info_print("Bound program successfully: \n");
-    info_node(program);
-
-    IrArena* typed_arena = new_arena((IrConfig) {
-        .check_types = true
-    });
-    program = type_program(arena, typed_arena, program);
-    destroy_arena(arena);
-    arena = typed_arena;
-    info_print("Typed program successfully: \n");
-    info_node(program);
-
-    program = instr2bb(arena, arena, program);
-    info_print("instr2bb pass: \n");
-    info_node(program);
+    CompilationResult result = run_compiler_passes(&config, &arena, &program);
 
     if (cfg_output) {
         FILE* cfg_output_f = fopen(cfg_output, "wb");
@@ -125,7 +112,7 @@ int main(int argc, const char** argv) {
 
     info_print("Emitting final result ... \n");
     FILE *output = fopen(output_filename, "wb");
-    emit(arena, program, output);
+    emit_spirv(&config, arena, program, output);
     fclose(output);
     info_print("Done\n");
 

@@ -14,18 +14,8 @@
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-typedef struct EmitterConfiguration_ {
-    bool use_loop_for_fn_body;
-} EmitterConfiguration;
-
-EmitterConfiguration default_emitter_configuration() {
-    return (EmitterConfiguration) {
-        .use_loop_for_fn_body = true
-    };
-}
-
 typedef struct Emitter_ {
-    EmitterConfiguration configuration;
+    CompilerConfig* configuration;
     IrArena* arena;
     struct SpvFileBuilder* file_builder;
     SpvId void_t;
@@ -128,7 +118,7 @@ void emit_terminator(Emitter* emitter, FunctionEmissionCtx* fn_ectx, BBEmissionC
             assert(terminator->payload.jump.args.count == 0 && "TODO: implement bb params");
 
             BBEmissionCtx* tgt_ctx = find_bb_ctx(fn_ectx, terminator->payload.jump.target);
-            if (emitter->configuration.use_loop_for_fn_body) {
+            if (emitter->configuration->use_loop_for_fn_body) {
                 SpvId tgt_case_id = emit_value(emitter, int_literal(emitter->arena, (IntLiteral) {
                     .value = tgt_ctx->case_id,
                 }), NULL);
@@ -146,7 +136,7 @@ void emit_terminator(Emitter* emitter, FunctionEmissionCtx* fn_ectx, BBEmissionC
 
             SpvId condition = emit_value(emitter, terminator->payload.branch.condition, NULL);
 
-            if (emitter->configuration.use_loop_for_fn_body) {
+            if (emitter->configuration->use_loop_for_fn_body) {
                 SpvId true_tgt_case_id = emit_value(emitter, int_literal(emitter->arena, (IntLiteral) {
                     .value = if_true_ctx->case_id,
                 }), NULL);
@@ -243,7 +233,7 @@ SpvId emit_function(Emitter* emitter, const Node* node, const SpvId new) {
     SpvId loop_unreachable_bb = spvb_fresh_id(emitter->file_builder);
         spvb_name(emitter->file_builder, loop_unreachable_bb, "loop_unreachable");
 
-    if (emitter->configuration.use_loop_for_fn_body) {
+    if (emitter->configuration->use_loop_for_fn_body) {
         fn_emit_ctx.next_bb_var = spvb_local_variable(fn_builder, ptr_int_spv, SpvStorageClassFunction);
         fn_emit_ctx.fn_loop_continue = spvb_fresh_id(emitter->file_builder);
         SpvId entry_block_id = spvb_fresh_id(emitter->file_builder);
@@ -371,19 +361,17 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
     return new;
 }
 
-void emit(IrArena* arena, const Node* root_node, FILE* output) {
+void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, FILE* output) {
     const Root* top_level = &root_node->payload.root;
     struct List* words = new_list(uint32_t);
 
     struct SpvFileBuilder* file_builder = spvb_begin();
 
     Emitter emitter = {
-        .configuration = default_emitter_configuration(),
+        .configuration = config,
         .arena = arena,
         .file_builder = file_builder,
         .node_ids = new_dict(struct Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
-
-                //.bbs = new_dict(struct Node*, , (HashFn) hash_node, (CmpFn) compare_node),
     };
 
     emitter.void_t = spvb_void_type(emitter.file_builder);

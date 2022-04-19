@@ -11,6 +11,7 @@ set(SHADY_SOURCES
     print.c
     log.c
     util.c
+    compile.c
     transform/import.c
     analysis/scope.c
     passes/bind.c
