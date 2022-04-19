@@ -38,6 +38,7 @@ NODEDEF(1, 1, 1, IfInstr, if_instr) \
 NODEDEF(1, 1, 1, Return, fn_ret) \
 NODEDEF(1, 1, 1, Jump, jump) \
 NODEDEF(1, 1, 1, Branch, branch) \
+NODEDEF(1, 1, 1, Callf, callf) \
 NODEDEF(1, 0, 0, Join, join) \
 NODEDEF(1, 0, 0, Unreachable, unreachable) \
 
@@ -172,6 +173,13 @@ typedef struct Branch_ {
     const Node* continue_target;
     Nodes args;
 } Branch;
+
+/// Call function (with return continuation)
+typedef struct Callf_ {
+    const Node* ret_cont;
+    const Node* target;
+    Nodes args;
+} Callf;
 
 /// The body inside functions, continuations, if branches ...
 typedef struct Block_ {

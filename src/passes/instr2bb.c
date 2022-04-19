@@ -1,5 +1,6 @@
 #include "shady/ir.h"
 #include "../log.h"
+#include "../type.h"
 
 #include "list.h"
 #include "dict.h"
@@ -11,6 +12,8 @@ struct Instr2BBRewriter {
     struct Dict* done;
 };
 
+static const Node* instr2bb_process(struct Instr2BBRewriter* rewriter, const Node* node);
+
 static const Node* handle_block(struct Instr2BBRewriter* rewriter, const Node* node, size_t start, Node** join) {
     assert(node->tag == Block_TAG);
     IrArena* dst_arena = rewriter->rewriter.dst_arena;
@@ -21,9 +24,32 @@ static const Node* handle_block(struct Instr2BBRewriter* rewriter, const Node* n
         const Node* instruction = old_block->instructions.nodes[i];
         switch (instruction->tag) {
             case Let_TAG: {
-                const Node* imported = recreate_node_identity(&rewriter->rewriter, instruction);
-                append_list(const Node*, accumulator, imported);
-                break;
+                if (instruction->payload.let.op == call_op) {
+                    const Node* callee = instruction->payload.let.args.nodes[0];
+                    assert(get_qualifier(callee->type) == Uniform);
+                    const Type* callee_type = without_qualifier(callee->type);
+                    assert(callee_type->tag == FnType_TAG);
+
+                    size_t args_count = instruction->payload.let.args.count - 1;
+
+                    Node* rest = fn(dst_arena, true, unique_name(dst_arena, "call_ret"), instruction->payload.let.variables, nodes(dst_arena, 0, NULL));
+                    rest->payload.fn.block = handle_block(rewriter, node, i + 1, join);
+
+                    Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
+                    destroy_list(accumulator);
+                    return block(dst_arena, (Block) {
+                        .instructions = instructions,
+                        .terminator = callf(dst_arena, (Callf) {
+                            .ret_cont = rest,
+                            .target = instr2bb_process(rewriter, callee),
+                            .args = nodes(dst_arena, args_count, &instruction->payload.let.args.nodes[1])
+                        })
+                    });
+                } else {
+                    const Node* imported = recreate_node_identity(&rewriter->rewriter, instruction);
+                    append_list(const Node*, accumulator, imported);
+                    break;
+                }
             }
             case IfInstr_TAG: {
                 bool has_false_branch = instruction->payload.if_instr.if_false;

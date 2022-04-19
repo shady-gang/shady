@@ -19,5 +19,5 @@ char* read_file(const char* filename) {
 }
 
 void error_die() {
-    exit(-1);
+    abort();
 }

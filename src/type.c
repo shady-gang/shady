@@ -91,6 +91,16 @@ const Type* without_qualifier(const Type* type) {
     return strip_qualifier(type, &dontcare);
 }
 
+const Type* check_qualifier_uniform(const Type* type) {
+    DivergenceQualifier docare;
+    const Type* stripped = strip_qualifier(type, &docare);
+    if (docare != Uniform) {
+        error_node(type);
+        error("this type should be qualified with uniform");
+    }
+    return stripped;
+}
+
 Nodes extract_variable_types(IrArena* arena, const Nodes* variables) {
     LARRAY(const Type*, arr, variables->count);
     for (size_t i = 0; i < variables->count; i++)
@@ -103,7 +113,7 @@ const Type* derive_fn_type(IrArena* arena, const Function* fn) {
 }
 
 Nodes check_call(IrArena* arena, const Node* callee, size_t argsc, const Node* args[]) {
-    const Type* callee_type = callee->type;
+    const Type* callee_type = without_qualifier(callee->type);
     if (callee_type->tag != FnType_TAG)
         error("Callees must have a function type");
     if (callee_type->payload.fn_type.param_types.count != argsc)
@@ -120,7 +130,7 @@ Nodes check_call(IrArena* arena, const Node* callee, size_t argsc, const Node* a
             error("Incorrect argument type for argument %zu", i);
         }
     }
-    return callee_type->payload.fn.return_types;
+    return callee_type->payload.fn_type.return_types;
 }
 
 const Type* check_type_fn(IrArena* arena, Function fn) {
@@ -198,6 +208,29 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
     assert(without_qualifier(branch.false_target->type)->tag == FnType_TAG);
 
     // TODO check arguments and that both branches match
+    return NULL;
+}
+
+const Type* check_type_callf(IrArena* arena, Callf callf) {
+    // todo some rules on uniformity might be in order here
+    const Type* unqual_ret_cont_type = check_qualifier_uniform(callf.ret_cont->type);
+
+    if (unqual_ret_cont_type->tag != FnType_TAG)
+        error("callf's first argument must be a function type");
+    const FnType* join_cont_type = &unqual_ret_cont_type->payload.fn_type;
+
+    // actually let's not check that because at some point we'll turn those conts into first-class functions
+    // as part of the strategy for implementing calls
+    // if (join_cont_type->is_continuation)
+
+    const Nodes returned_types = check_call(arena, callf.target, callf.args.count, callf.args.nodes);
+    if (join_cont_type->param_types.count != returned_types.count)
+        error("the callf return domain does not match the callee codomain");
+    for (size_t i = 0; i < join_cont_type->param_types.count; i++) {
+        if (!is_subtype(join_cont_type->param_types.nodes[i], returned_types.nodes[i]))
+            error("the callf return domain does not match the callee codomain");
+    }
+
     return NULL;
 }
 

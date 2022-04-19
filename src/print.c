@@ -205,6 +205,16 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
                 print_node(node->payload.branch.args.nodes[i]);
             }
             break;
+        case Callf_TAG:
+            printf("callf ");
+            print_node(node->payload.callf.ret_cont);
+            printf(" ");
+            print_node(node->payload.callf.target);
+            for (size_t i = 0; i < node->payload.callf.args.count; i++) {
+                printf(" ");
+                print_node(node->payload.callf.args.nodes[i]);
+            }
+            break;
         case Unreachable_TAG:
             printf("unreachable ");
             break;
