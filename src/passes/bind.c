@@ -97,21 +97,24 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             LARRAY(const Node*, new_definitions, count);
 
             for (size_t i = 0; i < count; i++) {
-                const Node* variable = src_root->variables.nodes[i];
+                const Node* old_variable = src_root->variables.nodes[i];
 
-                const Node* new_variable = var(rewriter->dst_arena, rewrite_node(rewriter, variable->payload.var.type), string(rewriter->dst_arena, variable->payload.var.name));
+                const Node* new_variable = var(rewriter->dst_arena, rewrite_node(rewriter, old_variable->payload.var.type), string(rewriter->dst_arena, old_variable->payload.var.name));
 
                 struct BindEntry entry = {
-                    .name = variable->payload.var.name,
+                    .name = old_variable->payload.var.name,
                     .bound_node = new_variable
                 };
+
                 append_list(struct BindEntry, ctx->bound_variables, entry);
                 printf("Bound root def %s\n", entry.name);
                 new_variables[i] = new_variable;
             }
 
-            for (size_t i = 0; i < count; i++)
-                new_definitions[i] = bind_node(ctx, src_root->definitions.nodes[i]);
+            for (size_t i = 0; i < count; i++) {
+                const Node* old_definition = src_root->definitions.nodes[i];
+                new_definitions[i] = bind_node(ctx, old_definition);
+            }
 
             return root(rewriter->dst_arena, (Root) {
                 .variables = nodes(rewriter->dst_arena, count, new_variables),

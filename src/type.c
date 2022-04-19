@@ -102,17 +102,26 @@ const Type* derive_fn_type(IrArena* arena, const Function* fn) {
     return fn_type(arena, (FnType) { .is_continuation = fn->is_continuation, .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
 }
 
-/*Nodes check_type_call(IrArena* arena, Call call) {
-    const Type* callee_type = ensure_value_t(call.callee->yields);
+Nodes check_call(IrArena* arena, const Node* callee, size_t argsc, const Node* args[]) {
+    const Type* callee_type = callee->type;
     if (callee_type->tag != FnType_TAG)
         error("Callees must have a function type");
-    if (callee_type->payload.fn_type.param_types.count != call.args.count)
+    if (callee_type->payload.fn_type.param_types.count != argsc)
         error("Mismatched argument counts");
-    for (size_t i = 0; i < call.args.count; i++) {
-        // TODO
+    for (size_t i = 0; i < argsc; i++) {
+        const Node* arg = args[i];
+        assert(arg && arg->type);
+        if (!is_subtype(callee_type->payload.fn_type.param_types.nodes[i], arg->type)) {
+            error_print("calle is :");
+            print_node(callee);
+            error_print("arg #%zu is: \n", i);
+            print_node(arg);
+            error_print("\n");
+            error("Incorrect argument type for argument %zu", i);
+        }
     }
     return callee_type->payload.fn.return_types;
-}*/
+}
 
 const Type* check_type_fn(IrArena* arena, Function fn) {
     assert(!fn.is_continuation || fn.return_types.count == 0);
@@ -128,6 +137,7 @@ const Type* check_type_var_decl(IrArena* arena, VariableDecl decl) {
 }
 
 const Type* check_type_var(IrArena* arena, Variable variable) {
+    assert(variable.type);
     assert(get_qualifier(variable.type) != Unknown);
     return variable.type;
 }
@@ -148,11 +158,22 @@ const Type* check_type_false_lit(IrArena* arena) { return bool_type(arena); }
 
 const Type* check_type_let(IrArena* arena, Let let) {
     Nodes var_tys = extract_variable_types(arena, &let.variables);
-    Nodes yields = op_yields(arena, let.op, let.args);
-    if (yields.count != var_tys.count)
+
+    // todo check inputs
+
+    Nodes output_types;
+    if (let.op == call_op) {
+        const Node* callee = let.args.nodes[0];
+        assert(get_qualifier(callee->type) == Uniform);
+        output_types = without_qualifier(callee->type)->payload.fn_type.return_types;
+    } else
+        output_types = op_yields(arena, let.op, let.args);
+
+    // check outputs
+    if (output_types.count != var_tys.count)
         error("let variables count != yield count from operation")
     for (size_t i = 0; i < var_tys.count; i++)
-        check_subtype(var_tys.nodes[i], yields.nodes[i]);
+        check_subtype(var_tys.nodes[i], output_types.nodes[i]);
     return NULL;
 }
 
@@ -200,7 +221,11 @@ Nodes op_params(IrArena* arena, Op op, Nodes args) {
     switch (op) {
         case add_op:
         case sub_op: return nodes(arena, 2, (const Type*[]){ int_type(arena), int_type(arena) });
-            default: error("unhandled op params");
+        case call_op: {
+            assert(args.count >= 1);
+            return check_call(arena, args.nodes[0], args.count - 1, &args.nodes[1]);
+        }
+        default: error("unhandled op params");
     }
 }
 

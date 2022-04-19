@@ -1,0 +1,9 @@
+def identity = fn varying int(varying int i) {
+    return i;
+};
+
+def f = fn int (varying int i) {
+    let j = call identity i;
+    let k = add j 1;
+    return k;
+};

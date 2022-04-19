@@ -8,7 +8,6 @@
 #include "dict.h"
 
 #include <assert.h>
-#include <string.h>
 
 struct BindEntry {
     VarId id;
@@ -16,6 +15,7 @@ struct BindEntry {
 };
 
 struct TypeRewriter {
+    IrArena* src_arena;
     IrArena* dst_arena;
     struct List* typed_variables;
     struct Dict* rewritten_fns;
@@ -121,25 +121,52 @@ static const Node* type_value_or_def(struct TypeRewriter* ctx, const Node* node,
     return typed;
 }
 
-static Nodes type_primop_or_call(struct TypeRewriter* ctx, Op op, Nodes oldargs, size_t expected_count, const Type* actual_yield_types[]) {
+static Nodes type_primop_or_call(struct TypeRewriter* ctx, Op op, Nodes old_inputs, size_t outputs_count, const Type* output_types[]) {
     IrArena* dst_arena = ctx->dst_arena;
 
-    Nodes param_tys = op_params(dst_arena, op, oldargs);
+    LARRAY(const Node*, new_inputs_scratch, old_inputs.count);
+    Nodes yield_tys;
 
-    const size_t argsc = oldargs.count;
-    assert(argsc == param_tys.count);
-    LARRAY(const Node*, nargs, argsc);
-    for (size_t i = 0; i < argsc; i++)
-        nargs[i] = type_value(ctx, oldargs.nodes[i], param_tys.nodes[i]);
+    if (op == call_op) {
+        assert(old_inputs.count >= 1);
+        size_t fn_args_count = old_inputs.count - 1;
 
-    Nodes typed_args = nodes(dst_arena, argsc, nargs);
-    Nodes yield_tys = op_yields(dst_arena, op, typed_args);
+        const Node* new_callee = type_value(ctx, old_inputs.nodes[0], NULL);
+        new_inputs_scratch[0] = new_callee;
 
-    assert(expected_count == yield_tys.count);
-    for (size_t i = 0; i < yield_tys.count; i++)
-        actual_yield_types[i] = yield_tys.nodes[i];
+        const Type* callee_type = without_qualifier(new_callee->type);
+        if (callee_type->tag != FnType_TAG)
+            error("Callees must have a function type");
+        if (callee_type->payload.fn_type.param_types.count != fn_args_count)
+            error("Mismatched argument counts");
+        for (size_t i = 0; i < fn_args_count; i++) {
+            const Node* arg = old_inputs.nodes[1 + i];
+            assert(arg);
+            new_inputs_scratch[1 + i] = type_value(ctx, old_inputs.nodes[1 + i], callee_type->payload.fn_type.param_types.nodes[i]);
+        }
+        yield_tys = callee_type->payload.fn_type.return_types;
+    } else {
+        Nodes input_types;
+        switch (op) {
+            case add_op:
+            case sub_op: input_types = nodes(dst_arena, 2, (const Type*[]){ int_type(dst_arena), int_type(dst_arena) }); break;
+            default: error("unhandled op params");
+        }
 
-    return typed_args;
+        assert(input_types.count == old_inputs.count);
+        for (size_t i = 0; i < input_types.count; i++)
+            new_inputs_scratch[i] = type_value(ctx, old_inputs.nodes[i], input_types.nodes[i]);
+
+        yield_tys = op_yields(dst_arena, op, nodes(dst_arena, old_inputs.count, new_inputs_scratch));
+    }
+
+    assert(outputs_count == yield_tys.count);
+    for (size_t i = 0; i < yield_tys.count; i++) {
+        output_types[i] = yield_tys.nodes[i];
+        assert(get_qualifier(output_types[i]) != Unknown);
+    }
+
+    return nodes(dst_arena, old_inputs.count, new_inputs_scratch);
 }
 
 static const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) {
@@ -148,19 +175,19 @@ static const Node* type_instruction(struct TypeRewriter* ctx, const Node* node) 
             const size_t count = node->payload.let.variables.count;
 
             LARRAY(const Type*, output_types, count);
-            Nodes rewritten_args = type_primop_or_call(ctx, node->payload.let.op, node->payload.let.args, count, output_types);
+            Nodes new_ops = type_primop_or_call(ctx, node->payload.let.op, node->payload.let.args, count, output_types);
 
-            struct TypeRewriter vars_infer_ctx = *ctx;
-            LARRAY(const Node*, nvars, count);
+            // extract the outputs
+            LARRAY(const Node*, noutputs, count);
             for (size_t i = 0; i < count; i++) {
                 const Variable* old_output = &node->payload.let.variables.nodes[i]->payload.var;
-                nvars[i] = new_binder(&vars_infer_ctx, old_output->name, output_types[i], old_output->id);
+                noutputs[i] = new_binder(ctx, old_output->name, output_types[i], old_output->id);
             }
 
             return let(ctx->dst_arena, (Let) {
-                .variables = nodes(ctx->dst_arena, count, nvars),
+                .variables = nodes(ctx->dst_arena, count, noutputs),
                 .op = node->payload.let.op,
-                .args = rewritten_args
+                .args = new_ops
             });
         }
         case IfInstr_TAG: {
@@ -230,23 +257,42 @@ static const Node* type_root(struct TypeRewriter* ctx, const Node* node) {
             LARRAY(const Node*, new_definitions, count);
 
             for (size_t i = 0; i < count; i++) {
-                const Variable* oldvar = &node->payload.root.variables.nodes[i]->payload.var;
-                const Type* imported_ty = import_node(ctx->dst_arena, oldvar->type);
+                // we rely on this being zeroed
+                new_definitions[i] = NULL;
 
-                // Some top-level stuff does not have a definition
-                if (node->payload.root.definitions.nodes[i] == NULL) {
-                    new_variables[i] = new_binder(ctx, oldvar->name, imported_ty, oldvar->id);
-                    new_definitions[i] = NULL;
-                } else {
-                    new_definitions[i] = type_value_or_def(ctx, node->payload.root.definitions.nodes[i], imported_ty);
+                const Variable* old_var = &node->payload.root.variables.nodes[i]->payload.var;
+                const Node* old_definition = node->payload.root.definitions.nodes[i];
+
+                const Type* imported_ty = import_node(ctx->dst_arena, old_var->type);;
+                if (old_definition) {
+                    // in the case of literals, we allow importing the definition first since it cannot depend on neighbouring defs
+                    if (old_definition->tag != Function_TAG) {
+                        new_definitions[i] = type_value_or_def(ctx, old_definition, imported_ty);
+                        imported_ty = new_definitions[i]->type;
+                    } else {
+                        const Node* derived_fn_type = derive_fn_type(ctx->src_arena, &old_definition->payload.fn);
+                        // we lack the ability to refine a function type currently, either a fully qualified type is given, or it's fully inferred.
+                        assert(!imported_ty || imported_ty == derived_fn_type);
+                        imported_ty = qualified_type(ctx->dst_arena, (QualifiedType) {
+                            .type = import_node(ctx->dst_arena, derived_fn_type),
+                            .is_uniform = true
+                        });
+                    }
                 }
+
+                assert(get_qualifier(imported_ty) != Unknown);
+
+                new_variables[i] = new_binder(ctx, old_var->name, imported_ty, old_var->id);
             }
 
             for (size_t i = 0; i < count; i++) {
-                if (node->payload.root.definitions.nodes[i] == NULL) continue;
+                assert(new_variables[i]->type);
+                const Node* old_definition = node->payload.root.definitions.nodes[i];
 
-                const Variable* oldvar = &node->payload.root.variables.nodes[i]->payload.var;
-                new_variables[i] = new_binder(ctx, oldvar->name, new_definitions[i]->type, oldvar->id);
+                // if there was no definition, or if it was already imported, bail
+                if (old_definition == NULL || new_definitions[i] != NULL) continue;
+
+                new_definitions[i] = type_value_or_def(ctx, old_definition, new_variables[i]->type);
             }
 
             return root(ctx->dst_arena, (Root) {
@@ -265,6 +311,7 @@ const Node* type_program(IrArena* src_arena, IrArena* dst_arena, const Node* src
     struct List* bound_variables = new_list(struct BindEntry);
     struct Dict* rewritten_fns = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct TypeRewriter ctx = {
+        .src_arena = src_arena,
         .dst_arena = dst_arena,
         .typed_variables = bound_variables,
         .rewritten_fns = rewritten_fns,
