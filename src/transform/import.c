@@ -1,7 +1,8 @@
-#include "ir.h"
+#include "shady/ir.h"
+
+#include "../local_array.h"
 
 #include <stdlib.h>
-#include "../local_array.h"
 
 const Node* import_node(IrArena* arena, const Node* node) {
     Rewriter rewriter = {

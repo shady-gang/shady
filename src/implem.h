@@ -1,7 +1,7 @@
 #ifndef SHADY_IMPLEM_H
 #define SHADY_IMPLEM_H
 
-#include "ir.h"
+#include "shady/ir.h"
 
 #include "local_array.h"
 

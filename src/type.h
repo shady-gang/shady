@@ -1,7 +1,7 @@
 #ifndef SHADY_TYPE_H
 #define SHADY_TYPE_H
 
-#include "ir.h"
+#include "shady/ir.h"
 
 struct TypeTable;
 struct TypeTable* new_type_table();

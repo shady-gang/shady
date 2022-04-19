@@ -1,6 +1,6 @@
 #ifndef SHADY_PASSES_H
 
-#include "ir.h"
+#include "shady/ir.h"
 
 #include <stdio.h>
 

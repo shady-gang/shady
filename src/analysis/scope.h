@@ -1,6 +1,6 @@
 #ifndef SHADY_SCOPE_H
 
-#include "ir.h"
+#include "shady/ir.h"
 
 #include "list.h"
 #include "dict.h"

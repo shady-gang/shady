@@ -2,7 +2,6 @@
 
 #include "../containers/list.h"
 
-#include "ir.h"
 #include "../implem.h"
 #include "../type.h"
 
