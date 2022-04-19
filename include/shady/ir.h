@@ -172,10 +172,6 @@ typedef struct Branch_ {
     Nodes args;
 } Branch;
 
-//typedef struct Join_ {
-//
-//} Join;
-
 /// The body inside functions, continuations, if branches ...
 typedef struct Block_ {
     Nodes instructions;

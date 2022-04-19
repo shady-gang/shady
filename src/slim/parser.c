@@ -16,14 +16,14 @@ extern const char* token_tags[];
 #define ctx contents, arena, tokenizer
 
 #define expect(condition) expect_impl(condition, #condition)
-void expect_impl(bool condition, const char* err) {
+static void expect_impl(bool condition, const char* err) {
     if (!condition) {
-        fprintf(stderr, "expected to parse: %s\n", err);
+        error_print("expected to parse: %s\n", err);
         exit(-4);
     }
 }
 
-bool accept_token(ctxparams, enum TokenTag tag) {
+static bool accept_token(ctxparams, enum TokenTag tag) {
     if (curr_token(tokenizer).tag == tag) {
         next_token(tokenizer);
         return true;
@@ -31,7 +31,7 @@ bool accept_token(ctxparams, enum TokenTag tag) {
     return false;
 }
 
-const char* accept_identifier(ctxparams) {
+static const char* accept_identifier(ctxparams) {
     struct Token tok = curr_token(tokenizer);
     if (tok.tag == identifier_tok) {
         next_token(tokenizer);
@@ -41,10 +41,10 @@ const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-const Node* accept_function(ctxparams, String);
-const Node* expect_block(ctxparams, bool);
+static const Node* accept_function(ctxparams, String);
+static const Node* expect_block(ctxparams, bool);
 
-const Type* accept_unqualified_type(ctxparams) {
+static const Type* accept_unqualified_type(ctxparams) {
     if (accept_token(ctx, int_tok)) {
         return int_type(arena);
     } else if (accept_token(ctx, float_tok)) {
@@ -60,7 +60,7 @@ const Type* accept_unqualified_type(ctxparams) {
     }
 }
 
-DivergenceQualifier accept_uniformity_qualifier(ctxparams) {
+static DivergenceQualifier accept_uniformity_qualifier(ctxparams) {
     DivergenceQualifier divergence = Unknown;
     if (accept_token(ctx, uniform_tok))
         divergence = Uniform;
@@ -69,7 +69,7 @@ DivergenceQualifier accept_uniformity_qualifier(ctxparams) {
     return divergence;
 }
 
-const Type* accept_maybe_qualified_type(ctxparams) {
+static const Type* accept_maybe_qualified_type(ctxparams) {
     DivergenceQualifier qualifier = accept_uniformity_qualifier(ctx);
     const Type* unqualified = accept_unqualified_type(ctx);
     if (qualifier != Unknown)
@@ -80,7 +80,7 @@ const Type* accept_maybe_qualified_type(ctxparams) {
         return qualified_type(arena, (QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
 }
 
-const Type* accept_qualified_type(ctxparams) {
+static const Type* accept_qualified_type(ctxparams) {
     DivergenceQualifier qualifier = accept_uniformity_qualifier(ctx);
     if (qualifier == Unknown)
         return NULL;
@@ -89,7 +89,7 @@ const Type* accept_qualified_type(ctxparams) {
     return qualified_type(arena, (QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
 }
 
-Nodes expect_parameters(ctxparams) {
+static Nodes expect_parameters(ctxparams) {
     expect(accept_token(ctx, lpar_tok));
     struct List* params = new_list(Node*);
     while (true) {
@@ -116,7 +116,7 @@ Nodes expect_parameters(ctxparams) {
     return variables2;
 }
 
-Nodes accept_types(ctxparams, enum TokenTag separator, bool expect_qualified) {
+static Nodes accept_types(ctxparams, enum TokenTag separator, bool expect_qualified) {
     struct List* types = new_list(Type*);
     while (true) {
         const Type* type = expect_qualified ? accept_qualified_type(ctx) : accept_maybe_qualified_type(ctx);
@@ -134,7 +134,7 @@ Nodes accept_types(ctxparams, enum TokenTag separator, bool expect_qualified) {
     return types2;
 }
 
-const Node* accept_literal(ctxparams) {
+static const Node* accept_literal(ctxparams) {
     struct Token tok = curr_token(tokenizer);
     switch (tok.tag) {
         case dec_lit_tok: {
@@ -152,7 +152,7 @@ const Node* accept_literal(ctxparams) {
     }
 }
 
-const Node* accept_value(ctxparams) {
+static const Node* accept_value(ctxparams) {
     const char* id = accept_identifier(ctx);
     if (id) {
         return unbound(arena, (Unbound) {
@@ -166,7 +166,7 @@ const Node* accept_value(ctxparams) {
     return NULL;
 }
 
-Strings expect_identifiers(ctxparams) {
+static Strings expect_identifiers(ctxparams) {
     struct List* list = new_list(const char*);
     while (true) {
         const char* id = accept_identifier(ctx);
@@ -185,7 +185,7 @@ Strings expect_identifiers(ctxparams) {
     return final;
 }
 
-Nodes expect_values(ctxparams, enum TokenTag separator) {
+static Nodes expect_values(ctxparams, enum TokenTag separator) {
     struct List* list = new_list( Node*);
 
     bool expect = false;
@@ -213,7 +213,7 @@ Nodes expect_values(ctxparams, enum TokenTag separator) {
     return final;
 }
 
-Nodes expect_computation(ctxparams, Op* op) {
+static Nodes expect_computation(ctxparams, Op* op) {
     struct Token tok = curr_token(tokenizer);
     switch (tok.tag) {
         case add_tok:    *op = add_op; break;
@@ -227,7 +227,7 @@ Nodes expect_computation(ctxparams, Op* op) {
     return args;
 }
 
-const Node* accept_instruction(ctxparams) {
+static const Node* accept_instruction(ctxparams) {
     struct Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
         case let_tok: {
@@ -270,7 +270,7 @@ const Node* accept_instruction(ctxparams) {
     return NULL;
 }
 
-const Node* accept_terminator(ctxparams) {
+static const Node* accept_terminator(ctxparams) {
     struct Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
         case jump_tok: {
@@ -300,7 +300,7 @@ const Node* accept_terminator(ctxparams) {
     return NULL;
 }
 
-const Node* expect_block(ctxparams, bool implicit_join) {
+static const Node* expect_block(ctxparams, bool implicit_join) {
     expect(accept_token(ctx, lbracket_tok));
     struct List* instructions = new_list(Node*);
 
@@ -363,13 +363,7 @@ const Node* expect_block(ctxparams, bool implicit_join) {
     });
 }
 
-struct TopLevelDecl {
-    bool empty;
-    const Node* variable;
-    const Node* definition;
-};
-
-const Node* accept_function(ctxparams, String id) {
+static const Node* accept_function(ctxparams, String id) {
     if (!accept_token(ctx, fn_tok))
         return NULL;
 
@@ -384,7 +378,13 @@ const Node* accept_function(ctxparams, String id) {
     return function;
 }
 
-struct TopLevelDecl accept_def(ctxparams) {
+struct TopLevelDecl {
+    bool empty;
+    const Node* variable;
+    const Node* definition;
+};
+
+static struct TopLevelDecl accept_def(ctxparams) {
     if (!accept_token(ctx, def_tok))
         return (struct TopLevelDecl) { .empty = true };
 
@@ -408,7 +408,7 @@ struct TopLevelDecl accept_def(ctxparams) {
     };
 }
 
-struct TopLevelDecl accept_var_decl(ctxparams) {
+static struct TopLevelDecl accept_var_decl(ctxparams) {
     AddressSpace as;
     if (accept_token(ctx, private_tok))
         as = AsPrivate;
@@ -471,16 +471,16 @@ const Node* parse(char* contents, IrArena* arena) {
         if (!decl.empty) {
             // expect(decl.variable->payload.var.type != NULL && "top-level declarations require types");
 
-            printf("decl %s parsed :", decl.variable->payload.var.name);
+            debug_print("decl %s parsed :", decl.variable->payload.var.name);
             if (decl.definition)
-                print_node(decl.definition);
-            printf("\n");
+                debug_node(decl.definition);
+            debug_print("\n");
 
             append_list(struct TopLevelDecl, top_level, decl);
             continue;
         }
 
-        printf("No idea what to parse here... (tok=(tag = %s, pos = %zu))\n", token_tags[token.tag], token.start);
+        error_print("No idea what to parse here... (tok=(tag = %s, pos = %zu))\n", token_tags[token.tag], token.start);
         exit(-3);
     }
 
