@@ -144,21 +144,38 @@ static Nodes type_primop_or_call(struct TypeRewriter* ctx, Op op, Nodes old_inpu
             assert(arg);
             new_inputs_scratch[1 + i] = type_value(ctx, old_inputs.nodes[1 + i], callee_type->payload.fn_type.param_types.nodes[i]);
         }
-        yield_tys = callee_type->payload.fn_type.return_types;
     } else {
         Nodes input_types;
         switch (op) {
             case add_op:
             case sub_op: input_types = nodes(dst_arena, 2, (const Type*[]){ int_type(dst_arena), int_type(dst_arena) }); break;
+            case push_stack_op:
+            case push_stack_uniform_op: {
+                assert(old_inputs.count == 2);
+                const Type* element_type = import_node(dst_arena, old_inputs.nodes[0]);
+                assert(get_qualifier(element_type) == Unknown);
+                new_inputs_scratch[0] = element_type;
+                new_inputs_scratch[1] = type_value(ctx, old_inputs.nodes[1], element_type);
+                goto skip_input_types;
+            }
+            case pop_stack_op:
+            case pop_stack_uniform_op: {
+                assert(old_inputs.count == 1);
+                const Type* element_type = import_node(dst_arena, old_inputs.nodes[0]);
+                assert(get_qualifier(element_type) == Unknown);
+                new_inputs_scratch[0] = element_type;
+                goto skip_input_types;
+            }
             default: error("unhandled op params");
         }
 
         assert(input_types.count == old_inputs.count);
         for (size_t i = 0; i < input_types.count; i++)
             new_inputs_scratch[i] = type_value(ctx, old_inputs.nodes[i], input_types.nodes[i]);
-
-        yield_tys = op_yields(dst_arena, op, nodes(dst_arena, old_inputs.count, new_inputs_scratch));
     }
+
+    skip_input_types:
+    yield_tys = typecheck_operation(dst_arena, op, nodes(dst_arena, old_inputs.count, new_inputs_scratch));
 
     assert(outputs_count == yield_tys.count);
     for (size_t i = 0; i < yield_tys.count; i++) {

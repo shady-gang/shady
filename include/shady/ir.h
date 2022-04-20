@@ -112,10 +112,14 @@ typedef struct VariableDecl_ {
     const Node* init;
 } VariableDecl;
 
-#define PRIMOPS() \
-PRIMOP(call)      \
-PRIMOP(add)       \
-PRIMOP(sub)       \
+#define PRIMOPS()          \
+PRIMOP(call)               \
+PRIMOP(add)                \
+PRIMOP(sub)                \
+PRIMOP(push_stack)         \
+PRIMOP(pop_stack)          \
+PRIMOP(push_stack_uniform) \
+PRIMOP(pop_stack_uniform)  \
 
 typedef enum Op_ {
 #define PRIMOP(name) name##_op,
@@ -125,7 +129,6 @@ PRIMOPS()
 
 typedef struct Let_ {
     Nodes variables;
-
     Op op;
     Nodes args;
 } Let;

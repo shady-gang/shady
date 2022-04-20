@@ -167,19 +167,10 @@ const Type* check_type_true_lit(IrArena* arena) { return bool_type(arena); }
 const Type* check_type_false_lit(IrArena* arena) { return bool_type(arena); }
 
 const Type* check_type_let(IrArena* arena, Let let) {
-    Nodes var_tys = extract_variable_types(arena, &let.variables);
-
-    // todo check inputs
-
-    Nodes output_types;
-    if (let.op == call_op) {
-        const Node* callee = let.args.nodes[0];
-        assert(get_qualifier(callee->type) == Uniform);
-        output_types = without_qualifier(callee->type)->payload.fn_type.return_types;
-    } else
-        output_types = op_yields(arena, let.op, let.args);
+    Nodes output_types = typecheck_operation(arena, let.op, let.args);
 
     // check outputs
+    Nodes var_tys = extract_variable_types(arena, &let.variables);
     if (output_types.count != var_tys.count)
         error("let variables count != yield count from operation")
     for (size_t i = 0; i < var_tys.count; i++)
@@ -249,19 +240,6 @@ const Type* check_type_root(IrArena* arena, Root program) {
     return NULL;
 }
 
-// TODO handle parameters
-Nodes op_params(IrArena* arena, Op op, Nodes args) {
-    switch (op) {
-        case add_op:
-        case sub_op: return nodes(arena, 2, (const Type*[]){ int_type(arena), int_type(arena) });
-        case call_op: {
-            assert(args.count >= 1);
-            return check_call(arena, args.nodes[0], args.count - 1, &args.nodes[1]);
-        }
-        default: error("unhandled op params");
-    }
-}
-
 #define empty() nodes(arena, 0, NULL)
 #define singleton(t) singleton_impl(arena, t)
 Nodes singleton_impl(IrArena* arena, const Type* type) {
@@ -269,19 +247,48 @@ Nodes singleton_impl(IrArena* arena, const Type* type) {
     return nodes(arena, 1, arr);
 }
 
-Nodes op_yields(IrArena* arena, Op op, Nodes args) {
+/// Checks the operands to a Primop and returns the produced types
+Nodes typecheck_operation(IrArena* arena, Op op, Nodes operands) {
     switch (op) {
         case add_op:
         case sub_op: {
              bool is_result_uniform = true;
-             for (size_t i = 0; i < args.count; i++) {
-                 const Node* arg = args.nodes[i];
-                 DivergenceQualifier op_div = get_qualifier(arg->type);
+             for (size_t i = 0; i < operands.count; i++) {
+                 const Node* arg = operands.nodes[i];
+                 DivergenceQualifier op_div;
+                 const Type* arg_actual_type = strip_qualifier(arg->type, &op_div);
                  assert(op_div != Unknown); // we expect all operands to be clearly known !
                  is_result_uniform ^= op_div == Uniform;
+                 // we work with numerical operands
+                 assert(arg_actual_type == int_type(arena) && "todo improve this check");
              }
 
             return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = int_type(arena) }));
+        }
+        case push_stack_uniform_op:
+        case push_stack_op: {
+            assert(operands.count == 2);
+            const Type* element_type = operands.nodes[0];
+            assert(get_qualifier(element_type) == Unknown && "annotations do not go here");
+            const Type* qual_element_type = qualified_type(arena, (QualifiedType) {
+                .is_uniform = op == push_stack_uniform_op,
+                .type = element_type
+            });
+            // the operand has to be a subtype of the annotated type
+            assert(is_subtype(qual_element_type, operands.nodes[1]->type));
+            return empty();
+        }
+        case pop_stack_op:
+        case pop_stack_uniform_op: {
+            assert(operands.count == 1);
+            const Type* element_type = operands.nodes[0];
+            assert(get_qualifier(element_type) == Unknown && "annotations do not go here");
+            return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = op == pop_stack_uniform_op, .type = element_type}));
+        }
+        case call_op: {
+            const Node* callee = operands.nodes[0];
+            assert(get_qualifier(callee->type) == Uniform);
+            return without_qualifier(callee->type)->payload.fn_type.return_types;
         }
         default: error("unhandled op yield");
     }
