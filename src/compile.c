@@ -23,6 +23,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, c
     info_node(*program);
 
     *program = instr2bb(*arena, *arena, *program);
-    info_print("instr2bb pass: \n");
+    info_print("After instr2bb pass: \n");
     info_node(*program);
 }

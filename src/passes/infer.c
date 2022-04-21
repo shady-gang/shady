@@ -149,7 +149,7 @@ static Nodes type_primop_or_call(struct TypeRewriter* ctx, Op op, Nodes old_inpu
         assert(old_inputs.count >= 1);
         size_t fn_args_count = old_inputs.count - 1;
 
-        const Node* new_callee = type_value(ctx, old_inputs.nodes[0], NULL);
+        const Node* new_callee = type_value_or_def(ctx, old_inputs.nodes[0], NULL);
         new_inputs_scratch[0] = new_callee;
 
         const Type* callee_type = without_qualifier(new_callee->type);
@@ -253,7 +253,7 @@ static const Node* type_terminator(struct TypeRewriter* ctx, const Node* node) {
                 nvalues[i] = type_value(ctx, old_values->nodes[i], return_types.nodes[i]);
             return fn_ret(ctx->dst_arena, (Return) {
                 .values = nodes(ctx->dst_arena, old_values->count, nvalues),
-                .fn = imported_fn
+                .fn = NULL
             });
         }
         case Jump_TAG: {

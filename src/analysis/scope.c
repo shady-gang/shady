@@ -88,8 +88,8 @@ Scope build_scope(const Node* entry) {
                 break;
             }
             case Callf_TAG: {
-                const Node* cont = terminator->payload.callf.ret_cont;
-                process_edge(cont)
+                //const Node* cont = terminator->payload.callf.ret_cont;
+                //process_edge(cont)
                 break;
             }
             case Return_TAG:

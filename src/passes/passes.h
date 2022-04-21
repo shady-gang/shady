@@ -9,7 +9,6 @@ const Node* parse(char* contents, IrArena* arena);
 RewritePass bind_program;
 RewritePass type_program;
 RewritePass instr2bb;
-RewritePass split_callf;
 
 #define SHADY_PASSES_H
 

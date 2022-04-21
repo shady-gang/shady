@@ -1,0 +1,9 @@
+fn identity = varying int(varying int i) {
+    return i;
+};
+
+fn f = int (varying int i) {
+    let j = call identity i;
+    let k = add j i;
+    return k;
+};

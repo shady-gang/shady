@@ -228,9 +228,9 @@ KeyHash hash_node(Node** pnode) {
     }
 
     KeyHash combined = tag_hash ^ payload_hash;
-    debug_print("hash of :");
-    debug_node(node);
-    debug_print(" = [%u] %u\n", combined, combined % 32);
+    //debug_print("hash of :");
+    //debug_node(node);
+    //debug_print(" = [%u] %u\n", combined, combined % 32);
     return combined;
 }
 

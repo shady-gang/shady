@@ -177,6 +177,7 @@ typedef struct WhileInstr_ {
 // Block terminators
 
 typedef struct Return_ {
+    // set to NULL after typing
     const Node* fn;
     Nodes values;
 } Return;

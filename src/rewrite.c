@@ -56,6 +56,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .args = rewrite_nodes(rewriter, node->payload.jump.args)
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
+            .fn = NULL,
             .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
         });
         case Unreachable_TAG:   return unreachable(rewriter->dst_arena);
