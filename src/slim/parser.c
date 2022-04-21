@@ -42,7 +42,6 @@ static const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-static const Node* expect_function(ctxparams, String);
 static const Node* expect_block(ctxparams, bool);
 
 static const Type* accept_unqualified_type(ctxparams) {
@@ -336,7 +335,11 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
             Nodes parameters = expect_parameters(ctx);
             const Node* block = expect_block(ctx, false);
 
-            Node* continuation = fn(arena, true, identifier, parameters, nodes(arena, 0, NULL));
+            FnAttributes attributes = {
+                .is_continuation = true,
+                .entry_point_type = NotAnEntryPoint
+            };
+            Node* continuation = fn(arena, attributes, identifier, parameters, nodes(arena, 0, NULL));
             continuation->payload.fn.block= block;
             const Node* contvar = var(arena, qualified_type(arena, (QualifiedType) {
                 .type = derive_fn_type(arena, &continuation->payload.fn),
@@ -362,28 +365,9 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
     });
 }
 
-static const Node* expect_function(ctxparams, String id) {
-    Nodes types = accept_types(ctx, comma_tok, false);
-    expect(curr_token(tokenizer).tag == lpar_tok);
-    Nodes parameters = expect_parameters(ctx);
-    const Node* block = expect_block(ctx, false);
-
-    Node* function = fn(arena, false, id, parameters, types);
-    function->payload.fn.block = block;
-
-    return function;
-}
-
-struct TopLevelDecl {
-    bool empty;
-    const Node* variable;
-    const Node* definition;
-    const Node* entry_point;
-};
-
-static struct TopLevelDecl accept_const(ctxparams) {
+static const Node* accept_const(ctxparams) {
     if (!accept_token(ctx, const_tok))
-        return (struct TopLevelDecl) { .empty = true };
+        return NULL;
 
     const Type* type = accept_unqualified_type(ctx);
     const char* id = accept_identifier(ctx);
@@ -394,37 +378,54 @@ static struct TopLevelDecl accept_const(ctxparams) {
 
     expect(accept_token(ctx, semi_tok));
 
-    const Node* variable = var(arena, type, id);
-
-    return (struct TopLevelDecl) {
-        .empty = false,
-        .variable = variable,
-        .definition = definition,
-        .entry_point = NULL
-    };
+    Node* cnst = constant(arena, id);
+    cnst->payload.constant.value = definition;
+    cnst->payload.constant.type_hint = type;
+    return cnst;
 }
 
-static struct TopLevelDecl accept_fn_decl(ctxparams) {
+static FnAttributes accept_fn_annotations(ctxparams) {
+    FnAttributes annotations = {
+        .is_continuation = false,
+        .entry_point_type = NotAnEntryPoint
+    };
+
+    while (true) {
+        if (accept_token(ctx, compute_tok)) {
+            annotations.entry_point_type = true;
+            continue;
+        }
+        break;
+    }
+
+    return annotations;
+}
+
+static const Node* accept_fn_decl(ctxparams) {
     if (!accept_token(ctx, fn_tok))
-        return (struct TopLevelDecl) { .empty = true };
+        return NULL;
+
+    FnAttributes attributes = accept_fn_annotations(ctx);
+
     const char* id = accept_identifier(ctx);
     expect(id);
     expect(accept_token(ctx, equal_tok));
-    const Node* definition = expect_function(ctx, id);
-    assert(definition);
+    Nodes types = accept_types(ctx, comma_tok, false);
+    expect(curr_token(tokenizer).tag == lpar_tok);
+    Nodes parameters = expect_parameters(ctx);
+    const Node *block1 = expect_block(ctx, false);
+
+    Node *function = fn(arena, attributes, id, parameters, types);
+    function->payload.fn.block = block1;
+
+    const Node* declaration = function;
+    assert(declaration);
     expect(accept_token(ctx, semi_tok));
 
-    const Node* variable = var(arena, NULL, id);
-
-    return (struct TopLevelDecl) {
-        .empty = false,
-        .variable = variable,
-        .definition = definition,
-        .entry_point = entry_point
-    };
+    return declaration;
 }
 
-static struct TopLevelDecl accept_global_var_decl(ctxparams) {
+static const Node* accept_global_var_decl(ctxparams) {
     AddressSpace as;
     if (accept_token(ctx, private_tok))
         as = AsPrivate;
@@ -440,7 +441,7 @@ static struct TopLevelDecl accept_global_var_decl(ctxparams) {
     else if (accept_token(ctx, output_tok))
         as = AsOutput;
     else
-        return (struct TopLevelDecl) { .empty = true };
+        return NULL;
 
     const Type* type = accept_unqualified_type(ctx);
     expect(type);
@@ -461,41 +462,31 @@ static struct TopLevelDecl accept_global_var_decl(ctxparams) {
 
     expect(accept_token(ctx, semi_tok));
 
-    const Node* variable = var(arena, type, id);
-
-    return (struct TopLevelDecl) {
-        .empty = false,
-        .variable = variable,
-        .definition = NULL,
-        .entry_point = NULL,
-    };
+    return var(arena, type, id);
 }
 
 const Node* parse(char* contents, IrArena* arena) {
     struct Tokenizer* tokenizer = new_tokenizer(contents);
 
-    struct List* top_level = new_list(struct TopLevelDecl);
+    struct List* declarations = new_list(const Node*);
 
     while (true) {
         struct Token token = curr_token(tokenizer);
         if (token.tag == EOF_tok)
             break;
 
-        struct TopLevelDecl decl = accept_const(ctx);
-        if (decl.empty)
+        const Node* decl = accept_const(ctx);
+        if (!decl)
             decl = accept_fn_decl(ctx);
-        if (decl.empty)
+        if (!decl)
             decl = accept_global_var_decl(ctx);
         
-        if (!decl.empty) {
-            // expect(decl.variable->payload.var.type != NULL && "top-level declarations require types");
-
-            debug_print("decl %s parsed :", decl.variable->payload.var.name);
-            if (decl.definition)
-                debug_node(decl.definition);
+        if (decl) {
+            debug_print("decl parsed : ");
+            debug_node(decl);
             debug_print("\n");
 
-            append_list(struct TopLevelDecl, top_level, decl);
+            append_list(const Node*, declarations, decl);
             continue;
         }
 
@@ -503,21 +494,15 @@ const Node* parse(char* contents, IrArena* arena) {
         exit(-3);
     }
 
-    size_t count = top_level->elements_count;
+    size_t count = declarations->elements_count;
 
-    LARRAY(const Node*, variables, count);
-    LARRAY(const Node*, definitions, count);
 
-    for (size_t i = 0; i < count; i++) {
-        variables[i] = read_list(struct TopLevelDecl, top_level)[i].variable;
-        definitions[i] = read_list(struct TopLevelDecl, top_level)[i].definition;
-    }
+    const Node* n = root(arena, (Root) {
+        .declarations = nodes(arena, count, read_list(const Node*, declarations)),
+    });
 
-    destroy_list(top_level);
+    destroy_list(declarations);
     destroy_tokenizer(tokenizer);
 
-    return root(arena, (Root) {
-        .variables = nodes(arena, count, variables),
-        .definitions = nodes(arena, count, definitions)
-    });
+    return n;
 }

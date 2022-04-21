@@ -14,6 +14,11 @@ struct Instr2BBRewriter {
 
 static const Node* instr2bb_process(struct Instr2BBRewriter* rewriter, const Node* node);
 
+static FnAttributes cont_attr = {
+        .is_continuation = true,
+        .entry_point_type = NotAnEntryPoint
+};
+
 static const Node* handle_block(struct Instr2BBRewriter* rewriter, const Node* node, size_t start, Node** join) {
     assert(node->tag == Block_TAG);
     IrArena* dst_arena = rewriter->rewriter.dst_arena;
@@ -32,7 +37,7 @@ static const Node* handle_block(struct Instr2BBRewriter* rewriter, const Node* n
 
                     size_t args_count = instruction->payload.let.args.count - 1;
 
-                    Node* rest = fn(dst_arena, true, unique_name(dst_arena, "call_ret"), instruction->payload.let.variables, nodes(dst_arena, 0, NULL));
+                    Node* rest = fn(dst_arena, cont_attr, unique_name(dst_arena, "call_ret"), instruction->payload.let.variables, nodes(dst_arena, 0, NULL));
                     rest->payload.fn.block = handle_block(rewriter, node, i + 1, join);
 
                     Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
@@ -54,9 +59,9 @@ static const Node* handle_block(struct Instr2BBRewriter* rewriter, const Node* n
             case IfInstr_TAG: {
                 bool has_false_branch = instruction->payload.if_instr.if_false;
 
-                Node* rest = fn(dst_arena, true, unique_name(dst_arena, "if_join"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
-                Node* true_branch = fn(dst_arena, true, unique_name(dst_arena, "if_true"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
-                Node* false_branch = has_false_branch ? fn(dst_arena, true, unique_name(dst_arena, "if_false"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL)) : NULL;
+                Node* rest = fn(dst_arena, cont_attr, unique_name(dst_arena, "if_join"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
+                Node* true_branch = fn(dst_arena, cont_attr, unique_name(dst_arena, "if_true"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
+                Node* false_branch = has_false_branch ? fn(dst_arena, cont_attr, unique_name(dst_arena, "if_false"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL)) : NULL;
 
                 true_branch->payload.fn.block = handle_block(rewriter,  instruction->payload.if_instr.if_true, 0, &rest);
                 if (has_false_branch)
@@ -110,7 +115,7 @@ static const Node* instr2bb_process(struct Instr2BBRewriter* rewriter, const Nod
             if (already_done)
                 return *already_done;
 
-            Node* fun = fn(dst_arena, node->payload.fn.is_continuation, string(dst_arena, node->payload.fn.name), rewrite_nodes(&rewriter->rewriter, node->payload.fn.params), rewrite_nodes(&rewriter->rewriter, node->payload.fn.return_types));
+            Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), rewrite_nodes(&rewriter->rewriter, node->payload.fn.params), rewrite_nodes(&rewriter->rewriter, node->payload.fn.return_types));
             bool r = insert_dict_and_get_result(const Node*, Node*, rewriter->done, node, fun);
             assert(r && "insertion of fun failed - the dict isn't working as it should");
 
@@ -118,6 +123,7 @@ static const Node* instr2bb_process(struct Instr2BBRewriter* rewriter, const Nod
             return fun;
         }
         case Block_TAG: return handle_block(rewriter, node, 0, NULL);
+        case Constant_TAG: return node;
         default: return recreate_node_identity(&rewriter->rewriter, node);
     }
 }

@@ -381,28 +381,40 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
     spvb_capability(file_builder, SpvCapabilityLinkage);
     spvb_capability(file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
 
-    LARRAY(SpvId, ids, top_level->variables.count);
-    for (size_t i = 0; i < top_level->variables.count; i++) {
-        const Node* variable = top_level->variables.nodes[i];
+    // First reserve IDs for declarations
+    LARRAY(SpvId, ids, top_level->declarations.count);
+    for (size_t i = 0; i < top_level->declarations.count; i++) {
+        const Node* decl = top_level->declarations.nodes[i];
         ids[i] = spvb_fresh_id(file_builder);
-        insert_dict_and_get_result(struct Node*, SpvId, emitter.node_ids, variable, ids[i]);
-        spvb_name(file_builder, ids[i], variable->payload.var.name);
+        insert_dict_and_get_result(struct Node*, SpvId, emitter.node_ids, decl, ids[i]);
     }
 
-    for (size_t i = 0; i < top_level->variables.count; i++) {
-        const Node* definition = top_level->definitions.nodes[i];
+    for (size_t i = 0; i < top_level->declarations.count; i++) {
+        const Node* decl = top_level->declarations.nodes[i];
+        switch (decl->tag) {
+            case Variable_TAG: {
+                const Variable* var = &decl->payload.var;
+                DivergenceQualifier qual;
+                const Type* type = strip_qualifier(var->type, &qual);
 
-        DivergenceQualifier qual;
-        const Type* type = strip_qualifier(top_level->variables.nodes[i]->payload.var.type, &qual);
+                assert(qual == Uniform && "the _pointers_ to externals (descriptors mostly) should be uniform");
+                assert(type->tag == PtrType_TAG);
+                spvb_global_variable(file_builder, ids[i], emit_type(&emitter, type), emit_addr_space(type->payload.ptr_type.address_space), false, 0);
 
-        if (definition == NULL) {
-            assert(qual == Uniform && "the _pointers_ to externals (descriptors mostly) should be uniform");
-            assert(type->tag == PtrType_TAG);
-            spvb_global_variable(file_builder, ids[i], emit_type(&emitter, type), emit_addr_space(type->payload.ptr_type.address_space), false, 0);
-            continue;
+                spvb_name(file_builder, ids[i], var->name);
+                break;
+            } case Function_TAG: {
+                emit_function(&emitter, decl, ids[i]);
+                spvb_name(file_builder, ids[i], decl->payload.fn.name);
+                break;
+            } case Constant_TAG: {
+                const Constant* cnst = &decl->payload.constant;
+                emit_value(&emitter, cnst->value, &ids[i]);
+                spvb_name(file_builder, ids[i], cnst->name);
+                break;
+            }
+            default: error("unhandled declaration kind")
         }
-
-        definition->tag == Function_TAG ? emit_function(&emitter, definition, ids[i]) : emit_value(&emitter, definition, &ids[i]);
     }
 
     spvb_finish(file_builder, words);

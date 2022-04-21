@@ -25,6 +25,13 @@ typedef enum AddressSpace_ {
     AsExternal,
 } AddressSpace;
 
+typedef enum EntryPointType_ {
+    NotAnEntryPoint,
+    Compute,
+    Fragment,
+    Vertex
+} EntryPointType;
+
 typedef int VarId;
 
 // NODEDEF(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name)
@@ -63,6 +70,7 @@ NODEDEF(1, 1, 1, IntLiteral, int_literal) \
 NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
 NODEDEF(0, 1, 1, Function, fn) \
+NODEDEF(0, 0, 1, Constant, constant) \
 NODEDEF(1, 0, 1, Block, block) \
 NODEDEF(1, 0, 1, ParsedBlock, parsed_block) \
 NODEDEF(1, 1, 1, Root, root) \
@@ -95,10 +103,20 @@ typedef struct IntLiteral_ {
     int64_t value;
 } IntLiteral;
 
-/// Function with _structured_ control flow
+typedef struct Constant_ {
+    String name;
+    const Node* value;
+    const Node* type_hint;
+} Constant;
+
+typedef struct FnAttributes_ {
+    bool is_continuation;
+    EntryPointType entry_point_type;
+} FnAttributes;
+
 typedef struct Function_ {
     String name;
-    bool is_continuation;
+    FnAttributes atttributes;
     Nodes params;
     const Node* block;
     Nodes return_types;
@@ -199,8 +217,7 @@ typedef struct ParsedBlock_ {
 } ParsedBlock;
 
 typedef struct Root_ {
-    Nodes variables;
-    Nodes definitions;
+    Nodes declarations;
 } Root;
 
 typedef enum DivergenceQualifier_ {
@@ -236,7 +253,7 @@ NODES()
 } NodeTag;
 
 inline static bool is_nominal(NodeTag tag) {
-    return tag == Function_TAG || tag == Root_TAG;
+    return tag == Function_TAG || tag == Root_TAG || tag == Constant_TAG;
 }
 
 struct Node_ {
@@ -313,7 +330,8 @@ NODES()
 #undef NODEDEF
 const Node* var(IrArena* arena, const Type* type, const char* name);
 const Node* var_with_id(IrArena* arena, const Type* type, const char* name, VarId);
-Node* fn(IrArena* arena, bool is_continuation, const char* name, Nodes params, Nodes return_types);
+Node* fn(IrArena* arena, FnAttributes, const char* name, Nodes params, Nodes return_types);
+Node* constant(IrArena* arena, const char* name);
 
 #undef NODE_CTOR_0
 #undef NODE_CTOR_1

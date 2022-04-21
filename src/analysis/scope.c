@@ -9,11 +9,10 @@
 struct List* build_scopes(const Node* root) {
     struct List* scopes = new_list(Scope);
 
-    for (size_t i = 0; i < root->payload.root.variables.count; i++) {
-        const Node* element = root->payload.root.definitions.nodes[i];
-        if (element == NULL) continue;
-        if (element->tag != Function_TAG) continue;
-        Scope scope = build_scope(element);
+    for (size_t i = 0; i < root->payload.root.declarations.count; i++) {
+        const Node* decl = root->payload.root.declarations.nodes[i];
+        if (decl->tag != Function_TAG) continue;
+        Scope scope = build_scope(decl);
         append_list(Scope, scopes, scope);
     }
 

@@ -89,10 +89,10 @@ const Node* var_with_id(IrArena* arena, const Type* type, const char* name, VarI
     return alloc;
 }
 
-Node* fn(IrArena* arena, bool is_continuation, const char* name, Nodes params, Nodes return_types) {
+Node* fn(IrArena* arena, FnAttributes attributes, const char* name, Nodes params, Nodes return_types) {
     Function fn = {
         .name = string(arena, name),
-        .is_continuation = is_continuation,
+        .atttributes = attributes,
         .params = params,
         .return_types = return_types,
         .block = NULL,
@@ -104,6 +104,29 @@ Node* fn(IrArena* arena, bool is_continuation, const char* name, Nodes params, N
       .type = arena->config.check_types ? check_type_fn(arena, fn) : NULL,
       .tag = Function_TAG,
       .payload.fn = fn
+    };
+    Node* ptr = &node;
+    Node** found = find_key_dict(Node*, arena->node_set, ptr);
+    assert(!found);
+    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
+    *alloc = node;
+    insert_set_get_result(const Node*, arena->node_set, alloc);
+    return alloc;
+}
+
+Node* constant(IrArena* arena, String name) {
+    Constant cnst = {
+        .name = string(arena, name),
+        .value = NULL,
+        .type_hint = NULL,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+      .type = NULL,
+      .tag = Constant_TAG,
+      .payload.constant = cnst
     };
     Node* ptr = &node;
     Node** found = find_key_dict(Node*, arena->node_set, ptr);
@@ -157,14 +180,6 @@ case VariableDecl_TAG: {              \
     field(var_decl.address_space);    \
     field(var_decl.variable);         \
     field(var_decl.init);             \
-    break;                            \
-}                                     \
-case Function_TAG: {                  \
-    field(fn.is_continuation);        \
-    field(fn.name);                   \
-    field(fn.params);                 \
-    field(fn.return_types);           \
-    field(fn.block);                  \
     break;                            \
 }                                     \
 case Let_TAG: {                       \

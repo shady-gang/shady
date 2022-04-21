@@ -17,6 +17,7 @@ TOKEN(global, "global") \
 TOKEN(input, "input") \
 TOKEN(output, "output") \
 TOKEN(extern, "extern") \
+TOKEN(compute, "@compute") \
 TOKEN(var, "var") \
 TOKEN(let, "let") \
 TOKEN(def, "def") \

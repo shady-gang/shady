@@ -45,7 +45,7 @@ static Node* rewrite_fn_head(struct BindRewriter* ctx, const Node* node) {
         nparams[i] = new_param;
     }
 
-    return fn(dst_arena, node->payload.fn.is_continuation, string(dst_arena, node->payload.fn.name), nodes(dst_arena, params_count, nparams), rewrite_nodes(rewriter, node->payload.fn.return_types));
+    return fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, params_count, nparams), rewrite_nodes(rewriter, node->payload.fn.return_types));
 }
 
 static void rewrite_fn_body(struct BindRewriter* ctx, const Node* node, Node* target) {
@@ -67,7 +67,7 @@ static void rewrite_fn_body(struct BindRewriter* ctx, const Node* node, Node* ta
     }
 
     struct BindRewriter sub_ctx = *ctx;
-    if (!node->payload.fn.is_continuation) {
+    if (!node->payload.fn.atttributes.is_continuation) {
         assert(ctx->current_function == NULL);
         sub_ctx.current_function = target;
     } else {
@@ -91,34 +91,54 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
     switch (node->tag) {
         case Root_TAG: {
             const Root* src_root = &node->payload.root;
-            const size_t count = src_root->variables.count;
+            const size_t count = src_root->declarations.count;
 
-            LARRAY(const Node*, new_variables, count);
-            LARRAY(const Node*, new_definitions, count);
+            LARRAY(const Node*, new_decls, count);
 
             for (size_t i = 0; i < count; i++) {
-                const Node* old_variable = src_root->variables.nodes[i];
+                const Node* decl = src_root->declarations.nodes[i];
 
-                const Node* new_variable = var(rewriter->dst_arena, rewrite_node(rewriter, old_variable->payload.var.type), string(rewriter->dst_arena, old_variable->payload.var.name));
+                Node* bound = NULL;
+                struct BindEntry entry;
 
-                struct BindEntry entry = {
-                    .name = old_variable->payload.var.name,
-                    .bound_node = new_variable
-                };
+                switch (decl->tag) {
+                    case Variable_TAG: {
+                        const Variable* ovar = &decl->payload.var;
+                        bound = var(rewriter->dst_arena, rewrite_node(rewriter, ovar->type), string(rewriter->dst_arena, ovar->name));
+                        entry.name = ovar->name;
+                        break;
+                    }
+                    case Constant_TAG: {
+                        const Constant* cnst = &decl->payload.constant;
+                        bound = constant(dst_arena, cnst->name);
+                        bound->payload.constant.type_hint = decl->payload.constant.type_hint;
+                        entry.name = cnst->name;
+                        break;
+                    }
+                    case Function_TAG: {
+                        const Function* ofn = &decl->payload.fn;
+                        bound = rewrite_fn_head(ctx, decl);
+                        entry.name = ofn->name;
+                        break;
+                    }
+                    default: error("unknown declaration kind");
+                }
 
+                entry.bound_node = bound;
                 append_list(struct BindEntry, ctx->bound_variables, entry);
                 printf("Bound root def %s\n", entry.name);
-                new_variables[i] = new_variable;
+
+                new_decls[i] = bound;
             }
 
             for (size_t i = 0; i < count; i++) {
-                const Node* old_definition = src_root->definitions.nodes[i];
-                new_definitions[i] = bind_node(ctx, old_definition);
+                const Node* odecl = src_root->declarations.nodes[i];
+                if (odecl->tag != Variable_TAG)
+                new_decls[i] = bind_node(ctx, odecl);
             }
 
             return root(rewriter->dst_arena, (Root) {
-                .variables = nodes(rewriter->dst_arena, count, new_variables),
-                .definitions = nodes(rewriter->dst_arena, count, new_definitions)
+                .declarations = nodes(rewriter->dst_arena, count, new_decls),
             });
         }
         case Variable_TAG: error("the binders should be handled such that this node is never reached");
@@ -194,9 +214,14 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             });
         }
         case Function_TAG: {
-            Node* new_fn = rewrite_fn_head(ctx, node);
-            rewrite_fn_body(ctx, node, new_fn);
-            return new_fn;
+            Node* head = resolve(ctx, node->payload.fn.name);
+            rewrite_fn_body(ctx, node, head);
+            return head;
+        }
+        case Constant_TAG: {
+            Node* head = resolve(ctx, node->payload.fn.name);
+            head->payload.constant.value = bind_node(ctx, node->payload.constant.value);
+            return head;
         }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }

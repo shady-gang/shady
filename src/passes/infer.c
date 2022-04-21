@@ -18,7 +18,7 @@ struct TypeRewriter {
     IrArena* src_arena;
     IrArena* dst_arena;
     struct List* typed_variables;
-    struct Dict* rewritten_fns;
+    struct Dict* done;
 };
 
 static const Node* resolve(const struct TypeRewriter* ctx, VarId id) {
@@ -67,11 +67,29 @@ static const Node* type_block(struct TypeRewriter* ctx, const Node* node) {
     });
 }
 
+static const Node* type_constant(struct TypeRewriter* ctx, const Node* node) {
+    assert(node->tag == Constant_TAG);
+    Node** already_done = find_value_dict(const Node*, Node*, ctx->done, node);
+    if (already_done)
+        return *already_done;
+
+    const Constant* oconstant = &node->payload.constant;
+    Node* nconstant = constant(ctx->dst_arena, oconstant->name);
+    insert_dict(const Node*, Node*, ctx->done, node, nconstant);
+
+    const Type* imported_hint = import_node(ctx->dst_arena, oconstant->type_hint);
+    const Node* typed_value = type_value(ctx, oconstant->value, imported_hint);
+    nconstant->payload.constant.value = typed_value;
+    nconstant->type = typed_value->type;
+
+    return nconstant;
+}
+
 static const Node* type_fn(struct TypeRewriter* ctx, const Node* node) {
     IrArena* dst_arena = ctx->dst_arena;
     assert(node->tag == Function_TAG);
 
-    Node** already_done = find_value_dict(const Node*, Node*, ctx->rewritten_fns, node);
+    Node** already_done = find_value_dict(const Node*, Node*, ctx->done, node);
     if (already_done)
         return *already_done;
 
@@ -86,8 +104,8 @@ static const Node* type_fn(struct TypeRewriter* ctx, const Node* node) {
 
     Nodes nret_types = import_nodes(ctx->dst_arena, node->payload.fn.return_types);
 
-    Node* fun = fn(dst_arena, node->payload.fn.is_continuation, string(dst_arena, node->payload.fn.name), nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
-    bool r = insert_dict_and_get_result(const Node*, Node*, ctx->rewritten_fns, node, fun);
+    Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
+    bool r = insert_dict_and_get_result(const Node*, Node*, ctx->done, node, fun);
     assert(r && "insertion of fun failed - the dict isn't working as it should");
 
     const Node* nblock = type_block(ctx, node->payload.fn.block);
@@ -269,52 +287,46 @@ static const Node* type_root(struct TypeRewriter* ctx, const Node* node) {
 
     switch (node->tag) {
         case Root_TAG: {
-            size_t count = node->payload.root.variables.count;
-            LARRAY(const Node*, new_variables, count);
-            LARRAY(const Node*, new_definitions, count);
+            size_t count = node->payload.root.declarations.count;
+            LARRAY(const Node*, new_decls, count);
 
+            // First type and bind global variables
             for (size_t i = 0; i < count; i++) {
-                // we rely on this being zeroed
-                new_definitions[i] = NULL;
+                const Node* odecl = node->payload.root.declarations.nodes[i];
 
-                const Variable* old_var = &node->payload.root.variables.nodes[i]->payload.var;
-                const Node* old_definition = node->payload.root.definitions.nodes[i];
-
-                const Type* imported_ty = import_node(ctx->dst_arena, old_var->type);;
-                if (old_definition) {
-                    // in the case of literals, we allow importing the definition first since it cannot depend on neighbouring defs
-                    if (old_definition->tag != Function_TAG) {
-                        new_definitions[i] = type_value_or_def(ctx, old_definition, imported_ty);
-                        imported_ty = new_definitions[i]->type;
-                    } else {
-                        const Node* derived_fn_type = derive_fn_type(ctx->src_arena, &old_definition->payload.fn);
-                        // we lack the ability to refine a function type currently, either a fully qualified type is given, or it's fully inferred.
-                        assert(!imported_ty || imported_ty == derived_fn_type);
-                        imported_ty = qualified_type(ctx->dst_arena, (QualifiedType) {
-                            .type = import_node(ctx->dst_arena, derived_fn_type),
-                            .is_uniform = true
-                        });
+                switch (odecl->tag) {
+                    case Variable_TAG: {
+                        const Variable* old_var = &odecl->payload.var;
+                        const Type* imported_ty = import_node(ctx->dst_arena, old_var->type);;
+                        new_decls[i] = new_binder(ctx, old_var->name, imported_ty, old_var->id);
+                        break;
                     }
+                    case Function_TAG:
+                    case Constant_TAG: continue;
+                    default: error("not a decl");
                 }
-
-                assert(get_qualifier(imported_ty) != Unknown);
-
-                new_variables[i] = new_binder(ctx, old_var->name, imported_ty, old_var->id);
             }
 
+            // Then process the rest
             for (size_t i = 0; i < count; i++) {
-                assert(new_variables[i]->type);
-                const Node* old_definition = node->payload.root.definitions.nodes[i];
+                const Node *odecl = node->payload.root.declarations.nodes[i];
 
-                // if there was no definition, or if it was already imported, bail
-                if (old_definition == NULL || new_definitions[i] != NULL) continue;
-
-                new_definitions[i] = type_value_or_def(ctx, old_definition, new_variables[i]->type);
+                switch (odecl->tag) {
+                    case Variable_TAG: continue;
+                    case Function_TAG: {
+                        new_decls[i] = type_fn(ctx, odecl);
+                        break;
+                    }
+                    case Constant_TAG: {
+                        new_decls[i] = type_constant(ctx, odecl);
+                        break;
+                    }
+                    default: error("not a decl");
+                }
             }
 
             return root(ctx->dst_arena, (Root) {
-                .variables = nodes(ctx->dst_arena, count, new_variables),
-                .definitions = nodes(ctx->dst_arena, count, new_definitions)
+                .declarations = nodes(ctx->dst_arena, count, new_decls),
             });
         }
         default: error("not a root node");
@@ -326,17 +338,17 @@ bool compare_node(Node**, Node**);
 
 const Node* type_program(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* bound_variables = new_list(struct BindEntry);
-    struct Dict* rewritten_fns = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct TypeRewriter ctx = {
         .src_arena = src_arena,
         .dst_arena = dst_arena,
         .typed_variables = bound_variables,
-        .rewritten_fns = rewritten_fns,
+        .done = done,
     };
 
     const Node* rewritten = type_root(&ctx, src_program);
 
     destroy_list(bound_variables);
-    destroy_dict(rewritten_fns);
+    destroy_dict(done);
     return rewritten;
 }

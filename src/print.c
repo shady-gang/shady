@@ -4,6 +4,8 @@
 #include "log.h"
 #include "dict.h"
 
+#include <assert.h>
+
 struct PrinterCtx {
     FILE* output;
     unsigned int indent;
@@ -14,9 +16,9 @@ struct PrinterCtx {
 #define printf(...) fprintf(ctx->output, __VA_ARGS__)
 #define print_node(n) print_node_impl(ctx, n, NULL)
 
-void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name);
+static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name);
 
-void print_param_list(struct PrinterCtx* ctx, const Nodes vars) {
+static void print_param_list(struct PrinterCtx* ctx, const Nodes vars) {
     printf("(");
     for (size_t i = 0; i < vars.count; i++) {
         const Variable* var = &vars.nodes[i]->payload.var;
@@ -32,7 +34,48 @@ void print_param_list(struct PrinterCtx* ctx, const Nodes vars) {
 #define INDENT for (unsigned int j = 0; j < ctx->indent; j++) \
     printf("   ");
 
-void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name) {
+static void print_function(struct PrinterCtx* ctx, const Node* node) {
+    const Nodes* returns = &node->payload.fn.return_types;
+    for (size_t i = 0; i < returns->count; i++) {
+        print_node(returns->nodes[i]);
+        if (i < returns->count - 1)
+            printf(", ");
+        else
+            printf(" ");
+    }
+    print_param_list(ctx, node->payload.fn.params);
+    printf(" {\n");
+    ctx->indent++;
+    print_node(node->payload.fn.block);
+
+    if (node->type != NULL) {
+        bool section_space = false;
+        Scope scope = build_scope(node);
+        for (size_t i = 1; i < scope.size; i++) {
+            if (!section_space) {
+                printf("\n");
+                section_space = true;
+            }
+
+            const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
+            INDENT
+            printf("cont %s = ", cfnode->node->payload.fn.name);
+            print_param_list(ctx, cfnode->node->payload.fn.params);
+            printf(" {\n");
+            ctx->indent++;
+            print_node(cfnode->node->payload.fn.block);
+            ctx->indent--;
+            INDENT
+            printf("} \n");
+        }
+        dispose_scope(&scope);
+    }
+
+    ctx->indent--;
+    INDENT printf("}");
+}
+
+static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name) {
     if (node == NULL) {
         printf("?");
         return;
@@ -40,27 +83,34 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
     switch (node->tag) {
         case Root_TAG: {
             const Root* top_level = &node->payload.root;
-            for (size_t i = 0; i < top_level->variables.count; i++) {
-                const Variable* var = &top_level->variables.nodes[i]->payload.var;
-                const Node* def = top_level->definitions.nodes[i];
-                if (!def) {
+            for (size_t i = 0; i < top_level->declarations.count; i++) {
+                const Node* decl = top_level->declarations.nodes[i];
+                if (decl->tag == Variable_TAG) {
+                    const Variable* var = &decl->payload.var;
                     printf("var ");
                     print_node(var->type);
-                } else if (def->tag == Function_TAG) {
+                    printf(" %s;\n", var->name);
+                } else if (decl->tag == Function_TAG) {
+                    const Function* fun = &decl->payload.fn;
+                    assert(!fun->atttributes.is_continuation);
                     printf("fn");
-                } else {
+                    switch (fun->atttributes.entry_point_type) {
+                        case Compute: printf(" @compute"); break;
+                        case Fragment: printf(" @fragment"); break;
+                        case Vertex: printf(" @vertex"); break;
+                        default: break;
+                    }
+                    printf(" %s = ", fun->name);
+                    print_function(ctx, decl);
+                    printf(";\n\n");
+                } else if (decl->tag == Constant_TAG) {
+                    const Constant* cnst = &decl->payload.constant;
                     printf("const ");
-                    print_node(var->type);
-                }
-                printf(" %s", var->name);
-                if (top_level->definitions.nodes[i]) {
-                    printf(" = ");
-                    print_node_impl(ctx, def, var->name);
-                }
-                printf(";\n");
-
-                if (def && def->tag == Function_TAG)
-                    printf("\n");
+                    print_node(decl->type);
+                    printf(" %s = ", cnst->name);
+                    print_node(cnst->value);
+                    printf(";\n");
+                } else error("Unammed node at the top level")
             }
             break;
         }
@@ -80,54 +130,7 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
             printf("`%s`", node->payload.unbound.name);
             break;
         case Function_TAG:
-            if (find_key_dict(const Node*, ctx->emitted_fns, node) != NULL)
-                printf("%s", node->payload.fn.name);
-            else {
-                insert_set_get_result(const Node*, ctx->emitted_fns, node);
-                if (node->payload.fn.is_continuation) {
-                    printf("%s", node->payload.fn.name);
-                    break;
-                }
-
-                const Nodes* returns = &node->payload.fn.return_types;
-                for (size_t i = 0; i < returns->count; i++) {
-                    print_node(returns->nodes[i]);
-                    if (i < returns->count - 1)
-                        printf(", ");
-                    else
-                        printf(" ");
-                }
-                print_param_list(ctx, node->payload.fn.params);
-                printf(" {\n");
-                ctx->indent++;
-                print_node(node->payload.fn.block);
-
-                if (node->type != NULL) {
-                    bool section_space = false;
-                    Scope scope = build_scope(node);
-                    for (size_t i = 1; i < scope.size; i++) {
-                        if (!section_space) {
-                            printf("\n");
-                            section_space = true;
-                        }
-
-                        const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
-                        INDENT
-                        printf("cont %s = ", cfnode->node->payload.fn.name);
-                        print_param_list(ctx, cfnode->node->payload.fn.params);
-                        printf(" {\n");
-                        ctx->indent++;
-                        print_node(cfnode->node->payload.fn.block);
-                        ctx->indent--;
-                        INDENT
-                        printf("} \n");
-                    }
-                    dispose_scope(&scope);
-                }
-
-                ctx->indent--;
-                INDENT printf("}");
-            }
+            printf("%s", node->payload.fn.name);
             break;
         case Block_TAG: {
             const Block* block = &node->payload.block;

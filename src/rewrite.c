@@ -20,37 +20,15 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;
     switch (node->tag) {
-        case Root_TAG: {
-            size_t count = node->payload.root.variables.count;
-            LARRAY(const Node*, new_variables, count);
-            LARRAY(const Node*, new_definitions, count);
-
-            for (size_t i = 0; i < count; i++) {
-                new_variables[i] = rewriter->rewrite_fn(rewriter, node->payload.root.variables.nodes[i]);
-                if (node->payload.root.definitions.nodes[i])
-                    new_definitions[i] = rewriter->rewrite_fn(rewriter, node->payload.root.definitions.nodes[i]);
-                else
-                    new_definitions[i] = NULL;
-            }
-
-            return root(rewriter->dst_arena, (Root) {
-                .variables = nodes(rewriter->dst_arena, count, new_variables),
-                .definitions = nodes(rewriter->dst_arena, count, new_definitions)
-            });
-        }
+        case Root_TAG:          return root(rewriter->dst_arena, (Root) {
+            .declarations = rewrite_nodes(rewriter, node->payload.root.declarations)
+        });
         case Block_TAG:         return block(rewriter->dst_arena, (Block) {
             .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
             .terminator = rewriter->rewrite_fn(rewriter, node->payload.block.terminator)
         });
-        case Function_TAG:      {
-            error("recreate_node_identity: sorry we don't support this here")
-            /*return fn(rewriter->dst_arena, (Function) {
-                .is_continuation = node->payload.fn.is_continuation,
-               .return_types = rewrite_nodes(rewriter, node->payload.fn.return_types),
-               .block = rewriter->rewrite_fn(rewriter, node->payload.fn.block),
-               .params = rewrite_nodes(rewriter, node->payload.fn.params),
-            });*/
-        }
+        case Constant_TAG:
+        case Function_TAG: error("nominal nodes need custom rewrite logic")
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
             .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext)
         });
