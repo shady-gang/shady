@@ -42,7 +42,7 @@ static const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-static const Node* accept_function(ctxparams, String);
+static const Node* expect_function(ctxparams, String);
 static const Node* expect_block(ctxparams, bool);
 
 static const Type* accept_unqualified_type(ctxparams) {
@@ -53,8 +53,6 @@ static const Type* accept_unqualified_type(ctxparams) {
     } else if (accept_token(ctx, bool__tok)) {
         return bool_type(arena);
     } else if (accept_token(ctx, ptr_tok)) {
-        SHADY_NOT_IMPLEM
-    } else if (accept_token(ctx, fn_tok)) {
         SHADY_NOT_IMPLEM
     } else {
         return NULL;
@@ -364,10 +362,7 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
     });
 }
 
-static const Node* accept_function(ctxparams, String id) {
-    if (!accept_token(ctx, fn_tok))
-        return NULL;
-
+static const Node* expect_function(ctxparams, String id) {
     Nodes types = accept_types(ctx, comma_tok, false);
     expect(curr_token(tokenizer).tag == lpar_tok);
     Nodes parameters = expect_parameters(ctx);
@@ -383,10 +378,11 @@ struct TopLevelDecl {
     bool empty;
     const Node* variable;
     const Node* definition;
+    const Node* entry_point;
 };
 
-static struct TopLevelDecl accept_def(ctxparams) {
-    if (!accept_token(ctx, def_tok))
+static struct TopLevelDecl accept_const(ctxparams) {
+    if (!accept_token(ctx, const_tok))
         return (struct TopLevelDecl) { .empty = true };
 
     const Type* type = accept_unqualified_type(ctx);
@@ -394,8 +390,6 @@ static struct TopLevelDecl accept_def(ctxparams) {
     expect(id);
     expect(accept_token(ctx, equal_tok));
     const Node* definition = accept_value(ctx);
-    if (!definition)
-        definition = accept_function(ctx, id);
     assert(definition);
 
     expect(accept_token(ctx, semi_tok));
@@ -405,11 +399,32 @@ static struct TopLevelDecl accept_def(ctxparams) {
     return (struct TopLevelDecl) {
         .empty = false,
         .variable = variable,
-        .definition = definition
+        .definition = definition,
+        .entry_point = NULL
     };
 }
 
-static struct TopLevelDecl accept_var_decl(ctxparams) {
+static struct TopLevelDecl accept_fn_decl(ctxparams) {
+    if (!accept_token(ctx, fn_tok))
+        return (struct TopLevelDecl) { .empty = true };
+    const char* id = accept_identifier(ctx);
+    expect(id);
+    expect(accept_token(ctx, equal_tok));
+    const Node* definition = expect_function(ctx, id);
+    assert(definition);
+    expect(accept_token(ctx, semi_tok));
+
+    const Node* variable = var(arena, NULL, id);
+
+    return (struct TopLevelDecl) {
+        .empty = false,
+        .variable = variable,
+        .definition = definition,
+        .entry_point = entry_point
+    };
+}
+
+static struct TopLevelDecl accept_global_var_decl(ctxparams) {
     AddressSpace as;
     if (accept_token(ctx, private_tok))
         as = AsPrivate;
@@ -451,7 +466,8 @@ static struct TopLevelDecl accept_var_decl(ctxparams) {
     return (struct TopLevelDecl) {
         .empty = false,
         .variable = variable,
-        .definition = NULL
+        .definition = NULL,
+        .entry_point = NULL,
     };
 }
 
@@ -465,9 +481,11 @@ const Node* parse(char* contents, IrArena* arena) {
         if (token.tag == EOF_tok)
             break;
 
-        struct TopLevelDecl decl = accept_def(ctx);
+        struct TopLevelDecl decl = accept_const(ctx);
         if (decl.empty)
-            decl = accept_var_decl(ctx);
+            decl = accept_fn_decl(ctx);
+        if (decl.empty)
+            decl = accept_global_var_decl(ctx);
         
         if (!decl.empty) {
             // expect(decl.variable->payload.var.type != NULL && "top-level declarations require types");

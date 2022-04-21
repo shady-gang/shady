@@ -5,15 +5,11 @@ For the front-end mode, we can easily extend this by redefining `VALUE` as an ar
 ```
 PROGRAM := (DECL)*
 
-DECL := def [TYPE] IDENTIFIER = VALUE // constant definition
-        VAR_DECL
-
-VAR_DECL := var ADDRESS_SPACE TYPE IDENTIFIER = VALUE;
-            var ADDRESS_SPACE TYPE IDENTIFIER;
+DECL := const [TYPE] IDENTIFIER = VALUE // constant definition
+        fn IDENTIFIER = RET_TYPE (PARAMS) BLOCK
+        var ADDRESS_SPACE TYPE IDENTIFIER;
 
 VAR := IDENTIFIER
-
-FN_DECL := fn RET_TYPE PARAMS BLOCK
 
 PARAMS := ( [QTYPE IDENTIFIER [(, QTYPE IDENTIFIER)*]] )
 
@@ -22,13 +18,11 @@ BLOCK := { (INSTRUCTION;)* (CONTINUATION)* }
 CONTINUATION := cont PARAMS BLOCK
 
 INSTRUCTION := let IDENTIFIER [(, IDENTIFIER)*] = OP VALUES; // PrimOp
-             | VAR_DECL;                                     // local variable
-             | IDENTIFIER := VALUE;                          // stores
              | if VALUE then BLOCK else BLOCK;               // selection construct
              | while VALUE do BLOCK;                         // loop construct
              | return VALUES];
 
-VALUE := VAR | LITERAL | FN_DECL
+VALUE := VAR | LITERAL
 VALUES := VALUE+
 
 TYPE := void | int | float | ptr DATA_TYPE | fn RET_TYPE ( [QTYPE [(, QTYPE)*]] )

@@ -1,4 +1,6 @@
 #include "shady/ir.h"
+#include "analysis/scope.h"
+
 #include "log.h"
 #include "dict.h"
 
@@ -40,23 +42,25 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
             const Root* top_level = &node->payload.root;
             for (size_t i = 0; i < top_level->variables.count; i++) {
                 const Variable* var = &top_level->variables.nodes[i]->payload.var;
-                // Some top-level variables do not have definitions !
-                if (ctx->pretty_print) {
-                    if (top_level->definitions.nodes[i])
-                        print_node_impl(ctx, top_level->definitions.nodes[i], var->name);
-                    else print_node_impl(ctx, top_level->variables.nodes[i], var->name);
-                } else {
-                    printf("let ");
+                const Node* def = top_level->definitions.nodes[i];
+                if (!def) {
+                    printf("var ");
                     print_node(var->type);
-                    printf(" %s", var->name);
-                    if (top_level->definitions.nodes[i]) {
-                        printf(" = ");
-                        print_node(top_level->definitions.nodes[i]);
-                    }
-                    printf(";");
+                } else if (def->tag == Function_TAG) {
+                    printf("fn");
+                } else {
+                    printf("const ");
+                    print_node(var->type);
                 }
+                printf(" %s", var->name);
+                if (top_level->definitions.nodes[i]) {
+                    printf(" = ");
+                    print_node_impl(ctx, def, var->name);
+                }
+                printf(";\n");
 
-                printf("\n");
+                if (def && def->tag == Function_TAG)
+                    printf("\n");
             }
             break;
         }
@@ -80,26 +84,49 @@ void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_n
                 printf("%s", node->payload.fn.name);
             else {
                 insert_set_get_result(const Node*, ctx->emitted_fns, node);
-                if (node->payload.fn.is_continuation)
-                    printf("cont ");
-                else {
-                    printf("fn ");
-                    const Nodes* returns = &node->payload.fn.return_types;
-                    for (size_t i = 0; i < returns->count; i++) {
-                        print_node(returns->nodes[i]);
-                        if (i < returns->count - 1)
-                            printf(", ");
-                        else
-                            printf(" ");
-                    }
+                if (node->payload.fn.is_continuation) {
+                    printf("%s", node->payload.fn.name);
+                    break;
                 }
-                printf("%s ", node->payload.fn.name);
+
+                const Nodes* returns = &node->payload.fn.return_types;
+                for (size_t i = 0; i < returns->count; i++) {
+                    print_node(returns->nodes[i]);
+                    if (i < returns->count - 1)
+                        printf(", ");
+                    else
+                        printf(" ");
+                }
                 print_param_list(ctx, node->payload.fn.params);
                 printf(" {\n");
                 ctx->indent++;
                 print_node(node->payload.fn.block);
+
+                if (node->type != NULL) {
+                    bool section_space = false;
+                    Scope scope = build_scope(node);
+                    for (size_t i = 1; i < scope.size; i++) {
+                        if (!section_space) {
+                            printf("\n");
+                            section_space = true;
+                        }
+
+                        const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
+                        INDENT
+                        printf("cont %s = ", cfnode->node->payload.fn.name);
+                        print_param_list(ctx, cfnode->node->payload.fn.params);
+                        printf(" {\n");
+                        ctx->indent++;
+                        print_node(cfnode->node->payload.fn.block);
+                        ctx->indent--;
+                        INDENT
+                        printf("} \n");
+                    }
+                    dispose_scope(&scope);
+                }
+
                 ctx->indent--;
-                INDENT printf("}\n");
+                INDENT printf("}");
             }
             break;
         case Block_TAG: {
