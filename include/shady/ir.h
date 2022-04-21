@@ -278,6 +278,7 @@ void destroy_arena(IrArena*);
 
 typedef struct CompilerConfig_ {
     bool use_loop_for_fn_body;
+    bool use_loop_for_fn_calls;
 } CompilerConfig;
 
 CompilerConfig default_compiler_config();

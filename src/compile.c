@@ -4,7 +4,8 @@
 
 CompilerConfig default_compiler_config() {
     return (CompilerConfig) {
-        .use_loop_for_fn_body = true
+        .use_loop_for_fn_body = true,
+        .use_loop_for_fn_calls = true,
     };
 }
 

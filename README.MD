@@ -40,6 +40,8 @@ fn f = int (varying int i) {
     let k = add j 1;
     return k;
 };
+
+const answer = 42;
 ```
 
 The textual syntax allows nesting functions. The syntax is superficially similar to C labels, but with an added parameters list. 
