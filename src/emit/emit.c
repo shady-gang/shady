@@ -144,7 +144,7 @@ void emit_terminator(Emitter* emitter, FunctionEmissionCtx* fn_ectx, BBEmissionC
                 SpvId false_tgt_case_id = emit_value(emitter, int_literal(emitter->arena, (IntLiteral) {
                     .value = if_false_ctx->case_id,
                 }), NULL);
-                SpvId tgt_case_id = spvb_select(bb_ectx->basic_block_builder, emit_type(emitter, bool_type(emitter->arena)), condition, true_tgt_case_id, false_tgt_case_id);
+                SpvId tgt_case_id = spvb_select(bb_ectx->basic_block_builder, emit_type(emitter, int_type(emitter->arena)), condition, true_tgt_case_id, false_tgt_case_id);
                 spvb_store(bb_ectx->basic_block_builder, tgt_case_id, fn_ectx->next_bb_var, 0, NULL);
                 spvb_branch(bb_ectx->basic_block_builder, fn_ectx->fn_loop_continue);
             } else {
