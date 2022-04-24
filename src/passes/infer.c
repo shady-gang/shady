@@ -204,7 +204,7 @@ static const Node* infer_call(Context* ctx, const Node* node) {
 
     return call_instr(ctx->dst_arena, (Call) {
         .callee = new_callee,
-        .args = nodes(ctx->dst_arena, node->payload.call_instr.args.count, node->payload.call_instr.args.nodes)
+        .args = nodes(ctx->dst_arena, node->payload.call_instr.args.count, new_args)
     });
 }
 

@@ -42,7 +42,11 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .op = node->payload.prim_op.op,
             .operands = rewrite_nodes(rewriter, node->payload.prim_op.operands)
         });
-        case If_TAG:       return if_instr(rewriter->dst_arena, (If) {
+        case Call_TAG:          return call_instr(rewriter->dst_arena, (Call) {
+            .callee = rewriter->rewrite_fn(rewriter, node->payload.call_instr.callee),
+            .args = rewrite_nodes(rewriter, node->payload.call_instr.args)
+        });
+        case If_TAG:            return if_instr(rewriter->dst_arena, (If) {
             .yield_types = rewrite_nodes(rewriter, node->payload.if_instr.yield_types),
             .condition = rewriter->rewrite_fn(rewriter, node->payload.if_instr.condition),
             .if_true = rewriter->rewrite_fn(rewriter, node->payload.if_instr.if_true),

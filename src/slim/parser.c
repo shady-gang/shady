@@ -255,9 +255,24 @@ static const Node* accept_control_flow_instruction(ctxparams) {
     return NULL;
 }
 
+static const Node* accept_call_instruction(ctxparams) {
+    if (accept_token(ctx, call_tok)) {
+        const Node* callee = accept_value(ctx);
+        assert(callee);
+        Nodes args = expect_values(ctx, 0);
+        expect(accept_token(ctx, semi_tok));
+        return call_instr(arena, (Call) {
+            .callee = callee,
+            .args = args,
+        });
+    }
+    return NULL;
+}
+
 static const Node* accept_instruction(ctxparams) {
     const Node* instr = accept_primop(ctx);
     if (!instr) instr = accept_control_flow_instruction(ctx);
+    if (!instr) instr = accept_call_instruction(ctx);
     return instr;
 }
 

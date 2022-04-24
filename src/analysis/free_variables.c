@@ -22,6 +22,7 @@ static void visit_fv(VisitorFV* visitor, const Node* node) {
             // if we encounter a variable we haven't ignored already, it is deemed free
             if (insert_set_get_result(const Node*, visitor->ignore_set, node))
                 append_list(const Node*, visitor->free_list, node);
+            break;
         }
         case Function_TAG: {
             const Function* fun = &node->payload.fn;
@@ -66,7 +67,7 @@ struct List* compute_free_variables(const Node* entry) {
 
     VisitorFV visitor_fv = {
         .visitor = {
-            .visit_fn = (VisitFn) &visitor_fv,
+            .visit_fn = (VisitFn) visit_fv,
             .visit_fn_scope_rpo = true,
             .visit_cf_targets = false,
             .visit_return_fn_annotation = false,
