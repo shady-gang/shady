@@ -454,7 +454,6 @@ static const Node* accept_fn_decl(ctxparams) {
 
     const Node* declaration = function;
     assert(declaration);
-    expect(accept_token(ctx, semi_tok));
 
     return declaration;
 }
