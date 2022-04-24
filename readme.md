@@ -23,7 +23,7 @@ Technical discussion for shady and SPIR-V in general can be had on [this discord
 
 ## Syntax
 
-The syntax is under construction. See [grammar.md](GRAMMAR.MD) for a hopefully not-that-outdated grammar file.
+The syntax is under construction. See [grammar.md](grammar.md) for a hopefully not-that-outdated grammar file.
 
 Initially the idea was to have C-like syntax, but that was annoying so the only significant remnant is the type-before-id convention.
 

@@ -5,8 +5,8 @@ For the front-end mode, we can easily extend this by redefining `VALUE` as an ar
 ```
 PROGRAM := (DECL)*
 
-DECL := const [TYPE] IDENTIFIER = VALUE // constant definition
-        fn IDENTIFIER = Q_TYPES (PARAMS) BLOCK
+DECL := const [TYPE] IDENTIFIER = VALUE; // constant definition
+        fn IDENTIFIER Q_TYPES (PARAMS) BLOCK
         var ADDRESS_SPACE TYPE IDENTIFIER;
 
 VAR := IDENTIFIER
