@@ -198,7 +198,7 @@ static Nodes expect_values(ctxparams, enum TokenTag separator) {
 
         append_list(Node*, list, val);
 
-        if (separator != 0) {
+        if ((int)separator != 0) {
             if (accept_token(ctx, separator))
                 expect = true;
             else
@@ -211,41 +211,27 @@ static Nodes expect_values(ctxparams, enum TokenTag separator) {
     return final;
 }
 
-static Nodes expect_computation(ctxparams, Op* op) {
+static const Node* accept_primop(ctxparams) {
+    Op op;
     struct Token tok = curr_token(tokenizer);
     switch (tok.tag) {
-        case add_tok:    *op = add_op; break;
-        case sub_tok:    *op = sub_op; break;
-        case call_tok:   *op = call_op; break;
-        default: error("cannot parse a computation");
+        case add_tok:    op = add_op; break;
+        case sub_tok:    op = sub_op; break;
+        default: return NULL;
     }
 
     next_token(tokenizer);
     Nodes args = expect_values(ctx, 0);
-    return args;
+    expect(accept_token(ctx, semi_tok));
+    return prim_op(arena, (PrimOp) {
+        .op = op,
+        .operands = args
+    });
 }
 
-static const Node* accept_instruction(ctxparams) {
+static const Node* accept_control_flow_instruction(ctxparams) {
     struct Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
-        case let_tok: {
-            next_token(tokenizer);
-            Strings ids = expect_identifiers(ctx);
-            size_t bindings_count = ids.count;
-            LARRAY(const Node*, bindings, bindings_count);
-            for (size_t i = 0; i < bindings_count; i++)
-                bindings[i] = var(arena, NULL, ids.strings[i]);
-
-            expect(accept_token(ctx, equal_tok));
-            Op op;
-            Nodes args = expect_computation(ctx, &op);
-            expect(accept_token(ctx, semi_tok));
-            return let(arena, (Let) {
-                .variables = nodes(arena, bindings_count, bindings),
-                .op = op,
-                .args = args
-            });
-        }
         case if_tok: {
             next_token(tokenizer);
             const Node* condition = accept_value(ctx);
@@ -257,7 +243,8 @@ static const Node* accept_instruction(ctxparams) {
             if (has_else) {
                 if_false = expect_block(ctx, true);
             }
-            return if_instr(arena, (IfInstr) {
+            return if_instr(arena, (If) {
+                .yield_types = nodes(arena, 0, NULL),
                 .condition = condition,
                 .if_true = if_true,
                 .if_false = if_false
@@ -266,6 +253,39 @@ static const Node* accept_instruction(ctxparams) {
         default: break;
     }
     return NULL;
+}
+
+static const Node* accept_instruction(ctxparams) {
+    const Node* instr = accept_primop(ctx);
+    if (!instr) instr = accept_control_flow_instruction(ctx);
+    return instr;
+}
+
+static const Node* accept_let(ctxparams) {
+    Nodes output_variables = nodes(arena, 0, NULL);
+    if (accept_token(ctx, let_tok)) {
+        Strings ids = expect_identifiers(ctx);
+        size_t bindings_count = ids.count;
+        assert(bindings_count > 0);
+        LARRAY(const Node*, bindings, bindings_count);
+        for (size_t i = 0; i < bindings_count; i++)
+            bindings[i] = var(arena, NULL, ids.strings[i]);
+        expect(accept_token(ctx, equal_tok));
+        output_variables = nodes(arena, bindings_count, bindings);
+    }
+
+    const Node* instruction = accept_instruction(ctx);
+
+    if (output_variables.count > 0)
+        expect(instruction);
+
+    if (instruction == NULL)
+        return NULL;
+
+    return let(arena, (Let) {
+        .variables = output_variables,
+        .instruction = instruction
+    });
 }
 
 static const Node* accept_terminator(ctxparams) {
@@ -306,7 +326,7 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
     Nodes continuations_names = nodes(arena, 0, NULL);
 
     while (true) {
-        const Node* instruction = accept_instruction(ctx);
+        const Node* instruction = accept_let(ctx);
         if (!instruction) break;
         append_list(Node*, instructions, instruction);
     }
@@ -318,7 +338,7 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
     expect(accept_token(ctx, semi_tok));
     if (!terminator) {
         if (implicit_join)
-            terminator = join(arena);
+            terminator = join(arena, (Join) {.args = expect_values(ctx, 0)});
         else
             error("expected terminator: return, jump, branch ...");
     }

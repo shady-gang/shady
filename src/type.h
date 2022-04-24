@@ -19,7 +19,9 @@ void check_subtype(const Type* supertype, const Type* type);
 NODES()
 #undef NODEDEF
 
-Nodes typecheck_operation(IrArena* arena, Op op, Nodes);
+Nodes typecheck_primop(IrArena* arena, PrimOp prim_op);
+Nodes typecheck_call(IrArena* arena, Call call);
+Nodes typecheck_instruction(IrArena* arena, const Node* instr);
 
 const Type* ensure_value_t(Nodes yields);
 

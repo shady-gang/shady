@@ -8,6 +8,7 @@ set(SHADY_SOURCES
     node.c
     type.c
     rewrite.c
+    visit.c
     print.c
     log.c
     util.c

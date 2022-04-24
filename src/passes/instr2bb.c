@@ -30,107 +30,27 @@ static const Node* handle_block(Context* rewriter, const Node* node, size_t star
     struct List* accumulator = new_list(const Node*);
     assert(start <= old_block->instructions.count);
     for (size_t i = start; i < old_block->instructions.count; i++) {
-        const Node* instruction = old_block->instructions.nodes[i];
-        switch (instruction->tag) {
-            case Let_TAG: {
-                if (instruction->payload.let.op == call_op) {
-                    const Node* callee = instruction->payload.let.args.nodes[0];
-                    assert(get_qualifier(callee->type) == Uniform);
-                    const Type* callee_type = without_qualifier(callee->type);
-                    assert(callee_type->tag == FnType_TAG);
-
-                    size_t args_count = instruction->payload.let.args.count - 1;
-
-                    FnAttributes rest_attrs = {
-                        .is_continuation = false,
-                        .entry_point_type = NotAnEntryPoint,
-                    };
-                    Node* rest = fn(dst_arena, rest_attrs, unique_name(dst_arena, "call_ret"), instruction->payload.let.variables, nodes(dst_arena, 0, NULL));
-                    append_list(const Node*, rewriter->new_fns, rest);
-                    rest->payload.fn.block = handle_block(rewriter, node, i + 1, join);
-
-                    // analyse the live stuff in rest and push so we can recover it
-                    Scope join_scope = build_scope(rest);
-                    struct List* recover_context = compute_free_variables(&join_scope);
-                    size_t recover_context_size = entries_count_list(recover_context);
-
-                    // prepare to rewrite the rest block to include the context recovery instructions
-                    const Block* orest_block = &rest->payload.fn.block->payload.block;
-                    struct List* prepended_rest_instrs = new_list(const Node*);
-
-                    // add save instructions to the origin BB
-                    for (size_t j = 0; j < recover_context_size; j++) {
-                        const Variable* var = &read_list(const Node*, recover_context)[j]->payload.var;
-                        // const Node* vars[] = {read_list(const Node*, recover_context)[j] };
-                        const Node* args[] = {without_qualifier(var->type), read_list(const Node*, recover_context)[j] };
-                        const Node* save_instr = let(dst_arena, (Let) {
-                            .variables = nodes(dst_arena, 0, NULL),
-                            .op = push_stack_op,
-                            .args = nodes(dst_arena, 2, args)
-                        });
-                        append_list(const Node*, accumulator, save_instr);
-                    }
-
-                    // prepend load instructions to the dest BB
-                    for (size_t j = recover_context_size - 1; j < recover_context_size; j--) {
-                        const Variable* var = &read_list(const Node*, recover_context)[j]->payload.var;
-                        const Node* vars[] = {read_list(const Node*, recover_context)[j] };
-                        const Node* args[] = {without_qualifier(var->type) };
-                        const Node* load_instr = let(dst_arena, (Let) {
-                            .variables = nodes(dst_arena, 1, vars),
-                            .op = pop_stack_op,
-                            .args = nodes(dst_arena, 1, args)
-                        });
-                        append_list(const Node*, prepended_rest_instrs, load_instr);
-                    }
-
-                    for (size_t j = 0; j < orest_block->instructions.count; j++) {
-                        const Node* oinstr = orest_block->instructions.nodes[j];
-                        append_list(const Node*, prepended_rest_instrs, oinstr);
-                    }
-
-                    // Update the rest block accordingly
-                    rest->payload.fn.block = block(dst_arena, (Block) {
-                        .instructions = nodes(dst_arena, entries_count_list(prepended_rest_instrs), read_list(const Node*, prepended_rest_instrs)),
-                        .terminator = orest_block->terminator
-                    });
-
-                    destroy_list(recover_context);
-                    destroy_list(prepended_rest_instrs);
-                    dispose_scope(&join_scope);
-
-                    Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
-                    destroy_list(accumulator);
-                    return block(dst_arena, (Block) {
-                        .instructions = instructions,
-                        .terminator = callf(dst_arena, (Callf) {
-                            .ret_cont = rest,
-                            .target = instr2bb_process(rewriter, callee),
-                            .args = nodes(dst_arena, args_count, &instruction->payload.let.args.nodes[1])
-                        })
-                    });
-                } else {
-                    const Node* imported = recreate_node_identity(&rewriter->rewriter, instruction);
-                    append_list(const Node*, accumulator, imported);
-                    break;
-                }
-            }
-            case IfInstr_TAG: {
-                bool has_false_branch = instruction->payload.if_instr.if_false;
+        const Node* let_node = old_block->instructions.nodes[i];
+        const Node* instr = let_node->payload.let.instruction;
+        switch (instr->tag) {
+            case If_TAG: {
+                // TODO handle yield types !
+                bool has_false_branch = instr->payload.if_instr.if_false;
+                assert(instr->payload.if_instr.yield_types.count == 0);
 
                 Node* rest = fn(dst_arena, cont_attr, unique_name(dst_arena, "if_join"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
                 Node* true_branch = fn(dst_arena, cont_attr, unique_name(dst_arena, "if_true"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
                 Node* false_branch = has_false_branch ? fn(dst_arena, cont_attr, unique_name(dst_arena, "if_false"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL)) : NULL;
 
-                true_branch->payload.fn.block = handle_block(rewriter,  instruction->payload.if_instr.if_true, 0, &rest);
+                true_branch->payload.fn.block = handle_block(rewriter,  instr->payload.if_instr.if_true, 0, &rest);
                 if (has_false_branch)
-                    false_branch->payload.fn.block = handle_block(rewriter,  instruction->payload.if_instr.if_false, 0, &rest);
+                    false_branch->payload.fn.block = handle_block(rewriter,  instr->payload.if_instr.if_false, 0, &rest);
                 rest->payload.fn.block = handle_block(rewriter, node, i + 1, join);
 
                 Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
                 destroy_list(accumulator);
                 const Node* branch_t = branch(dst_arena, (Branch) {
-                    .condition = instruction->payload.if_instr.condition,
+                    .condition = instr->payload.if_instr.condition,
                     .true_target = true_branch,
                     .false_target = has_false_branch ? false_branch : rest,
                 });
@@ -139,7 +59,92 @@ static const Node* handle_block(Context* rewriter, const Node* node, size_t star
                     .terminator = branch_t
                 });
             }
-            default: error("not an instruction");
+            case Call_TAG: {
+                const Node* callee = instr->payload.call_instr.callee;
+                assert(get_qualifier(callee->type) == Uniform);
+                const Type* callee_type = without_qualifier(callee->type);
+                assert(callee_type->tag == FnType_TAG);
+
+                size_t args_count = instr->payload.call_instr.args.count;
+
+                FnAttributes rest_attrs = {
+                    .is_continuation = false,
+                    .entry_point_type = NotAnEntryPoint,
+                };
+
+                Node* rest = fn(dst_arena, rest_attrs, unique_name(dst_arena, "call_ret"), let_node->payload.let.variables, nodes(dst_arena, 0, NULL));
+                append_list(const Node*, rewriter->new_fns, rest);
+                rest->payload.fn.block = handle_block(rewriter, node, i + 1, join);
+
+                // analyse the live stuff in rest and push so we can recover it
+                struct List* recover_context = compute_free_variables(rest);
+                size_t recover_context_size = entries_count_list(recover_context);
+
+                // prepare to rewrite the rest block to include the context recovery instructions
+                const Block* orest_block = &rest->payload.fn.block->payload.block;
+                struct List* prepended_rest_instrs = new_list(const Node*);
+
+                // add save instructions to the origin BB
+                for (size_t j = 0; j < recover_context_size; j++) {
+                    const Variable* var = &read_list(const Node*, recover_context)[j]->payload.var;
+                    const Node* args[] = {without_qualifier(var->type), read_list(const Node*, recover_context)[j] };
+                    const Node* save_instr = let(dst_arena, (Let) {
+                        .variables = nodes(dst_arena, 0, NULL),
+                        .instruction = prim_op(dst_arena, (PrimOp) {
+                            .op = push_stack_op,
+                            .operands = nodes(dst_arena, 2, args)
+                        })
+                    });
+                    append_list(const Node*, accumulator, save_instr);
+                }
+
+                // prepend load instructions to the dest BB
+                for (size_t j = recover_context_size - 1; j < recover_context_size; j--) {
+                    const Variable* var = &read_list(const Node*, recover_context)[j]->payload.var;
+                    const Node* vars[] = {read_list(const Node*, recover_context)[j] };
+                    const Node* args[] = {without_qualifier(var->type) };
+                    const Node* load_instr = let(dst_arena, (Let) {
+                        .variables = nodes(dst_arena, 1, vars),
+                        .instruction = prim_op(dst_arena, (PrimOp) {
+                            .op = pop_stack_op,
+                            .operands = nodes(dst_arena, 1, args)
+                        })
+                    });
+                    append_list(const Node*, prepended_rest_instrs, load_instr);
+                }
+
+                for (size_t j = 0; j < orest_block->instructions.count; j++) {
+                    const Node* oinstr = orest_block->instructions.nodes[j];
+                    append_list(const Node*, prepended_rest_instrs, oinstr);
+                }
+
+                // Update the rest block accordingly
+                rest->payload.fn.block = block(dst_arena, (Block) {
+                    .instructions = nodes(dst_arena, entries_count_list(prepended_rest_instrs), read_list(const Node*, prepended_rest_instrs)),
+                    .terminator = orest_block->terminator
+                });
+
+                destroy_list(recover_context);
+                destroy_list(prepended_rest_instrs);
+
+                Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
+                destroy_list(accumulator);
+
+                // TODO we probably want to emit a callc here and lower that later to a separate function in an optional pass
+                return block(dst_arena, (Block) {
+                    .instructions = instructions,
+                    .terminator = callf(dst_arena, (Callf) {
+                        .ret_fn = rest,
+                        .callee = instr2bb_process(rewriter, callee),
+                        .args = nodes(dst_arena, args_count, instr->payload.call_instr.args.nodes)
+                    })
+                });
+            }
+            default: {
+                const Node* imported = recreate_node_identity(&rewriter->rewriter, let_node);
+                append_list(const Node*, accumulator, imported);
+                break;
+            }
         }
     }
 
@@ -150,7 +155,7 @@ static const Node* handle_block(Context* rewriter, const Node* node, size_t star
             assert(join);
             new_terminator = jump(dst_arena, (Jump) {
                 .target = *join,
-                .args = nodes(dst_arena, 0, NULL)
+                .args = nodes(dst_arena, old_terminator->payload.join.args.count, old_terminator->payload.join.args.nodes)
             });
             break;
         }

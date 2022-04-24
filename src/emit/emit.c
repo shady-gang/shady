@@ -79,20 +79,22 @@ void emit_primop(Emitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBloc
     }
 }
 
-struct SpvBasicBlockBuilder* emit_instruction(Emitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* instruction) {
+struct SpvBasicBlockBuilder* emit_let(Emitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* let_node) {
+    const Node* instruction = let_node->payload.let.instruction;
     switch (instruction->tag) {
-        case Let_TAG: {
-            const Nodes* variables = &instruction->payload.let.variables;
+        case PrimOp_TAG: {
+            const Nodes* variables = &let_node->payload.let.variables;
             LARRAY(SpvId, out, variables->count);
-            emit_primop(emitter, fnb, bbb, instruction->payload.let.op, instruction->payload.let.args, out);
+            emit_primop(emitter, fnb, bbb, instruction->payload.prim_op.op, instruction->payload.prim_op.operands, out);
             for (size_t i = 0; i < variables->count; i++) {
                 spvb_name(emitter->file_builder, out[i], variables->nodes[i]->payload.var.name);
                 insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variables->nodes[i], out[i]);
             }
             return bbb;
         }
-        case IfInstr_TAG: error("we expect this stuff to be gotten rid of by now actually")
-        default: error("TODO: emit instruction");
+        case Call_TAG: error("TODO emit calls")
+        case If_TAG: error("we expect this stuff to be gotten rid of by now actually")
+        default: error("Unrecognised instruction %s", node_tags[instruction->tag]);
     }
     SHADY_UNREACHABLE;
 }
@@ -182,7 +184,7 @@ void emit_basic_block(Emitter* emitter, FunctionEmissionCtx* fn_ectx, const CFNo
     struct SpvBasicBlockBuilder* basicblock_builder = bb_ectx->basic_block_builder;
     const Block* block = &node->node->payload.fn.block->payload.block;
     for (size_t i = 0; i < block->instructions.count; i++)
-        basicblock_builder = emit_instruction(emitter, fn_ectx->fn_builder, basicblock_builder, block->instructions.nodes[i]);
+        basicblock_builder = emit_let(emitter, fn_ectx->fn_builder, basicblock_builder, block->instructions.nodes[i]);
     emit_terminator(emitter, fn_ectx, bb_ectx, block->terminator);
 
     // Emit the child nodes for real

@@ -6,7 +6,7 @@ For the front-end mode, we can easily extend this by redefining `VALUE` as an ar
 PROGRAM := (DECL)*
 
 DECL := const [TYPE] IDENTIFIER = VALUE // constant definition
-        fn IDENTIFIER = RET_TYPES (PARAMS) BLOCK
+        fn IDENTIFIER = Q_TYPES (PARAMS) BLOCK
         var ADDRESS_SPACE TYPE IDENTIFIER;
 
 VAR := IDENTIFIER
@@ -31,7 +31,7 @@ INSTRUCTION := PRIMOP VALUES
              | match VALUE                               // structured match statement
                    (case LITERAL BLOCK)* 
                    default (BLOCK | VALUES)
-             | loop MQ_TYPES PARAMS BLOCK VALUES         // structured loop statement
+             | loop Q_TYPES PARAMS BLOCK VALUES         // structured loop statement
 
 TERMINATOR := return VALUES                             // return from current function
             | unreachable                               // use as a placeholder if nothing belongs. undefined behaviour if reached.
@@ -49,6 +49,7 @@ TYPE := void | int | float | ptr DATA_TYPE | fn RET_TYPE ( [QTYPE [(, QTYPE)*]] 
 DATA_TYPE := TYPE | struct { (TYPE IDENTIFIER;)* }
 
 MQ_TYPES = MQ_TYPE [(, MQ_TYPE)*]
+Q_TYPES = Q_TYPE [(, Q_TYPE)*]
 
 VARIANCE_Q = uniform | varying
 

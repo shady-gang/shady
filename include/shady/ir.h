@@ -1,4 +1,5 @@
 #ifndef SHADY_IR_H
+#define SHADY_IR_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -6,12 +7,16 @@
 #include <stdio.h>
 
 typedef struct IrArena_ IrArena;
-
-struct Node_;
 typedef struct Node_ Node;
 typedef struct Node_ Type;
-
+typedef int VarId;
 typedef const char* String;
+
+typedef enum DivergenceQualifier_ {
+    Unknown,
+    Uniform,
+    Varying
+} DivergenceQualifier;
 
 typedef enum AddressSpace_ {
     AsInput,
@@ -32,21 +37,25 @@ typedef enum EntryPointType_ {
     Vertex
 } EntryPointType;
 
-typedef int VarId;
-
+//////////////////////////////// Node Types Enumeration ////////////////////////////////
 // NODEDEF(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name)
 
 #define INSTRUCTION_NODES() \
-NODEDEF(1, 1, 1, VariableDecl, var_decl) \
-NODEDEF(1, 1, 1, Let, let)  \
-NODEDEF(1, 1, 1, IfInstr, if_instr) \
+NODEDEF(1, 0, 1, PrimOp, prim_op)  \
+NODEDEF(1, 0, 1, Call, call_instr)  \
+NODEDEF(1, 0, 1, If, if_instr) \
+NODEDEF(1, 0, 1, Match, match_instr) \
+NODEDEF(1, 0, 1, Loop, loop_instr) \
 
 #define TERMINATOR_NODES() \
 NODEDEF(1, 1, 1, Return, fn_ret) \
 NODEDEF(1, 1, 1, Jump, jump) \
 NODEDEF(1, 1, 1, Branch, branch) \
+NODEDEF(1, 1, 1, Callc, callc) \
 NODEDEF(1, 1, 1, Callf, callf) \
-NODEDEF(1, 0, 0, Join, join) \
+NODEDEF(1, 0, 1, Join, join) \
+NODEDEF(1, 0, 0, Break, brk) \
+NODEDEF(1, 0, 0, Continue, cont) \
 NODEDEF(1, 0, 0, Unreachable, unreachable) \
 
 #define TYPE_NODES() \
@@ -63,6 +72,7 @@ NODEDEF(1, 0, 1, QualifiedType, qualified_type) \
 INSTRUCTION_NODES() \
 TERMINATOR_NODES() \
 TYPE_NODES() \
+NODEDEF(1, 1, 1, Let, let)  \
 NODEDEF(0, 1, 1, Variable, var) \
 NODEDEF(1, 0, 1, Unbound, unbound) \
 NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
@@ -73,7 +83,9 @@ NODEDEF(0, 1, 1, Function, fn) \
 NODEDEF(0, 0, 1, Constant, constant) \
 NODEDEF(1, 0, 1, Block, block) \
 NODEDEF(1, 0, 1, ParsedBlock, parsed_block) \
-NODEDEF(1, 1, 1, Root, root) \
+NODEDEF(1, 0, 1, Root, root) \
+
+//////////////////////////////// Lists & Strings ////////////////////////////////
 
 typedef struct Nodes_ {
     size_t count;
@@ -84,6 +96,15 @@ typedef struct Strings_ {
     size_t count;
     String* strings;
 } Strings;
+
+Nodes         nodes(IrArena*, size_t count, const Node*[]);
+Strings     strings(IrArena*, size_t count, const char*[]);
+
+String string_sized(IrArena* arena, size_t size, const char* start);
+String string(IrArena* arena, const char* start);
+String unique_name(IrArena* arena, const char* start);
+
+//////////////////////////////// Values ////////////////////////////////
 
 typedef struct Variable_ {
     const Type* type;
@@ -109,6 +130,8 @@ typedef struct Constant_ {
     const Node* type_hint;
 } Constant;
 
+//////////////////////////////// Functions ////////////////////////////////
+
 typedef struct FnAttributes_ {
     bool is_continuation;
     EntryPointType entry_point_type;
@@ -122,16 +145,33 @@ typedef struct Function_ {
     Nodes return_types;
 } Function;
 
-// Nodes
+/// The body inside functions, continuations, if branches ...
+typedef struct Block_ {
+    Nodes instructions;
+    const Node* terminator;
+} Block;
 
-typedef struct VariableDecl_ {
-    AddressSpace address_space;
-    const Node* variable;
-    const Node* init;
-} VariableDecl;
+/// used for the front-end to hold continuations before name binding
+typedef struct ParsedBlock_ {
+    Nodes instructions;
+    const Node* terminator;
+
+    Nodes continuations_vars;
+    Nodes continuations;
+} ParsedBlock;
+
+typedef struct Root_ {
+    Nodes declarations;
+} Root;
+
+//////////////////////////////// Instructions ////////////////////////////////
+
+typedef struct Let_ {
+    Nodes variables;
+    const Node* instruction;
+} Let;
 
 #define PRIMOPS()          \
-PRIMOP(call)               \
 PRIMOP(add)                \
 PRIMOP(sub)                \
 PRIMOP(push_stack)         \
@@ -145,36 +185,47 @@ PRIMOPS()
 #undef PRIMOP
 } Op;
 
-typedef struct Let_ {
-    Nodes variables;
+typedef struct PrimOp_ {
     Op op;
-    Nodes args;
-} Let;
+    Nodes operands;
+} PrimOp;
 
 extern const char* primop_names[];
+
+typedef struct Call_ {
+    const Node* callee;
+    Nodes args;
+} Call;
 
 // Those things are "meta" instructions, they contain other instructions.
 // they map to SPIR-V structured control flow constructs directly
 // they don't need merge blocks because they are instructions and so that is taken care of by the containing node
 
-typedef struct IfInstr_ {
+/// Structured "if" construct
+typedef struct If_ {
+    Nodes yield_types;
     const Node* condition;
     const Node* if_true;
     const Node* if_false;
-} IfInstr;
+} If;
 
-typedef struct SwitchInstr_ {
-    const Node* condition;
-    Nodes case_values;
-    Nodes case_code;
-} SwitchInstr;
+// Structured "match" construct
+typedef struct Match_ {
+    Nodes yield_types;
+    const Node* inspect;
+    Nodes literals;
+    Nodes cases;
+    const Node* default_case;
+} Match;
 
-typedef struct WhileInstr_ {
-    const Node* condition;
+// Structured "loop" construct
+typedef struct Loop_ {
+    Nodes yield_types;
+    Nodes params;
     const Node* body;
-} WhileInstr;
+} Loop;
 
-// Block terminators
+//////////////////////////////// Terminators ////////////////////////////////
 
 typedef struct Return_ {
     // set to NULL after typing
@@ -191,41 +242,28 @@ typedef struct Branch_ {
     const Node* condition;
     const Node* true_target;
     const Node* false_target;
-    const Node* merge_target;
-    const Node* continue_target;
     Nodes args;
 } Branch;
 
-/// Call function (with return continuation)
+typedef struct Join_ {
+    Nodes args;
+} Join;
+
 typedef struct Callf_ {
-    const Node* ret_cont;
-    const Node* target;
+    const Node* ret_fn;
+    const Node* callee;
     Nodes args;
 } Callf;
 
-/// The body inside functions, continuations, if branches ...
-typedef struct Block_ {
-    Nodes instructions;
-    const Node* terminator;
-} Block;
+typedef struct Callc_ {
+    const Node* ret_cont;
+    const Node* callee;
+    Nodes args;
+} Callc;
 
-typedef struct ParsedBlock_ {
-    Nodes instructions;
-    const Node* terminator;
+//////////////////////////////// Types ////////////////////////////////
 
-    Nodes continuations_vars;
-    Nodes continuations;
-} ParsedBlock;
-
-typedef struct Root_ {
-    Nodes declarations;
-} Root;
-
-typedef enum DivergenceQualifier_ {
-    Unknown,
-    Uniform,
-    Varying
-} DivergenceQualifier;
+bool is_type(const Node*);
 
 typedef struct QualifiedType_ {
     bool is_uniform;
@@ -246,6 +284,8 @@ typedef struct PtrType_ {
     AddressSpace address_space;
     const Type* pointed_type;
 } PtrType;
+
+//////////////////////////////// Nodes util ////////////////////////////////
 
 typedef enum NodeTag_ {
 #define NODEDEF(_, _2, _3, struct_name, short_name) struct_name##_TAG,
@@ -269,6 +309,31 @@ struct Node_ {
     } payload;
 };
 
+// Node constructors
+#define NODE_CTOR_DECL_1(struct_name, short_name) const Node* short_name(IrArena*, struct_name);
+#define NODE_CTOR_DECL_0(struct_name, short_name) const Node* short_name(IrArena*);
+#define NODE_CTOR_1(has_payload, struct_name, short_name) NODE_CTOR_DECL_##has_payload(struct_name, short_name)
+#define NODE_CTOR_0(has_payload, struct_name, short_name)
+
+// autogenerated ctors
+#define NODEDEF(autogen_ctor, _, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_payload, struct_name, short_name)
+NODES()
+#undef NODEDEF
+const Node* var(IrArena* arena, const Type* type, const char* name);
+const Node* var_with_id(IrArena* arena, const Type* type, const char* name, VarId);
+Node* fn(IrArena* arena, FnAttributes, const char* name, Nodes params, Nodes return_types);
+Node* constant(IrArena* arena, const char* name);
+
+#undef NODE_CTOR_0
+#undef NODE_CTOR_1
+#undef NODE_CTOR_DECL_0
+#undef NODE_CTOR_DECL_1
+
+extern const char* node_tags[];
+extern const bool node_type_has_payload[];
+
+//////////////////////////////// IR management ////////////////////////////////
+
 typedef struct IrConfig_ {
     bool check_types;
 } IrConfig;
@@ -290,9 +355,11 @@ typedef enum CompilationResult_ {
 CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program);
 void emit_spirv(CompilerConfig* config, IrArena*, const Node* root, FILE* output);
 void dump_cfg(FILE* file, const Node* root);
+void print_node(const Node* node);
+
+//////////////////////////////// IR processing ////////////////////////////////
 
 typedef struct Rewriter_ Rewriter;
-
 typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
 
 /// Applies the rewriter to all nodes in the collection
@@ -318,40 +385,19 @@ const Node* recreate_node_identity(Rewriter*, const Node*);
 /// Rewrites a whole program, starting at the root
 typedef const Node* (RewritePass)(IrArena* src_arena, IrArena* dst_arena, const Node* src_root);
 
-Nodes         nodes(IrArena*, size_t count, const Node*[]);
-Strings     strings(IrArena*, size_t count, const char*[]);
+typedef struct Visitor_ Visitor;
+typedef void (*VisitFn)(Visitor*, const Node*);
 
-#define NODE_CTOR_DECL_1(struct_name, short_name) const Node* short_name(IrArena*, struct_name);
-#define NODE_CTOR_DECL_0(struct_name, short_name) const Node* short_name(IrArena*);
+struct Visitor_ {
+   VisitFn visit_fn;
+   // Enabling this will make visit_children build the scope of functions and look at their continuations in RPO
+   bool visit_fn_scope_rpo;
+   // Enabling this will make visit_children visit targets of control flow terminators, be wary this could cause infinite loops
+   bool visit_cf_targets;
+   bool visit_return_fn_annotation;
+   bool visit_callf_return_fn_annotation;
+};
 
-#define NODE_CTOR_1(has_payload, struct_name, short_name) NODE_CTOR_DECL_##has_payload(struct_name, short_name)
-#define NODE_CTOR_0(has_payload, struct_name, short_name)
-
-#define NODEDEF(autogen_ctor, _, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_payload, struct_name, short_name)
-NODES()
-#undef NODEDEF
-const Node* var(IrArena* arena, const Type* type, const char* name);
-const Node* var_with_id(IrArena* arena, const Type* type, const char* name, VarId);
-Node* fn(IrArena* arena, FnAttributes, const char* name, Nodes params, Nodes return_types);
-Node* constant(IrArena* arena, const char* name);
-
-#undef NODE_CTOR_0
-#undef NODE_CTOR_1
-#undef NODE_CTOR_DECL_0
-#undef NODE_CTOR_DECL_1
-
-bool is_type(const Node*);
-
-String string_sized(IrArena* arena, size_t size, const char* start);
-String string(IrArena* arena, const char* start);
-String unique_name(IrArena* arena, const char* start);
-
-void print_node(const Node* node);
-
-extern const char* node_tags[];
-extern const char* primop_names[];
-extern const bool node_type_has_payload[];
-
-#define SHADY_IR_H
+void visit_children(Visitor*, const Node*);
 
 #endif

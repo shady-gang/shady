@@ -176,16 +176,9 @@ case IntLiteral_TAG: {                \
     field(int_literal.value);         \
     break;                            \
 }                                     \
-case VariableDecl_TAG: {              \
-    field(var_decl.address_space);    \
-    field(var_decl.variable);         \
-    field(var_decl.init);             \
-    break;                            \
-}                                     \
 case Let_TAG: {                       \
-    field(let.op);                    \
     field(let.variables);             \
-    field(let.args);                  \
+    field(let.instruction);           \
     break;                            \
 }                                     \
 case QualifiedType_TAG: {             \

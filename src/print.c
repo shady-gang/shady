@@ -36,12 +36,17 @@ static void print_param_list(struct PrinterCtx* ctx, const Nodes vars) {
 
 static void print_function(struct PrinterCtx* ctx, const Node* node) {
     const Nodes* returns = &node->payload.fn.return_types;
+    bool space = false;
     for (size_t i = 0; i < returns->count; i++) {
+        if (!space) {
+            printf(" ");
+            space = true;
+        }
         print_node(returns->nodes[i]);
         if (i < returns->count - 1)
-            printf(", ");
-        else
             printf(" ");
+        else
+            printf("");
     }
     print_param_list(ctx, node->payload.fn.params);
     printf(" {\n");
@@ -100,7 +105,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char
                         case Vertex: printf(" @vertex"); break;
                         default: break;
                     }
-                    printf(" %s = ", fun->name);
+                    printf(" %s", fun->name);
                     print_function(ctx, decl);
                     printf(";\n\n");
                 } else if (decl->tag == Constant_TAG) {
@@ -114,15 +119,10 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char
             }
             break;
         }
-        case VariableDecl_TAG:
-            print_node(node->payload.var_decl.variable->payload.var.type);
-            printf(" %s", node->payload.var_decl.variable->payload.var.name);
-            if (node->payload.var_decl.init) {
-                printf(" = ");
-                print_node(node->payload.var_decl.init);
-            }
-            printf(";\n");
+        case Constant_TAG: {
+            printf("%s", node->payload.constant.name);
             break;
+        }
         case Variable_TAG:
             printf("%s_%d", node->payload.var.name, node->payload.var.id);
             break;
@@ -186,16 +186,29 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char
             }
             printf(" = ");
 
-            printf("%s", primop_names[node->payload.let.op]);
-            for (size_t i = 0; i < node->payload.let.args.count; i++) {
-                printf(" ");
-                print_node(node->payload.let.args.nodes[i]);
-            }
-
+            print_node(node->payload.let.instruction);
             break;
-        case IfInstr_TAG:
+        case PrimOp_TAG:
+            printf("%s", primop_names[node->payload.prim_op.op]);
+            for (size_t i = 0; i < node->payload.prim_op.operands.count; i++) {
+                printf(" ");
+                print_node(node->payload.prim_op.operands.nodes[i]);
+            }
+            break;
+        case Call_TAG:
+            printf("call ");
+            print_node(node->payload.call_instr.callee);
+            printf(" ");
+            for (size_t i = 0; i < node->payload.call_instr.args.count; i++) {
+                printf(" ");
+                print_node(node->payload.call_instr.args.nodes[i]);
+            }
+            break;
+        case If_TAG:
             printf("if ");
+            printf("(");
             print_node(node->payload.if_instr.condition);
+            printf(")");
             printf(" {\n");
             ctx->indent++;
             print_node(node->payload.if_instr.if_true);
@@ -237,12 +250,22 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char
             break;
         case Callf_TAG:
             printf("callf ");
-            print_node(node->payload.callf.ret_cont);
+            print_node(node->payload.callf.ret_fn);
             printf(" ");
-            print_node(node->payload.callf.target);
+            print_node(node->payload.callf.callee);
             for (size_t i = 0; i < node->payload.callf.args.count; i++) {
                 printf(" ");
                 print_node(node->payload.callf.args.nodes[i]);
+            }
+            break;
+        case Callc_TAG:
+            printf("callc ");
+            print_node(node->payload.callc.ret_cont);
+            printf(" ");
+            print_node(node->payload.callc.callee);
+            for (size_t i = 0; i < node->payload.callc.args.count; i++) {
+                printf(" ");
+                print_node(node->payload.callc.args.nodes[i]);
             }
             break;
         case Unreachable_TAG:
@@ -250,6 +273,10 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char
             break;
         case Join_TAG:
             printf("join ");
+            for (size_t i = 0; i < node->payload.join.args.count; i++) {
+                print_node(node->payload.join.args.nodes[i]);
+                printf(" ");
+            }
             break;
         // --------------------------- TYPES
         case QualifiedType_TAG:

@@ -1,21 +1,19 @@
-fn f = (varying int count) {
+fn extend = (varying bool b) {
+  let extended = if int (b) {
+    join 1;
+  } else {
+    join 0;
+  }
+  return extended;
+}
+
+fn fac = (varying int count) {
   let x = loop int (varying int i, varying int a) {
     let r = lessthan i count; // if i < count
     if (r) {
       let i2 = add i 1;
       let a2 = mul i a;
       continue i2 a2;
-    } else {
-      break a;
-    };
-  } 1 1;
-  return x;
-}
-
-fn f = (varying int count) {
-  let x = loop int (int i, int a) {
-    if (i < count) {
-      continue (i + 1) (a * i);
     } else {
       break a;
     };

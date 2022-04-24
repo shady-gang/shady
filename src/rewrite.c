@@ -4,8 +4,6 @@
 
 #include "list.h"
 
-extern const char* node_tags[];
-
 Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
     size_t count = old_nodes.count;
     LARRAY(const Node*, arr, count);
@@ -36,17 +34,16 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case True_TAG:          return true_lit(rewriter->dst_arena);
         case False_TAG:         return false_lit(rewriter->dst_arena);
         case Variable_TAG:      return var_with_id(rewriter->dst_arena, rewriter->rewrite_fn(rewriter, node->payload.var.type), string(rewriter->dst_arena, node->payload.var.name), node->payload.var.id);
-        case VariableDecl_TAG:  return var_decl(rewriter->dst_arena, (VariableDecl) {
-            .address_space = node->payload.var_decl.address_space,
-            .variable = rewriter->rewrite_fn(rewriter, node->payload.var_decl.variable),
-            .init = rewriter->rewrite_fn(rewriter, node->payload.var_decl.init),
-        });
         case Let_TAG:           return let(rewriter->dst_arena, (Let) {
             .variables = rewrite_nodes(rewriter, node->payload.let.variables),
-            .op = node->payload.let.op,
-            .args = rewrite_nodes(rewriter, node->payload.let.args)
+            .instruction = rewriter->rewrite_fn(rewriter, node->payload.let.instruction)
         });
-        case IfInstr_TAG:       return if_instr(rewriter->dst_arena, (IfInstr) {
+        case PrimOp_TAG:        return prim_op(rewriter->dst_arena, (PrimOp) {
+            .op = node->payload.prim_op.op,
+            .operands = rewrite_nodes(rewriter, node->payload.prim_op.operands)
+        });
+        case If_TAG:       return if_instr(rewriter->dst_arena, (If) {
+            .yield_types = rewrite_nodes(rewriter, node->payload.if_instr.yield_types),
             .condition = rewriter->rewrite_fn(rewriter, node->payload.if_instr.condition),
             .if_true = rewriter->rewrite_fn(rewriter, node->payload.if_instr.if_true),
             .if_false = rewriter->rewrite_fn(rewriter, node->payload.if_instr.if_false),
@@ -60,7 +57,9 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
         });
         case Unreachable_TAG:   return unreachable(rewriter->dst_arena);
-        case Join_TAG:          return join(rewriter->dst_arena);
+        case Join_TAG:          return join(rewriter->dst_arena, (Join) {
+            .args = rewrite_nodes(rewriter, node->payload.join.args)
+        });
         case NoRet_TAG:         return noret_type(rewriter->dst_arena);
         case Int_TAG:           return int_type(rewriter->dst_arena);
         case Bool_TAG:          return bool_type(rewriter->dst_arena);

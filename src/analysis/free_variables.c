@@ -9,75 +9,75 @@
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-struct List* compute_free_variables(Scope* scope) {
+typedef struct VisitorFV_ {
+    Visitor visitor;
+    struct Dict* ignore_set;
+    struct List* free_list;
+} VisitorFV;
+
+static void visit_fv(VisitorFV* visitor, const Node* node) {
+    assert(node);
+    switch (node->tag) {
+        case Variable_TAG: {
+            // if we encounter a variable we haven't ignored already, it is deemed free
+            if (insert_set_get_result(const Node*, visitor->ignore_set, node))
+                append_list(const Node*, visitor->free_list, node);
+        }
+        case Function_TAG: {
+            const Function* fun = &node->payload.fn;
+
+            // Bind parameters
+            for (size_t j = 0; j < fun->params.count; j++) {
+                const Node* param = fun->params.nodes[j];
+                bool r = insert_set_get_result(const Node*, visitor->ignore_set, param);
+                assert(r);
+            }
+
+            const Block* entry_block = &fun->block->payload.block;
+            for (size_t j = 0; j < entry_block->instructions.count; j++) {
+                const Node* let_node = entry_block->instructions.nodes[j];
+                assert(let_node->tag == Let_TAG);
+
+                visit_fv(visitor, let_node->payload.let.instruction);
+
+                // after being computed, outputs are no longer considered free
+                Nodes outputs = let_node->payload.let.variables;
+                for (size_t k = 0; k < outputs.count; k++) {
+                    const Node* output = outputs.nodes[k];
+                    bool r = insert_set_get_result(const Node*, visitor->ignore_set, output);
+                    assert(r);
+                }
+            }
+
+            visit_fv(visitor, entry_block->terminator);
+            break;
+        }
+        case Block_TAG:
+        case Root_TAG: error("should not be reachable")
+        default: visit_children(&visitor->visitor, node); break;
+    }
+}
+
+struct List* compute_free_variables(const Node* entry) {
     struct Dict* ignore_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct List* free_list = new_list(const Node*);
 
-    #define process(n) { \
-        if ((n) && (n)->tag == Variable_TAG && insert_set_get_result(const Node*, ignore_set, n)) \
-            append_list(const Node*, free_list, n); \
-    }
+    assert(entry->tag == Function_TAG);
 
-    for (size_t i = 0; i < scope->size; i++) {
-        const CFNode* cfnode = scope->rpo[i];
-        assert(cfnode->node->tag == Function_TAG);
-        const Function* entry_as_fn = &cfnode->node->payload.fn;
+    VisitorFV visitor_fv = {
+        .visitor = {
+            .visit_fn = (VisitFn) &visitor_fv,
+            .visit_fn_scope_rpo = true,
+            .visit_cf_targets = false,
+            .visit_return_fn_annotation = false,
+            .visit_callf_return_fn_annotation = false,
+        },
+        .ignore_set = ignore_set,
+        .free_list = free_list,
+    };
 
-        for (size_t j = 0; j < entry_as_fn->params.count; j++) {
-            const Node* param = entry_as_fn->params.nodes[j];
-            bool r = insert_set_get_result(const Node*, ignore_set, param);
-            assert(r);
-        }
+    visit_fv(&visitor_fv, entry);
 
-        const Block* entry_block = &entry_as_fn->block->payload.block;
-        for (size_t j = 0; j < entry_block->instructions.count; j++) {
-            const Node* instruction = entry_block->instructions.nodes[j];
-            assert(instruction->tag == Let_TAG && "this pass only supports primops currently");
-
-            // ops can be free variables
-            Nodes ops = instruction->payload.let.args;
-            for (size_t k = 0; k < ops.count; k++) {
-                process(ops.nodes[k]);
-            }
-
-            // after being computed, outputs are no longer considered free
-            Nodes outputs = instruction->payload.let.variables;
-            for (size_t k = 0; k < outputs.count; k++) {
-                const Node* output = outputs.nodes[k];
-                bool r = insert_set_get_result(const Node*, ignore_set, output);
-                assert(r);
-            }
-        }
-
-        switch (entry_block->terminator->tag) {
-            case Jump_TAG: {
-                const Jump* jp = &entry_block->terminator->payload.jump;
-                process(jp->target)
-                for (size_t j = 0; j < jp->args.count; j++)
-                    process(jp->args.nodes[j]);
-                break;
-            }
-            case Branch_TAG: {
-                const Branch* br = &entry_block->terminator->payload.branch;
-                process(br->condition)
-                process(br->continue_target)
-                process(br->merge_target)
-                process(br->true_target)
-                process(br->false_target)
-                for (size_t j = 0; j < br->args.count; j++)
-                    process(br->args.nodes[j]);
-                break;
-            }
-            case Return_TAG: {
-                const Return* ret = &entry_block->terminator->payload.fn_ret;
-                for (size_t j = 0; j < ret->values.count; j++)
-                    process(ret->values.nodes[j]);
-                break;
-            }
-            default: error("non-handled terminator");
-        }
-    }
     destroy_dict(ignore_set);
-
     return free_list;
 }

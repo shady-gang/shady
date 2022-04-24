@@ -146,6 +146,8 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             return resolve(ctx, node->payload.unbound.name);
         }
         case Let_TAG: {
+            const Node* bound_instr = bind_node(ctx, node->payload.let.instruction);
+
             size_t outputs_count = node->payload.let.variables.count;
             LARRAY(const Node*, noutputs, outputs_count);
             for (size_t p = 0; p < outputs_count; p++) {
@@ -162,8 +164,7 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
 
             return let(rewriter->dst_arena, (Let) {
                 .variables = nodes(rewriter->dst_arena, outputs_count, noutputs),
-                .op = node->payload.let.op,
-                .args = rewrite_nodes(rewriter, node->payload.let.args)
+                .instruction = bound_instr,
             });
         }
         case ParsedBlock_TAG: {
