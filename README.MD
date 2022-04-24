@@ -31,11 +31,11 @@ The current syntax reflects the IR quite closely, and is not meant to be easy to
 
 ```
 // line comments are supported
-fn identity = varying int(varying int i) {
+fn identity varying int(varying int i) {
     return i;
 };
 
-fn f = int (varying int i) {
+fn f int (varying int i) {
     let j = call identity i;
     let k = add j 1;
     return k;
@@ -48,7 +48,7 @@ The textual syntax allows nesting functions. The syntax is superficially similar
 Note that this is mostly for making handwritten examples look nicer, the actual nesting of functions/continuations is determined by the CFG analysis after name binding.
 
 ```
-fn f = int (varying bool b) {
+fn f int (varying bool b) {
     jump bb1 7;
 
     bb1: (varying int n) {

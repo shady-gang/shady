@@ -1,16 +1,16 @@
 // shady example code
 
-fn ident = int(varying int i) {
+fn ident int(varying int i) {
     let j = add i 1;
     let v = add 5 9;
     return j;
 };
 
-fn pair = int, int(varying int i) {
+fn pair int, int(varying int i) {
     return i i;
 };
 
-fn not = bool (varying bool b) {
+fn not bool (varying bool b) {
     if b {
         return false;
     } else {
@@ -19,7 +19,7 @@ fn not = bool (varying bool b) {
     unreachable;
 };
 
-fn not2 = bool (varying bool b) {
+fn not2 bool (varying bool b) {
     if b {
         return false;
     }
@@ -27,7 +27,7 @@ fn not2 = bool (varying bool b) {
     return true;
 };
 
-fn @compute main = () {
+fn @compute main() {
     return;
 };
 

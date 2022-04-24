@@ -1,4 +1,4 @@
-fn extend = (varying bool b) {
+fn extend varying int(varying bool b) {
   let extended = if int (b) {
     join 1;
   } else {
@@ -7,7 +7,7 @@ fn extend = (varying bool b) {
   return extended;
 }
 
-fn fac = (varying int count) {
+fn fac varying int(varying int count) {
   let x = loop int (varying int i, varying int a) {
     let r = lessthan i count; // if i < count
     if (r) {

@@ -444,7 +444,6 @@ static const Node* accept_fn_decl(ctxparams) {
 
     const char* id = accept_identifier(ctx);
     expect(id);
-    expect(accept_token(ctx, equal_tok));
     Nodes types = accept_types(ctx, comma_tok, false);
     expect(curr_token(tokenizer).tag == lpar_tok);
     Nodes parameters = expect_parameters(ctx);
