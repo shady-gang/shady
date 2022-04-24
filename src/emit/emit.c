@@ -73,8 +73,15 @@ void emit_primop(Emitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBloc
     SpvId i32_t = emit_type(emitter, int_type(emitter->arena));
 
     switch (op) {
-        case add_op: out[0] = spvb_binop(bbb, SpvOpIAdd, i32_t, arr[0], arr[1]); break;
-        case sub_op: out[0] = spvb_binop(bbb, SpvOpISub, i32_t, arr[0], arr[1]); break;
+        case add_op:  out[0] = spvb_binop(bbb, SpvOpIAdd, i32_t, arr[0], arr[1]); break;
+        case sub_op:  out[0] = spvb_binop(bbb, SpvOpISub, i32_t, arr[0], arr[1]); break;
+        case load_op: {
+            assert(without_qualifier(args.nodes[0]->type)->tag == PtrType_TAG);
+            const Type* elem_type = without_qualifier(args.nodes[0]->type)->payload.ptr_type.pointed_type;
+            SpvId eptr = emit_value(emitter, args.nodes[0], NULL);
+            out[0] = spvb_load(bbb, emit_type(emitter, elem_type), eptr, 0, NULL);
+            break;
+        }
         default: error("TODO: unhandled op");
     }
 }

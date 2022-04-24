@@ -44,6 +44,15 @@ static const char* accept_identifier(ctxparams) {
 
 static const Node* expect_block(ctxparams, bool);
 
+static AddressSpace expect_ptr_address_space(ctxparams) {
+    switch (curr_token(tokenizer).tag) {
+        case global_tok:  next_token(tokenizer); return AsGlobal;
+        case private_tok: next_token(tokenizer); return AsPrivate;
+        case shared_tok:  next_token(tokenizer); return AsShared;
+        default: error("expected address space qualifier");
+    }
+}
+
 static const Type* accept_unqualified_type(ctxparams) {
     if (accept_token(ctx, int_tok)) {
         return int_type(arena);
@@ -52,7 +61,13 @@ static const Type* accept_unqualified_type(ctxparams) {
     } else if (accept_token(ctx, bool__tok)) {
         return bool_type(arena);
     } else if (accept_token(ctx, ptr_tok)) {
-        SHADY_NOT_IMPLEM
+        AddressSpace as = expect_ptr_address_space(ctx);
+        const Type* elem_type = accept_unqualified_type(ctx);
+        expect(elem_type);
+        return ptr_type(arena, (PtrType) {
+           .address_space = as,
+           .pointed_type = elem_type,
+        });
     } else {
         return NULL;
     }
@@ -269,10 +284,26 @@ static const Node* accept_call_instruction(ctxparams) {
     return NULL;
 }
 
+static const Node* accept_memory_instruction(ctxparams) {
+    if (accept_token(ctx, load_tok)) {
+        const Type* element_type = accept_unqualified_type(ctx);
+        assert(!element_type && "we haven't enabled that syntax yet");
+        const Node* ptr = accept_value(ctx);
+        const Node* ops[] = {ptr};
+        expect(accept_token(ctx, semi_tok));
+        return prim_op(arena, (PrimOp) {
+            .op = load_op,
+            .operands = nodes(arena, 1, ops)
+        });
+    }
+    return NULL;
+}
+
 static const Node* accept_instruction(ctxparams) {
     const Node* instr = accept_primop(ctx);
     if (!instr) instr = accept_control_flow_instruction(ctx);
     if (!instr) instr = accept_call_instruction(ctx);
+    if (!instr) instr = accept_memory_instruction(ctx);
     return instr;
 }
 

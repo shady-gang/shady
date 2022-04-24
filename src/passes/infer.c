@@ -171,6 +171,7 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
             new_inputs_scratch[0] = element_type;
             goto skip_input_types;
         }
+        case load_op: new_inputs_scratch[0] = infer_value(ctx, old_inputs.nodes[0], NULL); goto skip_input_types;
         default: error("unhandled op params");
     }
 

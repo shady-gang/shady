@@ -62,7 +62,11 @@ bool is_subtype(const Type* supertype, const Type* type) {
                     return false;
             }
             return true;
-        case PtrType_TAG: SHADY_NOT_IMPLEM;
+        case PtrType_TAG: {
+            if (supertype->payload.ptr_type.address_space != type->payload.ptr_type.address_space)
+                return false;
+            return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
+        }
         // simple types without a payload
         default: return true;
     }
@@ -188,6 +192,22 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
             const Type* element_type = prim_op.operands.nodes[0];
             assert(get_qualifier(element_type) == Unknown && "annotations do not go here");
             return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == pop_stack_uniform_op, .type = element_type}));
+        }
+        case load_op: {
+            assert(prim_op.operands.count == 1);
+            //const Type* elem_type = prim_op.operands.nodes[0];
+            //assert(elem_type && is_type(elem_type));
+            const Node* ptr = prim_op.operands.nodes[0];
+            DivergenceQualifier qual;
+            const Node* node_ptr_type = strip_qualifier(ptr->type, &qual);
+            assert(qual != Unknown);
+            assert(node_ptr_type->tag == PtrType_TAG);
+            const PtrType* node_ptr_type_ = &node_ptr_type->payload.ptr_type;
+            const Type* elem_type = node_ptr_type_->pointed_type;
+            return singleton(qualified_type(arena, (QualifiedType) {
+                .type = elem_type,
+                .is_uniform = qual == Uniform
+            }));
         }
         default: error("unhandled op yield");
     }

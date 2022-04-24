@@ -39,6 +39,11 @@ TOKEN(false_, "false") \
 TOKEN(jump, "jump") \
 TOKEN(branch, "branch") \
 TOKEN(call, "call") \
+TOKEN(callf, "callf") \
+TOKEN(callc, "callc") \
+TOKEN(load, "load") \
+TOKEN(store, "store") \
+TOKEN(alloca, "alloca") \
 TOKEN(unreachable, "unreachable") \
 TOKEN(eq, "==") \
 TOKEN(neq, "!=") \

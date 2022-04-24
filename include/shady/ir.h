@@ -174,6 +174,9 @@ typedef struct Let_ {
 #define PRIMOPS()          \
 PRIMOP(add)                \
 PRIMOP(sub)                \
+PRIMOP(alloca)             \
+PRIMOP(load)               \
+PRIMOP(store)              \
 PRIMOP(push_stack)         \
 PRIMOP(pop_stack)          \
 PRIMOP(push_stack_uniform) \
