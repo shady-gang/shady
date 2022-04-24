@@ -50,7 +50,7 @@ static const Node* infer(Context* ctx, const Node* node);
 static const Node* infer_terminator(Context* ctx, const Node* node);
 static const Node* infer_value(Context* ctx, const Node* node, const Node* expected_type);
 
-static const Node* type_block(Context* ctx, const Node* node) {
+static const Node* infer_block(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
     size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
 
@@ -71,7 +71,7 @@ static const Node* type_block(Context* ctx, const Node* node) {
     });
 }
 
-static const Node* type_constant(Context* ctx, const Node* node) {
+static const Node* infer_constant(Context* ctx, const Node* node) {
     assert(node->tag == Constant_TAG);
     Node** already_done = find_value_dict(const Node*, Node*, ctx->done, node);
     if (already_done)
@@ -89,7 +89,7 @@ static const Node* type_constant(Context* ctx, const Node* node) {
     return nconstant;
 }
 
-static const Node* type_fn(Context* ctx, const Node* node) {
+static const Node* infer_fn(Context* ctx, const Node* node) {
     IrArena* dst_arena = ctx->dst_arena;
     assert(node->tag == Function_TAG);
 
@@ -112,7 +112,7 @@ static const Node* type_fn(Context* ctx, const Node* node) {
     bool r = insert_dict_and_get_result(const Node*, Node*, ctx->done, node, fun);
     assert(r && "insertion of fun failed - the dict isn't working as it should");
 
-    const Node* nblock = type_block(ctx, node->payload.fn.block);
+    const Node* nblock = infer_block(ctx, node->payload.fn.block);
     fun->payload.fn.block = nblock;
 
     while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
@@ -138,8 +138,8 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
     }
 }
 
-static const Node* type_value_or_def(Context* ctx, const Node* node, const Node* expected_type) {
-    const Node* typed = node->tag == Function_TAG ? type_fn(ctx, node) : infer_value(ctx, node, expected_type);
+static const Node* infer_value_or_cont(Context* ctx, const Node* node, const Node* expected_type) {
+    const Node* typed = node->tag == Function_TAG ? infer_fn(ctx, node) : infer_value(ctx, node, expected_type);
     return typed;
 }
 
@@ -188,7 +188,7 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
 static const Node* infer_call(Context* ctx, const Node* node) {
     assert(node->tag == Call_TAG);
 
-    const Node* new_callee = type_value_or_def(ctx, node->payload.call_instr.callee, NULL);
+    const Node* new_callee = infer_value_or_cont(ctx, node->payload.call_instr.callee, NULL);
     LARRAY(const Node*, new_args, node->payload.call_instr.args.count);
 
     const Type* callee_type = without_qualifier(new_callee->type);
@@ -213,8 +213,8 @@ static const Node* infer_if(Context* ctx, const Node* node) {
     const Node* condition = infer_value(ctx, node->payload.if_instr.condition, bool_type(ctx->dst_arena));
 
     Context instrs_infer_ctx = *ctx;
-    const Node* ifTrue = type_block(&instrs_infer_ctx, node->payload.if_instr.if_true);
-    const Node* ifFalse = type_block(&instrs_infer_ctx, node->payload.if_instr.if_false);
+    const Node* ifTrue = infer_block(&instrs_infer_ctx, node->payload.if_instr.if_true);
+    const Node* ifFalse = infer_block(&instrs_infer_ctx, node->payload.if_instr.if_false);
     return if_instr(ctx->dst_arena, (If) {
         // TODO handle !!!
         .yield_types = import_nodes(ctx->dst_arena, node->payload.if_instr.yield_types),
@@ -259,7 +259,7 @@ static const Node* infer(Context* ctx, const Node* node) {
 static const Node* infer_terminator(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Return_TAG: {
-            const Node* imported_fn = type_fn(ctx, node->payload.fn_ret.fn);
+            const Node* imported_fn = infer_fn(ctx, node->payload.fn_ret.fn);
             Nodes return_types = imported_fn->payload.fn.return_types;
 
             const Nodes* old_values = &node->payload.fn_ret.values;
@@ -272,7 +272,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             });
         }
         case Jump_TAG: {
-            const Node* ntarget = type_fn(ctx, node->payload.jump.target);
+            const Node* ntarget = infer_fn(ctx, node->payload.jump.target);
 
             assert(get_qualifier(ntarget->type) == Uniform);
             assert(without_qualifier(ntarget->type)->tag == FnType_TAG);
@@ -340,11 +340,11 @@ static const Node* type_root(Context* ctx, const Node* node) {
                 switch (odecl->tag) {
                     case Variable_TAG: continue;
                     case Function_TAG: {
-                        new_decls[i] = type_fn(ctx, odecl);
+                        new_decls[i] = infer_fn(ctx, odecl);
                         break;
                     }
                     case Constant_TAG: {
-                        new_decls[i] = type_constant(ctx, odecl);
+                        new_decls[i] = infer_constant(ctx, odecl);
                         break;
                     }
                     default: error("not a decl");

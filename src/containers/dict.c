@@ -177,7 +177,7 @@ void* insert_dict_and_get_value_impl(struct Dict* dict, void* key, void* value) 
     return (void*) ((size_t)do_care + dict->value_offset);
 }
 
-void rehash(struct Dict* dict, void* old_alloc, size_t old_size) {
+static void rehash(struct Dict* dict, void* old_alloc, size_t old_size) {
     const size_t alloc_base = (size_t) old_alloc;
     // Go over all the old entries and add them back
     for(size_t pos = 0; pos < old_size; pos++) {
@@ -192,7 +192,7 @@ void rehash(struct Dict* dict, void* old_alloc, size_t old_size) {
     }
 }
 
-void grow_and_rehash(struct Dict* dict) {
+static void grow_and_rehash(struct Dict* dict) {
     //printf("grow_rehash\n");
 
     void* old_alloc = dict->alloc;
