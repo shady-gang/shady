@@ -123,10 +123,14 @@ struct Token next_token(struct Tokenizer* tokenizer) {
 
     for (int i = 0; i < LIST_END_tok; i++) {
         size_t tok_size = token_strings_size[i];
+        // if there is a match ...
         if (tokenizer->pos + tok_size <= tokenizer->original_size && strncmp(token_strings[i], slice, tok_size) == 0) {
-            token.tag = i;
-            token_size = tok_size;
-            goto parsed_successfully;
+            // if this is an identifier, we need the size to match exactly
+            if (!can_be_identifier || tok_size == token_size) {
+                token.tag = i;
+                token_size = tok_size;
+                goto parsed_successfully;
+            }
         }
     }
 
