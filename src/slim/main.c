@@ -106,8 +106,8 @@ int main(int argc, const char** argv) {
     print_node(program);
 
     CompilationResult result = run_compiler_passes(&config, &arena, &program);
-    if (!result) {
-        error_print("Compilation pipeline failed, errcode=%d", (int) result);
+    if (result != CompilationNoError) {
+        error_print("Compilation pipeline failed, errcode=%d\n", (int) result);
         exit(result);
     }
 

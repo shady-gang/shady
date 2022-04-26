@@ -290,10 +290,31 @@ static const Node* accept_memory_instruction(ctxparams) {
         const Type* element_type = accept_unqualified_type(ctx);
         assert(!element_type && "we haven't enabled that syntax yet");
         const Node* ptr = accept_value(ctx);
+        expect(ptr);
         const Node* ops[] = {ptr};
         expect(accept_token(ctx, semi_tok));
         return prim_op(arena, (PrimOp) {
             .op = load_op,
+            .operands = nodes(arena, 1, ops)
+        });
+    } else if (accept_token(ctx, store_tok)) {
+        const Node* ptr = accept_value(ctx);
+        expect(ptr);
+        const Node* data = accept_value(ctx);
+        expect(data);
+        const Node* ops[] = {ptr, data};
+        expect(accept_token(ctx, semi_tok));
+        return prim_op(arena, (PrimOp) {
+            .op = store_op,
+            .operands = nodes(arena, 2, ops)
+        });
+    } else if (accept_token(ctx, alloca_tok)) {
+        const Type* element_type = accept_unqualified_type(ctx);
+        expect(element_type);
+        const Node* ops[] = {element_type};
+        expect(accept_token(ctx, semi_tok));
+        return prim_op(arena, (PrimOp) {
+            .op = alloca_op,
             .operands = nodes(arena, 1, ops)
         });
     }

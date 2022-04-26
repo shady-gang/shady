@@ -68,7 +68,7 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
 SpvId emit_type(Emitter* emitter, const Type* type);
 SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id);
 
-void emit_primop(Emitter* emitter, struct SpvBasicBlockBuilder* bbb, Op op, Nodes args, SpvId out[]) {
+void emit_primop(Emitter* emitter, struct SpvFnBuilder* fn_builder, struct SpvBasicBlockBuilder* bbb, Op op, Nodes args, SpvId out[]) {
     LARRAY(SpvId, arr, args.count);
     for (size_t i = 0; i < args.count; i++)
         arr[i] = emit_value(emitter, args.nodes[i], NULL);
@@ -85,17 +85,30 @@ void emit_primop(Emitter* emitter, struct SpvBasicBlockBuilder* bbb, Op op, Node
             out[0] = spvb_load(bbb, emit_type(emitter, elem_type), eptr, 0, NULL);
             break;
         }
+        case store_op: {
+            assert(without_qualifier(args.nodes[0]->type)->tag == PtrType_TAG);
+            const Type* elem_type = without_qualifier(args.nodes[0]->type)->payload.ptr_type.pointed_type;
+            SpvId eptr = emit_value(emitter, args.nodes[0], NULL);
+            SpvId eval = emit_value(emitter, args.nodes[1], NULL);
+            spvb_store(bbb, eval, eptr, 0, NULL);
+            break;
+        }
+        case alloca_op: {
+            const Type* elem_type = args.nodes[0];
+            spvb_local_variable(fn_builder, emit_type(emitter, elem_type), SpvStorageClassFunction);
+            break;
+        }
         default: error("TODO: unhandled op");
     }
 }
 
-struct SpvBasicBlockBuilder* emit_let(Emitter* emitter, struct SpvBasicBlockBuilder* bbb, const Node* let_node) {
+struct SpvBasicBlockBuilder* emit_let(Emitter* emitter, struct SpvFnBuilder* fn_builder, struct SpvBasicBlockBuilder* bbb, const Node* let_node) {
     const Node* instruction = let_node->payload.let.instruction;
     switch (instruction->tag) {
         case PrimOp_TAG: {
             const Nodes* variables = &let_node->payload.let.variables;
             LARRAY(SpvId, out, variables->count);
-            emit_primop(emitter, bbb, instruction->payload.prim_op.op, instruction->payload.prim_op.operands, out);
+            emit_primop(emitter, fn_builder, bbb, instruction->payload.prim_op.op, instruction->payload.prim_op.operands, out);
             for (size_t i = 0; i < variables->count; i++) {
                 spvb_name(emitter->file_builder, out[i], variables->nodes[i]->payload.var.name);
                 insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variables->nodes[i], out[i]);
@@ -194,7 +207,7 @@ void emit_basic_block(Emitter* emitter, FunctionEmissionCtx* fn_ectx, const CFNo
     struct SpvBasicBlockBuilder* basicblock_builder = bb_ectx->basic_block_builder;
     const Block* block = &node->node->payload.fn.block->payload.block;
     for (size_t i = 0; i < block->instructions.count; i++)
-        basicblock_builder = emit_let(emitter, basicblock_builder, block->instructions.nodes[i]);
+        basicblock_builder = emit_let(emitter, fn_ectx->fn_builder, basicblock_builder, block->instructions.nodes[i]);
     emit_terminator(emitter, fn_ectx, bb_ectx, block->terminator);
 
     // Emit the child nodes for real

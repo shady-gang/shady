@@ -170,7 +170,27 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
             new_inputs_scratch[0] = element_type;
             goto skip_input_types;
         }
-        case load_op: new_inputs_scratch[0] = infer_value(ctx, old_inputs.nodes[0], NULL); goto skip_input_types;
+        case load_op: {
+            assert(old_inputs.count == 1);
+            new_inputs_scratch[0] = infer_value(ctx, old_inputs.nodes[0], NULL);
+            goto skip_input_types;
+        }
+        case store_op: {
+            assert(old_inputs.count == 2);
+            new_inputs_scratch[0] = infer_value(ctx, old_inputs.nodes[0], NULL);
+            const Type* op0_type = without_qualifier(new_inputs_scratch[0]->type);
+            assert(op0_type->tag == PtrType_TAG);
+            const PtrType* ptr_type = &op0_type->payload.ptr_type;
+            new_inputs_scratch[1] = infer_value(ctx, old_inputs.nodes[1], ptr_type->pointed_type);
+            goto skip_input_types;
+        }
+        case alloca_op: {
+            assert(old_inputs.count == 1);
+            new_inputs_scratch[0] = import_node(ctx->dst_arena, old_inputs.nodes[0]);
+            assert(is_type(new_inputs_scratch[0]));
+            assert(get_qualifier(new_inputs_scratch[0]) == Unknown);
+            goto skip_input_types;
+        }
         default: error("unhandled op params");
     }
 

@@ -211,7 +211,40 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                 .is_uniform = qual == Uniform
             }));
         }
-        default: error("unhandled op yield");
+        case store_op: {
+            assert(prim_op.operands.count == 2);
+            //const Type* elem_type = prim_op.operands.nodes[0];
+            //assert(elem_type && is_type(elem_type));
+            const Node* ptr = prim_op.operands.nodes[0];
+            DivergenceQualifier qual;
+            const Node* node_ptr_type = strip_qualifier(ptr->type, &qual);
+            assert(qual != Unknown);
+            assert(node_ptr_type->tag == PtrType_TAG);
+            const PtrType* node_ptr_type_ = &node_ptr_type->payload.ptr_type;
+            const Type* elem_type = node_ptr_type_->pointed_type;
+            // we don't enforce uniform stores - but we care about storing the right thing :)
+            const Type* val_expected_type = qualified_type(arena, (QualifiedType) {
+                .is_uniform = false,
+                .type = elem_type
+            });
+
+            const Node* val = prim_op.operands.nodes[1];
+            assert(is_subtype(val_expected_type, val->type));
+            return empty();
+        }
+        case alloca_op: {
+            assert(prim_op.operands.count == 1);
+            const Type* elem_type = prim_op.operands.nodes[0];
+            assert(is_type(elem_type));
+            return singleton(qualified_type(arena, (QualifiedType) {
+                .is_uniform = true,
+                .type = ptr_type(arena, (PtrType) {
+                    .pointed_type = elem_type,
+                    .address_space = AsPrivate
+                })
+            }));
+        }
+        default: error("unhandled primop %s", primop_names[prim_op.op]);
     }
 }
 
