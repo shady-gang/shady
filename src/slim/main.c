@@ -106,6 +106,10 @@ int main(int argc, const char** argv) {
     print_node(program);
 
     CompilationResult result = run_compiler_passes(&config, &arena, &program);
+    if (!result) {
+        error_print("Compilation pipeline failed, errcode=%d", (int) result);
+        exit(result);
+    }
 
     if (cfg_output) {
         FILE* cfg_output_f = fopen(cfg_output, "wb");

@@ -10,7 +10,7 @@ static void visit_nodes(Visitor* visitor, Nodes nodes) {
     }
 }
 
-#define visit(t) t ? visitor->visit_fn(visitor, t) : 0
+#define visit(t) if (t) visitor->visit_fn(visitor, t);
 
 void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
     assert(function->tag == Function_TAG);
@@ -129,5 +129,6 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.callc.args);
             break;
         }
+        default: break;
     }
 }

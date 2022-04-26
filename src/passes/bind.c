@@ -98,7 +98,7 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             for (size_t i = 0; i < count; i++) {
                 const Node* decl = src_root->declarations.nodes[i];
 
-                Node* bound = NULL;
+                const Node* bound = NULL;
                 struct BindEntry entry;
 
                 switch (decl->tag) {
@@ -110,8 +110,9 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                     }
                     case Constant_TAG: {
                         const Constant* cnst = &decl->payload.constant;
-                        bound = constant(dst_arena, cnst->name);
-                        bound->payload.constant.type_hint = decl->payload.constant.type_hint;
+                        Node* new_constant = constant(dst_arena, cnst->name);
+                        new_constant->payload.constant.type_hint = decl->payload.constant.type_hint;
+                        bound = new_constant;
                         entry.name = cnst->name;
                         break;
                     }
@@ -215,12 +216,12 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             });
         }
         case Function_TAG: {
-            Node* head = resolve(ctx, node->payload.fn.name);
+            Node* head = (Node*) resolve(ctx, node->payload.fn.name);
             rewrite_fn_body(ctx, node, head);
             return head;
         }
         case Constant_TAG: {
-            Node* head = resolve(ctx, node->payload.fn.name);
+            Node* head = (Node*) resolve(ctx, node->payload.fn.name);
             head->payload.constant.value = bind_node(ctx, node->payload.constant.value);
             return head;
         }

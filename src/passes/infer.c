@@ -149,7 +149,6 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
     Nodes old_inputs = node->payload.prim_op.operands;
 
     LARRAY(const Node*, new_inputs_scratch, old_inputs.count);
-    Nodes yield_tys;
     Nodes input_types;
     switch (node->payload.prim_op.op) {
         case add_op:

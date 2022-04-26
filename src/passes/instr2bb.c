@@ -188,7 +188,7 @@ static const Node* instr2bb_process(Context* rewriter, const Node* node) {
         }
         case Block_TAG: return handle_block(rewriter, node, 0, NULL);
         case Constant_TAG: return node;
-        case Root_TAG: error("");
+        case Root_TAG: error("illegal node");
         default: return recreate_node_identity(&rewriter->rewriter, node);
     }
 }

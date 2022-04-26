@@ -57,7 +57,10 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
         // TODO: depending on platform, use push constants/ubos/ssbos here
         case AsExternal: return SpvStorageClassStorageBuffer;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch"
         case 0x100: return SpvStorageClassFunction;
+#pragma GCC diagnostic pop
         default: SHADY_NOT_IMPLEM;
     }
 }
@@ -65,7 +68,7 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
 SpvId emit_type(Emitter* emitter, const Type* type);
 SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id);
 
-void emit_primop(Emitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, Op op, Nodes args, SpvId out[]) {
+void emit_primop(Emitter* emitter, struct SpvBasicBlockBuilder* bbb, Op op, Nodes args, SpvId out[]) {
     LARRAY(SpvId, arr, args.count);
     for (size_t i = 0; i < args.count; i++)
         arr[i] = emit_value(emitter, args.nodes[i], NULL);
@@ -86,13 +89,13 @@ void emit_primop(Emitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBloc
     }
 }
 
-struct SpvBasicBlockBuilder* emit_let(Emitter* emitter, struct SpvFnBuilder* fnb, struct SpvBasicBlockBuilder* bbb, const Node* let_node) {
+struct SpvBasicBlockBuilder* emit_let(Emitter* emitter, struct SpvBasicBlockBuilder* bbb, const Node* let_node) {
     const Node* instruction = let_node->payload.let.instruction;
     switch (instruction->tag) {
         case PrimOp_TAG: {
             const Nodes* variables = &let_node->payload.let.variables;
             LARRAY(SpvId, out, variables->count);
-            emit_primop(emitter, fnb, bbb, instruction->payload.prim_op.op, instruction->payload.prim_op.operands, out);
+            emit_primop(emitter, bbb, instruction->payload.prim_op.op, instruction->payload.prim_op.operands, out);
             for (size_t i = 0; i < variables->count; i++) {
                 spvb_name(emitter->file_builder, out[i], variables->nodes[i]->payload.var.name);
                 insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variables->nodes[i], out[i]);
@@ -191,7 +194,7 @@ void emit_basic_block(Emitter* emitter, FunctionEmissionCtx* fn_ectx, const CFNo
     struct SpvBasicBlockBuilder* basicblock_builder = bb_ectx->basic_block_builder;
     const Block* block = &node->node->payload.fn.block->payload.block;
     for (size_t i = 0; i < block->instructions.count; i++)
-        basicblock_builder = emit_let(emitter, fn_ectx->fn_builder, basicblock_builder, block->instructions.nodes[i]);
+        basicblock_builder = emit_let(emitter, basicblock_builder, block->instructions.nodes[i]);
     emit_terminator(emitter, fn_ectx, bb_ectx, block->terminator);
 
     // Emit the child nodes for real
@@ -213,9 +216,8 @@ static SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
     }
 }
 
-SpvId emit_function(Emitter* emitter, const Node* node, const SpvId new) {
+void emit_function(Emitter* emitter, const Node* node) {
     assert(node->tag == Function_TAG);
-    const Node* fn_type = derive_fn_type(emitter->arena, &node->payload.fn);
 
     FunctionEmissionCtx* fn_emit_ctx = find_fn_ctx(emitter, node);
 
@@ -439,7 +441,7 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
                 spvb_name(file_builder, ids[i], var->name);
                 break;
             } case Function_TAG: {
-                emit_function(&emitter, decl, ids[i]);
+                emit_function(&emitter, decl);
                 spvb_name(file_builder, ids[i], decl->payload.fn.name);
                 break;
             } case Constant_TAG: {

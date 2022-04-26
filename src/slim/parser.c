@@ -13,7 +13,7 @@
 extern const char* token_tags[];
 
 // to avoid some repetition
-#define ctxparams char* contents, IrArena* arena, struct Tokenizer* tokenizer
+#define ctxparams __attribute__ ((unused)) char* contents, __attribute__ ((unused)) IrArena* arena, __attribute__ ((unused)) struct Tokenizer* tokenizer
 #define ctx contents, arena, tokenizer
 
 #define expect(condition) expect_impl(condition, #condition)
@@ -51,6 +51,7 @@ static AddressSpace expect_ptr_address_space(ctxparams) {
         case shared_tok:  next_token(tokenizer); return AsShared;
         default: error("expected address space qualifier");
     }
+    SHADY_UNREACHABLE;
 }
 
 static const Type* accept_unqualified_type(ctxparams) {

@@ -30,7 +30,7 @@ static CFNode* get_or_create_cf_node(struct Dict* d, const Node* n) {
         .node = n,
         .succs = new_list(CFNode*),
         .preds = new_list(CFNode*),
-        .rpo_index = -1,
+        .rpo_index = SIZE_MAX,
         .idom = NULL,
         .dominates = NULL,
     };
@@ -119,7 +119,7 @@ static size_t post_order_visit(Scope* scope, CFNode* n, size_t i) {
 
     for (size_t j = 0; j < entries_count_list(n->succs); j++) {
         CFNode* succ = read_list(CFNode*, n->succs)[j];
-        if (succ->rpo_index == -1)
+        if (succ->rpo_index == SIZE_MAX)
             i = post_order_visit(scope, succ, i);
     }
 

@@ -123,6 +123,8 @@ const Type* check_type_fn(IrArena* arena, Function fn) {
     });
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 const Type* check_type_var(IrArena* arena, Variable variable) {
     assert(variable.type);
     assert(get_qualifier(variable.type) != Unknown);
@@ -321,3 +323,5 @@ const Type* check_type_callc(IrArena* arena, Callc callc) {
 
     return NULL;
 }
+
+#pragma GCC diagnostic pop

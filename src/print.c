@@ -14,9 +14,9 @@ struct PrinterCtx {
 };
 
 #define printf(...) fprintf(ctx->output, __VA_ARGS__)
-#define print_node(n) print_node_impl(ctx, n, NULL)
+#define print_node(n) print_node_impl(ctx, n)
 
-static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name);
+static void print_node_impl(struct PrinterCtx* ctx, const Node* node);
 
 static void print_param_list(struct PrinterCtx* ctx, const Nodes vars) {
     printf("(");
@@ -45,8 +45,8 @@ static void print_function(struct PrinterCtx* ctx, const Node* node) {
         print_node(returns->nodes[i]);
         if (i < returns->count - 1)
             printf(" ");
-        else
-            printf("");
+        //else
+        //    printf("");
     }
     print_param_list(ctx, node->payload.fn.params);
     printf(" {\n");
@@ -80,7 +80,7 @@ static void print_function(struct PrinterCtx* ctx, const Node* node) {
     INDENT printf("}");
 }
 
-static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char* def_name) {
+static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
     if (node == NULL) {
         printf("?");
         return;
@@ -160,7 +160,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char
             }
             for(size_t i = 0; i < pblock->continuations.count; i++) {
                 INDENT
-                print_node_impl(ctx, pblock->continuations.nodes[i], pblock->continuations_vars.nodes[i]->payload.var.name);
+                print_node_impl(ctx, pblock->continuations.nodes[i]);
             }
             break;
         }
@@ -168,7 +168,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node, const char
             printf("%s", node->payload.untyped_number.plaintext);
             break;
         case IntLiteral_TAG:
-            printf("%d", node->payload.int_literal.value);
+            printf("%ld", node->payload.int_literal.value);
             break;
         case True_TAG:
             printf("true");
@@ -352,7 +352,7 @@ static void print_node_in_output(FILE* output, const Node* node) {
         .indent = 0,
         .emitted_fns = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
-    print_node_impl(&ctx, node, NULL);
+    print_node_impl(&ctx, node);
     destroy_dict(ctx.emitted_fns);
 }
 

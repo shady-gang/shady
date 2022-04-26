@@ -28,14 +28,10 @@ void log_node(LogLevel level, const Node* node);
 #define error_print(...) log_string(ERROR, __VA_ARGS__)
 #define error_node(n)    log_node(ERROR, n)
 
-#ifdef NDEBUG
 #ifdef _MSC_VER
 #define SHADY_UNREACHABLE __assume(0)
 #else
 #define SHADY_UNREACHABLE __builtin_unreachable()
-#endif
-#else
-#define SHADY_UNREACHABLE error_die()
 #endif
 
 #define SHADY_NOT_IMPLEM {    \
@@ -51,6 +47,6 @@ void log_node(LogLevel level, const Node* node);
   SHADY_UNREACHABLE;                                        \
 }
 
-static void error_die();
+void error_die();
 
 #endif

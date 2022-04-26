@@ -9,7 +9,7 @@ CompilerConfig default_compiler_config() {
     };
 }
 
-CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program) {
+CompilationResult run_compiler_passes(__attribute__ ((unused)) CompilerConfig* config, IrArena** arena, const Node** program) {
     *program = bind_program(*arena, *arena, *program);
     info_print("Bound program successfully: \n");
     info_node(*program);
@@ -26,4 +26,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, c
     *program = instr2bb(*arena, *arena, *program);
     info_print("After instr2bb pass: \n");
     info_node(*program);
+
+    return CompilationNoError;
 }
