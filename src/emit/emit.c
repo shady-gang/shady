@@ -97,7 +97,10 @@ void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, O
         }
         case alloca_op: {
             const Type* elem_type = args.nodes[0];
-            spvb_local_variable(fn_builder, emit_type(emitter, elem_type), SpvStorageClassFunction);
+            out[0] = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
+                .address_space = AsSpecialFn,
+                .pointed_type = elem_type
+            })), SpvStorageClassFunction);
             break;
         }
         default: error("TODO: unhandled op");
@@ -268,6 +271,7 @@ void emit_function(Emitter* emitter, const Node* node) {
 
     if (emitter->configuration->use_loop_for_fn_body) {
         fn_emit_ctx->next_bb_var = spvb_local_variable(fn_emit_ctx->fn_builder, ptr_int_spv, SpvStorageClassFunction);
+        spvb_name(emitter->file_builder, fn_emit_ctx->next_bb_var, "next_bb");
         fn_emit_ctx->fn_loop_continue = spvb_fresh_id(emitter->file_builder);
         SpvId entry_block_id = spvb_fresh_id(emitter->file_builder);
         SpvId loop_header_id = spvb_fresh_id(emitter->file_builder);
