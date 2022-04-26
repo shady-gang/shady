@@ -51,6 +51,9 @@ static void visit_fv(VisitorFV* visitor, const Node* node) {
             }
 
             visit_fv(visitor, entry_block->terminator);
+
+            if (!fun->atttributes.is_continuation)
+                visit_fn_blocks_except_head(&visitor->visitor, node);
             break;
         }
         case Block_TAG:

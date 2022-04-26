@@ -402,5 +402,6 @@ struct Visitor_ {
 };
 
 void visit_children(Visitor*, const Node*);
+void visit_fn_blocks_except_head(Visitor*, const Node*);
 
 #endif
