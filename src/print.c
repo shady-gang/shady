@@ -18,37 +18,46 @@ struct PrinterCtx {
 
 static void print_node_impl(struct PrinterCtx* ctx, const Node* node);
 
-static void print_param_list(struct PrinterCtx* ctx, const Nodes vars) {
+//static int indent = 0;
+#define INDENT for (unsigned int j = 0; j < ctx->indent; j++) \
+    printf("   ");
+
+static void print_param_list(struct PrinterCtx* ctx, Nodes vars, const Nodes* defaults) {
+    if (defaults != NULL)
+        assert(defaults->count == vars.count);
     printf("(");
     for (size_t i = 0; i < vars.count; i++) {
         const Variable* var = &vars.nodes[i]->payload.var;
         print_node(var->type);
         printf(" %s_%d", var->name, var->id);
+        if (defaults) {
+            printf(" = ");
+            print_node(defaults->nodes[i]);
+        }
         if (i < vars.count - 1)
             printf(", ");
     }
     printf(")");
 }
 
-//static int indent = 0;
-#define INDENT for (unsigned int j = 0; j < ctx->indent; j++) \
-    printf("   ");
-
-static void print_function(struct PrinterCtx* ctx, const Node* node) {
-    const Nodes* returns = &node->payload.fn.return_types;
+static void print_yield_types(struct PrinterCtx* ctx, Nodes types) {
     bool space = false;
-    for (size_t i = 0; i < returns->count; i++) {
+    for (size_t i = 0; i < types.count; i++) {
         if (!space) {
             printf(" ");
             space = true;
         }
-        print_node(returns->nodes[i]);
-        if (i < returns->count - 1)
+        print_node(types.nodes[i]);
+        if (i < types.count - 1)
             printf(" ");
         //else
         //    printf("");
     }
-    print_param_list(ctx, node->payload.fn.params);
+}
+
+static void print_function(struct PrinterCtx* ctx, const Node* node) {
+    print_yield_types(ctx, node->payload.fn.return_types);
+    print_param_list(ctx, node->payload.fn.params, NULL);
     printf(" {\n");
     ctx->indent++;
     print_node(node->payload.fn.block);
@@ -65,7 +74,7 @@ static void print_function(struct PrinterCtx* ctx, const Node* node) {
             const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
             INDENT
             printf("cont %s = ", cfnode->node->payload.fn.name);
-            print_param_list(ctx, cfnode->node->payload.fn.params);
+            print_param_list(ctx, cfnode->node->payload.fn.params, NULL);
             printf(" {\n");
             ctx->indent++;
             print_node(cfnode->node->payload.fn.block);
@@ -178,14 +187,15 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         // ----------------- INSTRUCTIONS
         case Let_TAG:
-            printf("let");
-            for (size_t i = 0; i < node->payload.let.variables.count; i++) {
-                printf(" ");
-                print_node(node->payload.let.variables.nodes[i]->payload.var.type);
-                printf(" %s", node->payload.let.variables.nodes[i]->payload.var.name);
+            if (node->payload.let.variables.count > 0) {
+                printf("let");
+                for (size_t i = 0; i < node->payload.let.variables.count; i++) {
+                    printf(" ");
+                    print_node(node->payload.let.variables.nodes[i]->payload.var.type);
+                    printf(" %s", node->payload.let.variables.nodes[i]->payload.var.name);
+                }
+                printf(" = ");
             }
-            printf(" = ");
-
             print_node(node->payload.let.instruction);
             break;
         case PrimOp_TAG:
@@ -205,7 +215,8 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             }
             break;
         case If_TAG:
-            printf("if ");
+            printf("if");
+            print_yield_types(ctx, node->payload.if_instr.yield_types);
             printf("(");
             print_node(node->payload.if_instr.condition);
             printf(")");
@@ -218,6 +229,16 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.if_instr.if_false);
             ctx->indent--;
             INDENT printf("}");
+            break;
+        case Loop_TAG:
+            printf("loop");
+            print_yield_types(ctx, node->payload.loop_instr.yield_types);
+            print_param_list(ctx, node->payload.loop_instr.params, &node->payload.loop_instr.initial_args);
+            printf(" {\n");
+            ctx->indent++;
+            print_node(node->payload.loop_instr.body);
+            ctx->indent--;
+            INDENT printf("}\n");
             break;
         // --------------------- TERMINATORS
         case Return_TAG:
@@ -275,6 +296,20 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("join ");
             for (size_t i = 0; i < node->payload.join.args.count; i++) {
                 print_node(node->payload.join.args.nodes[i]);
+                printf(" ");
+            }
+            break;
+        case Continue_TAG:
+            printf("continue ");
+            for (size_t i = 0; i < node->payload.cont.args.count; i++) {
+                print_node(node->payload.cont.args.nodes[i]);
+                printf(" ");
+            }
+            break;
+        case Break_TAG:
+            printf("break ");
+            for (size_t i = 0; i < node->payload.brk.args.count; i++) {
+                print_node(node->payload.brk.args.nodes[i]);
                 printf(" ");
             }
             break;

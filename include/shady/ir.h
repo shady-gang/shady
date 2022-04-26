@@ -54,8 +54,8 @@ NODEDEF(1, 1, 1, Branch, branch) \
 NODEDEF(1, 1, 1, Callc, callc) \
 NODEDEF(1, 1, 1, Callf, callf) \
 NODEDEF(1, 0, 1, Join, join) \
-NODEDEF(1, 0, 0, Break, brk) \
-NODEDEF(1, 0, 0, Continue, cont) \
+NODEDEF(1, 0, 1, Break, brk) \
+NODEDEF(1, 0, 1, Continue, cont) \
 NODEDEF(1, 0, 0, Unreachable, unreachable) \
 
 #define TYPE_NODES() \
@@ -174,6 +174,19 @@ typedef struct Let_ {
 #define PRIMOPS()          \
 PRIMOP(add)                \
 PRIMOP(sub)                \
+PRIMOP(mul)                \
+PRIMOP(div)                \
+PRIMOP(mod)                \
+PRIMOP(gt)                \
+PRIMOP(gte)                \
+PRIMOP(lt)                \
+PRIMOP(lte)                \
+PRIMOP(eq)                \
+PRIMOP(neq)                \
+PRIMOP(and)                \
+PRIMOP(or)                \
+PRIMOP(xor)                \
+PRIMOP(not)                \
 PRIMOP(alloca)             \
 PRIMOP(load)               \
 PRIMOP(store)              \
@@ -226,6 +239,7 @@ typedef struct Loop_ {
     Nodes yield_types;
     Nodes params;
     const Node* body;
+    Nodes initial_args;
 } Loop;
 
 //////////////////////////////// Terminators ////////////////////////////////
@@ -251,6 +265,14 @@ typedef struct Branch_ {
 typedef struct Join_ {
     Nodes args;
 } Join;
+
+typedef struct Continue_ {
+    Nodes args;
+} Continue;
+
+typedef struct Break_ {
+    Nodes args;
+} Break;
 
 typedef struct Callf_ {
     const Node* ret_fn;

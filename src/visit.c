@@ -88,6 +88,7 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.loop_instr.yield_types);
             visit_nodes(visitor, node->payload.loop_instr.params);
             visit(node->payload.loop_instr.body);
+            visit_nodes(visitor, node->payload.loop_instr.initial_args);
             break;
         }
         case Return_TAG: {

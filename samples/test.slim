@@ -10,8 +10,8 @@ fn pair int, int(varying int i) {
     return i i;
 }
 
-fn not bool (varying bool b) {
-    if b {
+fn negate bool (varying bool b) {
+    if (b) {
         return false;
     } else {
         return true;
@@ -19,8 +19,8 @@ fn not bool (varying bool b) {
     unreachable;
 }
 
-fn not2 bool (varying bool b) {
-    if b {
+fn negate2 bool (varying bool b) {
+    if (b) {
         return false;
     }
 

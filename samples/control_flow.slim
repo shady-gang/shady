@@ -8,15 +8,16 @@ fn extend varying int(varying bool b) {
 }
 
 fn fac varying int(varying int count) {
-  let x = loop int (varying int i, varying int a) {
-    let r = lessthan i count; // if i < count
+  let x = loop int (varying int i = 1, varying int a = 1) {
+    let r = lt i count; // if i < count
     if (r) {
       let i2 = add i 1;
       let a2 = mul i a;
       continue i2 a2;
     } else {
       break a;
-    };
-  } 1 1;
+    }
+    unreachable;
+  }
   return x;
 }
