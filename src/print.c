@@ -193,6 +193,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                     printf(" ");
                     print_node(node->payload.let.variables.nodes[i]->payload.var.type);
                     printf(" %s", node->payload.let.variables.nodes[i]->payload.var.name);
+                    printf("_%d", node->payload.let.variables.nodes[i]->payload.var.id);
                 }
                 printf(" = ");
             }
