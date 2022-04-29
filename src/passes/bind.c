@@ -104,7 +104,7 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                 switch (decl->tag) {
                     case Variable_TAG: {
                         const Variable* ovar = &decl->payload.var;
-                        bound = var(rewriter->dst_arena, rewrite_node(rewriter, ovar->type), string(rewriter->dst_arena, ovar->name));
+                        bound = var(dst_arena, rewrite_node(rewriter, ovar->type), string(dst_arena, ovar->name));
                         entry.name = ovar->name;
                         break;
                     }
@@ -139,7 +139,7 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             }
 
             return root(rewriter->dst_arena, (Root) {
-                .declarations = nodes(rewriter->dst_arena, count, new_decls),
+                .declarations = nodes(dst_arena, count, new_decls),
             });
         }
         case Variable_TAG: error("the binders should be handled such that this node is never reached");
@@ -153,10 +153,10 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             LARRAY(const Node*, noutputs, outputs_count);
             for (size_t p = 0; p < outputs_count; p++) {
                 const Variable* old_var = &node->payload.let.variables.nodes[p]->payload.var;
-                const Node* new_binding = var(rewriter->dst_arena, rewrite_node(rewriter, old_var->type), string(rewriter->dst_arena, old_var->name));
+                const Node* new_binding = var(dst_arena, rewrite_node(rewriter, old_var->type),  old_var->name);
                 noutputs[p] = new_binding;
                 struct BindEntry entry = {
-                    .name = string(ctx->rewriter.dst_arena, old_var->name),
+                    .name = string(dst_arena, old_var->name),
                     .bound_node = new_binding
                 };
                 append_list(struct BindEntry, ctx->bound_variables, entry);
@@ -164,8 +164,38 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
             }
 
             return let(rewriter->dst_arena, (Let) {
-                .variables = nodes(rewriter->dst_arena, outputs_count, noutputs),
+                .variables = nodes(dst_arena, outputs_count, noutputs),
                 .instruction = bound_instr,
+            });
+        }
+        case Loop_TAG: {
+            size_t old_bound_variables_size = entries_count_list(ctx->bound_variables);
+
+            Nodes old_params = node->payload.loop_instr.params;
+            LARRAY(const Node*, new_params, old_params.count);
+            for (size_t i = 0; i < old_params.count; i++) {
+                const Variable* old_param = &old_params.nodes[i]->payload.var;
+                const Node* new_param = var(dst_arena, rewrite_node(rewriter, old_param->type), old_param->name);
+                new_params[i] = new_param;
+
+                struct BindEntry entry = {
+                    .name = string(dst_arena, old_param->name),
+                    .bound_node = new_param
+                };
+                append_list(struct BindEntry, ctx->bound_variables, entry);
+                printf("Bound loop param %s\n", entry.name);
+            }
+
+            const Node* new_body = bind_node(ctx, node->payload.loop_instr.body);
+
+            while (entries_count_list(ctx->bound_variables) > old_bound_variables_size)
+                remove_last_list(struct BindEntry, ctx->bound_variables);
+
+            return loop_instr(dst_arena, (Loop) {
+                .yield_types = import_nodes(dst_arena, node->payload.loop_instr.yield_types),
+                .initial_args = rewrite_nodes(rewriter, node->payload.loop_instr.initial_args),
+                .body = new_body,
+                .params = nodes(dst_arena, old_params.count, new_params)
             });
         }
         case ParsedBlock_TAG: {
@@ -180,14 +210,14 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                 Node* new_cont = rewrite_fn_head(ctx, pblock->continuations.nodes[i]);
                 new_conts[i] = new_cont;
                 struct BindEntry entry = {
-                    .name = string(ctx->rewriter.dst_arena, pblock->continuations_vars.nodes[i]->payload.var.name),
+                    .name = string(dst_arena, pblock->continuations_vars.nodes[i]->payload.var.name),
                     .bound_node = new_cont
                 };
                 append_list(struct BindEntry, ctx->bound_variables, entry);
                 printf("Bound (stub) continuation %s\n", entry.name);
             }
 
-            const Node* new_block = block(rewriter->dst_arena, (Block) {
+            const Node* new_block = block(dst_arena, (Block) {
                 .instructions = rewrite_nodes(rewriter, pblock->instructions),
                 .terminator = bind_node(ctx, pblock->terminator)
             });
@@ -202,11 +232,6 @@ static const Node* bind_node(struct BindRewriter* ctx, const Node* node) {
                 remove_last_list(struct BindEntry, ctx->bound_variables);
 
             return new_block;
-        }
-        case Block_TAG: {
-            return block(rewriter->dst_arena, (Block) {
-                .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
-            });
         }
         case Return_TAG: {
             assert(ctx->current_function);
