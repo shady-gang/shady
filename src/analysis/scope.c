@@ -22,7 +22,7 @@ struct List* build_scopes(const Node* root) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-static CFNode* get_or_create_cf_node(struct Dict* d, const Node* n) {
+static CFNode* get_or_create_cf_node(struct List* contents, struct Dict* d, const Node* n) {
     CFNode** found = find_value_dict(const Node*, CFNode*, d, n);
     if (found) return *found;
     CFNode* new = malloc(sizeof(CFNode));
@@ -35,6 +35,7 @@ static CFNode* get_or_create_cf_node(struct Dict* d, const Node* n) {
         .dominates = NULL,
     };
     insert_dict(const Node*, CFNode*, d, n, new);
+    append_list(CFNode*, contents, new);
     return new;
 }
 
@@ -50,24 +51,27 @@ Scope build_scope(const Node* entry) {
     #define enqueue(node) {                                         \
         if (!find_key_dict(Node*, done, node)) {                    \
             append_list(Node*, queue, node);                        \
-            CFNode* cf_node = get_or_create_cf_node(nodes, node);   \
-            append_list(CFNode*, contents, cf_node);                \
         }                                                           \
     }
 
     enqueue(entry);
 
-    #define process_edge(tgt) {                                     \
-        assert(tgt);                                                \
-        CFNode* src_node = get_or_create_cf_node(nodes, element);   \
-        CFNode* tgt_node = get_or_create_cf_node(nodes, tgt);       \
-        append_list(CFNode*, src_node->succs, tgt_node);            \
-        append_list(CFNode*, tgt_node->preds, src_node);            \
-        enqueue(tgt);                                               \
+    #define process_edge(tgt) {                                               \
+        assert(tgt);                                                          \
+        CFNode* src_node = get_or_create_cf_node(contents, nodes, element);   \
+        CFNode* tgt_node = get_or_create_cf_node(contents, nodes, tgt);       \
+        append_list(CFNode*, src_node->succs, tgt_node);                      \
+        append_list(CFNode*, tgt_node->preds, src_node);                      \
+        enqueue(tgt);                                                         \
     }
 
     while (entries_count_list(queue) > 0) {
         const Node* element = pop_last_list(const Node*, queue);
+
+        if (find_key_dict(Node*, done, element))
+            continue;
+        insert_set_get_result(Node*, done, element);
+
         assert(element->tag == Function_TAG);
         const FnType* fn_type = &element->type->payload.fn_type;
         assert(fn_type->is_continuation || element == entry);
@@ -95,7 +99,7 @@ Scope build_scope(const Node* entry) {
         }
     }
 
-    CFNode* entry_node = get_or_create_cf_node(nodes, entry);
+    CFNode* entry_node = get_or_create_cf_node(contents, nodes, entry);
 
     Scope scope = {
         .entry = entry_node,
