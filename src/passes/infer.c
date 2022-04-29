@@ -310,14 +310,22 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                 .args = new_args
             });
         }
-        case Join_TAG: {
-            assert(ctx->join_types && "Join terminator found but we're not within an if instruction !");
-            const Nodes* old_args = &node->payload.join.args;
-            assert(ctx->join_types->count == old_args->count);
+        case Merge_TAG: {
+            const Nodes* expected_types = NULL;
+            switch (node->payload.merge.what) {
+                case Join: expected_types = ctx->join_types; break;
+                case Continue: expected_types = ctx->continue_types; break;
+                case Break: expected_types = ctx->break_types; break;
+                default: error("we don't know this sort of merge");
+            }
+            assert(expected_types && "Merge terminator found but we're not within a suitable if/loop instruction !");
+            const Nodes* old_args = &node->payload.merge.args;
+            assert(expected_types->count == old_args->count);
             LARRAY(const Node*, new_args, old_args->count);
             for (size_t i = 0; i < old_args->count; i++)
-                new_args[i] = infer_value(ctx, old_args->nodes[i], (*ctx->join_types).nodes[i]);
-            return join(ctx->dst_arena, (Join) {
+                new_args[i] = infer_value(ctx, old_args->nodes[i], (*expected_types).nodes[i]);
+            return merge(ctx->dst_arena, (Merge) {
+                .what = node->payload.merge.what,
                 .args = nodes(ctx->dst_arena, old_args->count, new_args)
             });
         }

@@ -151,11 +151,13 @@ static const Node* handle_block(Context* rewriter, const Node* node, size_t star
     const Node* old_terminator = old_block->terminator;
     const Node* new_terminator = NULL;
     switch (old_terminator->tag) {
-        case Join_TAG: {
+        case Merge_TAG: {
+            // TODO handle other kind of merges
+            assert(old_terminator->payload.merge.what == Join);
             assert(join);
             new_terminator = jump(dst_arena, (Jump) {
                 .target = *join,
-                .args = nodes(dst_arena, old_terminator->payload.join.args.count, old_terminator->payload.join.args.nodes)
+                .args = nodes(dst_arena, old_terminator->payload.merge.args.count, old_terminator->payload.merge.args.nodes)
             });
             break;
         }

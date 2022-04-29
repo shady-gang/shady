@@ -53,9 +53,7 @@ NODEDEF(1, 1, 1, Jump, jump) \
 NODEDEF(1, 1, 1, Branch, branch) \
 NODEDEF(1, 1, 1, Callc, callc) \
 NODEDEF(1, 1, 1, Callf, callf) \
-NODEDEF(1, 0, 1, Join, join) \
-NODEDEF(1, 0, 1, Break, brk) \
-NODEDEF(1, 0, 1, Continue, cont) \
+NODEDEF(1, 0, 1, Merge, merge) \
 NODEDEF(1, 0, 0, Unreachable, unreachable) \
 
 #define TYPE_NODES() \
@@ -262,17 +260,18 @@ typedef struct Branch_ {
     Nodes args;
 } Branch;
 
-typedef struct Join_ {
-    Nodes args;
-} Join;
+typedef enum {
+    Join,
+    Continue,
+    Break,
+} MergeWhat;
 
-typedef struct Continue_ {
-    Nodes args;
-} Continue;
+static String merge_what_string[] = { "join", "continue", "break" };
 
-typedef struct Break_ {
+typedef struct Merge_ {
+    MergeWhat what;
     Nodes args;
-} Break;
+} Merge;
 
 typedef struct Callf_ {
     const Node* ret_fn;

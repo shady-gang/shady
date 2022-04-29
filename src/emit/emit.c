@@ -193,7 +193,7 @@ void emit_terminator(Emitter* emitter, FunctionEmissionCtx* fn_ectx, BBEmissionC
             }
             return;
         }
-        case Join_TAG: error("the join terminator is supposed to be eliminated in the instr2bb pass");
+        case Merge_TAG: error("merge terminators are supposed to be eliminated in the instr2bb pass");
         case Unreachable_TAG: {
             spvb_unreachable(bb_ectx->basic_block_builder);
             return;

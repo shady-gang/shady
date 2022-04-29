@@ -61,14 +61,9 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
         });
         case Unreachable_TAG:   return unreachable(rewriter->dst_arena);
-        case Join_TAG:          return join(rewriter->dst_arena, (Join) {
-            .args = rewrite_nodes(rewriter, node->payload.join.args)
-        });
-        case Continue_TAG:      return cont(rewriter->dst_arena, (Continue) {
-            .args = rewrite_nodes(rewriter, node->payload.join.args)
-        });
-        case Break_TAG:         return brk(rewriter->dst_arena, (Break) {
-            .args = rewrite_nodes(rewriter, node->payload.join.args)
+        case Merge_TAG:         return merge(rewriter->dst_arena, (Merge) {
+            .what = node->payload.merge.what,
+            .args = rewrite_nodes(rewriter, node->payload.merge.args)
         });
         case NoRet_TAG:         return noret_type(rewriter->dst_arena);
         case Int_TAG:           return int_type(rewriter->dst_arena);

@@ -425,7 +425,8 @@ static const Node* accept_terminator(ctxparams) {
             next_token(tokenizer);
             Nodes values = expect_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
-            return join(arena, (Join) {
+            return merge(arena, (Merge) {
+                .what = Join,
                 .args = values
             });
         }
@@ -433,7 +434,8 @@ static const Node* accept_terminator(ctxparams) {
             next_token(tokenizer);
             Nodes values = expect_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
-            return cont(arena, (Continue) {
+            return merge(arena, (Merge) {
+                .what = Continue,
                 .args = values
             });
         }
@@ -441,7 +443,8 @@ static const Node* accept_terminator(ctxparams) {
             next_token(tokenizer);
             Nodes values = expect_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
-            return brk(arena, (Break) {
+            return merge(arena, (Merge) {
+                .what = Break,
                 .args = values
             });
         }
@@ -475,7 +478,10 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
 
     if (!terminator) {
         if (implicit_join)
-            terminator = join(arena, (Join) {.args = expect_values(ctx, 0)});
+            terminator = merge(arena, (Merge) {
+                .what = Join,
+                .args = expect_values(ctx, 0)
+            });
         else
             error("expected terminator: return, jump, branch ...");
     }

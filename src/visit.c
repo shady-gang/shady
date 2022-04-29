@@ -112,8 +112,8 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.branch.args);
             break;
         }
-        case Join_TAG: {
-            visit_nodes(visitor, node->payload.join.args);
+        case Merge_TAG: {
+            visit_nodes(visitor, node->payload.merge.args);
             break;
         }
         case Callf_TAG: {

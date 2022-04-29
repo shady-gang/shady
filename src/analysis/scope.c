@@ -90,7 +90,7 @@ Scope build_scope(const Node* entry) {
             case Callf_TAG:
             case Return_TAG:
             case Unreachable_TAG:
-            case Join_TAG: break;
+            case Merge_TAG: break;
             default: error("scope: unhandled terminator");
         }
     }
