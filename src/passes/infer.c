@@ -3,21 +3,33 @@
 #include "../log.h"
 #include "../local_array.h"
 #include "../type.h"
+#include "../arena.h"
 
-#include "list.h"
 #include "dict.h"
 
 #include <assert.h>
 
-struct BindEntry {
+typedef struct BindEntry_ BindEntry;
+struct BindEntry_ {
     VarId id;
     const Node* typed;
+    BindEntry* next;
 };
 
-typedef struct Context_ {
+static void annotate_all_types(IrArena* arena, Nodes* types, bool uniform_by_default) {
+    for (size_t i = 0; i < types->count; i++) {
+        if (get_qualifier(types->nodes[i]) == Unknown)
+            types->nodes[i] = qualified_type(arena, (QualifiedType) {
+                .type = types->nodes[i],
+                .is_uniform = uniform_by_default,
+            });
+    }
+}
+
+typedef struct {
     IrArena* src_arena;
     IrArena* dst_arena;
-    struct List* typed_variables;
+    BindEntry* bound_variables;
     struct Dict* done;
 
     const Nodes* join_types;
@@ -26,44 +38,60 @@ typedef struct Context_ {
 } Context;
 
 static const Node* resolve(const Context* ctx, VarId id) {
-    for (size_t i = 0; i < entries_count_list(ctx->typed_variables); i++) {
-        const struct BindEntry* entry = &read_list(const struct BindEntry, ctx->typed_variables)[i];
-        if (entry->id == id) {
+    for (BindEntry* entry = ctx->bound_variables; entry != NULL; entry = entry->next) {
+        if (entry->id == id)
             return entry->typed;
-        }
     }
     error("could not resolve variable %d", id)
 }
 
-static const Node* new_binder(Context* ctx, const char* old_name, const Type* inferred_ty, const VarId old_id) {
+static const Node* bind_entry(Context* ctx, BindEntry* entry) {
+    entry->next = ctx->bound_variables;
+    ctx->bound_variables = entry;
+}
+
+static const Node* add_variable(Context* ctx, const char* old_name, const Type* inferred_ty, const VarId old_id) {
     const char* name = string(ctx->dst_arena, old_name);
     const Node* fresh = var(ctx->dst_arena, inferred_ty, name);
-    struct BindEntry entry = {
+    BindEntry* entry = arena_alloc(ctx->src_arena, sizeof(BindEntry));
+    *entry = (BindEntry) {
         .id = old_id,
-        .typed = fresh
+        .typed = fresh,
+        .next = NULL,
     };
-    append_list(struct BindEntry, ctx->typed_variables, entry);
+    bind_entry(ctx, entry);
     return fresh;
 }
 
-static const Node* infer(Context* ctx, const Node* node);
+static const Node* infer_type(Context* ctx, const Type* type) {
+    return import_node(ctx->dst_arena, type);
+}
+
+static Nodes infer_types(Context* ctx, Nodes types) {
+    LARRAY(const Type*, new, types.count);
+    for (size_t i = 0; i < types.count; i++)
+        new[i] = infer_type(ctx, types.nodes[i]);
+    return nodes(ctx->dst_arena, types.count, new);
+}
+
+static const Node* infer_let(Context* ctx, const Node* node);
 static const Node* infer_terminator(Context* ctx, const Node* node);
 static const Node* infer_value(Context* ctx, const Node* node, const Node* expected_type);
 
 static const Node* infer_block(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
-    size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
+    //size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
 
     LARRAY(const Node*, ninstructions, node->payload.block.instructions.count);
 
     for (size_t i = 0; i < node->payload.block.instructions.count; i++)
-        ninstructions[i] = infer(ctx, node->payload.block.instructions.nodes[i]);
+        ninstructions[i] = infer_let(ctx, node->payload.block.instructions.nodes[i]);
 
     Nodes typed_instructions = nodes(ctx->dst_arena, node->payload.block.instructions.count, ninstructions);
     const Node* typed_term = infer_terminator(ctx, node->payload.block.terminator);
 
-    while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
-        remove_last_list(struct BindEntry, ctx->typed_variables);
+    //while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
+    //    remove_last_list(struct BindEntry, ctx->typed_variables);
 
     return block(ctx->dst_arena, (Block) {
         .instructions = typed_instructions,
@@ -97,26 +125,25 @@ static const Node* infer_fn(Context* ctx, const Node* node) {
     if (already_done)
         return *already_done;
 
-    size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
+
+    Context body_context = *ctx;
+    //size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
 
     LARRAY(const Node*, nparams, node->payload.fn.params.count);
     for (size_t i = 0; i < node->payload.fn.params.count; i++) {
         const Variable* old_param = &node->payload.fn.params.nodes[i]->payload.var;
         const Type* imported_param_type = import_node(dst_arena, node->payload.fn.params.nodes[i]->payload.var.type);
-        nparams[i] = new_binder(ctx, old_param->name, imported_param_type, old_param->id);
+        nparams[i] = add_variable(&body_context, old_param->name, imported_param_type, old_param->id);
     }
 
-    Nodes nret_types = import_nodes(ctx->dst_arena, node->payload.fn.return_types);
+    Nodes nret_types = infer_types(ctx, node->payload.fn.return_types);
 
     Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
     bool r = insert_dict_and_get_result(const Node*, Node*, ctx->done, node, fun);
     assert(r && "insertion of fun failed - the dict isn't working as it should");
 
-    const Node* nblock = infer_block(ctx, node->payload.fn.block);
+    const Node* nblock = infer_block(&body_context, node->payload.fn.block);
     fun->payload.fn.block = nblock;
-
-    while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
-        remove_last_list(struct BindEntry, ctx->typed_variables);
 
     return fun;
 }
@@ -152,7 +179,17 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
     Nodes input_types;
     switch (node->payload.prim_op.op) {
         case add_op:
-        case sub_op: input_types = nodes(dst_arena, 2, (const Type*[]){ int_type(dst_arena), int_type(dst_arena) }); break;
+        case sub_op:
+        case mul_op:
+        case div_op:
+        case mod_op:
+        case lt_op:
+        case lte_op:
+        case eq_op:
+        case neq_op:
+        case gt_op:
+        case gte_op:
+            input_types = nodes(dst_arena, 2, (const Type*[]){ int_type(dst_arena), int_type(dst_arena) }); break;
         case push_stack_op:
         case push_stack_uniform_op: {
             assert(old_inputs.count == 2);
@@ -232,15 +269,55 @@ static const Node* infer_if(Context* ctx, const Node* node) {
     assert(node->tag == If_TAG);
     const Node* condition = infer_value(ctx, node->payload.if_instr.condition, bool_type(ctx->dst_arena));
 
-    Context instrs_infer_ctx = *ctx;
-    const Node* ifTrue = infer_block(&instrs_infer_ctx, node->payload.if_instr.if_true);
-    const Node* ifFalse = infer_block(&instrs_infer_ctx, node->payload.if_instr.if_false);
+    Nodes join_types = infer_types(ctx, node->payload.if_instr.yield_types);
+    // The type annotation on `if` may not include divergence/convergence info, we default that stuff to divergent
+    annotate_all_types(ctx->dst_arena, &join_types, false);
+    Context joinable_ctx = *ctx;
+    joinable_ctx.join_types = &join_types;
+
+    const Node* true_block = infer_block(&joinable_ctx, node->payload.if_instr.if_true);
+    // don't allow seeing the variables made available in the true branch
+    joinable_ctx.bound_variables = ctx->bound_variables;
+    const Node* false_block = infer_block(&joinable_ctx, node->payload.if_instr.if_false);
+
     return if_instr(ctx->dst_arena, (If) {
-        // TODO handle !!!
-        .yield_types = import_nodes(ctx->dst_arena, node->payload.if_instr.yield_types),
+        .yield_types = join_types,
         .condition = condition,
-        .if_true = ifTrue,
-        .if_false = ifFalse
+        .if_true = true_block,
+        .if_false = false_block,
+    });
+}
+
+static const Node* infer_loop(Context* ctx, const Node* node) {
+    assert(node->tag == Loop_TAG);
+
+    Context loop_body_ctx = *ctx;
+    Nodes old_params = node->payload.loop_instr.params;
+    Nodes old_initial_args = node->payload.loop_instr.initial_args;
+    assert(old_params.count == old_initial_args.count);
+    LARRAY(const Type*, new_params_types, old_params.count);
+    LARRAY(const Node*, new_params, old_params.count);
+    LARRAY(const Node*, new_initial_args, old_params.count);
+    for (size_t i = 0; i < old_params.count; i++) {
+        const Variable* old_param = &old_params.nodes[i]->payload.var;
+        new_params_types[i] = import_node(ctx->dst_arena, old_param->type);
+        new_initial_args[i] = infer_value(ctx, old_initial_args.nodes[i], new_params_types[i]);
+        new_params[i] = add_variable(&loop_body_ctx, old_param->name, new_params_types[i], old_param->id);
+    }
+
+    Nodes loop_yield_types = infer_types(ctx, node->payload.loop_instr.yield_types);
+    annotate_all_types(ctx->dst_arena, &loop_yield_types, false);
+
+    loop_body_ctx.join_types = NULL;
+    loop_body_ctx.break_types = &loop_yield_types;
+    Nodes param_types = nodes(ctx->dst_arena, old_params.count, new_params_types);
+    loop_body_ctx.continue_types = &param_types;
+
+    return loop_instr(ctx->dst_arena, (Loop) {
+        .yield_types = loop_yield_types,
+        .params = nodes(ctx->dst_arena, old_params.count, new_params),
+        .initial_args = nodes(ctx->dst_arena, old_params.count, new_initial_args),
+        .body = infer_block(&loop_body_ctx, node->payload.loop_instr.body)
     });
 }
 
@@ -249,12 +326,13 @@ static const Node* infer_instruction(Context* ctx, const Node* node) {
         case PrimOp_TAG: return infer_primop(ctx, node);
         case Call_TAG:   return infer_call(ctx, node);
         case If_TAG:     return infer_if(ctx, node);
+        case Loop_TAG:   return infer_loop(ctx, node);
         default: error("not an instruction");
     }
     SHADY_UNREACHABLE;
 }
 
-static const Node* infer(Context* ctx, const Node* node) {
+static const Node* infer_let(Context* ctx, const Node* node) {
     assert(node->tag == Let_TAG);
     const size_t count = node->payload.let.variables.count;
 
@@ -267,7 +345,7 @@ static const Node* infer(Context* ctx, const Node* node) {
     LARRAY(const Node*, noutputs, count);
     for (size_t i = 0; i < count; i++) {
         const Variable* old_output = &node->payload.let.variables.nodes[i]->payload.var;
-        noutputs[i] = new_binder(ctx, old_output->name, output_types.nodes[i], old_output->id);
+        noutputs[i] = add_variable(ctx, old_output->name, output_types.nodes[i], old_output->id);
     }
 
     return let(ctx->dst_arena, (Let) {
@@ -352,7 +430,7 @@ static const Node* type_root(Context* ctx, const Node* node) {
                     case Variable_TAG: {
                         const Variable* old_var = &odecl->payload.var;
                         const Type* imported_ty = import_node(ctx->dst_arena, old_var->type);;
-                        new_decls[i] = new_binder(ctx, old_var->name, imported_ty, old_var->id);
+                        new_decls[i] = add_variable(ctx, old_var->name, imported_ty, old_var->id);
                         break;
                     }
                     case Function_TAG:
@@ -391,18 +469,16 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 const Node* type_program(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
-    struct List* bound_variables = new_list(struct BindEntry);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     Context ctx = {
         .src_arena = src_arena,
         .dst_arena = dst_arena,
-        .typed_variables = bound_variables,
+        .bound_variables = NULL,
         .done = done,
     };
 
     const Node* rewritten = type_root(&ctx, src_program);
 
-    destroy_list(bound_variables);
     destroy_dict(done);
     return rewritten;
 }

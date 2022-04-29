@@ -20,7 +20,7 @@ typedef struct {
     const Node* current_function;
 } Context;
 
-static const Node* resolve(Context* ctx, const char* name) {
+static const Node* resolve(const Context* ctx, const char* name) {
     for (BindEntry* entry = ctx->bound_variables; entry != NULL; entry = entry->next) {
         if (strcmp(entry->name, name) == 0) {
             return entry->bound_node;

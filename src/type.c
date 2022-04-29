@@ -153,15 +153,25 @@ const Type* check_type_fn_ret(IrArena* arena, Return ret) {
 Nodes typecheck_if_instr(IrArena* arena, If if_instr) {
     if (without_qualifier(if_instr.condition->type) != bool_type(arena))
         error("condition of a selection should be bool");
-    // TODO check the yield or something
+    // TODO check the contained Merge instrs
     return if_instr.yield_types;
+}
+
+Nodes typecheck_loop_instr(IrArena* arena, Loop loop_instr) {
+    // TODO check param against initial_args
+    // TODO check the contained Merge instrs
+    return loop_instr.yield_types;
 }
 
 /// Checks the operands to a Primop and returns the produced types
 Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
     switch (prim_op.op) {
         case add_op:
-        case sub_op: {
+        case sub_op:
+        case mul_op:
+        case div_op:
+        case mod_op:
+        {
              bool is_result_uniform = true;
              for (size_t i = 0; i < prim_op.operands.count; i++) {
                  const Node* arg = prim_op.operands.nodes[i];
@@ -174,6 +184,23 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
              }
 
             return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = int_type(arena) }));
+        }
+        case lt_op:
+        case lte_op:
+        case gt_op:
+        case gte_op:
+        case eq_op:
+        case neq_op:
+        {
+            bool is_result_uniform = true;
+            for (size_t i = 0; i < prim_op.operands.count; i++) {
+                const Node* arg = prim_op.operands.nodes[i];
+                DivergenceQualifier op_div;
+                const Type* arg_actual_type = strip_qualifier(arg->type, &op_div);
+                assert(op_div != Unknown); // we expect all operands to be clearly known !
+                is_result_uniform ^= op_div == Uniform;
+            }
+            return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = bool_type(arena) }));
         }
         case push_stack_uniform_op:
         case push_stack_op: {
@@ -298,6 +325,7 @@ Nodes typecheck_instruction(IrArena* arena, const Node* instr) {
         case PrimOp_TAG: return typecheck_primop(arena, instr->payload.prim_op);
         case Call_TAG:   return typecheck_call(arena, instr->payload.call_instr);
         case If_TAG:     return typecheck_if_instr(arena, instr->payload.if_instr);
+        case Loop_TAG:   return typecheck_loop_instr(arena, instr->payload.loop_instr);
         default:         error("unhandled instruction");
     }
     SHADY_UNREACHABLE;

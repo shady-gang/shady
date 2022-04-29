@@ -108,6 +108,10 @@ typedef struct Variable_ {
     const Type* type;
     VarId id;
     String name;
+
+    // Set if this is a let-bound variable, otherwise it's NULL and this is a parameter
+    const Node* instruction;
+    unsigned output;
 } Variable;
 
 typedef struct Unbound_ {
