@@ -1,6 +1,7 @@
 #include "shady/ir.h"
 
 #include "../local_array.h"
+#include "../rewrite.h"
 
 #include <stdlib.h>
 
@@ -8,7 +9,8 @@ const Node* import_node(IrArena* arena, const Node* node) {
     Rewriter rewriter = {
         .src_arena = NULL,
         .dst_arena = arena,
-        .rewrite_fn = recreate_node_identity
+        .rewrite_fn = recreate_node_identity,
+        .processed = NULL,
     };
     return rewrite_node(&rewriter, node);
 }

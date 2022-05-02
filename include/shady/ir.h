@@ -109,7 +109,7 @@ typedef struct Variable_ {
     VarId id;
     String name;
 
-    // Set if this is a let-bound variable, otherwise it's NULL and this is a parameter
+    // Set if this is a let-bound node, otherwise it's NULL and this is a parameter
     const Node* instruction;
     unsigned output;
 } Variable;
@@ -270,7 +270,7 @@ typedef enum {
     Break,
 } MergeWhat;
 
-static String merge_what_string[] = { "join", "continue", "break" };
+extern String merge_what_string[];
 
 typedef struct Merge_ {
     MergeWhat what;
@@ -360,6 +360,8 @@ Node* constant(IrArena* arena, const char* name);
 extern const char* node_tags[];
 extern const bool node_type_has_payload[];
 
+String get_decl_name(const Node*);
+
 //////////////////////////////// IR management ////////////////////////////////
 
 typedef struct IrConfig_ {
@@ -384,49 +386,5 @@ CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, c
 void emit_spirv(CompilerConfig* config, IrArena*, const Node* root, FILE* output);
 void dump_cfg(FILE* file, const Node* root);
 void print_node(const Node* node);
-
-//////////////////////////////// IR processing ////////////////////////////////
-
-typedef struct Rewriter_ Rewriter;
-typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
-
-/// Applies the rewriter to all nodes in the collection
-Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes);
-
-/// bring in a node unmodified into a new arena
-const Node* import_node   (IrArena*, const Node*);
-Nodes       import_nodes  (IrArena*, Nodes);
-Strings     import_strings(IrArena*, Strings);
-
-typedef struct Rewriter_ {
-    IrArena* src_arena;
-    IrArena* dst_arena;
-
-    RewriteFn rewrite_fn;
-} Rewriter_;
-
-const Node* rewrite_node(Rewriter*, const Node*);
-
-/// Rewrites a node using the rewriter to provide the node and type operands
-const Node* recreate_node_identity(Rewriter*, const Node*);
-
-/// Rewrites a whole program, starting at the root
-typedef const Node* (RewritePass)(IrArena* src_arena, IrArena* dst_arena, const Node* src_root);
-
-typedef struct Visitor_ Visitor;
-typedef void (*VisitFn)(Visitor*, const Node*);
-
-struct Visitor_ {
-   VisitFn visit_fn;
-   // Enabling this will make visit_children build the scope of functions and look at their continuations in RPO
-   bool visit_fn_scope_rpo;
-   // Enabling this will make visit_children visit targets of control flow terminators, be wary this could cause infinite loops
-   bool visit_cf_targets;
-   bool visit_return_fn_annotation;
-   bool visit_callf_return_fn_annotation;
-};
-
-void visit_children(Visitor*, const Node*);
-void visit_fn_blocks_except_head(Visitor*, const Node*);
 
 #endif

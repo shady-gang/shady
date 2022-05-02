@@ -1,4 +1,5 @@
 #include "shady/ir.h"
+#include "visit.h"
 
 #include "analysis/scope.h"
 

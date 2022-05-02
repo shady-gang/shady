@@ -4,17 +4,9 @@
 #include "../local_array.h"
 #include "../type.h"
 #include "../arena.h"
-
-#include "dict.h"
+#include "../rewrite.h"
 
 #include <assert.h>
-
-typedef struct BindEntry_ BindEntry;
-struct BindEntry_ {
-    VarId id;
-    const Node* typed;
-    BindEntry* next;
-};
 
 static void annotate_all_types(IrArena* arena, Nodes* types, bool uniform_by_default) {
     for (size_t i = 0; i < types->count; i++) {
@@ -27,51 +19,22 @@ static void annotate_all_types(IrArena* arena, Nodes* types, bool uniform_by_def
 }
 
 typedef struct {
-    IrArena* src_arena;
-    IrArena* dst_arena;
-    BindEntry* bound_variables;
-    struct Dict* done;
+    Rewriter rewriter;
 
     const Nodes* join_types;
     const Nodes* break_types;
     const Nodes* continue_types;
 } Context;
 
-static const Node* resolve(const Context* ctx, VarId id) {
-    for (BindEntry* entry = ctx->bound_variables; entry != NULL; entry = entry->next) {
-        if (entry->id == id)
-            return entry->typed;
-    }
-    error("could not resolve variable %d", id)
-}
-
-static const Node* bind_entry(Context* ctx, BindEntry* entry) {
-    entry->next = ctx->bound_variables;
-    ctx->bound_variables = entry;
-}
-
-static const Node* add_variable(Context* ctx, const char* old_name, const Type* inferred_ty, const VarId old_id) {
-    const char* name = string(ctx->dst_arena, old_name);
-    const Node* fresh = var(ctx->dst_arena, inferred_ty, name);
-    BindEntry* entry = arena_alloc(ctx->src_arena, sizeof(BindEntry));
-    *entry = (BindEntry) {
-        .id = old_id,
-        .typed = fresh,
-        .next = NULL,
-    };
-    bind_entry(ctx, entry);
-    return fresh;
-}
-
 static const Node* infer_type(Context* ctx, const Type* type) {
-    return import_node(ctx->dst_arena, type);
+    return import_node(ctx->rewriter.dst_arena, type);
 }
 
 static Nodes infer_types(Context* ctx, Nodes types) {
     LARRAY(const Type*, new, types.count);
     for (size_t i = 0; i < types.count; i++)
         new[i] = infer_type(ctx, types.nodes[i]);
-    return nodes(ctx->dst_arena, types.count, new);
+    return nodes(ctx->rewriter.dst_arena, types.count, new);
 }
 
 static const Node* infer_let(Context* ctx, const Node* node);
@@ -80,20 +43,16 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
 
 static const Node* infer_block(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
-    //size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
 
     LARRAY(const Node*, ninstructions, node->payload.block.instructions.count);
 
     for (size_t i = 0; i < node->payload.block.instructions.count; i++)
         ninstructions[i] = infer_let(ctx, node->payload.block.instructions.nodes[i]);
 
-    Nodes typed_instructions = nodes(ctx->dst_arena, node->payload.block.instructions.count, ninstructions);
+    Nodes typed_instructions = nodes(ctx->rewriter.dst_arena, node->payload.block.instructions.count, ninstructions);
     const Node* typed_term = infer_terminator(ctx, node->payload.block.terminator);
 
-    //while (entries_count_list(ctx->typed_variables) > old_typed_variables_size)
-    //    remove_last_list(struct BindEntry, ctx->typed_variables);
-
-    return block(ctx->dst_arena, (Block) {
+    return block(ctx->rewriter.dst_arena, (Block) {
         .instructions = typed_instructions,
         .terminator = typed_term,
     });
@@ -101,15 +60,16 @@ static const Node* infer_block(Context* ctx, const Node* node) {
 
 static const Node* infer_constant(Context* ctx, const Node* node) {
     assert(node->tag == Constant_TAG);
-    Node** already_done = find_value_dict(const Node*, Node*, ctx->done, node);
+    const Node* already_done = search_processed(&ctx->rewriter, node);
     if (already_done)
-        return *already_done;
+        return already_done;
 
     const Constant* oconstant = &node->payload.constant;
-    Node* nconstant = constant(ctx->dst_arena, oconstant->name);
-    insert_dict(const Node*, Node*, ctx->done, node, nconstant);
+    Node* nconstant = constant(ctx->rewriter.dst_arena, oconstant->name);
 
-    const Type* imported_hint = import_node(ctx->dst_arena, oconstant->type_hint);
+    register_processed(&ctx->rewriter, node, nconstant);
+
+    const Type* imported_hint = import_node(ctx->rewriter.dst_arena, oconstant->type_hint);
     const Node* typed_value = infer_value(ctx, oconstant->value, imported_hint);
     nconstant->payload.constant.value = typed_value;
     nconstant->type = typed_value->type;
@@ -118,29 +78,27 @@ static const Node* infer_constant(Context* ctx, const Node* node) {
 }
 
 static const Node* infer_fn(Context* ctx, const Node* node) {
-    IrArena* dst_arena = ctx->dst_arena;
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
     assert(node->tag == Function_TAG);
 
-    Node** already_done = find_value_dict(const Node*, Node*, ctx->done, node);
+    const Node* already_done = search_processed(&ctx->rewriter, node);
     if (already_done)
-        return *already_done;
-
+        return already_done;
 
     Context body_context = *ctx;
-    //size_t old_typed_variables_size = entries_count_list(ctx->typed_variables);
 
     LARRAY(const Node*, nparams, node->payload.fn.params.count);
     for (size_t i = 0; i < node->payload.fn.params.count; i++) {
         const Variable* old_param = &node->payload.fn.params.nodes[i]->payload.var;
-        const Type* imported_param_type = import_node(dst_arena, node->payload.fn.params.nodes[i]->payload.var.type);
-        nparams[i] = add_variable(&body_context, old_param->name, imported_param_type, old_param->id);
+        const Type* imported_param_type = infer_type(ctx, node->payload.fn.params.nodes[i]->payload.var.type);
+        nparams[i] = var(body_context.rewriter.dst_arena, imported_param_type, old_param->name);
+        register_processed(&body_context.rewriter, node->payload.fn.params.nodes[i], nparams[i]);
     }
 
     Nodes nret_types = infer_types(ctx, node->payload.fn.return_types);
 
     Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
-    bool r = insert_dict_and_get_result(const Node*, Node*, ctx->done, node, fun);
-    assert(r && "insertion of fun failed - the dict isn't working as it should");
+    register_processed(&ctx->rewriter, node, fun);
 
     const Node* nblock = infer_block(&body_context, node->payload.fn.block);
     fun->payload.fn.block = nblock;
@@ -149,10 +107,9 @@ static const Node* infer_fn(Context* ctx, const Node* node) {
 }
 
 static const Node* infer_value(Context* ctx, const Node* node, const Node* expected_type) {
-    IrArena* dst_arena = ctx->dst_arena;
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
-        case Variable_TAG:
-            return resolve(ctx, node->payload.var.id);
+        case Variable_TAG: return find_processed(&ctx->rewriter, node);
         case UntypedNumber_TAG: {
             // TODO handle different prim types
             assert(without_qualifier(expected_type) == int_type(dst_arena));
@@ -172,7 +129,7 @@ static const Node* infer_value_or_cont(Context* ctx, const Node* node, const Nod
 
 static const Node* infer_primop(Context* ctx, const Node* node) {
     assert(node->tag == PrimOp_TAG);
-    IrArena* dst_arena = ctx->dst_arena;
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
     Nodes old_inputs = node->payload.prim_op.operands;
 
     LARRAY(const Node*, new_inputs_scratch, old_inputs.count);
@@ -223,7 +180,7 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
         }
         case alloca_op: {
             assert(old_inputs.count == 1);
-            new_inputs_scratch[0] = import_node(ctx->dst_arena, old_inputs.nodes[0]);
+            new_inputs_scratch[0] = import_node(ctx->rewriter.dst_arena, old_inputs.nodes[0]);
             assert(is_type(new_inputs_scratch[0]));
             assert(get_qualifier(new_inputs_scratch[0]) == Unknown);
             goto skip_input_types;
@@ -259,28 +216,28 @@ static const Node* infer_call(Context* ctx, const Node* node) {
         new_args[i] = infer_value(ctx, node->payload.call_instr.args.nodes[i], callee_type->payload.fn_type.param_types.nodes[i]);
     }
 
-    return call_instr(ctx->dst_arena, (Call) {
+    return call_instr(ctx->rewriter.dst_arena, (Call) {
         .callee = new_callee,
-        .args = nodes(ctx->dst_arena, node->payload.call_instr.args.count, new_args)
+        .args = nodes(ctx->rewriter.dst_arena, node->payload.call_instr.args.count, new_args)
     });
 }
 
 static const Node* infer_if(Context* ctx, const Node* node) {
     assert(node->tag == If_TAG);
-    const Node* condition = infer_value(ctx, node->payload.if_instr.condition, bool_type(ctx->dst_arena));
+    const Node* condition = infer_value(ctx, node->payload.if_instr.condition, bool_type(ctx->rewriter.dst_arena));
 
     Nodes join_types = infer_types(ctx, node->payload.if_instr.yield_types);
     // The type annotation on `if` may not include divergence/convergence info, we default that stuff to divergent
-    annotate_all_types(ctx->dst_arena, &join_types, false);
+    annotate_all_types(ctx->rewriter.dst_arena, &join_types, false);
     Context joinable_ctx = *ctx;
     joinable_ctx.join_types = &join_types;
 
     const Node* true_block = infer_block(&joinable_ctx, node->payload.if_instr.if_true);
     // don't allow seeing the variables made available in the true branch
-    joinable_ctx.bound_variables = ctx->bound_variables;
+    joinable_ctx.rewriter = ctx->rewriter;
     const Node* false_block = infer_block(&joinable_ctx, node->payload.if_instr.if_false);
 
-    return if_instr(ctx->dst_arena, (If) {
+    return if_instr(ctx->rewriter.dst_arena, (If) {
         .yield_types = join_types,
         .condition = condition,
         .if_true = true_block,
@@ -300,23 +257,24 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
     LARRAY(const Node*, new_initial_args, old_params.count);
     for (size_t i = 0; i < old_params.count; i++) {
         const Variable* old_param = &old_params.nodes[i]->payload.var;
-        new_params_types[i] = import_node(ctx->dst_arena, old_param->type);
+        new_params_types[i] = import_node(ctx->rewriter.dst_arena, old_param->type);
         new_initial_args[i] = infer_value(ctx, old_initial_args.nodes[i], new_params_types[i]);
-        new_params[i] = add_variable(&loop_body_ctx, old_param->name, new_params_types[i], old_param->id);
+        new_params[i] = var(loop_body_ctx.rewriter.dst_arena, new_params_types[i], old_param->name);
+        register_processed(&loop_body_ctx.rewriter, old_params.nodes[i], new_params[i]);
     }
 
     Nodes loop_yield_types = infer_types(ctx, node->payload.loop_instr.yield_types);
-    annotate_all_types(ctx->dst_arena, &loop_yield_types, false);
+    annotate_all_types(ctx->rewriter.dst_arena, &loop_yield_types, false);
 
     loop_body_ctx.join_types = NULL;
     loop_body_ctx.break_types = &loop_yield_types;
-    Nodes param_types = nodes(ctx->dst_arena, old_params.count, new_params_types);
+    Nodes param_types = nodes(ctx->rewriter.dst_arena, old_params.count, new_params_types);
     loop_body_ctx.continue_types = &param_types;
 
-    return loop_instr(ctx->dst_arena, (Loop) {
+    return loop_instr(ctx->rewriter.dst_arena, (Loop) {
         .yield_types = loop_yield_types,
-        .params = nodes(ctx->dst_arena, old_params.count, new_params),
-        .initial_args = nodes(ctx->dst_arena, old_params.count, new_initial_args),
+        .params = nodes(ctx->rewriter.dst_arena, old_params.count, new_params),
+        .initial_args = nodes(ctx->rewriter.dst_arena, old_params.count, new_initial_args),
         .body = infer_block(&loop_body_ctx, node->payload.loop_instr.body)
     });
 }
@@ -337,19 +295,21 @@ static const Node* infer_let(Context* ctx, const Node* node) {
     const size_t count = node->payload.let.variables.count;
 
     const Node* new_instruction = infer_instruction(ctx, node->payload.let.instruction);
-    Nodes output_types = typecheck_instruction(ctx->dst_arena, new_instruction);
+    Nodes output_types = typecheck_instruction(ctx->rewriter.dst_arena, new_instruction);
 
     assert(output_types.count == count);
     
     // extract the outputs
     LARRAY(const Node*, noutputs, count);
     for (size_t i = 0; i < count; i++) {
-        const Variable* old_output = &node->payload.let.variables.nodes[i]->payload.var;
-        noutputs[i] = add_variable(ctx, old_output->name, output_types.nodes[i], old_output->id);
+        const Node* old_output = node->payload.let.variables.nodes[i];
+        const Variable* old_output_var = &old_output->payload.var;
+        noutputs[i] = var(ctx->rewriter.dst_arena, output_types.nodes[i], old_output_var->name);
+        register_processed(&ctx->rewriter, old_output, noutputs[i]);
     }
 
-    return let(ctx->dst_arena, (Let) {
-        .variables = nodes(ctx->dst_arena, count, noutputs),
+    return let(ctx->rewriter.dst_arena, (Let) {
+        .variables = nodes(ctx->rewriter.dst_arena, count, noutputs),
         .instruction = new_instruction
     });
 }
@@ -364,8 +324,8 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             LARRAY(const Node*, nvalues, old_values->count);
             for (size_t i = 0; i < old_values->count; i++)
                 nvalues[i] = infer_value(ctx, old_values->nodes[i], return_types.nodes[i]);
-            return fn_ret(ctx->dst_arena, (Return) {
-                .values = nodes(ctx->dst_arena, old_values->count, nvalues),
+            return fn_ret(ctx->rewriter.dst_arena, (Return) {
+                .values = nodes(ctx->rewriter.dst_arena, old_values->count, nvalues),
                 .fn = NULL
             });
         }
@@ -381,9 +341,9 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             for (size_t i = 0; i < node->payload.jump.args.count; i++)
                 tmp[i] = infer_value(ctx, node->payload.jump.args.nodes[i], tgt_type->param_types.nodes[i]);
 
-            Nodes new_args = nodes(ctx->dst_arena, node->payload.jump.args.count, tmp);
+            Nodes new_args = nodes(ctx->rewriter.dst_arena, node->payload.jump.args.count, tmp);
 
-            return jump(ctx->dst_arena, (Jump) {
+            return jump(ctx->rewriter.dst_arena, (Jump) {
                 .target = ntarget,
                 .args = new_args
             });
@@ -402,13 +362,13 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             LARRAY(const Node*, new_args, old_args->count);
             for (size_t i = 0; i < old_args->count; i++)
                 new_args[i] = infer_value(ctx, old_args->nodes[i], (*expected_types).nodes[i]);
-            return merge(ctx->dst_arena, (Merge) {
+            return merge(ctx->rewriter.dst_arena, (Merge) {
                 .what = node->payload.merge.what,
-                .args = nodes(ctx->dst_arena, old_args->count, new_args)
+                .args = nodes(ctx->rewriter.dst_arena, old_args->count, new_args)
             });
         }
         // TODO break, continue
-        case Unreachable_TAG: return unreachable(ctx->dst_arena);
+        case Unreachable_TAG: return unreachable(ctx->rewriter.dst_arena);
         default: error("not a terminator");
     }
 }
@@ -429,8 +389,9 @@ static const Node* type_root(Context* ctx, const Node* node) {
                 switch (odecl->tag) {
                     case Variable_TAG: {
                         const Variable* old_var = &odecl->payload.var;
-                        const Type* imported_ty = import_node(ctx->dst_arena, old_var->type);;
-                        new_decls[i] = add_variable(ctx, old_var->name, imported_ty, old_var->id);
+                        const Type* imported_ty = infer_type(ctx, old_var->type);;
+                        new_decls[i] = var(ctx->rewriter.dst_arena, imported_ty, old_var->name);
+                        register_processed(&ctx->rewriter, node, new_decls[i]);
                         break;
                     }
                     case Function_TAG:
@@ -457,13 +418,15 @@ static const Node* type_root(Context* ctx, const Node* node) {
                 }
             }
 
-            return root(ctx->dst_arena, (Root) {
-                .declarations = nodes(ctx->dst_arena, count, new_decls),
+            return root(ctx->rewriter.dst_arena, (Root) {
+                .declarations = nodes(ctx->rewriter.dst_arena, count, new_decls),
             });
         }
         default: error("not a root node");
     }
 }
+
+#include "dict.h"
 
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
@@ -471,10 +434,13 @@ bool compare_node(Node**, Node**);
 const Node* type_program(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     Context ctx = {
-        .src_arena = src_arena,
-        .dst_arena = dst_arena,
-        .bound_variables = NULL,
-        .done = done,
+        .rewriter = {
+            .src_arena = src_arena,
+            .dst_arena = dst_arena,
+            .rewrite_fn = NULL, // we do all the rewriting ourselves
+            .rewrite_decl_body = NULL,
+            .processed = done,
+        },
     };
 
     const Node* rewritten = type_root(&ctx, src_program);

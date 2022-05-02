@@ -155,6 +155,8 @@ NODES()
 #undef NODEDEF
 };
 
+String merge_what_string[] = { "join", "continue", "break" };
+
 KeyHash hash_murmur(const void* data, size_t size) {
     int32_t out[4];
     MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);
@@ -200,12 +202,14 @@ case PtrType_TAG: {                   \
 
 KeyHash hash_node(Node** pnode) {
     const Node* node = *pnode;
+    KeyHash combined;
 
     if (is_nominal(node->tag)) {
         size_t ptr = (size_t) node;
         uint32_t upper = ptr >> 32;
         uint32_t lower = ptr;
-        return upper ^ lower;
+        combined = upper ^ lower;
+        goto end;
     }
 
     KeyHash tag_hash = hash_murmur(&node->tag, sizeof(NodeTag));
@@ -219,18 +223,24 @@ KeyHash hash_node(Node** pnode) {
             default: payload_hash = hash_murmur(&node->payload, sizeof(node->payload)); break;
         }
     }
+    combined = tag_hash ^ payload_hash;
 
-    KeyHash combined = tag_hash ^ payload_hash;
-    //debug_print("hash of :");
-    //debug_node(node);
-    //debug_print(" = [%u] %u\n", combined, combined % 32);
+    end:
+    // debug_print("hash of :");
+    // debug_node(node);
+    // debug_print(" = [%u] %u\n", combined, combined % 32);
     return combined;
 }
 
 bool compare_node(Node** pa, Node** pb) {
     if ((*pa)->tag != (*pb)->tag) return false;
-    if (is_nominal((*pa)->tag))
+    if (is_nominal((*pa)->tag)) {
+        // debug_node(*pa);
+        // debug_print(" vs ");
+        // debug_node(*pb);
+        // debug_print(" ptrs: %lu vs %lu %d\n", *pa, *pb, *pa == *pb);
         return *pa == *pb;
+    }
 
     const Node* a = *pa;
     const Node* b = *pb;
@@ -246,4 +256,13 @@ bool compare_node(Node** pa, Node** pb) {
         }
         return eq;
     } else return true;
+}
+
+String get_decl_name(const Node* node) {
+    switch (node->tag) {
+        case Constant_TAG: return node->payload.constant.name;
+        case Function_TAG: return node->payload.fn.name;
+        case Variable_TAG: return node->payload.var.name;
+        default: return NULL;
+    }
 }

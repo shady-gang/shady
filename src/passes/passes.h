@@ -6,10 +6,13 @@
 
 const Node* parse(char* contents, IrArena* arena);
 
+/// Rewrites a whole program, starting at the root
+typedef const Node* (RewritePass)(IrArena* src_arena, IrArena* dst_arena, const Node* src_root);
+
 RewritePass bind_program;
 RewritePass type_program;
 RewritePass instr2bb;
 
 #define SHADY_PASSES_H
 
-#endif //SHADY_PASSES_H
+#endif

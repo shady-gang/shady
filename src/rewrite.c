@@ -1,32 +1,71 @@
+#include "rewrite.h"
+
 #include "log.h"
 #include "local_array.h"
 #include "type.h"
 
-#include "list.h"
+#include "dict.h"
+
+#include <assert.h>
+
+const Node* rewrite_node(Rewriter* rewriter, const Node* node) { return rewriter->rewrite_fn(rewriter, node); }
 
 Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
     size_t count = old_nodes.count;
     LARRAY(const Node*, arr, count);
     for (size_t i = 0; i < count; i++)
-        arr[i] = rewriter->rewrite_fn(rewriter, old_nodes.nodes[i]);
+        arr[i] = rewrite_node(rewriter, old_nodes.nodes[i]);
     return nodes(rewriter->dst_arena, count, arr);
 }
 
-const Node* rewrite_node(Rewriter* rewriter, const Node* node) { return rewriter->rewrite_fn(rewriter, node); }
+const Node* search_processed(const Rewriter* ctx, const Node* old) {
+    assert(ctx->processed && "this rewriter has no processed cache");
+    const Node** found = find_value_dict(const Node*, const Node*, ctx->processed, old);
+    return found ? *found : NULL;
+}
+
+const Node* find_processed(const Rewriter* ctx, const Node* old) {
+    const Node* found = search_processed(ctx, old);
+    assert(found && "this node was supposed to have been processed before");
+    return found;
+}
+
+void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
+    assert(ctx->processed && "this rewriter has no processed cache");
+    bool r = insert_dict(const Node*, const Node*, ctx->processed, old, new);
+    assert(r && "registered the same node as processed twice");
+}
+
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
 
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;
+
+    const Node* already_done_before = rewriter->processed ? search_processed(rewriter, node) : NULL;
+    if (already_done_before)
+        return already_done_before;
+
     switch (node->tag) {
-        case Root_TAG:          return root(rewriter->dst_arena, (Root) {
-            .declarations = rewrite_nodes(rewriter, node->payload.root.declarations)
-        });
+        case Root_TAG: {
+            Nodes decls = rewrite_nodes(rewriter, node->payload.root.declarations);
+
+            if (rewriter->rewrite_decl_body) {
+                for (size_t i = 0; i < decls.count; i++)
+                    rewriter->rewrite_decl_body(rewriter, node, (Node*) decls.nodes[i]);
+            }
+
+            return root(rewriter->dst_arena, (Root) {
+                .declarations = decls,
+            });
+        }
         case Block_TAG:         return block(rewriter->dst_arena, (Block) {
             .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
             .terminator = rewriter->rewrite_fn(rewriter, node->payload.block.terminator)
         });
         case Constant_TAG:
-        case Function_TAG: error("nominal nodes need custom rewrite logic")
+        case Function_TAG:      error("Recursive nodes are not handled");
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
             .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext)
         });

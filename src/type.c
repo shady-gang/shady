@@ -196,6 +196,7 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
             for (size_t i = 0; i < prim_op.operands.count; i++) {
                 const Node* arg = prim_op.operands.nodes[i];
                 DivergenceQualifier op_div;
+                // TODO ensure these guys are compatible ?
                 const Type* arg_actual_type = strip_qualifier(arg->type, &op_div);
                 assert(op_div != Unknown); // we expect all operands to be clearly known !
                 is_result_uniform ^= op_div == Uniform;

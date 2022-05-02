@@ -2,7 +2,7 @@
 #include "analysis/scope.h"
 
 #include "log.h"
-#include "dict.h"
+#include "list.h"
 
 #include <assert.h>
 
@@ -10,7 +10,6 @@ struct PrinterCtx {
     FILE* output;
     unsigned int indent;
     bool pretty_print;
-    struct Dict* emitted_fns;
 };
 
 #define printf(...) fprintf(ctx->output, __VA_ARGS__)
@@ -365,17 +364,12 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
 #undef print_node
 #undef printf
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 static void print_node_in_output(FILE* output, const Node* node) {
     struct PrinterCtx ctx = {
         .output = output,
         .indent = 0,
-        .emitted_fns = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
     print_node_impl(&ctx, node);
-    destroy_dict(ctx.emitted_fns);
 }
 
 void print_node(const Node* node) {

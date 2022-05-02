@@ -1,7 +1,9 @@
 #include "free_variables.h"
 
 #include "../log.h"
+#include "../visit.h"
 
+#include "list.h"
 #include "dict.h"
 
 #include <assert.h>
@@ -19,7 +21,7 @@ static void visit_fv(VisitorFV* visitor, const Node* node) {
     assert(node);
     switch (node->tag) {
         case Variable_TAG: {
-            // if we encounter a variable we haven't ignored already, it is deemed free
+            // if we encounter a node we haven't ignored already, it is deemed free
             if (insert_set_get_result(const Node*, visitor->ignore_set, node))
                 append_list(const Node*, visitor->free_list, node);
             break;

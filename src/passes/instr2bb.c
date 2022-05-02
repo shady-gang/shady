@@ -5,15 +5,14 @@
 #include "../log.h"
 #include "../type.h"
 #include "../local_array.h"
+#include "../rewrite.h"
 
 #include "list.h"
-#include "dict.h"
 
 #include <assert.h>
 
 typedef struct Context_ {
     Rewriter rewriter;
-    struct Dict* done;
     struct List* new_fns;
 } Context;
 
@@ -192,13 +191,12 @@ static const Node* instr2bb_process(Context* rewriter, const Node* node) {
     IrArena* dst_arena = rewriter->rewriter.dst_arena;
     switch (node->tag) {
         case Function_TAG: {
-            Node** already_done = find_value_dict(const Node*, Node*, rewriter->done, node);
+            const Node* already_done = search_processed(&rewriter->rewriter, node);
             if (already_done)
-                return *already_done;
+                return already_done;
 
             Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), rewrite_nodes(&rewriter->rewriter, node->payload.fn.params), rewrite_nodes(&rewriter->rewriter, node->payload.fn.return_types));
-            bool r = insert_dict_and_get_result(const Node*, Node*, rewriter->done, node, fun);
-            assert(r && "insertion of fun failed - the dict isn't working as it should");
+            register_processed(&rewriter->rewriter, node, fun);
 
             fun->payload.fn.block = instr2bb_process(rewriter, node->payload.fn.block);
             return fun;
@@ -209,6 +207,8 @@ static const Node* instr2bb_process(Context* rewriter, const Node* node) {
         default: return recreate_node_identity(&rewriter->rewriter, node);
     }
 }
+
+#include "dict.h"
 
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
@@ -221,8 +221,9 @@ const Node* instr2bb(IrArena* src_arena, IrArena* dst_arena, const Node* src_pro
             .dst_arena = dst_arena,
             .src_arena = src_arena,
             .rewrite_fn = (RewriteFn) instr2bb_process,
+            .rewrite_decl_body = NULL,
+            .processed = done,
         },
-        .done = done,
         .new_fns = decls,
     };
 

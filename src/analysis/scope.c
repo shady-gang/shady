@@ -1,6 +1,7 @@
 #include "scope.h"
 #include "../log.h"
 
+#include "list.h"
 #include "dict.h"
 
 #include <stdlib.h>
@@ -73,8 +74,8 @@ Scope build_scope(const Node* entry) {
         insert_set_get_result(Node*, done, element);
 
         assert(element->tag == Function_TAG);
-        const FnType* fn_type = &element->type->payload.fn_type;
-        assert(fn_type->is_continuation || element == entry);
+        // const Function* fn = &element->payload.fn;
+        // assert(fn->atttributes.is_continuation || element == entry);
 
         const Block* block = &element->payload.fn.block->payload.block;
         const Node* terminator = block->terminator;

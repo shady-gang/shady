@@ -3,33 +3,34 @@
 #include "../log.h"
 #include "../local_array.h"
 #include "../arena.h"
+#include "../rewrite.h"
 
 #include <assert.h>
 #include <string.h>
 
-typedef struct BindEntry_ BindEntry;
-struct BindEntry_ {
+typedef struct NamedBindEntry_ NamedBindEntry;
+struct NamedBindEntry_ {
     const char* name;
     const Node* bound_node;
-    BindEntry* next;
+    NamedBindEntry* next;
 };
 
 typedef struct {
     Rewriter rewriter;
-    BindEntry* bound_variables;
+    NamedBindEntry* bound_variables;
     const Node* current_function;
 } Context;
 
-static const Node* resolve(const Context* ctx, const char* name) {
-    for (BindEntry* entry = ctx->bound_variables; entry != NULL; entry = entry->next) {
+static const Node* resolve_using_name(const Context* ctx, const char* name) {
+    for (NamedBindEntry* entry = ctx->bound_variables; entry != NULL; entry = entry->next) {
         if (strcmp(entry->name, name) == 0) {
             return entry->bound_node;
         }
     }
-    error("could not resolve variable %s", name)
+    error("could not resolve_using_name node %s", name)
 }
 
-static const Node* bind_entry(Context* ctx, BindEntry* entry) {
+static void bind_named_entry(Context* ctx, NamedBindEntry* entry) {
     entry->next = ctx->bound_variables;
     ctx->bound_variables = entry;
 }
@@ -62,13 +63,13 @@ static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
     // bind the rebuilt parameters for rewriting the body
     for (size_t i = 0; i < node->payload.fn.params.count; i++) {
         const Node* param = target->payload.fn.params.nodes[i];
-                BindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(BindEntry));
-        *entry = (BindEntry) {
+                NamedBindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(NamedBindEntry));
+        *entry = (NamedBindEntry) {
             .name = string(dst_arena, param->payload.var.name),
             .bound_node = param,
             .next = NULL
         };
-        bind_entry(&body_infer_ctx, entry);
+        bind_named_entry(&body_infer_ctx, entry);
         printf("Bound param %s\n", entry->name);
     }
 
@@ -100,7 +101,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 const Node* decl = src_root->declarations.nodes[i];
 
                 const Node* bound = NULL;
-                BindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(BindEntry));
+                NamedBindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(NamedBindEntry));
                 entry->next = NULL;
 
                 switch (decl->tag) {
@@ -128,7 +129,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 }
 
                 entry->bound_node = bound;
-                bind_entry(&root_context, entry);
+                bind_named_entry(&root_context, entry);
                 printf("Bound root def %s\n", entry->name);
 
                 new_decls[i] = bound;
@@ -146,7 +147,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         }
         case Variable_TAG: error("the binders should be handled such that this node is never reached");
         case Unbound_TAG: {
-            return resolve(ctx, node->payload.unbound.name);
+            return resolve_using_name(ctx, node->payload.unbound.name);
         }
         case Let_TAG: {
             const Node* bound_instr = bind_node(ctx, node->payload.let.instruction);
@@ -157,14 +158,14 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 const Variable* old_var = &node->payload.let.variables.nodes[p]->payload.var;
                 const Node* new_binding = var(dst_arena, rewrite_node(rewriter, old_var->type),  old_var->name);
                 noutputs[p] = new_binding;
-                BindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(BindEntry));
-                *entry = (BindEntry) {
+                NamedBindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(NamedBindEntry));
+                *entry = (NamedBindEntry) {
                     .name = string(dst_arena, old_var->name),
                     .bound_node = new_binding,
                     .next = NULL
                 };
 
-                bind_entry(ctx, entry);
+                bind_named_entry(ctx, entry);
                 printf("Bound primop result %s\n", entry->name);
             }
 
@@ -182,13 +183,13 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 const Node* new_param = var(dst_arena, rewrite_node(rewriter, old_param->type), old_param->name);
                 new_params[i] = new_param;
 
-                BindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(BindEntry));
-                *entry = (BindEntry) {
+                NamedBindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(NamedBindEntry));
+                *entry = (NamedBindEntry) {
                     .name = string(dst_arena, old_param->name),
                     .bound_node = new_param,
                     .next = NULL
                 };
-                bind_entry(&loop_body_ctx, entry);
+                bind_named_entry(&loop_body_ctx, entry);
                 printf("Bound loop param %s\n", entry->name);
             }
 
@@ -212,13 +213,13 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             for (size_t i = 0; i < inner_conts_count; i++) {
                 Node* new_cont = rewrite_fn_head(ctx, pblock->continuations.nodes[i]);
                 new_conts[i] = new_cont;
-                BindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(BindEntry));
-                *entry = (BindEntry) {
+                NamedBindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(NamedBindEntry));
+                *entry = (NamedBindEntry) {
                     .name = string(dst_arena, pblock->continuations_vars.nodes[i]->payload.var.name),
                     .bound_node = new_cont,
                     .next = NULL
                 };
-                bind_entry(&pblock_ctx, entry);
+                bind_named_entry(&pblock_ctx, entry);
                 printf("Bound (stub) continuation %s\n", entry->name);
             }
 
@@ -243,12 +244,12 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             });
         }
         case Function_TAG: {
-            Node* head = (Node*) resolve(ctx, node->payload.fn.name);
+            Node* head = (Node*) resolve_using_name(ctx, node->payload.fn.name);
             rewrite_fn_body(ctx, node, head);
             return head;
         }
         case Constant_TAG: {
-            Node* head = (Node*) resolve(ctx, node->payload.fn.name);
+            Node* head = (Node*) resolve_using_name(ctx, node->payload.fn.name);
             head->payload.constant.value = bind_node(ctx, node->payload.constant.value);
             return head;
         }

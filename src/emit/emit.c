@@ -328,7 +328,7 @@ SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, new);
 
     switch (node->tag) {
-        case Variable_TAG: error("this variable should have been resolved already");
+        case Variable_TAG: error("this node should have been resolved already");
         case IntLiteral_TAG: {
             SpvId ty = emit_type(emitter, node->type);
             uint32_t arr[] = { node->payload.int_literal.value };

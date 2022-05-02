@@ -2,9 +2,6 @@
 
 #include "shady/ir.h"
 
-#include "list.h"
-#include "dict.h"
-
 typedef struct CFNode_ CFNode;
 struct CFNode_ {
     const Node* node;
