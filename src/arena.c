@@ -125,6 +125,14 @@ Strings strings(IrArena* arena, size_t count, const char* in_strs[])  {
     return strings;
 }
 
+Nodes append_nodes(IrArena* arena, Nodes old, const Node* new) {
+    LARRAY(const Node*, tmp, old.count + 2);
+    for (size_t i = 0; i < old.count; i++)
+        tmp[i] = old.nodes[i];
+    tmp[old.count] = new;
+    return nodes(arena, old.count + 1, tmp);
+}
+
 /// takes care of structural sharing
 static const char* string_impl(IrArena* arena, size_t size, const char* zero_terminated) {
     const char* ptr = zero_terminated;

@@ -3,7 +3,6 @@
 #include "../log.h"
 #include "../local_array.h"
 #include "../type.h"
-#include "../arena.h"
 #include "../rewrite.h"
 
 #include <assert.h>

@@ -27,5 +27,9 @@ CompilationResult run_compiler_passes(__attribute__ ((unused)) CompilerConfig* c
     info_print("After instr2bb pass: \n");
     info_node(*program);
 
+    *program = lower_callf(*arena, *arena, *program);
+    info_print("After lower_callf pass: \n");
+    info_node(*program);
+
     return CompilationNoError;
 }

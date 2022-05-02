@@ -12,6 +12,7 @@ typedef const Node* (RewritePass)(IrArena* src_arena, IrArena* dst_arena, const 
 RewritePass bind_program;
 RewritePass type_program;
 RewritePass instr2bb;
+RewritePass lower_callf;
 
 #define SHADY_PASSES_H
 

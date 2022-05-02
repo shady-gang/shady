@@ -16,7 +16,7 @@ typedef struct Context_ {
     struct List* new_fns;
 } Context;
 
-static const Node* instr2bb_process(Context* rewriter, const Node* node);
+static const Node* instr2bb_process(Context* ctx, const Node* node);
 
 static FnAttributes cont_attr = {
     .is_continuation = true,
@@ -187,24 +187,24 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
     });
 }
 
-static const Node* instr2bb_process(Context* rewriter, const Node* node) {
-    IrArena* dst_arena = rewriter->rewriter.dst_arena;
+static const Node* instr2bb_process(Context* ctx, const Node* node) {
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Function_TAG: {
-            const Node* already_done = search_processed(&rewriter->rewriter, node);
+            const Node* already_done = search_processed(&ctx->rewriter, node);
             if (already_done)
                 return already_done;
 
-            Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), rewrite_nodes(&rewriter->rewriter, node->payload.fn.params), rewrite_nodes(&rewriter->rewriter, node->payload.fn.return_types));
-            register_processed(&rewriter->rewriter, node, fun);
+            Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), rewrite_nodes(&ctx->rewriter, node->payload.fn.params), rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
+            register_processed(&ctx->rewriter, node, fun);
 
-            fun->payload.fn.block = instr2bb_process(rewriter, node->payload.fn.block);
+            fun->payload.fn.block = instr2bb_process(ctx, node->payload.fn.block);
             return fun;
         }
-        case Block_TAG: return handle_block(rewriter, node, 0, NULL);
+        case Block_TAG: return handle_block(ctx, node, 0, NULL);
         case Constant_TAG: return node;
         case Root_TAG: error("illegal node");
-        default: return recreate_node_identity(&rewriter->rewriter, node);
+        default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }
 

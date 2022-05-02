@@ -142,8 +142,8 @@ const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
     });
 }
 
-const Type* check_type_true_lit(IrArena* arena) { return bool_type(arena); }
-const Type* check_type_false_lit(IrArena* arena) { return bool_type(arena); }
+const Type* check_type_true_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
+const Type* check_type_false_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
 
 const Type* check_type_fn_ret(IrArena* arena, Return ret) {
     // TODO check it then !

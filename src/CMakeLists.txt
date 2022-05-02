@@ -13,12 +13,13 @@ set(SHADY_SOURCES
     log.c
     util.c
     compile.c
-    transform/import.c
     analysis/scope.c
     analysis/free_variables.c
+    passes/import.c
     passes/bind.c
     passes/infer.c
     passes/instr2bb.c
+    passes/lower_callf.c
     emit/emit.c
     emit/spirv_builder.c)
 

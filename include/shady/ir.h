@@ -98,6 +98,8 @@ typedef struct Strings_ {
 Nodes         nodes(IrArena*, size_t count, const Node*[]);
 Strings     strings(IrArena*, size_t count, const char*[]);
 
+Nodes append_nodes(IrArena*, Nodes, const Node*);
+
 String string_sized(IrArena* arena, size_t size, const char* start);
 String string(IrArena* arena, const char* start);
 String unique_name(IrArena* arena, const char* start);

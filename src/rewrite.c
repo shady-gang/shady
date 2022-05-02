@@ -8,7 +8,12 @@
 
 #include <assert.h>
 
-const Node* rewrite_node(Rewriter* rewriter, const Node* node) { return rewriter->rewrite_fn(rewriter, node); }
+const Node* rewrite_node(Rewriter* rewriter, const Node* node) {
+    if (node)
+        return rewriter->rewrite_fn(rewriter, node);
+    else
+        return NULL;
+}
 
 Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
     size_t count = old_nodes.count;
@@ -39,6 +44,34 @@ void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
+Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
+    Node* new = NULL;
+    switch (old->tag) {
+        case Constant_TAG: new = constant(rewriter->dst_arena, old->payload.constant.name); break;
+        case Function_TAG: new = fn(rewriter->dst_arena, old->payload.fn.atttributes, old->payload.fn.name, rewrite_nodes(rewriter, old->payload.fn.params), rewrite_nodes(rewriter, old->payload.fn.return_types)); break;
+        default: error("not a decl");
+    }
+    assert(new);
+    register_processed(rewriter, old, new);
+    return new;
+}
+
+void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new) {
+    switch (old->tag) {
+        case Constant_TAG: {
+            new->payload.constant.type_hint = rewrite_node(rewriter, old->payload.constant.type_hint);
+            new->payload.constant.value     = rewrite_node(rewriter, old->payload.constant.value);
+            break;
+        }
+        case Function_TAG: {
+            new->payload.fn.block = rewrite_node(rewriter, old->payload.fn.block);
+            break;
+        }
+        case Variable_TAG: return;
+        default: error("not a decl");
+    }
+}
+
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;
@@ -53,7 +86,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
 
             if (rewriter->rewrite_decl_body) {
                 for (size_t i = 0; i < decls.count; i++)
-                    rewriter->rewrite_decl_body(rewriter, node, (Node*) decls.nodes[i]);
+                    rewriter->rewrite_decl_body(rewriter, node->payload.root.declarations.nodes[i], (Node*) decls.nodes[i]);
             }
 
             return root(rewriter->dst_arena, (Root) {
@@ -62,7 +95,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         }
         case Block_TAG:         return block(rewriter->dst_arena, (Block) {
             .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
-            .terminator = rewriter->rewrite_fn(rewriter, node->payload.block.terminator)
+            .terminator = rewrite_node(rewriter, node->payload.block.terminator)
         });
         case Constant_TAG:
         case Function_TAG:      error("Recursive nodes are not handled");
@@ -72,28 +105,34 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case IntLiteral_TAG:    return int_literal(rewriter->dst_arena, node->payload.int_literal);
         case True_TAG:          return true_lit(rewriter->dst_arena);
         case False_TAG:         return false_lit(rewriter->dst_arena);
-        case Variable_TAG:      return var_with_id(rewriter->dst_arena, rewriter->rewrite_fn(rewriter, node->payload.var.type), string(rewriter->dst_arena, node->payload.var.name), node->payload.var.id);
+        case Variable_TAG:      return var_with_id(rewriter->dst_arena, rewrite_node(rewriter, node->payload.var.type), string(rewriter->dst_arena, node->payload.var.name), node->payload.var.id);
         case Let_TAG:           return let(rewriter->dst_arena, (Let) {
             .variables = rewrite_nodes(rewriter, node->payload.let.variables),
-            .instruction = rewriter->rewrite_fn(rewriter, node->payload.let.instruction)
+            .instruction = rewrite_node(rewriter, node->payload.let.instruction)
         });
         case PrimOp_TAG:        return prim_op(rewriter->dst_arena, (PrimOp) {
             .op = node->payload.prim_op.op,
             .operands = rewrite_nodes(rewriter, node->payload.prim_op.operands)
         });
         case Call_TAG:          return call_instr(rewriter->dst_arena, (Call) {
-            .callee = rewriter->rewrite_fn(rewriter, node->payload.call_instr.callee),
+            .callee = rewrite_node(rewriter, node->payload.call_instr.callee),
             .args = rewrite_nodes(rewriter, node->payload.call_instr.args)
         });
         case If_TAG:            return if_instr(rewriter->dst_arena, (If) {
             .yield_types = rewrite_nodes(rewriter, node->payload.if_instr.yield_types),
-            .condition = rewriter->rewrite_fn(rewriter, node->payload.if_instr.condition),
-            .if_true = rewriter->rewrite_fn(rewriter, node->payload.if_instr.if_true),
-            .if_false = rewriter->rewrite_fn(rewriter, node->payload.if_instr.if_false),
+            .condition = rewrite_node(rewriter, node->payload.if_instr.condition),
+            .if_true = rewrite_node(rewriter, node->payload.if_instr.if_true),
+            .if_false = rewrite_node(rewriter, node->payload.if_instr.if_false),
         });
         case Jump_TAG:          return jump(rewriter->dst_arena, (Jump) {
-            .target = rewriter->rewrite_fn(rewriter, node->payload.jump.target),
+            .target = rewrite_node(rewriter, node->payload.jump.target),
             .args = rewrite_nodes(rewriter, node->payload.jump.args)
+        });
+        case Branch_TAG:        return branch(rewriter->dst_arena, (Branch) {
+            .condition = rewrite_node(rewriter, node->payload.branch.condition),
+            .true_target = rewrite_node(rewriter, node->payload.branch.true_target),
+            .false_target = rewrite_node(rewriter, node->payload.branch.false_target),
+            .args = rewrite_nodes(rewriter, node->payload.branch.args)
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
             .fn = NULL,
@@ -116,10 +155,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                                     .return_types = rewrite_nodes(rewriter, node->payload.fn_type.return_types)});
         case PtrType_TAG:       return ptr_type(rewriter->dst_arena, (PtrType) {
                                     .address_space = node->payload.ptr_type.address_space,
-                                    .pointed_type = rewriter->rewrite_fn(rewriter, node->payload.ptr_type.pointed_type)});
+                                    .pointed_type = rewrite_node(rewriter, node->payload.ptr_type.pointed_type)});
         case QualifiedType_TAG: return qualified_type(rewriter->dst_arena, (QualifiedType) {
                                     .is_uniform = node->payload.qualified_type.is_uniform,
-                                    .type = rewriter->rewrite_fn(rewriter, node->payload.qualified_type.type)});
+                                    .type = rewrite_node(rewriter, node->payload.qualified_type.type)});
         default: error("unhandled node for rewrite %s", node_tags[node->tag]);
     }
 }
