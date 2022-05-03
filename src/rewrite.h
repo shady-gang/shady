@@ -30,8 +30,13 @@ const Node* rewrite_node(Rewriter*, const Node*);
 /// Rewrites a node using the rewriter to provide the node and type operands
 const Node* recreate_node_identity(Rewriter*, const Node*);
 
+/// Rewrites a constant / function header
 Node* recreate_decl_header_identity(Rewriter*, const Node*);
 void  recreate_decl_body_identity(Rewriter*, const Node*, Node*);
+
+/// Rewrites a variable under a new identity
+const Node* recreate_variable(Rewriter* rewriter, const Node* old);
+Nodes recreate_variables(Rewriter* rewriter, Nodes old);
 
 /// Looks up if the node was already processed
 const Node* search_processed(const Rewriter*, const Node*);

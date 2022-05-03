@@ -105,6 +105,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
                 }
 
                 // prepend load instructions to the dest BB
+                // TODO use fresh variables for the `rest` context
                 for (size_t j = recover_context_size - 1; j < recover_context_size; j--) {
                     const Variable* var = &read_list(const Node*, recover_context)[j]->payload.var;
                     const Node* vars[] = {read_list(const Node*, recover_context)[j] };
@@ -195,8 +196,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (already_done)
                 return already_done;
 
-            Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), rewrite_nodes(&ctx->rewriter, node->payload.fn.params), rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
+            Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), recreate_variables(&ctx->rewriter, node->payload.fn.params), rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
             register_processed(&ctx->rewriter, node, fun);
+            for (size_t i = 0; i < fun->payload.fn.params.count; i++)
+                register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], fun->payload.fn.params.nodes[i]);
 
             fun->payload.fn.block = process_node(ctx, node->payload.fn.block);
             return fun;

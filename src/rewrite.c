@@ -41,6 +41,18 @@ void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
     assert(r && "registered the same node as processed twice");
 }
 
+const Node* recreate_variable(Rewriter* rewriter, const Node* old) {
+    assert(old->tag == Variable_TAG);
+    return var(rewriter->dst_arena, rewrite_node(rewriter, old->payload.var.type), old->payload.var.name);
+}
+
+Nodes recreate_variables(Rewriter* rewriter, Nodes old) {
+    LARRAY(const Node*, nvars, old.count);
+    for (size_t i = 0; i < old.count; i++)
+        nvars[i] = recreate_variable(rewriter, old.nodes[i]);
+    return nodes(rewriter->dst_arena, old.count, nvars);
+}
+
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
@@ -105,11 +117,18 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case IntLiteral_TAG:    return int_literal(rewriter->dst_arena, node->payload.int_literal);
         case True_TAG:          return true_lit(rewriter->dst_arena);
         case False_TAG:         return false_lit(rewriter->dst_arena);
-        case Variable_TAG:      return var_with_id(rewriter->dst_arena, rewrite_node(rewriter, node->payload.var.type), string(rewriter->dst_arena, node->payload.var.name), node->payload.var.id);
-        case Let_TAG:           return let(rewriter->dst_arena, (Let) {
-            .variables = rewrite_nodes(rewriter, node->payload.let.variables),
-            .instruction = rewrite_node(rewriter, node->payload.let.instruction)
-        });
+        case Variable_TAG:      error("We expect variables to be available for us in the `processed` set");
+        case Let_TAG:           {
+            Nodes oldvars = node->payload.let.variables;
+            Nodes nvars = recreate_variables(rewriter, oldvars);
+            const Node* nlet = let(rewriter->dst_arena, (Let) {
+                .variables = nvars,
+                .instruction = rewrite_node(rewriter, node->payload.let.instruction)
+            });
+            for (size_t i = 0; i < oldvars.count; i++)
+                register_processed(rewriter, oldvars.nodes[i], nvars.nodes[i]);
+            return nlet;
+        }
         case PrimOp_TAG:        return prim_op(rewriter->dst_arena, (PrimOp) {
             .op = node->payload.prim_op.op,
             .operands = rewrite_nodes(rewriter, node->payload.prim_op.operands)

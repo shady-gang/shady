@@ -65,30 +65,6 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
     return alloc;
 }
 
-const Node* var_with_id(IrArena* arena, const Type* type, const char* name, VarId id) {
-    Variable variable = {
-        .type = type,
-        .name = string(arena, name),
-        .id = id,
-    };
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-      .type = arena->config.check_types ? check_type_var(arena, variable) : NULL,
-      .tag = Variable_TAG,
-      .payload.var = variable
-    };
-    Node* ptr = &node;
-    const Node** found = find_key_dict(const Node*, arena->node_set, ptr);
-    if (found)
-        return *found;
-    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
-    *alloc = node;
-    insert_set_get_result(const Node*, arena->node_set, alloc);
-    return alloc;
-}
-
 Node* fn(IrArena* arena, FnAttributes attributes, const char* name, Nodes params, Nodes return_types) {
     Function fn = {
         .name = string(arena, name),
