@@ -5,6 +5,7 @@
 #include "list.h"
 
 #include <assert.h>
+#include <inttypes.h>
 
 struct PrinterCtx {
     FILE* output;
@@ -189,7 +190,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("%s", node->payload.untyped_number.plaintext);
             break;
         case IntLiteral_TAG:
-            printf("%ld", node->payload.int_literal.value);
+            printf("%" PRIu64, node->payload.int_literal.value);
             break;
         case True_TAG:
             printf("true");
