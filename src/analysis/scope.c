@@ -78,6 +78,7 @@ Scope build_scope(const Node* entry) {
         // assert(fn->atttributes.is_continuation || element == entry);
 
         const Block* block = &element->payload.fn.block->payload.block;
+        assert(element->payload.fn.block);
         const Node* terminator = block->terminator;
         switch (terminator->tag) {
             case Jump_TAG: {

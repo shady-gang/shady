@@ -21,6 +21,18 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node);
 #define INDENT for (unsigned int j = 0; j < ctx->indent; j++) \
     printf("   ");
 
+static void print_addr_space(struct PrinterCtx* ctx, AddressSpace as) {
+    switch (as) {
+        case AsGeneric:  printf("generic"); break;
+        case AsPrivate:  printf("private"); break;
+        case AsShared:   printf("shared"); break;
+        case AsGlobal:   printf("global"); break;
+        case AsInput:    printf("input"); break;
+        case AsOutput:   printf("output"); break;
+        case AsExternal: printf("external"); break;
+    }
+}
+
 static void print_param_list(struct PrinterCtx* ctx, Nodes vars, const Nodes* defaults) {
     if (defaults != NULL)
         assert(defaults->count == vars.count);
@@ -98,11 +110,12 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             const Root* top_level = &node->payload.root;
             for (size_t i = 0; i < top_level->declarations.count; i++) {
                 const Node* decl = top_level->declarations.nodes[i];
-                if (decl->tag == Variable_TAG) {
-                    const Variable* var = &decl->payload.var;
-                    printf("var ");
-                    print_node(var->type);
-                    printf(" %s;\n", var->name);
+                if (decl->tag == GlobalVariable_TAG) {
+                    const GlobalVariable* gvar = &decl->payload.global_variable;
+                    print_addr_space(ctx, gvar->address_space);
+                    printf(" ");
+                    print_node(gvar->type);
+                    printf(" %s;\n", gvar->name);
                 } else if (decl->tag == Function_TAG) {
                     const Function* fun = &decl->payload.fn;
                     assert(!fun->atttributes.is_continuation);

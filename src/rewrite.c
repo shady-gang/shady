@@ -58,7 +58,8 @@ bool compare_node(Node**, Node**);
 
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
-    switch (old->tag) {
+    switch (old->tag) {\
+        case GlobalVariable_TAG: new = global_var(rewriter->dst_arena, rewrite_node(rewriter, old->payload.global_variable.type), old->payload.global_variable.name, old->payload.global_variable.address_space); break;
         case Constant_TAG: new = constant(rewriter->dst_arena, old->payload.constant.name); break;
         case Function_TAG: new = fn(rewriter->dst_arena, old->payload.fn.atttributes, old->payload.fn.name, rewrite_nodes(rewriter, old->payload.fn.params), rewrite_nodes(rewriter, old->payload.fn.return_types)); break;
         default: error("not a decl");
@@ -76,10 +77,16 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             break;
         }
         case Function_TAG: {
+            struct Dict* old_processed = rewriter->processed;
+            rewriter->processed = clone_dict(rewriter->processed);
+            for (size_t i = 0; i < new->payload.fn.params.count; i++)
+                register_processed(rewriter, old->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
             new->payload.fn.block = rewrite_node(rewriter, old->payload.fn.block);
+            destroy_dict(rewriter->processed);
+            rewriter->processed = old_processed;
             break;
         }
-        case Variable_TAG: return;
+        case GlobalVariable_TAG: /* nothing to do */ return;
         default: error("not a decl");
     }
 }
@@ -109,8 +116,9 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
             .terminator = rewrite_node(rewriter, node->payload.block.terminator)
         });
+        case GlobalVariable_TAG:
         case Constant_TAG:
-        case Function_TAG:      error("Recursive nodes are not handled");
+        case Function_TAG:      error("Declarations are not handled");
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
             .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext)
         });

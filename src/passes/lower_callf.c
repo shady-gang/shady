@@ -2,6 +2,7 @@
 
 #include "../rewrite.h"
 #include "../type.h"
+#include "../log.h"
 
 #include "list.h"
 #include "dict.h"
@@ -82,17 +83,21 @@ static const Node* callee_to_ptr(Context* ctx, const Node* callee) {
     return fn_ptr_as_value(ctx->rewriter.dst_arena, ptr);
 }
 
-const Node* lower_callf_process(Context* ctx, const Node* old) {
+static const Node* lower_callf_process(Context* ctx, const Node* old) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (old->tag) {
+        case GlobalVariable_TAG:
         case Constant_TAG: {
             Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
             recreate_decl_body_identity(&ctx->rewriter, old, new);
             return new;
         }
         case Function_TAG: {
-             Node* fun = fn(dst_arena, old->payload.fn.atttributes, old->payload.fn.name, rewrite_nodes(&ctx->rewriter, old->payload.fn.params), nodes(dst_arena, 0, NULL));
+             //Node* fun = fn(dst_arena, old->payload.fn.atttributes, old->payload.fn.name, recreate_variables(&ctx->rewriter, old->payload.fn.params), nodes(dst_arena, 0, NULL));
+             Node* fun = fn(dst_arena, old->payload.fn.atttributes, old->payload.fn.name, old->payload.fn.params, nodes(dst_arena, 0, NULL));
              register_processed(&ctx->rewriter, old, fun);
+             for (size_t i = 0; i < fun->payload.fn.params.count; i++)
+                 register_processed(&ctx->rewriter, old->payload.fn.params.nodes[i], fun->payload.fn.params.nodes[i]);
              fun->payload.fn.block = lower_callf_process(ctx, old->payload.fn.block);
              return fun;
         }
@@ -146,6 +151,23 @@ const Node* lower_callf_process(Context* ctx, const Node* old) {
     }
 }
 
+/*static void lower_callf_decl_body(Context* ctx, const Node* old, Node* new) {
+    switch (new->tag) {
+        case Function_TAG: {
+            for (size_t i = 0; i < new->payload.fn.params.count; i++)
+                register_processed(&ctx->rewriter, old->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
+            new->payload.fn.block = lower_callf_process(ctx, old->payload.fn.block);
+            break;
+        }
+        case GlobalVariable_TAG:
+        case Constant_TAG: {
+            recreate_decl_body_identity(&ctx->rewriter, old, new);
+            break;
+        }
+        default: error("not a decl");
+    }
+}*/
+
 const Node* lower_callf(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
@@ -155,6 +177,7 @@ const Node* lower_callf(IrArena* src_arena, IrArena* dst_arena, const Node* src_
             .dst_arena = dst_arena,
             .src_arena = src_arena,
             .rewrite_fn = (RewriteFn) lower_callf_process,
+            //.rewrite_decl_body = (RewriteFnMut) recreate_decl_body_identity,
             .rewrite_decl_body = NULL,
             .processed = done,
         },

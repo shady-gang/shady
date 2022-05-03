@@ -123,6 +123,28 @@ const Type* check_type_fn(IrArena* arena, Function fn) {
     });
 }
 
+static bool is_as_access_uniform(AddressSpace as) {
+    switch (as) {
+        case AsGeneric: return false;
+        case AsPrivate: return false;
+        case AsShared:   return true;
+        case AsGlobal:   return true;
+        case AsInput:   return false;
+        case AsOutput:  return false;
+        case AsExternal: return true;
+    }
+}
+
+const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
+    return qualified_type(arena, (QualifiedType) {
+        .type = ptr_type(arena, (PtrType) {
+            .pointed_type = global_variable.type,
+            .address_space = global_variable.address_space
+        }),
+        .is_uniform = true
+    });
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 const Type* check_type_var(IrArena* arena, Variable variable) {

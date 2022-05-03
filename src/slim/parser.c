@@ -594,9 +594,6 @@ static const Node* accept_global_var_decl(ctxparams) {
         as = AsPrivate;
     else if (accept_token(ctx, shared_tok))
         as = AsShared;
-    // the global address space cannot be used here
-    //else if (accept_token(ctx, global_tok))
-    //    as = AsGlobal;
     else if (accept_token(ctx, extern_tok))
         as = AsExternal;
     else if (accept_token(ctx, input_tok))
@@ -608,24 +605,11 @@ static const Node* accept_global_var_decl(ctxparams) {
 
     const Type* type = accept_unqualified_type(ctx);
     expect(type);
-
-    type = ptr_type(arena, (PtrType) {
-        .pointed_type = type,
-        .address_space = as
-    });
-
-    // global variables are uniform (remember our global variables are _pointers_ to the data manipulated)
-    type = qualified_type(arena, (QualifiedType) {
-        .type = type,
-        .is_uniform = true
-    });
-
     const char* id = accept_identifier(ctx);
     expect(id);
-
     expect(accept_token(ctx, semi_tok));
 
-    return var(arena, type, id);
+    return global_var(arena, type, id, as);
 }
 
 const Node* parse(char* contents, IrArena* arena) {

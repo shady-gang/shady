@@ -19,14 +19,14 @@ typedef enum DivergenceQualifier_ {
 } DivergenceQualifier;
 
 typedef enum AddressSpace_ {
-    AsInput,
-    AsOutput,
     AsGeneric,
     AsPrivate,
     AsShared,
     AsGlobal,
 
-    /// special addressing space for top-level variables
+    /// special addressing spaces for only global variables
+    AsInput,
+    AsOutput,
     AsExternal,
 } AddressSpace;
 
@@ -79,6 +79,7 @@ NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
 NODEDEF(0, 1, 1, Function, fn) \
 NODEDEF(0, 0, 1, Constant, constant) \
+NODEDEF(0, 1, 1, GlobalVariable, global_variable) \
 NODEDEF(1, 0, 1, Block, block) \
 NODEDEF(1, 0, 1, ParsedBlock, parsed_block) \
 NODEDEF(1, 0, 1, Root, root) \
@@ -115,6 +116,12 @@ typedef struct Variable_ {
     const Node* instruction;
     unsigned output;
 } Variable;
+
+typedef struct GlobalVariable_ {
+    const Type* type;
+    String name;
+    AddressSpace address_space;
+} GlobalVariable;
 
 typedef struct Unbound_ {
     String name;
@@ -324,7 +331,11 @@ NODES()
 } NodeTag;
 
 inline static bool is_nominal(NodeTag tag) {
-    return tag == Function_TAG || tag == Root_TAG || tag == Constant_TAG;
+    return tag == Function_TAG || tag == Root_TAG || tag == Constant_TAG || tag == Variable_TAG || tag == GlobalVariable_TAG;
+}
+
+inline static bool is_declaration(NodeTag tag) {
+    return tag == Function_TAG || tag == GlobalVariable_TAG || tag == Constant_TAG;
 }
 
 struct Node_ {
@@ -350,9 +361,10 @@ struct Node_ {
 NODES()
 #undef NODEDEF
 const Node* var(IrArena* arena, const Type* type, const char* name);
-const Node* var_with_id(IrArena* arena, const Type* type, const char* name, VarId);
+
 Node* fn(IrArena* arena, FnAttributes, const char* name, Nodes params, Nodes return_types);
 Node* constant(IrArena* arena, const char* name);
+Node* global_var(IrArena*, const Type*, String, AddressSpace);
 
 #undef NODE_CTOR_0
 #undef NODE_CTOR_1

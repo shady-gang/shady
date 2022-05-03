@@ -196,15 +196,19 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (already_done)
                 return already_done;
 
-            Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), recreate_variables(&ctx->rewriter, node->payload.fn.params), rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
+            //Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), recreate_variables(&ctx->rewriter, node->payload.fn.params), rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
+            Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), node->payload.fn.params, rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
             register_processed(&ctx->rewriter, node, fun);
             for (size_t i = 0; i < fun->payload.fn.params.count; i++)
+            //    register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], fun->payload.fn.params.nodes[i]);
                 register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], fun->payload.fn.params.nodes[i]);
 
             fun->payload.fn.block = process_node(ctx, node->payload.fn.block);
             return fun;
         }
         case Block_TAG: return handle_block(ctx, node, 0, NULL);
+        // leave other declarations alone
+        case GlobalVariable_TAG:
         case Constant_TAG: return node;
         case Root_TAG: error("illegal node");
         default: return recreate_node_identity(&ctx->rewriter, node);

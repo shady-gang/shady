@@ -386,10 +386,10 @@ static const Node* type_root(Context* ctx, const Node* node) {
                 const Node* odecl = node->payload.root.declarations.nodes[i];
 
                 switch (odecl->tag) {
-                    case Variable_TAG: {
-                        const Variable* old_var = &odecl->payload.var;
-                        const Type* imported_ty = infer_type(ctx, old_var->type);;
-                        new_decls[i] = var(ctx->rewriter.dst_arena, imported_ty, old_var->name);
+                    case GlobalVariable_TAG: {
+                        const GlobalVariable* old_gvar = &odecl->payload.global_variable;
+                        const Type* imported_ty = infer_type(ctx, old_gvar->type);
+                        new_decls[i] = global_var(ctx->rewriter.dst_arena, imported_ty, old_gvar->name, old_gvar->address_space);
                         register_processed(&ctx->rewriter, node, new_decls[i]);
                         break;
                     }
@@ -404,7 +404,7 @@ static const Node* type_root(Context* ctx, const Node* node) {
                 const Node *odecl = node->payload.root.declarations.nodes[i];
 
                 switch (odecl->tag) {
-                    case Variable_TAG: continue;
+                    case GlobalVariable_TAG: continue;
                     case Function_TAG: {
                         new_decls[i] = infer_fn(ctx, odecl);
                         break;

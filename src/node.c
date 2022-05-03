@@ -113,6 +113,29 @@ Node* constant(IrArena* arena, String name) {
     return alloc;
 }
 
+Node* global_var(IrArena* arena, const Type* type, const char* name, AddressSpace as) {
+    GlobalVariable gvar = {
+        .name = string(arena, name),
+        .type = type,
+        .address_space = as,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+      .type = arena->config.check_types ? check_type_global_variable(arena, gvar) : NULL,
+      .tag = GlobalVariable_TAG,
+      .payload.global_variable = gvar
+    };
+    Node* ptr = &node;
+    Node** found = find_key_dict(Node*, arena->node_set, ptr);
+    assert(!found);
+    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
+    *alloc = node;
+    insert_set_get_result(const Node*, arena->node_set, alloc);
+    return alloc;
+}
+
 const char* node_tags[] = {
 #define NODEDEF(_, _2, _3, _4, str) #str,
 NODES()

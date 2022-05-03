@@ -105,10 +105,10 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 entry->next = NULL;
 
                 switch (decl->tag) {
-                    case Variable_TAG: {
-                        const Variable* ovar = &decl->payload.var;
-                        bound = var(dst_arena, rewrite_node(rewriter, ovar->type), string(dst_arena, ovar->name));
-                        entry->name = ovar->name;
+                    case GlobalVariable_TAG: {
+                        const GlobalVariable* ogvar = &decl->payload.global_variable;
+                        bound = global_var(dst_arena, rewrite_node(rewriter, ogvar->type), ogvar->name, ogvar->address_space);
+                        entry->name = ogvar->name;
                         break;
                     }
                     case Constant_TAG: {
@@ -137,8 +137,8 @@ static const Node* bind_node(Context* ctx, const Node* node) {
 
             for (size_t i = 0; i < count; i++) {
                 const Node* odecl = src_root->declarations.nodes[i];
-                if (odecl->tag != Variable_TAG)
-                new_decls[i] = bind_node(&root_context, odecl);
+                if (odecl->tag != GlobalVariable_TAG)
+                    new_decls[i] = bind_node(&root_context, odecl);
             }
 
             return root(rewriter->dst_arena, (Root) {
