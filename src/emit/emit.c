@@ -448,16 +448,10 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
     for (size_t i = 0; i < top_level->declarations.count; i++) {
         const Node* decl = top_level->declarations.nodes[i];
         switch (decl->tag) {
-            case Variable_TAG: {
-                const Variable* var = &decl->payload.var;
-                DivergenceQualifier qual;
-                const Type* type = strip_qualifier(var->type, &qual);
-
-                assert(qual == Uniform && "the _pointers_ to externals (descriptors mostly) should be uniform");
-                assert(type->tag == PtrType_TAG);
-                spvb_global_variable(file_builder, ids[i], emit_type(&emitter, type), emit_addr_space(type->payload.ptr_type.address_space), false, 0);
-
-                spvb_name(file_builder, ids[i], var->name);
+            case GlobalVariable_TAG: {
+                const GlobalVariable* gvar = &decl->payload.global_variable;
+                spvb_global_variable(file_builder, ids[i], emit_type(&emitter, gvar->type), emit_addr_space(gvar->address_space), false, 0);
+                spvb_name(file_builder, ids[i], gvar->name);
                 break;
             } case Function_TAG: {
                 emit_function(&emitter, decl);
