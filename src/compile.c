@@ -23,7 +23,7 @@ CompilationResult run_compiler_passes(__attribute__ ((unused)) CompilerConfig* c
     info_print("Typed program successfully: \n");
     info_node(*program);
 
-    *program = instr2bb(*arena, *arena, *program);
+    *program = lower_cf_instrs(*arena, *arena, *program);
     info_print("After instr2bb pass: \n");
     info_node(*program);
 

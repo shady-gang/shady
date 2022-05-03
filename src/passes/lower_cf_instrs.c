@@ -16,7 +16,7 @@ typedef struct Context_ {
     struct List* new_fns;
 } Context;
 
-static const Node* instr2bb_process(Context* ctx, const Node* node);
+static const Node* process_node(Context* ctx, const Node* node);
 
 static FnAttributes cont_attr = {
     .is_continuation = true,
@@ -141,7 +141,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
                     .instructions = instructions,
                     .terminator = callf(dst_arena, (Callf) {
                         .ret_fn = rest,
-                        .callee = instr2bb_process(ctx, callee),
+                        .callee = process_node(ctx, callee),
                         .args = nodes(dst_arena, args_count, instr->payload.call_instr.args.nodes)
                     })
                 });
@@ -187,7 +187,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
     });
 }
 
-static const Node* instr2bb_process(Context* ctx, const Node* node) {
+static const Node* process_node(Context* ctx, const Node* node) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Function_TAG: {
@@ -198,7 +198,7 @@ static const Node* instr2bb_process(Context* ctx, const Node* node) {
             Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), rewrite_nodes(&ctx->rewriter, node->payload.fn.params), rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
             register_processed(&ctx->rewriter, node, fun);
 
-            fun->payload.fn.block = instr2bb_process(ctx, node->payload.fn.block);
+            fun->payload.fn.block = process_node(ctx, node->payload.fn.block);
             return fun;
         }
         case Block_TAG: return handle_block(ctx, node, 0, NULL);
@@ -213,14 +213,14 @@ static const Node* instr2bb_process(Context* ctx, const Node* node) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-const Node* instr2bb(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+const Node* lower_cf_instrs(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* decls = new_list(const Node*);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     Context ctx = {
         .rewriter = {
             .dst_arena = dst_arena,
             .src_arena = src_arena,
-            .rewrite_fn = (RewriteFn) instr2bb_process,
+            .rewrite_fn = (RewriteFn) process_node,
             .rewrite_decl_body = NULL,
             .processed = done,
         },
@@ -230,7 +230,7 @@ const Node* instr2bb(IrArena* src_arena, IrArena* dst_arena, const Node* src_pro
     assert(src_program->tag == Root_TAG);
     const Root* oroot = &src_program->payload.root;
     for (size_t i = 0; i < oroot->declarations.count; i++) {
-        const Node* new_decl = instr2bb_process(&ctx, oroot->declarations.nodes[i]);
+        const Node* new_decl = process_node(&ctx, oroot->declarations.nodes[i]);
         append_list(const Node*, decls, new_decl);
     }
 
