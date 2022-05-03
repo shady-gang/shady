@@ -1,7 +1,5 @@
 #include "shady/ir.h"
 
-#include "../analysis/scope.h"
-#include "../analysis/free_variables.h"
 #include "../log.h"
 #include "../type.h"
 #include "../local_array.h"
@@ -9,11 +7,12 @@
 
 #include "list.h"
 
+#include "dict.h"
+
 #include <assert.h>
 
 typedef struct Context_ {
     Rewriter rewriter;
-    struct List* new_fns;
 } Context;
 
 static const Node* process_node(Context* ctx, const Node* node);
@@ -74,65 +73,16 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
                 size_t args_count = instr->payload.call_instr.args.count;
 
                 FnAttributes rest_attrs = {
-                    .is_continuation = false,
+                    .is_continuation = true,
                     .entry_point_type = NotAnEntryPoint,
                 };
 
-                Node* rest = fn(dst_arena, rest_attrs, unique_name(dst_arena, "call_ret"), let_node->payload.let.variables, nodes(dst_arena, 0, NULL));
-                append_list(const Node*, ctx->new_fns, rest);
-                rest->payload.fn.block = handle_block(ctx, node, i + 1, outer_join);
+                Nodes cont_params = recreate_variables(&ctx->rewriter, let_node->payload.let.variables);
+                for (size_t j = 0; j < cont_params.count; j++)
+                    register_processed(&ctx->rewriter, let_node->payload.let.variables.nodes[j], cont_params.nodes[j]);
 
-                // analyse the live stuff in rest and push so we can recover it
-                struct List* recover_context = compute_free_variables(rest);
-                size_t recover_context_size = entries_count_list(recover_context);
-
-                // prepare to rewrite the rest block to include the context recovery instructions
-                const Block* orest_block = &rest->payload.fn.block->payload.block;
-                struct List* prepended_rest_instrs = new_list(const Node*);
-
-                // add save instructions to the origin BB
-                for (size_t j = 0; j < recover_context_size; j++) {
-                    const Variable* var = &read_list(const Node*, recover_context)[j]->payload.var;
-                    const Node* args[] = {without_qualifier(var->type), read_list(const Node*, recover_context)[j] };
-                    const Node* save_instr = let(dst_arena, (Let) {
-                        .variables = nodes(dst_arena, 0, NULL),
-                        .instruction = prim_op(dst_arena, (PrimOp) {
-                            .op = push_stack_op,
-                            .operands = nodes(dst_arena, 2, args)
-                        })
-                    });
-                    append_list(const Node*, accumulator, save_instr);
-                }
-
-                // prepend load instructions to the dest BB
-                // TODO use fresh variables for the `rest` context
-                for (size_t j = recover_context_size - 1; j < recover_context_size; j--) {
-                    const Variable* var = &read_list(const Node*, recover_context)[j]->payload.var;
-                    const Node* vars[] = {read_list(const Node*, recover_context)[j] };
-                    const Node* args[] = {without_qualifier(var->type) };
-                    const Node* load_instr = let(dst_arena, (Let) {
-                        .variables = nodes(dst_arena, 1, vars),
-                        .instruction = prim_op(dst_arena, (PrimOp) {
-                            .op = pop_stack_op,
-                            .operands = nodes(dst_arena, 1, args)
-                        })
-                    });
-                    append_list(const Node*, prepended_rest_instrs, load_instr);
-                }
-
-                for (size_t j = 0; j < orest_block->instructions.count; j++) {
-                    const Node* oinstr = orest_block->instructions.nodes[j];
-                    append_list(const Node*, prepended_rest_instrs, oinstr);
-                }
-
-                // Update the rest block accordingly
-                rest->payload.fn.block = block(dst_arena, (Block) {
-                    .instructions = nodes(dst_arena, entries_count_list(prepended_rest_instrs), read_list(const Node*, prepended_rest_instrs)),
-                    .terminator = orest_block->terminator
-                });
-
-                destroy_list(recover_context);
-                destroy_list(prepended_rest_instrs);
+                Node* return_continuation = fn(dst_arena, rest_attrs, unique_name(dst_arena, "call_continue"), cont_params, nodes(dst_arena, 0, NULL));
+                return_continuation->payload.fn.block = handle_block(ctx, node, i + 1, outer_join);
 
                 Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
                 destroy_list(accumulator);
@@ -140,8 +90,8 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
                 // TODO we probably want to emit a callc here and lower that later to a separate function in an optional pass
                 return block(dst_arena, (Block) {
                     .instructions = instructions,
-                    .terminator = callf(dst_arena, (Callf) {
-                        .ret_fn = rest,
+                    .terminator = callc(dst_arena, (Callc) {
+                        .ret_cont = return_continuation,
                         .callee = process_node(ctx, callee),
                         .args = nodes(dst_arena, args_count, instr->payload.call_instr.args.nodes)
                     })
@@ -196,11 +146,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (already_done)
                 return already_done;
 
-            //Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), recreate_variables(&ctx->rewriter, node->payload.fn.params), rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
             Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), node->payload.fn.params, rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
             register_processed(&ctx->rewriter, node, fun);
             for (size_t i = 0; i < fun->payload.fn.params.count; i++)
-            //    register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], fun->payload.fn.params.nodes[i]);
                 register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], fun->payload.fn.params.nodes[i]);
 
             fun->payload.fn.block = process_node(ctx, node->payload.fn.block);
@@ -215,13 +163,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 }
 
-#include "dict.h"
-
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 const Node* lower_cf_instrs(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
-    struct List* decls = new_list(const Node*);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     Context ctx = {
         .rewriter = {
@@ -231,21 +176,12 @@ const Node* lower_cf_instrs(IrArena* src_arena, IrArena* dst_arena, const Node* 
             .rewrite_decl_body = NULL,
             .processed = done,
         },
-        .new_fns = decls,
     };
 
     assert(src_program->tag == Root_TAG);
-    const Root* oroot = &src_program->payload.root;
-    for (size_t i = 0; i < oroot->declarations.count; i++) {
-        const Node* new_decl = process_node(&ctx, oroot->declarations.nodes[i]);
-        append_list(const Node*, decls, new_decl);
-    }
 
-    const Node* rewritten = root(dst_arena, (Root) {
-       .declarations = nodes(dst_arena, entries_count_list(decls), read_list(const Node*, decls))
-    });
+    const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
 
-    destroy_list(decls);
     destroy_dict(done);
     return rewritten;
 }

@@ -19,6 +19,7 @@ set(SHADY_SOURCES
     passes/bind.c
     passes/infer.c
     passes/lower_cf_instrs.c
+    passes/lower_callc.c
     passes/lower_callf.c
     emit/emit.c
     emit/spirv_builder.c)

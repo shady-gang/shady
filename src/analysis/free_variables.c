@@ -37,6 +37,7 @@ static void visit_fv(VisitorFV* visitor, const Node* node) {
             }
 
             const Block* entry_block = &fun->block->payload.block;
+            assert(fun->block);
             for (size_t j = 0; j < entry_block->instructions.count; j++) {
                 const Node* let_node = entry_block->instructions.nodes[j];
                 assert(let_node->tag == Let_TAG);
@@ -68,7 +69,7 @@ struct List* compute_free_variables(const Node* entry) {
     struct Dict* ignore_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct List* free_list = new_list(const Node*);
 
-    assert(entry->tag == Function_TAG);
+    assert(entry && entry->tag == Function_TAG);
 
     VisitorFV visitor_fv = {
         .visitor = {

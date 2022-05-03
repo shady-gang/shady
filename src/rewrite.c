@@ -61,7 +61,7 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     switch (old->tag) {\
         case GlobalVariable_TAG: new = global_var(rewriter->dst_arena, rewrite_node(rewriter, old->payload.global_variable.type), old->payload.global_variable.name, old->payload.global_variable.address_space); break;
         case Constant_TAG: new = constant(rewriter->dst_arena, old->payload.constant.name); break;
-        case Function_TAG: new = fn(rewriter->dst_arena, old->payload.fn.atttributes, old->payload.fn.name, rewrite_nodes(rewriter, old->payload.fn.params), rewrite_nodes(rewriter, old->payload.fn.return_types)); break;
+        case Function_TAG: new = fn(rewriter->dst_arena, old->payload.fn.atttributes, old->payload.fn.name, recreate_variables(rewriter, old->payload.fn.params), rewrite_nodes(rewriter, old->payload.fn.return_types)); break;
         default: error("not a decl");
     }
     assert(new);

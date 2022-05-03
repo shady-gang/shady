@@ -11,7 +11,11 @@ typedef const Node* (RewritePass)(IrArena* src_arena, IrArena* dst_arena, const 
 
 RewritePass bind_program;
 RewritePass type_program;
+/// Gets rid of structured control flow constructs, and turns them into jumps, branches and callc
 RewritePass lower_cf_instrs;
+/// Turns callc into callf by extracting the return continuations into dedicated functions
+RewritePass lower_callc;
+/// Emulates function calls using the stack
 RewritePass lower_callf;
 
 #define SHADY_PASSES_H

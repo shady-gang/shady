@@ -24,7 +24,11 @@ CompilationResult run_compiler_passes(__attribute__ ((unused)) CompilerConfig* c
     info_node(*program);
 
     *program = lower_cf_instrs(*arena, *arena, *program);
-    info_print("After instr2bb pass: \n");
+    info_print("After lower_cf_instrs pass: \n");
+    info_node(*program);
+
+    *program = lower_callc(*arena, *arena, *program);
+    info_print("After lower_callc pass: \n");
     info_node(*program);
 
     *program = lower_callf(*arena, *arena, *program);

@@ -93,6 +93,11 @@ Scope build_scope(const Node* entry) {
                 process_edge(false_target);
                 break;
             }
+            case Callc_TAG: {
+                const Node* continue_target = terminator->payload.callc.ret_cont;
+                process_edge(continue_target);
+                break;
+            }
             case Callf_TAG:
             case Return_TAG:
             case Unreachable_TAG:
