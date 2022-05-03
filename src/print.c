@@ -251,7 +251,37 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             ctx->indent++;
             print_node(node->payload.loop_instr.body);
             ctx->indent--;
+            INDENT printf("}");
+            break;
+        case Match_TAG:
+            printf("match");
+            print_yield_types(ctx, node->payload.match_instr.yield_types);
+            printf("(");
+            print_node(node->payload.match_instr.inspect);
+            printf(")");
+            printf(" {\n");
+            ctx->indent++;
+            for (size_t i = 0; i < node->payload.match_instr.literals.count; i++) {
+                INDENT
+                printf("case ");
+                print_node(node->payload.match_instr.literals.nodes[i]);
+                printf(": {\n");
+                ctx->indent++;
+                print_node(node->payload.match_instr.cases.nodes[i]);
+                ctx->indent--;
+                INDENT printf("}\n");
+            }
+
+            INDENT
+            printf("default");
+            printf(": {\n");
+            ctx->indent++;
+            print_node(node->payload.match_instr.default_case);
+            ctx->indent--;
             INDENT printf("}\n");
+
+            ctx->indent--;
+            INDENT printf("}");
             break;
         // --------------------- TERMINATORS
         case Return_TAG:

@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdarg.h>
 
 #define alloc_size 1024 * 1024
 
@@ -161,11 +162,18 @@ const char* string(IrArena* arena, const char* str) {
     return string_impl(arena, strlen(str), str);
 }
 
-const char* unique_name(IrArena* arena, const char* str) {
+String format_string(IrArena* arena, const char* str, ...) {
     char tmp[64];
-    int len = snprintf(tmp, 64, "%s_%d", str, fresh_id(arena));
+    va_list args;
+    va_start(args, str);
+    int len = vsnprintf(tmp, 64, str, args);
     const char* interned = string_impl(arena, len, tmp);
+    va_end(args);
     return interned;
+}
+
+const char* unique_name(IrArena* arena, const char* str) {
+    return format_string(arena, "%s_%d", str, fresh_id(arena));
 }
 
 KeyHash hash_nodes(Nodes* nodes) {
