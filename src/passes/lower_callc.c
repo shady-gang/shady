@@ -125,7 +125,7 @@ bool compare_node(Node**, Node**);
 static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG: {
-             Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
+             Node* new = fn(ctx->rewriter.dst_arena, node->payload.fn.atttributes, node->payload.fn.name, node->payload.fn.params, node->payload.fn.return_types);
 
              const Node* old_block = node->payload.fn.block;
              // If the block has a callc, delay
