@@ -65,6 +65,7 @@ NODEDEF(1, 0, 1, RecordType, record_type) \
 NODEDEF(1, 0, 1, FnType, fn_type) \
 NODEDEF(1, 0, 1, PtrType, ptr_type) \
 NODEDEF(1, 0, 1, QualifiedType, qualified_type) \
+NODEDEF(1, 0, 1, ArrType, arr_type) \
 
 #define NODES() \
 INSTRUCTION_NODES() \
@@ -323,6 +324,11 @@ typedef struct PtrType_ {
     AddressSpace address_space;
     const Type* pointed_type;
 } PtrType;
+
+typedef struct ArrType_ {
+    const Type* element_type;
+    const Node* size;
+} ArrType;
 
 //////////////////////////////// Nodes util ////////////////////////////////
 

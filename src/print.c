@@ -406,6 +406,16 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("]");
             break;
         }
+        case ArrType_TAG: {
+            printf("[");
+            print_node(node->payload.arr_type.element_type);
+            if (node->payload.arr_type.size) {
+                printf("; ");
+                print_node(node->payload.arr_type.size);
+            }
+            printf("]");
+            break;
+        }
         default: error("dunno how to print %s", node_tags[node->tag]);
     }
 }

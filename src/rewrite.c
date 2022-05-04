@@ -189,6 +189,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case QualifiedType_TAG: return qualified_type(rewriter->dst_arena, (QualifiedType) {
                                     .is_uniform = node->payload.qualified_type.is_uniform,
                                     .type = rewrite_node(rewriter, node->payload.qualified_type.type)});
+        case ArrType_TAG:       return arr_type(rewriter->dst_arena, (ArrType) {
+                                    .element_type = rewrite_node(rewriter, node->payload.arr_type.element_type),
+                                    .size = rewrite_node(rewriter, node->payload.arr_type.size),
+        });
         default: error("unhandled node for rewrite %s", node_tags[node->tag]);
     }
 }
