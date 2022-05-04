@@ -154,6 +154,32 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .if_true = rewrite_node(rewriter, node->payload.if_instr.if_true),
             .if_false = rewrite_node(rewriter, node->payload.if_instr.if_false),
         });
+        case Loop_TAG: {
+            Nodes oparams = node->payload.loop_instr.params;
+            Nodes nparams = rewrite_nodes(rewriter, oparams);
+
+            struct Dict* old_processed = rewriter->processed;
+            rewriter->processed = clone_dict(rewriter->processed);
+            for (size_t i = 0; i < oparams.count; i++)
+                register_processed(rewriter, oparams.nodes[i], nparams.nodes[i]);
+            const Node* nbody = rewrite_node(rewriter, node->payload.loop_instr.body);
+            destroy_dict(rewriter->processed);
+            rewriter->processed = old_processed;
+
+            return loop_instr(rewriter->dst_arena, (Loop) {
+                        .yield_types = rewrite_nodes(rewriter, node->payload.loop_instr.yield_types),
+                        .params = nparams,
+                        .initial_args = rewrite_nodes(rewriter, node->payload.loop_instr.initial_args),
+                        .body = nbody,
+                    });
+        }
+        case Match_TAG:         return match_instr(rewriter->dst_arena, (Match) {
+            .yield_types = rewrite_nodes(rewriter, node->payload.match_instr.yield_types),
+            .inspect = rewrite_node(rewriter, node->payload.match_instr.inspect),
+            .literals = rewrite_nodes(rewriter, node->payload.match_instr.literals),
+            .cases = rewrite_nodes(rewriter, node->payload.match_instr.cases),
+            .default_case = rewrite_node(rewriter, node->payload.match_instr.default_case),
+        });
         case Jump_TAG:          return jump(rewriter->dst_arena, (Jump) {
             .target = rewrite_node(rewriter, node->payload.jump.target),
             .args = rewrite_nodes(rewriter, node->payload.jump.args)
