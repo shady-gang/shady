@@ -308,15 +308,22 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
         case lea_op: {
             bool uniform = true;
             assert(prim_op.operands.count >= 2);
-            const Node* offset = prim_op.operands.nodes[1];
-            uniform &= get_qualifier(offset) == Uniform;
-            assert(without_qualifier(offset->type)->tag == Int_TAG && "offset must be integer");
-
             const Node* base = prim_op.operands.nodes[0];
-            uniform &= get_qualifier(base) == Uniform;
+            uniform &= get_qualifier(base->type) == Uniform;
+            const Type* curr_ptr_type = base->type;
+            const Type* unqual_ptr_type = without_qualifier(curr_ptr_type);
+            assert(unqual_ptr_type->tag == PtrType_TAG && "lea expects a pointer as a base");
+
+            const Node* offset = prim_op.operands.nodes[1];
+            if (offset) {
+                assert(without_qualifier(offset->type)->tag == Int_TAG && "lea expects an integer offset or NULL");
+                const Type* pointee_type = without_qualifier(curr_ptr_type)->payload.ptr_type.pointed_type;
+
+                assert(pointee_type->tag == ArrType_TAG && "if an offset is used, the base pointer must point to an array");
+                uniform &= get_qualifier(offset->type) == Uniform;
+            }
 
             // enter N levels of pointers
-            const Type* curr_ptr_type = base->type;
             size_t i = 2;
             while (true) {
                 const Type* unqual_ptr_type = without_qualifier(curr_ptr_type);
@@ -332,6 +339,7 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                             .pointed_type = pointee_type->payload.arr_type.element_type,
                             .address_space = curr_ptr_type->payload.ptr_type.address_space
                         });
+                        i++;
                         continue;
                     }
                     case RecordType_TAG: error("TODO"); // also remember to assert literals for the selectors !
@@ -341,7 +349,22 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
 
             return singleton(qualified_type(arena, (QualifiedType) {
                 .is_uniform = uniform,
-                .type = curr_ptr_type
+                .type = without_qualifier(curr_ptr_type)
+            }));
+        }
+        case cast_ptr_op: {
+            assert(prim_op.operands.count == 2);
+            const Node* source = prim_op.operands.nodes[1];
+            DivergenceQualifier qual;
+            const Type* source_type = strip_qualifier(source->type, &qual);
+            assert(qual != Unknown);
+            const Type* target_type = prim_op.operands.nodes[0];
+            assert(source_type->tag == PtrType_TAG);
+            assert(target_type->tag == PtrType_TAG);
+
+            return singleton(qualified_type(arena, (QualifiedType) {
+                .is_uniform = qual == Uniform,
+                .type = target_type
             }));
         }
         default: error("unhandled primop %s", primop_names[prim_op.op]);

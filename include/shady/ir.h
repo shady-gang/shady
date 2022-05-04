@@ -205,6 +205,8 @@ PRIMOP(alloca)             \
 PRIMOP(load)               \
 PRIMOP(store)              \
 PRIMOP(lea)                \
+PRIMOP(cast_ptr)           \
+PRIMOP(cast_prim)          \
 PRIMOP(push_stack)         \
 PRIMOP(pop_stack)          \
 PRIMOP(push_stack_uniform) \
