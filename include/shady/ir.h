@@ -349,6 +349,8 @@ inline static bool is_declaration(NodeTag tag) {
     return tag == Function_TAG || tag == GlobalVariable_TAG || tag == Constant_TAG;
 }
 
+const IntLiteral* resolve_to_literal(const Node*);
+
 struct Node_ {
     const Type* type;
     NodeTag tag;

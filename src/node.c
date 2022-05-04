@@ -266,3 +266,15 @@ String get_decl_name(const Node* node) {
         default: return NULL;
     }
 }
+
+const IntLiteral* resolve_to_literal(const Node* node) {
+    while (true) {
+        switch (node->tag) {
+            case Constant_TAG: return resolve_to_literal(node->payload.constant.value);
+            case IntLiteral_TAG: {
+                return &node->payload.int_literal;
+            }
+            default: return NULL;
+        }
+    }
+}
