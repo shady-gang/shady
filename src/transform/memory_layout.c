@@ -14,6 +14,10 @@ TypeMemLayout get_mem_layout(const Type* type) {
             .type = type,
             .size_in_bytes = 4,
         };
+        case Bool_TAG:   return (TypeMemLayout) {
+            .type = type,
+            .size_in_bytes = 4,
+        };
         case QualifiedType_TAG: return get_mem_layout(type->payload.qualified_type.type);
         case RecordType_TAG: error("TODO");
         default: error("not a known type");

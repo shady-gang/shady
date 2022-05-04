@@ -167,11 +167,11 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             rewriter->processed = old_processed;
 
             return loop_instr(rewriter->dst_arena, (Loop) {
-                        .yield_types = rewrite_nodes(rewriter, node->payload.loop_instr.yield_types),
-                        .params = nparams,
-                        .initial_args = rewrite_nodes(rewriter, node->payload.loop_instr.initial_args),
-                        .body = nbody,
-                    });
+                .yield_types = rewrite_nodes(rewriter, node->payload.loop_instr.yield_types),
+                .params = nparams,
+                .initial_args = rewrite_nodes(rewriter, node->payload.loop_instr.initial_args),
+                .body = nbody,
+            });
         }
         case Match_TAG:         return match_instr(rewriter->dst_arena, (Match) {
             .yield_types = rewrite_nodes(rewriter, node->payload.match_instr.yield_types),

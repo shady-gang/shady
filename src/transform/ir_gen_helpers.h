@@ -22,4 +22,9 @@ const Node* gen_pop_fn_stack(Instructions instructions, String var_name);
 const Node* gen_pop_value_stack(Instructions instructions, String var_name, const Type* type);
 Nodes gen_pop_values_stack(Instructions instructions, String var_name, const Nodes types);
 
+Nodes gen_primop(Instructions, PrimOp);
+const Node* gen_load(Instructions, const Node* ptr);
+void gen_store(Instructions, const Node* ptr, const Node* value);
+const Node* gen_lea(Instructions, const Node* base, const Node* offset, Nodes selectors);
+
 #endif

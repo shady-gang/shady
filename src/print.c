@@ -150,6 +150,10 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("%s", node->payload.constant.name);
             break;
         }
+        case GlobalVariable_TAG: {
+            printf("%s", node->payload.global_variable.name);
+            break;
+        }
         case Variable_TAG:
             printf("%s_%d", node->payload.var.name, node->payload.var.id);
             break;

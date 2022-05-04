@@ -35,5 +35,9 @@ CompilationResult run_compiler_passes(__attribute__ ((unused)) CompilerConfig* c
     info_print("After lower_callf pass: \n");
     info_node(*program);
 
+    *program = lower_stack(*arena, *arena, *program);
+    info_print("After lower_stack pass: \n");
+    info_node(*program);
+
     return CompilationNoError;
 }

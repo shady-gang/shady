@@ -102,3 +102,44 @@ Nodes gen_pop_values_stack(Instructions instructions, String var_name, const Nod
     }
     return nodes(instructions.arena, types.count, tmp);
 }
+
+Nodes gen_primop(Instructions instructions, PrimOp prim_op_) {
+    Nodes output_types = typecheck_primop(instructions.arena, prim_op_);
+
+    LARRAY(const Node*, outputs, output_types.count);
+    for (size_t i = 0; i < output_types.count; i++)
+        outputs[i] = var(instructions.arena, output_types.nodes[i], format_string(instructions.arena, "%s_out", primop_names[prim_op_.op]));
+
+    append_instr(instructions, let(instructions.arena, (Let) {
+        .variables = nodes(instructions.arena, output_types.count, outputs),
+        .instruction = prim_op(instructions.arena, prim_op_)
+    }));
+
+    return nodes(instructions.arena, output_types.count, outputs);
+}
+
+const Node* gen_load(Instructions instructions, const Node* ptr) {
+    return gen_primop(instructions, (PrimOp) {
+        .op = load_op,
+        .operands = nodes(instructions.arena, 1, (const Node* []) { ptr })
+    }).nodes[0];
+}
+
+void gen_store(Instructions instructions, const Node* ptr, const Node* value) {
+    gen_primop(instructions, (PrimOp) {
+        .op = store_op,
+        .operands = nodes(instructions.arena, 2, (const Node* []) { ptr, value })
+    });
+}
+
+const Node* gen_lea(Instructions instructions, const Node* base, const Node* offset, Nodes selectors) {
+    LARRAY(const Node*, ops, 2 + selectors.count);
+    ops[0] = base;
+    ops[1] = offset;
+    for (size_t i = 0; i < selectors.count; i++)
+        ops[2 + i] = selectors.nodes[i];
+    return gen_primop(instructions, (PrimOp) {
+        .op = lea_op,
+        .operands = nodes(instructions.arena, 2 + selectors.count, ops)
+    }).nodes[0];
+}
