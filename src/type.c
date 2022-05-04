@@ -153,6 +153,11 @@ const Type* check_type_var(IrArena* arena, Variable variable) {
     return variable.type;
 }
 
+const Type* check_type_qualified_type(IrArena* arena, QualifiedType qualified_type) {
+    assert(get_qualifier(qualified_type.type) == Unknown);
+    return NULL;
+}
+
 const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
     error("should never happen");
 }

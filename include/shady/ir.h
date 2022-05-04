@@ -64,7 +64,7 @@ NODEDEF(1, 0, 0, Bool, bool_type) \
 NODEDEF(1, 0, 1, RecordType, record_type) \
 NODEDEF(1, 0, 1, FnType, fn_type) \
 NODEDEF(1, 0, 1, PtrType, ptr_type) \
-NODEDEF(1, 0, 1, QualifiedType, qualified_type) \
+NODEDEF(1, 1, 1, QualifiedType, qualified_type) \
 NODEDEF(1, 0, 1, ArrType, arr_type) \
 
 #define NODES() \
