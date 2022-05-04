@@ -86,7 +86,10 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             rewriter->processed = old_processed;
             break;
         }
-        case GlobalVariable_TAG: /* nothing to do */ return;
+        case GlobalVariable_TAG: {
+            new->payload.global_variable.init = rewrite_node(rewriter, old->payload.global_variable.init);
+            break;
+        }
         default: error("not a decl");
     }
 }

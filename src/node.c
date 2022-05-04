@@ -118,6 +118,7 @@ Node* global_var(IrArena* arena, const Type* type, const char* name, AddressSpac
         .name = string(arena, name),
         .type = type,
         .address_space = as,
+        .init = NULL,
     };
 
     Node node;

@@ -116,7 +116,12 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                     print_addr_space(ctx, gvar->address_space);
                     printf(" ");
                     print_node(gvar->type);
-                    printf(" %s;\n", gvar->name);
+                    printf(" %s", gvar->name);
+                    if (gvar->init) {
+                        printf(" = ");
+                        print_node(gvar->init);
+                    }
+                    printf(";\n");
                 } else if (decl->tag == Function_TAG) {
                     const Function* fun = &decl->payload.fn;
                     assert(!fun->atttributes.is_continuation);

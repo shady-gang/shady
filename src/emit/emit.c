@@ -450,7 +450,10 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
         switch (decl->tag) {
             case GlobalVariable_TAG: {
                 const GlobalVariable* gvar = &decl->payload.global_variable;
-                spvb_global_variable(file_builder, ids[i], emit_type(&emitter, gvar->type), emit_addr_space(gvar->address_space), false, 0);
+                SpvId init = 0;
+                if (gvar->init)
+                    init = emit_value(&emitter, gvar->init, NULL);
+                spvb_global_variable(file_builder, ids[i], emit_type(&emitter, gvar->type), emit_addr_space(gvar->address_space), false, init);
                 spvb_name(file_builder, ids[i], gvar->name);
                 break;
             } case Function_TAG: {

@@ -122,6 +122,7 @@ typedef struct GlobalVariable_ {
     const Type* type;
     String name;
     AddressSpace address_space;
+    const Node* init;
 } GlobalVariable;
 
 typedef struct Unbound_ {

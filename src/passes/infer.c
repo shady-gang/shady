@@ -404,6 +404,7 @@ static const Node* type_root(Context* ctx, const Node* node) {
                 const Node *odecl = node->payload.root.declarations.nodes[i];
 
                 switch (odecl->tag) {
+                    // TODO handle 'init'
                     case GlobalVariable_TAG: continue;
                     case Function_TAG: {
                         new_decls[i] = infer_fn(ctx, odecl);
