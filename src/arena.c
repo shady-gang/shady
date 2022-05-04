@@ -2,6 +2,7 @@
 #include "type.h"
 #include "local_array.h"
 
+#include "list.h"
 #include "dict.h"
 #include "murmur3.h"
 
@@ -219,4 +220,8 @@ KeyHash hash_string(const char** string) {
 
 bool compare_string(const char** a, const char** b) {
     return strlen(*a) == strlen(*b) && strcmp(*a, *b) == 0;
+}
+
+Nodes list_to_nodes(IrArena* arena, struct List* list) {
+    return nodes(arena, entries_count_list(list), read_list(const Node*, list));
 }

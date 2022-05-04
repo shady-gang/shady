@@ -185,6 +185,12 @@ Nodes typecheck_loop_instr(IrArena* arena, Loop loop_instr) {
     return loop_instr.yield_types;
 }
 
+Nodes typecheck_match_instr(IrArena* arena, Match match_instr) {
+    // TODO check param against initial_args
+    // TODO check the contained Merge instrs
+    return match_instr.yield_types;
+}
+
 /// Checks the operands to a Primop and returns the produced types
 Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
     switch (prim_op.op) {
@@ -388,6 +394,7 @@ Nodes typecheck_instruction(IrArena* arena, const Node* instr) {
         case Call_TAG:   return typecheck_call(arena, instr->payload.call_instr);
         case If_TAG:     return typecheck_if_instr(arena, instr->payload.if_instr);
         case Loop_TAG:   return typecheck_loop_instr(arena, instr->payload.loop_instr);
+        case Match_TAG:  return typecheck_match_instr(arena, instr->payload.match_instr);
         default:         error("unhandled instruction");
     }
     SHADY_UNREACHABLE;

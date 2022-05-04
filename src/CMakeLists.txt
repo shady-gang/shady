@@ -13,10 +13,14 @@ set(SHADY_SOURCES
     log.c
     util.c
     compile.c
+
     analysis/scope.c
     analysis/free_variables.c
-    passes/import.c
-    passes/memory_layout.c
+
+    transform/import.c
+    transform/memory_layout.c
+    transform/ir_gen_helpers.c
+
     passes/bind.c
     passes/infer.c
     passes/lower_cf_instrs.c

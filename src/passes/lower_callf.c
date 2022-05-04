@@ -5,6 +5,8 @@
 #include "../log.h"
 #include "../local_array.h"
 
+#include "../transform/ir_gen_helpers.h"
+
 #include "list.h"
 #include "dict.h"
 
@@ -23,71 +25,6 @@ typedef struct Context_ {
 
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
-
-static void gen_push_value_stack(IrArena* arena, Nodes* instructions, const Node* value) {
-    *instructions = append_nodes(arena, *instructions, let(arena, (Let) {
-        .variables = nodes(arena, 0, NULL),
-        .instruction = prim_op(arena, (PrimOp) {
-            .op = push_stack_op,
-            .operands = nodes(arena, 2, (const Node*[]) { without_qualifier(value->type), value })
-        })
-    }));
-}
-
-static void gen_push_values_stack(IrArena* arena, Nodes* instructions, Nodes values) {
-    for (size_t i = values.count - 1; i < values.count; i--) {
-        const Node* value = values.nodes[i];
-        gen_push_value_stack(arena, instructions, value);
-    }
-}
-
-static void gen_push_fn_stack(IrArena* arena, Nodes* instructions, const Node* fn_ptr) {
-    const Type* ret_param_type = int_type(arena);
-
-    *instructions = append_nodes(arena, *instructions, let(arena, (Let) {
-        .variables = nodes(arena, 0, NULL),
-        .instruction = prim_op(arena, (PrimOp) {
-            .op = push_stack_uniform_op,
-            .operands = nodes(arena, 2, (const Node*[]) { ret_param_type, fn_ptr })
-        })
-    }));
-}
-
-static const Node* gen_pop_fn_stack(IrArena* arena, Nodes* instructions, String var_name) {
-    const Type* ret_param_type = int_type(arena);
-    const Type* q_ret_param_type = qualified_type(arena, (QualifiedType) {.type = ret_param_type, .is_uniform = true});
-
-    const Node* ret_tmp_vars[] = { var(arena, q_ret_param_type, var_name)};
-    *instructions = append_nodes(arena, *instructions, let(arena, (Let) {
-        .variables = nodes(arena, 1, ret_tmp_vars),
-        .instruction = prim_op(arena, (PrimOp) {
-            .op = pop_stack_uniform_op,
-            .operands = nodes(arena, 1, (const Node*[]) { ret_param_type })
-        })
-    }));
-    return ret_tmp_vars[0];
-}
-
-static const Node* gen_pop_value_stack(IrArena* arena, Nodes* instructions, String var_name, const Type* type) {
-    const Type* q_type = qualified_type(arena, (QualifiedType) {.type = type, .is_uniform = false});
-    const Node* ret_tmp_vars[] = { var(arena, q_type, var_name)};
-    *instructions = append_nodes(arena, *instructions, let(arena, (Let) {
-        .variables = nodes(arena, 1, ret_tmp_vars),
-        .instruction = prim_op(arena, (PrimOp) {
-            .op = pop_stack_uniform_op,
-            .operands = nodes(arena, 1, (const Node*[]) { type })
-        })
-    }));
-    return ret_tmp_vars[0];
-}
-
-static Nodes gen_pop_values_stack(IrArena* arena, Nodes* instructions, String var_name, const Nodes types) {
-    LARRAY(const Node*, tmp, types.count);
-    for (size_t i = 0; i < types.count; i++) {
-        tmp[i] = gen_pop_value_stack(arena, instructions, format_string(arena, "%s_%d", var_name, (int) i), types.nodes[i]);
-    }
-    return nodes(arena, types.count, tmp);
-}
 
 static const Node* fn_ptr_as_value(IrArena* arena, FnPtr ptr) {
     return int_literal(arena, (IntLiteral) {
@@ -131,20 +68,20 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 Node* new_entry_pt = fn(dst_arena, old->payload.fn.atttributes, old->payload.fn.name, old->payload.fn.params, nodes(dst_arena, 0, NULL));
                 append_list(const Node*, ctx->new_decls, new_entry_pt);
 
-                Nodes instructions = nodes(dst_arena, 0, NULL);
+                Instructions instructions = begin_instructions(ctx->rewriter.dst_arena);
                 for (size_t i = fun->payload.fn.params.count - 1; i < fun->payload.fn.params.count; i--) {
-                    gen_push_value_stack(dst_arena, &instructions, fun->payload.fn.params.nodes[i]);
+                    gen_push_value_stack(instructions, fun->payload.fn.params.nodes[i]);
                 }
 
-                gen_push_fn_stack(dst_arena, &instructions, callee_to_ptr(ctx, fun));
+                gen_push_fn_stack(instructions, callee_to_ptr(ctx, fun));
 
-                instructions = append_nodes(dst_arena, instructions, call_instr(dst_arena, (Call) {
+                append_instr(instructions, wrap_in_let(dst_arena, call_instr(dst_arena, (Call) {
                     .callee = ctx->god_fn,
                     .args = nodes(dst_arena, 0, NULL)
-                }));
+                })));
 
                 new_entry_pt->payload.fn.block = block(dst_arena, (Block) {
-                    .instructions = instructions,
+                    .instructions = finish_instructions(instructions),
                     .terminator = fn_ret(dst_arena, (Return) {
                         .fn = NULL,
                         .values = nodes(dst_arena, 0, NULL)
@@ -160,7 +97,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         }
         case Block_TAG: {
             // this may miss call instructions...
-            Nodes instructions = old->payload.block.instructions;
+            Instructions instructions = begin_instructions(dst_arena);
+            copy_instructions(instructions, old->payload.block.instructions);
 
             const Node* terminator = old->payload.block.terminator;
 
@@ -170,11 +108,11 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
                     if (ret_values.count > 0) {
                         // Pop the old return address off the stack
-                        const Node* ret_tmp_var = gen_pop_fn_stack(dst_arena, &instructions, "return_tmp");
+                        const Node* ret_tmp_var = gen_pop_fn_stack(instructions, "return_tmp");
                         // Push the return values as arguments to the return function
-                        gen_push_values_stack(dst_arena, &instructions, ret_values);
+                        gen_push_values_stack(instructions, ret_values);
                         // Push back the return address on the now-top of the stack
-                        gen_push_fn_stack(dst_arena, &instructions, ret_tmp_var);
+                        gen_push_fn_stack(instructions, ret_tmp_var);
                     }
                     // Kill the function
                     terminator = fn_ret(dst_arena, (Return) {
@@ -185,10 +123,10 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 }
                 case Callf_TAG: {
                     // put the return address at the bottom
-                    gen_push_fn_stack(dst_arena, &instructions, callee_to_ptr(ctx, terminator->payload.callf.ret_fn));
+                    gen_push_fn_stack(instructions, callee_to_ptr(ctx, terminator->payload.callf.ret_fn));
                     // push the arguments to the next call, then the target ptr
-                    gen_push_values_stack(dst_arena, &instructions, terminator->payload.callf.args);
-                    gen_push_fn_stack(dst_arena, &instructions, callee_to_ptr(ctx, terminator->payload.callf.callee));
+                    gen_push_values_stack(instructions, terminator->payload.callf.args);
+                    gen_push_fn_stack(instructions, callee_to_ptr(ctx, terminator->payload.callf.callee));
                     // Kill the function
                     terminator = fn_ret(dst_arena, (Return) {
                         .fn = NULL,
@@ -199,7 +137,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 default: terminator = lower_callf_process(ctx, terminator); break;
             }
             return block(dst_arena, (Block) {
-                .instructions = instructions,
+                .instructions = finish_instructions(instructions),
                 .terminator = terminator
             });
         }
@@ -210,8 +148,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispatcher_fn) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    Nodes loop_body_instructions = nodes(dst_arena, 0, NULL);
-    const Node* next_function = gen_pop_fn_stack(dst_arena, &loop_body_instructions, "next_function");
+    Instructions loop_body_instructions = begin_instructions(dst_arena);
+    const Node* next_function = gen_pop_fn_stack(loop_body_instructions, "next_function");
 
     struct List* literals = new_list(const Node*);
     struct List* cases = new_list(const Node*);
@@ -234,19 +172,19 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispat
             const Node* fn_lit = callee_to_ptr(ctx, find_processed(&ctx->rewriter, decl));
 
             const FnType* fn_type = &without_qualifier(decl->type)->payload.fn_type;
-            Nodes case_instructions = nodes(dst_arena, 0, NULL);
+            Instructions case_instructions = begin_instructions(dst_arena);
             LARRAY(const Node*, fn_args, fn_type->param_types.count);
             for (size_t j = 0; j < fn_type->param_types.count; j++) {
-                fn_args[j] = gen_pop_value_stack(dst_arena, &case_instructions, format_string(dst_arena, "arg_%d", (int) j), without_qualifier(fn_type->param_types.nodes[j]));
+                fn_args[j] = gen_pop_value_stack(case_instructions, format_string(dst_arena, "arg_%d", (int) j), without_qualifier(fn_type->param_types.nodes[j]));
             }
 
-            case_instructions = append_nodes(dst_arena, case_instructions, call_instr(dst_arena, (Call) {
+            append_instr(case_instructions, wrap_in_let(dst_arena, call_instr(dst_arena, (Call) {
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, fn_type->param_types.count, fn_args)
-            }));
+            })));
 
             const Node* fn_case = block(dst_arena, (Block) {
-                .instructions = case_instructions,
+                .instructions = finish_instructions(case_instructions),
                 .terminator = merge(dst_arena, (Merge) {
                     .args = nodes(dst_arena, 0, NULL),
                     .what = Continue
@@ -258,7 +196,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispat
         }
     }
 
-    loop_body_instructions = append_nodes(dst_arena, loop_body_instructions, match_instr(dst_arena, (Match) {
+    append_instr(loop_body_instructions, wrap_in_let(dst_arena, match_instr(dst_arena, (Match) {
         .yield_types = nodes(dst_arena, 0, NULL),
         .inspect = next_function,
         .literals = nodes(dst_arena, entries_count_list(literals), read_list(const Node*, literals)),
@@ -267,22 +205,22 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispat
             .instructions = nodes(dst_arena, 0, NULL),
             .terminator = unreachable(dst_arena)
         })
-    }));
+    })));
 
     destroy_list(literals);
     destroy_list(cases);
 
     const Node* loop_body = block(dst_arena, (Block) {
-        .instructions = loop_body_instructions,
+        .instructions = finish_instructions(loop_body_instructions),
         .terminator = unreachable(dst_arena)
     });
 
-    Nodes disptcher_body_instructions = nodes(dst_arena, 1, (const Node* []) { loop_instr(dst_arena, (Loop) {
+    Nodes disptcher_body_instructions = nodes(dst_arena, 1, (const Node* []) { wrap_in_let(dst_arena, loop_instr(dst_arena, (Loop) {
         .yield_types = nodes(dst_arena, 0, NULL),
         .params = nodes(dst_arena, 0, NULL),
         .initial_args = nodes(dst_arena, 0, NULL),
         .body = loop_body
-    }) });
+    })) });
 
     dispatcher_fn->payload.fn.block = block(dst_arena, (Block) {
         .instructions = disptcher_body_instructions,

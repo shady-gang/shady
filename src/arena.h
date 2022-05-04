@@ -26,4 +26,7 @@ typedef struct IrArena_ {
 void* arena_alloc(IrArena* arena, size_t size);
 VarId fresh_id(IrArena*);
 
+struct List;
+Nodes list_to_nodes(IrArena*, struct List*);
+
 #endif
