@@ -16,6 +16,7 @@ set(SHADY_SOURCES
     analysis/scope.c
     analysis/free_variables.c
     passes/import.c
+    passes/memory_layout.c
     passes/bind.c
     passes/infer.c
     passes/lower_cf_instrs.c
