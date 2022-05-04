@@ -204,6 +204,7 @@ PRIMOP(not)                \
 PRIMOP(alloca)             \
 PRIMOP(load)               \
 PRIMOP(store)              \
+PRIMOP(lea)                \
 PRIMOP(push_stack)         \
 PRIMOP(pop_stack)          \
 PRIMOP(push_stack_uniform) \

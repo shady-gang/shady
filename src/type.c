@@ -294,6 +294,45 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                 })
             }));
         }
+        case lea_op: {
+            bool uniform = true;
+            assert(prim_op.operands.count >= 2);
+            const Node* offset = prim_op.operands.nodes[1];
+            uniform &= get_qualifier(offset) == Uniform;
+            assert(without_qualifier(offset->type)->tag == Int_TAG && "offset must be integer");
+
+            const Node* base = prim_op.operands.nodes[0];
+            uniform &= get_qualifier(base) == Uniform;
+
+            // enter N levels of pointers
+            const Type* curr_ptr_type = base->type;
+            size_t i = 2;
+            while (true) {
+                const Type* unqual_ptr_type = without_qualifier(curr_ptr_type);
+                assert(unqual_ptr_type->tag == PtrType_TAG && "lea is supposed to work on, and yield pointers");
+                if (i >= prim_op.operands.count) break;
+                const Node* selector = prim_op.operands.nodes[i];
+                assert(without_qualifier(selector->type)->tag == Int_TAG && "selectors must be integers");
+                const Type* pointee_type = unqual_ptr_type->payload.ptr_type.pointed_type;
+                assert(get_qualifier(pointee_type) == Unknown);
+                switch (pointee_type->tag) {
+                    case ArrType_TAG: {
+                        curr_ptr_type = ptr_type(arena, (PtrType) {
+                            .pointed_type = pointee_type->payload.arr_type.element_type,
+                            .address_space = curr_ptr_type->payload.ptr_type.address_space
+                        });
+                        continue;
+                    }
+                    case RecordType_TAG: error("TODO"); // also remember to assert literals for the selectors !
+                    default: error("lea selectors can only work on pointers to arrays or records")
+                }
+            }
+
+            return singleton(qualified_type(arena, (QualifiedType) {
+                .is_uniform = uniform,
+                .type = curr_ptr_type
+            }));
+        }
         default: error("unhandled primop %s", primop_names[prim_op.op]);
     }
 }
