@@ -1,7 +1,7 @@
 #include "rewrite.h"
 
 #include "log.h"
-#include "local_array.h"
+#include "portability.h"
 #include "type.h"
 
 #include "dict.h"

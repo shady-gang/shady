@@ -1,6 +1,6 @@
 #include "arena.h"
 #include "type.h"
-#include "local_array.h"
+#include "portability.h"
 
 #include "list.h"
 #include "dict.h"

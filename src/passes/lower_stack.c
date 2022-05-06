@@ -6,7 +6,7 @@
 #include "../rewrite.h"
 #include "../type.h"
 #include "../log.h"
-#include "../local_array.h"
+#include "../portability.h"
 
 #include "list.h"
 #include "dict.h"

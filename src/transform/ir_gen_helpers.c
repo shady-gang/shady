@@ -3,7 +3,7 @@
 #include "list.h"
 
 #include "../arena.h"
-#include "../local_array.h"
+#include "../portability.h"
 #include "../type.h"
 
 #include <assert.h>

@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "../local_array.h"
+#include "../portability.h"
 
 struct List* new_list_impl(size_t elem_size) {
     struct List* list = (struct List*) malloc(sizeof (struct List));

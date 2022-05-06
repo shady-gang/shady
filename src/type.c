@@ -1,7 +1,7 @@
 #include "type.h"
 
 #include "log.h"
-#include "local_array.h"
+#include "portability.h"
 
 #include "dict.h"
 

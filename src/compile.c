@@ -1,6 +1,7 @@
 #include "shady/ir.h"
 #include "passes/passes.h"
 #include "log.h"
+#include "portability.h"
 
 CompilerConfig default_compiler_config() {
     return (CompilerConfig) {
@@ -9,7 +10,7 @@ CompilerConfig default_compiler_config() {
     };
 }
 
-CompilationResult run_compiler_passes(__attribute__ ((unused)) CompilerConfig* config, IrArena** arena, const Node** program) {
+CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrArena** arena, const Node** program) {
     *program = bind_program(*arena, *arena, *program);
     info_print("Bound program successfully: \n");
     info_node(*program);

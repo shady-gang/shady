@@ -4,7 +4,7 @@
 
 #include "../log.h"
 #include "../type.h"
-#include "../local_array.h"
+#include "../portability.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,7 +13,7 @@
 extern const char* token_tags[];
 
 // to avoid some repetition
-#define ctxparams __attribute__ ((unused)) char* contents, __attribute__ ((unused)) IrArena* arena, __attribute__ ((unused)) struct Tokenizer* tokenizer
+#define ctxparams SHADY_UNUSED char* contents, SHADY_UNUSED IrArena* arena, SHADY_UNUSED struct Tokenizer* tokenizer
 #define ctx contents, arena, tokenizer
 
 #define expect(condition) expect_impl(condition, #condition)
