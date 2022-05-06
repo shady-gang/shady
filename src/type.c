@@ -211,7 +211,7 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                  DivergenceQualifier op_div;
                  const Type* arg_actual_type = strip_qualifier(arg->type, &op_div);
                  assert(op_div != Unknown); // we expect all operands to be clearly known !
-                 is_result_uniform ^= op_div == Uniform;
+                 is_result_uniform &= op_div == Uniform;
                  // we work with numerical operands
                  assert(arg_actual_type == int_type(arena) && "todo improve this check");
              }
@@ -232,7 +232,7 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                 // TODO ensure these guys are compatible ?
                 const Type* arg_actual_type = strip_qualifier(arg->type, &op_div);
                 assert(op_div != Unknown); // we expect all operands to be clearly known !
-                is_result_uniform ^= op_div == Uniform;
+                is_result_uniform &= op_div == Uniform;
             }
             return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = bool_type(arena) }));
         }
