@@ -12,7 +12,7 @@ typedef struct IrArena_ {
     void** blocks;
     size_t available;
 
-    IrConfig config;
+    ArenaConfig config;
 
     VarId next_free_id;
 

@@ -140,12 +140,12 @@ const Node* lower_stack(IrArena* src_arena, IrArena* dst_arena, const Node* src_
     });
     const Type* stack_counter_t = int_type(dst_arena);
 
-    Node* stack_decl = global_var(dst_arena, stack_arr_type, "stack", AsExternal);
-    Node* uniform_stack_decl = global_var(dst_arena, stack_arr_type, "uniform_stack", AsExternal);
+    Node* stack_decl = global_var(dst_arena, stack_arr_type, "stack", AsPrivatePhysical);
+    Node* uniform_stack_decl = global_var(dst_arena, stack_arr_type, "uniform_stack", AsSubgroupPhysical);
 
-    Node* stack_ptr_decl = global_var(dst_arena, stack_counter_t, "stack_ptr", AsPrivate);
+    Node* stack_ptr_decl = global_var(dst_arena, stack_counter_t, "stack_ptr", AsPrivateLogical);
     stack_ptr_decl->payload.global_variable.init = int_literal(dst_arena, (IntLiteral) {.value = 0});
-    Node* uniform_stack_ptr_decl = global_var(dst_arena, stack_counter_t, "uniform_stack_ptr", AsPrivate);
+    Node* uniform_stack_ptr_decl = global_var(dst_arena, stack_counter_t, "uniform_stack_ptr", AsPrivateLogical);
     uniform_stack_ptr_decl->payload.global_variable.init = int_literal(dst_arena, (IntLiteral) {.value = 0});
 
     append_list(const Node*, new_decls_list, stack_decl);

@@ -20,15 +20,25 @@ typedef enum DivergenceQualifier_ {
 
 typedef enum AddressSpace_ {
     AsGeneric,
-    AsPrivate,
-    AsShared,
-    AsGlobal,
+
+    // used for lowering various nonsense, does not have a known hardware meaning
+    AsSubgroupPhysical,
+
+    AsPrivatePhysical,
+    AsSharedPhysical,
+    AsGlobalPhysical,
+
+    AsPrivateLogical,
+    AsSharedLogical,
+    AsGlobalLogical,
 
     /// special addressing spaces for only global variables
     AsInput,
     AsOutput,
     AsExternal,
 } AddressSpace;
+
+static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalLogical; }
 
 typedef enum EntryPointType_ {
     NotAnEntryPoint,
@@ -391,11 +401,11 @@ String get_decl_name(const Node*);
 
 //////////////////////////////// IR management ////////////////////////////////
 
-typedef struct IrConfig_ {
+typedef struct {
     bool check_types;
-} IrConfig;
+} ArenaConfig;
 
-IrArena* new_arena(IrConfig);
+IrArena* new_arena(ArenaConfig);
 void destroy_arena(IrArena*);
 
 typedef struct CompilerConfig_ {

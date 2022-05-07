@@ -123,15 +123,19 @@ const Type* check_type_fn(IrArena* arena, Function fn) {
     });
 }
 
-static bool is_as_access_uniform(AddressSpace as) {
+static bool is_mem_access_uniform(AddressSpace as) {
     switch (as) {
-        case AsGeneric: return false;
-        case AsPrivate: return false;
-        case AsShared:   return true;
-        case AsGlobal:   return true;
-        case AsInput:   return false;
-        case AsOutput:  return false;
-        case AsExternal: return true;
+        case AsGeneric:         return false;
+        case AsPrivateLogical:  return false;
+        case AsSubgroupPhysical: return true;
+        case AsPrivatePhysical: return false;
+        case AsSharedLogical:    return true;
+        case AsSharedPhysical:   return true;
+        case AsGlobalLogical:    return true;
+        case AsGlobalPhysical:   return true;
+        case AsInput:           return false;
+        case AsOutput:          return false;
+        case AsExternal:         return true;
     }
 }
 
@@ -301,7 +305,7 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                 .is_uniform = true,
                 .type = ptr_type(arena, (PtrType) {
                     .pointed_type = elem_type,
-                    .address_space = AsPrivate
+                    .address_space = AsPrivatePhysical
                 })
             }));
         }
@@ -337,7 +341,7 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                     case ArrType_TAG: {
                         curr_ptr_type = ptr_type(arena, (PtrType) {
                             .pointed_type = pointee_type->payload.arr_type.element_type,
-                            .address_space = curr_ptr_type->payload.ptr_type.address_space
+                            .address_space = unqual_ptr_type->payload.ptr_type.address_space
                         });
                         i++;
                         continue;

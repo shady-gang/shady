@@ -15,7 +15,7 @@ CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrAre
     info_print("Bound program successfully: \n");
     info_node(*program);
 
-    IrArena* typed_arena = new_arena((IrConfig) {
+    IrArena* typed_arena = new_arena((ArenaConfig) {
         .check_types = true
     });
     *program = type_program(*arena, typed_arena, *program);

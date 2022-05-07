@@ -80,7 +80,7 @@ static void process_arguments(int argc, const char** argv) {
 }
 
 int main(int argc, const char** argv) {
-    IrArena* arena = new_arena((IrConfig) {
+    IrArena* arena = new_arena((ArenaConfig) {
         .check_types = false
     });
 

@@ -10,7 +10,6 @@
 struct PrinterCtx {
     FILE* output;
     unsigned int indent;
-    bool pretty_print;
 };
 
 #define printf(...) fprintf(ctx->output, __VA_ARGS__)
@@ -18,19 +17,45 @@ struct PrinterCtx {
 
 static void print_node_impl(struct PrinterCtx* ctx, const Node* node);
 
-//static int indent = 0;
 #define INDENT for (unsigned int j = 0; j < ctx->indent; j++) \
     printf("   ");
 
-static void print_addr_space(struct PrinterCtx* ctx, AddressSpace as) {
+static void print_storage_qualifier_for_global(struct PrinterCtx* ctx, AddressSpace as) {
     switch (as) {
-        case AsGeneric:  printf("generic"); break;
-        case AsPrivate:  printf("private"); break;
-        case AsShared:   printf("shared"); break;
-        case AsGlobal:   printf("global"); break;
-        case AsInput:    printf("input"); break;
-        case AsOutput:   printf("output"); break;
-        case AsExternal: printf("external"); break;
+        case AsGeneric:             printf("generic"); break;
+
+        case AsPrivateLogical:    printf("private"); break;
+        case AsSharedLogical:      printf("shared"); break;
+        case AsGlobalLogical:      printf("global"); break;
+
+        case AsPrivatePhysical:     printf("p_private"); break;
+        case AsSubgroupPhysical:   printf("p_subgroup"); break;
+        case AsSharedPhysical:       printf("p_shared"); break;
+        case AsGlobalPhysical:       printf("p_global"); break;
+
+        case AsInput:                 printf("input"); break;
+        case AsOutput:               printf("output"); break;
+        case AsExternal:           printf("external"); break;
+    }
+}
+
+static void print_ptr_addr_space(struct PrinterCtx* ctx, AddressSpace as) {
+    switch (as) {
+        case AsGeneric:             printf("generic"); break;
+
+        case AsPrivateLogical:    printf("l_private"); break;
+        case AsSharedLogical:      printf("l_shared"); break;
+        case AsGlobalLogical:      printf("l_global"); break;
+
+        case AsPrivatePhysical:     printf("private"); break;
+        case AsSubgroupPhysical:   printf("subgroup"); break;
+        case AsSharedPhysical:       printf("shared"); break;
+        case AsGlobalPhysical:       printf("global"); break;
+
+        case AsInput:                 printf("input"); break;
+        case AsOutput:               printf("output"); break;
+        case AsExternal:           printf("external"); break;
+        default: error("Unknown address space: %d", (int) as);
     }
 }
 
@@ -113,7 +138,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                 const Node* decl = top_level->declarations.nodes[i];
                 if (decl->tag == GlobalVariable_TAG) {
                     const GlobalVariable* gvar = &decl->payload.global_variable;
-                    print_addr_space(ctx, gvar->address_space);
+                    print_storage_qualifier_for_global(ctx, gvar->address_space);
                     printf(" ");
                     print_node(gvar->type);
                     printf(" %s", gvar->name);
@@ -405,7 +430,8 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         }
         case PtrType_TAG: {
-            printf("ptr[");
+            print_ptr_addr_space(ctx, node->payload.ptr_type.address_space);
+            printf(" ptr[");
             print_node(node->payload.ptr_type.pointed_type);
             printf("]");
             break;

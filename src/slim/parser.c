@@ -47,9 +47,9 @@ static const Node* accept_value(ctxparams);
 
 static AddressSpace expect_ptr_address_space(ctxparams) {
     switch (curr_token(tokenizer).tag) {
-        case global_tok:  next_token(tokenizer); return AsGlobal;
-        case private_tok: next_token(tokenizer); return AsPrivate;
-        case shared_tok:  next_token(tokenizer); return AsShared;
+        case global_tok:  next_token(tokenizer); return AsGlobalPhysical;
+        case private_tok: next_token(tokenizer); return AsPrivatePhysical;
+        case shared_tok:  next_token(tokenizer); return AsSharedPhysical;
         default: error("expected address space qualifier");
     }
     SHADY_UNREACHABLE;
@@ -591,9 +591,9 @@ static const Node* accept_fn_decl(ctxparams) {
 static const Node* accept_global_var_decl(ctxparams) {
     AddressSpace as;
     if (accept_token(ctx, private_tok))
-        as = AsPrivate;
+        as = AsPrivateLogical;
     else if (accept_token(ctx, shared_tok))
-        as = AsShared;
+        as = AsSharedLogical;
     else if (accept_token(ctx, extern_tok))
         as = AsExternal;
     else if (accept_token(ctx, input_tok))

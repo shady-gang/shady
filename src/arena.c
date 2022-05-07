@@ -26,7 +26,7 @@ bool compare_string(const char** a, const char** b);
 KeyHash hash_node(const Node**);
 bool compare_node(const Node** a, const Node** b);
 
-IrArena* new_arena(IrConfig config) {
+IrArena* new_arena(ArenaConfig config) {
     IrArena* arena = malloc(sizeof(IrArena));
     *arena = (IrArena) {
         .nblocks = 0,

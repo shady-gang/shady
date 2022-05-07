@@ -50,12 +50,18 @@ const int AsSpecialFn = 0x100;
 
 SpvStorageClass emit_addr_space(AddressSpace address_space) {
     switch(address_space) {
-        case AsGeneric: return SpvStorageClassGeneric;
-        case AsPrivate: return SpvStorageClassPrivate;
-        case AsShared: return SpvStorageClassCrossWorkgroup;
+        case AsGlobalLogical: return SpvStorageClassStorageBuffer;
+        case AsSharedLogical: return SpvStorageClassCrossWorkgroup;
+        case AsPrivateLogical: return SpvStorageClassPrivate;
+
+        case AsGeneric: error("not implemented");
+        case AsGlobalPhysical: return SpvStorageClassPhysicalStorageBuffer;
+        case AsSharedPhysical:
+        case AsSubgroupPhysical:
+        case AsPrivatePhysical: error("This should have been lowered before");
+
         case AsInput: return SpvStorageClassInput;
         case AsOutput: return SpvStorageClassOutput;
-        case AsGlobal: return SpvStorageClassPhysicalStorageBuffer;
 
         // TODO: depending on platform, use push constants/ubos/ssbos here
         case AsExternal: return SpvStorageClassStorageBuffer;
