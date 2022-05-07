@@ -10,7 +10,7 @@
 #define alloca _alloca
 #else
 #define LARRAY(T, name, size) T name[size]
-#define SHADY_UNUSED __attribute__((unused)
+#define SHADY_UNUSED __attribute__((unused))
 #endif
 
 #endif
