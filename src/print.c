@@ -24,14 +24,15 @@ static void print_storage_qualifier_for_global(struct PrinterCtx* ctx, AddressSp
     switch (as) {
         case AsGeneric:             printf("generic"); break;
 
-        case AsPrivateLogical:    printf("private"); break;
-        case AsSharedLogical:      printf("shared"); break;
-        case AsGlobalLogical:      printf("global"); break;
+        case AsFunctionLogical:  printf("l_function"); break;
+        case AsPrivateLogical:      printf("private"); break;
+        case AsSharedLogical:        printf("shared"); break;
+        case AsGlobalLogical:        printf("global"); break;
 
-        case AsPrivatePhysical:     printf("p_private"); break;
-        case AsSubgroupPhysical:   printf("p_subgroup"); break;
-        case AsSharedPhysical:       printf("p_shared"); break;
-        case AsGlobalPhysical:       printf("p_global"); break;
+        case AsPrivatePhysical:   printf("p_private"); break;
+        case AsSubgroupPhysical: printf("p_subgroup"); break;
+        case AsSharedPhysical:     printf("p_shared"); break;
+        case AsGlobalPhysical:     printf("p_global"); break;
 
         case AsInput:                 printf("input"); break;
         case AsOutput:               printf("output"); break;
@@ -43,6 +44,7 @@ static void print_ptr_addr_space(struct PrinterCtx* ctx, AddressSpace as) {
     switch (as) {
         case AsGeneric:             printf("generic"); break;
 
+        case AsFunctionLogical:  printf("l_function"); break;
         case AsPrivateLogical:    printf("l_private"); break;
         case AsSharedLogical:      printf("l_shared"); break;
         case AsGlobalLogical:      printf("l_global"); break;
