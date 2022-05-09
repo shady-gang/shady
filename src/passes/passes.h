@@ -15,10 +15,16 @@ RewritePass type_program;
 RewritePass lower_cf_instrs;
 /// Turns callc into callf by extracting the return continuations into dedicated functions
 RewritePass lower_callc;
-/// Emulates function calls using the stack
+/// Emulates function calls using the stack and a big outer loop
 RewritePass lower_callf;
+/// Turns stack pushes and pops into accesses into pointer load and stores
 RewritePass lower_stack;
+/// Emulates physical pointers to certain address spaces by using integer indices into global arrays
 RewritePass lower_physical_ptrs;
+/// Emulates uniform jumps within functions using a loop
+RewritePass lower_jumps_loop;
+/// Emulates uniform jumps within functions by applying a structuring transformation
+RewritePass lower_jumps_structure;
 
 #define SHADY_PASSES_H
 

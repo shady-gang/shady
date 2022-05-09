@@ -74,6 +74,7 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
         case Constant_TAG: {
             new->payload.constant.type_hint = rewrite_node(rewriter, old->payload.constant.type_hint);
             new->payload.constant.value     = rewrite_node(rewriter, old->payload.constant.value);
+            new->type = new->payload.constant.value->type;
             break;
         }
         case Function_TAG: {
