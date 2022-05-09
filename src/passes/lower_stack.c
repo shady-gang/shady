@@ -17,6 +17,8 @@ typedef uint32_t FnPtr;
 
 typedef struct Context_ {
     Rewriter rewriter;
+    CompilerConfig* config;
+
     const Node* stack;
     const Node* stack_pointer;
     const Node* uniform_stack;
@@ -43,7 +45,7 @@ const Node* handle_block(Context* ctx, const Node* node) {
                 case pop_stack_op:
                 case pop_stack_uniform_op: {
                     const Type* element_type = oprim_op->operands.nodes[0];
-                    TypeMemLayout layout = get_mem_layout(element_type);
+                    TypeMemLayout layout = get_mem_layout(ctx->config, element_type);
                     const Node* element_size = int_literal(dst_arena, (IntLiteral) {.value = layout.size_in_bytes });
 
                     bool push = oprim_op->op == push_stack_op || oprim_op->op == push_stack_uniform_op;
@@ -161,6 +163,8 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
             .rewrite_decl_body = NULL,
             .processed = done,
         },
+
+        .config = config,
 
         .stack = stack_decl,
         .stack_pointer = stack_ptr_decl,

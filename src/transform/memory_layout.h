@@ -9,6 +9,6 @@ typedef struct {
     size_t size_in_bytes;
 } TypeMemLayout;
 
-TypeMemLayout get_mem_layout(const Type*type);
+TypeMemLayout get_mem_layout(const CompilerConfig*, const Type*);
 
 #endif

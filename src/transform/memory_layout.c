@@ -2,7 +2,7 @@
 
 #include "../log.h"
 
-TypeMemLayout get_mem_layout(const Type* type) {
+TypeMemLayout get_mem_layout(const CompilerConfig* config, const Type* type) {
     switch (type->tag) {
         case FnType_TAG:  error("Functions have an opaque memory representation");
         case PtrType_TAG: error("TODO");
@@ -18,7 +18,7 @@ TypeMemLayout get_mem_layout(const Type* type) {
             .type = type,
             .size_in_bytes = 4,
         };
-        case QualifiedType_TAG: return get_mem_layout(type->payload.qualified_type.type);
+        case QualifiedType_TAG: return get_mem_layout(config, type->payload.qualified_type.type);
         case RecordType_TAG: error("TODO");
         default: error("not a known type");
     }
