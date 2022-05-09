@@ -216,6 +216,7 @@ PRIMOP(alloca)             \
 PRIMOP(load)               \
 PRIMOP(store)              \
 PRIMOP(lea)                \
+PRIMOP(select)             \
 PRIMOP(cast_ptr)           \
 PRIMOP(cast_prim)          \
 PRIMOP(push_stack)         \

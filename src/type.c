@@ -370,6 +370,17 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                 .type = target_type
             }));
         }
+        case select_op: {
+            assert(prim_op.operands.count == 3);
+            assert(is_subtype(bool_type(arena), without_qualifier(prim_op.operands.nodes[0]->type)));
+            // todo find true supertype
+            assert(is_subtype(without_qualifier(prim_op.operands.nodes[1]->type), without_qualifier(prim_op.operands.nodes[2]->type)));
+
+            return singleton(qualified_type(arena, (QualifiedType) {
+                .is_uniform = (get_qualifier(prim_op.operands.nodes[1]->type) == Uniform) & (get_qualifier(prim_op.operands.nodes[1]->type) == Uniform),
+                .type = prim_op.operands.nodes[2]->type
+            }));
+        }
         default: error("unhandled primop %s", primop_names[prim_op.op]);
     }
 }
