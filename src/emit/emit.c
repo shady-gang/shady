@@ -49,8 +49,14 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
     }
 }
 
-SpvId emit_type(Emitter* emitter, const Type* type);
-SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id);
+static SpvId emit_type(Emitter* emitter, const Type* type);
+static SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id);
+
+typedef struct {
+    SpvId continue_target, break_target, join_target;
+} MergeTargets;
+
+static void emit_block(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets, const Node* node);
 
 static void register_result(Emitter* emitter, const Node* variable, SpvId id) {
     spvb_name(emitter->file_builder, id, variable->payload.var.name);
@@ -109,44 +115,143 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
     }
 }
 
-static BBBuilder emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, If if_instr, Nodes variables) {
+static SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
+    switch (return_types.count) {
+        case 0: return emitter->void_t;
+        case 1: return emit_type(emitter, return_types.nodes[0]);
+        default: {
+            const Type* codom_ret_type = record_type(emitter->arena, (RecordType) {.members = return_types});
+            return emit_type(emitter, codom_ret_type);
+        }
+    }
+}
+
+static void emit_call(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, Call call, Nodes variables) {
+    const Type* callee_type = without_qualifier(call.callee->type);
+    assert(callee_type->tag == FnType_TAG);
+    SpvId return_type = nodes_to_codom(emitter, callee_type->payload.fn_type.return_types);
+    SpvId callee = emit_value(emitter, call.callee, NULL);
+    LARRAY(SpvId, args, call.args.count);
+    for (size_t i = 0; i < call.args.count; i++)
+        args[i] = emit_value(emitter, call.args.nodes[i], NULL);
+    SpvId result = spvb_call(bb_builder, return_type, callee, call.args.count, args);
+    switch (variables.count) {
+        case 0: break;
+        case 1: {
+            register_result(emitter, variables.nodes[0], result);
+            break;
+        }
+        default: {
+            for (size_t i = 0; i < variables.count; i++) {
+                SpvId result_type = emit_type(emitter, variables.nodes[i]->type);
+                SpvId extracted_component = spvb_extract(bb_builder, result_type, result, 1, (uint32_t []) { i });
+                register_result(emitter, variables.nodes[i], extracted_component);
+            }
+            break;
+        }
+    }
+}
+
+static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, If if_instr, Nodes variables) {
+    assert(if_instr.yield_types.count == 0 && "TODO use phis");
+
     SpvId next_id = spvb_fresh_id(emitter->file_builder);
-    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
 
     SpvId true_id = spvb_fresh_id(emitter->file_builder);
     SpvId false_id = if_instr.if_false ? spvb_fresh_id(emitter->file_builder) : next_id;
 
-    spvb_selection_merge(bb_builder, next_id, 0);
+    spvb_selection_merge(*bb_builder, next_id, 0);
     SpvId condition = emit_value(emitter, if_instr.condition, NULL);
-    spvb_branch_conditional(bb_builder, condition, true_id, false_id);
+    spvb_branch_conditional(*bb_builder, condition, true_id, false_id);
 
-    // emit_bb
-    error("TODO");
+    MergeTargets merge_targets_branches = *merge_targets;
+    merge_targets_branches.join_target = next_id;
 
-    return next;
-}
+    emit_block(emitter, fn_builder, spvb_begin_bb(fn_builder, true_id), merge_targets_branches, if_instr.if_true);
+    if (if_instr.if_false)
+        emit_block(emitter, fn_builder, spvb_begin_bb(fn_builder, false_id), merge_targets_branches, if_instr.if_false);
 
-static BBBuilder emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, Loop loop_instr, Nodes variables) {
-    SpvId next_id = spvb_fresh_id(emitter->file_builder);
     BBBuilder next = spvb_begin_bb(fn_builder, next_id);
-    error("TODO");
-    return next;
+    *bb_builder = next;
 }
 
-BBBuilder emit_let(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* let_node) {
+static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match, Nodes variables) {
+    assert(match.yield_types.count == 0 && "TODO use phis");
+
+    SpvId next_id = spvb_fresh_id(emitter->file_builder);
+
+    SpvId default_id = spvb_fresh_id(emitter->file_builder);
+    LARRAY(SpvId, literals_and_cases, match.cases.count * 2);
+    for (size_t i = 0; i < match.cases.count; i++) {
+        literals_and_cases[i * 2 + 0] = spvb_fresh_id(emitter->file_builder);
+        literals_and_cases[i * 2 + 1] = spvb_fresh_id(emitter->file_builder);
+        emit_value(emitter, match.literals.nodes[i], &literals_and_cases[i * 2 + 0]);
+    }
+
+    spvb_selection_merge(*bb_builder, next_id, 0);
+    SpvId inspectee = emit_value(emitter, match.inspect, NULL);
+    spvb_switch(*bb_builder, inspectee, default_id, match.cases.count, literals_and_cases);
+
+    MergeTargets merge_targets_branches = *merge_targets;
+    merge_targets_branches.join_target = next_id;
+
+    for (size_t i = 0; i < match.cases.count; i++) {
+        emit_block(emitter, fn_builder, spvb_begin_bb(fn_builder, literals_and_cases[i * 2 + 1]), merge_targets_branches, match.cases.nodes[i]);
+    }
+    emit_block(emitter, fn_builder, spvb_begin_bb(fn_builder, default_id), merge_targets_branches, match.default_case);
+
+    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
+    *bb_builder = next;
+}
+
+static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Loop loop_instr, Nodes variables) {
+    assert(loop_instr.yield_types.count == 0 && "TODO use phis");
+    assert(loop_instr.params.count == 0 && "TODO use phis");
+
+    SpvId header_id = spvb_fresh_id(emitter->file_builder);
+    SpvId body_id = spvb_fresh_id(emitter->file_builder);
+    SpvId continue_id = spvb_fresh_id(emitter->file_builder);
+    SpvId next_id = spvb_fresh_id(emitter->file_builder);
+
+    // The current block goes to the header (it can't be the header itself !)
+    spvb_branch(*bb_builder, header_id);
+
+    // the header block receives the annotation
+    BBBuilder header_builder = spvb_begin_bb(fn_builder, header_id);
+    spvb_loop_merge(header_builder, next_id, continue_id, 0, 0, NULL);
+    spvb_branch(header_builder, body_id);
+    spvb_name(emitter->file_builder, header_id, "loop_header");
+
+    // Emission of the body requires extra info for the break/continue merge terminators
+    MergeTargets merge_targets_branches = *merge_targets;
+    merge_targets_branches.continue_target = continue_id;
+    merge_targets_branches.break_target = next_id;
+    BBBuilder body_builder = spvb_begin_bb(fn_builder, body_id);
+    emit_block(emitter, fn_builder, body_builder, merge_targets_branches, loop_instr.body);
+    spvb_name(emitter->file_builder, body_id, "loop_body");
+
+    // the continue block just jumps back into the header
+    BBBuilder continue_builder = spvb_begin_bb(fn_builder, continue_id);
+    spvb_branch(continue_builder, header_id);
+    spvb_name(emitter->file_builder, continue_id, "loop_continue");
+
+    // We start the next block
+    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
+    spvb_name(emitter->file_builder, next_id, "loop_next");
+    *bb_builder = next;
+}
+
+static void emit_let(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, const Node* let_node) {
     Nodes variables = let_node->payload.let.variables;
     const Node* instruction = let_node->payload.let.instruction;
     switch (instruction->tag) {
-        case PrimOp_TAG: {
-            emit_primop(emitter, fn_builder, bb_builder, instruction->payload.prim_op, variables);
-            return bb_builder;
-        }
-        case Call_TAG: error("TODO emit calls")
-        case If_TAG: emit_if(emitter, fn_builder, bb_builder, instruction->payload.if_instr, variables);
-        case Loop_TAG: emit_loop(emitter, fn_builder, bb_builder, instruction->payload.loop_instr, variables);
+        case PrimOp_TAG: emit_primop(emitter, fn_builder, *bb_builder, instruction->payload.prim_op, variables);                   break;
+        case Call_TAG:     emit_call(emitter, fn_builder, *bb_builder, instruction->payload.call_instr, variables);                break;
+        case If_TAG:         emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, variables);    break;
+        case Match_TAG:   emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, variables); break;
+        case Loop_TAG:     emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, variables);  break;
         default: error("Unrecognised instruction %s", node_tags[instruction->tag]);
     }
-    SHADY_UNREACHABLE;
 }
 
 static SpvId find_reserved_id(Emitter* emitter, const Node* node) {
@@ -155,7 +260,7 @@ static SpvId find_reserved_id(Emitter* emitter, const Node* node) {
     return *found;
 }
 
-void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, const Node* terminator) {
+void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* terminator) {
     switch (terminator->tag) {
         case Return_TAG: {
             const Nodes* ret_values = &terminator->payload.fn_ret.values;
@@ -184,7 +289,26 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_target), find_reserved_id(emitter, terminator->payload.branch.false_target));
             return;
         }
-        case Merge_TAG: error("merge terminators are supposed to be eliminated in the instr2bb pass");
+        case Merge_TAG: {
+            switch (terminator->payload.merge.what) {
+                case Join: {
+                    assert(terminator->payload.merge.args.count == 0);
+                    spvb_branch(basic_block_builder, merge_targets.join_target);
+                    return;
+                }
+                case Continue: {
+                    assert(terminator->payload.merge.args.count == 0);
+                    spvb_branch(basic_block_builder, merge_targets.continue_target);
+                    return;
+                }
+                case Break: {
+                    assert(terminator->payload.merge.args.count == 0);
+                    spvb_branch(basic_block_builder, merge_targets.break_target);
+                    return;
+                }
+                default: error("Not a merge.")
+            }
+        }
         case Unreachable_TAG: {
             spvb_unreachable(basic_block_builder);
             return;
@@ -194,43 +318,37 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
     SHADY_UNREACHABLE;
 }
 
-static void emit_block(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, const Node* node) {
+static void emit_block(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* node) {
     assert(node->tag == Block_TAG);
     const Block* block = &node->payload.block;
     for (size_t i = 0; i < block->instructions.count; i++)
-        basic_block_builder = emit_let(emitter, fn_builder, basic_block_builder, block->instructions.nodes[i]);
-    emit_terminator(emitter, fn_builder, basic_block_builder, block->terminator);
+        emit_let(emitter, fn_builder, &basic_block_builder, &merge_targets, block->instructions.nodes[i]);
+    emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, block->terminator);
 }
 
-void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNode* node) {
+static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNode* node, bool is_entry) {
     assert(node->node->tag == Function_TAG);
     // Find the preassigned ID to this
-    SpvId reserved_id = find_reserved_id(emitter, node->node);
-    BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, reserved_id);
-    spvb_name(emitter->file_builder, reserved_id, node->node->payload.fn.name);
+    SpvId bb_id = is_entry ? spvb_fresh_id(emitter->file_builder) : find_reserved_id(emitter, node->node);
+    BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, bb_id);
+    spvb_name(emitter->file_builder, bb_id, node->node->payload.fn.name);
 
-    emit_block(emitter, fn_builder, basic_block_builder, node->node->payload.fn.block);
+    MergeTargets merge_targets = {
+        .continue_target = 0,
+        .break_target = 0,
+        .join_target = 0
+    };
+    emit_block(emitter, fn_builder, basic_block_builder, merge_targets, node->node->payload.fn.block);
 
     // Emit the child nodes for real
     size_t dom_count = entries_count_list(node->dominates);
     for (size_t i = 0; i < dom_count; i++) {
         CFNode* child_node = read_list(CFNode*, node->dominates)[i];
-        emit_basic_block(emitter, fn_builder, child_node);
+        emit_basic_block(emitter, fn_builder, child_node, false);
     }
 }
 
-static SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
-    switch (return_types.count) {
-        case 0: return emitter->void_t;
-        case 1: return emit_type(emitter, return_types.nodes[0]);
-        default: {
-            const Type* codom_ret_type = record_type(emitter->arena, (RecordType) {.members = return_types});
-            return emit_type(emitter, codom_ret_type);
-        }
-    }
-}
-
-void emit_function(Emitter* emitter, const Node* node) {
+static void emit_function(Emitter* emitter, const Node* node) {
     assert(node->tag == Function_TAG);
 
     const Type* fn_type = node->type;
@@ -243,16 +361,18 @@ void emit_function(Emitter* emitter, const Node* node) {
     }
 
     Scope scope = build_scope(node);
-    emit_basic_block(emitter, fn_builder, scope.entry);
+    emit_basic_block(emitter, fn_builder, scope.entry, true);
     dispose_scope(&scope);
 
     spvb_define_function(emitter->file_builder, fn_builder);
 }
 
-SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
-    SpvId* existing = find_value_dict(struct Node*, SpvId, emitter->node_ids, node);
-    if (existing)
-        return *existing;
+static SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
+    if (!use_id) { // re-emit the thing multiple times if we need a specific ID
+        SpvId* existing = find_value_dict(struct Node*, SpvId, emitter->node_ids, node);
+        if (existing)
+            return *existing;
+    }
 
     SpvId new = use_id ? *use_id : spvb_fresh_id(emitter->file_builder);
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, new);
@@ -278,7 +398,7 @@ SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
     return new;
 }
 
-SpvId emit_type(Emitter* emitter, const Type* type) {
+static SpvId emit_type(Emitter* emitter, const Type* type) {
     SpvId* existing = find_value_dict(struct Node*, SpvId, emitter->node_ids, type);
     if (existing)
         return *existing;
@@ -317,6 +437,15 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         case QualifiedType_TAG: {
             // SPIR-V does not care about our type qualifiers.
             new = emit_type(emitter, type->payload.qualified_type.type);
+            break;
+        }
+        case ArrType_TAG: {
+            SpvId element_type = emit_type(emitter, type->payload.arr_type.element_type);
+            if (type->payload.arr_type.size) {
+                new = spvb_array_type(emitter->file_builder, element_type, emit_value(emitter, type->payload.arr_type.size, NULL));
+            } else {
+                new = spvb_runtime_array_type(emitter->file_builder, element_type);
+            }
             break;
         }
         default: error("Don't know how to emit type")
@@ -366,7 +495,7 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
                 SpvId init = 0;
                 if (gvar->init)
                     init = emit_value(&emitter, gvar->init, NULL);
-                spvb_global_variable(file_builder, ids[i], emit_type(&emitter, gvar->type), emit_addr_space(gvar->address_space), false, init);
+                spvb_global_variable(file_builder, ids[i], emit_type(&emitter, decl->type), emit_addr_space(gvar->address_space), false, init);
                 spvb_name(file_builder, ids[i], gvar->name);
                 break;
             } case Function_TAG: {

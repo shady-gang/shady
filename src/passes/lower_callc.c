@@ -96,6 +96,7 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
     });
     append_list(const Node*, ctx->new_fns, new_fn);
 
+    destroy_list(recover_context);
     destroy_dict(new_dict);
     return new_fn;
 }

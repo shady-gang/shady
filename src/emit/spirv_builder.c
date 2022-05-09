@@ -418,6 +418,14 @@ SpvId spvb_array_type(struct SpvFileBuilder* file_builder, SpvId element_type, S
     return id;
 }
 
+SpvId spvb_runtime_array_type(struct SpvFileBuilder* file_builder, SpvId element_type) {
+    op(SpvOpTypeRuntimeArray, 3);
+    SpvId id = spvb_fresh_id(file_builder);
+    ref_id(id);
+    ref_id(element_type);
+    return id;
+}
+
 SpvId spvb_fn_type(struct SpvFileBuilder* file_builder, size_t args_count, SpvId args_types[], SpvId codom) {
     op(SpvOpTypeFunction, 3 + args_count);
     SpvId id = spvb_fresh_id(file_builder);
