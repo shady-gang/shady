@@ -86,6 +86,12 @@ static void handle_function(Context* ctx, const Node* node, Node* new) {
     struct Dict* bbs = new_dict(const Node*, BBMeta,  (HashFn) hash_node, (CmpFn) compare_node);
     Scope scope = build_scope(node);
 
+    if (scope.size == 1) {
+        dispose_scope(&scope);
+        recreate_decl_body_identity(&ctx->rewriter, node, new);
+        return;
+    }
+
     // Reserve and assign IDs for basic blocks within this
     LARRAY(const Node*, literals, scope.size);
     LARRAY(const Node*, cases, scope.size);

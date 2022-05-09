@@ -483,10 +483,6 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
         insert_dict_and_get_result(struct Node*, SpvId, emitter.node_ids, decl, ids[i]);
     }
 
-    if (config->use_loop_for_fn_calls) {
-        // TODO: generate outer dispatcher function
-    }
-
     for (size_t i = 0; i < top_level->declarations.count; i++) {
         const Node* decl = top_level->declarations.nodes[i];
         switch (decl->tag) {
