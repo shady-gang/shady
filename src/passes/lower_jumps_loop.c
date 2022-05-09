@@ -80,10 +80,6 @@ static void handle_function(Context* ctx, const Node* node, Node* new) {
     assert(node->tag == Function_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    for (size_t i = 0; i < new->payload.fn.params.count; i++)
-        register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
-
-    struct Dict* bbs = new_dict(const Node*, BBMeta,  (HashFn) hash_node, (CmpFn) compare_node);
     Scope scope = build_scope(node);
 
     if (scope.size == 1) {
@@ -91,6 +87,11 @@ static void handle_function(Context* ctx, const Node* node, Node* new) {
         recreate_decl_body_identity(&ctx->rewriter, node, new);
         return;
     }
+    
+    struct Dict* bbs = new_dict(const Node*, BBMeta,  (HashFn) hash_node, (CmpFn) compare_node);
+
+    for (size_t i = 0; i < new->payload.fn.params.count; i++)
+        register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
 
     // Reserve and assign IDs for basic blocks within this
     LARRAY(const Node*, literals, scope.size);
