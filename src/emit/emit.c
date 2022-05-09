@@ -77,21 +77,31 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
 SpvId emit_type(Emitter* emitter, const Type* type);
 SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id);
 
-void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, Op op, Nodes args, SpvId out[]) {
+static void register_result(Emitter* emitter, const Node* variable, SpvId id) {
+    spvb_name(emitter->file_builder, id, variable->payload.var.name);
+    insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variable, id);
+}
+
+static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, PrimOp prim_op, Nodes variables) {
+    Nodes args = prim_op.operands;
     LARRAY(SpvId, arr, args.count);
     for (size_t i = 0; i < args.count; i++)
-        arr[i] = emit_value(emitter, args.nodes[i], NULL);
+        arr[i] = args.nodes[i] ? emit_value(emitter, args.nodes[i], NULL) : 0;
 
     SpvId i32_t = emit_type(emitter, int_type(emitter->arena));
 
-    switch (op) {
-        case add_op:  out[0] = spvb_binop(bb_builder, SpvOpIAdd, i32_t, arr[0], arr[1]); break;
-        case sub_op:  out[0] = spvb_binop(bb_builder, SpvOpISub, i32_t, arr[0], arr[1]); break;
+    switch (prim_op.op) {
+        case add_op: register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, SpvOpIAdd, i32_t, arr[0], arr[1])); break;
+        case sub_op: register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, SpvOpISub, i32_t, arr[0], arr[1])); break;
+        case mul_op: register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, SpvOpIMul, i32_t, arr[0], arr[1])); break;
+        case div_op: register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, SpvOpSDiv, i32_t, arr[0], arr[1])); break;
+        case mod_op: register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, SpvOpSMod, i32_t, arr[0], arr[1])); break;
         case load_op: {
             assert(without_qualifier(args.nodes[0]->type)->tag == PtrType_TAG);
             const Type* elem_type = without_qualifier(args.nodes[0]->type)->payload.ptr_type.pointed_type;
             SpvId eptr = emit_value(emitter, args.nodes[0], NULL);
-            out[0] = spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, 0, NULL);
+            SpvId result = spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, 0, NULL);
+            register_result(emitter, variables.nodes[0], result);
             break;
         }
         case store_op: {
@@ -103,31 +113,62 @@ void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, O
         }
         case alloca_op: {
             const Type* elem_type = args.nodes[0];
-            out[0] = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
+            SpvId result = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
                 .address_space = AsSpecialFn,
                 .pointed_type = elem_type
             })), SpvStorageClassFunction);
+            register_result(emitter, variables.nodes[0], result);
+            break;
+        }
+        case lea_op: {
+            if (arr[1]) {
+                error("TODO: OpPtrAccessChain")
+            } else {
+                const Type* target_type = typecheck_primop(emitter->arena, prim_op).nodes[0];
+                SpvId result = spvb_access_chain(bb_builder, emit_type(emitter, target_type), arr[0], args.count - 2, &arr[2]);
+                register_result(emitter, variables.nodes[0], result);
+            }
             break;
         }
         default: error("TODO: unhandled op");
     }
 }
 
+static BBBuilder emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, If if_instr, Nodes variables) {
+    SpvId next_id = spvb_fresh_id(emitter->file_builder);
+    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
+
+    SpvId true_id = spvb_fresh_id(emitter->file_builder);
+    SpvId false_id = if_instr.if_false ? spvb_fresh_id(emitter->file_builder) : next_id;
+
+    spvb_selection_merge(bb_builder, next_id, 0);
+    SpvId condition = emit_value(emitter, if_instr.condition, NULL);
+    spvb_branch_conditional(bb_builder, condition, true_id, false_id);
+
+    // emit_bb
+    error("TODO");
+
+    return next;
+}
+
+static BBBuilder emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, Loop loop_instr, Nodes variables) {
+    SpvId next_id = spvb_fresh_id(emitter->file_builder);
+    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
+    error("TODO");
+    return next;
+}
+
 BBBuilder emit_let(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* let_node) {
+    Nodes variables = let_node->payload.let.variables;
     const Node* instruction = let_node->payload.let.instruction;
     switch (instruction->tag) {
         case PrimOp_TAG: {
-            const Nodes* variables = &let_node->payload.let.variables;
-            LARRAY(SpvId, out, variables->count);
-            emit_primop(emitter, fn_builder, bb_builder, instruction->payload.prim_op.op, instruction->payload.prim_op.operands, out);
-            for (size_t i = 0; i < variables->count; i++) {
-                spvb_name(emitter->file_builder, out[i], variables->nodes[i]->payload.var.name);
-                insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variables->nodes[i], out[i]);
-            }
+            emit_primop(emitter, fn_builder, bb_builder, instruction->payload.prim_op, variables);
             return bb_builder;
         }
         case Call_TAG: error("TODO emit calls")
-        case If_TAG: error("we expect this stuff to be gotten rid of by now actually")
+        case If_TAG: emit_if(emitter, fn_builder, bb_builder, instruction->payload.if_instr, variables);
+        case Loop_TAG: emit_loop(emitter, fn_builder, bb_builder, instruction->payload.loop_instr, variables);
         default: error("Unrecognised instruction %s", node_tags[instruction->tag]);
     }
     SHADY_UNREACHABLE;
@@ -209,17 +250,23 @@ void emit_terminator(Emitter* emitter, FunctionEmissionCtx* fn_ectx, BBEmissionC
     SHADY_UNREACHABLE;
 }
 
+static void emit_block(Emitter* emitter, FunctionEmissionCtx* fn_ectx, BBEmissionCtx* bb_ectx, const Node* node) {
+    assert(node->tag == Block_TAG);
+    BBBuilder basicblock_builder = bb_ectx->basic_block_builder;
+    const Block* block = &node->payload.block;
+    for (size_t i = 0; i < block->instructions.count; i++)
+        basicblock_builder = emit_let(emitter, fn_ectx->fn_builder, basicblock_builder, block->instructions.nodes[i]);
+    emit_terminator(emitter, fn_ectx, bb_ectx, block->terminator);
+}
+
 void emit_basic_block(Emitter* emitter, FunctionEmissionCtx* fn_ectx, const CFNode* node) {
+    assert(node->node->tag == Function_TAG);
     // Find the preassigned ID to this
     BBEmissionCtx* bb_ectx = find_bb_ctx(fn_ectx, node->node);
     bb_ectx->basic_block_builder = spvb_begin_bb(fn_ectx->fn_builder, bb_ectx->reserved_id);
     spvb_name(emitter->file_builder, bb_ectx->reserved_id, node->node->payload.fn.name);
 
-    BBBuilder basicblock_builder = bb_ectx->basic_block_builder;
-    const Block* block = &node->node->payload.fn.block->payload.block;
-    for (size_t i = 0; i < block->instructions.count; i++)
-        basicblock_builder = emit_let(emitter, fn_ectx->fn_builder, basicblock_builder, block->instructions.nodes[i]);
-    emit_terminator(emitter, fn_ectx, bb_ectx, block->terminator);
+    emit_block(emitter, fn_ectx, bb_ectx, node->node->payload.fn.block);
 
     // Emit the child nodes for real
     size_t dom_count = entries_count_list(node->dominates);

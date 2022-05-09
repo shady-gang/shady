@@ -72,7 +72,7 @@ static const Node* lower_lea(Context* ctx, Instructions instructions, const Prim
                 const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value = element_t_layout.size_in_cells });
                 const Node* computed_offset = gen_primop(instructions, (PrimOp) {
                     .op = mul_op,
-                    .operands = nodes(dst_arena, 2, (const Node* []) { old_offset, elem_size_val})
+                    .operands = nodes(dst_arena, 2, (const Node* []) { rewrite_node(&ctx->rewriter, lea->operands.nodes[i]), elem_size_val})
                 }).nodes[0];
 
                 faked_pointer = gen_primop(instructions, (PrimOp) {
@@ -184,6 +184,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
                 Node* cnst = constant(ctx->rewriter.dst_arena, old->payload.global_variable.name);
                 cnst->payload.constant.value = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value = 0 });
                 cnst->type = cnst->payload.constant.value->type;
+                register_processed(&ctx->rewriter, old, cnst);
                 return cnst;
             }
             SHADY_FALLTHROUGH
