@@ -11,32 +11,32 @@ CompilerConfig default_compiler_config() {
 }
 
 CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrArena** arena, const Node** program) {
-    *program = bind_program(*arena, *arena, *program);
+    *program = bind_program(config, *arena, *arena, *program);
     info_print("Bound program successfully: \n");
     info_node(*program);
 
     IrArena* typed_arena = new_arena((ArenaConfig) {
         .check_types = true
     });
-    *program = type_program(*arena, typed_arena, *program);
+    *program = type_program(config, *arena, typed_arena, *program);
     destroy_arena(*arena);
     *arena = typed_arena;
     info_print("Typed program successfully: \n");
     info_node(*program);
 
-    *program = lower_cf_instrs(*arena, *arena, *program);
+    *program = lower_cf_instrs(config, *arena, *arena, *program);
     info_print("After lower_cf_instrs pass: \n");
     info_node(*program);
 
-    *program = lower_callc(*arena, *arena, *program);
+    *program = lower_callc(config, *arena, *arena, *program);
     info_print("After lower_callc pass: \n");
     info_node(*program);
 
-    *program = lower_callf(*arena, *arena, *program);
+    *program = lower_callf(config, *arena, *arena, *program);
     info_print("After lower_callf pass: \n");
     info_node(*program);
 
-    *program = lower_stack(*arena, *arena, *program);
+    *program = lower_stack(config, *arena, *arena, *program);
     info_print("After lower_stack pass: \n");
     info_node(*program);
 

@@ -257,7 +257,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     }
 }
 
-const Node* bind_program(IrArena* src_arena, IrArena* dst_arena, const Node* source) {
+const Node* bind_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* source) {
     Context ctx = {
         .rewriter = {
             .src_arena = src_arena,

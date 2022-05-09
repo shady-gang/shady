@@ -231,7 +231,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispat
     });
 }
 
-const Node* lower_callf(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+const Node* lower_callf(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* new_decls_list = new_list(const Node*);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);

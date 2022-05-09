@@ -431,7 +431,7 @@ static const Node* type_root(Context* ctx, const Node* node) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-const Node* type_program(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+const Node* type_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     Context ctx = {
         .rewriter = {

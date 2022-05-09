@@ -4,6 +4,7 @@
 #include "../log.h"
 #include "../type.h"
 #include "../rewrite.h"
+#include "../portability.h"
 
 #include "list.h"
 
@@ -147,7 +148,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 }
 
-const Node* lower_callc(IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+const Node* lower_callc(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* new_decls_list = new_list(const Node*);
     struct List* todos = new_list(Todo);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
