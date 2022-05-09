@@ -115,6 +115,9 @@ static const Node* handle_block(Context* ctx, const Node* node) {
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {
+    const Node* found = search_processed(&ctx->rewriter, old);
+    if (found) return found;
+
     switch (old->tag) {
         case Constant_TAG:
         case Function_TAG:

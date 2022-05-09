@@ -126,19 +126,19 @@ bool compare_node(Node**, Node**);
 static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG: {
-             Node* new = fn(ctx->rewriter.dst_arena, node->payload.fn.atttributes, node->payload.fn.name, node->payload.fn.params, node->payload.fn.return_types);
+            Node* new = fn(ctx->rewriter.dst_arena, node->payload.fn.atttributes, node->payload.fn.name, node->payload.fn.params, node->payload.fn.return_types);
 
-             const Node* old_block = node->payload.fn.block;
-             // If the block has a callc, delay
-             if (old_block->payload.block.terminator->tag == Callc_TAG) {
-                 Todo t = { old_block, &new->payload.fn.block };
-                 debug_print("Found a callc - adding to todo list\n");
-                 append_list(Todo, ctx->todo, t);
-                 return new;
-             }
+            const Node* old_block = node->payload.fn.block;
+            // If the block has a callc, delay
+            if (old_block->payload.block.terminator->tag == Callc_TAG) {
+                Todo t = { old_block, &new->payload.fn.block };
+                debug_print("Found a callc - adding to todo list\n");
+                append_list(Todo, ctx->todo, t);
+                return new;
+            }
 
-             recreate_decl_body_identity(&ctx->rewriter, node, new);
-             return new;
+            recreate_decl_body_identity(&ctx->rewriter, node, new);
+            return new;
         }
         // leave other declarations alone
         case GlobalVariable_TAG:

@@ -99,7 +99,7 @@ static void print_function(struct PrinterCtx* ctx, const Node* node) {
     ctx->indent++;
     print_node(node->payload.fn.block);
 
-    if (node->type != NULL) {
+    if (node->type != NULL && node->payload.fn.block) {
         bool section_space = false;
         Scope scope = build_scope(node);
         for (size_t i = 1; i < scope.size; i++) {

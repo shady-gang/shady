@@ -37,7 +37,7 @@ const Node* find_processed(const Rewriter* ctx, const Node* old) {
 
 void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
     assert(ctx->processed && "this rewriter has no processed cache");
-    bool r = insert_dict(const Node*, const Node*, ctx->processed, old, new);
+    bool r = insert_dict_and_get_result(const Node*, const Node*, ctx->processed, old, new);
     assert(r && "registered the same node as processed twice");
 }
 
@@ -77,13 +77,13 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             break;
         }
         case Function_TAG: {
-            struct Dict* old_processed = rewriter->processed;
-            rewriter->processed = clone_dict(rewriter->processed);
+            //struct Dict* old_processed = rewriter->processed;
+            //rewriter->processed = clone_dict(rewriter->processed);
             for (size_t i = 0; i < new->payload.fn.params.count; i++)
                 register_processed(rewriter, old->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
             new->payload.fn.block = rewrite_node(rewriter, old->payload.fn.block);
-            destroy_dict(rewriter->processed);
-            rewriter->processed = old_processed;
+            //destroy_dict(rewriter->processed);
+            //rewriter->processed = old_processed;
             break;
         }
         case GlobalVariable_TAG: {
@@ -164,13 +164,13 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             Nodes oparams = node->payload.loop_instr.params;
             Nodes nparams = rewrite_nodes(rewriter, oparams);
 
-            struct Dict* old_processed = rewriter->processed;
-            rewriter->processed = clone_dict(rewriter->processed);
+            //struct Dict* old_processed = rewriter->processed;
+            //rewriter->processed = clone_dict(rewriter->processed);
             for (size_t i = 0; i < oparams.count; i++)
                 register_processed(rewriter, oparams.nodes[i], nparams.nodes[i]);
             const Node* nbody = rewrite_node(rewriter, node->payload.loop_instr.body);
-            destroy_dict(rewriter->processed);
-            rewriter->processed = old_processed;
+            //destroy_dict(rewriter->processed);
+            //rewriter->processed = old_processed;
 
             return loop_instr(rewriter->dst_arena, (Loop) {
                 .yield_types = rewrite_nodes(rewriter, node->payload.loop_instr.yield_types),

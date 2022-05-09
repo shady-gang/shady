@@ -37,12 +37,12 @@ static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
 static const Node* lower_lea(Context* ctx, Instructions instructions, const PrimOp* lea) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     const Node* old_pointer = lea->operands.nodes[0];
-    const Node* faked_pointer = ctx->rewriter.rewrite_fn(&ctx->rewriter, old_pointer);
+    const Node* faked_pointer = rewrite_node(&ctx->rewriter, old_pointer);
     const Type* pointer_type = without_qualifier(old_pointer->type);
     assert(pointer_type->tag == PtrType_TAG);
 
-    const Node* offset = lea->operands.nodes[1];
-    if (offset) {
+    const Node* old_offset = lea->operands.nodes[1];
+    if (old_offset) {
         const Type* arr_type = pointer_type->payload.ptr_type.pointed_type;
         assert(arr_type->tag == ArrType_TAG);
         const Type* element_type = arr_type->payload.arr_type.element_type;
@@ -51,7 +51,7 @@ static const Node* lower_lea(Context* ctx, Instructions instructions, const Prim
         const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value = element_t_layout.size_in_cells });
         const Node* computed_offset = gen_primop(instructions, (PrimOp) {
             .op = mul_op,
-            .operands = nodes(dst_arena, 2, (const Node* []) { offset, elem_size_val})
+            .operands = nodes(dst_arena, 2, (const Node* []) { rewrite_node(&ctx->rewriter, old_offset), elem_size_val})
         }).nodes[0];
 
         faked_pointer = gen_primop(instructions, (PrimOp) {
@@ -72,7 +72,7 @@ static const Node* lower_lea(Context* ctx, Instructions instructions, const Prim
                 const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value = element_t_layout.size_in_cells });
                 const Node* computed_offset = gen_primop(instructions, (PrimOp) {
                     .op = mul_op,
-                    .operands = nodes(dst_arena, 2, (const Node* []) { offset, elem_size_val})
+                    .operands = nodes(dst_arena, 2, (const Node* []) { old_offset, elem_size_val})
                 }).nodes[0];
 
                 faked_pointer = gen_primop(instructions, (PrimOp) {
