@@ -8,9 +8,11 @@
 #define SHADY_UNUSED
 #define LARRAY(T, name, size) T* name = alloca(sizeof(T) * (size))
 #define alloca _alloca
+#define SHADY_FALLTHROUGH
 #else
 #define LARRAY(T, name, size) T name[size]
 #define SHADY_UNUSED __attribute__((unused))
+#define SHADY_FALLTHROUGH __attribute__((fallthrough));
 #endif
 
 #endif

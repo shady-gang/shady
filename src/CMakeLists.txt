@@ -27,6 +27,7 @@ set(SHADY_SOURCES
     passes/lower_callc.c
     passes/lower_callf.c
     passes/lower_stack.c
+    passes/lower_physical_ptrs.c
     emit/emit.c
     emit/spirv_builder.c)
 

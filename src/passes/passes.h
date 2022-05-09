@@ -18,6 +18,7 @@ RewritePass lower_callc;
 /// Emulates function calls using the stack
 RewritePass lower_callf;
 RewritePass lower_stack;
+RewritePass lower_physical_ptrs;
 
 #define SHADY_PASSES_H
 

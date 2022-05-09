@@ -430,10 +430,11 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         }
         case PtrType_TAG: {
+            printf("ptr(");
             print_ptr_addr_space(ctx, node->payload.ptr_type.address_space);
-            printf(" ptr[");
+            printf(", ");
             print_node(node->payload.ptr_type.pointed_type);
-            printf("]");
+            printf(")");
             break;
         }
         case ArrType_TAG: {

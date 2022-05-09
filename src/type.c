@@ -315,8 +315,7 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
             const Node* base = prim_op.operands.nodes[0];
             uniform &= get_qualifier(base->type) == Uniform;
             const Type* curr_ptr_type = base->type;
-            const Type* unqual_ptr_type = without_qualifier(curr_ptr_type);
-            assert(unqual_ptr_type->tag == PtrType_TAG && "lea expects a pointer as a base");
+            assert(without_qualifier(curr_ptr_type)->tag == PtrType_TAG && "lea expects a pointer as a base");
 
             const Node* offset = prim_op.operands.nodes[1];
             if (offset) {

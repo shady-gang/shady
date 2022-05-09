@@ -27,7 +27,7 @@ typedef struct Context_ {
     struct List* new_decls;
 } Context;
 
-const Node* handle_block(Context* ctx, const Node* node) {
+static const Node* handle_block(Context* ctx, const Node* node) {
     assert(node->tag == Block_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
@@ -46,7 +46,7 @@ const Node* handle_block(Context* ctx, const Node* node) {
                 case pop_stack_uniform_op: {
                     const Type* element_type = oprim_op->operands.nodes[0];
                     TypeMemLayout layout = get_mem_layout(ctx->config, element_type);
-                    const Node* element_size = int_literal(dst_arena, (IntLiteral) {.value = layout.size_in_bytes });
+                    const Node* element_size = int_literal(dst_arena, (IntLiteral) {.value = layout.size_in_cells });
 
                     bool push = oprim_op->op == push_stack_op || oprim_op->op == push_stack_uniform_op;
                     bool uniform = oprim_op->op == push_stack_uniform_op || oprim_op->op == pop_stack_uniform_op;
@@ -114,7 +114,7 @@ const Node* handle_block(Context* ctx, const Node* node) {
     });
 }
 
-const Node* lower_stack_process(Context* ctx, const Node* old) {
+static const Node* process_node(Context* ctx, const Node* old) {
     switch (old->tag) {
         case Constant_TAG:
         case Function_TAG:
@@ -159,7 +159,7 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
         .rewriter = {
             .dst_arena = dst_arena,
             .src_arena = src_arena,
-            .rewrite_fn = (RewriteFn) lower_stack_process,
+            .rewrite_fn = (RewriteFn) process_node,
             .rewrite_decl_body = NULL,
             .processed = done,
         },

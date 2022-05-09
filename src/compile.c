@@ -40,5 +40,9 @@ CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrAre
     info_print("After lower_stack pass: \n");
     info_node(*program);
 
+    *program = lower_physical_ptrs(config, *arena, *arena, *program);
+    info_print("After lower_physical_ptrs pass: \n");
+    info_node(*program);
+
     return CompilationNoError;
 }

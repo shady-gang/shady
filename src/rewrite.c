@@ -130,14 +130,20 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case False_TAG:         return false_lit(rewriter->dst_arena);
         case Variable_TAG:      error("We expect variables to be available for us in the `processed` set");
         case Let_TAG:           {
+            const Node* ninstruction = rewrite_node(rewriter, node->payload.let.instruction);
+            const Nodes output_types = typecheck_instruction(rewriter->dst_arena, ninstruction);
             Nodes oldvars = node->payload.let.variables;
-            Nodes nvars = recreate_variables(rewriter, oldvars);
+            assert(output_types.count == oldvars.count);
+            LARRAY(const Node*, nvars, oldvars.count);
+            for (size_t i = 0; i < oldvars.count; i++) {
+                nvars[i] = var(rewriter->dst_arena, output_types.nodes[i], oldvars.nodes[i]->payload.var.name);
+                register_processed(rewriter, oldvars.nodes[i], nvars[i]);
+            }
+
             const Node* nlet = let(rewriter->dst_arena, (Let) {
-                .variables = nvars,
-                .instruction = rewrite_node(rewriter, node->payload.let.instruction)
+                .variables = nodes(rewriter->dst_arena, oldvars.count, nvars),
+                .instruction = ninstruction
             });
-            for (size_t i = 0; i < oldvars.count; i++)
-                register_processed(rewriter, oldvars.nodes[i], nvars.nodes[i]);
             return nlet;
         }
         case PrimOp_TAG:        return prim_op(rewriter->dst_arena, (PrimOp) {
