@@ -28,6 +28,7 @@ typedef enum AddressSpace_ {
     AsSharedPhysical,
     AsGlobalPhysical,
 
+    AsFunctionLogical,
     AsPrivateLogical,
     AsSharedLogical,
     AsGlobalLogical,

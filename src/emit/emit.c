@@ -25,34 +25,14 @@ typedef struct Emitter_ {
     FileBuilder file_builder;
     SpvId void_t;
     struct Dict* node_ids;
-    struct Dict* funs;
 } Emitter;
-
-typedef struct BBEmissionCtx_ {
-    BBBuilder basic_block_builder;
-    SpvId reserved_id;
-    // see CompilerConfig::use_loop_for_fn_body
-    int case_id;
-} BBEmissionCtx;
-
-typedef struct FunctionEmissionCtx_ {
-    FnBuilder fn_builder;
-    // basic blocks use a different namespace because the entry of a function is the function itself
-    // in other words, the function node gets _two_ ids: one emitted as a function, and another as the entry BB
-    struct Dict* bbs;
-    SpvId fn_loop_continue;
-    SpvId next_bb_var;
-    // see CompilerConfig::use_loop_for_fn_calls
-    int case_id;
-} FunctionEmissionCtx;
-
-const int AsSpecialFn = 0x100;
 
 SpvStorageClass emit_addr_space(AddressSpace address_space) {
     switch(address_space) {
-        case AsGlobalLogical: return SpvStorageClassStorageBuffer;
-        case AsSharedLogical: return SpvStorageClassCrossWorkgroup;
-        case AsPrivateLogical: return SpvStorageClassPrivate;
+        case AsGlobalLogical:   return SpvStorageClassStorageBuffer;
+        case AsSharedLogical:   return SpvStorageClassCrossWorkgroup;
+        case AsPrivateLogical:  return SpvStorageClassPrivate;
+        case AsFunctionLogical: return SpvStorageClassFunction;
 
         case AsGeneric: error("not implemented");
         case AsGlobalPhysical: return SpvStorageClassPhysicalStorageBuffer;
@@ -65,11 +45,6 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
 
         // TODO: depending on platform, use push constants/ubos/ssbos here
         case AsExternal: return SpvStorageClassStorageBuffer;
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wswitch"
-        case 0x100: return SpvStorageClassFunction;
-#pragma GCC diagnostic pop
         default: SHADY_NOT_IMPLEM;
     }
 }
@@ -114,7 +89,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         case alloca_op: {
             const Type* elem_type = args.nodes[0];
             SpvId result = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
-                .address_space = AsSpecialFn,
+                .address_space = AsFunctionLogical,
                 .pointed_type = elem_type
             })), SpvStorageClassFunction);
             register_result(emitter, variables.nodes[0], result);
@@ -174,75 +149,44 @@ BBBuilder emit_let(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder,
     SHADY_UNREACHABLE;
 }
 
-FunctionEmissionCtx* find_fn_ctx(Emitter* emitter, const Node* fun) {
-    FunctionEmissionCtx* found = find_value_dict(struct Node*, FunctionEmissionCtx, emitter->funs, fun);
+static SpvId find_reserved_id(Emitter* emitter, const Node* node) {
+    SpvId* found = find_value_dict(const Node*, SpvId, emitter->node_ids, node);
     assert(found);
-    return found;
+    return *found;
 }
 
-BBEmissionCtx* find_bb_ctx(FunctionEmissionCtx* fn_ectx, const Node* bb) {
-    BBEmissionCtx* found = find_value_dict(struct Node*, BBEmissionCtx, fn_ectx->bbs, bb);
-    assert(found);
-    return found;
-}
-
-void emit_terminator(Emitter* emitter, FunctionEmissionCtx* fn_ectx, BBEmissionCtx* bb_ectx, const Node* terminator) {
+void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, const Node* terminator) {
     switch (terminator->tag) {
         case Return_TAG: {
             const Nodes* ret_values = &terminator->payload.fn_ret.values;
             switch (ret_values->count) {
-                case 0: spvb_return_void(bb_ectx->basic_block_builder); return;
-                case 1: spvb_return_value(bb_ectx->basic_block_builder, emit_value(emitter, ret_values->nodes[0], NULL)); return;
+                case 0: spvb_return_void(basic_block_builder); return;
+                case 1: spvb_return_value(basic_block_builder, emit_value(emitter, ret_values->nodes[0], NULL)); return;
                 default: {
                     LARRAY(SpvId, arr, ret_values->count);
                     for (size_t i = 0; i < ret_values->count; i++)
                         arr[i] = emit_value(emitter, ret_values->nodes[i], NULL);
-                    SpvId return_that = spvb_composite(bb_ectx->basic_block_builder, fn_ret_type_id(fn_ectx->fn_builder), ret_values->count, arr);
-                    spvb_return_value(bb_ectx->basic_block_builder, return_that);
+                    SpvId return_that = spvb_composite(basic_block_builder, fn_ret_type_id(fn_builder), ret_values->count, arr);
+                    spvb_return_value(basic_block_builder, return_that);
                     return;
                 }
             }
         }
         case Jump_TAG: {
             assert(terminator->payload.jump.args.count == 0 && "TODO: implement bb params");
-
-            BBEmissionCtx* tgt_ctx = find_bb_ctx(fn_ectx, terminator->payload.jump.target);
-            if (emitter->configuration->use_loop_for_fn_body) {
-                SpvId tgt_case_id = emit_value(emitter, int_literal(emitter->arena, (IntLiteral) {
-                    .value = tgt_ctx->case_id,
-                }), NULL);
-                spvb_store(bb_ectx->basic_block_builder, tgt_case_id, fn_ectx->next_bb_var, 0, NULL);
-                spvb_branch(bb_ectx->basic_block_builder, fn_ectx->fn_loop_continue);
-            } else {
-                spvb_branch(bb_ectx->basic_block_builder, tgt_ctx->reserved_id);
-            }
+            spvb_branch(basic_block_builder, find_reserved_id(emitter, terminator->payload.jump.target));
             return;
         }
         case Branch_TAG: {
             assert(terminator->payload.branch.args.count == 0 && "TODO: implement bb params");
-            BBEmissionCtx* if_true_ctx = find_bb_ctx(fn_ectx, terminator->payload.branch.true_target);
-            BBEmissionCtx* if_false_ctx = find_bb_ctx(fn_ectx, terminator->payload.branch.false_target);
 
             SpvId condition = emit_value(emitter, terminator->payload.branch.condition, NULL);
-
-            if (emitter->configuration->use_loop_for_fn_body) {
-                SpvId true_tgt_case_id = emit_value(emitter, int_literal(emitter->arena, (IntLiteral) {
-                    .value = if_true_ctx->case_id,
-                }), NULL);
-                SpvId false_tgt_case_id = emit_value(emitter, int_literal(emitter->arena, (IntLiteral) {
-                    .value = if_false_ctx->case_id,
-                }), NULL);
-                SpvId tgt_case_id = spvb_select(bb_ectx->basic_block_builder, emit_type(emitter, int_type(emitter->arena)), condition, true_tgt_case_id, false_tgt_case_id);
-                spvb_store(bb_ectx->basic_block_builder, tgt_case_id, fn_ectx->next_bb_var, 0, NULL);
-                spvb_branch(bb_ectx->basic_block_builder, fn_ectx->fn_loop_continue);
-            } else {
-                spvb_branch_conditional(bb_ectx->basic_block_builder, condition, if_true_ctx->reserved_id, if_false_ctx->reserved_id);
-            }
+            spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_target), find_reserved_id(emitter, terminator->payload.branch.false_target));
             return;
         }
         case Merge_TAG: error("merge terminators are supposed to be eliminated in the instr2bb pass");
         case Unreachable_TAG: {
-            spvb_unreachable(bb_ectx->basic_block_builder);
+            spvb_unreachable(basic_block_builder);
             return;
         }
         default: error("TODO: emit terminator %s", node_tags[terminator->tag]);
@@ -250,29 +194,28 @@ void emit_terminator(Emitter* emitter, FunctionEmissionCtx* fn_ectx, BBEmissionC
     SHADY_UNREACHABLE;
 }
 
-static void emit_block(Emitter* emitter, FunctionEmissionCtx* fn_ectx, BBEmissionCtx* bb_ectx, const Node* node) {
+static void emit_block(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, const Node* node) {
     assert(node->tag == Block_TAG);
-    BBBuilder basicblock_builder = bb_ectx->basic_block_builder;
     const Block* block = &node->payload.block;
     for (size_t i = 0; i < block->instructions.count; i++)
-        basicblock_builder = emit_let(emitter, fn_ectx->fn_builder, basicblock_builder, block->instructions.nodes[i]);
-    emit_terminator(emitter, fn_ectx, bb_ectx, block->terminator);
+        basic_block_builder = emit_let(emitter, fn_builder, basic_block_builder, block->instructions.nodes[i]);
+    emit_terminator(emitter, fn_builder, basic_block_builder, block->terminator);
 }
 
-void emit_basic_block(Emitter* emitter, FunctionEmissionCtx* fn_ectx, const CFNode* node) {
+void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNode* node) {
     assert(node->node->tag == Function_TAG);
     // Find the preassigned ID to this
-    BBEmissionCtx* bb_ectx = find_bb_ctx(fn_ectx, node->node);
-    bb_ectx->basic_block_builder = spvb_begin_bb(fn_ectx->fn_builder, bb_ectx->reserved_id);
-    spvb_name(emitter->file_builder, bb_ectx->reserved_id, node->node->payload.fn.name);
+    SpvId reserved_id = find_reserved_id(emitter, node->node);
+    BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, reserved_id);
+    spvb_name(emitter->file_builder, reserved_id, node->node->payload.fn.name);
 
-    emit_block(emitter, fn_ectx, bb_ectx, node->node->payload.fn.block);
+    emit_block(emitter, fn_builder, basic_block_builder, node->node->payload.fn.block);
 
     // Emit the child nodes for real
     size_t dom_count = entries_count_list(node->dominates);
     for (size_t i = 0; i < dom_count; i++) {
         CFNode* child_node = read_list(CFNode*, node->dominates)[i];
-        emit_basic_block(emitter, fn_ectx, child_node);
+        emit_basic_block(emitter, fn_builder, child_node);
     }
 }
 
@@ -290,86 +233,20 @@ static SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
 void emit_function(Emitter* emitter, const Node* node) {
     assert(node->tag == Function_TAG);
 
-    FunctionEmissionCtx* fn_emit_ctx = find_fn_ctx(emitter, node);
+    const Type* fn_type = node->type;
+    FnBuilder fn_builder = spvb_begin_fn(emitter->file_builder, find_reserved_id(emitter, node), emit_type(emitter, fn_type), nodes_to_codom(emitter, node->payload.fn.return_types));
 
     Nodes params = node->payload.fn.params;
     for (size_t i = 0; i < params.count; i++) {
-        SpvId param_id = spvb_parameter(fn_emit_ctx->fn_builder, emit_type(emitter, params.nodes[i]->payload.var.type));
+        SpvId param_id = spvb_parameter(fn_builder, emit_type(emitter, params.nodes[i]->payload.var.type));
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
     }
 
     Scope scope = build_scope(node);
-
-    // Reserve and assign IDs for basic blocks within this
-    int case_id = 0;
-    for (size_t i = 0; i < scope.size; i++) {
-        CFNode* bb = read_list(CFNode*, scope.contents)[i];
-        SpvId reserved_id = spvb_fresh_id(emitter->file_builder);
-        BBEmissionCtx bb_ectx = {
-            .reserved_id = reserved_id,
-            .case_id = case_id++,
-            .basic_block_builder = NULL,
-        };
-        insert_dict_and_get_result(struct Node*, BBEmissionCtx, fn_emit_ctx->bbs, bb->node, bb_ectx);
-    }
-
-    SpvId int_spv = emit_type(emitter, int_type(emitter->arena));
-    SpvId ptr_int_spv = emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
-        .address_space = AsSpecialFn,
-        .pointed_type = int_type(emitter->arena)
-    }));
-
-    SpvId loop_unreachable_bb = spvb_fresh_id(emitter->file_builder);
-        spvb_name(emitter->file_builder, loop_unreachable_bb, "loop_unreachable");
-
-    if (emitter->configuration->use_loop_for_fn_body) {
-        fn_emit_ctx->next_bb_var = spvb_local_variable(fn_emit_ctx->fn_builder, ptr_int_spv, SpvStorageClassFunction);
-        spvb_name(emitter->file_builder, fn_emit_ctx->next_bb_var, "next_bb");
-        fn_emit_ctx->fn_loop_continue = spvb_fresh_id(emitter->file_builder);
-        SpvId entry_block_id = spvb_fresh_id(emitter->file_builder);
-        SpvId loop_header_id = spvb_fresh_id(emitter->file_builder);
-        SpvId loop_body_id = spvb_fresh_id(emitter->file_builder);
-        SpvId loop_dispatch_merge_id = spvb_fresh_id(emitter->file_builder);
-
-        spvb_name(emitter->file_builder, entry_block_id, "entry_block");
-        spvb_name(emitter->file_builder, loop_header_id, "loop_header");
-        spvb_name(emitter->file_builder, loop_body_id, "loop_body");
-        spvb_name(emitter->file_builder, loop_dispatch_merge_id, "loop_dispatch_merge");
-        spvb_name(emitter->file_builder, fn_emit_ctx->fn_loop_continue, "loop_continue");
-
-        BBBuilder fn_entry = spvb_begin_bb(fn_emit_ctx->fn_builder, entry_block_id);
-        spvb_branch(fn_entry, loop_header_id);
-
-        BBBuilder loop_header = spvb_begin_bb(fn_emit_ctx->fn_builder, loop_header_id);
-        spvb_loop_merge(loop_header, loop_unreachable_bb, fn_emit_ctx->fn_loop_continue, SpvLoopControlDontUnrollMask, 0, NULL);
-        spvb_branch(loop_header, loop_body_id);
-
-        BBBuilder loop_body = spvb_begin_bb(fn_emit_ctx->fn_builder, loop_body_id);
-        LARRAY(SpvId, targets, scope.size * 2);
-        for (size_t i = 0; i < scope.size; i++) {
-            CFNode* bb = read_list(CFNode*, scope.contents)[i];
-            BBEmissionCtx* bb_ectx = find_bb_ctx(fn_emit_ctx, bb->node);
-            targets[i * 2 + 0] = bb_ectx->case_id;
-            targets[i * 2 + 1] = bb_ectx->reserved_id;
-        }
-        SpvId next_bb = spvb_load(loop_body, int_spv, fn_emit_ctx->next_bb_var, 0, NULL);
-        spvb_selection_merge(loop_body, loop_dispatch_merge_id, 0);
-        spvb_switch(loop_body, next_bb, loop_dispatch_merge_id /* todo unreachable ? */, scope.size, targets);
-
-        BBBuilder loop_dispatch_merge_bb = spvb_begin_bb(fn_emit_ctx->fn_builder, loop_dispatch_merge_id);
-        spvb_branch(loop_dispatch_merge_bb, fn_emit_ctx->fn_loop_continue);
-
-        BBBuilder unreachable_bb = spvb_begin_bb(fn_emit_ctx->fn_builder, loop_unreachable_bb);
-        spvb_unreachable(unreachable_bb);
-        spvb_name(emitter->file_builder, loop_unreachable_bb, "dummy unreachable for the function BB loop");
-
-        BBBuilder loop_continue_bb = spvb_begin_bb(fn_emit_ctx->fn_builder, fn_emit_ctx->fn_loop_continue);
-        spvb_branch(loop_continue_bb, loop_header_id);
-    }
-    emit_basic_block(emitter, fn_emit_ctx, scope.entry);
+    emit_basic_block(emitter, fn_builder, scope.entry);
     dispose_scope(&scope);
 
-    spvb_define_function(emitter->file_builder, fn_emit_ctx->fn_builder);
+    spvb_define_function(emitter->file_builder, fn_builder);
 }
 
 SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
@@ -460,7 +337,6 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
         .arena = arena,
         .file_builder = file_builder,
         .node_ids = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
-        .funs = new_dict(Node*, FunctionEmissionCtx, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
     emitter.void_t = spvb_void_type(emitter.file_builder);
@@ -476,22 +352,6 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
         const Node* decl = top_level->declarations.nodes[i];
         ids[i] = spvb_fresh_id(file_builder);
         insert_dict_and_get_result(struct Node*, SpvId, emitter.node_ids, decl, ids[i]);
-
-        // Prepare function emission contexts
-        if (decl->tag == Function_TAG) {
-            // maybe use decl->type instead ?
-            const Node* fn_type = derive_fn_type(arena, &decl->payload.fn);
-
-            FunctionEmissionCtx fn_emit_ctx = {
-                .bbs = new_dict(Node*, BBEmissionCtx, (HashFn) hash_node, (CmpFn) compare_node),
-                .fn_builder = spvb_begin_fn(file_builder, ids[i], emit_type(&emitter, fn_type), nodes_to_codom(&emitter, decl->payload.fn.return_types)),
-                .next_bb_var = -1,
-                .fn_loop_continue = -1,
-                .case_id = global_fn_case_number++
-            };
-
-            insert_dict(const Node*, FunctionEmissionCtx, emitter.funs, decl, fn_emit_ctx);
-        }
     }
 
     if (config->use_loop_for_fn_calls) {
@@ -525,17 +385,8 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
 
     spvb_finish(file_builder, words);
 
-    // cleanup the function contexts
-    for (size_t i = 0; i < top_level->declarations.count; i++) {
-       const Node* decl = top_level->declarations.nodes[i];
-       if (decl->tag != Function_TAG) continue;
-       FunctionEmissionCtx* fn_emit_ctx = find_fn_ctx(&emitter, decl);
-       destroy_dict(fn_emit_ctx->bbs);
-    }
-
     // cleanup the emitter
     destroy_dict(emitter.node_ids);
-    destroy_dict(emitter.funs);
 
     fwrite(words->alloc, words->elements_count, 4, output);
 
