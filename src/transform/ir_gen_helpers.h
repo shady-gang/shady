@@ -3,7 +3,7 @@
 
 #include "shady/ir.h"
 
-typedef struct {
+typedef struct Instructions_ {
     IrArena* arena;
     struct List* list;
 } Instructions;

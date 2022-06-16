@@ -79,9 +79,10 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                         assert(get_qualifier(addr->type) == Uniform);
                     }
 
-                    if (push)
-                        gen_store(instructions, addr, oprim_op->operands.nodes[1]);
-                    else {
+                    if (push) {
+                        const Node* new_value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
+                        gen_store(instructions, addr, new_value);
+                    } else {
                         const Node* popped = gen_primop(instructions, (PrimOp) {
                             .op = load_op,
                             .operands = nodes(dst_arena, 1, (const Node* []) {addr})

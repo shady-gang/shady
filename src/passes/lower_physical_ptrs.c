@@ -137,6 +137,8 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                         goto unchanged;
 
+                    const Type* element_type = ptr_type->payload.ptr_type.pointed_type;
+
                     const Node* base = NULL;
                     switch (ptr_type->payload.ptr_type.address_space) {
                         case AsSubgroupPhysical: base = ctx->physical_subgroup_buffer; break;
@@ -145,16 +147,13 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     }
 
                     const Node* fake_ptr = rewrite_node(&ctx->rewriter, old_ptr);
-                    const Node* logical_ptr = gen_primop(instructions, (PrimOp) {
-                        .op = lea_op,
-                        .operands = nodes(dst_arena, 3, (const Node* []) { base, NULL, fake_ptr})
-                    }).nodes[0];
 
                     if (oprim_op->op == load_op) {
-                        const Node* result = gen_load(instructions, logical_ptr);
+                        const Node* result = gen_deserialisation(instructions, element_type, base, fake_ptr);
                         register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], result);
                     } else {
-                        gen_store(instructions, logical_ptr, rewrite_node(&ctx->rewriter, old_ptr));
+                        const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
+                        gen_serialisation(instructions, element_type, base, fake_ptr, value);
                     }
                     continue;
                 }
