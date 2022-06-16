@@ -372,7 +372,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
     }
 }
 
-static const Node* type_root(Context* ctx, const Node* node) {
+static const Node* infer_root(Context* ctx, const Node* node) {
     if (node == NULL)
         return NULL;
 
@@ -431,7 +431,7 @@ static const Node* type_root(Context* ctx, const Node* node) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-const Node* type_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+const Node* infer_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     Context ctx = {
         .rewriter = {
@@ -443,7 +443,7 @@ const Node* type_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena
         },
     };
 
-    const Node* rewritten = type_root(&ctx, src_program);
+    const Node* rewritten = infer_root(&ctx, src_program);
 
     destroy_dict(done);
     return rewritten;

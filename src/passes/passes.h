@@ -10,7 +10,7 @@ const Node* parse(char* contents, IrArena* arena);
 typedef const Node* (RewritePass)(CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_root);
 
 RewritePass bind_program;
-RewritePass type_program;
+RewritePass infer_program;
 /// Gets rid of structured control flow constructs, and turns them into jumps, branches and callc
 RewritePass lower_cf_instrs;
 /// Turns callc into callf by extracting the return continuations into dedicated functions
