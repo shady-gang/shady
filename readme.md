@@ -1,11 +1,8 @@
 # Shady
 
-`shady` is a small shading language and IR for research purposes.
+`shady` is a small shading language and IR for research purposes. It strives to be a testbed for GPU programming models, and also provide support for emulating features either missing from SPIR-V, or suffering from poor support. 
 
-Unlike conventional shading languages, `shady` internally represent control flow using continuations and has annotations for varying and uniform values.
-The plan is to develop a alternative programming model to structured control flow, focusing instead of keeping control flow uniform and using masks to handle divergence explicitly.
-
-Technical discussion for shady and SPIR-V in general can be had on [this discord server](https://twitter.com/gobrosse/status/1441323225128968197)
+Technical discussion about shady and SPIR-V in general can be had on [this discord server](https://twitter.com/gobrosse/status/1441323225128968197)
 
 ## Design
 
