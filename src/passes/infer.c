@@ -390,7 +390,7 @@ static const Node* type_root(Context* ctx, const Node* node) {
                         const GlobalVariable* old_gvar = &odecl->payload.global_variable;
                         const Type* imported_ty = infer_type(ctx, old_gvar->type);
                         new_decls[i] = global_var(ctx->rewriter.dst_arena, imported_ty, old_gvar->name, old_gvar->address_space);
-                        register_processed(&ctx->rewriter, node, new_decls[i]);
+                        register_processed(&ctx->rewriter, odecl, new_decls[i]);
                         break;
                     }
                     case Function_TAG:
