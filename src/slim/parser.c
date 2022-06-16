@@ -421,12 +421,12 @@ static const Node* accept_terminator(ctxparams) {
                 .values = values
             });
         }
-        case join_tok: {
+        case merge_tok: {
             next_token(tokenizer);
             Nodes values = expect_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
             return merge(arena, (Merge) {
-                .what = Join,
+                .what = Selection,
                 .args = values
             });
         }
@@ -479,7 +479,7 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
     if (!terminator) {
         if (implicit_join)
             terminator = merge(arena, (Merge) {
-                .what = Join,
+                .what = Selection,
                 .args = expect_values(ctx, 0)
             });
         else

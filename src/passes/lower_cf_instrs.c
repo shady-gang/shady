@@ -110,8 +110,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
     switch (old_terminator->tag) {
         case Merge_TAG: {
             switch (old_terminator->payload.merge.what) {
-                case Join: {
-                    assert(old_terminator->payload.merge.what == Join);
+                case Selection: {
                     assert(outer_join);
                     new_terminator = jump(dst_arena, (Jump) {
                         .target = *outer_join,

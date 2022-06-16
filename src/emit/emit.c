@@ -291,7 +291,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         }
         case Merge_TAG: {
             switch (terminator->payload.merge.what) {
-                case Join: {
+                case Selection: {
                     assert(terminator->payload.merge.args.count == 0);
                     spvb_branch(basic_block_builder, merge_targets.join_target);
                     return;

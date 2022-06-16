@@ -350,7 +350,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         case Merge_TAG: {
             const Nodes* expected_types = NULL;
             switch (node->payload.merge.what) {
-                case Join: expected_types = ctx->join_types; break;
+                case Selection: expected_types = ctx->join_types; break;
                 case Continue: expected_types = ctx->continue_types; break;
                 case Break: expected_types = ctx->break_types; break;
                 default: error("we don't know this sort of merge");

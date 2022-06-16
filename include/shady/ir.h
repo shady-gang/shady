@@ -292,15 +292,15 @@ typedef struct Branch_ {
 } Branch;
 
 typedef enum {
-    Join,
+    Selection,
     Continue,
     Break,
-} MergeWhat;
+} MergeConstruct;
 
 extern String merge_what_string[];
 
 typedef struct Merge_ {
-    MergeWhat what;
+    MergeConstruct what;
     Nodes args;
 } Merge;
 

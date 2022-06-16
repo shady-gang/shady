@@ -49,12 +49,13 @@ TEXT_TOKEN(true) \
 TEXT_TOKEN(false) \
 TEXT_TOKEN(if) \
 TEXT_TOKEN(else) \
-TEXT_TOKEN(join) \
+TEXT_TOKEN(merge) \
 TEXT_TOKEN(loop) \
 TEXT_TOKEN(continue) \
 TEXT_TOKEN(break) \
 TEXT_TOKEN(jump) \
 TEXT_TOKEN(branch) \
+TEXT_TOKEN(join) \
 TEXT_TOKEN(call) \
 TEXT_TOKEN(callf) \
 TEXT_TOKEN(callc) \
