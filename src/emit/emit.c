@@ -63,34 +63,68 @@ static void register_result(Emitter* emitter, const Node* variable, SpvId id) {
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variable, id);
 }
 
+enum OperandKind {
+    Signed, Unsigned, Float, Logical
+};
+
+enum ResultKind {
+    Same, Bool
+};
+
+/// this helps picking the appropriate SpvOp for our polymorphic shady ops. also this handles the return type
+static SpvId binop_helper(Emitter* emitter, BBBuilder bb_builder, Nodes operands, enum ResultKind rk, SpvOp specialised_ops[4]) {
+    const Type* result_t;
+    switch (rk) {
+        case Same: result_t = without_qualifier(operands.nodes[0]->type); break;
+        case Bool: result_t = bool_type(emitter->arena); break;
+    }
+
+    SpvId lhs = emit_value(emitter, operands.nodes[0], NULL);
+    SpvId rhs = emit_value(emitter, operands.nodes[1], NULL);
+    enum OperandKind k;
+
+    switch (without_qualifier(operands.nodes[0]->type)->tag) {
+        case Int_TAG: k = Signed; break;
+        case Bool_TAG: k = Logical; break;
+        // TODO float, unsigned
+        default: error("we don't know what to do with this")
+    }
+
+    assert(specialised_ops[k] && "this operation isn't valid for this kind of operand");
+    return spvb_binop(bb_builder, specialised_ops[k], emit_type(emitter, result_t), lhs, rhs);
+}
+
 static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, PrimOp prim_op, Nodes variables) {
     Nodes args = prim_op.operands;
-    LARRAY(SpvId, arr, args.count);
-    for (size_t i = 0; i < args.count; i++)
-        arr[i] = args.nodes[i] ? emit_value(emitter, args.nodes[i], NULL) : 0;
-
-    SpvId i32_t = emit_type(emitter, int_type(emitter->arena));
 
     switch (prim_op.op) {
-        case add_op: register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, SpvOpIAdd, i32_t, arr[0], arr[1])); break;
-        case sub_op: register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, SpvOpISub, i32_t, arr[0], arr[1])); break;
-        case mul_op: register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, SpvOpIMul, i32_t, arr[0], arr[1])); break;
-        case div_op: register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, SpvOpSDiv, i32_t, arr[0], arr[1])); break;
-        case mod_op: register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, SpvOpSMod, i32_t, arr[0], arr[1])); break;
+        case add_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Same, (SpvOp[4]) {SpvOpIAdd, SpvOpIAdd, SpvOpFAdd, 0})); return;
+        case sub_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Same, (SpvOp[4]) {SpvOpISub, SpvOpISub, SpvOpFSub, 0})); return;
+        case mul_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Same, (SpvOp[4]) {SpvOpIMul, SpvOpIMul, SpvOpFMul, 0})); return;
+        case div_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Same, (SpvOp[4]) {SpvOpSDiv, SpvOpUDiv, SpvOpFDiv, 0})); return;
+        case mod_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Same, (SpvOp[4]) {SpvOpSMod, SpvOpUMod, SpvOpFMod, 0})); return;
+
+        case eq_op:  register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpIEqual,            SpvOpIEqual,            SpvOpFOrdNotEqual,         SpvOpLogicalEqual}));    return;
+        case neq_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpINotEqual,         SpvOpINotEqual,         SpvOpFOrdNotEqual,         SpvOpLogicalNotEqual})); return;
+        case lt_op:  register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpSLessThan,         SpvOpULessThan,         SpvOpFOrdLessThan,         0}));                    return;
+        case lte_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpSLessThanEqual,    SpvOpULessThanEqual,    SpvOpFOrdLessThanEqual,    0}));                    return;
+        case gt_op:  register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpSGreaterThan,      SpvOpUGreaterThan,      SpvOpFOrdGreaterThan,      0}));                    return;
+        case gte_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpSGreaterThanEqual, SpvOpUGreaterThanEqual, SpvOpFOrdGreaterThanEqual, 0}));                    return;
+
         case load_op: {
             assert(without_qualifier(args.nodes[0]->type)->tag == PtrType_TAG);
             const Type* elem_type = without_qualifier(args.nodes[0]->type)->payload.ptr_type.pointed_type;
             SpvId eptr = emit_value(emitter, args.nodes[0], NULL);
             SpvId result = spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, 0, NULL);
             register_result(emitter, variables.nodes[0], result);
-            break;
+            return;
         }
         case store_op: {
             assert(without_qualifier(args.nodes[0]->type)->tag == PtrType_TAG);
             SpvId eptr = emit_value(emitter, args.nodes[0], NULL);
             SpvId eval = emit_value(emitter, args.nodes[1], NULL);
             spvb_store(bb_builder, eval, eptr, 0, NULL);
-            break;
+            return;
         }
         case alloca_op: {
             const Type* elem_type = args.nodes[0];
@@ -99,20 +133,35 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 .pointed_type = elem_type
             })), SpvStorageClassFunction);
             register_result(emitter, variables.nodes[0], result);
-            break;
+            return;
         }
         case lea_op: {
-            if (arr[1]) {
+            SpvId base = emit_value(emitter, args.nodes[0], NULL);
+
+            LARRAY(SpvId, indices, args.count - 2);
+            for (size_t i = 2; i < args.count; i++)
+                indices[i - 2] = args.nodes[i] ? emit_value(emitter, args.nodes[i], NULL) : 0;
+
+            if (args.nodes[1]) {
                 error("TODO: OpPtrAccessChain")
             } else {
                 const Type* target_type = typecheck_primop(emitter->arena, prim_op).nodes[0];
-                SpvId result = spvb_access_chain(bb_builder, emit_type(emitter, target_type), arr[0], args.count - 2, &arr[2]);
+                SpvId result = spvb_access_chain(bb_builder, emit_type(emitter, target_type), base, args.count - 2, indices);
                 register_result(emitter, variables.nodes[0], result);
             }
-            break;
+            return;
         }
-        default: error("TODO: unhandled op");
+        case select_op: {
+            SpvId cond = emit_value(emitter, args.nodes[0], NULL);
+            SpvId truv = emit_value(emitter, args.nodes[1], NULL);
+            SpvId flsv = emit_value(emitter, args.nodes[2], NULL);
+
+            SpvId result = spvb_select(bb_builder, emit_type(emitter, variables.nodes[0]->type), cond, truv, flsv);
+            register_result(emitter, variables.nodes[0], result);
+            return;
+        }
     }
+    error("TODO: unhandled op");
 }
 
 static SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
