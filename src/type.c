@@ -377,8 +377,8 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
             assert(is_subtype(without_qualifier(prim_op.operands.nodes[1]->type), without_qualifier(prim_op.operands.nodes[2]->type)));
 
             return singleton(qualified_type(arena, (QualifiedType) {
-                .is_uniform = (get_qualifier(prim_op.operands.nodes[1]->type) == Uniform) & (get_qualifier(prim_op.operands.nodes[1]->type) == Uniform),
-                .type = prim_op.operands.nodes[2]->type
+                .is_uniform = (get_qualifier(prim_op.operands.nodes[1]->type) == Uniform) & (get_qualifier(prim_op.operands.nodes[2]->type) == Uniform),
+                .type = without_qualifier(prim_op.operands.nodes[2]->type)
             }));
         }
         default: error("unhandled primop %s", primop_names[prim_op.op]);
