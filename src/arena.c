@@ -64,7 +64,13 @@ VarId fresh_id(IrArena* arena) {
     return arena->next_free_id++;
 }
 
+inline static size_t round_up(size_t a, size_t b) {
+    size_t divided = (a + b - 1) / b;
+    return divided * b;
+}
+
 void* arena_alloc(IrArena* arena, size_t size) {
+    size = round_up(size, (size_t) sizeof(max_align_t));
     if (size == 0)
         return NULL;
     // arena is full
