@@ -412,6 +412,23 @@ static const Node* accept_terminator(ctxparams) {
                 .args = args
             });
         }
+        case branch_tok: {
+            next_token(tokenizer);
+            const Node* condition = accept_value(ctx);
+            expect(condition);
+            const Node* true_target = accept_value(ctx);
+            expect(true_target);
+            const Node* false_target = accept_value(ctx);
+            expect(false_target);
+            Nodes args = expect_values(ctx, 0);
+            expect(accept_token(ctx, semi_tok));
+            return branch(arena, (Branch) {
+                .condition = condition,
+                .true_target = true_target,
+                .false_target = false_target,
+                .args = args
+            });
+        }
         case return_tok: {
             next_token(tokenizer);
             Nodes values = expect_values(ctx, 0);
