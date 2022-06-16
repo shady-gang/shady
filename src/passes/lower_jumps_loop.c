@@ -51,6 +51,10 @@ static const Node* handle_basic_block(Context* ctx, const Node* next_bb, struct 
             assert(old_block->terminator->payload.jump.args.count == 0);
             CaseId target_id = find_bb_case_id(bbs, old_block->terminator->payload.jump.target);
             gen_store(instructions, next_bb, int_literal(dst_arena, (IntLiteral) {.value = target_id}));
+            terminator = merge(dst_arena, (Merge) {
+                .args = nodes(dst_arena, 0, NULL),
+                .what = Continue,
+            });
             break;
         }
         case Branch_TAG: {
@@ -58,11 +62,16 @@ static const Node* handle_basic_block(Context* ctx, const Node* next_bb, struct 
             assert(old_block->terminator->payload.branch.args.count == 0);
             CaseId true_id = find_bb_case_id(bbs, old_block->terminator->payload.branch.true_target);
             CaseId false_id = find_bb_case_id(bbs, old_block->terminator->payload.branch.false_target);
+            const Node* new_cond = rewrite_node(&ctx->rewriter, old_block->terminator->payload.branch.condition);
             const Node* selected_target = gen_primop(instructions, (PrimOp) {
                 .op = select_op,
-                .operands = nodes(dst_arena, 3, (const Node* []) { old_block->terminator->payload.branch.condition, int_literal(dst_arena, (IntLiteral) {.value = true_id}), int_literal(dst_arena, (IntLiteral) {.value = false_id})})
+                .operands = nodes(dst_arena, 3, (const Node* []) { new_cond, int_literal(dst_arena, (IntLiteral) {.value = true_id}), int_literal(dst_arena, (IntLiteral) {.value = false_id})})
             }).nodes[0];
             gen_store(instructions, next_bb, selected_target);
+            terminator = merge(dst_arena, (Merge) {
+                .args = nodes(dst_arena, 0, NULL),
+                .what = Continue,
+            });
             break;
         }
         case Unreachable_TAG:
