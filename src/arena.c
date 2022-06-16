@@ -195,7 +195,10 @@ KeyHash hash_nodes(Nodes* nodes) {
 }
 
 bool compare_nodes(Nodes* a, Nodes* b) {
-    return a->count == b->count && memcmp(a->nodes, b->nodes, sizeof(Node*) * (a->count)) == 0;
+    if (a->count != b->count) return false;
+    if (a->count == 0 && b->count == 0) return true;
+    assert(a->nodes != NULL && b->nodes != NULL);
+    return memcmp(a->nodes, b->nodes, sizeof(Node*) * (a->count)) == 0; // actually compare the data
 }
 
 KeyHash hash_strings(Strings* strings) {
