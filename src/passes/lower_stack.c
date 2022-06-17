@@ -68,7 +68,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     AddressSpace addr_space = without_qualifier(addr->type)->payload.ptr_type.address_space;
 
                     addr = gen_primop(instructions, (PrimOp) {
-                        .op = cast_ptr_op,
+                        .op = reinterpret_op,
                         .operands = nodes(dst_arena, 2, (const Node* []) { ptr_type(dst_arena, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr })
                     }).nodes[0];
 

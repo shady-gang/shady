@@ -355,15 +355,17 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                 .type = without_qualifier(curr_ptr_type)
             }));
         }
-        case cast_ptr_op: {
+        case reinterpret_op: {
             assert(prim_op.operands.count == 2);
             const Node* source = prim_op.operands.nodes[1];
             DivergenceQualifier qual;
             const Type* source_type = strip_qualifier(source->type, &qual);
             assert(qual != Unknown);
             const Type* target_type = prim_op.operands.nodes[0];
-            assert(source_type->tag == PtrType_TAG);
-            assert(target_type->tag == PtrType_TAG);
+
+            // TODO: have an oracle for what is legal here
+            //assert(source_type->tag == PtrType_TAG);
+            //assert(target_type->tag == PtrType_TAG);
 
             return singleton(qualified_type(arena, (QualifiedType) {
                 .is_uniform = qual == Uniform,

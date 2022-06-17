@@ -119,12 +119,13 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], new);
                     continue;
                 }
-                case cast_ptr_op: {
+                case reinterpret_op: {
                     const Type* ptr_type = oprim_op->operands.nodes[1]->type;
                     ptr_type = without_qualifier(ptr_type);
                     assert(ptr_type->tag == PtrType_TAG);
                     if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                         goto unchanged;
+                    // TODO ensure source is an integer and the bit width is appropriate
                     register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]));
                     continue;
                 }

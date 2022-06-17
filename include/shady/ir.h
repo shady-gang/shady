@@ -217,8 +217,8 @@ PRIMOP(load)               \
 PRIMOP(store)              \
 PRIMOP(lea)                \
 PRIMOP(select)             \
-PRIMOP(cast_ptr)           \
-PRIMOP(cast_prim)          \
+PRIMOP(convert)            \
+PRIMOP(reinterpret)        \
 PRIMOP(push_stack)         \
 PRIMOP(pop_stack)          \
 PRIMOP(push_stack_uniform) \
