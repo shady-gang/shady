@@ -202,14 +202,15 @@ PRIMOP(sub)                \
 PRIMOP(mul)                \
 PRIMOP(div)                \
 PRIMOP(mod)                \
-PRIMOP(gt)                \
+PRIMOP(neg)                \
+PRIMOP(gt)                 \
 PRIMOP(gte)                \
-PRIMOP(lt)                \
+PRIMOP(lt)                 \
 PRIMOP(lte)                \
-PRIMOP(eq)                \
+PRIMOP(eq)                 \
 PRIMOP(neq)                \
 PRIMOP(and)                \
-PRIMOP(or)                \
+PRIMOP(or)                 \
 PRIMOP(xor)                \
 PRIMOP(not)                \
 PRIMOP(alloca)             \
@@ -228,6 +229,7 @@ typedef enum Op_ {
 #define PRIMOP(name) name##_op,
 PRIMOPS()
 #undef PRIMOP
+    PRIMOPS_COUNT
 } Op;
 
 typedef struct PrimOp_ {

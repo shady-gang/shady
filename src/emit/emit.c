@@ -64,53 +64,131 @@ static void register_result(Emitter* emitter, const Node* variable, SpvId id) {
 }
 
 enum OperandKind {
-    Signed, Unsigned, Float, Logical
+    Signed, Unsigned, Float, Logical, Ptr, Other, OperandKindsCount
 };
 
 enum ResultKind {
-    Same, Bool
+    Same, Bool, TyOperand
 };
 
-/// this helps picking the appropriate SpvOp for our polymorphic shady ops. also this handles the return type
-static SpvId binop_helper(Emitter* emitter, BBBuilder bb_builder, Nodes operands, enum ResultKind rk, SpvOp specialised_ops[4]) {
-    const Type* result_t;
-    switch (rk) {
-        case Same: result_t = without_qualifier(operands.nodes[0]->type); break;
-        case Bool: result_t = bool_type(emitter->arena); break;
-    }
+enum OperandKind static classify_operand(const Node* operand) {
+    if (!is_type(operand))
+        operand = operand->type;
 
-    SpvId lhs = emit_value(emitter, operands.nodes[0], NULL);
-    SpvId rhs = emit_value(emitter, operands.nodes[1], NULL);
-    enum OperandKind k;
-
-    switch (without_qualifier(operands.nodes[0]->type)->tag) {
-        case Int_TAG: k = Signed; break;
-        case Bool_TAG: k = Logical; break;
+    switch (without_qualifier(operand)->tag) {
+        case Int_TAG:     return Signed;
+        case Bool_TAG:    return Logical;
+        case PtrType_TAG: return Ptr;
         // TODO float, unsigned
         default: error("we don't know what to do with this")
     }
-
-    assert(specialised_ops[k] && "this operation isn't valid for this kind of operand");
-    return spvb_binop(bb_builder, specialised_ops[k], emit_type(emitter, result_t), lhs, rhs);
 }
+
+/// What is considered when searching for an instruction
+enum ISelMechanism {
+    Custom, FirstOp, FirstAndResult
+};
+
+#define ISEL_IDENT 0 /* no-op, should be lowered to nothing beforehand */
+#define ISEL_BOOLC 0 /* boolean conversions don't exist as a single instruction, a pass should lower them instead */
+#define ISEL_ILLEG 0 /* doesn't make sense to support */
+
+const struct IselTableEntry {
+    enum ISelMechanism i_sel_mechanism;
+    enum ResultKind result_kind;
+    union {
+        // matches first operand
+        SpvOp fo[OperandKindsCount];
+        // matches first operand and return type [first operand][result type]
+        SpvOp foar[OperandKindsCount][OperandKindsCount];
+    };
+} isel_table[] = {
+    [add_op] = { FirstOp, Same, .fo = { SpvOpIAdd, SpvOpIAdd, SpvOpFAdd }},
+    [sub_op] = { FirstOp, Same, .fo = { SpvOpISub, SpvOpISub, SpvOpFSub }},
+    [mul_op] = { FirstOp, Same, .fo = { SpvOpIMul, SpvOpIMul, SpvOpFMul }},
+    [div_op] = { FirstOp, Same, .fo = { SpvOpSDiv, SpvOpUDiv, SpvOpFDiv }},
+    [mod_op] = { FirstOp, Same, .fo = { SpvOpSMod, SpvOpUMod, SpvOpFMod }},
+
+    [neg_op] = { FirstOp, Same, .fo = { SpvOpSNegate, SpvOpSNegate }},
+
+    [eq_op]  = { FirstOp, Bool, .fo = { SpvOpIEqual,            SpvOpIEqual,            SpvOpFOrdNotEqual,         SpvOpLogicalEqual   }},
+    [neq_op] = { FirstOp, Bool, .fo = { SpvOpINotEqual,         SpvOpINotEqual,         SpvOpFOrdNotEqual,         SpvOpLogicalNotEqual}},
+    [lt_op]  = { FirstOp, Bool, .fo = { SpvOpSLessThan,         SpvOpULessThan,         SpvOpFOrdLessThan,         ISEL_ILLEG          }},
+    [lte_op] = { FirstOp, Bool, .fo = { SpvOpSLessThanEqual,    SpvOpULessThanEqual,    SpvOpFOrdLessThanEqual,    ISEL_ILLEG          }},
+    [gt_op]  = { FirstOp, Bool, .fo = { SpvOpSGreaterThan,      SpvOpUGreaterThan,      SpvOpFOrdGreaterThan,      ISEL_ILLEG          }},
+    [gte_op] = { FirstOp, Bool, .fo = { SpvOpSGreaterThanEqual, SpvOpUGreaterThanEqual, SpvOpFOrdGreaterThanEqual, ISEL_ILLEG          }},
+
+    [not_op] = { FirstOp, Same, .fo = { SpvOpNot,        SpvOpNot,        SpvOpLogicalNot }},
+    [and_op] = { FirstOp, Same, .fo = { SpvOpBitwiseAnd, SpvOpBitwiseAnd, SpvOpLogicalAnd }},
+    [or_op]  = { FirstOp, Same, .fo = { SpvOpBitwiseOr,  SpvOpBitwiseOr,  SpvOpLogicalOr }},
+    [xor_op] = { FirstOp, Same, .fo = { SpvOpBitwiseXor, SpvOpBitwiseXor, SpvOpLogicalNotEqual }},
+
+    [convert_op] = { FirstAndResult, TyOperand, .foar = {
+        { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertSToF, ISEL_BOOLC },
+        { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertUToF, ISEL_BOOLC },
+        { SpvOpConvertFToS, SpvOpConvertFToU, SpvOpFConvert,    ISEL_ILLEG },
+        { ISEL_BOOLC,       ISEL_BOOLC,       ISEL_ILLEG,       ISEL_IDENT }
+    }},
+
+    [reinterpret_op] = { FirstAndResult, TyOperand, .foar = {
+        { ISEL_IDENT,         SpvOpBitcast,       SpvOpBitcast, ISEL_ILLEG, SpvOpConvertUToPtr },
+        { SpvOpBitcast,       ISEL_IDENT,         SpvOpBitcast, ISEL_ILLEG, SpvOpConvertUToPtr },
+        { SpvOpBitcast,       SpvOpBitcast,       ISEL_IDENT,   ISEL_ILLEG, ISEL_ILLEG /* no fp-ptr casts */ },
+        { ISEL_ILLEG,         ISEL_ILLEG,         ISEL_ILLEG,   ISEL_IDENT, ISEL_ILLEG /* no bool reinterpret */ },
+        { SpvOpConvertPtrToU, SpvOpConvertPtrToU, ISEL_ILLEG,   ISEL_ILLEG, ISEL_IDENT }
+    }},
+
+    [PRIMOPS_COUNT] = { Custom }
+};
 
 static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, PrimOp prim_op, Nodes variables) {
     Nodes args = prim_op.operands;
 
+    struct IselTableEntry entry = isel_table[prim_op.op];
+    if (entry.i_sel_mechanism != Custom) {
+        LARRAY(SpvId, arr, args.count);
+        for (size_t i = 0; i < args.count; i++) {
+            if (!args.nodes[i])
+                continue;
+            else if (is_type(args.nodes[i]))
+                arr[i] = emit_type(emitter, args.nodes[i]);
+            else
+                arr[i] = emit_value(emitter, args.nodes[i], NULL);
+        }
+
+        SpvOp opcode;
+        if (entry.i_sel_mechanism == FirstOp) {
+            enum OperandKind op_class = classify_operand(args.nodes[0]);
+            opcode = entry.fo[op_class];
+        } else if (entry.i_sel_mechanism == FirstAndResult) {
+            enum OperandKind return_t_class = classify_operand(args.nodes[0]);
+            enum OperandKind op_class = classify_operand(args.nodes[1]);
+            opcode = entry.foar[op_class][return_t_class];
+        }
+
+        if (opcode == 0)
+            goto custom_path;
+
+        const Type* result_t;
+        switch (entry.result_kind) {
+            case Same:      result_t = without_qualifier(args.nodes[0]->type); break;
+            case Bool:      result_t = bool_type(emitter->arena); break;
+            case TyOperand: result_t = args.nodes[0]; break;
+            default: error("unhandled result kind");
+        }
+
+        if (args.count == 1)
+            register_result(emitter, variables.nodes[0], spvb_unop(bb_builder, opcode, emit_type(emitter, result_t), arr[0]));
+        else if (args.count == 2)
+            register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, opcode, emit_type(emitter, result_t), arr[0], arr[1]));
+        else
+            error("unhandled isel for argsc > 2");
+
+        return;
+    }
+
+    custom_path:
     switch (prim_op.op) {
-        case add_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Same, (SpvOp[4]) {SpvOpIAdd, SpvOpIAdd, SpvOpFAdd, 0})); return;
-        case sub_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Same, (SpvOp[4]) {SpvOpISub, SpvOpISub, SpvOpFSub, 0})); return;
-        case mul_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Same, (SpvOp[4]) {SpvOpIMul, SpvOpIMul, SpvOpFMul, 0})); return;
-        case div_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Same, (SpvOp[4]) {SpvOpSDiv, SpvOpUDiv, SpvOpFDiv, 0})); return;
-        case mod_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Same, (SpvOp[4]) {SpvOpSMod, SpvOpUMod, SpvOpFMod, 0})); return;
-
-        case eq_op:  register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpIEqual,            SpvOpIEqual,            SpvOpFOrdNotEqual,         SpvOpLogicalEqual}));    return;
-        case neq_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpINotEqual,         SpvOpINotEqual,         SpvOpFOrdNotEqual,         SpvOpLogicalNotEqual})); return;
-        case lt_op:  register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpSLessThan,         SpvOpULessThan,         SpvOpFOrdLessThan,         0}));                    return;
-        case lte_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpSLessThanEqual,    SpvOpULessThanEqual,    SpvOpFOrdLessThanEqual,    0}));                    return;
-        case gt_op:  register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpSGreaterThan,      SpvOpUGreaterThan,      SpvOpFOrdGreaterThan,      0}));                    return;
-        case gte_op: register_result(emitter, variables.nodes[0], binop_helper(emitter, bb_builder, args, Bool, (SpvOp[4]) {SpvOpSGreaterThanEqual, SpvOpUGreaterThanEqual, SpvOpFOrdGreaterThanEqual, 0}));                    return;
-
         case load_op: {
             assert(without_qualifier(args.nodes[0]->type)->tag == PtrType_TAG);
             const Type* elem_type = without_qualifier(args.nodes[0]->type)->payload.ptr_type.pointed_type;
@@ -160,8 +238,9 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             register_result(emitter, variables.nodes[0], result);
             return;
         }
+        default: error("TODO: unhandled op");
     }
-    error("TODO: unhandled op");
+    SHADY_UNREACHABLE;
 }
 
 static SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {

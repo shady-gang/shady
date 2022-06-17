@@ -259,6 +259,15 @@ SpvId spvb_binop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result
     return id;
 }
 
+SpvId spvb_unop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, SpvId value) {
+    op(op, 4);
+    SpvId id = spvb_fresh_id(bb_builder->file_builder);
+    ref_id(result_type);
+    ref_id(id);
+    ref_id(value);
+    return id;
+}
+
 void spvb_branch(struct SpvBasicBlockBuilder* bb_builder, SpvId target) {
     op(SpvOpBranch, 2);
     ref_id(target);
