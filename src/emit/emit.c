@@ -369,9 +369,16 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     *bb_builder = next;
 }
 
-static void emit_let(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, const Node* let_node) {
-    Nodes variables = let_node->payload.let.variables;
-    const Node* instruction = let_node->payload.let.instruction;
+static void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, const Node* instruction) {
+    assert(is_instruction(instruction));
+    Nodes variables = nodes(emitter->arena, 0, NULL);
+
+    if (instruction->tag == Let_TAG) {
+        variables = instruction->payload.let.variables;
+        instruction = instruction->payload.let.instruction;
+        assert(is_instruction(instruction) && instruction->tag != Let_TAG);
+    }
+
     switch (instruction->tag) {
         case PrimOp_TAG: emit_primop(emitter, fn_builder, *bb_builder, instruction->payload.prim_op, variables);                   break;
         case Call_TAG:     emit_call(emitter, fn_builder, *bb_builder, instruction->payload.call_instr, variables);                break;
@@ -450,7 +457,7 @@ static void emit_block(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_b
     assert(node->tag == Block_TAG);
     const Block* block = &node->payload.block;
     for (size_t i = 0; i < block->instructions.count; i++)
-        emit_let(emitter, fn_builder, &basic_block_builder, &merge_targets, block->instructions.nodes[i]);
+        emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, block->instructions.nodes[i]);
     emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, block->terminator);
 }
 

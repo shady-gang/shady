@@ -1,6 +1,7 @@
 #include "type.h"
 #include "log.h"
 #include "arena.h"
+#include "portability.h"
 
 #include "murmur3.h"
 #include "dict.h"
@@ -42,6 +43,16 @@
 NODES()
 #undef NODEDEF
 
+bool is_instruction(const Node* node) {
+    switch (node->tag) {
+#define NODEDEF(_, _2, _3, name, _4) case name##_TAG:
+        INSTRUCTION_NODES()
+#undef NODEDEF
+            return true;
+        default: return false;
+    }
+}
+
 const Node* var(IrArena* arena, const Type* type, const char* name) {
     Variable variable = {
         .type = type,
@@ -59,6 +70,46 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
     Node* ptr = &node;
     const Node** found = find_key_dict(const Node*, arena->node_set, ptr);
     assert(!found);
+    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
+    *alloc = node;
+    insert_set_get_result(const Node*, arena->node_set, alloc);
+    return alloc;
+}
+
+const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, const char* output_names[]) {
+    assert(outputs_count > 0 && "do not use let if the outputs count isn't zero !");
+    LARRAY(Node*, vars, outputs_count);
+
+    if (arena->config.check_types) {
+        Nodes types = typecheck_instruction(arena, instruction);
+        for (size_t i = 0; i < outputs_count; i++)
+            vars[i] = (Node*) var(arena, types.nodes[i], output_names ? output_names[i] : node_tags[instruction->tag]);
+    } else {
+        for (size_t i = 0; i < outputs_count; i++)
+            vars[i] = (Node*) var(arena, NULL, output_names ? output_names[i] : node_tags[instruction->tag]);
+    }
+
+    for (size_t i = 0; i < outputs_count; i++) {
+        vars[i]->payload.var.instruction = instruction;
+        vars[i]->payload.var.output = i;
+    }
+
+    Let payload = {
+        .instruction = instruction,
+        .variables = nodes(arena, outputs_count, (const Node**) vars)
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+      .type = arena->config.check_types ? check_type_let(arena, payload) : NULL,
+      .tag = Let_TAG,
+      .payload.let = payload
+    };
+    Node* ptr = &node;
+    const Node** found = find_key_dict(const Node*, arena->node_set, ptr);
+    if (found)
+        return *found; // TODO: check this doesn't cause issues with identical instructions being part of different BBs...
     Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
     *alloc = node;
     insert_set_get_result(const Node*, arena->node_set, alloc);

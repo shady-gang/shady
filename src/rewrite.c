@@ -135,17 +135,19 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             const Nodes output_types = typecheck_instruction(rewriter->dst_arena, ninstruction);
             Nodes oldvars = node->payload.let.variables;
             assert(output_types.count == oldvars.count);
-            LARRAY(const Node*, nvars, oldvars.count);
+
+            // TODO: pull into a helper fn
+            LARRAY(const char*, old_names, oldvars.count);
             for (size_t i = 0; i < oldvars.count; i++) {
-                nvars[i] = var(rewriter->dst_arena, output_types.nodes[i], oldvars.nodes[i]->payload.var.name);
-                register_processed(rewriter, oldvars.nodes[i], nvars[i]);
+                assert(oldvars.nodes[i]->tag == Variable_TAG);
+                old_names[i] = oldvars.nodes[i]->payload.var.name;
             }
 
-            const Node* nlet = let(rewriter->dst_arena, (Let) {
-                .variables = nodes(rewriter->dst_arena, oldvars.count, nvars),
-                .instruction = ninstruction
-            });
-            return nlet;
+            const Node* rewritten = let(rewriter->dst_arena, ninstruction, output_types.count, old_names);
+            for (size_t i = 0; i < oldvars.count; i++)
+                register_processed(rewriter, oldvars.nodes[i], rewritten->payload.let.variables.nodes[i]);
+
+            return rewritten;
         }
         case PrimOp_TAG:        return prim_op(rewriter->dst_arena, (PrimOp) {
             .op = node->payload.prim_op.op,

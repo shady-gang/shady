@@ -50,33 +50,30 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
     // Save what we'll need later
     for (size_t i = 0; i < recover_context_size; i++) {
         const Variable* var = &read_list(const Node*, recover_context)[i]->payload.var;
+        // TODO: shouldn't we recreate everything (ie the type too) here ?
+        // We should at least be consistent
         const Node* args[] = {without_qualifier(var->type), read_list(const Node*, recover_context)[i] };
-        const Node* save_instr = let(dst_arena, (Let) {
-            .variables = nodes(dst_arena, 0, NULL),
-            .instruction = prim_op(dst_arena, (PrimOp) {
-                .op = push_stack_op,
-                .operands = nodes(dst_arena, 2, args)
-            })
+        const Node* save_instruction = prim_op(dst_arena, (PrimOp) {
+            .op = push_stack_op,
+            .operands = nodes(dst_arena, 2, args)
         });
-        *callsite_instructions = append_nodes(dst_arena, *callsite_instructions, save_instr);
+        *callsite_instructions = append_nodes(dst_arena, *callsite_instructions, save_instruction);
     }
 
     // Recover that stuff inside the new block
     Nodes new_block_instructions = nodes(dst_arena, 0, NULL);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
-        const Node* nvar = recreate_variable(&new_ctx.rewriter, ovar);
-        register_processed(&new_ctx.rewriter, ovar, nvar);
-        const Node* vars[] = {nvar };
-        const Node* args[] = {without_qualifier(nvar->payload.var.type) };
-        const Node* load_instr = let(dst_arena, (Let) {
-            .variables = nodes(dst_arena, 1, vars),
-            .instruction = prim_op(dst_arena, (PrimOp) {
-                .op = pop_stack_op,
-                .operands = nodes(dst_arena, 1, args)
-            })
-        });
-        new_block_instructions = append_nodes(dst_arena, new_block_instructions, load_instr);
+        const char* output_names[] = {ovar->payload.var.name };
+
+        const Type* type = rewrite_node(&ctx->rewriter, without_qualifier(ovar->payload.var.type));
+
+        const Node* let_load = let(dst_arena, prim_op(dst_arena, (PrimOp) {
+            .op = pop_stack_op,
+            .operands = nodes(dst_arena, 1, (const Node* []) {type})
+        }), 1, output_names);
+        register_processed(&new_ctx.rewriter, ovar, let_load->payload.let.variables.nodes[0]);
+        new_block_instructions = append_nodes(dst_arena, new_block_instructions, let_load);
     }
 
     // Write out the rest of the new block using this fresh context

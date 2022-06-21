@@ -22,7 +22,7 @@ Nodes finish_instructions(Instructions i) {
 }
 
 void append_instr(Instructions i, const Node* l) {
-    assert(l->tag == Let_TAG);
+    assert(is_instruction(l));
     append_list(const Node*, i.list, l);
 }
 
@@ -31,20 +31,26 @@ void copy_instructions(Instructions in, Nodes l) {
         append_instr(in, l.nodes[i]);
 }
 
-const Node* wrap_in_let(IrArena* arena, const Node* node) {
-    return let(arena, (Let) {
-        .instruction = node,
-        .variables = nodes(arena, 0, NULL),
-    });
+Nodes gen_primop(Instructions instructions, PrimOp prim_op_) {
+    Nodes output_types = typecheck_primop(instructions.arena, prim_op_);
+
+    LARRAY(const char*, names, output_types.count);
+    for (size_t i = 0; i < output_types.count; i++)
+        names[i] = format_string(instructions.arena, "%s_out", primop_names[prim_op_.op]);
+
+    const Node* instruction = prim_op(instructions.arena, prim_op_);
+
+    if (output_types.count > 0)
+        instruction = let(instructions.arena,  instruction, output_types.count, names);
+    append_instr(instructions, instruction);
+
+    return output_types.count > 0 ? instruction->payload.let.variables : nodes(instructions.arena, 0, NULL);
 }
 
 void gen_push_value_stack(Instructions instructions, const Node* value) {
-    append_instr(instructions, let(instructions.arena, (Let) {
-        .variables = nodes(instructions.arena, 0, NULL),
-        .instruction = prim_op(instructions.arena, (PrimOp) {
-            .op = push_stack_op,
-            .operands = nodes(instructions.arena, 2, (const Node*[]) { without_qualifier(value->type), value })
-        })
+    append_instr(instructions, prim_op(instructions.arena, (PrimOp) {
+        .op = push_stack_op,
+        .operands = nodes(instructions.arena, 2, (const Node*[]) { without_qualifier(value->type), value })
     }));
 }
 
@@ -58,12 +64,9 @@ void gen_push_values_stack(Instructions instructions, Nodes values) {
 void gen_push_fn_stack(Instructions instructions, const Node* fn_ptr) {
     const Type* ret_param_type = int_type(instructions.arena);
 
-    append_instr(instructions, let(instructions.arena, (Let) {
-        .variables = nodes(instructions.arena, 0, NULL),
-        .instruction = prim_op(instructions.arena, (PrimOp) {
-            .op = push_stack_uniform_op,
-            .operands = nodes(instructions.arena, 2, (const Node*[]) { ret_param_type, fn_ptr })
-        })
+    append_instr(instructions,  prim_op(instructions.arena, (PrimOp) {
+        .op = push_stack_uniform_op,
+        .operands = nodes(instructions.arena, 2, (const Node*[]) { ret_param_type, fn_ptr })
     }));
 }
 
@@ -71,28 +74,24 @@ const Node* gen_pop_fn_stack(Instructions instructions, String var_name) {
     const Type* ret_param_type = int_type(instructions.arena);
     const Type* q_ret_param_type = qualified_type(instructions.arena, (QualifiedType) {.type = ret_param_type, .is_uniform = true});
 
-    const Node* ret_tmp_vars[] = { var(instructions.arena, q_ret_param_type, var_name)};
-    append_instr(instructions, let(instructions.arena, (Let) {
-        .variables = nodes(instructions.arena, 1, ret_tmp_vars),
-        .instruction = prim_op(instructions.arena, (PrimOp) {
+    const char* names[] = { var_name };
+    const Node* let_i = let(instructions.arena, prim_op(instructions.arena, (PrimOp) {
             .op = pop_stack_uniform_op,
             .operands = nodes(instructions.arena, 1, (const Node*[]) { ret_param_type })
-        })
-    }));
-    return ret_tmp_vars[0];
+    }), 1, names);
+    append_instr(instructions, let_i);
+    return let_i->payload.let.variables.nodes[0];
 }
 
 const Node* gen_pop_value_stack(Instructions instructions, String var_name, const Type* type) {
     const Type* q_type = qualified_type(instructions.arena, (QualifiedType) {.type = type, .is_uniform = false});
-    const Node* ret_tmp_vars[] = { var(instructions.arena, q_type, var_name)};
-    append_instr(instructions, let(instructions.arena, (Let) {
-        .variables = nodes(instructions.arena, 1, ret_tmp_vars),
-        .instruction = prim_op(instructions.arena, (PrimOp) {
+    const char* names[] = { var_name };
+    const Node* let_i = let(instructions.arena, prim_op(instructions.arena, (PrimOp) {
             .op = pop_stack_uniform_op,
             .operands = nodes(instructions.arena, 1, (const Node*[]) { type })
-        })
-    }));
-    return ret_tmp_vars[0];
+    }), 1, names);
+    append_instr(instructions, let_i);
+    return let_i->payload.let.variables.nodes[0];
 }
 
 Nodes gen_pop_values_stack(Instructions instructions, String var_name, const Nodes types) {
@@ -101,21 +100,6 @@ Nodes gen_pop_values_stack(Instructions instructions, String var_name, const Nod
         tmp[i] = gen_pop_value_stack(instructions, format_string(instructions.arena, "%s_%d", var_name, (int) i), types.nodes[i]);
     }
     return nodes(instructions.arena, types.count, tmp);
-}
-
-Nodes gen_primop(Instructions instructions, PrimOp prim_op_) {
-    Nodes output_types = typecheck_primop(instructions.arena, prim_op_);
-
-    LARRAY(const Node*, outputs, output_types.count);
-    for (size_t i = 0; i < output_types.count; i++)
-        outputs[i] = var(instructions.arena, output_types.nodes[i], format_string(instructions.arena, "%s_out", primop_names[prim_op_.op]));
-
-    append_instr(instructions, let(instructions.arena, (Let) {
-        .variables = nodes(instructions.arena, output_types.count, outputs),
-        .instruction = prim_op(instructions.arena, prim_op_)
-    }));
-
-    return nodes(instructions.arena, output_types.count, outputs);
 }
 
 const Node* gen_load(Instructions instructions, const Node* ptr) {

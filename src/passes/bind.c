@@ -153,11 +153,16 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             const Node* bound_instr = bind_node(ctx, node->payload.let.instruction);
 
             size_t outputs_count = node->payload.let.variables.count;
-            LARRAY(const Node*, noutputs, outputs_count);
-            for (size_t p = 0; p < outputs_count; p++) {
-                const Variable* old_var = &node->payload.let.variables.nodes[p]->payload.var;
-                const Node* new_binding = var(dst_arena, rewrite_node(rewriter, old_var->type),  old_var->name);
-                noutputs[p] = new_binding;
+
+            LARRAY(const char*, names, outputs_count);
+            for (size_t i = 0; i < outputs_count; i++)
+                names[i] = node->payload.let.variables.nodes[i]->payload.var.name;
+
+            const Node* let_i = let(ctx->rewriter.dst_arena, bound_instr, outputs_count, names);
+
+            for (size_t i = 0; i < outputs_count; i++) {
+                const Variable* old_var = &node->payload.let.variables.nodes[i]->payload.var;
+                const Node* new_binding = let_i->payload.let.variables.nodes[i];
                 NamedBindEntry* entry = arena_alloc(ctx->rewriter.src_arena, sizeof(NamedBindEntry));
                 *entry = (NamedBindEntry) {
                     .name = string(dst_arena, old_var->name),
@@ -169,10 +174,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 printf("Bound primop result %s\n", entry->name);
             }
 
-            return let(rewriter->dst_arena, (Let) {
-                .variables = nodes(dst_arena, outputs_count, noutputs),
-                .instruction = bound_instr,
-            });
+            return let_i;
         }
         case Loop_TAG: {
             Context loop_body_ctx = *ctx;

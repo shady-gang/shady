@@ -57,6 +57,7 @@ NODEDEF(1, 0, 1, Call, call_instr)  \
 NODEDEF(1, 0, 1, If, if_instr) \
 NODEDEF(1, 0, 1, Match, match_instr) \
 NODEDEF(1, 0, 1, Loop, loop_instr) \
+NODEDEF(0, 1, 1, Let, let)  \
 
 #define TERMINATOR_NODES() \
 NODEDEF(1, 1, 1, Return, fn_ret) \
@@ -82,7 +83,6 @@ NODEDEF(1, 0, 1, ArrType, arr_type) \
 INSTRUCTION_NODES() \
 TERMINATOR_NODES() \
 TYPE_NODES() \
-NODEDEF(1, 1, 1, Let, let)  \
 NODEDEF(0, 1, 1, Variable, var) \
 NODEDEF(1, 0, 1, Unbound, unbound) \
 NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
@@ -190,6 +190,8 @@ typedef struct Root_ {
 } Root;
 
 //////////////////////////////// Instructions ////////////////////////////////
+
+bool is_instruction(const Node*);
 
 typedef struct Let_ {
     Nodes variables;
@@ -388,6 +390,9 @@ struct Node_ {
 NODES()
 #undef NODEDEF
 const Node* var(IrArena* arena, const Type* type, const char* name);
+/// Wraps an instruction and binds the outputs to variables we can use
+/// Should not be used if the instruction have no outputs !
+const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, const char* output_names[]);
 
 Node* fn(IrArena* arena, FnAttributes, const char* name, Nodes params, Nodes return_types);
 Node* constant(IrArena* arena, const char* name);

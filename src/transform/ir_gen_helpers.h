@@ -13,8 +13,6 @@ void copy_instructions(Instructions, Nodes);
 void append_instr(Instructions, const Node*);
 Nodes finish_instructions(Instructions);
 
-const Node* wrap_in_let(IrArena*, const Node*);
-
 void gen_push_value_stack(Instructions instructions, const Node* value);
 void gen_push_values_stack(Instructions instructions, Nodes values);
 void gen_push_fn_stack(Instructions instructions, const Node* fn_ptr);

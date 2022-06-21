@@ -35,8 +35,13 @@ static const Node* handle_block(Context* ctx, const Node* node) {
     Nodes oinstructions = node->payload.block.instructions;
 
     for (size_t i = 0; i < oinstructions.count; i++) {
-        const Node* olet = oinstructions.nodes[i];
-        const Node* oinstruction = olet->payload.let.instruction;
+        const Node* oinstruction = oinstructions.nodes[i];
+        const Node* olet = NULL;
+        if (oinstruction->tag == Let_TAG) {
+            olet = oinstruction;
+            oinstruction = olet->payload.let.instruction;
+        }
+
         if (oinstruction->tag == PrimOp_TAG) {
             const PrimOp* oprim_op = &oinstruction->payload.prim_op;
             switch (oprim_op->op) {
@@ -106,7 +111,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
         }
 
         unchanged:
-        append_instr(instructions, recreate_node_identity(&ctx->rewriter, olet));
+        append_instr(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
     }
 
     return block(ctx->rewriter.dst_arena, (Block) {

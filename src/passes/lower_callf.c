@@ -75,10 +75,10 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
                 gen_push_fn_stack(instructions, callee_to_ptr(ctx, fun));
 
-                append_instr(instructions, wrap_in_let(dst_arena, call_instr(dst_arena, (Call) {
+                append_instr(instructions, call_instr(dst_arena, (Call) {
                     .callee = ctx->god_fn,
                     .args = nodes(dst_arena, 0, NULL)
-                })));
+                }));
 
                 new_entry_pt->payload.fn.block = block(dst_arena, (Block) {
                     .instructions = finish_instructions(instructions),
@@ -178,10 +178,10 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispat
                 fn_args[j] = gen_pop_value_stack(case_instructions, format_string(dst_arena, "arg_%d", (int) j), without_qualifier(fn_type->param_types.nodes[j]));
             }
 
-            append_instr(case_instructions, wrap_in_let(dst_arena, call_instr(dst_arena, (Call) {
+            append_instr(case_instructions, call_instr(dst_arena, (Call) {
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, fn_type->param_types.count, fn_args)
-            })));
+            }));
 
             const Node* fn_case = block(dst_arena, (Block) {
                 .instructions = finish_instructions(case_instructions),
@@ -196,7 +196,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispat
         }
     }
 
-    append_instr(loop_body_instructions, wrap_in_let(dst_arena, match_instr(dst_arena, (Match) {
+    append_instr(loop_body_instructions, match_instr(dst_arena, (Match) {
         .yield_types = nodes(dst_arena, 0, NULL),
         .inspect = next_function,
         .literals = nodes(dst_arena, entries_count_list(literals), read_list(const Node*, literals)),
@@ -205,7 +205,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispat
             .instructions = nodes(dst_arena, 0, NULL),
             .terminator = unreachable(dst_arena)
         })
-    })));
+    }));
 
     destroy_list(literals);
     destroy_list(cases);
@@ -215,15 +215,15 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispat
         .terminator = unreachable(dst_arena)
     });
 
-    Nodes disptcher_body_instructions = nodes(dst_arena, 1, (const Node* []) { wrap_in_let(dst_arena, loop_instr(dst_arena, (Loop) {
+    Nodes dispatcher_body_instructions = nodes(dst_arena, 1, (const Node* []) { loop_instr(dst_arena, (Loop) {
         .yield_types = nodes(dst_arena, 0, NULL),
         .params = nodes(dst_arena, 0, NULL),
         .initial_args = nodes(dst_arena, 0, NULL),
         .body = loop_body
-    })) });
+    }) });
 
     dispatcher_fn->payload.fn.block = block(dst_arena, (Block) {
-        .instructions = disptcher_body_instructions,
+        .instructions = dispatcher_body_instructions,
         .terminator = fn_ret(dst_arena, (Return) {
             .values = nodes(dst_arena, 0, NULL),
             .fn = NULL,

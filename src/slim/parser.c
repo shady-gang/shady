@@ -371,31 +371,25 @@ static const Node* accept_instruction(ctxparams) {
     return instr;
 }
 
-static const Node* accept_let(ctxparams) {
-    Nodes output_variables = nodes(arena, 0, NULL);
+static const Node* accept_instruction_maybe_with_let_too(ctxparams) {
+    Strings ids = strings(arena, 0, NULL);
     if (accept_token(ctx, let_tok)) {
-        Strings ids = expect_identifiers(ctx);
-        size_t bindings_count = ids.count;
-        assert(bindings_count > 0);
-        LARRAY(const Node*, bindings, bindings_count);
-        for (size_t i = 0; i < bindings_count; i++)
-            bindings[i] = var(arena, NULL, ids.strings[i]);
+        ids = expect_identifiers(ctx);
         expect(accept_token(ctx, equal_tok));
-        output_variables = nodes(arena, bindings_count, bindings);
     }
 
     const Node* instruction = accept_instruction(ctx);
 
-    if (output_variables.count > 0)
+    if (ids.count > 0)
         expect(instruction);
 
     if (instruction == NULL)
         return NULL;
 
-    return let(arena, (Let) {
-        .variables = output_variables,
-        .instruction = instruction
-    });
+    if (ids.count == 0)
+        return instruction;
+
+    return let(arena, instruction, ids.count, ids.strings);
 }
 
 static const Node* accept_terminator(ctxparams) {
@@ -483,7 +477,7 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
     Nodes continuations_names = nodes(arena, 0, NULL);
 
     while (true) {
-        const Node* instruction = accept_let(ctx);
+        const Node* instruction = accept_instruction_maybe_with_let_too(ctx);
         if (!instruction) break;
         append_list(Node*, instructions, instruction);
     }

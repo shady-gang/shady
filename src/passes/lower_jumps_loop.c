@@ -141,7 +141,7 @@ static void handle_function(Context* ctx, const Node* node, Node* new) {
         .cases = nodes(dst_arena, scope.size, cases),
     });
 
-    append_instr(loop_instructions, wrap_in_let(dst_arena, match_i));
+    append_instr(loop_instructions, match_i);
 
     const Node* loop_body = block(dst_arena, (Block) {
         .instructions = finish_instructions(loop_instructions),
@@ -155,7 +155,7 @@ static void handle_function(Context* ctx, const Node* node, Node* new) {
         .body = loop_body
     });
 
-    append_instr(body_instructions, wrap_in_let(dst_arena, the_loop));
+    append_instr(body_instructions, the_loop);
 
     new->payload.fn.block = block(dst_arena, (Block) {
         .instructions = finish_instructions(body_instructions),

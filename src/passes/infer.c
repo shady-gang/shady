@@ -36,6 +36,7 @@ static Nodes infer_types(Context* ctx, Nodes types) {
     return nodes(ctx->rewriter.dst_arena, types.count, new);
 }
 
+static const Node* infer_instruction(Context* ctx, const Node* node);
 static const Node* infer_let(Context* ctx, const Node* node);
 static const Node* infer_terminator(Context* ctx, const Node* node);
 static const Node* infer_value(Context* ctx, const Node* node, const Node* expected_type);
@@ -46,7 +47,7 @@ static const Node* infer_block(Context* ctx, const Node* node) {
     LARRAY(const Node*, ninstructions, node->payload.block.instructions.count);
 
     for (size_t i = 0; i < node->payload.block.instructions.count; i++)
-        ninstructions[i] = infer_let(ctx, node->payload.block.instructions.nodes[i]);
+        ninstructions[i] = infer_instruction(ctx, node->payload.block.instructions.nodes[i]);
 
     Nodes typed_instructions = nodes(ctx->rewriter.dst_arena, node->payload.block.instructions.count, ninstructions);
     const Node* typed_term = infer_terminator(ctx, node->payload.block.terminator);
@@ -280,6 +281,7 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
 
 static const Node* infer_instruction(Context* ctx, const Node* node) {
     switch (node->tag) {
+        case Let_TAG:    return infer_let(ctx, node);
         case PrimOp_TAG: return infer_primop(ctx, node);
         case Call_TAG:   return infer_call(ctx, node);
         case If_TAG:     return infer_if(ctx, node);
@@ -291,26 +293,27 @@ static const Node* infer_instruction(Context* ctx, const Node* node) {
 
 static const Node* infer_let(Context* ctx, const Node* node) {
     assert(node->tag == Let_TAG);
-    const size_t count = node->payload.let.variables.count;
+    const size_t outputs_count = node->payload.let.variables.count;
 
     const Node* new_instruction = infer_instruction(ctx, node->payload.let.instruction);
     Nodes output_types = typecheck_instruction(ctx->rewriter.dst_arena, new_instruction);
 
-    assert(output_types.count == count);
-    
+    assert(output_types.count == outputs_count);
+
+    LARRAY(const char*, names, outputs_count);
+    for (size_t i = 0; i < outputs_count; i++)
+        names[i] = node->payload.let.variables.nodes[i]->payload.var.name;
+
+    const Node* let_i = let(ctx->rewriter.dst_arena, new_instruction, outputs_count, names);
+
     // extract the outputs
-    LARRAY(const Node*, noutputs, count);
-    for (size_t i = 0; i < count; i++) {
+    for (size_t i = 0; i < outputs_count; i++) {
         const Node* old_output = node->payload.let.variables.nodes[i];
         const Variable* old_output_var = &old_output->payload.var;
-        noutputs[i] = var(ctx->rewriter.dst_arena, output_types.nodes[i], old_output_var->name);
-        register_processed(&ctx->rewriter, old_output, noutputs[i]);
+        register_processed(&ctx->rewriter, old_output, let_i->payload.let.variables.nodes[i]);
     }
 
-    return let(ctx->rewriter.dst_arena, (Let) {
-        .variables = nodes(ctx->rewriter.dst_arena, count, noutputs),
-        .instruction = new_instruction
-    });
+    return let_i;
 }
 
 static const Node* infer_terminator(Context* ctx, const Node* node) {
