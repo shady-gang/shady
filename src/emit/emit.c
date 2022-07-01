@@ -424,20 +424,20 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_target), find_reserved_id(emitter, terminator->payload.branch.false_target));
             return;
         }
-        case Merge_TAG: {
-            switch (terminator->payload.merge.what) {
+        case MergeConstruct_TAG: {
+            switch (terminator->payload.merge_construct.construct) {
                 case Selection: {
-                    assert(terminator->payload.merge.args.count == 0);
+                    assert(terminator->payload.merge_construct.args.count == 0);
                     spvb_branch(basic_block_builder, merge_targets.join_target);
                     return;
                 }
                 case Continue: {
-                    assert(terminator->payload.merge.args.count == 0);
+                    assert(terminator->payload.merge_construct.args.count == 0);
                     spvb_branch(basic_block_builder, merge_targets.continue_target);
                     return;
                 }
                 case Break: {
-                    assert(terminator->payload.merge.args.count == 0);
+                    assert(terminator->payload.merge_construct.args.count == 0);
                     spvb_branch(basic_block_builder, merge_targets.break_target);
                     return;
                 }

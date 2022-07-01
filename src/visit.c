@@ -113,8 +113,8 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.branch.args);
             break;
         }
-        case Merge_TAG: {
-            visit_nodes(visitor, node->payload.merge.args);
+        case MergeConstruct_TAG: {
+            visit_nodes(visitor, node->payload.merge_construct.args);
             break;
         }
         case Callf_TAG: {

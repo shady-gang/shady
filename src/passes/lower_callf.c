@@ -157,9 +157,9 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispat
     const Node* zero_lit = int_literal(dst_arena, (IntLiteral) {.value = 0});
     const Node* zero_case = block(dst_arena, (Block) {
         .instructions = nodes(dst_arena, 0, NULL),
-        .terminator = merge(dst_arena, (Merge) {
+        .terminator = merge_construct(dst_arena, (MergeConstruct) {
             .args = nodes(dst_arena, 0, NULL),
-            .what = Break
+            .construct = Break
         })
     });
 
@@ -185,9 +185,9 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispat
 
             const Node* fn_case = block(dst_arena, (Block) {
                 .instructions = finish_instructions(case_instructions),
-                .terminator = merge(dst_arena, (Merge) {
+                .terminator = merge_construct(dst_arena, (MergeConstruct) {
                     .args = nodes(dst_arena, 0, NULL),
-                    .what = Continue
+                    .construct = Continue
                 })
             });
 

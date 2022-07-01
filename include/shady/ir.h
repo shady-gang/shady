@@ -60,12 +60,12 @@ NODEDEF(1, 0, 1, Loop, loop_instr) \
 NODEDEF(0, 1, 1, Let, let)  \
 
 #define TERMINATOR_NODES() \
-NODEDEF(1, 1, 1, Return, fn_ret) \
 NODEDEF(1, 1, 1, Jump, jump) \
 NODEDEF(1, 1, 1, Branch, branch) \
 NODEDEF(1, 1, 1, Callc, callc) \
 NODEDEF(1, 1, 1, Callf, callf) \
-NODEDEF(1, 0, 1, Merge, merge) \
+NODEDEF(1, 1, 1, Return, fn_ret) \
+NODEDEF(1, 0, 1, MergeConstruct, merge_construct) \
 NODEDEF(1, 0, 0, Unreachable, unreachable) \
 
 #define TYPE_NODES() \
@@ -258,7 +258,7 @@ typedef struct If_ {
     const Node* if_false;
 } If;
 
-// Structured "match" construct
+/// Structured "match" construct
 typedef struct Match_ {
     Nodes yield_types;
     const Node* inspect;
@@ -267,7 +267,7 @@ typedef struct Match_ {
     const Node* default_case;
 } Match;
 
-// Structured "loop" construct
+/// Structured "loop" construct
 typedef struct Loop_ {
     Nodes yield_types;
     Nodes params;
@@ -295,30 +295,30 @@ typedef struct Branch_ {
     Nodes args;
 } Branch;
 
-typedef enum {
-    Selection,
-    Continue,
-    Break,
-} MergeConstruct;
-
-extern String merge_what_string[];
-
-typedef struct Merge_ {
-    MergeConstruct what;
+/// Calls to a function, and mentions the basic block/continuation where execution should resume.
+/// NOTE: Since most targets do not allow entering a function from multiple entry points, it is necessary to split functions containing callc.
+/// See lower_callc.c
+typedef struct Callc_ {
+    const Node* ret_cont;
+    const Node* callee;
     Nodes args;
-} Merge;
+} Callc;
 
+/// Calls a function, and places an entry on the stack for knowing where to return to
 typedef struct Callf_ {
     const Node* ret_fn;
     const Node* callee;
     Nodes args;
 } Callf;
 
-typedef struct Callc_ {
-    const Node* ret_cont;
-    const Node* callee;
+extern String merge_what_string[];
+
+/// These terminators are used in conjunction with structured constructs, they go at the end of structured blocks
+/// Using those terminators outside of an appropriate structured construct is undefined behaviour, and should probably be validated against
+typedef struct MergeConstruct_ {
+    enum { Selection, Continue, Break } construct;
     Nodes args;
-} Callc;
+} MergeConstruct;
 
 //////////////////////////////// Types ////////////////////////////////
 

@@ -436,8 +436,8 @@ static const Node* accept_terminator(ctxparams) {
             next_token(tokenizer);
             Nodes values = expect_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
-            return merge(arena, (Merge) {
-                .what = Selection,
+            return merge_construct(arena, (MergeConstruct) {
+                .construct = Selection,
                 .args = values
             });
         }
@@ -445,8 +445,8 @@ static const Node* accept_terminator(ctxparams) {
             next_token(tokenizer);
             Nodes values = expect_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
-            return merge(arena, (Merge) {
-                .what = Continue,
+            return merge_construct(arena, (MergeConstruct) {
+                .construct = Continue,
                 .args = values
             });
         }
@@ -454,8 +454,8 @@ static const Node* accept_terminator(ctxparams) {
             next_token(tokenizer);
             Nodes values = expect_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
-            return merge(arena, (Merge) {
-                .what = Break,
+            return merge_construct(arena, (MergeConstruct) {
+                .construct = Break,
                 .args = values
             });
         }
@@ -489,8 +489,8 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
 
     if (!terminator) {
         if (implicit_join)
-            terminator = merge(arena, (Merge) {
-                .what = Selection,
+            terminator = merge_construct(arena, (MergeConstruct) {
+                .construct = Selection,
                 .args = expect_values(ctx, 0)
             });
         else

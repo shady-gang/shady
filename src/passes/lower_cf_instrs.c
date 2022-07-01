@@ -108,13 +108,13 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
     const Node* old_terminator = old_block->terminator;
     const Node* new_terminator = NULL;
     switch (old_terminator->tag) {
-        case Merge_TAG: {
-            switch (old_terminator->payload.merge.what) {
+        case MergeConstruct_TAG: {
+            switch (old_terminator->payload.merge_construct.construct) {
                 case Selection: {
                     assert(outer_join);
                     new_terminator = jump(dst_arena, (Jump) {
                         .target = *outer_join,
-                        .args = nodes(dst_arena, old_terminator->payload.merge.args.count, old_terminator->payload.merge.args.nodes)
+                        .args = nodes(dst_arena, old_terminator->payload.merge_construct.args.count, old_terminator->payload.merge_construct.args.nodes)
                     });
                     break;
                 }

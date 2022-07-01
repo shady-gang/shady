@@ -372,10 +372,10 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
         case Unreachable_TAG:
             printf("unreachable ");
             break;
-        case Merge_TAG:
-            printf("%s ", merge_what_string[node->payload.merge.what]);
-            for (size_t i = 0; i < node->payload.merge.args.count; i++) {
-                print_node(node->payload.merge.args.nodes[i]);
+        case MergeConstruct_TAG:
+            printf("%s ", merge_what_string[node->payload.merge_construct.construct]);
+            for (size_t i = 0; i < node->payload.merge_construct.args.count; i++) {
+                print_node(node->payload.merge_construct.args.nodes[i]);
                 printf(" ");
             }
             break;

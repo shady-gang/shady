@@ -51,9 +51,9 @@ static const Node* handle_basic_block(Context* ctx, const Node* next_bb, struct 
             assert(old_block->terminator->payload.jump.args.count == 0);
             CaseId target_id = find_bb_case_id(bbs, old_block->terminator->payload.jump.target);
             gen_store(instructions, next_bb, int_literal(dst_arena, (IntLiteral) {.value = target_id}));
-            terminator = merge(dst_arena, (Merge) {
+            terminator = merge_construct(dst_arena, (MergeConstruct) {
                 .args = nodes(dst_arena, 0, NULL),
-                .what = Continue,
+                .construct = Continue,
             });
             break;
         }
@@ -68,9 +68,9 @@ static const Node* handle_basic_block(Context* ctx, const Node* next_bb, struct 
                 .operands = nodes(dst_arena, 3, (const Node* []) { new_cond, int_literal(dst_arena, (IntLiteral) {.value = true_id}), int_literal(dst_arena, (IntLiteral) {.value = false_id})})
             }).nodes[0];
             gen_store(instructions, next_bb, selected_target);
-            terminator = merge(dst_arena, (Merge) {
+            terminator = merge_construct(dst_arena, (MergeConstruct) {
                 .args = nodes(dst_arena, 0, NULL),
-                .what = Continue,
+                .construct = Continue,
             });
             break;
         }

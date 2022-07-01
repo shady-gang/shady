@@ -381,22 +381,22 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                 .args = new_args
             });
         }
-        case Merge_TAG: {
+        case MergeConstruct_TAG: {
             const Nodes* expected_types = NULL;
-            switch (node->payload.merge.what) {
+            switch (node->payload.merge_construct.construct) {
                 case Selection: expected_types = ctx->join_types; break;
                 case Continue: expected_types = ctx->continue_types; break;
                 case Break: expected_types = ctx->break_types; break;
                 default: error("we don't know this sort of merge");
             }
             assert(expected_types && "Merge terminator found but we're not within a suitable if/loop instruction !");
-            const Nodes* old_args = &node->payload.merge.args;
+            const Nodes* old_args = &node->payload.merge_construct.args;
             assert(expected_types->count == old_args->count);
             LARRAY(const Node*, new_args, old_args->count);
             for (size_t i = 0; i < old_args->count; i++)
                 new_args[i] = infer_value(ctx, old_args->nodes[i], (*expected_types).nodes[i]);
-            return merge(ctx->rewriter.dst_arena, (Merge) {
-                .what = node->payload.merge.what,
+            return merge_construct(ctx->rewriter.dst_arena, (MergeConstruct) {
+                .construct = node->payload.merge_construct.construct,
                 .args = nodes(ctx->rewriter.dst_arena, old_args->count, new_args)
             });
         }
