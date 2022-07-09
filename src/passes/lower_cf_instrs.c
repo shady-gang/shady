@@ -157,10 +157,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
-            //Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), node->payload.fn.params, rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
-            //register_processed(&ctx->rewriter, node, fun);
-            //for (size_t i = 0; i < fun->payload.fn.params.count; i++)
-            //    register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], fun->payload.fn.params.nodes[i]);
 
             fun->payload.fn.block = process_node(ctx, node->payload.fn.block);
             return fun;
