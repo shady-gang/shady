@@ -36,9 +36,22 @@ const Node* find_processed(const Rewriter* ctx, const Node* old) {
 }
 
 void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
+#ifndef NDEBUG
+    const Node* found = search_processed(ctx, old);
+    if (found) {
+        error_print("Trying to replace ");
+        error_node(old);
+        error_print(" with ");
+        error_node(new);
+        error_print(" but there was already ");
+        error_node(found);
+        error_print("\n");
+        error("The same node got processed twice !");
+    }
+#endif
     assert(ctx->processed && "this rewriter has no processed cache");
     bool r = insert_dict_and_get_result(const Node*, const Node*, ctx->processed, old, new);
-    assert(r && "registered the same node as processed twice");
+    assert(r);
 }
 
 const Node* recreate_variable(Rewriter* rewriter, const Node* old) {
@@ -58,10 +71,15 @@ bool compare_node(Node**, Node**);
 
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
-    switch (old->tag) {\
+    switch (old->tag) {
         case GlobalVariable_TAG: new = global_var(rewriter->dst_arena, rewrite_node(rewriter, old->payload.global_variable.type), old->payload.global_variable.name, old->payload.global_variable.address_space); break;
         case Constant_TAG: new = constant(rewriter->dst_arena, old->payload.constant.name); break;
-        case Function_TAG: new = fn(rewriter->dst_arena, old->payload.fn.atttributes, old->payload.fn.name, recreate_variables(rewriter, old->payload.fn.params), rewrite_nodes(rewriter, old->payload.fn.return_types)); break;
+        case Function_TAG: {
+            new = fn(rewriter->dst_arena, old->payload.fn.atttributes, old->payload.fn.name, recreate_variables(rewriter, old->payload.fn.params), rewrite_nodes(rewriter, old->payload.fn.return_types));
+            for (size_t i = 0; i < new->payload.fn.params.count; i++)
+                register_processed(rewriter, old->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
+            break;
+        }
         default: error("not a decl");
     }
     assert(new);
@@ -78,13 +96,8 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             break;
         }
         case Function_TAG: {
-            //struct Dict* old_processed = rewriter->processed;
-            //rewriter->processed = clone_dict(rewriter->processed);
-            for (size_t i = 0; i < new->payload.fn.params.count; i++)
-                register_processed(rewriter, old->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
+            assert(new->payload.fn.block == NULL);
             new->payload.fn.block = rewrite_node(rewriter, old->payload.fn.block);
-            //destroy_dict(rewriter->processed);
-            //rewriter->processed = old_processed;
             break;
         }
         case GlobalVariable_TAG: {
@@ -224,7 +237,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .is_indirect = node->payload.join.is_indirect,
             .join_at = rewrite_node(rewriter, node->payload.join.join_at),
             .desired_mask = rewrite_node(rewriter, node->payload.join.desired_mask),
-            .args = rewrite_nodes(rewriter, node->payload.branch.args)
+            .args = rewrite_nodes(rewriter, node->payload.join.args)
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
             .fn = NULL,

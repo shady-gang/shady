@@ -103,7 +103,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                     .terminator = callc(dst_arena, (Callc) {
                         .ret_cont = return_continuation,
                         .callee = fn_addr(dst_arena, (FnAddr) {.fn = process_node(ctx, callee) }),
-                        .args = nodes(dst_arena, args_count, instr->payload.call_instr.args.nodes)
+                        .args = rewrite_nodes(&ctx->rewriter, instr->payload.call_instr.args)
                     })
                 });
             }
@@ -149,17 +149,18 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
+    const Node* already_done = search_processed(&ctx->rewriter, node);
+    if (already_done)
+        return already_done;
+
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Function_TAG: {
-            const Node* already_done = search_processed(&ctx->rewriter, node);
-            if (already_done)
-                return already_done;
-
-            Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), node->payload.fn.params, rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
-            register_processed(&ctx->rewriter, node, fun);
-            for (size_t i = 0; i < fun->payload.fn.params.count; i++)
-                register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], fun->payload.fn.params.nodes[i]);
+            Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
+            //Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), node->payload.fn.params, rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
+            //register_processed(&ctx->rewriter, node, fun);
+            //for (size_t i = 0; i < fun->payload.fn.params.count; i++)
+            //    register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], fun->payload.fn.params.nodes[i]);
 
             fun->payload.fn.block = process_node(ctx, node->payload.fn.block);
             return fun;

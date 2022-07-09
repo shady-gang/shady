@@ -49,6 +49,9 @@ static const Node* callee_to_ptr(Context* ctx, const Node* callee) {
 }
 
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
+    const Node* found = search_processed(&ctx->rewriter, old);
+    if (found) return found;
+
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (old->tag) {
         case GlobalVariable_TAG:
@@ -58,26 +61,25 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             return new;
         }
         case Function_TAG: {
-            Node* fun = fn(dst_arena, old->payload.fn.atttributes, old->payload.fn.name, old->payload.fn.params, nodes(dst_arena, 0, NULL));
+            Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
 
-            register_processed(&ctx->rewriter, old, fun);
-            for (size_t i = 0; i < fun->payload.fn.params.count; i++)
-                register_processed(&ctx->rewriter, old->payload.fn.params.nodes[i], fun->payload.fn.params.nodes[i]);
             fun->payload.fn.block = lower_callf_process(ctx, old->payload.fn.block);
             return fun;
         }
         case Block_TAG: {
             // this may miss call instructions...
             Instructions instructions = begin_instructions(dst_arena);
-            copy_instructions(instructions, old->payload.block.instructions);
+            for (size_t i = 0; i < old->payload.block.instructions.count; i++)
+                append_instr(instructions, rewrite_node(&ctx->rewriter, old->payload.block.instructions.nodes[i]));
 
             const Node* terminator = old->payload.block.terminator;
 
             switch (terminator->tag) {
                 case Return_TAG: {
+                    Nodes nargs = rewrite_nodes(&ctx->rewriter, terminator->payload.fn_ret.values);
                     const Type* return_type = fn_type(dst_arena, (FnType) {
                         .is_continuation = false,
-                        .param_types = extract_types(dst_arena, terminator->payload.fn_ret.values),
+                        .param_types = extract_types(dst_arena, nargs),
                         .return_types = nodes(dst_arena, 0, NULL)
                     });
                     const Type* return_address_type = ptr_type(dst_arena, (PtrType) {
@@ -93,7 +95,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     terminator = join(dst_arena, (Join) {
                         .is_indirect = true,
                         .join_at = return_address,
-                        .args = terminator->payload.fn_ret.values,
+                        .args = nargs,
                         .desired_mask = return_convtok,
                     });
                     break;
@@ -108,8 +110,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     terminator = branch(dst_arena, (Branch) {
                         .branch_mode = BrTailcall,
                         .yield = false,
-                        .target = terminator->payload.callc.callee,
-                        .args = terminator->payload.callc.args,
+                        .target = rewrite_node(&ctx->rewriter, terminator->payload.callc.callee),
+                        .args = rewrite_nodes(&ctx->rewriter, terminator->payload.callc.args),
                     });
                     break;
                 }
