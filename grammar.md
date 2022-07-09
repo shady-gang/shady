@@ -59,3 +59,10 @@ QTYPE = VARIANCE_Q TYPE
 MQTYPE = [VARIANCE_Q] TYPE
 
 ```
+
+## Control flow instructions
+
+| Target   | Function call* | One-way jump         | One-way jump with sync |
+|----------|----------------|----------------------|------------------------|
+| direct   | callc          | br_jump / br_if_else | joinc                  |
+| indirect | callf          | tailcall             | joinf                  |

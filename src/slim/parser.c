@@ -401,7 +401,9 @@ static const Node* accept_terminator(ctxparams) {
             expect(target);
             Nodes args = expect_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
-            return jump(arena, (Jump) {
+            return branch(arena, (Branch) {
+                .yield = false,
+                .branch_mode = BrJump,
                 .target = target,
                 .args = args
             });
@@ -417,7 +419,9 @@ static const Node* accept_terminator(ctxparams) {
             Nodes args = expect_values(ctx, 0);
             expect(accept_token(ctx, semi_tok));
             return branch(arena, (Branch) {
-                .condition = condition,
+                .yield = false,
+                .branch_mode = BrIfElse,
+                .branch_condition = condition,
                 .true_target = true_target,
                 .false_target = false_target,
                 .args = args

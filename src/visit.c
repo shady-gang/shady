@@ -1,4 +1,5 @@
 #include "shady/ir.h"
+#include "log.h"
 #include "visit.h"
 
 #include "analysis/scope.h"
@@ -98,18 +99,27 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.fn_ret.values);
             break;
         }
-        case Jump_TAG: {
+        case Join_TAG: {
             if (visitor->visit_cf_targets)
-                visit(node->payload.jump.target);
-            visit_nodes(visitor, node->payload.jump.args);
+                visit(node->payload.join.join_at);
+            visit_nodes(visitor, node->payload.join.args);
             break;
         }
         case Branch_TAG: {
-            visit(node->payload.branch.condition);
-            if (visitor->visit_cf_targets) {
-                visit(node->payload.branch.true_target);
-                visit(node->payload.branch.false_target);
+            switch (node->payload.branch.branch_mode) {
+                case BrTailcall:
+                case BrJump: visit(node->payload.branch.target); break;
+                case BrIfElse: {
+                    visit(node->payload.branch.branch_condition);
+                    if (visitor->visit_cf_targets) {
+                        visit(node->payload.branch.true_target);
+                        visit(node->payload.branch.false_target);
+                    }
+                    break;
+                }
+                case BrSwitch: error("TODO");
             }
+
             visit_nodes(visitor, node->payload.branch.args);
             break;
         }
@@ -117,17 +127,11 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.merge_construct.args);
             break;
         }
-        case Callf_TAG: {
-            if (visitor->visit_callf_return_fn_annotation)
-                visit(node->payload.callf.ret_fn);
-            visit(node->payload.callf.callee);
-            visit_nodes(visitor, node->payload.callf.args);
-            break;
-        }
         case Callc_TAG: {
-            if (visitor->visit_cf_targets)
+            if (visitor->visit_cf_targets) {
                 visit(node->payload.callc.ret_cont);
-            visit(node->payload.callc.callee);
+                visit(node->payload.callc.callee);
+            }
             visit_nodes(visitor, node->payload.callc.args);
             break;
         }

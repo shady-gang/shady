@@ -412,18 +412,24 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
                 }
             }
         }
-        case Jump_TAG: {
-            assert(terminator->payload.jump.args.count == 0 && "TODO: implement bb params");
-            spvb_branch(basic_block_builder, find_reserved_id(emitter, terminator->payload.jump.target));
-            return;
-        }
         case Branch_TAG: {
             assert(terminator->payload.branch.args.count == 0 && "TODO: implement bb params");
-
-            SpvId condition = emit_value(emitter, terminator->payload.branch.condition, NULL);
-            spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_target), find_reserved_id(emitter, terminator->payload.branch.false_target));
-            return;
+            assert(terminator->payload.branch.yield == false && "Yielding needs to be lowered away");
+            switch (terminator->payload.branch.branch_mode) {
+                case BrJump: {
+                    spvb_branch(basic_block_builder, find_reserved_id(emitter, terminator->payload.branch.target));
+                    return;
+                }
+                case BrIfElse: {
+                    SpvId condition = emit_value(emitter, terminator->payload.branch.branch_condition, NULL);
+                    spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_target), find_reserved_id(emitter, terminator->payload.branch.false_target));
+                    return;
+                }
+                case BrSwitch: error("TODO");
+                case BrTailcall: error("Lower me beforehand !")
+            }
         }
+        case Join_TAG: error("Lower me");
         case MergeConstruct_TAG: {
             switch (terminator->payload.merge_construct.construct) {
                 case Selection: {

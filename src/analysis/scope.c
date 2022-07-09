@@ -81,24 +81,36 @@ Scope build_scope(const Node* entry) {
         assert(element->payload.fn.block);
         const Node* terminator = block->terminator;
         switch (terminator->tag) {
-            case Jump_TAG: {
-                const Node* target = terminator->payload.jump.target;
-                process_edge(target)
-                break;
-            }
             case Branch_TAG: {
-                const Node* true_target = terminator->payload.branch.true_target;
-                const Node* false_target = terminator->payload.branch.false_target;
-                process_edge(true_target);
-                process_edge(false_target);
+                switch (terminator->payload.branch.branch_mode) {
+                    case BrJump: {
+                        const Node* target = terminator->payload.branch.target;
+                        process_edge(target)
+                        break;
+                    }
+                    case BrIfElse: {
+                        const Node* true_target = terminator->payload.branch.true_target;
+                        const Node* false_target = terminator->payload.branch.false_target;
+                        process_edge(true_target);
+                        process_edge(false_target);
+                    }
+                    case BrSwitch: error("TODO")
+                    case BrTailcall: break; // that doesn't count here !
+                }
                 break;
             }
             case Callc_TAG: {
-                const Node* continue_target = terminator->payload.callc.ret_cont;
-                process_edge(continue_target);
+                if (terminator->payload.callc.is_return_indirect) break;
+                const Node* target = terminator->payload.callc.ret_cont;
+                process_edge(target);
                 break;
             }
-            case Callf_TAG:
+            case Join_TAG: {
+                if (terminator->payload.join.is_indirect) break;
+                const Node* target = terminator->payload.join.join_at;
+                process_edge(target);
+                break;
+            }
             case Return_TAG:
             case Unreachable_TAG:
             case MergeConstruct_TAG: break;

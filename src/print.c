@@ -57,6 +57,7 @@ static void print_ptr_addr_space(struct PrinterCtx* ctx, AddressSpace as) {
         case AsInput:                 printf("input"); break;
         case AsOutput:               printf("output"); break;
         case AsExternal:           printf("external"); break;
+        case AsProgramCode:    printf("program_code"); break;
         default: error("Unknown address space: %d", (int) as);
     }
 }
@@ -186,6 +187,10 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         case Unbound_TAG:
             printf("`%s`", node->payload.unbound.name);
+            break;
+        case FnAddr_TAG:
+            printf("&");
+            print_node(node->payload.fn_addr.fn);
             break;
         case Function_TAG:
             printf("%s", node->payload.fn.name);
@@ -328,39 +333,70 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                 print_node(node->payload.fn_ret.values.nodes[i]);
             }
             break;
-        case Jump_TAG:
-            printf("jump ");
-            print_node(node->payload.jump.target);
-            for (size_t i = 0; i < node->payload.jump.args.count; i++) {
-                printf(" ");
-                print_node(node->payload.jump.args.nodes[i]);
-            }
-            break;
         case Branch_TAG:
-            printf("branch ");
-            print_node(node->payload.branch.condition);
-            printf(" ");
-            print_node(node->payload.branch.true_target);
-            printf(" ");
-            print_node(node->payload.branch.false_target);
-            printf(" ");
+            switch (node->payload.branch.branch_mode) {
+                case BrTailcall: printf("tail_call ");   break;
+                case BrJump:     printf("jump ");        break;
+                case BrIfElse:   printf("br_ifelse ");   break;
+                case BrSwitch:   printf("br_switch ");   break;
+                default: error("unknown branch mode");
+            }
+            if (node->payload.branch.yield)
+                printf("yield ");
+            switch (node->payload.branch.branch_mode) {
+                case BrTailcall:
+                case BrJump: {
+                    print_node(node->payload.branch.target);
+                    break;
+                }
+                case BrIfElse: {
+                    printf("(");
+                    print_node(node->payload.branch.branch_condition);
+                    printf(" ? ");
+                    print_node(node->payload.branch.true_target);
+                    printf(" : ");
+                    print_node(node->payload.branch.false_target);
+                    printf(")");
+                    break;
+                }
+                case BrSwitch: {
+                    print_node(node->payload.branch.switch_value);
+                    printf(" ? (");
+                    for (size_t i = 0; i < node->payload.branch.case_values.count; i++) {
+                        print_node(node->payload.branch.case_values.nodes[i]);
+                        printf(" ");
+                        print_node(node->payload.branch.case_targets.nodes[i]);
+                        if (i + 1 < node->payload.branch.case_values.count)
+                            printf(", ");
+                    }
+                    printf(" : ");
+                    print_node(node->payload.branch.default_target);
+                    printf(") ");
+                }
+            }
             for (size_t i = 0; i < node->payload.branch.args.count; i++) {
                 printf(" ");
                 print_node(node->payload.branch.args.nodes[i]);
             }
             break;
-        case Callf_TAG:
-            printf("callf ");
-            print_node(node->payload.callf.ret_fn);
+        case Join_TAG:
+            if (node->payload.join.is_indirect)
+                printf("joinf ");
+            else
+                printf("joinc ");
+            print_node(node->payload.join.join_at);
             printf(" ");
-            print_node(node->payload.callf.callee);
-            for (size_t i = 0; i < node->payload.callf.args.count; i++) {
+            print_node(node->payload.join.desired_mask);
+            for (size_t i = 0; i < node->payload.join.args.count; i++) {
                 printf(" ");
-                print_node(node->payload.callf.args.nodes[i]);
+                print_node(node->payload.join.args.nodes[i]);
             }
             break;
         case Callc_TAG:
-            printf("callc ");
+            if (node->payload.callc.is_return_indirect)
+                printf("callf ");
+            else
+                printf("callc ");
             print_node(node->payload.callc.ret_cont);
             printf(" ");
             print_node(node->payload.callc.callee);
@@ -398,6 +434,9 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         case Float_TAG:
             printf("float");
+            break;
+        case MaskType_TAG:
+            printf("mask");
             break;
         case RecordType_TAG:
             printf("struct {");

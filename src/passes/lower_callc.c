@@ -1,13 +1,14 @@
 #include "shady/ir.h"
 
-#include "../analysis/free_variables.h"
 #include "../log.h"
 #include "../type.h"
 #include "../rewrite.h"
 #include "../portability.h"
 
-#include "list.h"
+#include "../transform/ir_gen_helpers.h"
+#include "../analysis/free_variables.h"
 
+#include "list.h"
 #include "dict.h"
 
 #include <assert.h>
@@ -98,7 +99,7 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
     return new_fn;
 }
 
-static void process(Context* ctx, Todo todo) {
+static void handle_todo_entry(Context* ctx, Todo todo) {
     assert(todo.old_block->payload.block.terminator->tag == Callc_TAG);
     const Callc* old_callc = &todo.old_block->payload.block.terminator->payload.callc;
 
@@ -110,10 +111,11 @@ static void process(Context* ctx, Todo todo) {
     const Node* lifted_fn = lift_continuation_into_function(ctx, old_callc->ret_cont, &instructions);
     *todo.new_block = block(ctx->rewriter.dst_arena, (Block) {
         .instructions = instructions,
-        .terminator = callf(ctx->rewriter.dst_arena, (Callf) {
+        .terminator = callc(ctx->rewriter.dst_arena, (Callc) {
+            .is_return_indirect = true,
             .callee = old_callc->callee,
             .args = old_callc->args,
-            .ret_fn = lifted_fn,
+            .ret_cont = fn_addr(ctx->rewriter.dst_arena, (FnAddr) {.fn = lifted_fn}),
         })
     });
 }
@@ -129,6 +131,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* old_block = node->payload.fn.block;
             // If the block has a callc, delay
             if (old_block->payload.block.terminator->tag == Callc_TAG) {
+                assert(!old_block->payload.block.terminator->payload.callc.is_return_indirect && "Return continuations should be function pointers at this stage.");
                 Todo t = { old_block, &new->payload.fn.block };
                 debug_print("Found a callc - adding to todo list\n");
                 append_list(Todo, ctx->todo, t);
@@ -170,7 +173,7 @@ const Node* lower_callc(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
 
     while (entries_count_list(todos) > 0) {
         Todo entry = pop_last_list(Todo, todos);
-        process(&ctx, entry);
+        handle_todo_entry(&ctx, entry);
     }
 
     Nodes new_decls = rewritten->payload.root.declarations;

@@ -7,6 +7,8 @@ struct TypeTable;
 struct TypeTable* new_type_table();
 void destroy_type_table(struct TypeTable*);
 
+const Type* noret_type(IrArena* arena);
+
 bool is_subtype(const Type* supertype, const Type* type);
 void check_subtype(const Type* supertype, const Type* type);
 
@@ -23,15 +25,13 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op);
 Nodes typecheck_call(IrArena* arena, Call call);
 Nodes typecheck_instruction(IrArena* arena, const Node* instr);
 
-const Type* ensure_value_t(Nodes yields);
-
-const Type* noret_type(IrArena* arena);
-
-const Type* derive_fn_type(IrArena* arena, const Function* fn);
-
 // TODO: revise naming scheme
 const Type* strip_qualifier(const Type* type, DivergenceQualifier* qual_out);
 const Type* without_qualifier(const Type* type);
 DivergenceQualifier get_qualifier(const Type* type);
+
+const Type* derive_fn_type(IrArena* arena, const Function* fn);
+Nodes extract_variable_types(IrArena*, const Nodes*);
+Nodes extract_types(IrArena*, Nodes);
 
 #endif

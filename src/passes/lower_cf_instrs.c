@@ -22,7 +22,7 @@ static FnAttributes cont_attr = {
     .entry_point_type = NotAnEntryPoint
 };
 
-static const Node* handle_block(Context* ctx, const Node* node, size_t start, Node** outer_join) {
+static const Node* handle_block(Context* ctx, const Node* node, size_t start, const Node* outer_join, const Node* reconvergence_token) {
     assert(node->tag == Block_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     assert(dst_arena == ctx->rewriter.src_arena);
@@ -43,27 +43,37 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
                     rest_params[j] = let_node->payload.let.variables.nodes[j];
                 }
 
+                const Node* let_mask = let(dst_arena, prim_op(dst_arena, (PrimOp) {
+                    .op = get_mask_op,
+                    .operands = nodes(dst_arena, 0, NULL)
+                }), 1, NULL);
+                append_list(const Node*, accumulator, let_mask);
+                // reconvergence_token = NULL;
+
                 Node* join_cont = fn(dst_arena, cont_attr, unique_name(dst_arena, "if_join"), nodes(dst_arena, yield_types.count, rest_params), nodes(dst_arena, 0, NULL));
                 Node* true_branch = fn(dst_arena, cont_attr, unique_name(dst_arena, "if_true"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
                 Node* false_branch = has_false_branch ? fn(dst_arena, cont_attr, unique_name(dst_arena, "if_false"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL)) : NULL;
 
-                true_branch->payload.fn.block = handle_block(ctx,  instr->payload.if_instr.if_true, 0, &join_cont);
+                true_branch->payload.fn.block = handle_block(ctx,  instr->payload.if_instr.if_true, 0, join_cont, let_mask->payload.let.variables.nodes[0]);
                 if (has_false_branch)
-                    false_branch->payload.fn.block = handle_block(ctx,  instr->payload.if_instr.if_false, 0, &join_cont);
-                join_cont->payload.fn.block = handle_block(ctx, node, i + 1, outer_join);
+                    false_branch->payload.fn.block = handle_block(ctx,  instr->payload.if_instr.if_false, 0, join_cont, let_mask->payload.let.variables.nodes[0]);
+                join_cont->payload.fn.block = handle_block(ctx, node, i + 1, outer_join, reconvergence_token);
 
                 Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
                 destroy_list(accumulator);
                 const Node* branch_t = branch(dst_arena, (Branch) {
-                    .condition = instr->payload.if_instr.condition,
+                    .branch_mode = BrIfElse,
+                    .branch_condition = instr->payload.if_instr.condition,
                     .true_target = true_branch,
                     .false_target = has_false_branch ? false_branch : join_cont,
+                    .args = nodes(dst_arena, 0, NULL),
                 });
                 return block(dst_arena, (Block) {
                     .instructions = instructions,
                     .terminator = branch_t
                 });
             }
+            case Loop_TAG: error("TODO")
             case Call_TAG: {
                 const Node* callee = instr->payload.call_instr.callee;
                 assert(get_qualifier(callee->type) == Uniform);
@@ -82,7 +92,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
                     register_processed(&ctx->rewriter, let_node->payload.let.variables.nodes[j], cont_params.nodes[j]);
 
                 Node* return_continuation = fn(dst_arena, rest_attrs, unique_name(dst_arena, "call_continue"), cont_params, nodes(dst_arena, 0, NULL));
-                return_continuation->payload.fn.block = handle_block(ctx, node, i + 1, outer_join);
+                return_continuation->payload.fn.block = handle_block(ctx, node, i + 1, outer_join, reconvergence_token);
 
                 Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
                 destroy_list(accumulator);
@@ -92,7 +102,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
                     .instructions = instructions,
                     .terminator = callc(dst_arena, (Callc) {
                         .ret_cont = return_continuation,
-                        .callee = process_node(ctx, callee),
+                        .callee = fn_addr(dst_arena, (FnAddr) {.fn = process_node(ctx, callee) }),
                         .args = nodes(dst_arena, args_count, instr->payload.call_instr.args.nodes)
                     })
                 });
@@ -112,9 +122,10 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, No
             switch (old_terminator->payload.merge_construct.construct) {
                 case Selection: {
                     assert(outer_join);
-                    new_terminator = jump(dst_arena, (Jump) {
-                        .target = *outer_join,
-                        .args = nodes(dst_arena, old_terminator->payload.merge_construct.args.count, old_terminator->payload.merge_construct.args.nodes)
+                    new_terminator = join(dst_arena, (Join) {
+                        .join_at = outer_join,
+                        .args = nodes(dst_arena, old_terminator->payload.merge_construct.args.count, old_terminator->payload.merge_construct.args.nodes),
+                        .desired_mask = reconvergence_token
                     });
                     break;
                 }
@@ -153,7 +164,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             fun->payload.fn.block = process_node(ctx, node->payload.fn.block);
             return fun;
         }
-        case Block_TAG: return handle_block(ctx, node, 0, NULL);
+        case Block_TAG: return handle_block(ctx, node, 0, NULL, NULL);
         // leave other declarations alone
         case GlobalVariable_TAG:
         case Constant_TAG: return node;

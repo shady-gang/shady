@@ -37,6 +37,9 @@ typedef enum AddressSpace_ {
     AsInput,
     AsOutput,
     AsExternal,
+
+    // "fake" address space for function pointers
+    AsProgramCode,
 } AddressSpace;
 
 static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalLogical; }
@@ -60,15 +63,15 @@ NODEDEF(1, 0, 1, Loop, loop_instr) \
 NODEDEF(0, 1, 1, Let, let)  \
 
 #define TERMINATOR_NODES() \
-NODEDEF(1, 1, 1, Jump, jump) \
 NODEDEF(1, 1, 1, Branch, branch) \
+NODEDEF(1, 1, 1, Join, join) \
 NODEDEF(1, 1, 1, Callc, callc) \
-NODEDEF(1, 1, 1, Callf, callf) \
 NODEDEF(1, 1, 1, Return, fn_ret) \
 NODEDEF(1, 0, 1, MergeConstruct, merge_construct) \
 NODEDEF(1, 0, 0, Unreachable, unreachable) \
 
 #define TYPE_NODES() \
+NODEDEF(1, 0, 0, MaskType, mask_type) \
 NODEDEF(1, 0, 0, NoRet, noret_type) \
 NODEDEF(1, 0, 0, Int, int_type) \
 NODEDEF(1, 0, 0, Float, float_type) \
@@ -89,6 +92,7 @@ NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
 NODEDEF(1, 1, 1, IntLiteral, int_literal) \
 NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
+NODEDEF(1, 1, 1, FnAddr, fn_addr) \
 NODEDEF(0, 1, 1, Function, fn) \
 NODEDEF(0, 0, 1, Constant, constant) \
 NODEDEF(0, 1, 1, GlobalVariable, global_variable) \
@@ -154,6 +158,10 @@ typedef struct Constant_ {
     const Node* value;
     const Node* type_hint;
 } Constant;
+
+typedef struct FnAddr_ {
+    const Node* fn;
+} FnAddr;
 
 //////////////////////////////// Functions ////////////////////////////////
 
@@ -226,6 +234,7 @@ PRIMOP(push_stack)         \
 PRIMOP(pop_stack)          \
 PRIMOP(push_stack_uniform) \
 PRIMOP(pop_stack_uniform)  \
+PRIMOP(get_mask)           \
 
 typedef enum Op_ {
 #define PRIMOP(name) name##_op,
@@ -277,39 +286,63 @@ typedef struct Loop_ {
 
 //////////////////////////////// Terminators ////////////////////////////////
 
+/// A branch. Branches can cause divergence, but they can never cause re-convergence.
+/// @n @p BrJump is guaranteed to not cause divergence, but all the other forms may cause it.
+typedef struct Branch_ {
+    bool yield;
+    enum {
+        /// Uses the @p target field, it must be a value of a function pointer type matching the arguments. It may be varying.
+        BrTailcall = 1,
+        /// Uses the @p target field, it must point directly to a function, not a function pointer.
+        BrJump,
+        /// Uses the @p branch_condition and true/false targets, like for @p BrJump, the targets have to point directly to functions
+        BrIfElse,
+        /// Uses the @p switch_value and default_target, cases_values, case_targets, like for @p BrJump, the targets have to point directly to functions
+        /// @todo This is unimplemented at this stage
+        BrSwitch
+    } branch_mode;
+    union {
+        const Node* target;
+        struct {
+            const Node* branch_condition;
+            const Node* true_target;
+            const Node* false_target;
+        };
+        struct {
+            const Node* switch_value;
+            const Node* default_target;
+            Nodes case_values;
+            Nodes case_targets;
+        };
+    };
+    Nodes args;
+} Branch;
+
+/// Join nodes are used to undo the divergence caused by branches. At join nodes, an explicit mask is used to force a number of divergent execution paths to resume.
+/// If @p is_indirect is set, the target must be a function pointer. Otherwise, the target must be a function directly.
+/// @p join_at _must_ be uniform.
+typedef struct Join_ {
+    bool is_indirect;
+    const Node* join_at;
+    Nodes args;
+    const Node* desired_mask;
+} Join;
+
 typedef struct Return_ {
     // set to NULL after typing
     const Node* fn;
     Nodes values;
 } Return;
 
-typedef struct Jump_ {
-    const Node* target;
-    Nodes args;
-} Jump;
-
-typedef struct Branch_ {
-    const Node* condition;
-    const Node* true_target;
-    const Node* false_target;
-    Nodes args;
-} Branch;
-
 /// Calls to a function, and mentions the basic block/continuation where execution should resume.
 /// NOTE: Since most targets do not allow entering a function from multiple entry points, it is necessary to split functions containing callc.
 /// See lower_callc.c
 typedef struct Callc_ {
+    bool is_return_indirect;
     const Node* ret_cont;
     const Node* callee;
     Nodes args;
 } Callc;
-
-/// Calls a function, and places an entry on the stack for knowing where to return to
-typedef struct Callf_ {
-    const Node* ret_fn;
-    const Node* callee;
-    Nodes args;
-} Callf;
 
 extern String merge_what_string[];
 
@@ -351,6 +384,12 @@ typedef struct ArrType_ {
 
 //////////////////////////////// Nodes util ////////////////////////////////
 
+extern const char* node_tags[];
+extern const bool node_type_has_payload[];
+
+/// Get the name out of a global variable, function or constant
+String get_decl_name(const Node*);
+
 typedef enum NodeTag_ {
 #define NODEDEF(_, _2, _3, struct_name, short_name) struct_name##_TAG,
 NODES()
@@ -379,16 +418,19 @@ struct Node_ {
     } payload;
 };
 
-// Node constructors
+// autogenerated node ctors
 #define NODE_CTOR_DECL_1(struct_name, short_name) const Node* short_name(IrArena*, struct_name);
 #define NODE_CTOR_DECL_0(struct_name, short_name) const Node* short_name(IrArena*);
 #define NODE_CTOR_1(has_payload, struct_name, short_name) NODE_CTOR_DECL_##has_payload(struct_name, short_name)
 #define NODE_CTOR_0(has_payload, struct_name, short_name)
-
-// autogenerated ctors
 #define NODEDEF(autogen_ctor, _, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_payload, struct_name, short_name)
 NODES()
 #undef NODEDEF
+#undef NODE_CTOR_0
+#undef NODE_CTOR_1
+#undef NODE_CTOR_DECL_0
+#undef NODE_CTOR_DECL_1
+
 const Node* var(IrArena* arena, const Type* type, const char* name);
 /// Wraps an instruction and binds the outputs to variables we can use
 /// Should not be used if the instruction have no outputs !
@@ -398,15 +440,44 @@ Node* fn(IrArena* arena, FnAttributes, const char* name, Nodes params, Nodes ret
 Node* constant(IrArena* arena, const char* name);
 Node* global_var(IrArena*, const Type*, String, AddressSpace);
 
-#undef NODE_CTOR_0
-#undef NODE_CTOR_1
-#undef NODE_CTOR_DECL_0
-#undef NODE_CTOR_DECL_1
+/*/// Helper function for creating a jump using branch()
+inline static const Node* jump(IrArena* arena, const Node* destination, Nodes args) {
+    return branch(arena, (Branch) {
+        .branch_mode = BrJump,
+        .yield = false,
+        .target = destination,
+        .args = args,
+    });
+}
+/// Helper function for creating a jump using branch()
+inline static const Node* jump(IrArena* arena, const Node* condition, const Node* if_true, const Node* if_false, Nodes args) {
+    return branch(arena, (Branch) {
+        .branch_mode = BrJump,
+        .yield = false,
+        .target = destination,
+        .args = args,
+    });
+}
 
-extern const char* node_tags[];
-extern const bool node_type_has_payload[];
+inline static const Node* yield(IrArena* arena, const Node* destination, Nodes args) {
+    return branch(arena, (Branch) {
+        .branch_mode = BrJump,
+        .yield = false,
+        .target = destination,
+        .args = args,
+    });
+}
 
-String get_decl_name(const Node*);
+
+/// Helper function for creating a tail call using branch
+inline static const Node* tail_call(IrArena* arena, const Node* destination, Nodes args) {
+    return branch(arena, (Branch) {
+        .branch_mode = BrTailcall,
+        .yield = false,
+        .target = destination,
+        .args = args,
+    });
+}*/
 
 //////////////////////////////// IR management ////////////////////////////////
 

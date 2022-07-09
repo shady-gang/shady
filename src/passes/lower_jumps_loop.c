@@ -1,3 +1,5 @@
+#if 0
+
 #include "shady/ir.h"
 
 #include "../log.h"
@@ -217,3 +219,5 @@ const Node* lower_jumps_loop(CompilerConfig* config, IrArena* src_arena, IrArena
     destroy_dict(done);
     return rewritten;
 }
+
+#endif

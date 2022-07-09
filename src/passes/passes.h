@@ -11,16 +11,24 @@ typedef const Node* (RewritePass)(CompilerConfig* config, IrArena* src_arena, Ir
 
 RewritePass bind_program;
 RewritePass infer_program;
-/// Gets rid of structured control flow constructs, and turns them into jumps, branches and callc
+/// Gets rid of structured control flow constructs, and turns them into branches, joins and callcs
 RewritePass lower_cf_instrs;
-/// Turns callc into callf by extracting the return continuations into dedicated functions
+/// Turns callc into callf by extracting the return continuations into separate functions (including spilling)
 RewritePass lower_callc;
-/// Emulates function calls using the stack and a big outer loop
+/// Lowers calls to stack saves and branches, lowers returns to stack pops and joins
 RewritePass lower_callf;
 /// Turns stack pushes and pops into accesses into pointer load and stores
 RewritePass lower_stack;
 /// Emulates physical pointers to certain address spaces by using integer indices into global arrays
 RewritePass lower_physical_ptrs;
+
+// Optimisation passes
+RewritePass opt_simplify_cf;
+RewritePass opt_restructurize;
+
+// Control flow lowering strategies
+/// Emulates branches and joins using a god function
+RewritePass lower_tailcalls;
 /// Emulates uniform jumps within functions using a loop
 RewritePass lower_jumps_loop;
 /// Emulates uniform jumps within functions by applying a structuring transformation

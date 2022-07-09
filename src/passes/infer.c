@@ -214,6 +214,7 @@ static const Node* infer_call(Context* ctx, const Node* node) {
         const Node* arg = node->payload.call_instr.args.nodes[i];
         assert(arg);
         new_args[i] = infer_value(ctx, node->payload.call_instr.args.nodes[i], callee_type->payload.fn_type.param_types.nodes[i]);
+        assert(new_args[i]->type);
     }
 
     return call_instr(ctx->rewriter.dst_arena, (Call) {
@@ -331,55 +332,65 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                 .fn = NULL
             });
         }
-        case Jump_TAG: {
-            const Node* ntarget = infer_fn(ctx, node->payload.jump.target);
-
-            assert(get_qualifier(ntarget->type) == Uniform);
-            assert(without_qualifier(ntarget->type)->tag == FnType_TAG);
-            const FnType* tgt_type = &without_qualifier(ntarget->type)->payload.fn_type;
-            assert(tgt_type->is_continuation);
-
-            LARRAY(const Node*, tmp, node->payload.jump.args.count);
-            for (size_t i = 0; i < node->payload.jump.args.count; i++)
-                tmp[i] = infer_value(ctx, node->payload.jump.args.nodes[i], tgt_type->param_types.nodes[i]);
-
-            Nodes new_args = nodes(ctx->rewriter.dst_arena, node->payload.jump.args.count, tmp);
-
-            return jump(ctx->rewriter.dst_arena, (Jump) {
-                .target = ntarget,
-                .args = new_args
-            });
-        }
         case Branch_TAG: {
-            const Node* ncond = infer_value(ctx, node->payload.branch.condition, bool_type(ctx->rewriter.dst_arena));
+            switch (node->payload.branch.branch_mode) {
+                case BrTailcall:
+                case BrJump: {
+                    const Node* ntarget = infer_fn(ctx, node->payload.branch.target);
 
-            const Node* t_target = infer_fn(ctx, node->payload.branch.true_target);
-            const Node* f_target = infer_fn(ctx, node->payload.branch.false_target);
+                    assert(get_qualifier(ntarget->type) == Uniform);
+                    assert(without_qualifier(ntarget->type)->tag == FnType_TAG);
+                    const FnType* tgt_type = &without_qualifier(ntarget->type)->payload.fn_type;
+                    assert(tgt_type->is_continuation);
 
-            assert(get_qualifier(t_target->type) == Uniform);
-            assert(without_qualifier(t_target->type)->tag == FnType_TAG);
-            const FnType* t_tgt_type = &without_qualifier(t_target->type)->payload.fn_type;
-            assert(t_tgt_type->is_continuation);
+                    LARRAY(const Node*, tmp, node->payload.branch.args.count);
+                    for (size_t i = 0; i < node->payload.branch.args.count; i++)
+                        tmp[i] = infer_value(ctx, node->payload.branch.args.nodes[i], tgt_type->param_types.nodes[i]);
 
-            assert(get_qualifier(f_target->type) == Uniform);
-            assert(without_qualifier(f_target->type)->tag == FnType_TAG);
-            const FnType* f_tgt_type = &without_qualifier(f_target->type)->payload.fn_type;
-            assert(f_tgt_type->is_continuation);
+                    Nodes new_args = nodes(ctx->rewriter.dst_arena, node->payload.branch.args.count, tmp);
 
-            // TODO: unify the two target types
+                    return branch(ctx->rewriter.dst_arena, (Branch) {
+                        .branch_mode = node->payload.branch.branch_mode,
+                        .yield = false,
+                        .target = ntarget,
+                        .args = new_args
+                    });
+                }
+                case BrIfElse: {
+                    const Node* ncond = infer_value(ctx, node->payload.branch.branch_condition, bool_type(ctx->rewriter.dst_arena));
 
-            LARRAY(const Node*, tmp, node->payload.branch.args.count);
-            for (size_t i = 0; i < node->payload.branch.args.count; i++)
-                tmp[i] = infer_value(ctx, node->payload.branch.args.nodes[i], t_tgt_type->param_types.nodes[i]);
+                    const Node* t_target = infer_fn(ctx, node->payload.branch.true_target);
+                    const Node* f_target = infer_fn(ctx, node->payload.branch.false_target);
 
-            Nodes new_args = nodes(ctx->rewriter.dst_arena, node->payload.branch.args.count, tmp);
+                    assert(get_qualifier(t_target->type) == Uniform);
+                    assert(without_qualifier(t_target->type)->tag == FnType_TAG);
+                    const FnType* t_tgt_type = &without_qualifier(t_target->type)->payload.fn_type;
+                    assert(t_tgt_type->is_continuation);
 
-            return branch(ctx->rewriter.dst_arena, (Branch) {
-                .condition = ncond,
-                .true_target = t_target,
-                .false_target = f_target,
-                .args = new_args
-            });
+                    assert(get_qualifier(f_target->type) == Uniform);
+                    assert(without_qualifier(f_target->type)->tag == FnType_TAG);
+                    const FnType* f_tgt_type = &without_qualifier(f_target->type)->payload.fn_type;
+                    assert(f_tgt_type->is_continuation);
+
+                    // TODO: unify the two target types
+
+                    LARRAY(const Node*, tmp, node->payload.branch.args.count);
+                    for (size_t i = 0; i < node->payload.branch.args.count; i++)
+                        tmp[i] = infer_value(ctx, node->payload.branch.args.nodes[i], t_tgt_type->param_types.nodes[i]);
+
+                    Nodes new_args = nodes(ctx->rewriter.dst_arena, node->payload.branch.args.count, tmp);
+
+                    return branch(ctx->rewriter.dst_arena, (Branch) {
+                        .branch_mode = node->payload.branch.branch_mode,
+                        .yield = false,
+                        .branch_condition = ncond,
+                        .true_target = t_target,
+                        .false_target = f_target,
+                        .args = new_args
+                    });
+                }
+                default: error("TODO")
+            }
         }
         case MergeConstruct_TAG: {
             const Nodes* expected_types = NULL;

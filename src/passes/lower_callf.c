@@ -19,7 +19,6 @@ typedef struct Context_ {
     struct Dict* assigned_fn_ptrs;
     FnPtr next_fn_ptr;
 
-    const Node* god_fn;
     struct List* new_decls;
 } Context;
 
@@ -59,35 +58,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             return new;
         }
         case Function_TAG: {
-            FnAttributes nattrs = old->payload.fn.atttributes;
-            nattrs.entry_point_type = NotAnEntryPoint;
-            String new_name = nattrs.is_continuation ? old->payload.fn.name : format_string(dst_arena, "%s_leaf", old->payload.fn.name);
-            Node* fun = fn(dst_arena, nattrs, new_name, old->payload.fn.params, nodes(dst_arena, 0, NULL));
-
-            if (old->payload.fn.atttributes.entry_point_type != NotAnEntryPoint) {
-                Node* new_entry_pt = fn(dst_arena, old->payload.fn.atttributes, old->payload.fn.name, old->payload.fn.params, nodes(dst_arena, 0, NULL));
-                append_list(const Node*, ctx->new_decls, new_entry_pt);
-
-                Instructions instructions = begin_instructions(ctx->rewriter.dst_arena);
-                for (size_t i = fun->payload.fn.params.count - 1; i < fun->payload.fn.params.count; i--) {
-                    gen_push_value_stack(instructions, fun->payload.fn.params.nodes[i]);
-                }
-
-                gen_push_fn_stack(instructions, callee_to_ptr(ctx, fun));
-
-                append_instr(instructions, call_instr(dst_arena, (Call) {
-                    .callee = ctx->god_fn,
-                    .args = nodes(dst_arena, 0, NULL)
-                }));
-
-                new_entry_pt->payload.fn.block = block(dst_arena, (Block) {
-                    .instructions = finish_instructions(instructions),
-                    .terminator = fn_ret(dst_arena, (Return) {
-                        .fn = NULL,
-                        .values = nodes(dst_arena, 0, NULL)
-                    })
-                });
-            }
+            Node* fun = fn(dst_arena, old->payload.fn.atttributes, old->payload.fn.name, old->payload.fn.params, nodes(dst_arena, 0, NULL));
 
             register_processed(&ctx->rewriter, old, fun);
             for (size_t i = 0; i < fun->payload.fn.params.count; i++)
@@ -104,33 +75,41 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
             switch (terminator->tag) {
                 case Return_TAG: {
-                    Nodes ret_values = terminator->payload.fn_ret.values;
+                    const Type* return_type = fn_type(dst_arena, (FnType) {
+                        .is_continuation = false,
+                        .param_types = extract_types(dst_arena, terminator->payload.fn_ret.values),
+                        .return_types = nodes(dst_arena, 0, NULL)
+                    });
+                    const Type* return_address_type = ptr_type(dst_arena, (PtrType) {
+                        .address_space = AsProgramCode,
+                        .pointed_type = return_type
+                    });
 
-                    if (ret_values.count > 0) {
-                        // Pop the old return address off the stack
-                        const Node* ret_tmp_var = gen_pop_fn_stack(instructions, "return_tmp");
-                        // Push the return values as arguments to the return function
-                        gen_push_values_stack(instructions, ret_values);
-                        // Push back the return address on the now-top of the stack
-                        gen_push_fn_stack(instructions, ret_tmp_var);
-                    }
-                    // Kill the function
-                    terminator = fn_ret(dst_arena, (Return) {
-                        .fn = NULL,
-                        .values = nodes(dst_arena, 0, NULL)
+                    // Pop the return address and the convergence token, and join on that
+                    const Node* return_address = gen_pop_value_stack(instructions, "return_addr", return_address_type);
+                    const Node* return_convtok = gen_pop_value_stack(instructions, "return_convtok", mask_type(dst_arena));
+
+                    // Join up at the return address
+                    terminator = join(dst_arena, (Join) {
+                        .is_indirect = true,
+                        .join_at = return_address,
+                        .args = terminator->payload.fn_ret.values,
+                        .desired_mask = return_convtok,
                     });
                     break;
                 }
-                case Callf_TAG: {
-                    // put the return address at the bottom
-                    gen_push_fn_stack(instructions, callee_to_ptr(ctx, terminator->payload.callf.ret_fn));
-                    // push the arguments to the next call, then the target ptr
-                    gen_push_values_stack(instructions, terminator->payload.callf.args);
-                    gen_push_fn_stack(instructions, callee_to_ptr(ctx, terminator->payload.callf.callee));
-                    // Kill the function
-                    terminator = fn_ret(dst_arena, (Return) {
-                        .fn = NULL,
-                        .values = nodes(dst_arena, 0, NULL)
+                case Callc_TAG: {
+                    assert(terminator->payload.callc.is_return_indirect && "make sure lower_callc runs first !");
+                    // put the return address and a convergence token in the stack
+                    const Node* conv_token = gen_primop(instructions, (PrimOp) { .op = get_mask_op, .operands = nodes(dst_arena, 0, NULL)}).nodes[0];
+                    gen_push_value_stack(instructions, conv_token);
+                    gen_push_value_stack(instructions, terminator->payload.callc.ret_cont);
+                    // Branch to the callee
+                    terminator = branch(dst_arena, (Branch) {
+                        .branch_mode = BrTailcall,
+                        .yield = false,
+                        .target = terminator->payload.callc.callee,
+                        .args = terminator->payload.callc.args,
                     });
                     break;
                 }
@@ -145,99 +124,10 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
     }
 }
 
-void generate_top_level_dispatch_fn(Context* ctx, const Node* root, Node* dispatcher_fn) {
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
-
-    Instructions loop_body_instructions = begin_instructions(dst_arena);
-    const Node* next_function = gen_pop_fn_stack(loop_body_instructions, "next_function");
-
-    struct List* literals = new_list(const Node*);
-    struct List* cases = new_list(const Node*);
-
-    const Node* zero_lit = int_literal(dst_arena, (IntLiteral) {.value = 0});
-    const Node* zero_case = block(dst_arena, (Block) {
-        .instructions = nodes(dst_arena, 0, NULL),
-        .terminator = merge_construct(dst_arena, (MergeConstruct) {
-            .args = nodes(dst_arena, 0, NULL),
-            .construct = Break
-        })
-    });
-
-    append_list(const Node*, literals, zero_lit);
-    append_list(const Node*, cases, zero_case);
-
-    for (size_t i = 0; i < root->payload.root.declarations.count; i++) {
-        const Node* decl = root->payload.root.declarations.nodes[i];
-        if (decl->tag == Function_TAG) {
-            const Node* fn_lit = callee_to_ptr(ctx, find_processed(&ctx->rewriter, decl));
-
-            const FnType* fn_type = &without_qualifier(decl->type)->payload.fn_type;
-            Instructions case_instructions = begin_instructions(dst_arena);
-            LARRAY(const Node*, fn_args, fn_type->param_types.count);
-            for (size_t j = 0; j < fn_type->param_types.count; j++) {
-                fn_args[j] = gen_pop_value_stack(case_instructions, format_string(dst_arena, "arg_%d", (int) j), without_qualifier(fn_type->param_types.nodes[j]));
-            }
-
-            append_instr(case_instructions, call_instr(dst_arena, (Call) {
-                .callee = find_processed(&ctx->rewriter, decl),
-                .args = nodes(dst_arena, fn_type->param_types.count, fn_args)
-            }));
-
-            const Node* fn_case = block(dst_arena, (Block) {
-                .instructions = finish_instructions(case_instructions),
-                .terminator = merge_construct(dst_arena, (MergeConstruct) {
-                    .args = nodes(dst_arena, 0, NULL),
-                    .construct = Continue
-                })
-            });
-
-            append_list(const Node*, literals, fn_lit);
-            append_list(const Node*, cases, fn_case);
-        }
-    }
-
-    append_instr(loop_body_instructions, match_instr(dst_arena, (Match) {
-        .yield_types = nodes(dst_arena, 0, NULL),
-        .inspect = next_function,
-        .literals = nodes(dst_arena, entries_count_list(literals), read_list(const Node*, literals)),
-        .cases = nodes(dst_arena, entries_count_list(cases), read_list(const Node*, cases)),
-        .default_case = block(dst_arena, (Block) {
-            .instructions = nodes(dst_arena, 0, NULL),
-            .terminator = unreachable(dst_arena)
-        })
-    }));
-
-    destroy_list(literals);
-    destroy_list(cases);
-
-    const Node* loop_body = block(dst_arena, (Block) {
-        .instructions = finish_instructions(loop_body_instructions),
-        .terminator = unreachable(dst_arena)
-    });
-
-    Nodes dispatcher_body_instructions = nodes(dst_arena, 1, (const Node* []) { loop_instr(dst_arena, (Loop) {
-        .yield_types = nodes(dst_arena, 0, NULL),
-        .params = nodes(dst_arena, 0, NULL),
-        .initial_args = nodes(dst_arena, 0, NULL),
-        .body = loop_body
-    }) });
-
-    dispatcher_fn->payload.fn.block = block(dst_arena, (Block) {
-        .instructions = dispatcher_body_instructions,
-        .terminator = fn_ret(dst_arena, (Return) {
-            .values = nodes(dst_arena, 0, NULL),
-            .fn = NULL,
-        })
-    });
-}
-
 const Node* lower_callf(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* new_decls_list = new_list(const Node*);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
-
-    Node* dispatcher_fn = fn(dst_arena, (FnAttributes) {.entry_point_type = NotAnEntryPoint, .is_continuation = false}, "top_dispatcher", nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
-    append_list(const Node*, new_decls_list, dispatcher_fn);
 
     Context ctx = {
         .rewriter = {
@@ -251,13 +141,9 @@ const Node* lower_callf(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
         .next_fn_ptr = 1,
 
         .new_decls = new_decls_list,
-        .god_fn = dispatcher_fn,
     };
 
     const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
-
-    generate_top_level_dispatch_fn(&ctx, src_program, dispatcher_fn);
-
     Nodes new_decls = rewritten->payload.root.declarations;
     for (size_t i = 0; i < entries_count_list(new_decls_list); i++) {
         new_decls = append_nodes(dst_arena, new_decls, read_list(const Node*, new_decls_list)[i]);
