@@ -50,7 +50,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                 case pop_stack_op:
                 case pop_stack_uniform_op: {
                     const Type* element_type = oprim_op->operands.nodes[0];
-                    TypeMemLayout layout = get_mem_layout(ctx->config, element_type);
+                    TypeMemLayout layout = get_mem_layout(ctx->config, dst_arena, element_type);
                     const Node* element_size = int_literal(dst_arena, (IntLiteral) {.value = layout.size_in_cells });
 
                     bool push = oprim_op->op == push_stack_op || oprim_op->op == push_stack_uniform_op;

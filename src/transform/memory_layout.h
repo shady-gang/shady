@@ -13,7 +13,7 @@ typedef struct {
     size_t size_in_cells;
 } TypeMemLayout;
 
-TypeMemLayout get_mem_layout(const CompilerConfig*, const Type*);
+TypeMemLayout get_mem_layout(const CompilerConfig*, IrArena*, const Type*);
 
 typedef struct Instructions_ Instructions;
 const Node* gen_deserialisation(Instructions, const Type* element_type, const Node* arr, const Node* base_offset);

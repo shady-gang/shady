@@ -46,7 +46,7 @@ static const Node* lower_lea(Context* ctx, Instructions instructions, const Prim
         const Type* arr_type = pointer_type->payload.ptr_type.pointed_type;
         assert(arr_type->tag == ArrType_TAG);
         const Type* element_type = arr_type->payload.arr_type.element_type;
-        TypeMemLayout element_t_layout = get_mem_layout(ctx->config, element_type);
+        TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
         const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value = element_t_layout.size_in_cells });
         const Node* computed_offset = gen_primop(instructions, (PrimOp) {
@@ -67,7 +67,7 @@ static const Node* lower_lea(Context* ctx, Instructions instructions, const Prim
             case ArrType_TAG: {
                 const Type* element_type = pointed_type->payload.arr_type.element_type;
 
-                TypeMemLayout element_t_layout = get_mem_layout(ctx->config, element_type);
+                TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
                 const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value = element_t_layout.size_in_cells });
                 const Node* computed_offset = gen_primop(instructions, (PrimOp) {
