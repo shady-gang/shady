@@ -123,6 +123,9 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case GlobalVariable_TAG:
         case Constant_TAG:
         case Function_TAG:      error("Declarations are not handled");
+        case FnAddr_TAG:        return fn_addr(rewriter->dst_arena, (FnAddr) {
+            .fn = rewrite_node(rewriter, node->payload.fn_addr.fn)
+        });
         case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) {
             .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext)
         });

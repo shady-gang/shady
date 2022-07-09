@@ -18,6 +18,7 @@ struct Dict* new_dict_impl(size_t key_size, size_t value_size, size_t key_align,
 
 struct Dict* clone_dict(struct Dict*);
 void destroy_dict(struct Dict*);
+void clear_dict(struct Dict*);
 
 size_t entries_count_dict(struct Dict*);
 

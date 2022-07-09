@@ -108,6 +108,12 @@ void destroy_dict(struct Dict* dict) {
     free(dict);
 }
 
+void clear_dict(struct Dict* dict) {
+    dict->entries_count = 0;
+    dict->thombstones_count = 0;
+    memset(dict->alloc, 0, dict->bucket_entry_size * dict->size);
+}
+
 size_t entries_count_dict(struct Dict* dict) {
     return dict->entries_count;
 }

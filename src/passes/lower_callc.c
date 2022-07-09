@@ -15,6 +15,7 @@
 
 typedef struct Context_ {
     Rewriter rewriter;
+    struct Dict* spilled;
     struct List* new_fns;
     struct List* todo;
 } Context;
@@ -73,7 +74,8 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
             .op = pop_stack_op,
             .operands = nodes(dst_arena, 1, (const Node* []) {type})
         }), 1, output_names);
-        register_processed(&new_ctx.rewriter, ovar, let_load->payload.let.variables.nodes[0]);
+        insert_dict(const Node*, const Node*, ctx->spilled, ovar, let_load->payload.let.variables.nodes[0]);
+        // register_processed(&new_ctx.rewriter, ovar, let_load->payload.let.variables.nodes[0]);
         new_block_instructions = append_nodes(dst_arena, new_block_instructions, let_load);
     }
 
@@ -83,6 +85,8 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
         new_block_instructions = append_nodes(dst_arena, new_block_instructions, new_instruction);
     }
     const Node* new_terminator = rewrite_node(&new_ctx.rewriter, cont->payload.fn.block->payload.block.terminator);
+
+    clear_dict(ctx->spilled);
 
     FnAttributes new_attributes = cont->payload.fn.atttributes;
     new_attributes.is_continuation = false;
@@ -99,34 +103,18 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
     return new_fn;
 }
 
-static void handle_todo_entry(Context* ctx, Todo todo) {
-    assert(todo.old_block->payload.block.terminator->tag == Callc_TAG);
-    const Callc* old_callc = &todo.old_block->payload.block.terminator->payload.callc;
-
-    debug_print("Processing callc ret_cont: ");
-    debug_node(old_callc->ret_cont);
-    debug_print("\n");
-
-    Nodes instructions = todo.old_block->payload.block.instructions;
-    const Node* lifted_fn = lift_continuation_into_function(ctx, old_callc->ret_cont, &instructions);
-    *todo.new_block = block(ctx->rewriter.dst_arena, (Block) {
-        .instructions = instructions,
-        .terminator = callc(ctx->rewriter.dst_arena, (Callc) {
-            .is_return_indirect = true,
-            .callee = old_callc->callee,
-            .args = old_callc->args,
-            .ret_cont = fn_addr(ctx->rewriter.dst_arena, (FnAddr) {.fn = lifted_fn}),
-        })
-    });
-}
-
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 static const Node* process_node(Context* ctx, const Node* node) {
+    const Node** spilled = find_value_dict(const Node*, const Node*, ctx->spilled, node);
+    if (spilled) return *spilled;
+
+    const Node* found = search_processed(&ctx->rewriter, node);
+    if (found) return found;
+
     switch (node->tag) {
         case Function_TAG: {
-            Node* new = fn(ctx->rewriter.dst_arena, node->payload.fn.atttributes, node->payload.fn.name, node->payload.fn.params, node->payload.fn.return_types);
+            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
+            //Node* new = fn(ctx->rewriter.dst_arena, node->payload.fn.atttributes, node->payload.fn.name, node->payload.fn.params, node->payload.fn.return_types);
+            //register_processed(&ctx->rewriter, node, new);
 
             const Node* old_block = node->payload.fn.block;
             // If the block has a callc, delay
@@ -149,10 +137,35 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 }
 
+static void handle_todo_entry(Context* ctx, Todo todo) {
+    assert(todo.old_block->payload.block.terminator->tag == Callc_TAG);
+    const Callc* old_callc = &todo.old_block->payload.block.terminator->payload.callc;
+
+    debug_print("Processing callc ret_cont: ");
+    debug_node(old_callc->ret_cont);
+    debug_print("\n");
+
+    Nodes instructions = todo.old_block->payload.block.instructions;
+    const Node* lifted_fn = lift_continuation_into_function(ctx, old_callc->ret_cont, &instructions);
+    *todo.new_block = block(ctx->rewriter.dst_arena, (Block) {
+        .instructions = rewrite_nodes(&ctx->rewriter, instructions),
+        .terminator = callc(ctx->rewriter.dst_arena, (Callc) {
+            .is_return_indirect = true,
+            .callee = process_node(ctx, old_callc->callee),
+            .args = rewrite_nodes(&ctx->rewriter, old_callc->args),
+            .ret_cont = fn_addr(ctx->rewriter.dst_arena, (FnAddr) {.fn = lifted_fn}),
+        })
+    });
+}
+
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
+
 const Node* lower_callc(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* new_decls_list = new_list(const Node*);
     struct List* todos = new_list(Todo);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    struct Dict* spilled = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
 
     Context ctx = {
         .rewriter = {
@@ -164,6 +177,7 @@ const Node* lower_callc(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
         },
         .new_fns = new_decls_list,
         .todo = todos,
+        .spilled = spilled,
     };
 
     assert(src_program->tag == Root_TAG);
@@ -186,6 +200,7 @@ const Node* lower_callc(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
 
     destroy_list(new_decls_list);
     destroy_list(todos);
+    destroy_dict(spilled);
     destroy_dict(done);
     return rewritten;
 }
