@@ -10,6 +10,7 @@
 struct PrinterCtx {
     FILE* output;
     unsigned int indent;
+    bool print_ptrs;
 };
 
 #define printf(...) fprintf(ctx->output, __VA_ARGS__)
@@ -67,6 +68,7 @@ static void print_param_list(struct PrinterCtx* ctx, Nodes vars, const Nodes* de
         assert(defaults->count == vars.count);
     printf("(");
     for (size_t i = 0; i < vars.count; i++) {
+        if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)vars.nodes[i]);
         const Variable* var = &vars.nodes[i]->payload.var;
         print_node(var->type);
         printf(" %s_%d", var->name, var->id);
@@ -130,15 +132,20 @@ static void print_function(struct PrinterCtx* ctx, const Node* node) {
 }
 
 static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
+
     if (node == NULL) {
         printf("?");
         return;
     }
+
+    if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)node);
+
     switch (node->tag) {
         case Root_TAG: {
             const Root* top_level = &node->payload.root;
             for (size_t i = 0; i < top_level->declarations.count; i++) {
                 const Node* decl = top_level->declarations.nodes[i];
+                if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)decl);
                 if (decl->tag == GlobalVariable_TAG) {
                     const GlobalVariable* gvar = &decl->payload.global_variable;
                     print_storage_qualifier_for_global(ctx, gvar->address_space);
@@ -495,21 +502,22 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
 #undef print_node
 #undef printf
 
-static void print_node_in_output(FILE* output, const Node* node) {
+static void print_node_in_output(FILE* output, const Node* node, bool dump_ptrs) {
     struct PrinterCtx ctx = {
         .output = output,
         .indent = 0,
+        .print_ptrs = dump_ptrs
     };
     print_node_impl(&ctx, node);
 }
 
 void print_node(const Node* node) {
-    print_node_in_output(stdout, node);
+    print_node_in_output(stdout, node, false);
 }
 
 void log_node(LogLevel level, const Node* node) {
     if (level >= log_level)
-        print_node_in_output(stderr, node);
+        print_node_in_output(stderr, node, false);
 }
 
 void dump_node(const Node* node) {
