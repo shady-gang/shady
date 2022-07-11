@@ -10,6 +10,8 @@ set(SHADY_SOURCES
     rewrite.c
     visit.c
     print.c
+    fold.c
+    block_builder.c
     log.c
     util.c
     compile.c

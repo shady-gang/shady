@@ -68,9 +68,9 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         }
         case Block_TAG: {
             // this may miss call instructions...
-            Instructions instructions = begin_instructions(dst_arena);
+            BlockBuilder* instructions = begin_block(dst_arena);
             for (size_t i = 0; i < old->payload.block.instructions.count; i++)
-                append_instr(instructions, rewrite_node(&ctx->rewriter, old->payload.block.instructions.nodes[i]));
+                append_block(instructions, rewrite_node(&ctx->rewriter, old->payload.block.instructions.nodes[i]));
 
             const Node* terminator = old->payload.block.terminator;
 
@@ -117,10 +117,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 }
                 default: terminator = lower_callf_process(ctx, terminator); break;
             }
-            return block(dst_arena, (Block) {
-                .instructions = finish_instructions(instructions),
-                .terminator = terminator
-            });
+            return finish_block(instructions, terminator);
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
     }

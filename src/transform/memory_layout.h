@@ -15,8 +15,7 @@ typedef struct {
 
 TypeMemLayout get_mem_layout(const CompilerConfig*, IrArena*, const Type*);
 
-typedef struct Instructions_ Instructions;
-const Node* gen_deserialisation(Instructions, const Type* element_type, const Node* arr, const Node* base_offset);
-void gen_serialisation(Instructions, const Type* element_type, const Node* arr, const Node* base_offset, const Node* value);
+const Node* gen_deserialisation(BlockBuilder*, const Type* element_type, const Node* arr, const Node* base_offset);
+void gen_serialisation(BlockBuilder*, const Type* element_type, const Node* arr, const Node* base_offset, const Node* value);
 
 #endif

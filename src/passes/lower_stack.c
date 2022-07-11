@@ -31,7 +31,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
     assert(node->tag == Block_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    Instructions instructions = begin_instructions(dst_arena);
+    BlockBuilder* instructions = begin_block(dst_arena);
     Nodes oinstructions = node->payload.block.instructions;
 
     for (size_t i = 0; i < oinstructions.count; i++) {
@@ -111,13 +111,10 @@ static const Node* handle_block(Context* ctx, const Node* node) {
         }
 
         unchanged:
-        append_instr(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
+        append_block(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
     }
 
-    return block(ctx->rewriter.dst_arena, (Block) {
-        .instructions = finish_instructions(instructions),
-        .terminator = recreate_node_identity(&ctx->rewriter, node->payload.block.terminator),
-    });
+    return finish_block(instructions, recreate_node_identity(&ctx->rewriter, node->payload.block.terminator));
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {
@@ -129,6 +126,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case Function_TAG:
         case GlobalVariable_TAG: {
             Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
+            debug_print("processing declaration %s \n", get_decl_name(old));
             recreate_decl_body_identity(&ctx->rewriter, old, new);
             return new;
         }

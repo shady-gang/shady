@@ -34,7 +34,7 @@ static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
     }
 }
 
-static const Node* lower_lea(Context* ctx, Instructions instructions, const PrimOp* lea) {
+static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const PrimOp* lea) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     const Node* old_pointer = lea->operands.nodes[0];
     const Node* faked_pointer = rewrite_node(&ctx->rewriter, old_pointer);
@@ -100,7 +100,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
     assert(node->tag == Block_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    Instructions instructions = begin_instructions(dst_arena);
+    BlockBuilder* instructions = begin_block(dst_arena);
     Nodes oinstructions = node->payload.block.instructions;
 
     for (size_t i = 0; i < oinstructions.count; i++) {
@@ -168,13 +168,10 @@ static const Node* handle_block(Context* ctx, const Node* node) {
         }
 
         unchanged:
-        append_instr(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
+        append_block(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
     }
 
-    return block(ctx->rewriter.dst_arena, (Block) {
-        .instructions = finish_instructions(instructions),
-        .terminator = recreate_node_identity(&ctx->rewriter, node->payload.block.terminator),
-    });
+    return finish_block(instructions, recreate_node_identity(&ctx->rewriter, node->payload.block.terminator));
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {
