@@ -183,13 +183,9 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             Nodes oparams = node->payload.loop_instr.params;
             Nodes nparams = rewrite_nodes(rewriter, oparams);
 
-            //struct Dict* old_processed = rewriter->processed;
-            //rewriter->processed = clone_dict(rewriter->processed);
             for (size_t i = 0; i < oparams.count; i++)
                 register_processed(rewriter, oparams.nodes[i], nparams.nodes[i]);
             const Node* nbody = rewrite_node(rewriter, node->payload.loop_instr.body);
-            //destroy_dict(rewriter->processed);
-            //rewriter->processed = old_processed;
 
             return loop_instr(rewriter->dst_arena, (Loop) {
                 .yield_types = rewrite_nodes(rewriter, node->payload.loop_instr.yield_types),
@@ -252,6 +248,8 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Int_TAG:           return int_type(rewriter->dst_arena);
         case Bool_TAG:          return bool_type(rewriter->dst_arena);
         case Float_TAG:         return float_type(rewriter->dst_arena);
+        case Unit_TAG:          return unit_type(rewriter->dst_arena);
+        case MaskType_TAG:      return mask_type(rewriter->dst_arena);
         case RecordType_TAG:    return record_type(rewriter->dst_arena, (RecordType) {
                                     .members = rewrite_nodes(rewriter, node->payload.record_type.members),
                                     .names = import_strings(rewriter->dst_arena, node->payload.record_type.names),

@@ -128,6 +128,8 @@ String unique_name(IrArena* arena, const char* start);
 
 //////////////////////////////// Values ////////////////////////////////
 
+bool is_value(const Node*);
+
 typedef struct Variable_ {
     const Type* type;
     VarId id;
@@ -210,44 +212,47 @@ typedef struct Let_ {
     const Node* instruction;
 } Let;
 
+// PRIMOP(has_side_effects, name)
+
 #define PRIMOPS()          \
-PRIMOP(add)                \
-PRIMOP(sub)                \
-PRIMOP(mul)                \
-PRIMOP(div)                \
-PRIMOP(mod)                \
-PRIMOP(neg)                \
-PRIMOP(gt)                 \
-PRIMOP(gte)                \
-PRIMOP(lt)                 \
-PRIMOP(lte)                \
-PRIMOP(eq)                 \
-PRIMOP(neq)                \
-PRIMOP(and)                \
-PRIMOP(or)                 \
-PRIMOP(xor)                \
-PRIMOP(not)                \
-PRIMOP(alloca)             \
-PRIMOP(load)               \
-PRIMOP(store)              \
-PRIMOP(lea)                \
-PRIMOP(select)             \
-PRIMOP(convert)            \
-PRIMOP(reinterpret)        \
-PRIMOP(push_stack)         \
-PRIMOP(pop_stack)          \
-PRIMOP(push_stack_uniform) \
-PRIMOP(pop_stack_uniform)  \
-PRIMOP(get_mask)           \
+PRIMOP(0, add)                \
+PRIMOP(0, sub)                \
+PRIMOP(0, mul)                \
+PRIMOP(0, div)                \
+PRIMOP(0, mod)                \
+PRIMOP(0, neg)                \
+PRIMOP(0, gt)                 \
+PRIMOP(0, gte)                \
+PRIMOP(0, lt)                 \
+PRIMOP(0, lte)                \
+PRIMOP(0, eq)                 \
+PRIMOP(0, neq)                \
+PRIMOP(0, and)                \
+PRIMOP(0, or)                 \
+PRIMOP(0, xor)                \
+PRIMOP(0, not)                \
+PRIMOP(1, alloca)             \
+PRIMOP(0, load)               \
+PRIMOP(1, store)              \
+PRIMOP(0, lea)                \
+PRIMOP(0, select)             \
+PRIMOP(0, convert)            \
+PRIMOP(0, reinterpret)        \
+PRIMOP(1, push_stack)         \
+PRIMOP(1, pop_stack)          \
+PRIMOP(1, push_stack_uniform) \
+PRIMOP(1, pop_stack_uniform)  \
+PRIMOP(0, get_mask)           \
 
 typedef enum Op_ {
-#define PRIMOP(name) name##_op,
+#define PRIMOP(has_side_effects, name) name##_op,
 PRIMOPS()
 #undef PRIMOP
     PRIMOPS_COUNT
 } Op;
 
 extern const char* primop_names[];
+bool has_primop_got_side_effects(Op op);
 
 typedef struct PrimOp_ {
     Op op;
@@ -289,6 +294,8 @@ typedef struct Loop_ {
 } Loop;
 
 //////////////////////////////// Terminators ////////////////////////////////
+
+bool is_terminator(const Node*);
 
 /// A branch. Branches can cause divergence, but they can never cause re-convergence.
 /// @n @p BrJump is guaranteed to not cause divergence, but all the other forms may cause it.

@@ -234,6 +234,11 @@ const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
 
 /// Checks the operands to a Primop and returns the produced types
 const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
+    for (size_t i = 0; i < prim_op.operands.count; i++) {
+        const Node* operand = prim_op.operands.nodes[i];
+        assert(!operand || is_type(operand) || is_value(operand));
+    }
+
     switch (prim_op.op) {
         case add_op:
         case sub_op:
@@ -457,6 +462,11 @@ static Nodes check_callsite_helper(const Type* callee_type, Nodes argument_types
 }
 
 const Type* check_type_call_instr(IrArena* arena, Call call) {
+    for (size_t i = 0; i < call.args.count; i++) {
+        const Node* argument = call.args.nodes[i];
+        assert(is_value(argument));
+    }
+
     assert(get_qualifier(call.callee->type) == Uniform);
     return wrap_multiple_yield_types(arena, check_callsite_helper(call.callee->type, extract_types(arena, call.args)));
 }
@@ -491,6 +501,11 @@ static void check_known_target_helper(const Node* target) {
 }
 
 const Type* check_type_branch(IrArena* arena, Branch branch) {
+    for (size_t i = 0; i < branch.args.count; i++) {
+        const Node* argument = branch.args.nodes[i];
+        assert(is_value(argument));
+    }
+
     switch (branch.branch_mode) {
         case BrTailcall: {
             const PtrType* callee_type = extract_ptr_type(branch.target->type);
@@ -520,6 +535,11 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
 }
 
 const Type* check_type_join(IrArena* arena, Join join) {
+    for (size_t i = 0; i < join.args.count; i++) {
+        const Node* argument = join.args.nodes[i];
+        assert(is_value(argument));
+    }
+
     const Type* join_target_type;
     if (join.is_indirect) {
         const PtrType* ptr_type = extract_ptr_type(join.join_at->type);
@@ -536,6 +556,11 @@ const Type* check_type_join(IrArena* arena, Join join) {
 }
 
 const Type* check_type_callc(IrArena* arena, Callc callc) {
+    for (size_t i = 0; i < callc.args.count; i++) {
+        const Node* argument = callc.args.nodes[i];
+        assert(is_value(argument));
+    }
+
     const PtrType* callee_ptr_type = extract_ptr_type(callc.callee->type);
     assert(callee_ptr_type);
     const Nodes returned_types = check_callsite_helper(callee_ptr_type->pointed_type, extract_types(arena, callc.args));

@@ -1,9 +1,9 @@
-#include "block_builder.h"
+#include "fold.h"
 #include "type.h"
 
 #include <assert.h>
 
-const Node* resolve_known_vars(const Node* node) {
+const Node* resolve_known_vars(const Node* node, bool stop_at_values) {
     if (node->tag == Variable_TAG) {
         const Node* instr = node->payload.var.instruction;
         if (instr) {
@@ -14,7 +14,8 @@ const Node* resolve_known_vars(const Node* node) {
                 }
                 default: {
                     assert(node->payload.var.output == 0);
-                    return resolve_known_vars(instr);
+                    if (!stop_at_values || is_value(instr))
+                        return resolve_known_vars(instr, stop_at_values);
                 }
             }
         }
@@ -23,7 +24,7 @@ const Node* resolve_known_vars(const Node* node) {
 }
 
 bool is_zero(const Node* node) {
-    node = resolve_known_vars(node);
+    node = resolve_known_vars(node, false);
     if (node->tag == IntLiteral_TAG) {
         if (node->payload.int_literal.value == 0)
             return true;
@@ -31,7 +32,7 @@ bool is_zero(const Node* node) {
     return false;
 }
 bool is_one(const Node* node) {
-    node = resolve_known_vars(node);
+    node = resolve_known_vars(node, false);
     if (node->tag == IntLiteral_TAG) {
         if (node->payload.int_literal.value == 1)
             return true;
@@ -73,8 +74,14 @@ const Node* fold_prim_op(IrArena* arena, const Node* node) {
     return node;
 }
 
+const Node* fold_block(IrArena* arena, const Node* node) {
+    return node;
+}
+
 const Node* fold_node(IrArena* arena, const Node* instruction) {
-    if (instruction->tag == PrimOp_TAG)
-        return fold_prim_op(arena, instruction);
-    return instruction;
+    switch (instruction->tag) {
+        case PrimOp_TAG: return fold_prim_op(arena, instruction);
+        case Block_TAG: return fold_block(arena, instruction);
+        default: return instruction;
+    }
 }

@@ -1,6 +1,7 @@
 #include "type.h"
 #include "log.h"
 #include "arena.h"
+#include "fold.h"
 #include "portability.h"
 
 #include "murmur3.h"
@@ -8,8 +9,6 @@
 
 #include <string.h>
 #include <assert.h>
-
-const Node* fold_node(IrArena* arena, const Node* instruction);
 
 static Node* create_node_helper(IrArena* arena, Node node) {
     Node* ptr = &node;
@@ -68,6 +67,28 @@ bool is_instruction(const Node* node) {
 #define NODEDEF(_, _2, _3, name, _4) case name##_TAG:
         INSTRUCTION_NODES()
 #undef NODEDEF
+            return true;
+        default: return false;
+    }
+}
+
+bool is_terminator(const Node* node) {
+    switch (node->tag) {
+#define NODEDEF(_, _2, _3, name, _4) case name##_TAG:
+        TERMINATOR_NODES()
+#undef NODEDEF
+            return true;
+        default: return false;
+    }
+}
+
+bool is_value(const Node* node) {
+    switch (node->tag) {
+#define NODEDEF(_, _2, _3, name, _4) case name##_TAG:
+        VALUE_NODES()
+#undef NODEDEF
+        case GlobalVariable_TAG:
+        case Constant_TAG:
             return true;
         default: return false;
     }
@@ -184,10 +205,20 @@ NODES()
 };
 
 const char* primop_names[] = {
-#define PRIMOP(str) #str,
+#define PRIMOP(se, str) #str,
 PRIMOPS()
 #undef PRIMOP
 };
+
+const bool primop_side_effects[] = {
+#define PRIMOP(se, str) se,
+PRIMOPS()
+#undef PRIMOP
+};
+
+bool has_primop_got_side_effects(Op op) {
+    return primop_side_effects[op];
+}
 
 const bool node_type_has_payload[] = {
 #define NODEDEF(_, _2, has_payload, _4, _5) has_payload,
