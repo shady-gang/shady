@@ -135,6 +135,6 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.callc.args);
             break;
         }
-        default: break;
+        default: error("implement me");
     }
 }
