@@ -9,6 +9,21 @@
 #include <string.h>
 #include <assert.h>
 
+static Node* create_node_helper(IrArena* arena, Node node) {
+    Node* ptr = &node;
+    Node** found = find_key_dict(Node*, arena->node_set, ptr);
+    // sanity check nominal nodes to be unique, check for duplicates in structural nodes
+    if (is_nominal(node.tag))
+        assert(!found);
+    else if (found)
+        return *found;
+    // place the node in the arena and return it
+    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
+    *alloc = node;
+    insert_set_get_result(const Node*, arena->node_set, alloc);
+    return alloc;
+}
+
 #define LAST_ARG_1(struct_name) ,struct_name in_node
 #define LAST_ARG_0(struct_name)
 
@@ -21,21 +36,14 @@
 #define SET_PAYLOAD_0(_)
 
 #define NODE_CTOR_1(has_typing_fn, has_payload, struct_name, short_name) const Node* short_name(IrArena* arena LAST_ARG_##has_payload(struct_name)) { \
-    Node node;                                                                                                                                    \
-    memset((void*) &node, 0, sizeof(Node));                                                                                                       \
-    node = (Node) {                                                                                                                               \
-      .type = CALL_TYPING_METHOD_##has_typing_fn##has_payload(short_name),                                                                                   \
-      .tag = struct_name##_TAG,                                                                                                                   \
-      SET_PAYLOAD_##has_payload(short_name)                                                                                                       \
-    };                                                                                                                                            \
-    Node* ptr = &node;                                                                                                                            \
-    const Node** found = find_key_dict(const Node*, arena->node_set, ptr);                                                                        \
-    if (found)                                                                                                                                    \
-        return *found;                                                                                                                            \
-    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));                                                                                       \
-    *alloc = node;                                                                                                                                \
-    insert_set_get_result(const Node*, arena->node_set, alloc);                                                                                   \
-    return alloc;                                                                                                                                 \
+    Node node;                                                                                                                                        \
+    memset((void*) &node, 0, sizeof(Node));                                                                                                           \
+    node = (Node) {                                                                                                                                   \
+      .type = CALL_TYPING_METHOD_##has_typing_fn##has_payload(short_name),                                                                            \
+      .tag = struct_name##_TAG,                                                                                                                       \
+      SET_PAYLOAD_##has_payload(short_name)                                                                                                           \
+    };                                                                                                                                                \
+    return create_node_helper(arena, node);                                                                                                           \
 }
 
 #define NODE_CTOR_0(has_typing_fn, has_payload, struct_name, short_name)
@@ -67,13 +75,7 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
       .tag = Variable_TAG,
       .payload.var = variable
     };
-    Node* ptr = &node;
-    const Node** found = find_key_dict(const Node*, arena->node_set, ptr);
-    assert(!found);
-    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
-    *alloc = node;
-    insert_set_get_result(const Node*, arena->node_set, alloc);
-    return alloc;
+    return create_node_helper(arena, node);
 }
 
 const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, const char* output_names[]) {
@@ -106,14 +108,7 @@ const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, c
       .tag = Let_TAG,
       .payload.let = payload
     };
-    Node* ptr = &node;
-    const Node** found = find_key_dict(const Node*, arena->node_set, ptr);
-    if (found)
-        return *found; // TODO: check this doesn't cause issues with identical instructions being part of different BBs...
-    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
-    *alloc = node;
-    insert_set_get_result(const Node*, arena->node_set, alloc);
-    return alloc;
+    return create_node_helper(arena, node);
 }
 
 Node* fn(IrArena* arena, FnAttributes attributes, const char* name, Nodes params, Nodes return_types) {
@@ -132,13 +127,7 @@ Node* fn(IrArena* arena, FnAttributes attributes, const char* name, Nodes params
       .tag = Function_TAG,
       .payload.fn = fn
     };
-    Node* ptr = &node;
-    Node** found = find_key_dict(Node*, arena->node_set, ptr);
-    assert(!found);
-    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
-    *alloc = node;
-    insert_set_get_result(const Node*, arena->node_set, alloc);
-    return alloc;
+    return create_node_helper(arena, node);
 }
 
 Node* constant(IrArena* arena, String name) {
@@ -155,13 +144,7 @@ Node* constant(IrArena* arena, String name) {
       .tag = Constant_TAG,
       .payload.constant = cnst
     };
-    Node* ptr = &node;
-    Node** found = find_key_dict(Node*, arena->node_set, ptr);
-    assert(!found);
-    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
-    *alloc = node;
-    insert_set_get_result(const Node*, arena->node_set, alloc);
-    return alloc;
+    return create_node_helper(arena, node);
 }
 
 Node* global_var(IrArena* arena, const Type* type, const char* name, AddressSpace as) {
@@ -179,13 +162,7 @@ Node* global_var(IrArena* arena, const Type* type, const char* name, AddressSpac
       .tag = GlobalVariable_TAG,
       .payload.global_variable = gvar
     };
-    Node* ptr = &node;
-    Node** found = find_key_dict(Node*, arena->node_set, ptr);
-    assert(!found);
-    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
-    *alloc = node;
-    insert_set_get_result(const Node*, arena->node_set, alloc);
-    return alloc;
+    return create_node_helper(arena, node);
 }
 
 const char* node_tags[] = {
