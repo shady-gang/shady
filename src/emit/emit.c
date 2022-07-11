@@ -141,7 +141,8 @@ const struct IselTableEntry {
     [PRIMOPS_COUNT] = { Custom }
 };
 
-static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, PrimOp prim_op, Nodes variables) {
+static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* instr, Nodes variables) {
+    PrimOp prim_op = instr->payload.prim_op;
     Nodes args = prim_op.operands;
 
     struct IselTableEntry entry = isel_table[prim_op.op];
@@ -223,7 +224,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             if (args.nodes[1]) {
                 error("TODO: OpPtrAccessChain")
             } else {
-                const Type* target_type = typecheck_primop(emitter->arena, prim_op).nodes[0];
+                const Type* target_type = instr->type;
                 SpvId result = spvb_access_chain(bb_builder, emit_type(emitter, target_type), base, args.count - 2, indices);
                 register_result(emitter, variables.nodes[0], result);
             }
@@ -380,7 +381,7 @@ static void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* 
     }
 
     switch (instruction->tag) {
-        case PrimOp_TAG: emit_primop(emitter, fn_builder, *bb_builder, instruction->payload.prim_op, variables);                   break;
+        case PrimOp_TAG: emit_primop(emitter, fn_builder, *bb_builder, instruction, variables);                   break;
         case Call_TAG:     emit_call(emitter, fn_builder, *bb_builder, instruction->payload.call_instr, variables);                break;
         case If_TAG:         emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, variables);    break;
         case Match_TAG:   emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, variables); break;

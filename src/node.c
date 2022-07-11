@@ -83,7 +83,7 @@ const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, c
     LARRAY(Node*, vars, outputs_count);
 
     if (arena->config.check_types) {
-        Nodes types = typecheck_instruction(arena, instruction);
+        Nodes types = unwrap_multiple_yield_types(arena, instruction->type);
         for (size_t i = 0; i < outputs_count; i++)
             vars[i] = (Node*) var(arena, types.nodes[i], output_names ? output_names[i] : node_tags[instruction->tag]);
     } else {

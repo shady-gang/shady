@@ -297,7 +297,7 @@ static const Node* infer_let(Context* ctx, const Node* node) {
     const size_t outputs_count = node->payload.let.variables.count;
 
     const Node* new_instruction = infer_instruction(ctx, node->payload.let.instruction);
-    Nodes output_types = typecheck_instruction(ctx->rewriter.dst_arena, new_instruction);
+    Nodes output_types = unwrap_multiple_yield_types(ctx->rewriter.dst_arena, new_instruction->type);
 
     assert(output_types.count == outputs_count);
 

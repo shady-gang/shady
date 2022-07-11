@@ -8,13 +8,13 @@
 #include "../block_builder.h"
 
 Nodes gen_primop(BlockBuilder* instructions, PrimOp prim_op_) {
-    Nodes output_types = typecheck_primop(instructions->arena, prim_op_);
+    const Node* instruction = prim_op(instructions->arena, prim_op_);
+    Nodes output_types = unwrap_multiple_yield_types(instructions->arena, instruction->type);
 
     LARRAY(const char*, names, output_types.count);
     for (size_t i = 0; i < output_types.count; i++)
         names[i] = format_string(instructions->arena, "%s_out", primop_names[prim_op_.op]);
 
-    const Node* instruction = prim_op(instructions->arena, prim_op_);
 
     if (output_types.count > 0)
         instruction = let(instructions->arena,  instruction, output_types.count, names);

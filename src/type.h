@@ -21,9 +21,8 @@ void check_subtype(const Type* supertype, const Type* type);
 NODES()
 #undef NODEDEF
 
-Nodes typecheck_primop(IrArena* arena, PrimOp prim_op);
-Nodes typecheck_call(IrArena* arena, Call call);
-Nodes typecheck_instruction(IrArena* arena, const Node* instr);
+const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types);
+Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 
 // TODO: revise naming scheme
 const Type* strip_qualifier(const Type* type, DivergenceQualifier* qual_out);

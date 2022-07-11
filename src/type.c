@@ -189,27 +189,51 @@ const Type* check_type_fn_ret(IrArena* arena, Return ret) {
     return NULL;
 }
 
-Nodes typecheck_if_instr(IrArena* arena, If if_instr) {
+const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types) {
+    switch (types.count) {
+        case 0: return unit_type(arena);
+        case 1: return types.nodes[0];
+        default: return record_type(arena, (RecordType) {
+            .members = types,
+            .names = strings(arena, 0, NULL),
+            .must_be_deconstructed = true,
+        });
+    }
+    SHADY_UNREACHABLE;
+}
+
+Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
+    switch (type->tag) {
+        case Unit_TAG: return nodes(arena, 0, NULL);
+        case RecordType_TAG:
+            if (type->payload.record_type.must_be_deconstructed)
+                return type->payload.record_type.members;
+            // fallthrough
+        default: return nodes(arena, 1, (const Node* []) { type });
+    }
+}
+
+const Type* check_type_if_instr(IrArena* arena, If if_instr) {
     if (without_qualifier(if_instr.condition->type) != bool_type(arena))
         error("condition of a selection should be bool");
     // TODO check the contained Merge instrs
-    return if_instr.yield_types;
+    return wrap_multiple_yield_types(arena, if_instr.yield_types);
 }
 
-Nodes typecheck_loop_instr(IrArena* arena, Loop loop_instr) {
+const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
-    return loop_instr.yield_types;
+    return wrap_multiple_yield_types(arena, loop_instr.yield_types);
 }
 
-Nodes typecheck_match_instr(IrArena* arena, Match match_instr) {
+const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
-    return match_instr.yield_types;
+    return wrap_multiple_yield_types(arena, match_instr.yield_types);
 }
 
 /// Checks the operands to a Primop and returns the produced types
-Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
+const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     switch (prim_op.op) {
         case add_op:
         case sub_op:
@@ -228,7 +252,7 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                  assert(arg_actual_type == int_type(arena) && "todo improve this check");
              }
 
-            return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = int_type(arena) }));
+            return qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = int_type(arena) });
         }
         case lt_op:
         case lte_op:
@@ -246,7 +270,7 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                 assert(op_div != Unknown); // we expect all operands to be clearly known !
                 is_result_uniform &= op_div == Uniform;
             }
-            return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = bool_type(arena) }));
+            return qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = bool_type(arena) });
         }
         case push_stack_uniform_op:
         case push_stack_op: {
@@ -259,14 +283,14 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
             });
             // the operand has to be a subtype of the annotated type
             assert(is_subtype(qual_element_type, prim_op.operands.nodes[1]->type));
-            return empty();
+            return unit_type(arena);
         }
         case pop_stack_op:
         case pop_stack_uniform_op: {
             assert(prim_op.operands.count == 1);
             const Type* element_type = prim_op.operands.nodes[0];
             assert(get_qualifier(element_type) == Unknown && "annotations do not go here");
-            return singleton(qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == pop_stack_uniform_op, .type = element_type}));
+            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == pop_stack_uniform_op, .type = element_type});
         }
         case load_op: {
             assert(prim_op.operands.count == 1);
@@ -279,10 +303,10 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
             assert(node_ptr_type->tag == PtrType_TAG);
             const PtrType* node_ptr_type_ = &node_ptr_type->payload.ptr_type;
             const Type* elem_type = node_ptr_type_->pointed_type;
-            return singleton(qualified_type(arena, (QualifiedType) {
+            return qualified_type(arena, (QualifiedType) {
                 .type = elem_type,
                 .is_uniform = qual == Uniform
-            }));
+            });
         }
         case store_op: {
             assert(prim_op.operands.count == 2);
@@ -303,19 +327,19 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
 
             const Node* val = prim_op.operands.nodes[1];
             assert(is_subtype(val_expected_type, val->type));
-            return empty();
+            return unit_type(arena);
         }
         case alloca_op: {
             assert(prim_op.operands.count == 1);
             const Type* elem_type = prim_op.operands.nodes[0];
             assert(is_type(elem_type));
-            return singleton(qualified_type(arena, (QualifiedType) {
+            return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
                 .type = ptr_type(arena, (PtrType) {
                     .pointed_type = elem_type,
                     .address_space = AsPrivatePhysical
                 })
-            }));
+            });
         }
         case lea_op: {
             bool uniform = true;
@@ -358,10 +382,10 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
                 }
             }
 
-            return singleton(qualified_type(arena, (QualifiedType) {
+            return qualified_type(arena, (QualifiedType) {
                 .is_uniform = uniform,
                 .type = without_qualifier(curr_ptr_type)
-            }));
+            });
         }
         case reinterpret_op: {
             assert(prim_op.operands.count == 2);
@@ -375,10 +399,10 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
             //assert(source_type->tag == PtrType_TAG);
             //assert(target_type->tag == PtrType_TAG);
 
-            return singleton(qualified_type(arena, (QualifiedType) {
+            return qualified_type(arena, (QualifiedType) {
                 .is_uniform = qual == Uniform,
                 .type = target_type
-            }));
+            });
         }
         case select_op: {
             assert(prim_op.operands.count == 3);
@@ -386,16 +410,16 @@ Nodes typecheck_primop(IrArena* arena, PrimOp prim_op) {
             // todo find true supertype
             assert(is_subtype(without_qualifier(prim_op.operands.nodes[1]->type), without_qualifier(prim_op.operands.nodes[2]->type)));
 
-            return singleton(qualified_type(arena, (QualifiedType) {
+            return qualified_type(arena, (QualifiedType) {
                 .is_uniform = (get_qualifier(prim_op.operands.nodes[1]->type) == Uniform) & (get_qualifier(prim_op.operands.nodes[2]->type) == Uniform),
                 .type = without_qualifier(prim_op.operands.nodes[2]->type)
-            }));
+            });
         }
         case get_mask_op: {
-            return singleton(qualified_type(arena, (QualifiedType) {
+            return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
                 .type = mask_type(arena)
-            }));
+            });
         }
         default: error("unhandled primop %s", primop_names[prim_op.op]);
     }
@@ -417,24 +441,6 @@ static void check_uniform_helper(const Node* node, String errmsg) {
 
 TYPE_NODES()
 
-static const FnType* check_is_fn_and_get_fn_type_helper(const Node* node) {
-    const Type* callee_type = without_qualifier(node->type);
-    assert(callee_type->tag == FnType_TAG);
-    return &callee_type->payload.fn_type;
-}
-
-static void check_cont_fn_helper(const Node* target, bool should_be_continuation) {
-    const FnType* tgt_type = &without_qualifier(target->type)->payload.fn_type;
-    assert(tgt_type->is_continuation == should_be_continuation);
-}
-
-static void check_arguments_against_parameters_helper(Nodes param_types, Nodes arguments) {
-    if (param_types.count != arguments.count)
-        error("Mismatched number of arguments/parameters");
-    for (size_t i = 0; i < param_types.count; i++)
-        check_subtype(param_types.nodes[i], arguments.nodes[i]->type);
-}
-
 static void check_arguments_types_against_parameters_helper(Nodes param_types, Nodes arg_types) {
     if (param_types.count != arg_types.count)
         error("Mismatched number of arguments/parameters");
@@ -442,22 +448,7 @@ static void check_arguments_types_against_parameters_helper(Nodes param_types, N
         check_subtype(param_types.nodes[i], arg_types.nodes[i]);
 }
 
-static Nodes check_callsite_helper(const Node* callee, Nodes arguments) {
-    const FnType* fn_type = check_is_fn_and_get_fn_type_helper(callee);
-    check_arguments_against_parameters_helper(fn_type->param_types, arguments);
-
-    return fn_type->return_types;
-}
-
-static Nodes check_callsite_helper2(const Type* callee_type, Nodes arguments) {
-    const FnType* fn_type = extract_fn_type(callee_type);
-    assert(fn_type);
-    check_arguments_against_parameters_helper(fn_type->param_types, arguments);
-
-    return fn_type->return_types;
-}
-
-static Nodes check_callsite_helper3(const Type* callee_type, Nodes argument_types) {
+static Nodes check_callsite_helper(const Type* callee_type, Nodes argument_types) {
     const FnType* fn_type = extract_fn_type(callee_type);
     assert(fn_type);
     check_arguments_types_against_parameters_helper(fn_type->param_types, argument_types);
@@ -465,33 +456,34 @@ static Nodes check_callsite_helper3(const Type* callee_type, Nodes argument_type
     return fn_type->return_types;
 }
 
-Nodes typecheck_call(IrArena* arena, Call call) {
+const Type* check_type_call_instr(IrArena* arena, Call call) {
     assert(get_qualifier(call.callee->type) == Uniform);
-    return check_callsite_helper(call.callee, call.args);
-}
-
-Nodes typecheck_instruction(IrArena* arena, const Node* instr) {
-    switch (instr->tag) {
-        case PrimOp_TAG: return typecheck_primop(arena, instr->payload.prim_op);
-        case Call_TAG:   return typecheck_call(arena, instr->payload.call_instr);
-        case If_TAG:     return typecheck_if_instr(arena, instr->payload.if_instr);
-        case Loop_TAG:   return typecheck_loop_instr(arena, instr->payload.loop_instr);
-        case Match_TAG:  return typecheck_match_instr(arena, instr->payload.match_instr);
-        default:         error("unhandled instruction");
-    }
-    SHADY_UNREACHABLE;
+    return wrap_multiple_yield_types(arena, check_callsite_helper(call.callee->type, extract_types(arena, call.args)));
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
-    Nodes output_types = typecheck_instruction(arena, let.instruction);
+    //Nodes output_types = typecheck_instruction(arena, let.instruction);
+    const Type* result_type = let.instruction->type;
 
     // check outputs
     Nodes var_tys = extract_variable_types(arena, &let.variables);
-    if (output_types.count != var_tys.count)
-        error("let variables count != yield count from operation")
-    for (size_t i = 0; i < var_tys.count; i++)
-        check_subtype(var_tys.nodes[i], output_types.nodes[i]);
-    return NULL;
+    switch (result_type->tag) {
+        case Unit_TAG: error("You can only let-bind non-unit nodes");
+        case RecordType_TAG: {
+            if (result_type->payload.record_type.members.count != var_tys.count)
+                error("let variables count != yield count from operation")
+            for (size_t i = 0; i < var_tys.count; i++)
+                check_subtype(var_tys.nodes[i], result_type->payload.record_type.members.nodes[i]);
+            break;
+        }
+        default: {
+            assert(var_tys.count == 1);
+            check_subtype(var_tys.nodes[0], result_type);
+            break;
+        }
+    }
+
+    return unit_type(arena);
 }
 
 static void check_known_target_helper(const Node* target) {
@@ -503,12 +495,12 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
         case BrTailcall: {
             const PtrType* callee_type = extract_ptr_type(branch.target->type);
             assert(callee_type && "tail calls must have ptr callees");
-            check_callsite_helper2(callee_type->pointed_type, branch.args);
+            check_callsite_helper(callee_type->pointed_type, extract_types(arena, branch.args));
             return NULL;
         }
         case BrJump: {
             check_uniform_helper(branch.target, "Non-uniform branch targets are not allowed");
-            check_callsite_helper2(branch.target->type, branch.args);
+            check_callsite_helper(branch.target->type, extract_types(arena, branch.args));
             return NULL;
         }
         case BrIfElse: {
@@ -518,7 +510,7 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
             for (size_t i = 0; i < 2; i++) {
                 check_uniform_helper(branches[i], "Non-uniform branch targets are not allowed");
                 check_known_target_helper(branches[i]);
-                check_callsite_helper2(branches[i]->type, branch.args);
+                check_callsite_helper(branches[i]->type, extract_types(arena, branch.args));
             }
         }
     }
@@ -538,7 +530,7 @@ const Type* check_type_join(IrArena* arena, Join join) {
         join_target_type = join.join_at->type;
     }
 
-    check_callsite_helper2(join_target_type, join.args);
+    check_callsite_helper(join_target_type, extract_types(arena, join.args));
 
     return NULL;
 }
@@ -546,7 +538,7 @@ const Type* check_type_join(IrArena* arena, Join join) {
 const Type* check_type_callc(IrArena* arena, Callc callc) {
     const PtrType* callee_ptr_type = extract_ptr_type(callc.callee->type);
     assert(callee_ptr_type);
-    const Nodes returned_types = check_callsite_helper2(callee_ptr_type->pointed_type, callc.args);
+    const Nodes returned_types = check_callsite_helper(callee_ptr_type->pointed_type, extract_types(arena, callc.args));
 
     const Type* ret_cont_type;
     if (callc.is_return_indirect) {
@@ -558,7 +550,7 @@ const Type* check_type_callc(IrArena* arena, Callc callc) {
         ret_cont_type = callc.ret_cont->type;
     }
 
-    check_callsite_helper3(ret_cont_type, returned_types);
+    check_callsite_helper(ret_cont_type, returned_types);
 
     return NULL;
 }

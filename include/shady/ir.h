@@ -55,11 +55,11 @@ typedef enum EntryPointType_ {
 // NODEDEF(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name)
 
 #define INSTRUCTION_NODES() \
-NODEDEF(1, 0, 1, PrimOp, prim_op)  \
-NODEDEF(1, 0, 1, Call, call_instr)  \
-NODEDEF(1, 0, 1, If, if_instr) \
-NODEDEF(1, 0, 1, Match, match_instr) \
-NODEDEF(1, 0, 1, Loop, loop_instr) \
+NODEDEF(1, 1, 1, PrimOp, prim_op)  \
+NODEDEF(1, 1, 1, Call, call_instr)  \
+NODEDEF(1, 1, 1, If, if_instr) \
+NODEDEF(1, 1, 1, Match, match_instr) \
+NODEDEF(1, 1, 1, Loop, loop_instr) \
 NODEDEF(0, 1, 1, Let, let)  \
 
 #define TERMINATOR_NODES() \
@@ -73,6 +73,7 @@ NODEDEF(1, 0, 0, Unreachable, unreachable) \
 #define TYPE_NODES() \
 NODEDEF(1, 0, 0, MaskType, mask_type) \
 NODEDEF(1, 0, 0, NoRet, noret_type) \
+NODEDEF(1, 0, 0, Unit, unit_type) \
 NODEDEF(1, 0, 0, Int, int_type) \
 NODEDEF(1, 0, 0, Float, float_type) \
 NODEDEF(1, 0, 0, Bool, bool_type) \
@@ -367,6 +368,10 @@ typedef struct QualifiedType_ {
 
 typedef struct RecordType_ {
     Nodes members;
+    /// Can be empty (no names are given) or has to match the number of members
+    Strings names;
+    /// Set to 'true' for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else.
+    bool must_be_deconstructed;
 } RecordType;
 
 typedef struct FnType_ {

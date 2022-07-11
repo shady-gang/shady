@@ -148,7 +148,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Variable_TAG:      error("We expect variables to be available for us in the `processed` set");
         case Let_TAG:           {
             const Node* ninstruction = rewrite_node(rewriter, node->payload.let.instruction);
-            const Nodes output_types = typecheck_instruction(rewriter->dst_arena, ninstruction);
+            const Nodes output_types = unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type);
             Nodes oldvars = node->payload.let.variables;
             assert(output_types.count == oldvars.count);
 
@@ -253,7 +253,9 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Bool_TAG:          return bool_type(rewriter->dst_arena);
         case Float_TAG:         return float_type(rewriter->dst_arena);
         case RecordType_TAG:    return record_type(rewriter->dst_arena, (RecordType) {
-                                    .members = rewrite_nodes(rewriter, node->payload.record_type.members)});
+                                    .members = rewrite_nodes(rewriter, node->payload.record_type.members),
+                                    .names = import_strings(rewriter->dst_arena, node->payload.record_type.names),
+                                    .must_be_deconstructed = node->payload.record_type.must_be_deconstructed});
         case FnType_TAG:        return fn_type(rewriter->dst_arena, (FnType) {
                                     .is_continuation = node->payload.fn_type.is_continuation,
                                     .param_types = rewrite_nodes(rewriter, node->payload.fn_type.param_types),
