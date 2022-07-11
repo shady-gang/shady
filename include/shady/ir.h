@@ -82,10 +82,7 @@ NODEDEF(1, 0, 1, PtrType, ptr_type) \
 NODEDEF(1, 1, 1, QualifiedType, qualified_type) \
 NODEDEF(1, 0, 1, ArrType, arr_type) \
 
-#define NODES() \
-INSTRUCTION_NODES() \
-TERMINATOR_NODES() \
-TYPE_NODES() \
+#define VALUE_NODES() \
 NODEDEF(0, 1, 1, Variable, var) \
 NODEDEF(1, 0, 1, Unbound, unbound) \
 NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
@@ -93,6 +90,12 @@ NODEDEF(1, 1, 1, IntLiteral, int_literal) \
 NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
 NODEDEF(1, 1, 1, FnAddr, fn_addr) \
+
+#define NODES() \
+VALUE_NODES() \
+INSTRUCTION_NODES() \
+TERMINATOR_NODES() \
+TYPE_NODES() \
 NODEDEF(0, 1, 1, Function, fn) \
 NODEDEF(0, 0, 1, Constant, constant) \
 NODEDEF(0, 1, 1, GlobalVariable, global_variable) \
@@ -243,12 +246,12 @@ PRIMOPS()
     PRIMOPS_COUNT
 } Op;
 
+extern const char* primop_names[];
+
 typedef struct PrimOp_ {
     Op op;
     Nodes operands;
 } PrimOp;
-
-extern const char* primop_names[];
 
 typedef struct Call_ {
     const Node* callee;
