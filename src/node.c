@@ -9,6 +9,8 @@
 #include <string.h>
 #include <assert.h>
 
+const Node* fold_node(IrArena* arena, const Node* instruction);
+
 static Node* create_node_helper(IrArena* arena, Node node) {
     Node* ptr = &node;
     Node** found = find_key_dict(Node*, arena->node_set, ptr);
@@ -17,10 +19,20 @@ static Node* create_node_helper(IrArena* arena, Node node) {
         assert(!found);
     else if (found)
         return *found;
+
+    if (arena->config.allow_fold) {
+        Node* folded = fold_node(arena, ptr);
+        if (folded != ptr) {
+            insert_set_get_result(Node*, arena->node_set, folded);
+            return folded;
+        }
+    }
+
     // place the node in the arena and return it
     Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
     *alloc = node;
     insert_set_get_result(const Node*, arena->node_set, alloc);
+
     return alloc;
 }
 

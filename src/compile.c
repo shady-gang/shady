@@ -15,14 +15,18 @@ CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrAre
     info_print("Bound program successfully: \n");
     info_node(*program);
 
-    IrArena* typed_arena = new_arena((ArenaConfig) {
+    ArenaConfig aconfig = (ArenaConfig) {
         .check_types = true
-    });
+    };
+    IrArena* typed_arena = new_arena(aconfig);
     *program = infer_program(config, *arena, typed_arena, *program);
     destroy_arena(*arena);
     *arena = typed_arena;
     info_print("Type-checked program successfully: \n");
     info_node(*program);
+
+    aconfig.allow_fold = true;
+    *arena = new_arena(aconfig);
 
     *program = lower_cf_instrs(config, *arena, *arena, *program);
     info_print("After lower_cf_instrs pass: \n");

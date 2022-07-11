@@ -502,6 +502,7 @@ inline static const Node* tail_call(IrArena* arena, const Node* destination, Nod
 
 typedef struct {
     bool check_types;
+    bool allow_fold;
 } ArenaConfig;
 
 IrArena* new_arena(ArenaConfig);

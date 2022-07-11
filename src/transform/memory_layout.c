@@ -59,8 +59,8 @@ const Node* gen_deserialisation(BlockBuilder* instructions, const Type* element_
                 .operands = nodes(instructions->arena, 3, (const Node* []) { arr, NULL, base_offset})
             }).nodes[0];
             const Node* value = gen_load(instructions, logical_ptr);
-            if (int_type(instructions->arena) != element_type) // TODO: eliminate those no-op casts during some sort of folding instead !
-                value = gen_primop(instructions, (PrimOp) {.op = reinterpret_op, .operands = nodes(instructions->arena, 2, (const Node* []){ element_type, value})}).nodes[0];
+            // note: folding gets rid of identity casts
+            value = gen_primop(instructions, (PrimOp) {.op = reinterpret_op, .operands = nodes(instructions->arena, 2, (const Node* []){ element_type, value})}).nodes[0];
             return value;
         }
         default: error("TODO");
@@ -89,8 +89,8 @@ void gen_serialisation(BlockBuilder* instructions, const Type* element_type, con
         }
         case MaskType_TAG:
         case Int_TAG: des_int: {
-            if (int_type(instructions->arena) != element_type) // TODO: eliminate those no-op casts during some sort of folding instead !
-                value = gen_primop(instructions, (PrimOp) {.op = reinterpret_op, .operands = nodes(instructions->arena, 2, (const Node* []){ int_type(instructions->arena), value})}).nodes[0];
+            // note: folding gets rid of identity casts
+            value = gen_primop(instructions, (PrimOp) {.op = reinterpret_op, .operands = nodes(instructions->arena, 2, (const Node* []){ int_type(instructions->arena), value})}).nodes[0];
             const Node* logical_ptr = gen_primop(instructions, (PrimOp) {
                 .op = lea_op,
                 .operands = nodes(instructions->arena, 3, (const Node* []) { arr, NULL, base_offset})

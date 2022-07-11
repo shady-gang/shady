@@ -8,6 +8,4 @@ struct BlockBuilder_ {
     struct List* list;
 };
 
-bool fold_instruction(BlockBuilder*, const Node*, Nodes*);
-
 #endif

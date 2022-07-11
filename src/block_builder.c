@@ -14,15 +14,7 @@ BlockBuilder* begin_block(IrArena* arena) {
 }
 
 Nodes append_block(BlockBuilder* builder, const Node* instruction) {
-    Nodes folded_to;
-    const Node* actual_instruction = instruction;
-    if (actual_instruction->tag == Let_TAG)
-        actual_instruction = actual_instruction->payload.let.instruction;
-    bool folded = fold_instruction(builder, actual_instruction, &folded_to);
-    if (folded)
-        return folded_to;
-    else
-        append_list(const Node*, builder->list, instruction);
+    append_list(const Node*, builder->list, instruction);
 }
 
 void copy_instrs(BlockBuilder* builder, Nodes instructions) {
