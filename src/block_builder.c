@@ -15,7 +15,7 @@ BlockBuilder* begin_block(IrArena* arena) {
 
 Nodes append_block(BlockBuilder* builder, const Node* instruction) {
     Nodes folded_to;
-    const Node* actual_instruction;
+    const Node* actual_instruction = instruction;
     if (actual_instruction->tag == Let_TAG)
         actual_instruction = actual_instruction->payload.let.instruction;
     bool folded = fold_instruction(builder, actual_instruction, &folded_to);

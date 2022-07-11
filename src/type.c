@@ -430,7 +430,7 @@ static void check_uniform_helper(const Node* node, String errmsg) {
 }
 
 #define HAS_PAYLOAD0(StructName, short_name)
-#define HAS_PAYLOAD1(StructName, short_name) static const StructName* extract_##short_name(const Type* type) { \
+#define HAS_PAYLOAD1(StructName, short_name) SHADY_UNUSED static const StructName* extract_##short_name(const Type* type) { \
     type = without_qualifier(type); \
     /*assert(type->tag == StructName##_TAG);*/ \
     if (type->tag != StructName##_TAG) return NULL; \
