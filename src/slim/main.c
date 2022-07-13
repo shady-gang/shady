@@ -2,6 +2,7 @@
 
 #include "../log.h"
 #include "../passes/passes.h"
+#include "parser.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -97,7 +98,10 @@ int main(int argc, const char** argv) {
         exit(InputFileDoesNotExist);
     } else {
         info_print("Parsing: \n%s\n", contents);
-        program = parse(contents, arena);
+        ParserConfig pconfig = {
+            .front_end = true
+        };
+        program = parse(pconfig, contents, arena);
     }
 
     free(contents);

@@ -4,8 +4,6 @@
 
 #include <stdio.h>
 
-const Node* parse(char* contents, IrArena* arena);
-
 /// Rewrites a whole program, starting at the root
 typedef const Node* (RewritePass)(CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_root);
 

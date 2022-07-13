@@ -15,6 +15,7 @@ TEXT_TOKEN(struct) \
 TEXT_TOKEN(union) \
 TEXT_TOKEN(private) \
 TEXT_TOKEN(shared) \
+TEXT_TOKEN(subgroup) \
 TEXT_TOKEN(global) \
 TEXT_TOKEN(input) \
 TEXT_TOKEN(output) \
@@ -27,6 +28,7 @@ TEXT_TOKEN(fn) \
 TEXT_TOKEN(cont) \
 TEXT_TOKEN(int) \
 TEXT_TOKEN(float) \
+TEXT_TOKEN(mask) \
 TEXT_TOKEN(return) \
 TEXT_TOKEN(const) \
 TEXT_TOKEN(add) \

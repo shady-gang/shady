@@ -1,4 +1,5 @@
 #include "token.h"
+#include "parser.h"
 
 #include "../containers/list.h"
 
@@ -13,8 +14,8 @@
 extern const char* token_tags[];
 
 // to avoid some repetition
-#define ctxparams SHADY_UNUSED char* contents, SHADY_UNUSED IrArena* arena, SHADY_UNUSED struct Tokenizer* tokenizer
-#define ctx contents, arena, tokenizer
+#define ctxparams SHADY_UNUSED ParserConfig config, SHADY_UNUSED char* contents, SHADY_UNUSED IrArena* arena, SHADY_UNUSED struct Tokenizer* tokenizer
+#define ctx config, contents, arena, tokenizer
 
 #define expect(condition) expect_impl(condition, #condition)
 static void expect_impl(bool condition, const char* err) {
@@ -62,6 +63,8 @@ static const Type* accept_unqualified_type(ctxparams) {
         return float_type(arena);
     } else if (accept_token(ctx, bool_tok)) {
         return bool_type(arena);
+    } else if (accept_token(ctx, mask_tok)) {
+        return mask_type(arena);
     } else if (accept_token(ctx, ptr_tok)) {
         AddressSpace as = expect_ptr_address_space(ctx);
         const Type* elem_type = accept_unqualified_type(ctx);
@@ -609,6 +612,8 @@ static const Node* accept_global_var_decl(ctxparams) {
         as = AsPrivateLogical;
     else if (accept_token(ctx, shared_tok))
         as = AsSharedLogical;
+    else if (accept_token(ctx, subgroup_tok))
+        as = AsSubgroupPhysical;
     else if (accept_token(ctx, extern_tok))
         as = AsExternal;
     else if (accept_token(ctx, input_tok))
@@ -627,7 +632,7 @@ static const Node* accept_global_var_decl(ctxparams) {
     return global_var(arena, type, id, as);
 }
 
-const Node* parse(char* contents, IrArena* arena) {
+const Node* parse(ParserConfig config, char* contents, IrArena* arena) {
     struct Tokenizer* tokenizer = new_tokenizer(contents);
 
     struct List* declarations = new_list(const Node*);
@@ -657,7 +662,6 @@ const Node* parse(char* contents, IrArena* arena) {
     }
 
     size_t count = declarations->elements_count;
-
 
     const Node* n = root(arena, (Root) {
         .declarations = nodes(arena, count, read_list(const Node*, declarations)),
