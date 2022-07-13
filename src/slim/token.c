@@ -57,7 +57,7 @@ void destroy_tokenizer(struct Tokenizer* tokenizer) {
 
 const char whitespace[] = { ' ', '\t', '\b', '\n' };
 
-static inline bool is_alpha(char c) { return c >= 'A' && c <= 'z'; }
+static inline bool is_alpha(char c) { return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'; }
 static inline bool is_digit(char c) { return c >= '0' && c <= '9'; }
 static inline bool is_whitespace(char c) { for (size_t i = 0; i < sizeof(whitespace); i++) { if(c == whitespace[i]) return true; } return false; }
 static inline bool can_start_identifier(char c) { return is_alpha(c) || c == '_'; }
@@ -149,7 +149,13 @@ struct Token next_token(struct Tokenizer* tokenizer) {
     tokenizer->pos += token_size;
     tokenizer->current = token;
 
-    debug_print("(tok=(tag = %s, pos = %zu))\n", token_tags[token.tag], token.start);
+    debug_print("Token parsed: (tag = %s, pos = %zu", token_tags[token.tag], token.start);
+    if (token.tag == identifier_tok) {
+        debug_print(", str=");
+        for (size_t i = token.start; i < token.end; i++)
+            debug_print("%c", tokenizer->str[i]);
+    }
+    debug_print(")\n");
     return token;
 }
 
