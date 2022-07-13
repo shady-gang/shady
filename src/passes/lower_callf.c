@@ -25,29 +25,6 @@ typedef struct Context_ {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-static const Node* fn_ptr_as_value(IrArena* arena, FnPtr ptr) {
-    return int_literal(arena, (IntLiteral) {
-        .value = ptr
-    });
-}
-
-static const Node* callee_to_ptr(Context* ctx, const Node* callee) {
-    const Type* ret_param_type = int_type(ctx->rewriter.dst_arena);
-
-    if (callee->tag != Function_TAG) {
-        assert(is_subtype(ret_param_type, without_qualifier(callee)));
-        return callee;
-    }
-
-    FnPtr* found = find_value_dict(const Node*, FnPtr, ctx->assigned_fn_ptrs, callee);
-    if (found) return fn_ptr_as_value(ctx->rewriter.dst_arena, *found);
-
-    FnPtr ptr = ctx->next_fn_ptr++;
-    bool r = insert_dict_and_get_result(const Node*, FnPtr, ctx->assigned_fn_ptrs, callee, ptr);
-    assert(r);
-    return fn_ptr_as_value(ctx->rewriter.dst_arena, ptr);
-}
-
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
