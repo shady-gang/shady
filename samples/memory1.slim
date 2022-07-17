@@ -1,11 +1,11 @@
 extern int extern_int;
 
 fn read_from_extern int() {
-  let loaded = load extern_int;
-  return loaded;
+  let loaded = load(extern_int);
+  return(loaded);
 }
 
 fn read_from_global_ptr int(uniform ptr global int global_ptr) {
-  let loaded = load global_ptr;
-  return loaded;
+  let loaded = load(global_ptr);
+  return(loaded);
 }

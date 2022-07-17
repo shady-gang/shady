@@ -1,34 +1,33 @@
 // shady example code
 
 fn ident int(varying int i) {
-    let j = add i 1;
-    let v = add 5 9;
-    return j;
+    let j = add(i, 1);
+    let v = add(5, 9);
+    return (j);
 }
 
 fn pair int, int(varying int i) {
-    return i i;
+    return(i, i);
 }
 
 fn negate bool (varying bool b) {
     if (b) {
-        return false;
+        return(false);
     } else {
-        return true;
+        return(true);
     }
     unreachable;
 }
 
 fn negate2 bool (varying bool b) {
     if (b) {
-        return false;
+        return(false);
     }
-
-    return true;
+    return(true);
 }
 
 fn @compute main() {
-    return;
+    return ();
 }
 
 const int sixtynine = 69;

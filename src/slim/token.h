@@ -82,6 +82,8 @@ TOKEN(lpar, "(") \
 TOKEN(rpar, ")") \
 TOKEN(lbracket, "{") \
 TOKEN(rbracket, "}") \
+TOKEN(lsbracket, "[") \
+TOKEN(rsbracket, "]") \
 TOKEN(semi, ";") \
 TOKEN(colon, ":") \
 TOKEN(comma, ",") \

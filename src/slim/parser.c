@@ -43,8 +43,10 @@ static const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-static const Node* expect_block(ctxparams, bool);
+static const Node* expect_block(ctxparams, const Node*);
 static const Node* accept_value(ctxparams);
+static const Node* accept_primop(ctxparams);
+static const Node* accept_expr(ctxparams);
 
 static AddressSpace expect_ptr_address_space(ctxparams) {
     switch (curr_token(tokenizer).tag) {
@@ -73,7 +75,19 @@ static const Type* accept_unqualified_type(ctxparams) {
            .address_space = as,
            .pointed_type = elem_type,
         });
+    } else if (config.front_end && accept_token(ctx, lsbracket_tok)) {
+        const Type* elem_type = accept_unqualified_type(ctx);
+        assert(elem_type);
+        expect(accept_token(ctx, star_tok));
+        const Node* expr = accept_value(ctx);
+        expect(expr);
+        expect(accept_token(ctx, rsbracket_tok));
+        return arr_type(arena, (ArrType) {
+            .element_type = elem_type,
+            .size = expr
+        });
     } else {
+
         return NULL;
     }
 }
@@ -107,6 +121,10 @@ static const Type* accept_qualified_type(ctxparams) {
     return qualified_type(arena, (QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
 }
 
+static const Node* accept_operand(ctxparams) {
+    return config.front_end ? accept_expr(ctx) : accept_value(ctx);
+}
+
 static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_values) {
     expect(accept_token(ctx, lpar_tok));
     struct List* params = new_list(Node*);
@@ -127,7 +145,7 @@ static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_value
 
             if (default_values) {
                 expect(accept_token(ctx, equal_tok));
-                const Node* default_val = accept_value(ctx);
+                const Node* default_val = accept_operand(ctx);
                 append_list(const Node*, default_vals, default_val);
             }
 
@@ -195,6 +213,12 @@ static const Node* accept_value(ctxparams) {
     return NULL;
 }
 
+static const Node* accept_expr(ctxparams) {
+    const Node* expr = accept_value(ctx);
+    if (!expr) expr = accept_primop(ctx);
+    return expr;
+}
+
 static Strings expect_identifiers(ctxparams) {
     struct List* list = new_list(const char*);
     while (true) {
@@ -214,27 +238,32 @@ static Strings expect_identifiers(ctxparams) {
     return final;
 }
 
-static Nodes expect_values(ctxparams, enum TokenTag separator) {
-    struct List* list = new_list( Node*);
+static Nodes expect_operands(ctxparams) {
+    if (!accept_token(ctx, lpar_tok))
+        error("Expected left parenthesis")
+
+    struct List* list = new_list(Node*);
 
     bool expect = false;
     while (true) {
-        const Node* val = accept_value(ctx);
+        const Node* val = accept_operand(ctx);
         if (!val) {
             if (expect)
                 error("expected value but got none")
-            else
+            else if (accept_token(ctx, rpar_tok))
                 break;
+            else
+                error("Expected value or closing parenthesis")
         }
 
         append_list(Node*, list, val);
 
-        if ((int)separator != 0) {
-            if (accept_token(ctx, separator))
-                expect = true;
-            else
-                break;
-        }
+        if (accept_token(ctx, comma_tok))
+            expect = true;
+        else if (accept_token(ctx, rpar_tok))
+            break;
+        else
+            error("Expected comma or closing parenthesis")
     }
 
     Nodes final = nodes(arena, list->elements_count, (const Node**) list->alloc);
@@ -242,10 +271,99 @@ static Nodes expect_values(ctxparams, enum TokenTag separator) {
     return final;
 }
 
+static const Node* accept_control_flow_instruction(ctxparams) {
+    struct Token current_token = curr_token(tokenizer);
+    switch (current_token.tag) {
+        case if_tok: {
+            next_token(tokenizer);
+            Nodes yield_types = accept_types(ctx, 0, false);
+            expect(accept_token(ctx, lpar_tok));
+            const Node* condition = accept_operand(ctx);
+            expect(condition);
+            expect(accept_token(ctx, rpar_tok));
+            const Node* merge = config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Selection }) : NULL;
+            const Node* if_true = expect_block(ctx, merge);
+            bool has_else = accept_token(ctx, else_tok);
+            // default to an empty block
+            const Node* if_false = NULL;
+            if (has_else) {
+                if_false = expect_block(ctx, merge);
+            }
+            return if_instr(arena, (If) {
+                .yield_types = yield_types,
+                .condition = condition,
+                .if_true = if_true,
+                .if_false = if_false
+            });
+        }
+        case loop_tok: {
+            next_token(tokenizer);
+            Nodes yield_types = accept_types(ctx, 0, false);
+            Nodes parameters;
+            Nodes default_values;
+            expect_parameters(ctx, &parameters, &default_values);
+            const Node* body = expect_block(ctx, config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Continue }) : NULL);
+            return loop_instr(arena, (Loop) {
+                .initial_args = default_values,
+                .params = parameters,
+                .yield_types = yield_types,
+                .body = body
+            });
+        }
+        default: break;
+    }
+    return NULL;
+}
+
 static const Node* accept_primop(ctxparams) {
     Op op;
-    struct Token tok = curr_token(tokenizer);
-    switch (tok.tag) {
+    switch (curr_token(tokenizer).tag) {
+        case load_tok: {
+            next_token(tokenizer);
+            expect(accept_token(ctx, lpar_tok));
+            const Type* element_type = accept_unqualified_type(ctx);
+            assert(!element_type && "we haven't enabled that syntax yet");
+            if (element_type)
+                expect(accept_token(ctx, comma_tok));
+            const Node* ptr = accept_operand(ctx);
+            expect(ptr);
+            const Node* ops[] = {ptr};
+            expect(accept_token(ctx, rpar_tok));
+            expect(accept_token(ctx, semi_tok));
+            return prim_op(arena, (PrimOp) {
+                .op = load_op,
+                .operands = nodes(arena, 1, ops)
+            });
+        }
+        case store_tok: {
+            next_token(tokenizer);
+            expect(accept_token(ctx, lpar_tok));
+            const Node* ptr = accept_operand(ctx);
+            expect(ptr);
+            expect(accept_token(ctx, comma_tok));
+            const Node* data = accept_operand(ctx);
+            expect(data);
+            const Node* ops[] = {ptr, data};
+            expect(accept_token(ctx, rpar_tok));
+            expect(accept_token(ctx, semi_tok));
+            return prim_op(arena, (PrimOp) {
+                .op = store_op,
+                .operands = nodes(arena, 2, ops)
+            });
+        }
+        case alloca_tok: {
+            next_token(tokenizer);
+            expect(accept_token(ctx, lpar_tok));
+            const Type* element_type = accept_unqualified_type(ctx);
+            expect(element_type);
+            const Node* ops[] = {element_type};
+            expect(accept_token(ctx, rpar_tok));
+            expect(accept_token(ctx, semi_tok));
+            return prim_op(arena, (PrimOp) {
+                .op = alloca_op,
+                .operands = nodes(arena, 1, ops)
+            });
+        }
         case add_tok:    op = add_op; break;
         case sub_tok:    op = sub_op; break;
         case mul_tok:    op = mul_op; break;
@@ -261,116 +379,35 @@ static const Node* accept_primop(ctxparams) {
         case or_tok:     op = or_op;  break;
         case xor_tok:    op = xor_op; break;
         case not_tok:    op = not_op; break;
+        /// Only used for IR parsing
+        /// Otherwise accept_expression handles this
+        case call_tok: {
+            next_token(tokenizer);
+            expect(accept_token(ctx, lpar_tok));
+            const Node* callee = accept_operand(ctx);
+            assert(callee);
+            expect(accept_token(ctx, rpar_tok));
+            Nodes args = expect_operands(ctx);
+            expect(accept_token(ctx, semi_tok));
+            return call_instr(arena, (Call) {
+                .callee = callee,
+                .args = args,
+            });
+        }
         default: return NULL;
     }
-
     next_token(tokenizer);
-    Nodes args = expect_values(ctx, 0);
-    expect(accept_token(ctx, semi_tok));
-    return prim_op(arena, (PrimOp) {
+    const Node* node = prim_op(arena, (PrimOp) {
         .op = op,
-        .operands = args
+        .operands = expect_operands(ctx)
     });
-}
-
-static const Node* accept_control_flow_instruction(ctxparams) {
-    struct Token current_token = curr_token(tokenizer);
-    switch (current_token.tag) {
-        case if_tok: {
-            next_token(tokenizer);
-            Nodes yield_types = accept_types(ctx, 0, false);
-            expect(accept_token(ctx, lpar_tok));
-            const Node* condition = accept_value(ctx);
-            expect(condition);
-            expect(accept_token(ctx, rpar_tok));
-            const Node* if_true = expect_block(ctx, true);
-            bool has_else = accept_token(ctx, else_tok);
-            // default to an empty block
-            const Node* if_false = NULL;
-            if (has_else) {
-                if_false = expect_block(ctx, true);
-            }
-            return if_instr(arena, (If) {
-                .yield_types = yield_types,
-                .condition = condition,
-                .if_true = if_true,
-                .if_false = if_false
-            });
-        }
-        case loop_tok: {
-            next_token(tokenizer);
-            Nodes yield_types = accept_types(ctx, 0, false);
-            Nodes parameters;
-            Nodes default_values;
-            expect_parameters(ctx, &parameters, &default_values);
-            const Node* body = expect_block(ctx, false);
-            return loop_instr(arena, (Loop) {
-                .initial_args = default_values,
-                .params = parameters,
-                .yield_types = yield_types,
-                .body = body
-            });
-        }
-        default: break;
-    }
-    return NULL;
-}
-
-static const Node* accept_call_instruction(ctxparams) {
-    if (accept_token(ctx, call_tok)) {
-        const Node* callee = accept_value(ctx);
-        assert(callee);
-        Nodes args = expect_values(ctx, 0);
-        expect(accept_token(ctx, semi_tok));
-        return call_instr(arena, (Call) {
-            .callee = callee,
-            .args = args,
-        });
-    }
-    return NULL;
-}
-
-static const Node* accept_memory_instruction(ctxparams) {
-    if (accept_token(ctx, load_tok)) {
-        const Type* element_type = accept_unqualified_type(ctx);
-        assert(!element_type && "we haven't enabled that syntax yet");
-        const Node* ptr = accept_value(ctx);
-        expect(ptr);
-        const Node* ops[] = {ptr};
-        expect(accept_token(ctx, semi_tok));
-        return prim_op(arena, (PrimOp) {
-            .op = load_op,
-            .operands = nodes(arena, 1, ops)
-        });
-    } else if (accept_token(ctx, store_tok)) {
-        const Node* ptr = accept_value(ctx);
-        expect(ptr);
-        const Node* data = accept_value(ctx);
-        expect(data);
-        const Node* ops[] = {ptr, data};
-        expect(accept_token(ctx, semi_tok));
-        return prim_op(arena, (PrimOp) {
-            .op = store_op,
-            .operands = nodes(arena, 2, ops)
-        });
-    } else if (accept_token(ctx, alloca_tok)) {
-        const Type* element_type = accept_unqualified_type(ctx);
-        expect(element_type);
-        const Node* ops[] = {element_type};
-        expect(accept_token(ctx, semi_tok));
-        return prim_op(arena, (PrimOp) {
-            .op = alloca_op,
-            .operands = nodes(arena, 1, ops)
-        });
-    }
-    return NULL;
+    expect(accept_token(ctx, semi_tok));
+    return node;
 }
 
 static const Node* accept_instruction(ctxparams) {
-    const Node* instr = accept_primop(ctx);
+    const Node* instr = config.front_end ? accept_expr(ctx) : accept_primop(ctx);
     if (!instr) instr = accept_control_flow_instruction(ctx);
-    if (!instr) instr = accept_call_instruction(ctx);
-    if (!instr) instr = accept_memory_instruction(ctx);
     return instr;
 }
 
@@ -400,9 +437,11 @@ static const Node* accept_terminator(ctxparams) {
     switch (current_token.tag) {
         case jump_tok: {
             next_token(tokenizer);
-            const Node* target = accept_value(ctx);
+            expect(accept_token(ctx, lpar_tok));
+            const Node* target = accept_operand(ctx);
+            expect(accept_token(ctx, rpar_tok));
             expect(target);
-            Nodes args = expect_values(ctx, 0);
+            Nodes args = expect_operands(ctx);
             expect(accept_token(ctx, semi_tok));
             return branch(arena, (Branch) {
                 .yield = false,
@@ -413,13 +452,19 @@ static const Node* accept_terminator(ctxparams) {
         }
         case branch_tok: {
             next_token(tokenizer);
+
+            expect(accept_token(ctx, lpar_tok));
             const Node* condition = accept_value(ctx);
             expect(condition);
+            expect(accept_token(ctx, comma_tok));
             const Node* true_target = accept_value(ctx);
             expect(true_target);
+            expect(accept_token(ctx, comma_tok));
             const Node* false_target = accept_value(ctx);
             expect(false_target);
-            Nodes args = expect_values(ctx, 0);
+            expect(accept_token(ctx, rpar_tok));
+
+            Nodes args = expect_operands(ctx);
             expect(accept_token(ctx, semi_tok));
             return branch(arena, (Branch) {
                 .yield = false,
@@ -432,7 +477,7 @@ static const Node* accept_terminator(ctxparams) {
         }
         case return_tok: {
             next_token(tokenizer);
-            Nodes values = expect_values(ctx, 0);
+            Nodes values = expect_operands(ctx);
             expect(accept_token(ctx, semi_tok));
             return fn_ret(arena, (Return) {
                 .fn = NULL,
@@ -441,7 +486,7 @@ static const Node* accept_terminator(ctxparams) {
         }
         case merge_tok: {
             next_token(tokenizer);
-            Nodes values = expect_values(ctx, 0);
+            Nodes values = expect_operands(ctx);
             expect(accept_token(ctx, semi_tok));
             return merge_construct(arena, (MergeConstruct) {
                 .construct = Selection,
@@ -450,7 +495,7 @@ static const Node* accept_terminator(ctxparams) {
         }
         case continue_tok: {
             next_token(tokenizer);
-            Nodes values = expect_values(ctx, 0);
+            Nodes values = expect_operands(ctx);
             expect(accept_token(ctx, semi_tok));
             return merge_construct(arena, (MergeConstruct) {
                 .construct = Continue,
@@ -459,7 +504,7 @@ static const Node* accept_terminator(ctxparams) {
         }
         case break_tok: {
             next_token(tokenizer);
-            Nodes values = expect_values(ctx, 0);
+            Nodes values = expect_operands(ctx);
             expect(accept_token(ctx, semi_tok));
             return merge_construct(arena, (MergeConstruct) {
                 .construct = Break,
@@ -476,7 +521,7 @@ static const Node* accept_terminator(ctxparams) {
     return NULL;
 }
 
-static const Node* expect_block(ctxparams, bool implicit_join) {
+static const Node* expect_block(ctxparams, const Node* implicit_join) {
     expect(accept_token(ctx, lbracket_tok));
     struct List* instructions = new_list(Node*);
 
@@ -496,10 +541,7 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
 
     if (!terminator) {
         if (implicit_join)
-            terminator = merge_construct(arena, (MergeConstruct) {
-                .construct = Selection,
-                .args = expect_values(ctx, 0)
-            });
+            terminator = implicit_join;
         else
             error("expected terminator: return, jump, branch ...");
     }
@@ -515,7 +557,7 @@ static const Node* expect_block(ctxparams, bool implicit_join) {
 
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL);
-            const Node* block = expect_block(ctx, false);
+            const Node* block = expect_block(ctx, NULL);
 
             FnAttributes attributes = {
                 .is_continuation = true,
@@ -595,7 +637,7 @@ static const Node* accept_fn_decl(ctxparams) {
     expect(curr_token(tokenizer).tag == lpar_tok);
     Nodes parameters;
     expect_parameters(ctx, &parameters, NULL);
-    const Node *block1 = expect_block(ctx, false);
+    const Node *block1 = expect_block(ctx, /* TODO default return when void */ NULL);
 
     Node *function = fn(arena, attributes, id, parameters, types);
     function->payload.fn.block = block1;
