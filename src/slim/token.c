@@ -112,7 +112,8 @@ struct Token next_token(struct Tokenizer* tokenizer) {
 
         if (slice[0] == '0' && slice[1] == 'x') {
             token.tag = hex_lit_tok;
-            slice = &slice[2];
+            token_size += 2;
+            // slice = &slice[2];
         }
 
         while (is_digit(slice[token_size])) {
