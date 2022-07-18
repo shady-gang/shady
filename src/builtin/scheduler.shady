@@ -1,8 +1,10 @@
+const int MASK_SIZE = 64;
+
 subgroup int next_fn;
 subgroup mask next_mask;
 
-subgroup [int; MASK_WIDTH] resume_at;
-subgroup [mask; MASK_WIDTH] resume_with;
+subgroup [int; 64] resume_at;
+subgroup [mask; 64] resume_with;
 
 fn builtin_branch(varying int branch_destination) {
     // First ask the first thread where it thinks we should branch, and all the threads that agree are set to go there
@@ -81,9 +83,9 @@ subgroup bool fail = false;
 
 fn builtin_rotate_active_branch() {
     // Try rotating the next thread N times...
-    // for (int i = 0; i < MASK_WIDTH; i++) {
+    // for (int i = 0; i < MASK_SIZE; i++) {
     loop (uniform int i = 0) {
-        if (i >= MASK_WIDTH) { break; }
+        if (i >= MASK_SIZE) { break; }
 
         let desired_resume_pt = resume_at[scheduler_selector];
         let desired_mask = resume_with[scheduler_selector];
@@ -91,9 +93,9 @@ fn builtin_rotate_active_branch() {
             var bool can_run = true;
 
             // TODO: this is likely slow. Ideally this could run at full subgroup occupancy
-            //for (int j = 0; j < MASK_WIDTH; j++) {
+            //for (int j = 0; j < MASK_SIZE; j++) {
             loop (uniform int j = 0) {
-                if (j >= MASK_WIDTH) { break; }
+                if (j >= MASK_SIZE) { break; }
 
                 if (desired_mask >> j & 0x1 != 0) { continue(j + 1); }
                 if (resume_at[j] == desired_resume_pt) { continue(j + 1); }
