@@ -65,6 +65,9 @@ TEXT_TOKEN(load) \
 TEXT_TOKEN(store) \
 TEXT_TOKEN(alloca) \
 TEXT_TOKEN(unreachable) \
+TOKEN(lshift_logical, ">>>") \
+TOKEN(lshift_arithm, ">>") \
+TOKEN(rshift, "<<") \
 TOKEN(infix_eq, "==") \
 TOKEN(infix_neq, "!=") \
 TOKEN(infix_geq, ">=") \
