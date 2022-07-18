@@ -1,0 +1,118 @@
+subgroup int next_fn;
+subgroup mask next_mask;
+
+subgroup [int; MASK_WIDTH] resume_at;
+subgroup [mask; MASK_WIDTH] resume_with;
+
+fn builtin_branch(varying int branch_destination) {
+    // First ask the first thread where it thinks we should branch, and all the threads that agree are set to go there
+    let first_branch = subgroup_broadcast_first(branch_destination);
+    if (first_branch == branch_destination) {
+        next_fn = branch_destination;
+        next_mask = subgroup_active();
+
+        // tag those variables as not in use.
+        resume_at[thread_id] = -1;
+        resume_with[thread_id] = 0;
+        return;
+    }
+
+    // We're left with the threads we can't schedule right now.
+    //while (true) {
+    loop() {
+        let elected = subgroup_broadcast_first(branch_destination);
+        if (elected == branch_destination) {
+            resume_at[thread_id] = elected;
+            resume_with[thread_id] = subgroup_ballot(elected == branch_destination);
+            break;
+        }
+    }
+}
+
+fn builtin_yield(uniform int resume_at) {
+    resume_at[thread_id] = resume_at;
+    resume_with[thread_id] = subgroup_active();
+
+    if (elect_first()) {
+        // only one thread runs that part
+        // scheduler_selector++;
+        scheduler_selector = scheduler_selector + 1;
+        builtin_rotate_active_branch();
+    }
+}
+
+fn builtin_join(uniform int join_at, uniform mask join_with) {
+    let active = subgroup_active();
+    var int clear = true;
+    if (elect_first()) {
+        // for (int bit = 0; bit < MASK_SIZE; bit++) {
+        loop (uniform int bit = 0) {
+            if (bit >= MASK_SIZE) { break(); }
+            // we aren't trying to join up with that, continue
+            if ((join_with >> bit) & 0x1 == 0) { continue(i + 1); }
+
+            if ((active_mask >> bit) & 0x1) { continue(i + 1); }
+            if (resume_at[bit] == join_at) { continue(i + 1); }
+
+            clear = false;
+            break;
+        }
+    }
+    // We're clear to enter
+    if (subgroup_broadcast_first(clear)) {
+        next_fn = join_at;
+        next_mask = join_with;
+        return;
+    }
+
+    // We're not clear to enter and we need to pause our threads and do something else
+    resume_at[thread_id] = join_at;
+    resume_with[thread_id] = join_with;
+
+    if (elect_first()) {
+        // only one thread runs that part
+        scheduler_selector = scheduler_selector + 1;
+        builtin_rotate_active_branch();
+    }
+}
+
+subgroup int scheduler_selector = 0;
+subgroup bool fail = false;
+
+fn builtin_rotate_active_branch() {
+    // Try rotating the next thread N times...
+    // for (int i = 0; i < MASK_WIDTH; i++) {
+    loop (uniform int i = 0) {
+        if (i >= MASK_WIDTH) { break; }
+
+        let desired_resume_pt = resume_at[scheduler_selector];
+        let desired_mask = resume_with[scheduler_selector];
+        if (resume_at[scheduler_selector] > 0) {
+            var bool can_run = true;
+
+            // TODO: this is likely slow. Ideally this could run at full subgroup occupancy
+            //for (int j = 0; j < MASK_WIDTH; j++) {
+            loop (uniform int j = 0) {
+                if (j >= MASK_WIDTH) { break; }
+
+                if (desired_mask >> j & 0x1 != 0) { continue(j + 1); }
+                if (resume_at[j] == desired_resume_pt) { continue(j + 1); }
+                can_run = false;
+                break;
+            }
+
+            if (can_run) {
+                next_fn = desired_resume_pt;
+                next_mask = desired_mask;
+                return;
+            }
+        }
+
+        // Couldn't run this one. Try the next one !
+        scheduler_selector = scheduler_selector + 1;
+        continue(i + 1);
+    }
+
+    // We cycled through all entries. We should give up and kill the shader here.
+    fail = true;
+}
