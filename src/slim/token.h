@@ -100,6 +100,8 @@ enum TokenTag {
 #undef TOKEN
 };
 
+extern const char* token_tags[];
+
 struct Token {
     enum TokenTag tag;
     size_t start;
