@@ -111,17 +111,28 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
     return create_node_helper(arena, node);
 }
 
-const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, const char* output_names[]) {
+static const Node* let_internal(IrArena* arena, bool is_mutable, Nodes* provided_types, const Node* instruction, size_t outputs_count, const char* output_names[]) {
     assert(outputs_count > 0 && "do not use let if the outputs count isn't zero !");
     LARRAY(Node*, vars, outputs_count);
 
+    if (provided_types)
+        assert(provided_types->count == outputs_count);
+
     if (arena->config.check_types) {
         Nodes types = unwrap_multiple_yield_types(arena, instruction->type);
+        assert(types.count == outputs_count);
+        if (provided_types) {
+            // Check that the types we got are subtypes of what we care about
+            for (size_t i = 0; i < outputs_count; i++)
+                assert(is_subtype(provided_types->nodes[i], types.nodes[i]));
+            types = *provided_types;
+        }
+
         for (size_t i = 0; i < outputs_count; i++)
             vars[i] = (Node*) var(arena, types.nodes[i], output_names ? output_names[i] : node_tags[instruction->tag]);
     } else {
         for (size_t i = 0; i < outputs_count; i++)
-            vars[i] = (Node*) var(arena, NULL, output_names ? output_names[i] : node_tags[instruction->tag]);
+            vars[i] = (Node*) var(arena, provided_types ? provided_types->nodes[i] : NULL, output_names ? output_names[i] : node_tags[instruction->tag]);
     }
 
     for (size_t i = 0; i < outputs_count; i++) {
@@ -131,7 +142,8 @@ const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, c
 
     Let payload = {
         .instruction = instruction,
-        .variables = nodes(arena, outputs_count, (const Node**) vars)
+        .variables = nodes(arena, outputs_count, (const Node**) vars),
+        .is_mutable = is_mutable
     };
 
     Node node;
@@ -140,6 +152,29 @@ const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, c
       .type = arena->config.check_types ? check_type_let(arena, payload) : NULL,
       .tag = Let_TAG,
       .payload.let = payload
+    };
+    return create_node_helper(arena, node);
+}
+
+const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, const char* output_names[]) {
+    return let_internal(arena, false, NULL, instruction, outputs_count, output_names);
+}
+
+const Node* let_mut(IrArena* arena, const Node* instruction, Nodes types, size_t outputs_count, const char* output_names[]) {
+    return let_internal(arena, false, &types, instruction, outputs_count, output_names);
+}
+
+const Node* tuple(IrArena* arena, Nodes contents) {
+    Tuple t = {
+        .contents = contents
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+      .type = arena->config.check_types ? check_type_tuple(arena, t) : NULL,
+      .tag = Tuple_TAG,
+      .payload.tuple = t
     };
     return create_node_helper(arena, node);
 }

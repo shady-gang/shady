@@ -159,7 +159,9 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 old_names[i] = oldvars.nodes[i]->payload.var.name;
             }
 
-            const Node* rewritten = let(rewriter->dst_arena, ninstruction, output_types.count, old_names);
+            const Node* rewritten = (node->payload.let.is_mutable) ?
+                let_mut(rewriter->dst_arena, ninstruction, extract_variable_types(rewriter->dst_arena, &oldvars), output_types.count, old_names) :
+                let(rewriter->dst_arena, ninstruction, output_types.count, old_names);
             for (size_t i = 0; i < oldvars.count; i++)
                 register_processed(rewriter, oldvars.nodes[i], rewritten->payload.let.variables.nodes[i]);
 

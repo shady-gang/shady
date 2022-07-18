@@ -184,6 +184,14 @@ const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
 const Type* check_type_true_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
 const Type* check_type_false_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
 
+const Type* check_type_tuple(IrArena* arena, Tuple tuple) {
+    return record_type(arena, (RecordType) {
+        .members = extract_types(arena, tuple.contents),
+        .must_be_deconstructed = false,
+        .names = strings(arena, 0, NULL)
+    });
+}
+
 const Type* check_type_fn_ret(IrArena* arena, Return ret) {
     // TODO check it then !
     return NULL;

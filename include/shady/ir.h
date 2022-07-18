@@ -60,7 +60,7 @@ NODEDEF(1, 1, 1, Call, call_instr)  \
 NODEDEF(1, 1, 1, If, if_instr) \
 NODEDEF(1, 1, 1, Match, match_instr) \
 NODEDEF(1, 1, 1, Loop, loop_instr) \
-NODEDEF(0, 1, 1, Let, let)  \
+NODEDEF(0, 1, 1, Let, let) \
 
 #define TERMINATOR_NODES() \
 NODEDEF(1, 1, 1, Branch, branch) \
@@ -90,6 +90,7 @@ NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
 NODEDEF(1, 1, 1, IntLiteral, int_literal) \
 NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
+NODEDEF(0, 1, 1, Tuple, tuple) \
 NODEDEF(1, 1, 1, FnAddr, fn_addr) \
 
 #define NODES() \
@@ -159,6 +160,10 @@ typedef struct IntLiteral_ {
     int64_t value;
 } IntLiteral;
 
+typedef struct Tuple_ {
+    Nodes contents;
+} Tuple;
+
 typedef struct Constant_ {
     String name;
     const Node* value;
@@ -210,6 +215,7 @@ bool is_instruction(const Node*);
 typedef struct Let_ {
     Nodes variables;
     const Node* instruction;
+    bool is_mutable;
 } Let;
 
 // PRIMOP(has_side_effects, name)
@@ -449,7 +455,12 @@ NODES()
 const Node* var(IrArena* arena, const Type* type, const char* name);
 /// Wraps an instruction and binds the outputs to variables we can use
 /// Should not be used if the instruction have no outputs !
-const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, const char* output_names[]);
+const Node* let(IrArena* arena, const Node* instruction, size_t variables_count, const char* variable_names[]);
+
+/// Not meant to be valid IR, useful for the builtin frontend desugaring
+const Node* let_mut(IrArena* arena, const Node* instruction, Nodes types, size_t variables_count, const char* variable_names[]);
+
+const Node* tuple(IrArena* arena, Nodes contents);
 
 Node* fn(IrArena* arena, FnAttributes, const char* name, Nodes params, Nodes return_types);
 Node* constant(IrArena* arena, const char* name);
