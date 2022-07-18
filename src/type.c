@@ -83,6 +83,7 @@ void check_subtype(const Type* supertype, const Type* type) {
     }
 }
 
+/// @deprecated
 const Type* strip_qualifier(const Type* type, DivergenceQualifier* qual_out) {
     if (type->tag == QualifiedType_TAG) {
         *qual_out = type->payload.qualified_type.is_uniform ? Uniform : Varying;
@@ -93,6 +94,7 @@ const Type* strip_qualifier(const Type* type, DivergenceQualifier* qual_out) {
     }
 }
 
+/// @deprecated
 DivergenceQualifier get_qualifier(const Type* type) {
     DivergenceQualifier result;
     strip_qualifier(type, &result);

@@ -89,6 +89,10 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
 
 void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new) {
     switch (old->tag) {
+        case GlobalVariable_TAG: {
+            new->payload.global_variable.init = rewrite_node(rewriter, old->payload.global_variable.init);
+            break;
+        }
         case Constant_TAG: {
             new->payload.constant.type_hint = rewrite_node(rewriter, old->payload.constant.type_hint);
             new->payload.constant.value     = rewrite_node(rewriter, old->payload.constant.value);
@@ -98,10 +102,6 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
         case Function_TAG: {
             assert(new->payload.fn.block == NULL);
             new->payload.fn.block = rewrite_node(rewriter, old->payload.fn.block);
-            break;
-        }
-        case GlobalVariable_TAG: {
-            new->payload.global_variable.init = rewrite_node(rewriter, old->payload.global_variable.init);
             break;
         }
         default: error("not a decl");
