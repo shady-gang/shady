@@ -25,24 +25,35 @@ CALLEE := (DECL | VALUE) // calls can be direct or indirect
 LET := let IDENTIFIER [(, IDENTIFIER)*] = INSTRUCTION; // Some instructions have results
      | INSTRUCTION;                                    // some don't
 
-INSTRUCTION := PRIMOP VALUES
-             | call CALLEE VALUES                        // direct-style call
-             | if VALUE then BLOCK else (BLOCK | VALUES) // structured if statement
-             | match VALUE                               // structured match statement
+INSTRUCTION := PRIMOP OPERANDS                    // primop
+             | call (OPERAND) OPERANDS            // direct-style call
+             | if Q_TYPES (OPERAND)               // structured if statement, can be defined to yield values
+                   then BLOCK 
+                   else (BLOCK | OPERANDS);       // else case can be a block, or default yield values
+             | match Q_TYPES (OPERAND)            // structured match statement
                    (case LITERAL BLOCK)* 
-                   default (BLOCK | VALUES)
-             | loop Q_TYPES PARAMS BLOCK VALUES         // structured loop statement
+                   default (BLOCK | OPERANDS);    // default case can be a block, or default yield values
+             | loop Q_TYPES DEFAULT_PARAMS BLOCK  // structured loop statement
 
-TERMINATOR := return VALUES                             // return from current function
-            | unreachable                               // use as a placeholder if nothing belongs. undefined behaviour if reached.
-            | jump CONTINUATION VALUES                  // unstructured jump instruction
-            | br VALUE CONTINUATION CONTINUATION VALUES // unstructured branch instruction
-            | callc CONTINUATION CALLEE VALUES          // call a function with a return continuation
-            | callf DECL CALLEE VALUES                  // call a function with a return function
-            | tailcall CALLEE VALUES                    // call a function 
-            | join VALUES                               // yields to the innermost if/match statement
-            | continue VALUES                           // jumps back the beginning of the current loop
-            | break VALUES                              // jumps out of the current loop
+TERMINATOR := unreachable;                              // use as a placeholder if nothing belongs. undefined behaviour if reached.
+            
+            | jump (IDENTIFIER) OPERANDS;               // one-way non-divergent branch, target is immediate and must be uniform
+            | branch (OPERAND, ID, ID) OPERANDS;        // two-way divergent branch, targets are immediate and must be uniform
+            | switch (OPERAND)                          // n-way divergent branch, targets are immediate and must be uniform
+                (case LITERAL ID)* 
+                default (ID);
+            | tailcall OPERAND OPERANDS;                // Start over in a new function, target is indirect (pointer), may be non-uniform
+            
+            | joinc ID OPERAND OPERANDS;                // yields to the innermost if/match statement
+            | joinf OPERAND OPERAND OPERANDS;           // yields to the innermost if/match statement
+            
+            | return OPERANDS;                          // return from current function
+            | callc OPERAND ID OPERANDS;                // call a function with a return continuation
+            | callf OPERAND OPERAND OPERANDS;           // call a function with a return function
+            
+            | merge OPERANDS;                           // Merges the current structured if/match construct
+            | continue OPERANDS;                        // Structured continue
+            | break OPERANDS;                           // Structured break
 
 TYPE := void | int | float | ptr DATA_TYPE | fn RET_TYPE ( [QTYPE [(, QTYPE)*]] )
 
