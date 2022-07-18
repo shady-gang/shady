@@ -93,6 +93,7 @@ Scope build_scope(const Node* entry) {
                         const Node* false_target = terminator->payload.branch.false_target;
                         process_edge(true_target);
                         process_edge(false_target);
+                        break;
                     }
                     case BrSwitch: error("TODO")
                     case BrTailcall: break; // that doesn't count here !
