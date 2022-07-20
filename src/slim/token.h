@@ -64,6 +64,9 @@ TEXT_TOKEN(callc) \
 TEXT_TOKEN(load) \
 TEXT_TOKEN(store) \
 TEXT_TOKEN(alloca) \
+TEXT_TOKEN(subgroup_broadcast_first) \
+TEXT_TOKEN(subgroup_active_mask) \
+TEXT_TOKEN(subgroup_ballot) \
 TEXT_TOKEN(unreachable) \
 TOKEN(lshift_logical, ">>>") \
 TOKEN(lshift_arithm, ">>") \

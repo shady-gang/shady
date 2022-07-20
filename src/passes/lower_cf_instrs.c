@@ -44,7 +44,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                 }
 
                 const Node* let_mask = let(dst_arena, prim_op(dst_arena, (PrimOp) {
-                    .op = get_mask_op,
+                    .op = subgroup_active_mask_op,
                     .operands = nodes(dst_arena, 0, NULL)
                 }), 1, NULL);
                 append_list(const Node*, accumulator, let_mask);

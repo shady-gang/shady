@@ -141,7 +141,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
                 gen_store(builder, ctx->next_fn_var, lower_fn_addr(ctx, fun));
                 const Node* entry_mask = gen_primop(builder, (PrimOp) {
-                    .op = get_mask_op,
+                    .op = subgroup_active_mask_op,
                     .operands = nodes(dst_arena, 0, NULL)
                 }).nodes[0];
                 gen_store(builder, ctx->next_mask_var, entry_mask);

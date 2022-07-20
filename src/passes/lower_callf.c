@@ -80,7 +80,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 case Callc_TAG: {
                     assert(terminator->payload.callc.is_return_indirect && "make sure lower_callc runs first !");
                     // put the return address and a convergence token in the stack
-                    const Node* conv_token = gen_primop(instructions, (PrimOp) { .op = get_mask_op, .operands = nodes(dst_arena, 0, NULL)}).nodes[0];
+                    const Node* conv_token = gen_primop(instructions, (PrimOp) { .op = subgroup_active_mask_op, .operands = nodes(dst_arena, 0, NULL)}).nodes[0];
                     gen_push_value_stack(instructions, conv_token);
                     gen_push_value_stack(instructions, terminator->payload.callc.ret_cont);
                     // Branch to the callee

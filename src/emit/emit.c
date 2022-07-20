@@ -615,6 +615,7 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
     spvb_capability(file_builder, SpvCapabilityShader);
     spvb_capability(file_builder, SpvCapabilityLinkage);
     spvb_capability(file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
+    spvb_capability(file_builder, SpvCapabilitySubgroupBallotKHR);
 
     // First reserve IDs for declarations
     LARRAY(SpvId, ids, top_level->declarations.count);

@@ -485,6 +485,9 @@ static const Node* accept_primop(ctxparams) {
         case or_tok:     op = or_op;  break;
         case xor_tok:    op = xor_op; break;
         case not_tok:    op = not_op; break;
+        case subgroup_active_mask_tok:    op = subgroup_active_mask_op; break;
+        case subgroup_broadcast_first_tok:    op = subgroup_broadcast_first_op; break;
+        case subgroup_ballot_tok:    op = subgroup_ballot_op; break;
         /// Only used for IR parsing
         /// Otherwise accept_expression handles this
         case call_tok: {

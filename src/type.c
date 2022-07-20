@@ -430,7 +430,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = without_qualifier(prim_op.operands.nodes[2]->type)
             });
         }
-        case get_mask_op: {
+        case subgroup_active_mask_op: {
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
                 .type = mask_type(arena)
