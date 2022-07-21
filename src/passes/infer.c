@@ -135,6 +135,11 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
     LARRAY(const Node*, new_inputs_scratch, old_inputs.count);
     Nodes input_types;
     switch (node->payload.prim_op.op) {
+        case neg_op:
+            input_types = nodes(dst_arena, 1, (const Type*[]){ int_type(dst_arena) }); break;
+        case lshift_arithm_op:
+        case lshift_logical_op:
+        case rshift_op:
         case add_op:
         case sub_op:
         case mul_op:
@@ -183,6 +188,26 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
             new_inputs_scratch[0] = import_node(ctx->rewriter.dst_arena, old_inputs.nodes[0]);
             assert(is_type(new_inputs_scratch[0]));
             assert(get_qualifier(new_inputs_scratch[0]) == Unknown);
+            goto skip_input_types;
+        }
+        case empty_mask_op:
+        case subgroup_active_mask_op:
+        case subgroup_local_id_op:
+        case subgroup_elect_first_op:
+            input_types = nodes(dst_arena, 0, NULL);
+            break;
+        case subgroup_broadcast_first_op:
+            new_inputs_scratch[0] = infer_value(ctx, old_inputs.nodes[0], NULL);
+            goto skip_input_types;
+        case subgroup_ballot_op:
+            input_types = nodes(dst_arena, 1, (const Type* []) { bool_type(dst_arena) });
+            break;
+        case lea_op: {
+            assert(old_inputs.count >= 2);
+            new_inputs_scratch[0] = infer_value(ctx, old_inputs.nodes[0], NULL);
+            for (size_t i = 1; i < old_inputs.count; i++) {
+                new_inputs_scratch[i] = old_inputs.nodes[i] ? infer_value(ctx, old_inputs.nodes[i], int_type(dst_arena)) : NULL;
+            }
             goto skip_input_types;
         }
         default: error("unhandled op params");
@@ -296,8 +321,8 @@ static const Node* infer_let(Context* ctx, const Node* node) {
     assert(node->tag == Let_TAG);
     const size_t outputs_count = node->payload.let.variables.count;
 
-    const Node* new_instruction = infer_instruction(ctx, node->payload.let.instruction);
-    Nodes output_types = unwrap_multiple_yield_types(ctx->rewriter.dst_arena, new_instruction->type);
+    const Node* new_rhs = is_value(node->payload.let.instruction) ? infer_value(ctx, node->payload.let.instruction, NULL) : infer_instruction(ctx, node->payload.let.instruction);
+    Nodes output_types = unwrap_multiple_yield_types(ctx->rewriter.dst_arena, new_rhs->type);
 
     assert(output_types.count == outputs_count);
 
@@ -305,7 +330,7 @@ static const Node* infer_let(Context* ctx, const Node* node) {
     for (size_t i = 0; i < outputs_count; i++)
         names[i] = node->payload.let.variables.nodes[i]->payload.var.name;
 
-    const Node* let_i = let(ctx->rewriter.dst_arena, new_instruction, outputs_count, names);
+    const Node* let_i = let(ctx->rewriter.dst_arena, new_rhs, outputs_count, names);
 
     // extract the outputs
     for (size_t i = 0; i < outputs_count; i++) {

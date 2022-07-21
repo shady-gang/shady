@@ -1,6 +1,7 @@
 #include "rewrite.h"
 
 #include "log.h"
+#include "arena.h"
 #include "portability.h"
 #include "type.h"
 

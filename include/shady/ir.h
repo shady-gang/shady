@@ -258,6 +258,7 @@ PRIMOP(0, subgroup_broadcast_first) \
 PRIMOP(0, subgroup_active_mask)     \
 PRIMOP(0, subgroup_ballot)          \
 PRIMOP(0, subgroup_local_id)        \
+PRIMOP(0, empty_mask)               \
 
 typedef enum Op_ {
 #define PRIMOP(has_side_effects, name) name##_op,

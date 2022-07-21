@@ -250,12 +250,20 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     }
 
     switch (prim_op.op) {
+        case neg_op: {
+            assert(prim_op.operands.count == 1);
+            return prim_op.operands.nodes[0]->type;
+            // return qualified_type(arena, (QualifiedType) { .is_uniform = , .type = bool_type(arena) });
+        }
+        case lshift_arithm_op:
+        case lshift_logical_op:
+        case rshift_op:
+
         case add_op:
         case sub_op:
         case mul_op:
         case div_op:
-        case mod_op:
-        {
+        case mod_op: {
              bool is_result_uniform = true;
              for (size_t i = 0; i < prim_op.operands.count; i++) {
                  const Node* arg = prim_op.operands.nodes[i];
@@ -274,8 +282,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case gt_op:
         case gte_op:
         case eq_op:
-        case neq_op:
-        {
+        case neq_op: {
             bool is_result_uniform = true;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
                 const Node* arg = prim_op.operands.nodes[i];
@@ -430,10 +437,40 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = without_qualifier(prim_op.operands.nodes[2]->type)
             });
         }
+        case empty_mask_op:
         case subgroup_active_mask_op: {
+            assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
                 .type = mask_type(arena)
+            });
+        }
+        case subgroup_ballot_op: {
+            assert(prim_op.operands.count == 1);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = true,
+                .type = mask_type(arena)
+            });
+        }
+        case subgroup_elect_first_op: {
+            assert(prim_op.operands.count == 0);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = false,
+                .type = bool_type(arena)
+            });
+        }
+        case subgroup_local_id_op: {
+            assert(prim_op.operands.count == 0);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = false,
+                .type = int_type(arena)
+            });
+        }
+        case subgroup_broadcast_first_op: {
+            assert(prim_op.operands.count == 1);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = true,
+                .type = without_qualifier(prim_op.operands.nodes[0]->type)
             });
         }
         default: error("unhandled primop %s", primop_names[prim_op.op]);
