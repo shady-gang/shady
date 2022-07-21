@@ -20,7 +20,7 @@ CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrAre
     info_node(*program);
 
     ArenaConfig aconfig = (ArenaConfig) {
-        .check_types = true
+        .check_types = true,
     };
     IrArena* typed_arena = new_arena(aconfig);
     *program = infer_program(config, *arena, typed_arena, *program);

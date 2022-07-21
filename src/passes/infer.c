@@ -203,6 +203,14 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
             assert(get_qualifier(new_inputs_scratch[0]) == Unknown);
             goto skip_input_types;
         }
+        case lea_op: {
+            assert(old_inputs.count >= 2);
+            new_inputs_scratch[0] = infer_value(ctx, old_inputs.nodes[0], NULL);
+            for (size_t i = 1; i < old_inputs.count; i++) {
+                new_inputs_scratch[i] = old_inputs.nodes[i] ? infer_value(ctx, old_inputs.nodes[i], int_type(dst_arena)) : NULL;
+            }
+            goto skip_input_types;
+        }
         case empty_mask_op:
         case subgroup_active_mask_op:
         case subgroup_local_id_op:
@@ -215,13 +223,9 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
         case subgroup_ballot_op:
             input_types = nodes(dst_arena, 1, (const Type* []) { bool_type(dst_arena) });
             break;
-        case lea_op: {
-            assert(old_inputs.count >= 2);
-            new_inputs_scratch[0] = infer_value(ctx, old_inputs.nodes[0], NULL);
-            for (size_t i = 1; i < old_inputs.count; i++) {
-                new_inputs_scratch[i] = old_inputs.nodes[i] ? infer_value(ctx, old_inputs.nodes[i], int_type(dst_arena)) : NULL;
-            }
-            goto skip_input_types;
+        case mask_is_thread_active_op: {
+            input_types = nodes(dst_arena, 2, (const Type* []) { mask_type(dst_arena), int_type(dst_arena) });
+            break;
         }
         default: error("unhandled op params");
     }

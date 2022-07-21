@@ -97,7 +97,7 @@ fn builtin_rotate_active_branch() {
             loop (uniform int j = 0) {
                 if (j >= MASK_SIZE) { break; }
 
-                if (desired_mask >> j & 0x1 != 0) { continue(j + 1); }
+                if (mask_is_thread_active(desired_mask, j)) { continue(j + 1); }
                 if (resume_at[j] == desired_resume_pt) { continue(j + 1); }
                 can_run = false;
                 break;

@@ -473,6 +473,14 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = without_qualifier(prim_op.operands.nodes[0]->type)
             });
         }
+        case mask_is_thread_active_op: {
+            // TODO assert input is uniform
+            assert(prim_op.operands.count == 2);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = true,
+                .type = bool_type(arena)
+            });
+        }
         default: error("unhandled primop %s", primop_names[prim_op.op]);
     }
 }
