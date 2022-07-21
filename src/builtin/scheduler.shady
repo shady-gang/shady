@@ -31,8 +31,8 @@ fn builtin_branch(varying int branch_destination) {
     }
 }
 
-fn builtin_yield(uniform int resume_at) {
-    resume_at[subgroup_local_id()] = resume_at;
+fn builtin_yield(uniform int resume_target) {
+    resume_at[subgroup_local_id()] = resume_target;
     resume_with[subgroup_local_id()] = subgroup_active_mask();
 
     if (subgroup_elect_first()) {
