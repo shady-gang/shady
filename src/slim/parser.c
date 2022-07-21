@@ -424,6 +424,14 @@ static const Node* accept_control_flow_instruction(ctxparams) {
     return NULL;
 }
 
+static bool translate_token_to_primop(enum TokenTag token, Op* op) {
+    switch (token) {
+#define  PRIMOP(has_side_effects, name) case name##_tok: return name##_op;
+PRIMOPS()
+        default: return false;
+    }
+}
+
 static const Node* accept_primop(ctxparams) {
     Op op;
     switch (curr_token(tokenizer).tag) {
@@ -470,24 +478,6 @@ static const Node* accept_primop(ctxparams) {
                 .operands = nodes(arena, 1, ops)
             });
         }
-        case add_tok:    op = add_op; break;
-        case sub_tok:    op = sub_op; break;
-        case mul_tok:    op = mul_op; break;
-        case div_tok:    op = div_op; break;
-        case mod_tok:    op = mod_op; break;
-        case lt_tok:     op = lt_op;  break;
-        case lte_tok:    op = lte_op; break;
-        case gt_tok:     op = gt_op;  break;
-        case gte_tok:    op = gte_op; break;
-        case eq_tok:     op = eq_op;  break;
-        case neq_tok:    op = neq_op; break;
-        case and_tok:    op = and_op; break;
-        case or_tok:     op = or_op;  break;
-        case xor_tok:    op = xor_op; break;
-        case not_tok:    op = not_op; break;
-        case subgroup_active_mask_tok:    op = subgroup_active_mask_op; break;
-        case subgroup_broadcast_first_tok:    op = subgroup_broadcast_first_op; break;
-        case subgroup_ballot_tok:    op = subgroup_ballot_op; break;
         /// Only used for IR parsing
         /// Otherwise accept_expression handles this
         case call_tok: {
@@ -502,7 +492,7 @@ static const Node* accept_primop(ctxparams) {
                 .args = args,
             });
         }
-        default: return NULL;
+        default: if (translate_token_to_primop(curr_token(tokenizer).tag, &op)) break; return NULL;
     }
     next_token(tokenizer);
     return prim_op(arena, (PrimOp) {

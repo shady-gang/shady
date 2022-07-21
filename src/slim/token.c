@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#define PRIMOP(has_side_effects, name) TEXT_TOKEN(name)
+
 static const char* token_strings[] = {
 #define TOKEN(name, str) str,
         TOKENS()
@@ -18,6 +20,8 @@ const char* token_tags[] = {
         TOKENS()
 #undef TOKEN
 };
+
+#undef PRIMOP
 
 static size_t token_strings_size[LIST_END_tok];
 static bool constants_initialized = false;

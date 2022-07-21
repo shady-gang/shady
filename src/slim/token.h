@@ -1,5 +1,6 @@
 #ifndef SHADY_TOKEN_H
 
+#include "shady/ir.h"
 #include <stddef.h>
 
 #define TEXT_TOKEN(t) TOKEN(t, #t)
@@ -11,15 +12,15 @@ TOKEN(dec_lit, NULL) \
 TOKEN(hex_lit, NULL) \
 TEXT_TOKEN(uniform) \
 TEXT_TOKEN(varying) \
-TEXT_TOKEN(struct) \
-TEXT_TOKEN(union) \
-TEXT_TOKEN(private) \
+TOKEN(struct, "struct") \
+TOKEN(union, "union") \
+TOKEN(private, "private") \
 TEXT_TOKEN(shared) \
 TEXT_TOKEN(subgroup) \
 TEXT_TOKEN(global) \
 TEXT_TOKEN(input) \
 TEXT_TOKEN(output) \
-TEXT_TOKEN(extern) \
+TOKEN(extern, "extern") \
 TOKEN(compute, "@compute") \
 TEXT_TOKEN(var) \
 TEXT_TOKEN(let) \
@@ -29,48 +30,28 @@ TEXT_TOKEN(cont) \
 TEXT_TOKEN(int) \
 TEXT_TOKEN(float) \
 TEXT_TOKEN(mask) \
-TEXT_TOKEN(return) \
-TEXT_TOKEN(const) \
-TEXT_TOKEN(add) \
-TEXT_TOKEN(sub) \
-TEXT_TOKEN(mul) \
-TEXT_TOKEN(div) \
-TEXT_TOKEN(mod) \
-TEXT_TOKEN(lt) \
-TEXT_TOKEN(lte) \
-TEXT_TOKEN(eq) \
-TEXT_TOKEN(neq) \
-TEXT_TOKEN(gt) \
-TEXT_TOKEN(gte) \
-TEXT_TOKEN(and) \
-TEXT_TOKEN(or) \
-TEXT_TOKEN(xor) \
-TEXT_TOKEN(not) \
-TEXT_TOKEN(bool) \
-TEXT_TOKEN(true) \
-TEXT_TOKEN(false) \
-TEXT_TOKEN(if) \
-TEXT_TOKEN(else) \
+TOKEN(const, "const") \
+TOKEN(bool, "bool") \
+TOKEN(true, "true") \
+TOKEN(false, "false") \
+TOKEN(if, "if") \
+TOKEN(else, "else") \
 TEXT_TOKEN(merge) \
 TEXT_TOKEN(loop) \
-TEXT_TOKEN(continue) \
-TEXT_TOKEN(break) \
+TOKEN(continue, "continue") \
+TOKEN(break, "break") \
 TEXT_TOKEN(jump) \
 TEXT_TOKEN(branch) \
 TEXT_TOKEN(join) \
 TEXT_TOKEN(call) \
 TEXT_TOKEN(callf) \
 TEXT_TOKEN(callc) \
-TEXT_TOKEN(load) \
-TEXT_TOKEN(store) \
-TEXT_TOKEN(alloca) \
-TEXT_TOKEN(subgroup_broadcast_first) \
-TEXT_TOKEN(subgroup_active_mask) \
-TEXT_TOKEN(subgroup_ballot) \
+TOKEN(return, "return") \
 TEXT_TOKEN(unreachable) \
-TOKEN(lshift_logical, ">>>") \
-TOKEN(lshift_arithm, ">>") \
-TOKEN(rshift, "<<") \
+PRIMOPS() \
+TOKEN(infix_lshift_logical, ">>>") \
+TOKEN(infix_lshift_arithm, ">>") \
+TOKEN(infix_rshift, "<<") \
 TOKEN(infix_eq, "==") \
 TOKEN(infix_neq, "!=") \
 TOKEN(infix_geq, ">=") \
@@ -100,11 +81,15 @@ struct Tokenizer;
 struct Tokenizer* new_tokenizer(char* str);
 void destroy_tokenizer(struct Tokenizer*);
 
+#define PRIMOP(has_side_effects, name) TEXT_TOKEN(name)
+
 enum TokenTag {
 #define TOKEN(name, str) name##_tok,
     TOKENS()
 #undef TOKEN
 };
+
+#undef PRIMOP
 
 extern const char* token_tags[];
 
