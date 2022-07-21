@@ -31,7 +31,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
     assert(start <= old_block->instructions.count);
     for (size_t i = start; i < old_block->instructions.count; i++) {
         const Node* let_node = old_block->instructions.nodes[i];
-        const Node* instr = let_node->payload.let.instruction;
+        const Node* instr = let_node->tag == Let_TAG ? let_node->payload.let.instruction : let_node;
         switch (instr->tag) {
             case If_TAG: {
                 // TODO handle yield types !
