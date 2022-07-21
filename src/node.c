@@ -161,7 +161,7 @@ const Node* let(IrArena* arena, const Node* instruction, size_t outputs_count, c
 }
 
 const Node* let_mut(IrArena* arena, const Node* instruction, Nodes types, size_t outputs_count, const char* output_names[]) {
-    return let_internal(arena, false, &types, instruction, outputs_count, output_names);
+    return let_internal(arena, true, &types, instruction, outputs_count, output_names);
 }
 
 const Node* tuple(IrArena* arena, Nodes contents) {
