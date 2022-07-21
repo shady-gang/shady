@@ -40,21 +40,37 @@ static void bind_named_entry(Context* ctx, NamedBindEntry* entry) {
     ctx->bound_variables = entry;
 }
 
-static const Node* bind_node(Context* ctx, const Node* node, bool is_lvalue);
+static const Node* bind_node(Context* ctx, const Node* node);
 
-static Nodes bind_nodes(Context* ctx, Nodes old, bool is_lvalue) {
+static Nodes bind_nodes(Context* ctx, Nodes old) {
     LARRAY(const Node*, arr, old.count);
     for (size_t i = 0; i < old.count; i++)
-        arr[i] = bind_node(ctx, old.nodes[i], is_lvalue);
+        arr[i] = bind_node(ctx, old.nodes[i]);
     return nodes(ctx->dst_arena, old.count, arr);
 }
 
-static const Node* bind_node_lhs(Context* ctx, const Node* node) {
-    return bind_node(ctx, node, true);
-}
-
-static const Node* bind_node_rhs(Context* ctx, const Node* node) {
-    return bind_node(ctx, node, false);
+static const Node* get_node_address(Context* ctx, const Node* node) {
+    IrArena* dst_arena = ctx->dst_arena;
+    switch (node->tag) {
+        case Unbound_TAG: {
+            const NamedBindEntry* entry = resolve_using_name(ctx, node->payload.unbound.name);
+            assert(entry->is_var);
+            return entry->node;
+        }
+        case PrimOp_TAG: {
+            if (node->tag == PrimOp_TAG && node->payload.prim_op.op == subscript_op) {
+                const Node* src_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);
+                const Node* index = bind_node(ctx, node->payload.prim_op.operands.nodes[1]);
+                return prim_op(dst_arena, (PrimOp) {
+                    .op = lea_op,
+                    .operands = nodes(dst_arena, 3, (const Node* []) { src_ptr, NULL, index })
+                });
+            }
+        }
+        default: break;
+    }
+    error("This doesn't really look like a place expression...");
+    //return bind_node(ctx, node, true);
 }
 
 static Node* rewrite_fn_head(Context* ctx, const Node* node) {
@@ -66,11 +82,11 @@ static Node* rewrite_fn_head(Context* ctx, const Node* node) {
     LARRAY(const Node*, nparams, params_count);
     for (size_t i = 0; i < params_count; i++) {
         const Variable* old_param = &node->payload.fn.params.nodes[i]->payload.var;
-        const Node* new_param = var(dst_arena, bind_node(ctx, old_param->type, false), string(dst_arena, old_param->name));
+        const Node* new_param = var(dst_arena, bind_node(ctx, old_param->type), string(dst_arena, old_param->name));
         nparams[i] = new_param;
     }
 
-    return fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, params_count, nparams), bind_nodes(ctx, node->payload.fn.return_types, false));
+    return fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, params_count, nparams), bind_nodes(ctx, node->payload.fn.return_types));
 }
 
 static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
@@ -99,7 +115,7 @@ static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
         // maybe not beneficial/relevant
         assert(body_infer_ctx.current_function != NULL);
     }
-    target->payload.fn.block = bind_node(&body_infer_ctx, node->payload.fn.block, false);
+    target->payload.fn.block = bind_node(&body_infer_ctx, node->payload.fn.block);
 }
 
 static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
@@ -110,7 +126,7 @@ static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
         const Node* old_instruction = instructions.nodes[k];
         switch (old_instruction->tag) {
             case Let_TAG: {
-                const Node* bound_instr = bind_node(ctx, old_instruction->payload.let.instruction, false);
+                const Node* bound_instr = bind_node(ctx, old_instruction->payload.let.instruction);
 
                 size_t outputs_count = old_instruction->payload.let.variables.count;
 
@@ -161,7 +177,7 @@ static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
                 break;
             }
             default: {
-                const Node* ninstruction = bind_node(ctx, old_instruction, false);
+                const Node* ninstruction = bind_node(ctx, old_instruction);
                 append_list(const Node*, list, ninstruction);
                 break;
             }
@@ -172,14 +188,13 @@ static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
     return ninstructions;
 }
 
-static const Node* bind_node(Context* ctx, const Node* node, bool is_lvalue) {
+static const Node* bind_node(Context* ctx, const Node* node) {
     if (node == NULL)
         return NULL;
 
     IrArena* dst_arena = ctx->dst_arena;
     switch (node->tag) {
         case Root_TAG: {
-            assert(!is_lvalue);
             const Root* src_root = &node->payload.root;
             const size_t count = src_root->declarations.count;
 
@@ -196,7 +211,7 @@ static const Node* bind_node(Context* ctx, const Node* node, bool is_lvalue) {
                 switch (decl->tag) {
                     case GlobalVariable_TAG: {
                         const GlobalVariable* ogvar = &decl->payload.global_variable;
-                        bound = global_var(dst_arena, bind_node(ctx, ogvar->type, false), ogvar->name, ogvar->address_space);
+                        bound = global_var(dst_arena, bind_node(ctx, ogvar->type), ogvar->name, ogvar->address_space);
                         entry->name = ogvar->name;
                         entry->is_var = true;
                         break;
@@ -228,7 +243,7 @@ static const Node* bind_node(Context* ctx, const Node* node, bool is_lvalue) {
             for (size_t i = 0; i < count; i++) {
                 const Node* odecl = src_root->declarations.nodes[i];
                 if (odecl->tag != GlobalVariable_TAG)
-                    new_decls[i] = bind_node(&root_context, odecl, false);
+                    new_decls[i] = bind_node(&root_context, odecl);
             }
 
             return root(dst_arena, (Root) {
@@ -238,31 +253,23 @@ static const Node* bind_node(Context* ctx, const Node* node, bool is_lvalue) {
         case Variable_TAG: error("the binders should be handled such that this node is never reached");
         case Unbound_TAG: {
             const NamedBindEntry* entry = resolve_using_name(ctx, node->payload.unbound.name);
-            if (is_lvalue) {
-                if (entry->is_var) {
-                    // We just want the ptr here
-                    return entry->node;
-                } else error("We cant't obtain addresses for non-var variables")
+            if (entry->is_var) {
+                return prim_op(dst_arena, (PrimOp) {
+                    .op = load_op,
+                    .operands = nodes(dst_arena, 1, (const Node* []) { get_node_address(ctx, node) })
+                });
             } else {
-                if (entry->is_var) {
-                    return prim_op(dst_arena, (PrimOp) {
-                        .op = load_op,
-                        .operands = nodes(dst_arena, 1, (const Node* []) { entry->node })
-                    });
-                } else {
-                    return entry->node;
-                }
+                return entry->node;
             }
         }
         case Let_TAG: error("rewrite_instructions should handle this");
         case Loop_TAG: {
-            assert(!is_lvalue);
             Context loop_body_ctx = *ctx;
             Nodes old_params = node->payload.loop_instr.params;
             LARRAY(const Node*, new_params, old_params.count);
             for (size_t i = 0; i < old_params.count; i++) {
                 const Variable* old_param = &old_params.nodes[i]->payload.var;
-                const Node* new_param = var(dst_arena, bind_node(ctx, old_param->type, false), old_param->name);
+                const Node* new_param = var(dst_arena, bind_node(ctx, old_param->type), old_param->name);
                 new_params[i] = new_param;
 
                 NamedBindEntry* entry = arena_alloc(ctx->src_arena, sizeof(NamedBindEntry));
@@ -276,17 +283,16 @@ static const Node* bind_node(Context* ctx, const Node* node, bool is_lvalue) {
                 printf("Bound loop param %s\n", entry->name);
             }
 
-            const Node* new_body = bind_node(&loop_body_ctx, node->payload.loop_instr.body, false);
+            const Node* new_body = bind_node(&loop_body_ctx, node->payload.loop_instr.body);
 
             return loop_instr(dst_arena, (Loop) {
                 .yield_types = import_nodes(dst_arena, node->payload.loop_instr.yield_types),
-                .initial_args = bind_nodes(ctx, node->payload.loop_instr.initial_args, false),
+                .initial_args = bind_nodes(ctx, node->payload.loop_instr.initial_args),
                 .body = new_body,
                 .params = nodes(dst_arena, old_params.count, new_params)
             });
         }
         case ParsedBlock_TAG: {
-            assert(!is_lvalue);
             const ParsedBlock* pblock = &node->payload.parsed_block;
             Context pblock_ctx = *ctx;
 
@@ -310,7 +316,7 @@ static const Node* bind_node(Context* ctx, const Node* node, bool is_lvalue) {
 
             const Node* new_block = block(dst_arena, (Block) {
                 .instructions = rewrite_instructions(&pblock_ctx, pblock->instructions),
-                .terminator = bind_node(&pblock_ctx, pblock->terminator, false)
+                .terminator = bind_node(&pblock_ctx, pblock->terminator)
             });
 
             // Rebuild the actual continuations now
@@ -322,56 +328,50 @@ static const Node* bind_node(Context* ctx, const Node* node, bool is_lvalue) {
             return new_block;
         }
         case Block_TAG: {
-            assert(!is_lvalue);
              const Node* new_block = block(dst_arena, (Block) {
                  .instructions = rewrite_instructions(ctx, node->payload.block.instructions),
-                 .terminator = bind_node(ctx, node->payload.block.terminator, false)
+                 .terminator = bind_node(ctx, node->payload.block.terminator)
              });
              return new_block;
         }
         case Return_TAG: {
-            assert(!is_lvalue);
             assert(ctx->current_function);
             return fn_ret(dst_arena, (Return) {
                 .fn = ctx->current_function,
-                .values = bind_nodes(ctx, node->payload.fn_ret.values, false)
+                .values = bind_nodes(ctx, node->payload.fn_ret.values)
             });
         }
         case Function_TAG: {
-            assert(!is_lvalue);
             Node* head = resolve_using_name(ctx, node->payload.fn.name)->node;
             rewrite_fn_body(ctx, node, head);
             return head;
         }
         case Constant_TAG: {
-            assert(!is_lvalue);
             Node* head = resolve_using_name(ctx, node->payload.fn.name)->node;
-            head->payload.constant.value = bind_node(ctx, node->payload.constant.value, false);
+            head->payload.constant.value = bind_node(ctx, node->payload.constant.value);
             return head;
         }
         default:
         /*case Call_TAG:
         case PrimOp_TAG:*/ {
             if (node->tag == PrimOp_TAG && node->payload.prim_op.op == assign_op) {
-                const Node* target_ptr = bind_node(ctx, node->payload.prim_op.operands.nodes[0], true);
-                const Node* value = bind_node(ctx, node->payload.prim_op.operands.nodes[1], false);
+                const Node* target_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);
+                const Node* value = bind_node(ctx, node->payload.prim_op.operands.nodes[1]);
                 return prim_op(dst_arena, (PrimOp) {
                     .op = store_op,
                     .operands = nodes(dst_arena, 2, (const Node* []) { target_ptr, value })
                 });
             } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == subscript_op) {
-                const Node* src_ptr = bind_node(ctx, node->payload.prim_op.operands.nodes[0], true);
-                const Node* index = bind_node(ctx, node->payload.prim_op.operands.nodes[1], false);
                 return prim_op(dst_arena, (PrimOp) {
-                    .op = lea_op,
-                    .operands = nodes(dst_arena, 3, (const Node* []) { src_ptr, NULL, index })
+                    .op = load_op,
+                    .operands = nodes(dst_arena, 1, (const Node* []) { get_node_address(ctx, node) })
                 });
             }
 
             Rewriter rewriter = {
                 .src_arena = ctx->src_arena,
                 .dst_arena = dst_arena,
-                .rewrite_fn = (RewriteFn) (is_lvalue ? bind_node_lhs : bind_node_rhs),
+                .rewrite_fn = (RewriteFn) bind_node,
             };
             Context n_ctx = *ctx;
             n_ctx.unused = rewriter;
@@ -388,6 +388,6 @@ const Node* bind_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena
         .bound_variables = NULL
     };
 
-    const Node* rewritten = bind_node(&ctx, source, false);
+    const Node* rewritten = bind_node(&ctx, source);
     return rewritten;
 }

@@ -51,9 +51,9 @@ fn builtin_join(uniform int join_at, uniform mask join_with) {
         loop (uniform int bit = 0) {
             if (bit >= MASK_SIZE) { break(); }
             // we aren't trying to join up with that, continue
-            if ((join_with >> bit) & 0x1 == 0) { continue(bit + 1); }
+            if (false == mask_is_thread_active(join_with, bit)) { continue(bit + 1); }
 
-            if ((active_mask >> bit) & 0x1) { continue(bit + 1); }
+            if (mask_is_thread_active(active_mask, bit)) { continue(bit + 1); }
             if (resume_at[bit] == join_at) { continue(bit + 1); }
 
             clear = false;
