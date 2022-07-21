@@ -1,7 +1,7 @@
 #include "block_builder.h"
 #include "rewrite.h"
 #include "fold.h"
-#include "portability.h"
+#include "arena.h"
 
 #include "list.h"
 #include "dict.h"
@@ -38,14 +38,23 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (is_instruction(node) || is_terminator(node))
         return recreate_node_identity(&ctx->rewriter, node);
 
+    if (is_declaration(node->tag))
+        return node;
+
     if (node->tag == Variable_TAG) {
         const Node* found = search_processed(&ctx->rewriter, node);
         if (found) node = found;
+    } else {
+        node = recreate_node_identity(&ctx->rewriter, node);
     }
-    node = resolve_known_vars(node, true);
+
+    if (ctx->rewriter.dst_arena->config.allow_fold)
+        node = resolve_known_vars(node, true);
     if (node->tag == Variable_TAG && node->payload.var.instruction)
         insert_set_get_result(const Node*, ctx->in_use, node->payload.var.instruction);
+
     return node;
+    //return recreate_node_identity(&ctx->rewriter, node);
 }
 
 const Node* finish_block(BlockBuilder* builder, const Node* terminator) {
@@ -83,7 +92,7 @@ const Node* finish_block(BlockBuilder* builder, const Node* terminator) {
             actual_instruction = actual_instruction->payload.let.instruction;
 
         // we keep instructions that have useful results, calls and primops tagged as having side effects
-        if (find_key_dict(const Node*, ctx.in_use, actual_instruction) || actual_instruction->tag == Call_TAG || actual_instruction->tag == PrimOp_TAG && has_primop_got_side_effects(actual_instruction->payload.prim_op.op))
+        if (find_key_dict(const Node*, ctx.in_use, actual_instruction) || actual_instruction->tag == PrimOp_TAG && has_primop_got_side_effects(actual_instruction->payload.prim_op.op) || actual_instruction->tag != PrimOp_TAG)
             append_list(const Node*, final_list, instruction);
     }
 

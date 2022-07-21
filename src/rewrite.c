@@ -148,7 +148,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Variable_TAG:      error("We expect variables to be available for us in the `processed` set");
         case Let_TAG:           {
             const Node* ninstruction = rewrite_node(rewriter, node->payload.let.instruction);
-            const Nodes output_types = unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type);
+            const Nodes output_types = rewriter->dst_arena->config.check_types ? unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type) : import_nodes(rewriter->dst_arena, extract_variable_types(rewriter->src_arena, &node->payload.let.variables));
             Nodes oldvars = node->payload.let.variables;
             assert(output_types.count == oldvars.count);
 
@@ -183,7 +183,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         });
         case Loop_TAG: {
             Nodes oparams = node->payload.loop_instr.params;
-            Nodes nparams = rewrite_nodes(rewriter, oparams);
+            Nodes nparams = recreate_variables(rewriter, oparams);
 
             for (size_t i = 0; i < oparams.count; i++)
                 register_processed(rewriter, oparams.nodes[i], nparams.nodes[i]);
@@ -238,7 +238,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .args = rewrite_nodes(rewriter, node->payload.join.args)
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
-            .fn = NULL,
+            .fn = rewrite_node(rewriter, node->payload.fn_ret.fn),
             .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
         });
         case Unreachable_TAG:   return unreachable(rewriter->dst_arena);
