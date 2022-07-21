@@ -249,7 +249,10 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
         // ----------------- INSTRUCTIONS
         case Let_TAG:
             if (node->payload.let.variables.count > 0) {
-                printf("let");
+                if (node->payload.let.is_mutable)
+                    printf("var");
+                else
+                    printf("let");
                 for (size_t i = 0; i < node->payload.let.variables.count; i++) {
                     printf(" ");
                     print_node(node->payload.let.variables.nodes[i]->payload.var.type);
@@ -261,11 +264,13 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.let.instruction);
             break;
         case PrimOp_TAG:
-            printf("%s", primop_names[node->payload.prim_op.op]);
+            printf("%s(", primop_names[node->payload.prim_op.op]);
             for (size_t i = 0; i < node->payload.prim_op.operands.count; i++) {
-                printf(" ");
                 print_node(node->payload.prim_op.operands.nodes[i]);
+                if (i + 1 < node->payload.prim_op.operands.count)
+                    printf(", ");
             }
+            printf(")");
             break;
         case Call_TAG:
             printf("call ");
