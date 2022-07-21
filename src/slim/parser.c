@@ -426,7 +426,7 @@ static const Node* accept_control_flow_instruction(ctxparams) {
 
 static bool translate_token_to_primop(enum TokenTag token, Op* op) {
     switch (token) {
-#define  PRIMOP(has_side_effects, name) case name##_tok: return name##_op;
+#define  PRIMOP(has_side_effects, name) case name##_tok: { *op = name##_op; return true; }
 PRIMOPS()
         default: return false;
     }
