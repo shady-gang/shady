@@ -15,6 +15,10 @@ CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrAre
     info_print("Bound program successfully: \n");
     info_node(*program);
 
+    *program = normalize(config, *arena, *arena, *program);
+    info_print("Normalized program successfully: \n");
+    info_node(*program);
+
     ArenaConfig aconfig = (ArenaConfig) {
         .check_types = true
     };

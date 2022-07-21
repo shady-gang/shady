@@ -25,9 +25,7 @@ typedef struct {
     const Nodes* continue_types;
 } Context;
 
-static const Node* infer_type(Context* ctx, const Type* type) {
-    return import_node(ctx->rewriter.dst_arena, type);
-}
+static const Node* infer_type(Context* ctx, const Type* type);
 
 static Nodes infer_types(Context* ctx, Nodes types) {
     LARRAY(const Type*, new, types.count);
@@ -40,6 +38,19 @@ static const Node* infer_instruction(Context* ctx, const Node* node);
 static const Node* infer_let(Context* ctx, const Node* node);
 static const Node* infer_terminator(Context* ctx, const Node* node);
 static const Node* infer_value(Context* ctx, const Node* node, const Node* expected_type);
+
+static const Node* infer_type(Context* ctx, const Type* type) {
+    switch (type->tag) {
+        case ArrType_TAG: {
+            const Node* size = infer_value(ctx, type->payload.arr_type.size, int_type(ctx->rewriter.dst_arena));
+            return arr_type(ctx->rewriter.dst_arena, (ArrType) {
+                .size = size,
+                .element_type = infer_type(ctx, type->payload.arr_type.element_type)
+            });
+        }
+        default: return import_node(ctx->rewriter.dst_arena, type);
+    }
+}
 
 static const Node* infer_block(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
@@ -118,6 +129,8 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
         }
         case True_TAG: return true_lit(dst_arena);
         case False_TAG: return false_lit(dst_arena);
+        case GlobalVariable_TAG: return find_processed(&ctx->rewriter, node); // TODO check types match
+        case Constant_TAG: return find_processed(&ctx->rewriter, node); // TODO check types match
         default: error("not a value");
     }
 }

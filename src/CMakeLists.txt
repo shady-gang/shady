@@ -24,6 +24,7 @@ set(SHADY_SOURCES
     transform/ir_gen_helpers.c
 
     passes/bind.c
+    passes/normalize.c
     passes/infer.c
     passes/lower_cf_instrs.c
     passes/lower_callc.c

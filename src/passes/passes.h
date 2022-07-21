@@ -8,6 +8,7 @@
 typedef const Node* (RewritePass)(CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_root);
 
 RewritePass bind_program;
+RewritePass normalize;
 RewritePass infer_program;
 /// Gets rid of structured control flow constructs, and turns them into branches, joins and callcs
 RewritePass lower_cf_instrs;
