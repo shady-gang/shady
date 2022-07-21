@@ -253,9 +253,11 @@ PRIMOP(1, push_stack)               \
 PRIMOP(1, pop_stack)                \
 PRIMOP(1, push_stack_uniform)       \
 PRIMOP(1, pop_stack_uniform)        \
+PRIMOP(0, subgroup_elect_first)     \
 PRIMOP(0, subgroup_broadcast_first) \
 PRIMOP(0, subgroup_active_mask)     \
 PRIMOP(0, subgroup_ballot)          \
+PRIMOP(0, subgroup_local_id)        \
 
 typedef enum Op_ {
 #define PRIMOP(has_side_effects, name) name##_op,

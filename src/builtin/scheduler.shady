@@ -14,8 +14,8 @@ fn builtin_branch(varying int branch_destination) {
         next_mask = subgroup_active_mask();
 
         // tag those variables as not in use.
-        resume_at[thread_id] = -1;
-        resume_with[thread_id] = 0;
+        resume_at[subgroup_local_id()] = -1;
+        resume_with[subgroup_local_id()] = 0;
         return;
     }
 
@@ -24,18 +24,18 @@ fn builtin_branch(varying int branch_destination) {
     loop() {
         let elected = subgroup_broadcast_first(branch_destination);
         if (elected == branch_destination) {
-            resume_at[thread_id] = elected;
-            resume_with[thread_id] = subgroup_ballot(elected == branch_destination);
+            resume_at[subgroup_local_id()] = elected;
+            resume_with[subgroup_local_id()] = subgroup_ballot(elected == branch_destination);
             break;
         }
     }
 }
 
 fn builtin_yield(uniform int resume_at) {
-    resume_at[thread_id] = resume_at;
-    resume_with[thread_id] = subgroup_active_mask();
+    resume_at[subgroup_local_id()] = resume_at;
+    resume_with[subgroup_local_id()] = subgroup_active_mask();
 
-    if (elect_first()) {
+    if (subgroup_elect_first()) {
         // only one thread runs that part
         // scheduler_selector++;
         scheduler_selector = scheduler_selector + 1;
@@ -44,17 +44,17 @@ fn builtin_yield(uniform int resume_at) {
 }
 
 fn builtin_join(uniform int join_at, uniform mask join_with) {
-    let active = subgroup_active_mask();
+    let active_mask = subgroup_active_mask();
     var int clear = true;
-    if (elect_first()) {
+    if (subgroup_elect_first()) {
         // for (int bit = 0; bit < MASK_SIZE; bit++) {
         loop (uniform int bit = 0) {
             if (bit >= MASK_SIZE) { break(); }
             // we aren't trying to join up with that, continue
-            if ((join_with >> bit) & 0x1 == 0) { continue(i + 1); }
+            if ((join_with >> bit) & 0x1 == 0) { continue(bit + 1); }
 
-            if ((active_mask >> bit) & 0x1) { continue(i + 1); }
-            if (resume_at[bit] == join_at) { continue(i + 1); }
+            if ((active_mask >> bit) & 0x1) { continue(bit + 1); }
+            if (resume_at[bit] == join_at) { continue(bit + 1); }
 
             clear = false;
             break;
@@ -68,10 +68,10 @@ fn builtin_join(uniform int join_at, uniform mask join_with) {
     }
 
     // We're not clear to enter and we need to pause our threads and do something else
-    resume_at[thread_id] = join_at;
-    resume_with[thread_id] = join_with;
+    resume_at[subgroup_local_id()] = join_at;
+    resume_with[subgroup_local_id()] = join_with;
 
-    if (elect_first()) {
+    if (subgroup_elect_first()) {
         // only one thread runs that part
         scheduler_selector = scheduler_selector + 1;
         builtin_rotate_active_branch();
