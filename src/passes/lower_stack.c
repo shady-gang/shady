@@ -51,7 +51,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                 case pop_stack_uniform_op: {
                     const Type* element_type = oprim_op->operands.nodes[0];
                     TypeMemLayout layout = get_mem_layout(ctx->config, dst_arena, element_type);
-                    const Node* element_size = int_literal(dst_arena, (IntLiteral) {.value = layout.size_in_cells });
+                    const Node* element_size = int_literal(dst_arena, (IntLiteral) { .value_i32 = layout.size_in_cells, .width = IntTy32 });
 
                     bool push = oprim_op->op == push_stack_op || oprim_op->op == push_stack_uniform_op;
                     bool uniform = oprim_op->op == push_stack_uniform_op || oprim_op->op == pop_stack_uniform_op;
@@ -68,7 +68,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                             .operands = nodes(dst_arena, 2, (const Node* []) { stack_size, element_size})
                         }).nodes[0];
 
-                    const Node* addr = gen_lea(instructions, stack, stack_size, nodes(dst_arena, 1, (const Node* []) { int_literal(dst_arena, (IntLiteral) {.value = 0})}));
+                    const Node* addr = gen_lea(instructions, stack, stack_size, nodes(dst_arena, 1, (const Node* []) { int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 })}));
                     assert(without_qualifier(addr->type)->tag == PtrType_TAG);
                     AddressSpace addr_space = without_qualifier(addr->type)->payload.ptr_type.address_space;
 
@@ -142,20 +142,20 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
     struct List* new_decls_list = new_list(const Node*);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
 
-    const Type* stack_base_element = int_type(dst_arena);
+    const Type* stack_base_element = int32_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = stack_base_element,
         .size = NULL,
     });
-    const Type* stack_counter_t = int_type(dst_arena);
+    const Type* stack_counter_t = int32_type(dst_arena);
 
     Node* stack_decl = global_var(dst_arena, stack_arr_type, "stack", AsPrivatePhysical);
     Node* uniform_stack_decl = global_var(dst_arena, stack_arr_type, "uniform_stack", AsSubgroupPhysical);
 
     Node* stack_ptr_decl = global_var(dst_arena, stack_counter_t, "stack_ptr", AsPrivateLogical);
-    stack_ptr_decl->payload.global_variable.init = int_literal(dst_arena, (IntLiteral) {.value = 0});
+    stack_ptr_decl->payload.global_variable.init = int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 });
     Node* uniform_stack_ptr_decl = global_var(dst_arena, stack_counter_t, "uniform_stack_ptr", AsPrivateLogical);
-    uniform_stack_ptr_decl->payload.global_variable.init = int_literal(dst_arena, (IntLiteral) {.value = 0});
+    uniform_stack_ptr_decl->payload.global_variable.init = int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32});
 
     append_list(const Node*, new_decls_list, stack_decl);
     append_list(const Node*, new_decls_list, uniform_stack_decl);

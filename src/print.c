@@ -238,7 +238,13 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("%s", node->payload.untyped_number.plaintext);
             break;
         case IntLiteral_TAG:
-            printf("%" PRIu64, node->payload.int_literal.value);
+            switch (node->payload.int_literal.width) {
+                case IntTy8:  printf("%" PRIu8,  node->payload.int_literal.value_i8);  break;
+                case IntTy16: printf("%" PRIu16, node->payload.int_literal.value_i16); break;
+                case IntTy32: printf("%" PRIu32, node->payload.int_literal.value_i32); break;
+                case IntTy64: printf("%" PRIu64, node->payload.int_literal.value_i64); break;
+                default: error("Not a known valid int width")
+            }
             break;
         case True_TAG:
             printf("true");
@@ -439,7 +445,13 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("!");
             break;
         case Int_TAG:
-            printf("int");
+            switch (node->payload.int_literal.width) {
+                case IntTy8:  printf("i8");  break;
+                case IntTy16: printf("i16"); break;
+                case IntTy32: printf("i32"); break;
+                case IntTy64: printf("i64"); break;
+                default: error("Not a known valid int width")
+            }
             break;
         case Bool_TAG:
             printf("bool");

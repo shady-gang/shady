@@ -179,7 +179,7 @@ const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
 const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
-        .type = int_type(arena)
+        .type = int_type(arena, (Int) { .width = lit.width })
     });
 }
 
@@ -272,10 +272,16 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                  assert(op_div != Unknown); // we expect all operands to be clearly known !
                  is_result_uniform &= op_div == Uniform;
                  // we work with numerical operands
-                 assert(arg_actual_type == int_type(arena) && "todo improve this check");
+                 assert(arg_actual_type->tag == Int_TAG && "todo improve this check");
+                 assert(arg_actual_type->payload.int_type.width == without_qualifier(prim_op.operands.nodes[0]->type)->payload.int_type.width && "Arithmetic operations expect all operands to have the same widths");
              }
 
-            return qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = int_type(arena) });
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = is_result_uniform,
+                .type = int_type(arena, (Int) {
+                    .width = without_qualifier(prim_op.operands.nodes[0]->type)->payload.int_type.width
+                })
+            });
         }
         case lt_op:
         case lte_op:
@@ -463,7 +469,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = false,
-                .type = int_type(arena)
+                .type = int32_type(arena)
             });
         }
         case subgroup_broadcast_first_op: {
@@ -583,6 +589,7 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
                 check_callsite_helper(branches[i]->type, extract_types(arena, branch.args));
             }
         }
+        case BrSwitch: error("TODO")
     }
 
     // TODO check arguments and that both branches match

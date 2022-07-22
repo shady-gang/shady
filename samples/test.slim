@@ -1,12 +1,12 @@
 // shady example code
 
-fn ident int(varying int i) {
+fn ident i32(varying i32 i) {
     let j = add(i, 1);
     let v = add(5, 9);
     return (j);
 }
 
-fn pair int, int(varying int i) {
+fn pair i32, i32(varying i32 i) {
     return(i, i);
 }
 
@@ -30,11 +30,11 @@ fn @compute main() {
     return ();
 }
 
-const int sixtynine = 69;
+const i32 sixtynine = 69;
 
-input   int x;
-output  int y;
-shared  int z;
-private int w;
-extern  int a;
-// global  int a;
+input   i32 x;
+output  i32 y;
+shared  i32 z;
+private i32 w;
+extern  i32 a;
+// global  i32 a;

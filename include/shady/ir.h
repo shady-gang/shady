@@ -54,6 +54,19 @@ typedef enum EntryPointType_ {
 //////////////////////////////// Node Types Enumeration ////////////////////////////////
 // NODEDEF(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name)
 
+#define TYPE_NODES() \
+NODEDEF(1, 0, 0, MaskType, mask_type) \
+NODEDEF(1, 0, 0, NoRet, noret_type) \
+NODEDEF(1, 0, 0, Unit, unit_type) \
+NODEDEF(1, 0, 1, Int, int_type) \
+NODEDEF(1, 0, 0, Float, float_type) \
+NODEDEF(1, 0, 0, Bool, bool_type) \
+NODEDEF(1, 0, 1, RecordType, record_type) \
+NODEDEF(1, 0, 1, FnType, fn_type) \
+NODEDEF(1, 0, 1, PtrType, ptr_type) \
+NODEDEF(1, 1, 1, QualifiedType, qualified_type) \
+NODEDEF(1, 0, 1, ArrType, arr_type) \
+
 #define INSTRUCTION_NODES() \
 NODEDEF(1, 1, 1, PrimOp, prim_op)  \
 NODEDEF(1, 1, 1, Call, call_instr)  \
@@ -69,19 +82,6 @@ NODEDEF(1, 1, 1, Callc, callc) \
 NODEDEF(1, 1, 1, Return, fn_ret) \
 NODEDEF(1, 0, 1, MergeConstruct, merge_construct) \
 NODEDEF(1, 0, 0, Unreachable, unreachable) \
-
-#define TYPE_NODES() \
-NODEDEF(1, 0, 0, MaskType, mask_type) \
-NODEDEF(1, 0, 0, NoRet, noret_type) \
-NODEDEF(1, 0, 0, Unit, unit_type) \
-NODEDEF(1, 0, 0, Int, int_type) \
-NODEDEF(1, 0, 0, Float, float_type) \
-NODEDEF(1, 0, 0, Bool, bool_type) \
-NODEDEF(1, 0, 1, RecordType, record_type) \
-NODEDEF(1, 0, 1, FnType, fn_type) \
-NODEDEF(1, 0, 1, PtrType, ptr_type) \
-NODEDEF(1, 1, 1, QualifiedType, qualified_type) \
-NODEDEF(1, 0, 1, ArrType, arr_type) \
 
 #define VALUE_NODES() \
 NODEDEF(0, 1, 1, Variable, var) \
@@ -127,6 +127,50 @@ String string(IrArena* arena, const char* start);
 String format_string(IrArena* arena, const char* str, ...);
 String unique_name(IrArena* arena, const char* start);
 
+//////////////////////////////// Types ////////////////////////////////
+
+bool is_type(const Node*);
+
+typedef struct QualifiedType_ {
+    bool is_uniform;
+    const Type* type;
+} QualifiedType;
+
+typedef struct RecordType_ {
+    Nodes members;
+    /// Can be empty (no names are given) or has to match the number of members
+    Strings names;
+    /// Set to 'true' for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else.
+    bool must_be_deconstructed;
+} RecordType;
+
+typedef struct FnType_ {
+    bool is_continuation;
+    Nodes param_types;
+    Nodes return_types;
+} FnType;
+
+typedef struct PtrType_ {
+    AddressSpace address_space;
+    const Type* pointed_type;
+} PtrType;
+
+typedef struct ArrType_ {
+    const Type* element_type;
+    const Node* size;
+} ArrType;
+
+typedef enum {
+    IntTy8,
+    IntTy16,
+    IntTy32,
+    IntTy64,
+} IntSizes;
+
+typedef struct Int_ {
+    IntSizes width;
+} Int;
+
 //////////////////////////////// Values ////////////////////////////////
 
 bool is_value(const Node*);
@@ -157,8 +201,20 @@ typedef struct UntypedNumber_ {
 } UntypedNumber;
 
 typedef struct IntLiteral_ {
-    int64_t value;
+    IntSizes width;
+    union {
+        int64_t  value_i64;
+        int32_t  value_i32;
+        int16_t  value_i16;
+        int8_t    value_i8;
+        uint64_t value_u64;
+        uint32_t value_u32;
+        uint16_t value_u16;
+        uint8_t   value_u8;
+    };
 } IntLiteral;
+
+int64_t extract_int_literal_value(const Node*, bool sign_extend);
 
 typedef struct Tuple_ {
     Nodes contents;
@@ -381,39 +437,6 @@ typedef struct MergeConstruct_ {
     Nodes args;
 } MergeConstruct;
 
-//////////////////////////////// Types ////////////////////////////////
-
-bool is_type(const Node*);
-
-typedef struct QualifiedType_ {
-    bool is_uniform;
-    const Type* type;
-} QualifiedType;
-
-typedef struct RecordType_ {
-    Nodes members;
-    /// Can be empty (no names are given) or has to match the number of members
-    Strings names;
-    /// Set to 'true' for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else.
-    bool must_be_deconstructed;
-} RecordType;
-
-typedef struct FnType_ {
-    bool is_continuation;
-    Nodes param_types;
-    Nodes return_types;
-} FnType;
-
-typedef struct PtrType_ {
-    AddressSpace address_space;
-    const Type* pointed_type;
-} PtrType;
-
-typedef struct ArrType_ {
-    const Type* element_type;
-    const Node* size;
-} ArrType;
-
 //////////////////////////////// Nodes util ////////////////////////////////
 
 extern const char* node_tags[];
@@ -487,6 +510,11 @@ Nodes append_block(BlockBuilder*, const Node* instruction);
 
 void copy_instrs(BlockBuilder*, Nodes);
 const Node* finish_block(BlockBuilder*, const Node* terminator);
+
+inline static const Type* int8_type(IrArena* arena)  { return int_type(arena, (Int) { .width = IntTy8  }); }
+inline static const Type* int16_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy16 }); }
+inline static const Type* int32_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy32 }); }
+inline static const Type* int64_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy64 }); }
 
 /*/// Helper function for creating a jump using branch()
 inline static const Node* jump(IrArena* arena, const Node* destination, Nodes args) {

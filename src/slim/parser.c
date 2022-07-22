@@ -121,8 +121,14 @@ static AddressSpace expect_ptr_address_space(ctxparams) {
 }
 
 static const Type* accept_unqualified_type(ctxparams) {
-    if (accept_token(ctx, int_tok)) {
-        return int_type(arena);
+    if (accept_token(ctx, i8_tok)) {
+        return int8_type(arena);
+    } else if (accept_token(ctx, i16_tok)) {
+        return int16_type(arena);
+    } else if (accept_token(ctx, i32_tok)) {
+        return int32_type(arena);
+    } else if (accept_token(ctx, i64_tok)) {
+        return int64_type(arena);
     } else if (accept_token(ctx, float_tok)) {
         return float_type(arena);
     } else if (accept_token(ctx, bool_tok)) {
@@ -279,7 +285,8 @@ static const Node* accept_primary_expr(ctxparams) {
             assert(expr);
             if (expr->tag == IntLiteral_TAG) {
                 return int_literal(arena, (IntLiteral) {
-                    .value = -expr->payload.int_literal.value
+                    // We always treat that value like an signed integer, because it makes no sense to negate an unsigned number !
+                    .value_i64 = -extract_int_literal_value(expr, true)
                 });
             } else {
                 return prim_op(arena, (PrimOp) {

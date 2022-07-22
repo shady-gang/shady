@@ -1,5 +1,5 @@
-fn fac varying int(varying int count) {
-  let x = loop int (varying int i = 1, varying int a = 1) {
+fn fac varying i32(varying i32 count) {
+  let x = loop i32 (varying i32 i = 1, varying i32 a = 1) {
     let r = lt(i, count); // if i < count
     if (r) {
       let i2 = add(i, 1);

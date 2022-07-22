@@ -48,7 +48,7 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
         const Type* element_type = arr_type->payload.arr_type.element_type;
         TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
-        const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value = element_t_layout.size_in_cells });
+        const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value_i32 = element_t_layout.size_in_cells, .width = IntTy32 });
         const Node* computed_offset = gen_primop(instructions, (PrimOp) {
             .op = mul_op,
             .operands = nodes(dst_arena, 2, (const Node* []) { rewrite_node(&ctx->rewriter, old_offset), elem_size_val})
@@ -69,7 +69,7 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
 
                 TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
-                const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value = element_t_layout.size_in_cells });
+                const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value_i32 = element_t_layout.size_in_cells, .width = IntTy32 });
                 const Node* computed_offset = gen_primop(instructions, (PrimOp) {
                     .op = mul_op,
                     .operands = nodes(dst_arena, 2, (const Node* []) { rewrite_node(&ctx->rewriter, lea->operands.nodes[i]), elem_size_val})
@@ -184,7 +184,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             if (old->payload.global_variable.address_space == AsSubgroupPhysical
              || old->payload.global_variable.address_space == AsPrivatePhysical) {
                 Node* cnst = constant(ctx->rewriter.dst_arena, old->payload.global_variable.name);
-                cnst->payload.constant.value = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value = 0 });
+                cnst->payload.constant.value = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 });
                 cnst->type = cnst->payload.constant.value->type;
                 register_processed(&ctx->rewriter, old, cnst);
                 return cnst;
@@ -200,7 +200,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case PtrType_TAG: {
             switch (old->payload.ptr_type.address_space) {
                 case AsSubgroupPhysical:
-                case AsPrivatePhysical: return int_type(ctx->rewriter.dst_arena);
+                case AsPrivatePhysical: return int32_type(ctx->rewriter.dst_arena);
                 default: break;
             }
             return recreate_node_identity(&ctx->rewriter, old);
@@ -216,7 +216,7 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
     struct List* new_decls_list = new_list(const Node*);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
 
-    const Type* stack_base_element = int_type(dst_arena);
+    const Type* stack_base_element = int32_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = stack_base_element,
         .size = NULL,

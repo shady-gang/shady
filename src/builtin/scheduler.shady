@@ -1,12 +1,12 @@
-const int MASK_SIZE = 64;
+const i32 MASK_SIZE = 64;
 
-subgroup int next_fn;
+subgroup i32 next_fn;
 subgroup mask next_mask;
 
-subgroup [int; 64] resume_at;
+subgroup [i32; 64] resume_at;
 subgroup [mask; 64] resume_with;
 
-fn builtin_branch(varying int branch_destination) {
+fn builtin_branch(varying i32 branch_destination) {
     // First ask the first thread where it thinks we should branch, and all the threads that agree are set to go there
     let first_branch = subgroup_broadcast_first(branch_destination);
     if (first_branch == branch_destination) {
@@ -31,7 +31,7 @@ fn builtin_branch(varying int branch_destination) {
     }
 }
 
-fn builtin_yield(uniform int resume_target) {
+fn builtin_yield(uniform i32 resume_target) {
     resume_at[subgroup_local_id()] = resume_target;
     resume_with[subgroup_local_id()] = subgroup_active_mask();
 
@@ -43,12 +43,12 @@ fn builtin_yield(uniform int resume_target) {
     }
 }
 
-fn builtin_join(uniform int join_at, uniform mask join_with) {
+fn builtin_join(uniform i32 join_at, uniform mask join_with) {
     let active_mask = subgroup_active_mask();
     var bool clear = true;
     if (subgroup_elect_first()) {
-        // for (int bit = 0; bit < MASK_SIZE; bit++) {
-        loop (uniform int bit = 0) {
+        // for (i32 bit = 0; bit < MASK_SIZE; bit++) {
+        loop (uniform i32 bit = 0) {
             if (bit >= MASK_SIZE) { break(); }
             // we aren't trying to join up with that, continue
             if (false == mask_is_thread_active(join_with, bit)) { continue(bit + 1); }
@@ -78,13 +78,13 @@ fn builtin_join(uniform int join_at, uniform mask join_with) {
     }
 }
 
-subgroup int scheduler_selector = 0;
+subgroup i32 scheduler_selector = 0;
 subgroup bool fail = false;
 
 fn builtin_rotate_active_branch() {
     // Try rotating the next thread N times...
-    // for (int i = 0; i < MASK_SIZE; i++) {
-    loop (uniform int i = 0) {
+    // for (i32 i = 0; i < MASK_SIZE; i++) {
+    loop (uniform i32 i = 0) {
         if (i >= MASK_SIZE) { break; }
 
         let desired_resume_pt = resume_at[scheduler_selector];
@@ -93,8 +93,8 @@ fn builtin_rotate_active_branch() {
             var bool can_run = true;
 
             // TODO: this is likely slow. Ideally this could run at full subgroup occupancy
-            //for (int j = 0; j < MASK_SIZE; j++) {
-            loop (uniform int j = 0) {
+            //for (i32 j = 0; j < MASK_SIZE; j++) {
+            loop (uniform i32 j = 0) {
                 if (j >= MASK_SIZE) { break; }
 
                 if (mask_is_thread_active(desired_mask, j)) { continue(j + 1); }

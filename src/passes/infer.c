@@ -42,7 +42,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
 static const Node* infer_type(Context* ctx, const Type* type) {
     switch (type->tag) {
         case ArrType_TAG: {
-            const Node* size = infer_value(ctx, type->payload.arr_type.size, int_type(ctx->rewriter.dst_arena));
+            const Node* size = infer_value(ctx, type->payload.arr_type.size, int32_type(ctx->rewriter.dst_arena));
             return arr_type(ctx->rewriter.dst_arena, (ArrType) {
                 .size = size,
                 .element_type = infer_type(ctx, type->payload.arr_type.element_type)
@@ -122,10 +122,11 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
     switch (node->tag) {
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
         case UntypedNumber_TAG: {
-            // TODO handle different prim types
-            assert(without_qualifier(expected_type) == int_type(dst_arena));
-            long v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
-            return int_literal(dst_arena, (IntLiteral) { .value = (int) v });
+            expected_type = without_qualifier(expected_type);
+            assert(expected_type->tag == Int_TAG);
+            uint64_t v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
+            // TODO chop off extra bits based on width ?
+            return int_literal(dst_arena, (IntLiteral) { .value_i64 = v, .width = expected_type->payload.int_type.width });
         }
         case True_TAG: return true_lit(dst_arena);
         case False_TAG: return false_lit(dst_arena);
@@ -149,7 +150,7 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
     Nodes input_types;
     switch (node->payload.prim_op.op) {
         case neg_op:
-            input_types = nodes(dst_arena, 1, (const Type*[]){ int_type(dst_arena) }); break;
+            input_types = nodes(dst_arena, 1, (const Type*[]){ int32_type(dst_arena) }); break;
         case lshift_arithm_op:
         case lshift_logical_op:
         case rshift_op:
@@ -164,7 +165,7 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
         case neq_op:
         case gt_op:
         case gte_op:
-            input_types = nodes(dst_arena, 2, (const Type*[]){ int_type(dst_arena), int_type(dst_arena) }); break;
+            input_types = nodes(dst_arena, 2, (const Type*[]){ int32_type(dst_arena), int32_type(dst_arena) }); break;
         case push_stack_op:
         case push_stack_uniform_op: {
             assert(old_inputs.count == 2);
@@ -207,7 +208,7 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
             assert(old_inputs.count >= 2);
             new_inputs_scratch[0] = infer_value(ctx, old_inputs.nodes[0], NULL);
             for (size_t i = 1; i < old_inputs.count; i++) {
-                new_inputs_scratch[i] = old_inputs.nodes[i] ? infer_value(ctx, old_inputs.nodes[i], int_type(dst_arena)) : NULL;
+                new_inputs_scratch[i] = old_inputs.nodes[i] ? infer_value(ctx, old_inputs.nodes[i], int32_type(dst_arena)) : NULL;
             }
             goto skip_input_types;
         }
@@ -224,7 +225,7 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
             input_types = nodes(dst_arena, 1, (const Type* []) { bool_type(dst_arena) });
             break;
         case mask_is_thread_active_op: {
-            input_types = nodes(dst_arena, 2, (const Type* []) { mask_type(dst_arena), int_type(dst_arena) });
+            input_types = nodes(dst_arena, 2, (const Type* []) { mask_type(dst_arena), int32_type(dst_arena) });
             break;
         }
         default: error("unhandled op params");

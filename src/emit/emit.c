@@ -523,8 +523,14 @@ static SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id)
         case Variable_TAG: error("this node should have been resolved already");
         case IntLiteral_TAG: {
             SpvId ty = emit_type(emitter, node->type);
-            uint32_t arr[] = { node->payload.int_literal.value };
-            spvb_constant(emitter->file_builder, new, ty, 1, arr);
+            // 64-bit constants take two spirv words, anythinfg else fits in one
+            if (node->payload.int_literal.width == IntTy64) {
+                uint32_t arr[] = { node->payload.int_literal.value_i64 >> 32, node->payload.int_literal.value_i64 & 0xFFFFFFFF };
+                spvb_constant(emitter->file_builder, new, ty, 2, arr);
+            } else {
+                uint32_t arr[] = { node->payload.int_literal.value_i32 };
+                spvb_constant(emitter->file_builder, new, ty, 1, arr);
+            }
             break;
         }
         case True_TAG: {

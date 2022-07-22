@@ -33,7 +33,8 @@ bool compare_node(Node**, Node**);
 
 static const Node* fn_ptr_as_value(IrArena* arena, FnPtr ptr) {
     return int_literal(arena, (IntLiteral) {
-        .value = ptr
+        .value_i32 = ptr,
+        .width = IntTy32
     });
 }
 
@@ -178,7 +179,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
             if (pointee->tag == FnType_TAG) {
-                const Type* emulated_fn_ptr_type = int_type(ctx->rewriter.dst_arena);
+                const Type* emulated_fn_ptr_type = int32_type(ctx->rewriter.dst_arena);
                 return emulated_fn_ptr_type;
             }
             // fallthrough
@@ -197,7 +198,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
     struct List* literals = new_list(const Node*);
     struct List* cases = new_list(const Node*);
 
-    const Node* zero_lit = int_literal(dst_arena, (IntLiteral) {.value = 0});
+    const Node* zero_lit = int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 });
     const Node* zero_case = block(dst_arena, (Block) {
         .instructions = nodes(dst_arena, 0, NULL),
         .terminator = merge_construct(dst_arena, (MergeConstruct) {

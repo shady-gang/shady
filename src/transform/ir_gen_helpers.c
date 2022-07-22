@@ -37,28 +37,6 @@ void gen_push_values_stack(BlockBuilder* instructions, Nodes values) {
     }
 }
 
-void gen_push_fn_stack(BlockBuilder* instructions, const Node* fn_ptr) {
-    const Type* ret_param_type = int_type(instructions->arena);
-
-    append_block(instructions,  prim_op(instructions->arena, (PrimOp) {
-        .op = push_stack_uniform_op,
-        .operands = nodes(instructions->arena, 2, (const Node*[]) { ret_param_type, fn_ptr })
-    }));
-}
-
-const Node* gen_pop_fn_stack(BlockBuilder* instructions, String var_name) {
-    const Type* ret_param_type = int_type(instructions->arena);
-    const Type* q_ret_param_type = qualified_type(instructions->arena, (QualifiedType) {.type = ret_param_type, .is_uniform = true});
-
-    const char* names[] = { var_name };
-    const Node* let_i = let(instructions->arena, prim_op(instructions->arena, (PrimOp) {
-            .op = pop_stack_uniform_op,
-            .operands = nodes(instructions->arena, 1, (const Node*[]) { ret_param_type })
-    }), 1, names);
-    append_block(instructions, let_i);
-    return let_i->payload.let.variables.nodes[0];
-}
-
 const Node* gen_pop_value_stack(BlockBuilder* instructions, String var_name, const Type* type) {
     const Type* q_type = qualified_type(instructions->arena, (QualifiedType) {.type = type, .is_uniform = false});
     const char* names[] = { var_name };

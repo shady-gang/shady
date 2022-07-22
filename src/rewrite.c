@@ -248,7 +248,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .args = rewrite_nodes(rewriter, node->payload.merge_construct.args)
         });
         case NoRet_TAG:         return noret_type(rewriter->dst_arena);
-        case Int_TAG:           return int_type(rewriter->dst_arena);
+        case Int_TAG:           return int_type(rewriter->dst_arena, node->payload.int_type);
         case Bool_TAG:          return bool_type(rewriter->dst_arena);
         case Float_TAG:         return float_type(rewriter->dst_arena);
         case Unit_TAG:          return unit_type(rewriter->dst_arena);

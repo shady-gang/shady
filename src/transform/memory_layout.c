@@ -8,10 +8,10 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
     switch (type->tag) {
         case FnType_TAG:  error("Functions have an opaque memory representation");
         case PtrType_TAG: switch (type->payload.ptr_type.address_space) {
-            case AsProgramCode: return get_mem_layout(config, arena, int_type(arena));
+            case AsProgramCode: return get_mem_layout(config, arena, int32_type(arena));
             default: error("unhandled")
         }
-        case MaskType_TAG: return get_mem_layout(config, arena, int_type(arena));
+        // case MaskType_TAG: return get_mem_layout(config, arena, int_type(arena));
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,
             .size_in_bytes = 4,
@@ -41,7 +41,7 @@ const Node* gen_deserialisation(BlockBuilder* instructions, const Type* element_
                 .operands = nodes(instructions->arena, 3, (const Node* []) { arr, NULL, base_offset})
             }).nodes[0];
             const Node* value = gen_load(instructions, logical_ptr);
-            const Node* zero = int_literal(instructions->arena, (IntLiteral) { .value = 0 });
+            const Node* zero = int_literal(instructions->arena, (IntLiteral) { .value_i8 = 0, .width = IntTy8 });
             return gen_primop(instructions, (PrimOp) {
                 .op = neq_op,
                 .operands = nodes(instructions->arena, 2, (const Node*[]) {value, zero})
@@ -51,7 +51,7 @@ const Node* gen_deserialisation(BlockBuilder* instructions, const Type* element_
             case AsProgramCode: goto ser_int;
             default: error("TODO")
         }
-        case MaskType_TAG:
+        // case MaskType_TAG:
         case Int_TAG: ser_int: {
             // TODO handle the cases where int size != arr element_t
             const Node* logical_ptr = gen_primop(instructions, (PrimOp) {
@@ -74,8 +74,8 @@ void gen_serialisation(BlockBuilder* instructions, const Type* element_type, con
                 .op = lea_op,
                 .operands = nodes(instructions->arena, 3, (const Node* []) { arr, NULL, base_offset})
             }).nodes[0];
-            const Node* zero = int_literal(instructions->arena, (IntLiteral) { .value = 0 });
-            const Node* one = int_literal(instructions->arena, (IntLiteral) { .value = 1 });
+            const Node* zero = int_literal(instructions->arena, (IntLiteral) { .value_i8 = 0, .width = IntTy8 });
+            const Node* one = int_literal(instructions->arena, (IntLiteral) { .value_i8 = 1, .width = IntTy8 });
             const Node* int_value = gen_primop(instructions, (PrimOp) {
                 .op = select_op,
                 .operands = nodes(instructions->arena, 3, (const Node*[]) { value, zero, one })
@@ -87,10 +87,10 @@ void gen_serialisation(BlockBuilder* instructions, const Type* element_type, con
             case AsProgramCode: goto des_int;
             default: error("TODO")
         }
-        case MaskType_TAG:
+        // case MaskType_TAG:
         case Int_TAG: des_int: {
             // note: folding gets rid of identity casts
-            value = gen_primop(instructions, (PrimOp) {.op = reinterpret_op, .operands = nodes(instructions->arena, 2, (const Node* []){ int_type(instructions->arena), value})}).nodes[0];
+            // value = gen_primop(instructions, (PrimOp) {.op = reinterpret_op, .operands = nodes(instructions->arena, 2, (const Node* []){ int_type(instructions->arena), value})}).nodes[0];
             const Node* logical_ptr = gen_primop(instructions, (PrimOp) {
                 .op = lea_op,
                 .operands = nodes(instructions->arena, 3, (const Node* []) { arr, NULL, base_offset})

@@ -27,7 +27,10 @@ TEXT_TOKEN(let) \
 TEXT_TOKEN(ptr) \
 TEXT_TOKEN(fn) \
 TEXT_TOKEN(cont) \
-TEXT_TOKEN(int) \
+TEXT_TOKEN(i8) \
+TEXT_TOKEN(i16) \
+TEXT_TOKEN(i32) \
+TEXT_TOKEN(i64) \
 TEXT_TOKEN(float) \
 TEXT_TOKEN(mask) \
 TOKEN(const, "const") \

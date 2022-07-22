@@ -26,7 +26,7 @@ const Node* resolve_known_vars(const Node* node, bool stop_at_values) {
 bool is_zero(const Node* node) {
     node = resolve_known_vars(node, false);
     if (node->tag == IntLiteral_TAG) {
-        if (node->payload.int_literal.value == 0)
+        if (extract_int_literal_value(node, false) == 0)
             return true;
     }
     return false;
@@ -34,7 +34,7 @@ bool is_zero(const Node* node) {
 bool is_one(const Node* node) {
     node = resolve_known_vars(node, false);
     if (node->tag == IntLiteral_TAG) {
-        if (node->payload.int_literal.value == 1)
+        if (extract_int_literal_value(node, false) == 1)
             return true;
     }
     return false;
@@ -54,7 +54,7 @@ const Node* fold_prim_op(IrArena* arena, const Node* node) {
             for (size_t i = 0; i < 2; i++)
                 if (is_zero(prim_op.operands.nodes[i]))
                     return int_literal(arena, (IntLiteral) {
-                        .value = 0
+                        .value_i64 = 0
                     });
 
             for (size_t i = 0; i < 2; i++)

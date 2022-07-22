@@ -281,7 +281,7 @@ case Variable_TAG: {                  \
     break;                            \
 }                                     \
 case IntLiteral_TAG: {                \
-    field(int_literal.value);         \
+    field(int_literal.value_i64);     \
     break;                            \
 }                                     \
 case Let_TAG: {                       \
@@ -370,6 +370,27 @@ String get_decl_name(const Node* node) {
         case Function_TAG: return node->payload.fn.name;
         case Variable_TAG: return node->payload.var.name;
         default: return NULL;
+    }
+}
+
+int64_t extract_int_literal_value(const Node* node, bool sign_extend) {
+    assert(node->tag == IntLiteral_TAG);
+    if (sign_extend) {
+        switch (node->payload.int_literal.width) {
+            case IntTy8:  return (int64_t) node->payload.int_literal.value_i8;
+            case IntTy16: return (int64_t) node->payload.int_literal.value_i16;
+            case IntTy32: return (int64_t) node->payload.int_literal.value_i32;
+            case IntTy64: return           node->payload.int_literal.value_i64;
+            default: assert(false);
+        }
+    } else {
+        switch (node->payload.int_literal.width) {
+            case IntTy8:  return (int64_t) ((uint64_t) (node->payload.int_literal.value_u8 ));
+            case IntTy16: return (int64_t) ((uint64_t) (node->payload.int_literal.value_u16));
+            case IntTy32: return (int64_t) ((uint64_t) (node->payload.int_literal.value_u32));
+            case IntTy64: return                        node->payload.int_literal.value_i64  ;
+            default: assert(false);
+        }
     }
 }
 
