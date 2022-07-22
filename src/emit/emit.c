@@ -553,10 +553,18 @@ static SpvId emit_type(Emitter* emitter, const Type* type) {
     
     SpvId new;
     switch (type->tag) {
-        case Int_TAG:
-            new = spvb_int_type(emitter->file_builder, 32, true);
+        case Int_TAG: {
+            int width;
+            switch (type->payload.int_type.width) {
+                case IntTy8:  width = 8;  break;
+                case IntTy16: width = 16; break;
+                case IntTy32: width = 32; break;
+                case IntTy64: width = 64; break;
+                default: assert(false);
+            }
+            new = spvb_int_type(emitter->file_builder, width, true);
             break;
-        case Bool_TAG:
+        } case Bool_TAG:
             new = spvb_bool_type(emitter->file_builder);
             break;
         case PtrType_TAG: {
