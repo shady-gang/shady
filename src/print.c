@@ -141,6 +141,86 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
     if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)node);
 
     switch (node->tag) {
+        // --------------------------- TYPES
+        case QualifiedType_TAG:
+            if (node->payload.qualified_type.is_uniform)
+                printf("uniform ");
+            else
+                printf("varying ");
+            print_node(node->payload.qualified_type.type);
+            break;
+        case NoRet_TAG:
+            printf("!");
+            break;
+        case Int_TAG:
+            switch (node->payload.int_literal.width) {
+                case IntTy8:  printf("i8");  break;
+                case IntTy16: printf("i16"); break;
+                case IntTy32: printf("i32"); break;
+                case IntTy64: printf("i64"); break;
+                default: error("Not a known valid int width")
+            }
+            break;
+        case Bool_TAG:
+            printf("bool");
+            break;
+        case Float_TAG:
+            printf("float");
+            break;
+        case MaskType_TAG:
+            printf("mask");
+            break;
+        case RecordType_TAG:
+            printf("struct {");
+            const Nodes* members = &node->payload.record_type.members;
+            for (size_t i = 0; i < members->count; i++) {
+                print_node(members->nodes[i]);
+                if (i < members->count - 1)
+                    printf(", ");
+            }
+            printf("}");
+            break;
+        case FnType_TAG: {
+            if (node->payload.fn_type.is_continuation)
+                printf("cont");
+            else {
+                printf("fn ");
+                const Nodes* returns = &node->payload.fn_type.return_types;
+                for (size_t i = 0; i < returns->count; i++) {
+                    print_node(returns->nodes[i]);
+                    if (i < returns->count - 1)
+                        printf(", ");
+                }
+            }
+            printf("(");
+            const Nodes* params = &node->payload.fn_type.param_types;
+            for (size_t i = 0; i < params->count; i++) {
+                print_node(params->nodes[i]);
+                if (i < params->count - 1)
+                    printf(", ");
+            }
+            printf(")");
+            break;
+        }
+        case PtrType_TAG: {
+            printf("ptr(");
+            print_ptr_addr_space(ctx, node->payload.ptr_type.address_space);
+            printf(", ");
+            print_node(node->payload.ptr_type.pointed_type);
+            printf(")");
+            break;
+        }
+        case ArrType_TAG: {
+            printf("[");
+            print_node(node->payload.arr_type.element_type);
+            if (node->payload.arr_type.size) {
+                printf("; ");
+                print_node(node->payload.arr_type.size);
+            }
+            printf("]");
+            break;
+        }
+
         case Root_TAG: {
             const Root* top_level = &node->payload.root;
             for (size_t i = 0; i < top_level->declarations.count; i++) {
@@ -297,10 +377,12 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             ctx->indent++;
             print_node(node->payload.if_instr.if_true);
             ctx->indent--;
-            INDENT printf("} else {\n");
-            ctx->indent++;
-            print_node(node->payload.if_instr.if_false);
-            ctx->indent--;
+            if (node->payload.if_instr.if_false) {
+                INDENT printf("} else {\n");
+                ctx->indent++;
+                print_node(node->payload.if_instr.if_false);
+                ctx->indent--;
+            } // else if (node->payload.if_instr.)
             INDENT printf("}");
             break;
         case Loop_TAG:
@@ -433,85 +515,6 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                 printf(" ");
             }
             break;
-        // --------------------------- TYPES
-        case QualifiedType_TAG:
-            if (node->payload.qualified_type.is_uniform)
-                printf("uniform ");
-            else
-                printf("varying ");
-            print_node(node->payload.qualified_type.type);
-            break;
-        case NoRet_TAG:
-            printf("!");
-            break;
-        case Int_TAG:
-            switch (node->payload.int_literal.width) {
-                case IntTy8:  printf("i8");  break;
-                case IntTy16: printf("i16"); break;
-                case IntTy32: printf("i32"); break;
-                case IntTy64: printf("i64"); break;
-                default: error("Not a known valid int width")
-            }
-            break;
-        case Bool_TAG:
-            printf("bool");
-            break;
-        case Float_TAG:
-            printf("float");
-            break;
-        case MaskType_TAG:
-            printf("mask");
-            break;
-        case RecordType_TAG:
-            printf("struct {");
-            const Nodes* members = &node->payload.record_type.members;
-            for (size_t i = 0; i < members->count; i++) {
-                print_node(members->nodes[i]);
-                if (i < members->count - 1)
-                    printf(", ");
-            }
-            printf("}");
-            break;
-        case FnType_TAG: {
-            if (node->payload.fn_type.is_continuation)
-                printf("cont");
-            else {
-                printf("fn ");
-                const Nodes* returns = &node->payload.fn_type.return_types;
-                for (size_t i = 0; i < returns->count; i++) {
-                    print_node(returns->nodes[i]);
-                    if (i < returns->count - 1)
-                        printf(", ");
-                }
-            }
-            printf("(");
-            const Nodes* params = &node->payload.fn_type.param_types;
-            for (size_t i = 0; i < params->count; i++) {
-                print_node(params->nodes[i]);
-                if (i < params->count - 1)
-                    printf(", ");
-            }
-            printf(")");
-            break;
-        }
-        case PtrType_TAG: {
-            printf("ptr(");
-            print_ptr_addr_space(ctx, node->payload.ptr_type.address_space);
-            printf(", ");
-            print_node(node->payload.ptr_type.pointed_type);
-            printf(")");
-            break;
-        }
-        case ArrType_TAG: {
-            printf("[");
-            print_node(node->payload.arr_type.element_type);
-            if (node->payload.arr_type.size) {
-                printf("; ");
-                print_node(node->payload.arr_type.size);
-            }
-            printf("]");
-            break;
-        }
         default: error("dunno how to print %s", node_tags[node->tag]);
     }
 }
