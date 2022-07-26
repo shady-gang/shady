@@ -40,4 +40,5 @@ add_library(shady ${SHADY_SOURCES})
 set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(shady PRIVATE murmur3 containers)
+target_link_libraries(shady PRIVATE SPIRV-Headers::SPIRV-Headers)
 target_include_directories(shady PUBLIC ../include containers/ ../murmur3)
