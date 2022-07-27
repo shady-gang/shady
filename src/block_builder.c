@@ -17,7 +17,7 @@ BlockBuilder* begin_block(IrArena* arena) {
     return builder;
 }
 
-Nodes append_block(BlockBuilder* builder, const Node* instruction) {
+void append_block(BlockBuilder* builder, const Node* instruction) {
     append_list(const Node*, builder->list, instruction);
 }
 

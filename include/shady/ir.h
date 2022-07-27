@@ -506,7 +506,7 @@ BlockBuilder* begin_block(IrArena*);
 
 /// Appends an instruction to the block, and may apply optimisations.
 /// If you are interested in the result of one operation, you should obtain it from the return of this function, as it might get optimised out and in such cases this function will account for that
-Nodes append_block(BlockBuilder*, const Node* instruction);
+void append_block(BlockBuilder*, const Node* instruction);
 
 void copy_instrs(BlockBuilder*, Nodes);
 const Node* finish_block(BlockBuilder*, const Node* terminator);
