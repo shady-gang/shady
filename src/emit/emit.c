@@ -27,7 +27,7 @@ typedef struct Emitter_ {
     struct Dict* node_ids;
 } Emitter;
 
-SpvStorageClass emit_addr_space(AddressSpace address_space) {
+static SpvStorageClass emit_addr_space(AddressSpace address_space) {
     switch(address_space) {
         case AsGlobalLogical:   return SpvStorageClassStorageBuffer;
         case AsSharedLogical:   return SpvStorageClassCrossWorkgroup;
@@ -71,7 +71,7 @@ enum ResultKind {
     Same, Bool, TyOperand
 };
 
-enum OperandKind static classify_operand(const Node* operand) {
+static enum OperandKind classify_operand(const Node* operand) {
     if (!is_type(operand))
         operand = operand->type;
 
@@ -441,6 +441,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
                 }
                 case BrSwitch: error("TODO");
                 case BrTailcall: error("Lower me beforehand !")
+                default: SHADY_UNREACHABLE;
             }
         }
         case Join_TAG: error("Lower me");

@@ -577,6 +577,7 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
                 check_known_target_helper(branches[i]);
                 check_callsite_helper(branches[i]->type, extract_types(arena, branch.args));
             }
+            return NULL;
         }
         case BrSwitch: error("TODO")
     }

@@ -182,7 +182,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 const Type* emulated_fn_ptr_type = int32_type(ctx->rewriter.dst_arena);
                 return emulated_fn_ptr_type;
             }
-            // fallthrough
+            SHADY_FALLTHROUGH
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
     }

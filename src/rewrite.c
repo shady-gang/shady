@@ -231,6 +231,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 .case_values = rewrite_nodes(rewriter, node->payload.branch.case_values),
                 .case_targets = rewrite_nodes(rewriter, node->payload.branch.case_targets)
             });
+            default: SHADY_UNREACHABLE;
         }
         case Join_TAG:        return join(rewriter->dst_arena, (Join) {
             .is_indirect = node->payload.join.is_indirect,
