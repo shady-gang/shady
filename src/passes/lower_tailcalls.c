@@ -50,9 +50,9 @@ static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
     return fn_ptr_as_value(ctx->rewriter.dst_arena, ptr);
 }
 
-static const Node* push_args_stack(Context* ctx, Nodes args, BlockBuilder* builder) {
-    for (size_t i = 0; i < args.count; i++) {
-        assert("TODO");
+static void push_args_stack(SHADY_UNUSED Context* ctx, Nodes args, BlockBuilder* builder) {
+    for (unsigned i = args.count - 1; i < args.count; i--) {
+        gen_push_value_stack(builder, args.nodes[i]);
     }
 }
 
@@ -215,18 +215,11 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
         if (decl->tag == Function_TAG) {
             const Node* fn_lit = lower_fn_addr(ctx, find_processed(&ctx->rewriter, decl));
 
-            const FnType* fn_type = &without_qualifier(decl->type)->payload.fn_type;
             BlockBuilder* case_builder = begin_block(dst_arena);
-
-            // LARRAY(const Node*, fn_args, fn_type->param_types.count);
-            // for (size_t j = 0; j < fn_type->param_types.count; j++) {
-            //     fn_args[j] = gen_pop_value_stack(case_builder, format_string(dst_arena, "arg_%d", (int) j), without_qualifier(fn_type->param_types.nodes[j]));
-            // }
 
             // TODO wrap in if(mask)
             append_block(case_builder, call_instr(dst_arena, (Call) {
                 .callee = find_processed(&ctx->rewriter, decl),
-                // .args = nodes(dst_arena, fn_type->param_types.count, fn_args)
                 .args = nodes(dst_arena, 0, NULL)
             }));
 
