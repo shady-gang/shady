@@ -132,23 +132,6 @@ const Type* check_type_fn(IrArena* arena, Function fn) {
     });
 }
 
-static bool is_mem_access_uniform(AddressSpace as) {
-    switch (as) {
-        case AsGeneric:         return false;
-        case AsPrivateLogical:  return false;
-        case AsSubgroupPhysical: return true;
-        case AsPrivatePhysical: return false;
-        case AsSharedLogical:    return true;
-        case AsSharedPhysical:   return true;
-        case AsGlobalLogical:    return true;
-        case AsGlobalPhysical:   return true;
-        case AsInput:           return false;
-        case AsOutput:          return false;
-        case AsExternal:         return true;
-        case AsProgramCode:      return true;
-    }
-}
-
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
     return qualified_type(arena, (QualifiedType) {
         .type = ptr_type(arena, (PtrType) {
@@ -242,6 +225,13 @@ const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
     return wrap_multiple_yield_types(arena, match_instr.yield_types);
 }
 
+/// Oracle of what casts are legal
+static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
+    // TODO implement rules
+    assert(is_type(src_type) && is_type(dst_type));
+    return true;
+}
+
 /// Checks the operands to a Primop and returns the produced types
 const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     for (size_t i = 0; i < prim_op.operands.count; i++) {
@@ -297,6 +287,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* arg_actual_type = strip_qualifier(arg->type, &op_div);
                 assert(op_div != Unknown); // we expect all operands to be clearly known !
                 is_result_uniform &= op_div == Uniform;
+                assert(is_subtype(arg_actual_type, without_qualifier(prim_op.operands.nodes[0]->type)) && "Comparison operators need to be applied to the same types");
             }
             return qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = bool_type(arena) });
         }
@@ -423,9 +414,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(qual != Unknown);
             const Type* target_type = prim_op.operands.nodes[0];
 
-            // TODO: have an oracle for what is legal here
-            //assert(source_type->tag == PtrType_TAG);
-            //assert(target_type->tag == PtrType_TAG);
+            assert(is_reinterpret_cast_legal(source_type, target_type));
 
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = qual == Uniform,
