@@ -61,7 +61,7 @@ void destroy_tokenizer(struct Tokenizer* tokenizer) {
 
 const char whitespace[] = { ' ', '\t', '\b', '\n' };
 
-static inline bool is_alpha(char c) { return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'; }
+static inline bool is_alpha(char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); }
 static inline bool is_digit(char c) { return c >= '0' && c <= '9'; }
 static inline bool is_whitespace(char c) { for (size_t i = 0; i < sizeof(whitespace); i++) { if(c == whitespace[i]) return true; } return false; }
 static inline bool can_start_identifier(char c) { return is_alpha(c) || c == '_'; }

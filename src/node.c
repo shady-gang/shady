@@ -20,8 +20,9 @@ static Node* create_node_helper(IrArena* arena, Node node) {
         return *found;
 
     if (arena->config.allow_fold) {
-        Node* folded = fold_node(arena, ptr);
+        Node* folded = (Node*) fold_node(arena, ptr);
         if (folded != ptr) {
+            // The folding process simplified the node, we store a mapping to that simplified node and bail out !
             insert_set_get_result(Node*, arena->node_set, folded);
             return folded;
         }

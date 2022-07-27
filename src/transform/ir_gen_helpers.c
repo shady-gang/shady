@@ -38,7 +38,6 @@ void gen_push_values_stack(BlockBuilder* instructions, Nodes values) {
 }
 
 const Node* gen_pop_value_stack(BlockBuilder* instructions, String var_name, const Type* type) {
-    const Type* q_type = qualified_type(instructions->arena, (QualifiedType) {.type = type, .is_uniform = false});
     const char* names[] = { var_name };
     const Node* let_i = let(instructions->arena, prim_op(instructions->arena, (PrimOp) {
             .op = pop_stack_uniform_op,

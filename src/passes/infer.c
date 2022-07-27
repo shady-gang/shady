@@ -353,7 +353,6 @@ static const Node* infer_let(Context* ctx, const Node* node) {
     // extract the outputs
     for (size_t i = 0; i < outputs_count; i++) {
         const Node* old_output = node->payload.let.variables.nodes[i];
-        const Variable* old_output_var = &old_output->payload.var;
         register_processed(&ctx->rewriter, old_output, let_i->payload.let.variables.nodes[i]);
     }
 

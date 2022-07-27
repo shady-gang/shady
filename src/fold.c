@@ -74,14 +74,9 @@ const Node* fold_prim_op(IrArena* arena, const Node* node) {
     return node;
 }
 
-const Node* fold_block(IrArena* arena, const Node* node) {
-    return node;
-}
-
 const Node* fold_node(IrArena* arena, const Node* instruction) {
     switch (instruction->tag) {
         case PrimOp_TAG: return fold_prim_op(arena, instruction);
-        case Block_TAG: return fold_block(arena, instruction);
         default: return instruction;
     }
 }

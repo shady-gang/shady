@@ -71,7 +71,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (already_done)
         return already_done;
 
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);

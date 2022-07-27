@@ -262,7 +262,7 @@ static SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
     }
 }
 
-static void emit_call(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, Call call, Nodes variables) {
+static void emit_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, Call call, Nodes variables) {
     const Type* callee_type = without_qualifier(call.callee->type);
     assert(callee_type->tag == FnType_TAG);
     SpvId return_type = nodes_to_codom(emitter, callee_type->payload.fn_type.return_types);
@@ -307,6 +307,8 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
     if (if_instr.if_false)
         emit_block(emitter, fn_builder, spvb_begin_bb(fn_builder, false_id), merge_targets_branches, if_instr.if_false);
 
+    assert(variables.count == 0 && "TODO implement variables using phi nodes");
+
     BBBuilder next = spvb_begin_bb(fn_builder, next_id);
     *bb_builder = next;
 }
@@ -335,6 +337,8 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
         emit_block(emitter, fn_builder, spvb_begin_bb(fn_builder, literals_and_cases[i * 2 + 1]), merge_targets_branches, match.cases.nodes[i]);
     }
     emit_block(emitter, fn_builder, spvb_begin_bb(fn_builder, default_id), merge_targets_branches, match.default_case);
+
+    assert(variables.count == 0 && "TODO implement variables using phi nodes");
 
     BBBuilder next = spvb_begin_bb(fn_builder, next_id);
     *bb_builder = next;
@@ -370,6 +374,8 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     BBBuilder continue_builder = spvb_begin_bb(fn_builder, continue_id);
     spvb_branch(continue_builder, header_id);
     spvb_name(emitter->file_builder, continue_id, "loop_continue");
+
+    assert(variables.count == 0 && "TODO implement variables using phi nodes");
 
     // We start the next block
     BBBuilder next = spvb_begin_bb(fn_builder, next_id);
@@ -640,7 +646,6 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
 
     // First reserve IDs for declarations
     LARRAY(SpvId, ids, top_level->declarations.count);
-    int global_fn_case_number = 1;
     for (size_t i = 0; i < top_level->declarations.count; i++) {
         const Node* decl = top_level->declarations.nodes[i];
         ids[i] = spvb_fresh_id(file_builder);
