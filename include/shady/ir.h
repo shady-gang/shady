@@ -516,45 +516,6 @@ inline static const Type* int16_type(IrArena* arena) { return int_type(arena, (I
 inline static const Type* int32_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy32 }); }
 inline static const Type* int64_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy64 }); }
 
-/*/// Helper function for creating a jump using branch()
-inline static const Node* jump(IrArena* arena, const Node* destination, Nodes args) {
-    return branch(arena, (Branch) {
-        .branch_mode = BrJump,
-        .yield = false,
-        .target = destination,
-        .args = args,
-    });
-}
-/// Helper function for creating a jump using branch()
-inline static const Node* jump(IrArena* arena, const Node* condition, const Node* if_true, const Node* if_false, Nodes args) {
-    return branch(arena, (Branch) {
-        .branch_mode = BrJump,
-        .yield = false,
-        .target = destination,
-        .args = args,
-    });
-}
-
-inline static const Node* yield(IrArena* arena, const Node* destination, Nodes args) {
-    return branch(arena, (Branch) {
-        .branch_mode = BrJump,
-        .yield = false,
-        .target = destination,
-        .args = args,
-    });
-}
-
-
-/// Helper function for creating a tail call using branch
-inline static const Node* tail_call(IrArena* arena, const Node* destination, Nodes args) {
-    return branch(arena, (Branch) {
-        .branch_mode = BrTailcall,
-        .yield = false,
-        .target = destination,
-        .args = args,
-    });
-}*/
-
 //////////////////////////////// IR management ////////////////////////////////
 
 typedef struct {
