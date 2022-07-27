@@ -89,9 +89,9 @@ enum ISelMechanism {
     Custom, FirstOp, FirstAndResult
 };
 
-#define ISEL_IDENT 0 /* no-op, should be lowered to nothing beforehand */
-#define ISEL_BOOLC 0 /* boolean conversions don't exist as a single instruction, a pass should lower them instead */
-#define ISEL_ILLEG 0 /* doesn't make sense to support */
+#define ISEL_IDENT (SpvOpNop /* no-op, should be lowered to nothing beforehand */)
+#define ISEL_BOOLC (SpvOpMax /* boolean conversions don't exist as a single instruction, a pass should lower them instead */)
+#define ISEL_ILLEG (SpvOpMax /* doesn't make sense to support */)
 
 const struct IselTableEntry {
     enum ISelMechanism i_sel_mechanism;
@@ -138,7 +138,7 @@ const struct IselTableEntry {
         { SpvOpConvertPtrToU, SpvOpConvertPtrToU, ISEL_ILLEG,   ISEL_ILLEG, ISEL_IDENT }
     }},
 
-    [PRIMOPS_COUNT] = { Custom }
+    [PRIMOPS_COUNT] = { .i_sel_mechanism = Custom }
 };
 
 static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* instr, Nodes variables) {
@@ -158,6 +158,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         }
 
         SpvOp opcode;
+        int first_op = 0;
         if (entry.i_sel_mechanism == FirstOp) {
             enum OperandKind op_class = classify_operand(args.nodes[0]);
             opcode = entry.fo[op_class];
@@ -165,10 +166,16 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             enum OperandKind return_t_class = classify_operand(args.nodes[0]);
             enum OperandKind op_class = classify_operand(args.nodes[1]);
             opcode = entry.foar[op_class][return_t_class];
-        }
+            first_op = 1;
+        } else SHADY_UNREACHABLE;
 
-        if (opcode == 0)
+        if (opcode == SpvOpNop) {
+            assert(variables.count == 1);
+            register_result(emitter, variables.nodes[0], arr[first_op]);
+            return;
+        } else if (opcode == SpvOpMax) {
             goto custom_path;
+        }
 
         const Type* result_t;
         switch (entry.result_kind) {
