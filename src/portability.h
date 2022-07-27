@@ -6,7 +6,7 @@
 #include <assert.h>
 
 inline static void check_c11() {
-    static_assert(_CRT_HAS_C11, "C11 support is required to build shady.");
+    static_assert(__STDC_VERSION__ >= 201112L, "C11 support is required to build shady.");
 }
 
 #ifdef _MSC_VER
