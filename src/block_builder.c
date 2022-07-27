@@ -1,12 +1,14 @@
 #include "block_builder.h"
 #include "rewrite.h"
 #include "fold.h"
+#include "log.h"
 #include "arena.h"
 
 #include "list.h"
 #include "dict.h"
 
 #include <stdlib.h>
+#include <assert.h>
 
 BlockBuilder* begin_block(IrArena* arena) {
     BlockBuilder* builder = malloc(sizeof(BlockBuilder));
@@ -57,6 +59,18 @@ static const Node* process_node(Context* ctx, const Node* node) {
     //return recreate_node_identity(&ctx->rewriter, node);
 }
 
+static bool has_side_effects(const Node* instruction) {
+    switch (instruction->tag) {
+        case If_TAG:
+        case Match_TAG:
+        case Loop_TAG: return true; // TODO: check contents !
+        case Call_TAG: return true; // TODO: maybe one day track side effects...
+        case PrimOp_TAG: return has_primop_got_side_effects(instruction->payload.prim_op.op);
+        default: error("Not an instruction")
+    }
+    SHADY_UNREACHABLE;
+}
+
 const Node* finish_block(BlockBuilder* builder, const Node* terminator) {
     struct List* folded_list = new_list(const Node*);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
@@ -92,7 +106,7 @@ const Node* finish_block(BlockBuilder* builder, const Node* terminator) {
             actual_instruction = actual_instruction->payload.let.instruction;
 
         // we keep instructions that have useful results, calls and primops tagged as having side effects
-        if (find_key_dict(const Node*, ctx.in_use, actual_instruction) || actual_instruction->tag == PrimOp_TAG && has_primop_got_side_effects(actual_instruction->payload.prim_op.op) || actual_instruction->tag != PrimOp_TAG)
+        if (find_key_dict(const Node*, ctx.in_use, actual_instruction) || has_side_effects(actual_instruction))
             append_list(const Node*, final_list, instruction);
     }
 
