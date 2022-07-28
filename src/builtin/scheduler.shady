@@ -6,6 +6,7 @@ subgroup mask next_mask;
 subgroup [i32; 64] resume_at;
 subgroup [mask; 64] resume_with;
 
+@Builtin @DisablePass("lower_cf_instrs")
 fn builtin_branch(varying i32 branch_destination) {
     // First ask the first thread where it thinks we should branch, and all the threads that agree are set to go there
     let first_branch = subgroup_broadcast_first(branch_destination);

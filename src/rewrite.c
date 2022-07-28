@@ -10,6 +10,7 @@
 #include <assert.h>
 
 const Node* rewrite_node(Rewriter* rewriter, const Node* node) {
+    assert(rewriter->rewrite_fn);
     if (node)
         return rewriter->rewrite_fn(rewriter, node);
     else
@@ -73,10 +74,10 @@ bool compare_node(Node**, Node**);
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
     switch (old->tag) {
-        case GlobalVariable_TAG: new = global_var(rewriter->dst_arena, rewrite_node(rewriter, old->payload.global_variable.type), old->payload.global_variable.name, old->payload.global_variable.address_space); break;
-        case Constant_TAG: new = constant(rewriter->dst_arena, old->payload.constant.name); break;
+        case GlobalVariable_TAG: new = global_var(rewriter->dst_arena, rewrite_nodes(rewriter, old->payload.global_variable.annotations), rewrite_node(rewriter, old->payload.global_variable.type), old->payload.global_variable.name, old->payload.global_variable.address_space); break;
+        case Constant_TAG: new = constant(rewriter->dst_arena, rewrite_nodes(rewriter, old->payload.constant.annotations), old->payload.constant.name); break;
         case Function_TAG: {
-            new = fn(rewriter->dst_arena, old->payload.fn.atttributes, old->payload.fn.name, recreate_variables(rewriter, old->payload.fn.params), rewrite_nodes(rewriter, old->payload.fn.return_types));
+            new = fn(rewriter->dst_arena, rewrite_nodes(rewriter, old->payload.fn.annotations), old->payload.fn.atttributes, old->payload.fn.name, recreate_variables(rewriter, old->payload.fn.params), rewrite_nodes(rewriter, old->payload.fn.return_types));
             for (size_t i = 0; i < new->payload.fn.params.count; i++)
                 register_processed(rewriter, old->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
             break;
@@ -146,6 +147,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case IntLiteral_TAG:    return int_literal(rewriter->dst_arena, node->payload.int_literal);
         case True_TAG:          return true_lit(rewriter->dst_arena);
         case False_TAG:         return false_lit(rewriter->dst_arena);
+        case StringLiteral_TAG: return string_lit(rewriter->dst_arena, (StringLiteral) { .string = string(rewriter->dst_arena, node->payload.string_lit.string )});
         case Variable_TAG:      error("We expect variables to be available for us in the `processed` set");
         case Let_TAG:           {
             const Node* ninstruction = rewrite_node(rewriter, node->payload.let.instruction);
@@ -272,6 +274,29 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                                     .element_type = rewrite_node(rewriter, node->payload.arr_type.element_type),
                                     .size = rewrite_node(rewriter, node->payload.arr_type.size),
         });
+        case Annotation_TAG: switch (node->payload.annotation.payload_type) {
+            case AnPayloadNone: return annotation(rewriter->dst_arena, (Annotation) {
+                                    .payload_type = node->payload.annotation.payload_type,
+                                    .name = string(rewriter->dst_arena, node->payload.annotation.name),
+                                });
+            case AnPayloadValue: return annotation(rewriter->dst_arena, (Annotation) {
+                                    .payload_type = node->payload.annotation.payload_type,
+                                    .name = string(rewriter->dst_arena, node->payload.annotation.name),
+                                    .value = rewrite_node(rewriter, node->payload.annotation.value)
+                                });
+            case AnPayloadValues: return annotation(rewriter->dst_arena, (Annotation) {
+                                    .payload_type = node->payload.annotation.payload_type,
+                                    .name = string(rewriter->dst_arena, node->payload.annotation.name),
+                                    .values = rewrite_nodes(rewriter, node->payload.annotation.values)
+                                });
+            case AnPayloadMap: return annotation(rewriter->dst_arena, (Annotation) {
+                                    .payload_type = node->payload.annotation.payload_type,
+                                    .name = string(rewriter->dst_arena, node->payload.annotation.name),
+                                    .labels = import_strings(rewriter->dst_arena, node->payload.annotation.labels),
+                                    .values = rewrite_nodes(rewriter, node->payload.annotation.values)
+                                });
+            default: error("Unknown annotation payload type");
+        }
         default: error("unhandled node for rewrite %s", node_tags[node->tag]);
     }
 }

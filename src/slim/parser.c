@@ -32,7 +32,7 @@ INFIX_OPERATORS()
     }
 }
 
-static bool is_infix_operator(enum TokenTag token_tag, InfixOperators* out) {
+static bool is_infix_operator(TokenTag token_tag, InfixOperators* out) {
     switch (token_tag) {
 #define INFIX_OPERATOR(name, token, primop_op, precedence) case token: { *out = Infix##name; return true; }
 INFIX_OPERATORS()
@@ -42,7 +42,7 @@ INFIX_OPERATORS()
 }
 
 // to avoid some repetition
-#define ctxparams SHADY_UNUSED ParserConfig config, SHADY_UNUSED char* contents, SHADY_UNUSED IrArena* arena, SHADY_UNUSED struct Tokenizer* tokenizer
+#define ctxparams SHADY_UNUSED ParserConfig config, SHADY_UNUSED char* contents, SHADY_UNUSED IrArena* arena, SHADY_UNUSED Tokenizer* tokenizer
 #define ctx config, contents, arena, tokenizer
 
 #define expect(condition) expect_impl(condition, #condition)
@@ -53,7 +53,7 @@ static void expect_impl(bool condition, const char* err) {
     }
 }
 
-static bool accept_token(ctxparams, enum TokenTag tag) {
+static bool accept_token(ctxparams, TokenTag tag) {
     if (curr_token(tokenizer).tag == tag) {
         next_token(tokenizer);
         return true;
@@ -62,7 +62,7 @@ static bool accept_token(ctxparams, enum TokenTag tag) {
 }
 
 static const char* accept_identifier(ctxparams) {
-    struct Token tok = curr_token(tokenizer);
+    Token tok = curr_token(tokenizer);
     if (tok.tag == identifier_tok) {
         next_token(tokenizer);
         size_t size = tok.end - tok.start;
@@ -78,18 +78,17 @@ static const Node* accept_expr(ctxparams, int);
 static Nodes expect_operands(ctxparams);
 
 static const Node* accept_literal(ctxparams) {
-    struct Token tok = curr_token(tokenizer);
+    Token tok = curr_token(tokenizer);
+    size_t size = tok.end - tok.start;
     switch (tok.tag) {
         case hex_lit_tok:
         case dec_lit_tok: {
             next_token(tokenizer);
-            size_t size = tok.end - tok.start;
             return untyped_number(arena, (UntypedNumber) {
                 .plaintext = string_sized(arena, (int) size, &contents[tok.start])
             });
-            //int64_t value = strtol(&contents[tok.start], NULL, 10)
-            //return untyped_number(value);
         }
+        case string_lit_tok: next_token(tokenizer); return string_lit(arena, (StringLiteral) {.string = string_sized(arena, (int) size, &contents[tok.start]) });
         case true_tok: next_token(tokenizer); return true_lit(arena);
         case false_tok: next_token(tokenizer); return false_lit(arena);
         default: return NULL;
@@ -232,7 +231,7 @@ static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_value
     }
 }
 
-static Nodes accept_types(ctxparams, enum TokenTag separator, bool expect_qualified) {
+static Nodes accept_types(ctxparams, TokenTag separator, bool expect_qualified) {
     struct List* types = new_list(Type*);
     while (true) {
         const Type* type = expect_qualified ? accept_qualified_type(ctx) : accept_maybe_qualified_type(ctx);
@@ -388,7 +387,7 @@ static Nodes expect_operands(ctxparams) {
 }
 
 static const Node* accept_control_flow_instruction(ctxparams) {
-    struct Token current_token = curr_token(tokenizer);
+    Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
         case if_tok: {
             next_token(tokenizer);
@@ -431,7 +430,7 @@ static const Node* accept_control_flow_instruction(ctxparams) {
     return NULL;
 }
 
-static bool translate_token_to_primop(enum TokenTag token, Op* op) {
+static bool translate_token_to_primop(TokenTag token, Op* op) {
     switch (token) {
 #define  PRIMOP(has_side_effects, name) case name##_tok: { *op = name##_op; return true; }
 PRIMOPS()
@@ -705,7 +704,7 @@ static const Node* expect_block(ctxparams, const Node* implicit_join) {
                 .is_continuation = true,
                 .entry_point_type = NotAnEntryPoint
             };
-            Node* continuation = fn(arena, attributes, identifier, parameters, nodes(arena, 0, NULL));
+            Node* continuation = fn(arena, nodes(arena, 0, NULL), attributes, identifier, parameters, nodes(arena, 0, NULL));
             continuation->payload.fn.block= block;
             const Node* contvar = var(arena, qualified_type(arena, (QualifiedType) {
                 .type = derive_fn_type(arena, &continuation->payload.fn),
@@ -731,7 +730,54 @@ static const Node* expect_block(ctxparams, const Node* implicit_join) {
     });
 }
 
-static const Node* accept_const(ctxparams) {
+static Nodes accept_annotations(ctxparams) {
+    struct List* list = new_list(const Node*);
+
+    while (true) {
+        if (accept_token(ctx, at_tok)) {
+            const char* id = accept_identifier(ctx);
+            const Node* annot = NULL;
+            if (accept_token(ctx, lpar_tok)) {
+                const Node* first_value = accept_value(ctx);
+                if (!first_value) {
+                    expect(accept_token(ctx, rpar_tok));
+                    goto no_params;
+                }
+
+                // this is a map
+                if (first_value->tag == Unbound_TAG && accept_token(ctx, equal_tok)) {
+                    error("TODO: parse map")
+                } else if (curr_token(tokenizer).tag == comma_tok) {
+                    error("TODO: parse array")
+                } else {
+                    annot = annotation(arena, (Annotation) {
+                        .name = id,
+                        .payload_type = AnPayloadValue,
+                        .value = first_value
+                    });
+                }
+
+                expect(accept_token(ctx, rpar_tok));
+            } else {
+                no_params:
+                annot = annotation(arena, (Annotation) {
+                    .name = id,
+                    .payload_type = AnPayloadNone
+                });
+            }
+            assert(annot);
+            append_list(const Node*, list, annot);
+            continue;
+        }
+        break;
+    }
+
+    Nodes annotations = nodes(arena, entries_count_list(list), read_list(const Node*, list));
+    destroy_list(list);
+    return annotations;
+}
+
+static const Node* accept_const(ctxparams, Nodes annotations) {
     if (!accept_token(ctx, const_tok))
         return NULL;
 
@@ -744,34 +790,20 @@ static const Node* accept_const(ctxparams) {
 
     expect(accept_token(ctx, semi_tok));
 
-    Node* cnst = constant(arena, id);
+    Node* cnst = constant(arena, annotations, id);
     cnst->payload.constant.value = definition;
     cnst->payload.constant.type_hint = type;
     return cnst;
 }
 
-static FnAttributes accept_fn_annotations(ctxparams) {
-    FnAttributes annotations = {
-        .is_continuation = false,
-        .entry_point_type = NotAnEntryPoint
-    };
-
-    while (true) {
-        if (accept_token(ctx, compute_tok)) {
-            annotations.entry_point_type = true;
-            continue;
-        }
-        break;
-    }
-
-    return annotations;
-}
-
-static const Node* accept_fn_decl(ctxparams) {
+static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     if (!accept_token(ctx, fn_tok))
         return NULL;
 
-    FnAttributes attributes = accept_fn_annotations(ctx);
+    FnAttributes attributes = {
+        .is_continuation = false,
+        .entry_point_type = NotAnEntryPoint
+    };
 
     const char* id = accept_identifier(ctx);
     expect(id);
@@ -782,7 +814,7 @@ static const Node* accept_fn_decl(ctxparams) {
 
     const Node* block = expect_block(ctx, types.count == 0 ? fn_ret(arena, (Return) { .values = types }) : NULL);
 
-    Node *function = fn(arena, attributes, id, parameters, types);
+    Node *function = fn(arena, annotations, attributes, id, parameters, types);
     function->payload.fn.block = block;
 
     const Node* declaration = function;
@@ -791,7 +823,7 @@ static const Node* accept_fn_decl(ctxparams) {
     return declaration;
 }
 
-static const Node* accept_global_var_decl(ctxparams) {
+static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     AddressSpace as;
     if (accept_token(ctx, private_tok))
         as = AsPrivateLogical;
@@ -821,26 +853,26 @@ static const Node* accept_global_var_decl(ctxparams) {
 
     expect(accept_token(ctx, semi_tok));
 
-    Node* gv = global_var(arena, type, id, as);
+    Node* gv = global_var(arena, annotations, type, id, as);
     gv->payload.global_variable.init = initial_value;
     return gv;
 }
 
 const Node* parse(ParserConfig config, char* contents, IrArena* arena) {
-    struct Tokenizer* tokenizer = new_tokenizer(contents);
+    Tokenizer* tokenizer = new_tokenizer(contents);
 
     struct List* declarations = new_list(const Node*);
 
     while (true) {
-        struct Token token = curr_token(tokenizer);
+        Token token = curr_token(tokenizer);
         if (token.tag == EOF_tok)
             break;
 
-        const Node* decl = accept_const(ctx);
-        if (!decl)
-            decl = accept_fn_decl(ctx);
-        if (!decl)
-            decl = accept_global_var_decl(ctx);
+        Nodes annotations = accept_annotations(ctx);
+
+        const Node* decl = accept_const(ctx, annotations);
+        if (!decl)  decl = accept_fn_decl(ctx, annotations);
+        if (!decl)  decl = accept_global_var_decl(ctx, annotations);
         
         if (decl) {
             debug_print("decl parsed : ");

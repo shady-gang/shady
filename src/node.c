@@ -180,8 +180,9 @@ const Node* tuple(IrArena* arena, Nodes contents) {
     return create_node_helper(arena, node);
 }
 
-Node* fn(IrArena* arena, FnAttributes attributes, const char* name, Nodes params, Nodes return_types) {
+Node* fn(IrArena* arena, Nodes annotations, FnAttributes attributes, const char* name, Nodes params, Nodes return_types) {
     Function fn = {
+        .annotations = annotations,
         .name = string(arena, name),
         .atttributes = attributes,
         .params = params,
@@ -199,8 +200,9 @@ Node* fn(IrArena* arena, FnAttributes attributes, const char* name, Nodes params
     return create_node_helper(arena, node);
 }
 
-Node* constant(IrArena* arena, String name) {
+Node* constant(IrArena* arena, Nodes annotations, String name) {
     Constant cnst = {
+        .annotations = annotations,
         .name = string(arena, name),
         .value = NULL,
         .type_hint = NULL,
@@ -216,8 +218,9 @@ Node* constant(IrArena* arena, String name) {
     return create_node_helper(arena, node);
 }
 
-Node* global_var(IrArena* arena, const Type* type, const char* name, AddressSpace as) {
+Node* global_var(IrArena* arena, Nodes annotations, const Type* type, const char* name, AddressSpace as) {
     GlobalVariable gvar = {
+        .annotations = annotations,
         .name = string(arena, name),
         .type = type,
         .address_space = as,

@@ -60,6 +60,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
 }
 
 static bool has_side_effects(const Node* instruction) {
+    if (is_value(instruction))
+        return false;
+
     switch (instruction->tag) {
         case If_TAG:
         case Match_TAG:

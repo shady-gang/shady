@@ -179,17 +179,19 @@ static const Node* process_node(Context* ctx, const Node* old) {
     if (found) return found;
 
     switch (old->tag) {
-        case GlobalVariable_TAG:
-            // We rewrite those guys to be "pointers"
-            if (old->payload.global_variable.address_space == AsSubgroupPhysical
-             || old->payload.global_variable.address_space == AsPrivatePhysical) {
-                Node* cnst = constant(ctx->rewriter.dst_arena, old->payload.global_variable.name);
+        case GlobalVariable_TAG: {
+            const GlobalVariable* old_gvar = &old->payload.global_variable;
+            // Global variables into emulated address spaces become integer constants (to index into arrays used for emulation of said address space)
+            if (old_gvar->address_space == AsSubgroupPhysical || old_gvar->address_space == AsPrivatePhysical) {
+                Nodes annotations = rewrite_nodes(&ctx->rewriter, old_gvar->annotations); // We keep the old annotations
+                Node* cnst = constant(ctx->rewriter.dst_arena, annotations, old_gvar->name);
                 cnst->payload.constant.value = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 });
                 cnst->type = cnst->payload.constant.value->type;
                 register_processed(&ctx->rewriter, old, cnst);
                 return cnst;
             }
             SHADY_FALLTHROUGH
+        }
         case Constant_TAG:
         case Function_TAG: {
             Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
@@ -222,8 +224,11 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
         .size = NULL,
     });
 
-    Node* physical_private_buffer = global_var(dst_arena, stack_arr_type, "physical_private_buffer", AsGlobalLogical);
-    Node* physical_subgroup_buffer = global_var(dst_arena, stack_arr_type, "physical_subgroup_buffer", AsGlobalLogical);
+    // TODO add a @Synthetic annotation to tag those
+    Nodes annotations = nodes(dst_arena, 0, NULL);
+
+    Node* physical_private_buffer = global_var(dst_arena, annotations, stack_arr_type, "physical_private_buffer", AsGlobalLogical);
+    Node* physical_subgroup_buffer = global_var(dst_arena, annotations, stack_arr_type, "physical_subgroup_buffer", AsGlobalLogical);
 
     append_list(const Node*, new_decls_list, physical_private_buffer);
     append_list(const Node*, new_decls_list, physical_subgroup_buffer);

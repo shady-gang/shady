@@ -32,31 +32,37 @@ static void init_tokenizer_constants() {
     }
 }
 
-struct Tokenizer {
-    char* str;
-    size_t original_size;
+typedef struct Tokenizer_ {
+    const char* const source;
+    const size_t source_size;
+    
     size_t pos;
-    struct Token current;
-};
+    Token current;
+} Tokenizer;
 
-struct Tokenizer* new_tokenizer(char* str) {
+Tokenizer* new_tokenizer(char* source) {
     if (!constants_initialized) {
         init_tokenizer_constants();
         constants_initialized = true;
     }
 
-    struct Tokenizer* tokenizer = (struct Tokenizer*) malloc(sizeof(struct Tokenizer));
-    *tokenizer = (struct Tokenizer) {
-        .str = str,
-        .original_size = strlen(str),
+    Tokenizer* alloc = (Tokenizer*) malloc(sizeof(Tokenizer));
+    Tokenizer tokenizer = (Tokenizer) {
+        .source = source,
+        .source_size = strlen(source),
         .pos = 0
     };
-    next_token(tokenizer);
-    return tokenizer;
+    memcpy(alloc, &tokenizer, sizeof(Tokenizer));
+    next_token(alloc);
+    return alloc;
 }
 
-void destroy_tokenizer(struct Tokenizer* tokenizer) {
+void destroy_tokenizer(Tokenizer* tokenizer) {
     free(tokenizer);
+}
+
+static bool in_bounds(Tokenizer* tokenizer, size_t offset_to_slice) {
+    return (tokenizer->pos + offset_to_slice) < tokenizer->source_size;
 }
 
 const char whitespace[] = { ' ', '\t', '\b', '\n' };
@@ -67,13 +73,13 @@ static inline bool is_whitespace(char c) { for (size_t i = 0; i < sizeof(whitesp
 static inline bool can_start_identifier(char c) { return is_alpha(c) || c == '_'; }
 static inline bool can_make_up_identifier(char c) { return can_start_identifier(c) || is_digit(c); }
 
-static void eat_whitespace_and_comments(struct Tokenizer* tokenizer) {
-    while (tokenizer->pos < tokenizer->original_size) {
-        if (is_whitespace(tokenizer->str[tokenizer->pos])) {
+static void eat_whitespace_and_comments(Tokenizer* tokenizer) {
+    while (tokenizer->pos < tokenizer->source_size) {
+        if (is_whitespace(tokenizer->source[tokenizer->pos])) {
             tokenizer->pos++;
-        } else if (tokenizer->pos + 2 <= tokenizer->original_size && tokenizer->str[tokenizer->pos] == '/' && tokenizer->str[tokenizer->pos + 1] == '/') {
-            while (tokenizer->pos < tokenizer->original_size) {
-                if (tokenizer->str[tokenizer->pos] == '\n')
+        } else if (tokenizer->pos + 2 <= tokenizer->source_size && tokenizer->source[tokenizer->pos] == '/' && tokenizer->source[tokenizer->pos + 1] == '/') {
+            while (tokenizer->pos < tokenizer->source_size) {
+                if (tokenizer->source[tokenizer->pos] == '\n')
                     break;
                 tokenizer->pos++;
             }
@@ -82,31 +88,29 @@ static void eat_whitespace_and_comments(struct Tokenizer* tokenizer) {
     }
 }
 
-struct Token next_token(struct Tokenizer* tokenizer) {
+Token next_token(Tokenizer* tokenizer) {
     eat_whitespace_and_comments(tokenizer);
-    if (tokenizer->pos == tokenizer->original_size) {
+    if (tokenizer->pos == tokenizer->source_size) {
         debug_print("EOF\n");
-        struct Token token = (struct Token) {
+        Token token = {
             .tag = EOF_tok
         };
         tokenizer->current = token;
         return token;
     }
+    assert(in_bounds(tokenizer, 0));
+    const char* slice = &tokenizer->source[tokenizer->pos];
 
-    assert(tokenizer->pos <= tokenizer->original_size);
-
-    struct Token token = {
+    Token token = {
         .start = tokenizer->pos,
     };
-
-    const char* slice = &tokenizer->str[tokenizer->pos];
 
     size_t token_size = 0;
     // First, try to do alphanumeric tokenization
     bool can_be_identifier = false;
     if (can_start_identifier(slice[0])) {
         can_be_identifier = true;
-        while (tokenizer->pos + token_size <= tokenizer->original_size) {
+        while (in_bounds(tokenizer, token_size)) {
             if (can_make_up_identifier(slice[token_size])) {
                 token_size++;
             } else break;
@@ -120,16 +124,28 @@ struct Token next_token(struct Tokenizer* tokenizer) {
             // slice = &slice[2];
         }
 
-        while (is_digit(slice[token_size])) {
+        while (in_bounds(tokenizer, token_size) && is_digit(slice[token_size])) {
             token_size++;
         }
         goto parsed_successfully;
+    } else if(slice[0] == '"') {
+        token.tag = string_lit_tok;
+        token.start += 1;
+
+        while (in_bounds(tokenizer, token_size + 1) && slice[token_size + 1] != '"') {
+            token_size++;
+        }
+
+        if (slice[token_size + 1] == '"') {
+            tokenizer->pos += token_size + 2;
+            goto parsed_successfully_dont_update_pos;
+        }
     }
 
     for (int i = 0; i < LIST_END_tok; i++) {
         size_t tok_size = token_strings_size[i];
         // if there is a match ...
-        if (tokenizer->pos + tok_size <= tokenizer->original_size && strncmp(token_strings[i], slice, tok_size) == 0) {
+        if (in_bounds(tokenizer, tok_size) && strncmp(token_strings[i], slice, tok_size) == 0) {
             // if this is an identifier, we need the size to match exactly
             if (!can_be_identifier || tok_size == token_size) {
                 token.tag = i;
@@ -149,21 +165,22 @@ struct Token next_token(struct Tokenizer* tokenizer) {
     exit(-2);
 
     parsed_successfully:
-    token.end = token.start + token_size;
-
     tokenizer->pos += token_size;
+
+    parsed_successfully_dont_update_pos:
+    token.end = token.start + token_size;
     tokenizer->current = token;
 
     debug_print("Token parsed: (tag = %s, pos = %zu", token_tags[token.tag], token.start);
-    if (token.tag == identifier_tok) {
+    if (token.tag == identifier_tok || token.tag == string_lit_tok) {
         debug_print(", str=");
         for (size_t i = token.start; i < token.end; i++)
-            debug_print("%c", tokenizer->str[i]);
+            debug_print("%c", tokenizer->source[i]);
     }
     debug_print(")\n");
     return token;
 }
 
-struct Token curr_token(struct Tokenizer* tokenizer) {
+Token curr_token(Tokenizer* tokenizer) {
     return tokenizer->current;
 }

@@ -10,6 +10,7 @@ TOKEN(EOF, NULL) \
 TOKEN(identifier, NULL) \
 TOKEN(dec_lit, NULL) \
 TOKEN(hex_lit, NULL) \
+TOKEN(string_lit, NULL) \
 TEXT_TOKEN(uniform) \
 TEXT_TOKEN(varying) \
 TOKEN(struct, "struct") \
@@ -21,7 +22,6 @@ TEXT_TOKEN(global) \
 TEXT_TOKEN(input) \
 TEXT_TOKEN(output) \
 TOKEN(extern, "extern") \
-TOKEN(compute, "@compute") \
 TEXT_TOKEN(var) \
 TEXT_TOKEN(let) \
 TEXT_TOKEN(ptr) \
@@ -74,36 +74,37 @@ TOKEN(lbracket, "{") \
 TOKEN(rbracket, "}") \
 TOKEN(lsbracket, "[") \
 TOKEN(rsbracket, "]") \
+TOKEN(at, "@") \
 TOKEN(semi, ";") \
 TOKEN(colon, ":") \
 TOKEN(comma, ",") \
 TOKEN(equal, "=") \
 TOKEN(LIST_END, NULL)
 
-struct Tokenizer;
-struct Tokenizer* new_tokenizer(char* str);
-void destroy_tokenizer(struct Tokenizer*);
+typedef struct Tokenizer_ Tokenizer;
+Tokenizer* new_tokenizer(char* source);
+void destroy_tokenizer(Tokenizer*);
 
 #define PRIMOP(has_side_effects, name) TEXT_TOKEN(name)
 
-enum TokenTag {
+typedef enum {
 #define TOKEN(name, str) name##_tok,
     TOKENS()
 #undef TOKEN
-};
+} TokenTag;
 
 #undef PRIMOP
 
 extern const char* token_tags[];
 
-struct Token {
-    enum TokenTag tag;
+typedef struct {
+    TokenTag tag;
     size_t start;
     size_t end;
-};
+} Token;
 
-struct Token curr_token(struct Tokenizer* tokenizer);
-struct Token next_token(struct Tokenizer* tokenizer);
+Token curr_token(Tokenizer* tokenizer);
+Token next_token(Tokenizer* tokenizer);
 
 #define SHADY_TOKEN_H
 

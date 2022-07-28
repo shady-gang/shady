@@ -39,6 +39,24 @@ static const Node* infer_let(Context* ctx, const Node* node);
 static const Node* infer_terminator(Context* ctx, const Node* node);
 static const Node* infer_value(Context* ctx, const Node* node, const Node* expected_type);
 
+static Nodes infer_annotations(Context* ctx, Nodes annotations) {
+    LARRAY(const Node*, arr, annotations.count);
+    for (size_t i = 0; i < annotations.count; i++) {
+        Annotation old = annotations.nodes[i]->payload.annotation;
+        Annotation payload = {
+            .payload_type = old.payload_type,
+            .name = string(ctx->rewriter.dst_arena, old.name)
+        };
+        switch (old.payload_type) {
+            case AnPayloadNone: break;
+            case AnPayloadValue: payload.value = infer_value(ctx, old.value, NULL); break;
+            default: error("TODO");
+        }
+        arr[i] = annotation(ctx->rewriter.dst_arena, payload);
+    }
+    return nodes(ctx->rewriter.dst_arena, annotations.count, arr);
+}
+
 static const Node* infer_type(Context* ctx, const Type* type) {
     switch (type->tag) {
         case ArrType_TAG: {
@@ -76,7 +94,7 @@ static const Node* infer_constant(Context* ctx, const Node* node) {
         return already_done;
 
     const Constant* oconstant = &node->payload.constant;
-    Node* nconstant = constant(ctx->rewriter.dst_arena, oconstant->name);
+    Node* nconstant = constant(ctx->rewriter.dst_arena, infer_annotations(ctx, oconstant->annotations), oconstant->name);
 
     register_processed(&ctx->rewriter, node, nconstant);
 
@@ -108,7 +126,7 @@ static const Node* infer_fn(Context* ctx, const Node* node) {
 
     Nodes nret_types = infer_types(ctx, node->payload.fn.return_types);
 
-    Node* fun = fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
+    Node* fun = fn(dst_arena, infer_annotations(ctx, node->payload.fn.annotations), node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
     register_processed(&ctx->rewriter, node, fun);
 
     const Node* nblock = infer_block(&body_context, node->payload.fn.block);
@@ -130,6 +148,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
         }
         case True_TAG: return true_lit(dst_arena);
         case False_TAG: return false_lit(dst_arena);
+        case StringLiteral_TAG: return string_lit(dst_arena, (StringLiteral) { .string = string(dst_arena, node->payload.string_lit.string )});
         case GlobalVariable_TAG: return find_processed(&ctx->rewriter, node); // TODO check types match
         case Constant_TAG: return find_processed(&ctx->rewriter, node); // TODO check types match
         default: error("not a value");
@@ -476,7 +495,7 @@ static const Node* infer_root(Context* ctx, const Node* node) {
                     case GlobalVariable_TAG: {
                         const GlobalVariable* old_gvar = &odecl->payload.global_variable;
                         const Type* imported_ty = infer_type(ctx, old_gvar->type);
-                        new_decls[i] = global_var(ctx->rewriter.dst_arena, imported_ty, old_gvar->name, old_gvar->address_space);
+                        new_decls[i] = global_var(ctx->rewriter.dst_arena, infer_annotations(ctx, old_gvar->annotations), imported_ty, old_gvar->name, old_gvar->address_space);
                         register_processed(&ctx->rewriter, odecl, new_decls[i]);
                         break;
                     }

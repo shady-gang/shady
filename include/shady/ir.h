@@ -90,6 +90,7 @@ NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
 NODEDEF(1, 1, 1, IntLiteral, int_literal) \
 NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
+NODEDEF(1, 0, 1, StringLiteral, string_lit) \
 NODEDEF(0, 1, 1, Tuple, tuple) \
 NODEDEF(1, 1, 1, FnAddr, fn_addr) \
 
@@ -103,6 +104,7 @@ NODEDEF(0, 0, 1, Constant, constant) \
 NODEDEF(0, 1, 1, GlobalVariable, global_variable) \
 NODEDEF(1, 0, 1, Block, block) \
 NODEDEF(1, 0, 1, ParsedBlock, parsed_block) \
+NODEDEF(1, 0, 1, Annotation, annotation) \
 NODEDEF(1, 0, 1, Root, root) \
 
 //////////////////////////////// Lists & Strings ////////////////////////////////
@@ -185,13 +187,6 @@ typedef struct Variable_ {
     unsigned output;
 } Variable;
 
-typedef struct GlobalVariable_ {
-    const Type* type;
-    String name;
-    AddressSpace address_space;
-    const Node* init;
-} GlobalVariable;
-
 typedef struct Unbound_ {
     String name;
 } Unbound;
@@ -216,21 +211,34 @@ typedef struct IntLiteral_ {
 
 int64_t extract_int_literal_value(const Node*, bool sign_extend);
 
+typedef struct StringLiteral_ {
+    const char* string;
+} StringLiteral;
+
 typedef struct Tuple_ {
     Nodes contents;
 } Tuple;
-
-typedef struct Constant_ {
-    String name;
-    const Node* value;
-    const Node* type_hint;
-} Constant;
 
 typedef struct FnAddr_ {
     const Node* fn;
 } FnAddr;
 
-//////////////////////////////// Functions ////////////////////////////////
+//////////////////////////////// Other ////////////////////////////////
+
+typedef struct Annotation_ {
+    const char* name;
+    enum {
+        AnPayloadNone,
+        AnPayloadValue,
+        AnPayloadValues,
+        AnPayloadMap,
+    } payload_type;
+    Strings labels;
+    union {
+        const Node* value;
+        Nodes values;
+    };
+} Annotation;
 
 typedef struct FnAttributes_ {
     bool is_continuation;
@@ -238,12 +246,28 @@ typedef struct FnAttributes_ {
 } FnAttributes;
 
 typedef struct Function_ {
+    Nodes annotations;
     String name;
     FnAttributes atttributes;
     Nodes params;
     const Node* block;
     Nodes return_types;
 } Function;
+
+typedef struct Constant_ {
+    Nodes annotations;
+    String name;
+    const Node* value;
+    const Node* type_hint;
+} Constant;
+
+typedef struct GlobalVariable_ {
+    Nodes annotations;
+    const Type* type;
+    String name;
+    AddressSpace address_space;
+    const Node* init;
+} GlobalVariable;
 
 /// The body inside functions, continuations, if branches ...
 typedef struct Block_ {
@@ -496,9 +520,9 @@ const Node* let_mut(IrArena* arena, const Node* instruction, Nodes types, size_t
 
 const Node* tuple(IrArena* arena, Nodes contents);
 
-Node* fn(IrArena* arena, FnAttributes, const char* name, Nodes params, Nodes return_types);
-Node* constant(IrArena* arena, const char* name);
-Node* global_var(IrArena*, const Type*, String, AddressSpace);
+Node* fn(IrArena*,         Nodes annotations, FnAttributes, const char* name, Nodes params, Nodes return_types);
+Node* constant(IrArena*,   Nodes annotations, const char* name);
+Node* global_var(IrArena*, Nodes annotations, const Type*, String, AddressSpace);
 
 typedef struct BlockBuilder_ BlockBuilder;
 

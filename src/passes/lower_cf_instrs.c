@@ -26,8 +26,12 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
     assert(node->tag == Block_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     assert(dst_arena == ctx->rewriter.src_arena);
+
     const Block* old_block = &node->payload.block;
     struct List* accumulator = new_list(const Node*);
+    // TODO add a @Synthetic annotation to tag those
+    Nodes annotations = nodes(dst_arena, 0, NULL);
+
     assert(start <= old_block->instructions.count);
     for (size_t i = start; i < old_block->instructions.count; i++) {
         const Node* let_node = old_block->instructions.nodes[i];
@@ -50,9 +54,9 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                 append_list(const Node*, accumulator, let_mask);
                 // reconvergence_token = NULL;
 
-                Node* join_cont = fn(dst_arena, cont_attr, unique_name(dst_arena, "if_join"), nodes(dst_arena, yield_types.count, rest_params), nodes(dst_arena, 0, NULL));
-                Node* true_branch = fn(dst_arena, cont_attr, unique_name(dst_arena, "if_true"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
-                Node* false_branch = has_false_branch ? fn(dst_arena, cont_attr, unique_name(dst_arena, "if_false"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL)) : NULL;
+                Node* join_cont = fn(dst_arena, annotations, cont_attr, unique_name(dst_arena, "if_join"), nodes(dst_arena, yield_types.count, rest_params), nodes(dst_arena, 0, NULL));
+                Node* true_branch = fn(dst_arena, annotations, cont_attr, unique_name(dst_arena, "if_true"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
+                Node* false_branch = has_false_branch ? fn(dst_arena, annotations, cont_attr, unique_name(dst_arena, "if_false"), nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL)) : NULL;
 
                 true_branch->payload.fn.block = handle_block(ctx,  instr->payload.if_instr.if_true, 0, join_cont, let_mask->payload.let.variables.nodes[0]);
                 if (has_false_branch)
@@ -89,7 +93,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                 for (size_t j = 0; j < cont_params.count; j++)
                     register_processed(&ctx->rewriter, let_node->payload.let.variables.nodes[j], cont_params.nodes[j]);
 
-                Node* return_continuation = fn(dst_arena, rest_attrs, unique_name(dst_arena, "call_continue"), cont_params, nodes(dst_arena, 0, NULL));
+                Node* return_continuation = fn(dst_arena, annotations, rest_attrs, unique_name(dst_arena, "call_continue"), cont_params, nodes(dst_arena, 0, NULL));
                 return_continuation->payload.fn.block = handle_block(ctx, node, i + 1, outer_join, reconvergence_token);
 
                 Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));

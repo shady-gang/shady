@@ -149,12 +149,17 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
     });
     const Type* stack_counter_t = int32_type(dst_arena);
 
-    Node* stack_decl = global_var(dst_arena, stack_arr_type, "stack", AsPrivatePhysical);
-    Node* uniform_stack_decl = global_var(dst_arena, stack_arr_type, "uniform_stack", AsSubgroupPhysical);
+    // TODO add a @Synthetic annotation to tag those
+    Nodes annotations = nodes(dst_arena, 0, NULL);
 
-    Node* stack_ptr_decl = global_var(dst_arena, stack_counter_t, "stack_ptr", AsPrivateLogical);
+    // Arrays for the stacks
+    Node* stack_decl = global_var(dst_arena, annotations, stack_arr_type, "stack", AsPrivatePhysical);
+    Node* uniform_stack_decl = global_var(dst_arena, annotations, stack_arr_type, "uniform_stack", AsSubgroupPhysical);
+
+    // Pointers into those arrays
+    Node* stack_ptr_decl = global_var(dst_arena, annotations, stack_counter_t, "stack_ptr", AsPrivateLogical);
     stack_ptr_decl->payload.global_variable.init = int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 });
-    Node* uniform_stack_ptr_decl = global_var(dst_arena, stack_counter_t, "uniform_stack_ptr", AsPrivateLogical);
+    Node* uniform_stack_ptr_decl = global_var(dst_arena, annotations, stack_counter_t, "uniform_stack_ptr", AsPrivateLogical);
     uniform_stack_ptr_decl->payload.global_variable.init = int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32});
 
     append_list(const Node*, new_decls_list, stack_decl);

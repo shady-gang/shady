@@ -129,10 +129,11 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             nattrs.entry_point_type = NotAnEntryPoint;
             String new_name = nattrs.is_continuation ? old->payload.fn.name : format_string(dst_arena, "%s_leaf", old->payload.fn.name);
 
-            Node* fun = fn(dst_arena, nattrs, new_name, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
+            Node* fun = fn(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fn.annotations), nattrs, new_name, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
 
             if (old->payload.fn.atttributes.entry_point_type != NotAnEntryPoint) {
-                Node* new_entry_pt = fn(dst_arena, old->payload.fn.atttributes, old->payload.fn.name, old->payload.fn.params, nodes(dst_arena, 0, NULL));
+                Nodes new_entry_pt_annotations = nodes(dst_arena, 0, NULL);
+                Node* new_entry_pt = fn(dst_arena, new_entry_pt_annotations, old->payload.fn.atttributes, old->payload.fn.name, old->payload.fn.params, nodes(dst_arena, 0, NULL));
                 append_list(const Node*, ctx->new_decls, new_entry_pt);
 
                 BlockBuilder* builder = begin_block(dst_arena);
@@ -270,7 +271,8 @@ const Node* lower_callf(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
 
-    Node* dispatcher_fn = fn(dst_arena, (FnAttributes) {.entry_point_type = NotAnEntryPoint, .is_continuation = false}, "top_dispatcher", nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
+    Nodes top_dispatcher_annotations = nodes(dst_arena, 0, NULL);
+    Node* dispatcher_fn = fn(dst_arena, top_dispatcher_annotations, (FnAttributes) {.entry_point_type = NotAnEntryPoint, .is_continuation = false}, "top_dispatcher", nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
     append_list(const Node*, new_decls_list, dispatcher_fn);
 
     Context ctx = {

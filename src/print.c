@@ -133,6 +133,13 @@ static void print_function(struct PrinterCtx* ctx, const Node* node) {
     INDENT printf("}");
 }
 
+static void print_annotations(struct PrinterCtx* ctx, Nodes annotations) {
+    for (size_t i = 0; i < annotations.count; i++) {
+        print_node(annotations.nodes[i]);
+        printf(" ");
+    }
+}
+
 static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
 
     if (node == NULL) {
@@ -230,6 +237,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                 if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)decl);
                 if (decl->tag == GlobalVariable_TAG) {
                     const GlobalVariable* gvar = &decl->payload.global_variable;
+                    print_annotations(ctx, gvar->annotations);
                     print_storage_qualifier_for_global(ctx, gvar->address_space);
                     printf(" ");
                     print_node(gvar->type);
@@ -242,6 +250,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                 } else if (decl->tag == Function_TAG) {
                     const Function* fun = &decl->payload.fn;
                     assert(!fun->atttributes.is_continuation);
+                    print_annotations(ctx, fun->annotations);
                     printf("fn");
                     switch (fun->atttributes.entry_point_type) {
                         case Compute: printf(" @compute"); break;
@@ -254,12 +263,26 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                     printf(";\n\n");
                 } else if (decl->tag == Constant_TAG) {
                     const Constant* cnst = &decl->payload.constant;
+                    print_annotations(ctx, cnst->annotations);
                     printf("const ");
                     print_node(decl->type);
                     printf(" %s = ", cnst->name);
                     print_node(cnst->value);
                     printf(";\n");
                 } else error("Unammed node at the top level")
+            }
+            break;
+        }
+        case Annotation_TAG: {
+            const Annotation* annotation = &node->payload.annotation;
+            printf("@%s", annotation->name);
+            switch (annotation->payload_type) {
+                case AnPayloadValue:
+                    printf("(");
+                    print_node(annotation->value);
+                    printf(")");
+                    break;
+                default: break;
             }
             break;
         }
@@ -333,6 +356,9 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         case False_TAG:
             printf("false");
+            break;
+        case StringLiteral_TAG:
+            printf("\"%s\"", node->payload.string_lit.string);
             break;
         // ----------------- INSTRUCTIONS
         case Let_TAG:

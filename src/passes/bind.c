@@ -86,7 +86,7 @@ static Node* rewrite_fn_head(Context* ctx, const Node* node) {
         nparams[i] = new_param;
     }
 
-    return fn(dst_arena, node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, params_count, nparams), bind_nodes(ctx, node->payload.fn.return_types));
+    return fn(dst_arena, bind_nodes(ctx, node->payload.fn.annotations), node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, params_count, nparams), bind_nodes(ctx, node->payload.fn.return_types));
 }
 
 static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
@@ -211,14 +211,14 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 switch (decl->tag) {
                     case GlobalVariable_TAG: {
                         const GlobalVariable* ogvar = &decl->payload.global_variable;
-                        bound = global_var(dst_arena, bind_node(ctx, ogvar->type), ogvar->name, ogvar->address_space);
+                        bound = global_var(dst_arena, bind_nodes(ctx, ogvar->annotations), bind_node(ctx, ogvar->type), ogvar->name, ogvar->address_space);
                         entry->name = ogvar->name;
                         entry->is_var = true;
                         break;
                     }
                     case Constant_TAG: {
                         const Constant* cnst = &decl->payload.constant;
-                        Node* new_constant = constant(dst_arena, cnst->name);
+                        Node* new_constant = constant(dst_arena, bind_nodes(ctx, cnst->annotations), cnst->name);
                         new_constant->payload.constant.type_hint = decl->payload.constant.type_hint;
                         bound = new_constant;
                         entry->name = cnst->name;
