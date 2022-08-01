@@ -544,7 +544,6 @@ const Node* infer_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_aren
             .src_arena = src_arena,
             .dst_arena = dst_arena,
             .rewrite_fn = NULL, // we do all the rewriting ourselves
-            .rewrite_decl_body = NULL,
             .processed = done,
         },
     };

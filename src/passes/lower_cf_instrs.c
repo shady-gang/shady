@@ -21,7 +21,6 @@ static const Node* process_node(Context* ctx, const Node* node);
 static const Node* handle_block(Context* ctx, const Node* node, size_t start, const Node* outer_join, const Node* reconvergence_token) {
     assert(node->tag == Block_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
-    assert(dst_arena == ctx->rewriter.src_arena);
 
     const Block* old_block = &node->payload.block;
     struct List* accumulator = new_list(const Node*);
@@ -167,7 +166,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Block_TAG: return handle_block(ctx, node, 0, NULL, NULL);
         // leave other declarations alone
         case GlobalVariable_TAG:
-        case Constant_TAG: return node;
+        case Constant_TAG: {
+            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
+            recreate_decl_body_identity(&ctx->rewriter, node, new);
+            return new;
+        }
         case Root_TAG: error("illegal node");
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
@@ -183,7 +186,6 @@ const Node* lower_cf_instrs(SHADY_UNUSED CompilerConfig* config, IrArena* src_ar
             .dst_arena = dst_arena,
             .src_arena = src_arena,
             .rewrite_fn = (RewriteFn) process_node,
-            .rewrite_decl_body = NULL,
             .processed = done,
         },
     };

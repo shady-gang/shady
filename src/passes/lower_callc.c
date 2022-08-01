@@ -129,7 +129,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         // leave other declarations alone
         case GlobalVariable_TAG:
-        case Constant_TAG: return node;
+        case Constant_TAG: {
+            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
+            recreate_decl_body_identity(&ctx->rewriter, node, new);
+            return new;
+        }
         case Root_TAG: error("illegal node");
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
@@ -170,7 +174,6 @@ const Node* lower_callc(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
             .dst_arena = dst_arena,
             .src_arena = src_arena,
             .rewrite_fn = (RewriteFn) process_node,
-            .rewrite_decl_body = NULL,
             .processed = done,
         },
         .new_fns = new_decls_list,

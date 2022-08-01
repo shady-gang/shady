@@ -154,7 +154,7 @@ static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
                         assert(old_var->type);
                         const Node* let_alloca = let(dst_arena, prim_op(dst_arena, (PrimOp) {
                             .op = alloca_op,
-                            .operands = nodes(dst_arena, 1, (const Node* []){ old_var->type })
+                            .operands = nodes(dst_arena, 1, (const Node* []){ bind_node(ctx, old_var->type) })
                         }), 1, &names[j]);
                         append_list(const Node*, list, let_alloca);
                         const Node* ptr = let_alloca->payload.let.variables.nodes[0];
@@ -218,7 +218,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                     case Constant_TAG: {
                         const Constant* cnst = &decl->payload.constant;
                         Node* new_constant = constant(dst_arena, bind_nodes(ctx, cnst->annotations), cnst->name);
-                        new_constant->payload.constant.type_hint = decl->payload.constant.type_hint;
+                        new_constant->payload.constant.type_hint = bind_node(ctx, decl->payload.constant.type_hint);
                         bound = new_constant;
                         entry->name = cnst->name;
                         break;

@@ -6,14 +6,13 @@
 
 #include <assert.h>
 
+#define visit(t) if (t && visitor->visit_fn) visitor->visit_fn(visitor, t);
+
 static void visit_nodes(Visitor* visitor, Nodes nodes) {
     for (size_t i = 0; i < nodes.count; i++) {
-        if (nodes.nodes[i])
-            visitor->visit_fn(visitor, nodes.nodes[i]);
+         visit(nodes.nodes[i]);
     }
 }
-
-#define visit(t) if (t) visitor->visit_fn(visitor, t);
 
 void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
     assert(function->tag == Function_TAG);

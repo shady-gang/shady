@@ -6,7 +6,6 @@
 typedef struct Rewriter_ Rewriter;
 
 typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
-typedef void (*RewriteFnMut)(Rewriter*, const Node*, Node*);
 
 /// Applies the rewriter to all nodes in the collection
 Nodes rewrite_nodes(Rewriter*, Nodes);
@@ -21,7 +20,6 @@ struct Rewriter_ {
     IrArena* dst_arena;
 
     RewriteFn rewrite_fn;
-    RewriteFnMut rewrite_decl_body;
     struct Dict* processed;
 };
 

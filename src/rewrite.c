@@ -98,7 +98,7 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
         case Constant_TAG: {
             new->payload.constant.type_hint = rewrite_node(rewriter, old->payload.constant.type_hint);
             new->payload.constant.value     = rewrite_node(rewriter, old->payload.constant.value);
-            new->type = new->payload.constant.value->type;
+            new->type                       = rewrite_node(rewriter, new->payload.constant.value->type);
             break;
         }
         case Function_TAG: {
@@ -121,12 +121,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     switch (node->tag) {
         case Root_TAG: {
             Nodes decls = rewrite_nodes(rewriter, node->payload.root.declarations);
-
-            if (rewriter->rewrite_decl_body) {
-                for (size_t i = 0; i < decls.count; i++)
-                    rewriter->rewrite_decl_body(rewriter, node->payload.root.declarations.nodes[i], (Node*) decls.nodes[i]);
-            }
-
             return root(rewriter->dst_arena, (Root) {
                 .declarations = decls,
             });

@@ -83,7 +83,6 @@ const Node* finish_block(BlockBuilder* builder, const Node* terminator) {
             .dst_arena = builder->arena,
             .src_arena = builder->arena,
             .rewrite_fn = (RewriteFn) process_node,
-            .rewrite_decl_body = NULL,
             .processed = done,
         },
         .in_use = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)

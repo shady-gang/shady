@@ -172,7 +172,6 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
             .dst_arena = dst_arena,
             .src_arena = src_arena,
             .rewrite_fn = (RewriteFn) process_node,
-            .rewrite_decl_body = NULL,
             .processed = done,
         },
 
