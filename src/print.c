@@ -13,6 +13,24 @@ struct PrinterCtx {
     bool print_ptrs;
 };
 
+#define RESET    "\033[0m"
+#define RED      "\033[0;31m"
+#define GREEN    "\033[0;32m"
+#define YELLOW   "\033[0;33m"
+#define BLUE     "\033[0;34m"
+#define MANGENTA "\033[0;35m"
+#define CYAN     "\033[0;36m"
+#define WHITE    "\033[0;37m"
+
+#define GREY     "\033[0;90m"
+#define BRED     "\033[0;91m"
+#define BGREEN   "\033[0;92m"
+#define BYELLOW  "\033[0;93m"
+#define BBLUE    "\033[0;94m"
+#define BMAGENTA "\033[0;95m"
+#define BCYAN    "\033[0;96m"
+#define BWHITE   "\033[0;97m"
+
 #define printf(...) fprintf(ctx->output, __VA_ARGS__)
 #define print_node(n) print_node_impl(ctx, n)
 
@@ -22,6 +40,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node);
     printf("   ");
 
 static void print_storage_qualifier_for_global(struct PrinterCtx* ctx, AddressSpace as) {
+    printf(BLUE);
     switch (as) {
         case AsGeneric:             printf("generic"); break;
 
@@ -41,9 +60,11 @@ static void print_storage_qualifier_for_global(struct PrinterCtx* ctx, AddressSp
         case AsProgramCode:    printf("program_code"); break;
         default: error("Unknown address space: %d", (int) as);
     }
+    printf(RESET);
 }
 
 static void print_ptr_addr_space(struct PrinterCtx* ctx, AddressSpace as) {
+    printf(GREY);
     switch (as) {
         case AsGeneric:             printf("generic"); break;
 
@@ -63,6 +84,7 @@ static void print_ptr_addr_space(struct PrinterCtx* ctx, AddressSpace as) {
         case AsProgramCode:    printf("program_code"); break;
         default: error("Unknown address space: %d", (int) as);
     }
+    printf(RESET);
 }
 
 static void print_param_list(struct PrinterCtx* ctx, Nodes vars, const Nodes* defaults) {
@@ -73,7 +95,7 @@ static void print_param_list(struct PrinterCtx* ctx, Nodes vars, const Nodes* de
         if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)vars.nodes[i]);
         const Variable* var = &vars.nodes[i]->payload.var;
         print_node(var->type);
-        printf(" %s_%d", var->name, var->id);
+        printf(YELLOW" %s~%d"RESET, var->name, var->id);
         if (defaults) {
             printf(" = ");
             print_node(defaults->nodes[i]);
@@ -153,15 +175,17 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
         // --------------------------- TYPES
         case QualifiedType_TAG:
             if (node->payload.qualified_type.is_uniform)
-                printf("uniform ");
+                printf(CYAN"uniform ");
             else
-                printf("varying ");
+                printf(CYAN"varying ");
             print_node(node->payload.qualified_type.type);
+            printf(RESET);
             break;
         case NoRet_TAG:
-            printf("!");
+            printf(BCYAN"!"RESET);
             break;
         case Int_TAG:
+            printf(BCYAN);
             switch (node->payload.int_literal.width) {
                 case IntTy8:  printf("i8");  break;
                 case IntTy16: printf("i16"); break;
@@ -169,31 +193,32 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                 case IntTy64: printf("i64"); break;
                 default: error("Not a known valid int width")
             }
+            printf(RESET);
             break;
         case Bool_TAG:
-            printf("bool");
+            printf(BCYAN"bool"RESET);
             break;
         case Float_TAG:
-            printf("float");
+            printf(BCYAN"float"RESET);
             break;
         case MaskType_TAG:
-            printf("mask");
+            printf(BCYAN"mask"RESET);
             break;
         case RecordType_TAG:
-            printf("struct {");
+            printf(BCYAN"struct {");
             const Nodes* members = &node->payload.record_type.members;
             for (size_t i = 0; i < members->count; i++) {
                 print_node(members->nodes[i]);
                 if (i < members->count - 1)
                     printf(", ");
             }
-            printf("}");
+            printf("}"RESET);
             break;
         case FnType_TAG: {
             if (node->payload.fn_type.is_basic_block)
-                printf("cont");
+                printf(BCYAN"cont"RESET);
             else {
-                printf("fn ");
+                printf(BCYAN"fn "RESET);
                 const Nodes* returns = &node->payload.fn_type.return_types;
                 for (size_t i = 0; i < returns->count; i++) {
                     print_node(returns->nodes[i]);
@@ -212,7 +237,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         }
         case PtrType_TAG: {
-            printf("ptr(");
+            printf(BCYAN"ptr"RESET"(");
             print_ptr_addr_space(ctx, node->payload.ptr_type.address_space);
             printf(", ");
             print_node(node->payload.ptr_type.pointed_type);
@@ -220,13 +245,13 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         }
         case ArrType_TAG: {
-            printf("[");
+            printf(BCYAN"[");
             print_node(node->payload.arr_type.element_type);
             if (node->payload.arr_type.size) {
                 printf("; ");
                 print_node(node->payload.arr_type.size);
             }
-            printf("]");
+            printf("]"RESET);
             break;
         }
 
@@ -241,7 +266,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                     print_storage_qualifier_for_global(ctx, gvar->address_space);
                     printf(" ");
                     print_node(gvar->type);
-                    printf(" %s", gvar->name);
+                    printf(BYELLOW" %s"RESET, gvar->name);
                     if (gvar->init) {
                         printf(" = ");
                         print_node(gvar->init);
@@ -251,16 +276,16 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                     const Function* fun = &decl->payload.fn;
                     assert(!fun->is_basic_block && "basic blocks aren't supposed to be found at the top level");
                     print_annotations(ctx, fun->annotations);
-                    printf("fn");
-                    printf(" %s", fun->name);
+                    printf(BLUE"fn"RESET);
+                    printf(BYELLOW" %s"RESET, fun->name);
                     print_function(ctx, decl);
                     printf(";\n\n");
                 } else if (decl->tag == Constant_TAG) {
                     const Constant* cnst = &decl->payload.constant;
                     print_annotations(ctx, cnst->annotations);
-                    printf("const ");
+                    printf(BLUE"const "RESET);
                     print_node(decl->type);
-                    printf(" %s = ", cnst->name);
+                    printf(BYELLOW" %s"RESET" = ", cnst->name);
                     print_node(cnst->value);
                     printf(";\n");
                 } else error("Unammed node at the top level")
@@ -269,7 +294,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
         }
         case Annotation_TAG: {
             const Annotation* annotation = &node->payload.annotation;
-            printf("@%s", annotation->name);
+            printf(RED"@%s"RESET, annotation->name);
             switch (annotation->payload_type) {
                 case AnPayloadValue:
                     printf("(");
@@ -280,26 +305,26 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             }
             break;
         }
-        case Constant_TAG: {
-            printf("%s", node->payload.constant.name);
+
+        case Constant_TAG:
+            printf(BYELLOW"%s"RESET, node->payload.constant.name);
             break;
-        }
-        case GlobalVariable_TAG: {
-            printf("%s", node->payload.global_variable.name);
+        case GlobalVariable_TAG:
+            printf(BYELLOW"%s"RESET, node->payload.global_variable.name);
             break;
-        }
+        case Function_TAG:
+            printf(BYELLOW"%s"RESET, node->payload.fn.name);
+            break;
+
         case Variable_TAG:
-            printf("%s_%d", node->payload.var.name, node->payload.var.id);
+            printf(YELLOW"%s~%d"RESET, node->payload.var.name, node->payload.var.id);
             break;
         case Unbound_TAG:
-            printf("`%s`", node->payload.unbound.name);
+            printf(YELLOW"`%s`"RESET, node->payload.unbound.name);
             break;
         case FnAddr_TAG:
             printf("&");
             print_node(node->payload.fn_addr.fn);
-            break;
-        case Function_TAG:
-            printf("%s", node->payload.fn.name);
             break;
         case Block_TAG: {
             const Block* block = &node->payload.block;
@@ -334,45 +359,45 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         }
         case UntypedNumber_TAG:
-            printf("%s", node->payload.untyped_number.plaintext);
+            printf(BBLUE"%s"RESET, node->payload.untyped_number.plaintext);
             break;
         case IntLiteral_TAG:
             switch (node->payload.int_literal.width) {
-                case IntTy8:  printf("%" PRIu8,  node->payload.int_literal.value_i8);  break;
-                case IntTy16: printf("%" PRIu16, node->payload.int_literal.value_i16); break;
-                case IntTy32: printf("%" PRIu32, node->payload.int_literal.value_i32); break;
-                case IntTy64: printf("%" PRIu64, node->payload.int_literal.value_i64); break;
+                case IntTy8:  printf(BBLUE "%" PRIu8  RESET,  node->payload.int_literal.value_i8);  break;
+                case IntTy16: printf(BBLUE "%" PRIu16 RESET, node->payload.int_literal.value_i16); break;
+                case IntTy32: printf(BBLUE "%" PRIu32 RESET, node->payload.int_literal.value_i32); break;
+                case IntTy64: printf(BBLUE "%" PRIu64 RESET, node->payload.int_literal.value_i64); break;
                 default: error("Not a known valid int width")
             }
             break;
         case True_TAG:
-            printf("true");
+            printf(BBLUE"true"RESET);
             break;
         case False_TAG:
-            printf("false");
+            printf(BBLUE"false"RESET);
             break;
         case StringLiteral_TAG:
-            printf("\"%s\"", node->payload.string_lit.string);
+            printf(BBLUE"\"%s\""RESET, node->payload.string_lit.string);
             break;
         // ----------------- INSTRUCTIONS
         case Let_TAG:
             if (node->payload.let.variables.count > 0) {
                 if (node->payload.let.is_mutable)
-                    printf("var");
+                    printf(GREEN"var"RESET);
                 else
-                    printf("let");
+                    printf(GREEN"let"RESET);
                 for (size_t i = 0; i < node->payload.let.variables.count; i++) {
                     printf(" ");
                     print_node(node->payload.let.variables.nodes[i]->payload.var.type);
-                    printf(" %s", node->payload.let.variables.nodes[i]->payload.var.name);
-                    printf("_%d", node->payload.let.variables.nodes[i]->payload.var.id);
+                    printf(YELLOW" %s", node->payload.let.variables.nodes[i]->payload.var.name);
+                    printf("~%d"RESET, node->payload.let.variables.nodes[i]->payload.var.id);
                 }
                 printf(" = ");
             }
             print_node(node->payload.let.instruction);
             break;
         case PrimOp_TAG:
-            printf("%s(", primop_names[node->payload.prim_op.op]);
+            printf(GREEN"%s"RESET"(", primop_names[node->payload.prim_op.op]);
             for (size_t i = 0; i < node->payload.prim_op.operands.count; i++) {
                 print_node(node->payload.prim_op.operands.nodes[i]);
                 if (i + 1 < node->payload.prim_op.operands.count)
@@ -381,16 +406,18 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf(")");
             break;
         case Call_TAG:
-            printf("call ");
+            printf(GREEN"call "RESET);
             print_node(node->payload.call_instr.callee);
-            printf(" ");
+            printf("(");
             for (size_t i = 0; i < node->payload.call_instr.args.count; i++) {
-                printf(" ");
                 print_node(node->payload.call_instr.args.nodes[i]);
+                if (i + 1 < node->payload.call_instr.args.count)
+                    printf(", ");
             }
+            printf(")");
             break;
         case If_TAG:
-            printf("if");
+            printf(GREEN"if"RESET);
             print_yield_types(ctx, node->payload.if_instr.yield_types);
             printf("(");
             print_node(node->payload.if_instr.condition);
@@ -400,7 +427,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.if_instr.if_true);
             ctx->indent--;
             if (node->payload.if_instr.if_false) {
-                INDENT printf("} else {\n");
+                INDENT printf("} "GREEN"else"RESET" {\n");
                 ctx->indent++;
                 print_node(node->payload.if_instr.if_false);
                 ctx->indent--;
@@ -408,7 +435,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             INDENT printf("}");
             break;
         case Loop_TAG:
-            printf("loop");
+            printf(GREEN"loop"RESET);
             print_yield_types(ctx, node->payload.loop_instr.yield_types);
             print_param_list(ctx, node->payload.loop_instr.params, &node->payload.loop_instr.initial_args);
             printf(" {\n");
@@ -418,7 +445,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             INDENT printf("}");
             break;
         case Match_TAG:
-            printf("match");
+            printf(GREEN"match"RESET);
             print_yield_types(ctx, node->payload.match_instr.yield_types);
             printf("(");
             print_node(node->payload.match_instr.inspect);
@@ -449,7 +476,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         // --------------------- TERMINATORS
         case Return_TAG:
-            printf("return");
+            printf(BGREEN"return"RESET);
             for (size_t i = 0; i < node->payload.fn_ret.values.count; i++) {
                 printf(" ");
                 print_node(node->payload.fn_ret.values.nodes[i]);
@@ -457,14 +484,14 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         case Branch_TAG:
             switch (node->payload.branch.branch_mode) {
-                case BrTailcall: printf("tail_call ");   break;
-                case BrJump:     printf("jump ");        break;
-                case BrIfElse:   printf("br_ifelse ");   break;
-                case BrSwitch:   printf("br_switch ");   break;
+                case BrTailcall: printf(BGREEN"tail_call "RESET);   break;
+                case BrJump:     printf(BGREEN"jump "     RESET);        break;
+                case BrIfElse:   printf(BGREEN"br_ifelse "RESET);   break;
+                case BrSwitch:   printf(BGREEN"br_switch "RESET);   break;
                 default: error("unknown branch mode");
             }
             if (node->payload.branch.yield)
-                printf("yield ");
+                printf(BGREEN"yield "RESET);
             switch (node->payload.branch.branch_mode) {
                 case BrTailcall:
                 case BrJump: {
@@ -503,9 +530,9 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         case Join_TAG:
             if (node->payload.join.is_indirect)
-                printf("joinf ");
+                printf(BGREEN"joinf "RESET);
             else
-                printf("joinc ");
+                printf(BGREEN"joinc "RESET);
             print_node(node->payload.join.join_at);
             printf(" ");
             print_node(node->payload.join.desired_mask);
@@ -516,9 +543,9 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         case Callc_TAG:
             if (node->payload.callc.is_return_indirect)
-                printf("callf ");
+                printf(BGREEN"callf "RESET);
             else
-                printf("callc ");
+                printf(BGREEN"callc "RESET);
             print_node(node->payload.callc.ret_cont);
             printf(" ");
             print_node(node->payload.callc.callee);
@@ -528,10 +555,10 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             }
             break;
         case Unreachable_TAG:
-            printf("unreachable ");
+            printf(BGREEN"unreachable "RESET);
             break;
         case MergeConstruct_TAG:
-            printf("%s ", merge_what_string[node->payload.merge_construct.construct]);
+            printf(BGREEN"%s "RESET, merge_what_string[node->payload.merge_construct.construct]);
             for (size_t i = 0; i < node->payload.merge_construct.args.count; i++) {
                 print_node(node->payload.merge_construct.args.nodes[i]);
                 printf(" ");
