@@ -489,6 +489,7 @@ inline static bool is_declaration(NodeTag tag) {
 const IntLiteral* resolve_to_literal(const Node*);
 
 struct Node_ {
+    const IrArena* arena;
     const Type* type;
     NodeTag tag;
     union NodesUnion {

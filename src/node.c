@@ -51,9 +51,10 @@ static Node* create_node_helper(IrArena* arena, Node node) {
     Node node;                                                                                                                                        \
     memset((void*) &node, 0, sizeof(Node));                                                                                                           \
     node = (Node) {                                                                                                                                   \
-      .type = CALL_TYPING_METHOD_##has_typing_fn##has_payload(short_name),                                                                            \
-      .tag = struct_name##_TAG,                                                                                                                       \
-      SET_PAYLOAD_##has_payload(short_name)                                                                                                           \
+        .arena = arena,                                                                                                                                 \
+        .type = CALL_TYPING_METHOD_##has_typing_fn##has_payload(short_name),                                                                            \
+        .tag = struct_name##_TAG,                                                                                                                       \
+        SET_PAYLOAD_##has_payload(short_name)                                                                                                           \
     };                                                                                                                                                \
     return create_node_helper(arena, node);                                                                                                           \
 }
@@ -105,9 +106,10 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
-      .type = arena->config.check_types ? check_type_var(arena, variable) : NULL,
-      .tag = Variable_TAG,
-      .payload.var = variable
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_var(arena, variable) : NULL,
+        .tag = Variable_TAG,
+        .payload.var = variable
     };
     return create_node_helper(arena, node);
 }
@@ -150,9 +152,10 @@ static const Node* let_internal(IrArena* arena, bool is_mutable, Nodes* provided
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
-      .type = arena->config.check_types ? check_type_let(arena, payload) : NULL,
-      .tag = Let_TAG,
-      .payload.let = payload
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_let(arena, payload) : NULL,
+        .tag = Let_TAG,
+        .payload.let = payload
     };
     return create_node_helper(arena, node);
 }
@@ -173,9 +176,10 @@ const Node* tuple(IrArena* arena, Nodes contents) {
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
-      .type = arena->config.check_types ? check_type_tuple(arena, t) : NULL,
-      .tag = Tuple_TAG,
-      .payload.tuple = t
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_tuple(arena, t) : NULL,
+        .tag = Tuple_TAG,
+        .payload.tuple = t
     };
     return create_node_helper(arena, node);
 }
@@ -193,9 +197,10 @@ Node* fn(IrArena* arena, Nodes annotations, const char* name, bool is_basic_bloc
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
-      .type = arena->config.check_types ? check_type_fn(arena, fn) : NULL,
-      .tag = Function_TAG,
-      .payload.fn = fn
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_fn(arena, fn) : NULL,
+        .tag = Function_TAG,
+        .payload.fn = fn
     };
     return create_node_helper(arena, node);
 }
@@ -211,9 +216,10 @@ Node* constant(IrArena* arena, Nodes annotations, String name) {
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
-      .type = NULL,
-      .tag = Constant_TAG,
-      .payload.constant = cnst
+        .arena = arena,
+        .type = NULL,
+        .tag = Constant_TAG,
+        .payload.constant = cnst
     };
     return create_node_helper(arena, node);
 }
@@ -230,9 +236,10 @@ Node* global_var(IrArena* arena, Nodes annotations, const Type* type, const char
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
-      .type = arena->config.check_types ? check_type_global_variable(arena, gvar) : NULL,
-      .tag = GlobalVariable_TAG,
-      .payload.global_variable = gvar
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_global_variable(arena, gvar) : NULL,
+        .tag = GlobalVariable_TAG,
+        .payload.global_variable = gvar
     };
     return create_node_helper(arena, node);
 }

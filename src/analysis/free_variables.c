@@ -77,7 +77,6 @@ struct List* compute_free_variables(const Node* entry) {
             .visit_fn_scope_rpo = true,
             .visit_cf_targets = false,
             .visit_return_fn_annotation = false,
-            .visit_callf_return_fn_annotation = false,
         },
         .ignore_set = ignore_set,
         .free_list = free_list,

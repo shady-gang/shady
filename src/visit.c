@@ -8,7 +8,8 @@
 
 static void visit_nodes(Visitor* visitor, Nodes nodes) {
     for (size_t i = 0; i < nodes.count; i++) {
-        visitor->visit_fn(visitor, nodes.nodes[i]);
+        if (nodes.nodes[i])
+            visitor->visit_fn(visitor, nodes.nodes[i]);
     }
 }
 
@@ -26,38 +27,59 @@ void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
 }
 
 void visit_children(Visitor* visitor, const Node* node) {
+    if (!node_type_has_payload[node->tag])
+        return;
+
     switch(node->tag) {
-        case Constant_TAG: {
-            visit(node->payload.constant.value);
-            visit(node->payload.constant.type_hint);
+        // Types
+        case MaskType_TAG:
+        case NoRet_TAG:
+        case Unit_TAG:
+        case Int_TAG:
+        case Float_TAG:
+        case Bool_TAG: break;
+        case RecordType_TAG: {
+            visit_nodes(visitor, node->payload.record_type.members);
             break;
         }
-        case Function_TAG: {
-            visit_nodes(visitor, node->payload.fn.params);
-            visit_nodes(visitor, node->payload.fn.return_types);
-            visit(node->payload.fn.block);
-
-            if (visitor->visit_fn_scope_rpo && !node->payload.fn.is_basic_block)
-                visit_fn_blocks_except_head(visitor, node);
-
+        case FnType_TAG: {
+            visit_nodes(visitor, node->payload.fn_type.param_types);
+            visit_nodes(visitor, node->payload.fn_type.return_types);
             break;
         }
-        case Block_TAG: {
-            visit_nodes(visitor, node->payload.block.instructions);
-            visit(node->payload.block.terminator);
+        case PtrType_TAG: {
+            visit(node->payload.ptr_type.pointed_type);
             break;
         }
-        case ParsedBlock_TAG: {
-            visit_nodes(visitor, node->payload.parsed_block.instructions);
-            visit(node->payload.parsed_block.terminator);
-            visit_nodes(visitor, node->payload.parsed_block.continuations_vars);
-            visit_nodes(visitor, node->payload.parsed_block.continuations);
+        case QualifiedType_TAG: {
+            visit(node->payload.qualified_type.type);
             break;
         }
-        case Root_TAG: {
-            visit_nodes(visitor, node->payload.root.declarations);
+        case ArrType_TAG: {
+            visit(node->payload.arr_type.element_type);
+            visit(node->payload.arr_type.size);
             break;
         }
+        // Values
+        case Variable_TAG: {
+            visit(node->payload.var.type);
+            break;
+        }
+        case Unbound_TAG:
+        case IntLiteral_TAG:
+        case UntypedNumber_TAG:
+        case True_TAG:
+        case False_TAG:
+        case StringLiteral_TAG: break;
+        case Tuple_TAG: {
+            visit_nodes(visitor, node->payload.tuple.contents);
+            break;
+        }
+        case FnAddr_TAG: {
+            visit(node->payload.fn_addr.fn);
+            break;
+        }
+        // Instructions
         case Let_TAG: {
             visit_nodes(visitor, node->payload.let.variables);
             visit(node->payload.let.instruction);
@@ -93,18 +115,7 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.loop_instr.initial_args);
             break;
         }
-        case Return_TAG: {
-            if (visitor->visit_return_fn_annotation)
-                visit(node->payload.fn_ret.fn);
-            visit_nodes(visitor, node->payload.fn_ret.values);
-            break;
-        }
-        case Join_TAG: {
-            if (visitor->visit_cf_targets)
-                visit(node->payload.join.join_at);
-            visit_nodes(visitor, node->payload.join.args);
-            break;
-        }
+        // Terminators
         case Branch_TAG: {
             switch (node->payload.branch.branch_mode) {
                 case BrTailcall:
@@ -123,8 +134,10 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.branch.args);
             break;
         }
-        case MergeConstruct_TAG: {
-            visit_nodes(visitor, node->payload.merge_construct.args);
+        case Join_TAG: {
+            if (visitor->visit_cf_targets)
+                visit(node->payload.join.join_at);
+            visit_nodes(visitor, node->payload.join.args);
             break;
         }
         case Callc_TAG: {
@@ -135,6 +148,67 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.callc.args);
             break;
         }
-        default: error("implement me");
+        case Return_TAG: {
+            if (visitor->visit_return_fn_annotation)
+                visit(node->payload.fn_ret.fn);
+            visit_nodes(visitor, node->payload.fn_ret.values);
+            break;
+        }
+        case MergeConstruct_TAG: {
+            visit_nodes(visitor, node->payload.merge_construct.args);
+            break;
+        }
+        case Unreachable_TAG: break;
+
+        // Decls
+        case Constant_TAG: {
+            visit_nodes(visitor, node->payload.constant.annotations);
+            visit(node->payload.constant.value);
+            visit(node->payload.constant.type_hint);
+            break;
+        }
+        case Function_TAG: {
+            visit_nodes(visitor, node->payload.fn.annotations);
+            visit_nodes(visitor, node->payload.fn.params);
+            visit_nodes(visitor, node->payload.fn.return_types);
+            visit(node->payload.fn.block);
+
+            if (visitor->visit_fn_scope_rpo && !node->payload.fn.is_basic_block)
+                visit_fn_blocks_except_head(visitor, node);
+
+            break;
+        }
+        case GlobalVariable_TAG: {
+            visit_nodes(visitor, node->payload.global_variable.annotations);
+            visit(node->payload.global_variable.type);
+            visit(node->payload.global_variable.init);
+            break;
+        }
+        // Misc.
+        case Annotation_TAG: {
+            switch (node->payload.annotation.payload_type) {
+                case AnPayloadNone: break;
+                case AnPayloadValue: visit(node->payload.annotation.value); break;
+                default: error("TODO");
+            }
+            break;
+        }
+        case Block_TAG: {
+            visit_nodes(visitor, node->payload.block.instructions);
+            visit(node->payload.block.terminator);
+            break;
+        }
+        case ParsedBlock_TAG: {
+            visit_nodes(visitor, node->payload.parsed_block.instructions);
+            visit(node->payload.parsed_block.terminator);
+            visit_nodes(visitor, node->payload.parsed_block.continuations_vars);
+            visit_nodes(visitor, node->payload.parsed_block.continuations);
+            break;
+        }
+        case Root_TAG: {
+            visit_nodes(visitor, node->payload.root.declarations);
+            break;
+        }
+        default: assert(false);
     }
 }

@@ -13,7 +13,6 @@ struct Visitor_ {
    // Enabling this will make visit_children visit targets of control flow terminators, be wary this could cause infinite loops
    bool visit_cf_targets;
    bool visit_return_fn_annotation;
-   bool visit_callf_return_fn_annotation;
 };
 
 void visit_children(Visitor*, const Node*);

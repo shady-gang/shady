@@ -19,6 +19,7 @@ set(SHADY_SOURCES
 
     analysis/scope.c
     analysis/free_variables.c
+    analysis/verify.c
 
     transform/import.c
     transform/memory_layout.c
