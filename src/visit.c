@@ -16,7 +16,7 @@ static void visit_nodes(Visitor* visitor, Nodes nodes) {
 
 void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
     assert(function->tag == Function_TAG);
-    assert(!function->payload.fn.atttributes.is_continuation);
+    assert(!function->payload.fn.is_basic_block);
     Scope scope = build_scope(function);
     assert(scope.rpo[0]->node == function);
     for (size_t i = 1; i < scope.size; i++) {
@@ -37,7 +37,7 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.fn.return_types);
             visit(node->payload.fn.block);
 
-            if (visitor->visit_fn_scope_rpo && !node->payload.fn.atttributes.is_continuation)
+            if (visitor->visit_fn_scope_rpo && !node->payload.fn.is_basic_block)
                 visit_fn_blocks_except_head(visitor, node);
 
             break;

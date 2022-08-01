@@ -596,7 +596,7 @@ static SpvId emit_type(Emitter* emitter, const Type* type) {
         }
         case FnType_TAG: {
             const FnType* fnt = &type->payload.fn_type;
-            assert(!fnt->is_continuation);
+            assert(!fnt->is_basic_block);
             LARRAY(SpvId, params, fnt->param_types.count);
             for (size_t i = 0; i < fnt->param_types.count; i++)
                 params[i] = emit_type(emitter, fnt->param_types.nodes[i]);

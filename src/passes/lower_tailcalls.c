@@ -11,6 +11,7 @@
 #include "dict.h"
 
 #include <assert.h>
+#include <string.h>
 
 typedef uint32_t FnPtr;
 
@@ -115,6 +116,36 @@ static const Node* rewrite_block(Context* ctx, const Node* old_block, BlockBuild
     return finish_block(block_builder, new_terminator);
 }
 
+/// Turn a function into a top-level entry point, calling into the top dispatch function.
+static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    // For the lifted entry point, we keep _all_ annotations
+    Node* new_entry_pt = fn(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fn.annotations), old->payload.fn.name, true, old->payload.fn.params, nodes(dst_arena, 0, NULL));
+    append_list(const Node*, ctx->new_decls, new_entry_pt);
+
+    BlockBuilder* builder = begin_block(dst_arena);
+    for (size_t i = fun->payload.fn.params.count - 1; i < fun->payload.fn.params.count; i--) {
+        gen_push_value_stack(builder, fun->payload.fn.params.nodes[i]);
+    }
+
+    gen_store(builder, ctx->next_fn_var, lower_fn_addr(ctx, fun));
+    const Node* entry_mask = gen_primop(builder, (PrimOp) {
+        .op = subgroup_active_mask_op,
+        .operands = nodes(dst_arena, 0, NULL)
+    }).nodes[0];
+    gen_store(builder, ctx->next_mask_var, entry_mask);
+
+    append_block(builder, call_instr(dst_arena, (Call) {
+        .callee = ctx->god_fn,
+        .args = nodes(dst_arena, 0, NULL)
+    }));
+
+    new_entry_pt->payload.fn.block = finish_block(builder, fn_ret(dst_arena, (Return) {
+        .fn = NULL,
+        .values = nodes(dst_arena, 0, NULL)
+    }));
+}
+
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (old->tag) {
@@ -125,38 +156,32 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             return new;
         }
         case Function_TAG: {
-            FnAttributes nattrs = old->payload.fn.atttributes;
-            nattrs.entry_point_type = NotAnEntryPoint;
-            String new_name = nattrs.is_continuation ? old->payload.fn.name : format_string(dst_arena, "%s_leaf", old->payload.fn.name);
+            // rename top functions
+            String new_name = old->payload.fn.is_basic_block ? old->payload.fn.name : format_string(dst_arena, "%s_leaf", old->payload.fn.name);
 
-            Node* fun = fn(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fn.annotations), nattrs, new_name, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
+            const Node* entry_point_annotation = NULL;
 
-            if (old->payload.fn.atttributes.entry_point_type != NotAnEntryPoint) {
-                Nodes new_entry_pt_annotations = nodes(dst_arena, 0, NULL);
-                Node* new_entry_pt = fn(dst_arena, new_entry_pt_annotations, old->payload.fn.atttributes, old->payload.fn.name, old->payload.fn.params, nodes(dst_arena, 0, NULL));
-                append_list(const Node*, ctx->new_decls, new_entry_pt);
+            Nodes old_annotations = old->payload.fn.annotations;
+            LARRAY(const Node*, new_annotations, old_annotations.count);
+            size_t new_annotations_count = 0;
+            for (size_t i = 0; i < old_annotations.count; i++) {
+                const Node* annotation = rewrite_node(&ctx->rewriter, old_annotations.nodes[i]);
 
-                BlockBuilder* builder = begin_block(dst_arena);
-                for (size_t i = fun->payload.fn.params.count - 1; i < fun->payload.fn.params.count; i--) {
-                    gen_push_value_stack(builder, fun->payload.fn.params.nodes[i]);
+                // Entry point annotations are removed
+                if (strcmp(annotation->payload.annotation.name, "EntryPoint") == 0) {
+                    assert(!entry_point_annotation && "Only one entry point annotation is permitted.");
+                    assert(!old->payload.fn.is_basic_block && "Basic blocks can't be entry points.");
+                    entry_point_annotation = annotation;
+                    continue;
                 }
+                new_annotations[new_annotations_count] = annotation;
+                new_annotations_count++;
+            }
 
-                gen_store(builder, ctx->next_fn_var, lower_fn_addr(ctx, fun));
-                const Node* entry_mask = gen_primop(builder, (PrimOp) {
-                    .op = subgroup_active_mask_op,
-                    .operands = nodes(dst_arena, 0, NULL)
-                }).nodes[0];
-                gen_store(builder, ctx->next_mask_var, entry_mask);
+            Node* fun = fn(dst_arena, nodes(dst_arena, new_annotations_count, new_annotations), new_name, old->payload.fn.is_basic_block, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
 
-                append_block(builder, call_instr(dst_arena, (Call) {
-                    .callee = ctx->god_fn,
-                    .args = nodes(dst_arena, 0, NULL)
-                }));
-
-                new_entry_pt->payload.fn.block = finish_block(builder, fn_ret(dst_arena, (Return) {
-                    .fn = NULL,
-                    .values = nodes(dst_arena, 0, NULL)
-                }));
+            if (entry_point_annotation) {
+                lift_entry_point(ctx, old, fun);
             }
 
             register_processed(&ctx->rewriter, old, fun);
@@ -272,7 +297,7 @@ const Node* lower_callf(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
 
     Nodes top_dispatcher_annotations = nodes(dst_arena, 0, NULL);
-    Node* dispatcher_fn = fn(dst_arena, top_dispatcher_annotations, (FnAttributes) {.entry_point_type = NotAnEntryPoint, .is_continuation = false}, "top_dispatcher", nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
+    Node* dispatcher_fn = fn(dst_arena, top_dispatcher_annotations, "top_dispatcher", false, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
     append_list(const Node*, new_decls_list, dispatcher_fn);
 
     Context ctx = {

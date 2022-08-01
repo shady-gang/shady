@@ -86,7 +86,7 @@ static Node* rewrite_fn_head(Context* ctx, const Node* node) {
         nparams[i] = new_param;
     }
 
-    return fn(dst_arena, bind_nodes(ctx, node->payload.fn.annotations), node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, params_count, nparams), bind_nodes(ctx, node->payload.fn.return_types));
+    return fn(dst_arena, bind_nodes(ctx, node->payload.fn.annotations), string(dst_arena, node->payload.fn.name), node->payload.fn.is_basic_block, nodes(dst_arena, params_count, nparams), bind_nodes(ctx, node->payload.fn.return_types));
 }
 
 static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
@@ -108,12 +108,11 @@ static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
         printf("Bound param %s\n", entry->name);
     }
 
-    if (!node->payload.fn.atttributes.is_continuation) {
+    if (node->payload.fn.is_basic_block) {
+        assert(body_infer_ctx.current_function && "basic blocks should be nested inside functions");
+    } else {
         assert(ctx->current_function == NULL);
         body_infer_ctx.current_function = target;
-    } else {
-        // maybe not beneficial/relevant
-        assert(body_infer_ctx.current_function != NULL);
     }
     target->payload.fn.block = bind_node(&body_infer_ctx, node->payload.fn.block);
 }

@@ -55,7 +55,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 case Return_TAG: {
                     Nodes nargs = rewrite_nodes(&ctx->rewriter, terminator->payload.fn_ret.values);
                     const Type* return_type = fn_type(dst_arena, (FnType) {
-                        .is_continuation = false,
+                        .is_basic_block = false,
                         .param_types = extract_types(dst_arena, nargs),
                         .return_types = nodes(dst_arena, 0, NULL)
                     });

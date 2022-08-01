@@ -88,10 +88,10 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
 
     clear_dict(ctx->spilled);
 
-    FnAttributes new_attributes = cont->payload.fn.atttributes;
-    new_attributes.is_continuation = false;
+    // Keep annotations the same
+    Nodes annotations = rewrite_nodes(&ctx->rewriter, cont->payload.fn.annotations);
 
-    Node* new_fn = fn(dst_arena, rewrite_nodes(&ctx->rewriter, cont->payload.fn.annotations), new_attributes, cont->payload.fn.name, new_params, nodes(dst_arena, 0, NULL));
+    Node* new_fn = fn(dst_arena, annotations, cont->payload.fn.name, false, new_params, nodes(dst_arena, 0, NULL));
     new_fn->payload.fn.block = block(dst_arena, (Block) {
         .instructions = new_block_instructions,
         .terminator = new_terminator,

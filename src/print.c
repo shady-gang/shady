@@ -190,7 +190,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("}");
             break;
         case FnType_TAG: {
-            if (node->payload.fn_type.is_continuation)
+            if (node->payload.fn_type.is_basic_block)
                 printf("cont");
             else {
                 printf("fn ");
@@ -249,15 +249,9 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                     printf(";\n");
                 } else if (decl->tag == Function_TAG) {
                     const Function* fun = &decl->payload.fn;
-                    assert(!fun->atttributes.is_continuation);
+                    assert(!fun->is_basic_block && "basic blocks aren't supposed to be found at the top level");
                     print_annotations(ctx, fun->annotations);
                     printf("fn");
-                    switch (fun->atttributes.entry_point_type) {
-                        case Compute: printf(" @compute"); break;
-                        case Fragment: printf(" @fragment"); break;
-                        case Vertex: printf(" @vertex"); break;
-                        default: break;
-                    }
                     printf(" %s", fun->name);
                     print_function(ctx, decl);
                     printf(";\n\n");

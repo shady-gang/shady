@@ -126,7 +126,7 @@ static const Node* infer_fn(Context* ctx, const Node* node) {
 
     Nodes nret_types = infer_types(ctx, node->payload.fn.return_types);
 
-    Node* fun = fn(dst_arena, infer_annotations(ctx, node->payload.fn.annotations), node->payload.fn.atttributes, string(dst_arena, node->payload.fn.name), nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
+    Node* fun = fn(dst_arena, infer_annotations(ctx, node->payload.fn.annotations), string(dst_arena, node->payload.fn.name), node->payload.fn.is_basic_block, nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
     register_processed(&ctx->rewriter, node, fun);
 
     const Node* nblock = infer_block(&body_context, node->payload.fn.block);
@@ -402,7 +402,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                     assert(get_qualifier(ntarget->type) == Uniform);
                     assert(without_qualifier(ntarget->type)->tag == FnType_TAG);
                     const FnType* tgt_type = &without_qualifier(ntarget->type)->payload.fn_type;
-                    assert(tgt_type->is_continuation);
+                    assert(tgt_type->is_basic_block);
 
                     LARRAY(const Node*, tmp, node->payload.branch.args.count);
                     for (size_t i = 0; i < node->payload.branch.args.count; i++)
@@ -426,12 +426,12 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                     assert(get_qualifier(t_target->type) == Uniform);
                     assert(without_qualifier(t_target->type)->tag == FnType_TAG);
                     const FnType* t_tgt_type = &without_qualifier(t_target->type)->payload.fn_type;
-                    assert(t_tgt_type->is_continuation);
+                    assert(t_tgt_type->is_basic_block);
 
                     assert(get_qualifier(f_target->type) == Uniform);
                     assert(without_qualifier(f_target->type)->tag == FnType_TAG);
                     const FnType* f_tgt_type = &without_qualifier(f_target->type)->payload.fn_type;
-                    assert(f_tgt_type->is_continuation);
+                    assert(f_tgt_type->is_basic_block);
 
                     // TODO: unify the two target types
 

@@ -180,11 +180,11 @@ const Node* tuple(IrArena* arena, Nodes contents) {
     return create_node_helper(arena, node);
 }
 
-Node* fn(IrArena* arena, Nodes annotations, FnAttributes attributes, const char* name, Nodes params, Nodes return_types) {
+Node* fn(IrArena* arena, Nodes annotations, const char* name, bool is_basic_block, Nodes params, Nodes return_types) {
     Function fn = {
         .annotations = annotations,
         .name = string(arena, name),
-        .atttributes = attributes,
+        .is_basic_block = is_basic_block,
         .params = params,
         .return_types = return_types,
         .block = NULL,
@@ -299,7 +299,7 @@ case QualifiedType_TAG: {             \
     break;                            \
 }                                     \
 case FnType_TAG: {                    \
-    field(fn_type.is_continuation);   \
+    field(fn_type.is_basic_block);    \
     field(fn_type.return_types);      \
     field(fn_type.param_types);       \
     break;                            \

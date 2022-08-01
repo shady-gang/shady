@@ -147,7 +147,7 @@ typedef struct RecordType_ {
 } RecordType;
 
 typedef struct FnType_ {
-    bool is_continuation;
+    bool is_basic_block;
     Nodes param_types;
     Nodes return_types;
 } FnType;
@@ -240,15 +240,16 @@ typedef struct Annotation_ {
     };
 } Annotation;
 
-typedef struct FnAttributes_ {
-    bool is_continuation;
-    EntryPointType entry_point_type;
-} FnAttributes;
+const Node*  lookup_annotation(const Node* decl, const char* name);
+const Node*  extract_annotation_payload(const Node* annotation);
+const Nodes* extract_annotation_payloads(const Node* annotation);
+/// Gets the string literal attached to an annotation, if present.
+const char*  extract_annotation_string_payload(const Node* annotation);
 
 typedef struct Function_ {
     Nodes annotations;
     String name;
-    FnAttributes atttributes;
+    bool is_basic_block;
     Nodes params;
     const Node* block;
     Nodes return_types;
@@ -520,7 +521,7 @@ const Node* let_mut(IrArena* arena, const Node* instruction, Nodes types, size_t
 
 const Node* tuple(IrArena* arena, Nodes contents);
 
-Node* fn(IrArena*,         Nodes annotations, FnAttributes, const char* name, Nodes params, Nodes return_types);
+Node* fn(IrArena*,         Nodes annotations, const char* name, bool, Nodes params, Nodes return_types);
 Node* constant(IrArena*,   Nodes annotations, const char* name);
 Node* global_var(IrArena*, Nodes annotations, const Type*, String, AddressSpace);
 

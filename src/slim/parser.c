@@ -691,8 +691,8 @@ static const Node* expect_block(ctxparams, const Node* implicit_join) {
         struct List* conts = new_list(Node*);
         struct List* names = new_list(Node*);
         while (true) {
-            const char* identifier = accept_identifier(ctx);
-            if (!identifier)
+            const char* name = accept_identifier(ctx);
+            if (!name)
                 break;
             expect(accept_token(ctx, colon_tok));
 
@@ -700,16 +700,12 @@ static const Node* expect_block(ctxparams, const Node* implicit_join) {
             expect_parameters(ctx, &parameters, NULL);
             const Node* block = expect_block(ctx, NULL);
 
-            FnAttributes attributes = {
-                .is_continuation = true,
-                .entry_point_type = NotAnEntryPoint
-            };
-            Node* continuation = fn(arena, nodes(arena, 0, NULL), attributes, identifier, parameters, nodes(arena, 0, NULL));
+            Node* continuation = fn(arena, nodes(arena, 0, NULL), name, true, parameters, nodes(arena, 0, NULL));
             continuation->payload.fn.block= block;
             const Node* contvar = var(arena, qualified_type(arena, (QualifiedType) {
                 .type = derive_fn_type(arena, &continuation->payload.fn),
                 .is_uniform = true
-            }), identifier);
+            }), name);
             append_list(Node*, conts, continuation);
             append_list(Node*, names, contvar);
         }
@@ -800,13 +796,8 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     if (!accept_token(ctx, fn_tok))
         return NULL;
 
-    FnAttributes attributes = {
-        .is_continuation = false,
-        .entry_point_type = NotAnEntryPoint
-    };
-
-    const char* id = accept_identifier(ctx);
-    expect(id);
+    const char* name = accept_identifier(ctx);
+    expect(name);
     Nodes types = accept_types(ctx, comma_tok, false);
     expect(curr_token(tokenizer).tag == lpar_tok);
     Nodes parameters;
@@ -814,7 +805,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
 
     const Node* block = expect_block(ctx, types.count == 0 ? fn_ret(arena, (Return) { .values = types }) : NULL);
 
-    Node *function = fn(arena, annotations, attributes, id, parameters, types);
+    Node *function = fn(arena, annotations, name, false, parameters, types);
     function->payload.fn.block = block;
 
     const Node* declaration = function;

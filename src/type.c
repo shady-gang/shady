@@ -45,7 +45,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
             return true;
         }
         case FnType_TAG:
-            if (supertype->payload.fn.atttributes.is_continuation != type->payload.fn.atttributes.is_continuation)
+            if (supertype->payload.fn.is_basic_block != type->payload.fn.is_basic_block)
                 return false;
             // check returns
             if (supertype->payload.fn.return_types.count != type->payload.fn.return_types.count)
@@ -121,11 +121,11 @@ Nodes extract_types(IrArena* arena, Nodes values) {
 }
 
 const Type* derive_fn_type(IrArena* arena, const Function* fn) {
-    return fn_type(arena, (FnType) { .is_continuation = fn->atttributes.is_continuation, .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
+    return fn_type(arena, (FnType) { .is_basic_block = fn->is_basic_block, .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
 }
 
 const Type* check_type_fn(IrArena* arena, Function fn) {
-    assert(!fn.atttributes.is_continuation || fn.return_types.count == 0);
+    assert(!fn.is_basic_block || fn.return_types.count == 0);
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = derive_fn_type(arena, &fn)

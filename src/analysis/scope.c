@@ -75,7 +75,7 @@ Scope build_scope(const Node* entry) {
 
         assert(element->tag == Function_TAG);
         // const Function* fn = &element->payload.fn;
-        // assert(fn->atttributes.is_continuation || element == entry);
+        // assert(fn->atttributes.is_basic_block || element == entry);
 
         const Block* block = &element->payload.fn.block->payload.block;
         assert(element->payload.fn.block);

@@ -55,7 +55,7 @@ static void visit_fv(VisitorFV* visitor, const Node* node) {
 
             visit_fv(visitor, entry_block->terminator);
 
-            if (!fun->atttributes.is_continuation)
+            if (!fun->is_basic_block)
                 visit_fn_blocks_except_head(&visitor->visitor, node);
             break;
         }

@@ -15,6 +15,7 @@ set(SHADY_SOURCES
     log.c
     util.c
     compile.c
+    annotation.c
 
     analysis/scope.c
     analysis/free_variables.c
