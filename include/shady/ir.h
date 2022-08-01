@@ -67,22 +67,6 @@ NODEDEF(1, 0, 1, PtrType, ptr_type) \
 NODEDEF(1, 1, 1, QualifiedType, qualified_type) \
 NODEDEF(1, 0, 1, ArrType, arr_type) \
 
-#define INSTRUCTION_NODES() \
-NODEDEF(1, 1, 1, PrimOp, prim_op)  \
-NODEDEF(1, 1, 1, Call, call_instr)  \
-NODEDEF(1, 1, 1, If, if_instr) \
-NODEDEF(1, 1, 1, Match, match_instr) \
-NODEDEF(1, 1, 1, Loop, loop_instr) \
-NODEDEF(0, 1, 1, Let, let) \
-
-#define TERMINATOR_NODES() \
-NODEDEF(1, 1, 1, Branch, branch) \
-NODEDEF(1, 1, 1, Join, join) \
-NODEDEF(1, 1, 1, Callc, callc) \
-NODEDEF(1, 1, 1, Return, fn_ret) \
-NODEDEF(1, 0, 1, MergeConstruct, merge_construct) \
-NODEDEF(1, 0, 0, Unreachable, unreachable) \
-
 #define VALUE_NODES() \
 NODEDEF(0, 1, 1, Variable, var) \
 NODEDEF(1, 0, 1, Unbound, unbound) \
@@ -93,6 +77,22 @@ NODEDEF(1, 1, 0, False, false_lit) \
 NODEDEF(1, 0, 1, StringLiteral, string_lit) \
 NODEDEF(0, 1, 1, Tuple, tuple) \
 NODEDEF(1, 1, 1, FnAddr, fn_addr) \
+
+#define INSTRUCTION_NODES() \
+NODEDEF(0, 1, 1, Let, let) \
+NODEDEF(1, 1, 1, PrimOp, prim_op)  \
+NODEDEF(1, 1, 1, Call, call_instr)  \
+NODEDEF(1, 1, 1, If, if_instr) \
+NODEDEF(1, 1, 1, Match, match_instr) \
+NODEDEF(1, 1, 1, Loop, loop_instr) \
+
+#define TERMINATOR_NODES() \
+NODEDEF(1, 1, 1, Branch, branch) \
+NODEDEF(1, 1, 1, Join, join) \
+NODEDEF(1, 1, 1, Callc, callc) \
+NODEDEF(1, 1, 1, Return, fn_ret) \
+NODEDEF(1, 0, 1, MergeConstruct, merge_construct) \
+NODEDEF(1, 0, 0, Unreachable, unreachable) \
 
 #define NODES() \
 VALUE_NODES() \
