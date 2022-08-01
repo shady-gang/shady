@@ -246,6 +246,8 @@ const Nodes* extract_annotation_payloads(const Node* annotation);
 /// Gets the string literal attached to an annotation, if present.
 const char*  extract_annotation_string_payload(const Node* annotation);
 
+bool lookup_annotation_with_string_payload(const Node* decl, const char* annotation_name, const char* expected_payload);
+
 typedef struct Function_ {
     Nodes annotations;
     String name;

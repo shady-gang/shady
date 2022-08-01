@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <string.h>
 
-const Node* lookup_annotation(const Node* decl, const char* name) {
+static const Node* search_annotations(const Node* decl, const char* name, size_t* i) {
     assert(decl);
     const Nodes* annotations = NULL;
     switch (decl->tag) {
@@ -14,14 +14,21 @@ const Node* lookup_annotation(const Node* decl, const char* name) {
         default: error("Not a declaration")
     }
 
-    for (size_t i = 0; i < annotations->count; i++) {
-        const Node* annotation = annotations->nodes[i];
+    while (*i < annotations->count) {
+        const Node* annotation = annotations->nodes[*i];
+        (*i)++;
         assert(annotation->tag == Annotation_TAG);
-        if (strcmp(annotation->payload.annotation.name, name) == 0)
+        if (strcmp(annotation->payload.annotation.name, name) == 0) {
             return annotation;
+        }
     }
 
     return NULL;
+}
+
+const Node* lookup_annotation(const Node* decl, const char* name) {
+    size_t i = 0;
+    return search_annotations(decl, name, &i);
 }
 
 const Node* extract_annotation_payload(const Node* annotation) {
@@ -45,4 +52,14 @@ const char*  extract_annotation_string_payload(const Node* annotation) {
     if (payload->tag != StringLiteral_TAG)
         error("Wrong annotation payload tag, expected a string literal")
     return payload->payload.string_lit.string;
+}
+
+bool lookup_annotation_with_string_payload(const Node* decl, const char* annotation_name, const char* expected_payload) {
+    size_t i = 0;
+    while (true) {
+        const Node* next = search_annotations(decl, annotation_name, &i);
+        if (!next) return false;
+        if (strcmp(extract_annotation_string_payload(next), expected_payload) == 0)
+            return true;
+    }
 }
