@@ -89,7 +89,7 @@ void visit_children(Visitor* visitor, const Node* node) {
             break;
         }
         case Call_TAG: {
-            visit(node->payload.call_instr.callee);
+            // visit(node->payload.call_instr.callee);
             visit_nodes(visitor, node->payload.call_instr.args);
             break;
         }

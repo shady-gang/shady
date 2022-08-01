@@ -37,9 +37,9 @@ CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrAre
     RUN_PASS(lower_cf_instrs)
     RUN_PASS(lower_callc)
     RUN_PASS(lower_callf)
-    RUN_PASS(lower_stack)
     RUN_PASS(lower_tailcalls)
     RUN_PASS(lower_mask)
+    RUN_PASS(lower_stack)
     RUN_PASS(lower_physical_ptrs)
 
     return CompilationNoError;

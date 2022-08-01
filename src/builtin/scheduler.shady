@@ -6,7 +6,7 @@ subgroup mask next_mask;
 subgroup [i32; 64] resume_at;
 subgroup [mask; 64] resume_with;
 
-@Builtin @DisablePass("lower_cf_instrs")
+@Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls")
 fn builtin_branch(varying i32 branch_destination) {
     // First ask the first thread where it thinks we should branch, and all the threads that agree are set to go there
     let first_branch = subgroup_broadcast_first(branch_destination);
@@ -32,7 +32,7 @@ fn builtin_branch(varying i32 branch_destination) {
     }
 }
 
-@Builtin @DisablePass("lower_cf_instrs")
+@Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls")
 fn builtin_yield(uniform i32 resume_target) {
     resume_at[subgroup_local_id()] = resume_target;
     resume_with[subgroup_local_id()] = subgroup_active_mask();
@@ -45,7 +45,7 @@ fn builtin_yield(uniform i32 resume_target) {
     }
 }
 
-@Builtin @DisablePass("lower_cf_instrs")
+@Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls")
 fn builtin_join(uniform i32 join_at, uniform mask join_with) {
     let active_mask = subgroup_active_mask();
     var bool clear = true;
@@ -84,7 +84,7 @@ fn builtin_join(uniform i32 join_at, uniform mask join_with) {
 subgroup i32 scheduler_selector = 0;
 subgroup bool fail = false;
 
-@Builtin @DisablePass("lower_cf_instrs")
+@Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls")
 fn builtin_rotate_active_branch() {
     // Try rotating the next thread N times...
     // for (i32 i = 0; i < MASK_SIZE; i++) {

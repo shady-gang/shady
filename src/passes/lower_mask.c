@@ -10,6 +10,9 @@ typedef struct {
 } Context;
 
 const Node* process(Context* ctx, const Node* node) {
+    const Node* found = search_processed(&ctx->rewriter, node);
+    if (found) return found;
+
     if (node->tag == MaskType_TAG)
         return int64_type(ctx->rewriter.dst_arena);
     else if (is_declaration(node->tag)) {
