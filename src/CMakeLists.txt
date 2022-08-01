@@ -34,6 +34,7 @@ set(SHADY_SOURCES
     passes/lower_stack.c
     passes/lower_physical_ptrs.c
     passes/lower_tailcalls.c
+    passes/lower_mask.c
     emit/emit.c
     emit/spirv_builder.c)
 
