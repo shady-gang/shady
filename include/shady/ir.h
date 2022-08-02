@@ -338,6 +338,7 @@ PRIMOP(0, lea)                      \
 PRIMOP(0, select)                   \
 PRIMOP(0, convert)                  \
 PRIMOP(0, reinterpret)              \
+PRIMOP(0, extract)                  \
 PRIMOP(1, push_stack)               \
 PRIMOP(1, pop_stack)                \
 PRIMOP(1, push_stack_uniform)       \
@@ -555,6 +556,13 @@ inline static const Type* int64_type(IrArena* arena) { return int_type(arena, (I
 typedef struct {
     bool check_types;
     bool allow_fold;
+    /// Selects which type the subgroup intrinsic primops use to manipulate masks
+    enum {
+        /// Uses the MaskType
+        SubgroupMaskAbstract,
+        /// Uses four packed 32-bit integers
+        SubgroupMaskSpvKHRBallot
+    } subgroup_mask_representation;
 } ArenaConfig;
 
 IrArena* new_arena(ArenaConfig);

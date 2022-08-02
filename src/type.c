@@ -432,6 +432,9 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = without_qualifier(prim_op.operands.nodes[2]->type)
             });
         }
+        case extract_op: {
+
+        }
         case empty_mask_op:
         case subgroup_active_mask_op: {
             assert(prim_op.operands.count == 0);
