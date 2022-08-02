@@ -27,4 +27,6 @@ inline static void check_c11() {
     #define SHADY_FALLTHROUGH __attribute__((fallthrough));
 #endif
 
+void platform_specific_terminal_init_extras();
+
 #endif

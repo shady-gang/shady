@@ -1,6 +1,7 @@
 #include "shady/ir.h"
 
 #include "../log.h"
+#include "../portability.h"
 #include "../passes/passes.h"
 #include "parser.h"
 
@@ -81,6 +82,8 @@ static void process_arguments(int argc, const char** argv) {
 }
 
 int main(int argc, const char** argv) {
+    platform_specific_terminal_init_extras();
+
     IrArena* arena = new_arena((ArenaConfig) {
         .check_types = false
     });
