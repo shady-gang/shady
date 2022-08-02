@@ -59,6 +59,10 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit(node->payload.arr_type.size);
             break;
         }
+        case PackType_TAG: {
+            visit(node->payload.pack_type.element_type);
+            break;
+        }
         // Values
         case Variable_TAG: {
             visit(node->payload.var.type);

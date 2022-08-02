@@ -66,6 +66,7 @@ NODEDEF(1, 0, 1, FnType, fn_type) \
 NODEDEF(1, 0, 1, PtrType, ptr_type) \
 NODEDEF(1, 1, 1, QualifiedType, qualified_type) \
 NODEDEF(1, 0, 1, ArrType, arr_type) \
+NODEDEF(1, 0, 1, PackType, pack_type) \
 
 #define VALUE_NODES() \
 NODEDEF(0, 1, 1, Variable, var) \
@@ -172,6 +173,11 @@ typedef enum {
 typedef struct Int_ {
     IntSizes width;
 } Int;
+
+typedef struct PackType_ {
+    const Type* element_type;
+    int width;
+} PackType;
 
 //////////////////////////////// Values ////////////////////////////////
 

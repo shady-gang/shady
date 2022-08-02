@@ -254,6 +254,13 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("]"RESET);
             break;
         }
+        case PackType_TAG: {
+            printf(BCYAN"pack"RESET"(%d", node->payload.pack_type.width);
+            printf(", ");
+            print_node(node->payload.pack_type.element_type);
+            printf(")");
+            break;
+        }
 
         case Root_TAG: {
             const Root* top_level = &node->payload.root;

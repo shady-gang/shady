@@ -618,6 +618,12 @@ static SpvId emit_type(Emitter* emitter, const Type* type) {
             }
             break;
         }
+        case PackType_TAG: {
+            assert(type->payload.pack_type.width >= 2);
+            SpvId element_type = emit_type(emitter, type->payload.pack_type.element_type);
+            new = spvb_vector_type(emitter->file_builder, element_type, type->payload.pack_type.width);
+            break;
+        }
         default: error("Don't know how to emit type")
     }
 

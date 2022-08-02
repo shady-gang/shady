@@ -268,6 +268,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                                     .element_type = rewrite_node(rewriter, node->payload.arr_type.element_type),
                                     .size = rewrite_node(rewriter, node->payload.arr_type.size),
         });
+        case PackType_TAG:      return pack_type(rewriter->dst_arena, (PackType) {
+                                    .element_type = rewrite_node(rewriter, node->payload.pack_type.element_type),
+                                    .width = node->payload.pack_type.width
+        });
         case Annotation_TAG: switch (node->payload.annotation.payload_type) {
             case AnPayloadNone: return annotation(rewriter->dst_arena, (Annotation) {
                                     .payload_type = node->payload.annotation.payload_type,
