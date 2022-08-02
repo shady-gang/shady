@@ -65,7 +65,7 @@ static bool in_bounds(Tokenizer* tokenizer, size_t offset_to_slice) {
     return (tokenizer->pos + offset_to_slice) < tokenizer->source_size;
 }
 
-const char whitespace[] = { ' ', '\t', '\b', '\n' };
+const char whitespace[] = { ' ', '\t', '\n', '\r' };
 
 static inline bool is_alpha(char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); }
 static inline bool is_digit(char c) { return c >= '0' && c <= '9'; }
