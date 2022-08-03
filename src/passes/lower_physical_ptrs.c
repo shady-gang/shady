@@ -50,15 +50,9 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
         TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
         const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value_i32 = bytes_to_i32_cells(element_t_layout.size_in_bytes), .width = IntTy32 });
-        const Node* computed_offset = gen_primop(instructions, (PrimOp) {
-            .op = mul_op,
-            .operands = nodes(dst_arena, 2, (const Node* []) { rewrite_node(&ctx->rewriter, old_offset), elem_size_val})
-        }).nodes[0];
+        const Node* computed_offset = gen_primop_ce(instructions, mul_op, 2, (const Node* []) { rewrite_node(&ctx->rewriter, old_offset), elem_size_val});
 
-        faked_pointer = gen_primop(instructions, (PrimOp) {
-            .op = add_op,
-            .operands = nodes(dst_arena, 2, (const Node* []) { faked_pointer, computed_offset})
-        }).nodes[0];
+        faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, computed_offset});
     }
 
     for (size_t i = 2; i < lea->operands.count; i++) {
@@ -71,15 +65,9 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
                 TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
                 const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value_i32 = bytes_to_i32_cells(element_t_layout.size_in_bytes), .width = IntTy32 });
-                const Node* computed_offset = gen_primop(instructions, (PrimOp) {
-                    .op = mul_op,
-                    .operands = nodes(dst_arena, 2, (const Node* []) { rewrite_node(&ctx->rewriter, lea->operands.nodes[i]), elem_size_val})
-                }).nodes[0];
+                const Node* computed_offset = gen_primop_ce(instructions, mul_op, 2, (const Node* []) { rewrite_node(&ctx->rewriter, lea->operands.nodes[i]), elem_size_val});
 
-                faked_pointer = gen_primop(instructions, (PrimOp) {
-                    .op = add_op,
-                    .operands = nodes(dst_arena, 2, (const Node* []) { faked_pointer, computed_offset})
-                }).nodes[0];
+                faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, computed_offset});
 
                 pointer_type = ptr_type(dst_arena, (PtrType) {
                     .pointed_type = element_type,
@@ -127,10 +115,9 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     continue;
                 }
                 case reinterpret_op: {
-                    const Type* ptr_type = oprim_op->operands.nodes[1]->type;
-                    ptr_type = without_qualifier(ptr_type);
-                    assert(ptr_type->tag == PtrType_TAG);
-                    if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
+                    const Type* source_type = oprim_op->operands.nodes[1]->type;
+                    source_type = without_qualifier(source_type);
+                    if (source_type->tag != PtrType_TAG || !is_as_emulated(ctx, source_type->payload.ptr_type.address_space))
                         goto unchanged;
                     // TODO ensure source is an integer and the bit width is appropriate
                     if (olet)

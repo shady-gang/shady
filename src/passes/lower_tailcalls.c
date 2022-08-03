@@ -134,10 +134,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     }
 
     gen_store(builder, find_decl(ctx, "next_fn"), lower_fn_addr(ctx, fun));
-    const Node* entry_mask = gen_primop(builder, (PrimOp) {
-        .op = subgroup_active_mask_op,
-        .operands = nodes(dst_arena, 0, NULL)
-    }).nodes[0];
+    const Node* entry_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
     gen_store(builder, find_decl(ctx, "next_mask"), entry_mask);
 
     append_block(builder, call_instr(dst_arena, (Call) {

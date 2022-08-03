@@ -10,7 +10,7 @@ typedef struct {
 
 TypeMemLayout get_mem_layout(const CompilerConfig*, IrArena*, const Type*);
 
-static inline bytes_to_i32_cells(size_t size_in_bytes) {
+static inline size_t bytes_to_i32_cells(size_t size_in_bytes) {
     return (size_in_bytes + 3) / 4;
 }
 

@@ -7,13 +7,13 @@
 #include "../type.h"
 #include "../block_builder.h"
 
-Nodes gen_primop(BlockBuilder* instructions, PrimOp prim_op_) {
-    const Node* instruction = prim_op(instructions->arena, prim_op_);
+Nodes gen_primop(BlockBuilder* instructions, Op op, Nodes operands) {
+    const Node* instruction = prim_op(instructions->arena, (PrimOp) { .op = op, .operands = operands });
     Nodes output_types = unwrap_multiple_yield_types(instructions->arena, instruction->type);
 
     LARRAY(const char*, names, output_types.count);
     for (size_t i = 0; i < output_types.count; i++)
-        names[i] = format_string(instructions->arena, "%s_out", primop_names[prim_op_.op]);
+        names[i] = format_string(instructions->arena, "%s_out", primop_names[op]);
 
 
     if (output_types.count > 0)
@@ -21,6 +21,22 @@ Nodes gen_primop(BlockBuilder* instructions, PrimOp prim_op_) {
     append_block(instructions, instruction);
 
     return output_types.count > 0 ? instruction->payload.let.variables : nodes(instructions->arena, 0, NULL);
+}
+
+Nodes gen_primop_c(BlockBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
+    return gen_primop(bb, op, nodes(bb->arena, operands_count, operands));
+}
+
+const Node* gen_primop_ce(BlockBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
+    Nodes result = gen_primop_c(bb, op, operands_count, operands);
+    assert(result.count == 1);
+    return result.nodes[0];
+}
+
+const Node* gen_primop_e(BlockBuilder* bb, Op op, Nodes nodes) {
+    Nodes result = gen_primop(bb, op, nodes);
+    assert(result.count == 1);
+    return result.nodes[0];
 }
 
 void gen_push_value_stack(BlockBuilder* instructions, const Node* value) {
@@ -56,17 +72,11 @@ Nodes gen_pop_values_stack(BlockBuilder* instructions, String var_name, const No
 }
 
 const Node* gen_load(BlockBuilder* instructions, const Node* ptr) {
-    return gen_primop(instructions, (PrimOp) {
-        .op = load_op,
-        .operands = nodes(instructions->arena, 1, (const Node* []) { ptr })
-    }).nodes[0];
+    return gen_primop_ce(instructions, load_op, 1, (const Node* []) { ptr });
 }
 
 void gen_store(BlockBuilder* instructions, const Node* ptr, const Node* value) {
-    gen_primop(instructions, (PrimOp) {
-        .op = store_op,
-        .operands = nodes(instructions->arena, 2, (const Node* []) { ptr, value })
-    });
+    gen_primop_c(instructions, store_op, 2, (const Node* []) { ptr, value });
 }
 
 const Node* gen_lea(BlockBuilder* instructions, const Node* base, const Node* offset, Nodes selectors) {
@@ -75,8 +85,5 @@ const Node* gen_lea(BlockBuilder* instructions, const Node* base, const Node* of
     ops[1] = offset;
     for (size_t i = 0; i < selectors.count; i++)
         ops[2 + i] = selectors.nodes[i];
-    return gen_primop(instructions, (PrimOp) {
-        .op = lea_op,
-        .operands = nodes(instructions->arena, 2 + selectors.count, ops)
-    }).nodes[0];
+    return gen_primop_ce(instructions, lea_op, 2 + selectors.count, ops);
 }

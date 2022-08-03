@@ -63,19 +63,13 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     const Node* stack_size = gen_load(instructions, stack_pointer);
 
                     if (!push) // for pop, we decrease the stack size first
-                        stack_size = gen_primop(instructions, (PrimOp) {
-                            .op = sub_op,
-                            .operands = nodes(dst_arena, 2, (const Node* []) { stack_size, element_size})
-                        }).nodes[0];
+                        stack_size = gen_primop_ce(instructions, sub_op, 2, (const Node* []) { stack_size, element_size});
 
                     const Node* addr = gen_lea(instructions, stack, stack_size, nodes(dst_arena, 1, (const Node* []) { int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 })}));
                     assert(without_qualifier(addr->type)->tag == PtrType_TAG);
                     AddressSpace addr_space = without_qualifier(addr->type)->payload.ptr_type.address_space;
 
-                    addr = gen_primop(instructions, (PrimOp) {
-                        .op = reinterpret_op,
-                        .operands = nodes(dst_arena, 2, (const Node* []) { ptr_type(dst_arena, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr })
-                    }).nodes[0];
+                    addr = gen_primop_ce(instructions, reinterpret_op, 2, (const Node* []) { ptr_type(dst_arena, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr });
 
                     if (uniform) {
                         assert(get_qualifier(stack_pointer->type) == Uniform);
@@ -88,18 +82,12 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                         const Node* new_value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
                         gen_store(instructions, addr, new_value);
                     } else {
-                        const Node* popped = gen_primop(instructions, (PrimOp) {
-                            .op = load_op,
-                            .operands = nodes(dst_arena, 1, (const Node* []) {addr})
-                        }).nodes[0];
+                        const Node* popped = gen_primop_ce(instructions, load_op, 1, (const Node* []) {addr});
                         register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], popped);
                     }
 
                     if (push)
-                        stack_size = gen_primop(instructions, (PrimOp) {
-                            .op = add_op,
-                            .operands = nodes(dst_arena, 2, (const Node* []) { stack_size, element_size})
-                        }).nodes[0];
+                        stack_size = gen_primop_ce(instructions, add_op, 2, (const Node* []) { stack_size, element_size});
 
                     // store updated stack size
                     gen_store(instructions, stack_pointer, stack_size);
