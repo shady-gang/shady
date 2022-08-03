@@ -225,6 +225,12 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             register_result(emitter, variables.nodes[0], result);
             return;
         }
+        case subgroup_elect_first_op: {
+            SpvId result_t = emit_type(emitter, bool_type(emitter->arena));
+            SpvId result = spvb_elect(bb_builder, result_t, SpvScopeSubgroup);
+            register_result(emitter, variables.nodes[0], result);
+            return;
+        }
         case extract_op: {
             const Node* src_value = args.nodes[0];
             const Type* result_t = instr->type;
