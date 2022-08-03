@@ -234,6 +234,14 @@ static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type
     return true;
 }
 
+static const Type* get_actual_mask_type(IrArena* arena) {
+    switch (arena->config.subgroup_mask_representation) {
+        case SubgroupMaskAbstract: return mask_type(arena);
+        case SubgroupMaskSpvKHRBallot: return pack_type(arena, (PackType) { .element_type = int32_type(arena), .width = 4 });
+        default: error("unimplemented");
+    }
+}
+
 /// Checks the operands to a Primop and returns the produced types
 const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     for (size_t i = 0; i < prim_op.operands.count; i++) {
@@ -512,14 +520,14 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
-                .type = mask_type(arena)
+                .type = get_actual_mask_type(arena)
             });
         }
         case subgroup_ballot_op: {
             assert(prim_op.operands.count == 1);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
-                .type = mask_type(arena)
+                .type = get_actual_mask_type(arena)
             });
         }
         case subgroup_elect_first_op: {
