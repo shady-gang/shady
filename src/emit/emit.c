@@ -8,6 +8,8 @@
 
 #include "spirv_builder.h"
 
+#include "builtins.h"
+
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
@@ -25,6 +27,7 @@ typedef struct Emitter_ {
     FileBuilder file_builder;
     SpvId void_t;
     struct Dict* node_ids;
+    SpvId emitted_builtins[VulkanBuiltinsCount];
 } Emitter;
 
 static SpvStorageClass emit_addr_space(AddressSpace address_space) {
@@ -51,6 +54,8 @@ static SpvStorageClass emit_addr_space(AddressSpace address_space) {
 
 static SpvId emit_type(Emitter* emitter, const Type* type);
 static SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id);
+
+static SpvId emit_builtin(Emitter* emitter, VulkanBuiltins builtin);
 
 typedef struct {
     SpvId continue_target, break_target, join_target;
@@ -210,6 +215,13 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         }
         case subgroup_broadcast_first_op: {
             SpvId result = spvb_subgroup_broadcast_first(bb_builder, emit_type(emitter, without_qualifier(args.nodes[0]->type)), emit_value(emitter, args.nodes[0], NULL));
+            register_result(emitter, variables.nodes[0], result);
+            return;
+        }
+        case subgroup_local_id_op: {
+            SpvId result_t = emit_type(emitter, get_vulkan_builtins_type(emitter->arena, VulkanBuiltinSubgroupLocalInvocationId));
+            SpvId ptr = emit_builtin(emitter, VulkanBuiltinSubgroupLocalInvocationId);
+            SpvId result = spvb_load(bb_builder, result_t, ptr, 0, NULL);
             register_result(emitter, variables.nodes[0], result);
             return;
         }
@@ -664,6 +676,28 @@ static SpvId emit_type(Emitter* emitter, const Type* type) {
     return new;
 }
 
+static SpvId emit_builtin(Emitter* emitter, VulkanBuiltins builtin) {
+    if (emitter->emitted_builtins[builtin] != 0)
+        return emitter->emitted_builtins[builtin];
+
+    AddressSpace as = AsInput;
+    const Type* builtin_type = get_vulkan_builtins_type(emitter->arena, builtin);
+    switch (vulkan_builtins_kind[builtin]) {
+        case VulkanBuiltinConstant: error("TODO")
+        case VulkanBuiltinOutput: as = AsOutput; SHADY_FALLTHROUGH
+        case VulkanBuiltinInput: {
+            SpvId id = spvb_fresh_id(emitter->file_builder);
+            SpvId type = emit_type(emitter, ptr_type(emitter->arena, (PtrType) { .pointed_type = builtin_type, .address_space = as }));
+            spvb_global_variable(emitter->file_builder, id, type, emit_addr_space(as), false, 0);
+            uint32_t decoration_payload[] = { vulkan_builtins_decoration[builtin] };
+            spvb_decorate(emitter->file_builder, id, SpvDecorationBuiltIn, 1, decoration_payload);
+            emitter->emitted_builtins[builtin] = id;
+            return id;
+        }
+        default: error("unreachable")
+    }
+}
+
 void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, FILE* output) {
     const Root* top_level = &root_node->payload.root;
     struct List* words = new_list(uint32_t);
@@ -676,6 +710,9 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
         .file_builder = file_builder,
         .node_ids = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
     };
+
+    for (size_t i = 0; i < VulkanBuiltinsCount; i++)
+        emitter.emitted_builtins[i] = 0;
 
     emitter.void_t = spvb_void_type(emitter.file_builder);
 
