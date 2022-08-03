@@ -342,6 +342,24 @@ void spvb_unreachable(struct SpvBasicBlockBuilder* bb_builder) {
     op(SpvOpUnreachable, 1);
 }
 
+SpvId spvb_subgroup_ballot(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId predicate) {
+    op(SpvOpSubgroupBallotKHR, 4);
+    SpvId id = spvb_fresh_id(bb_builder->file_builder);
+    ref_id(result_type);
+    ref_id(id);
+    ref_id(predicate);
+    return id;
+}
+
+SpvId spvb_subgroup_broadcast_first(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value) {
+    op(SpvOpSubgroupFirstInvocationKHR, 4);
+    SpvId id = spvb_fresh_id(bb_builder->file_builder);
+    ref_id(result_type);
+    ref_id(id);
+    ref_id(value);
+    return id;
+}
+
 #undef target_data
 #define target_data fn_builder->header
 

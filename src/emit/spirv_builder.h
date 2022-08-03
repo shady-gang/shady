@@ -73,6 +73,10 @@ void  spvb_extension(struct SpvFileBuilder* file_builder, const char* name);
 
 SpvId spvb_extended_import(struct SpvFileBuilder* file_builder, const char* name);
 
+// SPV_KHR_shader_ballot
+SpvId spvb_subgroup_ballot(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId predicate);
+SpvId spvb_subgroup_broadcast_first(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId value);
+
 struct SpvFileBuilder* spvb_begin();
 void  spvb_finish(struct SpvFileBuilder*, SpvSectionBuilder output);
 

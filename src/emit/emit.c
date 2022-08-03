@@ -89,9 +89,10 @@ enum ISelMechanism {
     Custom, FirstOp, FirstAndResult
 };
 
-#define ISEL_IDENT (SpvOpNop /* no-op, should be lowered to nothing beforehand */)
-#define ISEL_BOOLC (SpvOpMax /* boolean conversions don't exist as a single instruction, a pass should lower them instead */)
-#define ISEL_ILLEG (SpvOpMax /* doesn't make sense to support */)
+#define ISEL_IDENTITY (SpvOpNop /* no-op, should be lowered to nothing beforehand */)
+#define ISEL_LOWERME (SpvOpMax /* boolean conversions don't exist as a single instruction, a pass should lower them instead */)
+#define ISEL_ILLEGAL (SpvOpMax /* doesn't make sense to support */)
+#define ISEL_CUSTOM (SpvOpMax /* doesn't make sense to support */)
 
 const struct IselTableEntry {
     enum ISelMechanism i_sel_mechanism;
@@ -111,31 +112,35 @@ const struct IselTableEntry {
 
     [neg_op] = { FirstOp, Same, .fo = { SpvOpSNegate, SpvOpSNegate }},
 
-    [eq_op]  = { FirstOp, Bool, .fo = { SpvOpIEqual,            SpvOpIEqual,            SpvOpFOrdNotEqual,         SpvOpLogicalEqual   }},
-    [neq_op] = { FirstOp, Bool, .fo = { SpvOpINotEqual,         SpvOpINotEqual,         SpvOpFOrdNotEqual,         SpvOpLogicalNotEqual}},
-    [lt_op]  = { FirstOp, Bool, .fo = { SpvOpSLessThan,         SpvOpULessThan,         SpvOpFOrdLessThan,         ISEL_ILLEG          }},
-    [lte_op] = { FirstOp, Bool, .fo = { SpvOpSLessThanEqual,    SpvOpULessThanEqual,    SpvOpFOrdLessThanEqual,    ISEL_ILLEG          }},
-    [gt_op]  = { FirstOp, Bool, .fo = { SpvOpSGreaterThan,      SpvOpUGreaterThan,      SpvOpFOrdGreaterThan,      ISEL_ILLEG          }},
-    [gte_op] = { FirstOp, Bool, .fo = { SpvOpSGreaterThanEqual, SpvOpUGreaterThanEqual, SpvOpFOrdGreaterThanEqual, ISEL_ILLEG          }},
+    [eq_op]  = { FirstOp, Bool, .fo = { SpvOpIEqual,            SpvOpIEqual,            SpvOpFOrdNotEqual,         SpvOpLogicalEqual    }},
+    [neq_op] = { FirstOp, Bool, .fo = { SpvOpINotEqual,         SpvOpINotEqual,         SpvOpFOrdNotEqual,         SpvOpLogicalNotEqual }},
+    [lt_op]  = { FirstOp, Bool, .fo = { SpvOpSLessThan,         SpvOpULessThan,         SpvOpFOrdLessThan,         ISEL_IDENTITY        }},
+    [lte_op] = { FirstOp, Bool, .fo = { SpvOpSLessThanEqual,    SpvOpULessThanEqual,    SpvOpFOrdLessThanEqual,    ISEL_IDENTITY        }},
+    [gt_op]  = { FirstOp, Bool, .fo = { SpvOpSGreaterThan,      SpvOpUGreaterThan,      SpvOpFOrdGreaterThan,      ISEL_IDENTITY        }},
+    [gte_op] = { FirstOp, Bool, .fo = { SpvOpSGreaterThanEqual, SpvOpUGreaterThanEqual, SpvOpFOrdGreaterThanEqual, ISEL_IDENTITY        }},
 
-    [not_op] = { FirstOp, Same, .fo = { SpvOpNot,        SpvOpNot,        SpvOpLogicalNot }},
-    [and_op] = { FirstOp, Same, .fo = { SpvOpBitwiseAnd, SpvOpBitwiseAnd, SpvOpLogicalAnd }},
-    [or_op]  = { FirstOp, Same, .fo = { SpvOpBitwiseOr,  SpvOpBitwiseOr,  SpvOpLogicalOr }},
+    [not_op] = { FirstOp, Same, .fo = { SpvOpNot,        SpvOpNot,        SpvOpLogicalNot      }},
+    [and_op] = { FirstOp, Same, .fo = { SpvOpBitwiseAnd, SpvOpBitwiseAnd, SpvOpLogicalAnd      }},
+    [or_op]  = { FirstOp, Same, .fo = { SpvOpBitwiseOr,  SpvOpBitwiseOr,  SpvOpLogicalOr       }},
     [xor_op] = { FirstOp, Same, .fo = { SpvOpBitwiseXor, SpvOpBitwiseXor, SpvOpLogicalNotEqual }},
 
+    [lshift_op]         = { FirstOp, Same, .fo = { SpvOpShiftLeftLogical,     SpvOpShiftLeftLogical,     ISEL_ILLEGAL, ISEL_ILLEGAL }},
+    [rshift_arithm_op]  = { FirstOp, Same, .fo = { SpvOpShiftRightArithmetic, SpvOpShiftRightArithmetic, ISEL_ILLEGAL, ISEL_ILLEGAL }},
+    [rshift_logical_op] = { FirstOp, Same, .fo = { SpvOpShiftRightLogical,    SpvOpShiftRightLogical,    ISEL_ILLEGAL, ISEL_ILLEGAL }},
+
     [convert_op] = { FirstAndResult, TyOperand, .foar = {
-        { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertSToF, ISEL_BOOLC },
-        { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertUToF, ISEL_BOOLC },
-        { SpvOpConvertFToS, SpvOpConvertFToU, SpvOpFConvert,    ISEL_ILLEG },
-        { ISEL_BOOLC,       ISEL_BOOLC,       ISEL_ILLEG,       ISEL_IDENT }
+        { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertSToF, ISEL_LOWERME  },
+        { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertUToF, ISEL_LOWERME  },
+        { SpvOpConvertFToS, SpvOpConvertFToU, SpvOpFConvert,    ISEL_ILLEGAL  },
+        { ISEL_LOWERME,     ISEL_LOWERME,     ISEL_ILLEGAL,     ISEL_IDENTITY }
     }},
 
     [reinterpret_op] = { FirstAndResult, TyOperand, .foar = {
-        { ISEL_IDENT,         SpvOpBitcast,       SpvOpBitcast, ISEL_ILLEG, SpvOpConvertUToPtr },
-        { SpvOpBitcast,       ISEL_IDENT,         SpvOpBitcast, ISEL_ILLEG, SpvOpConvertUToPtr },
-        { SpvOpBitcast,       SpvOpBitcast,       ISEL_IDENT,   ISEL_ILLEG, ISEL_ILLEG /* no fp-ptr casts */ },
-        { ISEL_ILLEG,         ISEL_ILLEG,         ISEL_ILLEG,   ISEL_IDENT, ISEL_ILLEG /* no bool reinterpret */ },
-        { SpvOpConvertPtrToU, SpvOpConvertPtrToU, ISEL_ILLEG,   ISEL_ILLEG, ISEL_IDENT }
+        { SpvOpUConvert,      SpvOpBitcast,       SpvOpBitcast,  ISEL_ILLEGAL,  SpvOpConvertUToPtr },
+        { SpvOpBitcast,       ISEL_IDENTITY,      SpvOpBitcast,  ISEL_ILLEGAL,  SpvOpConvertUToPtr },
+        { SpvOpBitcast,       SpvOpBitcast,       ISEL_IDENTITY, ISEL_ILLEGAL,  ISEL_ILLEGAL /* no fp-ptr casts */ },
+        { ISEL_ILLEGAL,       ISEL_ILLEGAL,       ISEL_ILLEGAL,  ISEL_IDENTITY, ISEL_ILLEGAL /* no bool reinterpret */ },
+        { SpvOpConvertPtrToU, SpvOpConvertPtrToU, ISEL_ILLEGAL,  ISEL_ILLEGAL,  ISEL_IDENTITY }
     }},
 
     [PRIMOPS_COUNT] = { .i_sel_mechanism = Custom }
@@ -197,6 +202,34 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
 
     custom_path:
     switch (prim_op.op) {
+        case subgroup_ballot_op: {
+            const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = int32_type(emitter->arena) });
+            SpvId result = spvb_subgroup_ballot(bb_builder, emit_type(emitter, i32x4), emit_value(emitter, args.nodes[0], NULL));
+            register_result(emitter, variables.nodes[0], result);
+            return;
+        }
+        case subgroup_broadcast_first_op: {
+            SpvId result = spvb_subgroup_broadcast_first(bb_builder, emit_type(emitter, without_qualifier(args.nodes[0]->type)), emit_value(emitter, args.nodes[0], NULL));
+            register_result(emitter, variables.nodes[0], result);
+            return;
+        }
+        case extract_op: {
+            const Node* src_value = args.nodes[0];
+            const Type* result_t = instr->type;
+            LARRAY(uint32_t, arr, variables.count - 1);
+            for (size_t i = 0; i < variables.count - 1; i++) {
+                arr[i] = extract_int_literal_value(variables.nodes[i + 1], false);
+            }
+            SpvId result = spvb_extract(bb_builder, emit_type(emitter, result_t), emit_value(emitter, src_value, NULL), variables.count - 1, arr);
+            register_result(emitter, variables.nodes[0], result);
+            return;
+        }
+        /*case reinterpret_op: {
+            const Type* dst_type = args.nodes[0];
+            assert(dst_type->tag == Int_TAG);
+            const Type* src_type = without_qualifier(args.nodes[1]->type);
+            assert(src_type->tag == Int_TAG);
+        }*/
         case load_op: {
             assert(without_qualifier(args.nodes[0]->type)->tag == PtrType_TAG);
             const Type* elem_type = without_qualifier(args.nodes[0]->type)->payload.ptr_type.pointed_type;
