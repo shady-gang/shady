@@ -339,6 +339,7 @@ PRIMOP(0, select)                   \
 PRIMOP(0, convert)                  \
 PRIMOP(0, reinterpret)              \
 PRIMOP(0, extract)                  \
+PRIMOP(0, extract_dynamic)          \
 PRIMOP(1, push_stack)               \
 PRIMOP(1, pop_stack)                \
 PRIMOP(1, push_stack_uniform)       \

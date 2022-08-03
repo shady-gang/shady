@@ -1,6 +1,7 @@
 #include "type.h"
 
 #include "log.h"
+#include "arena.h"
 #include "portability.h"
 
 #include "dict.h"
@@ -273,6 +274,26 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 })
             });
         }
+
+        case or_op:
+        case xor_op:
+        case and_op: {
+            bool is_uniform = true;
+            const Type* first_arg_type = without_qualifier(prim_op.operands.nodes[0]->type);
+            for (size_t i = 0; i < prim_op.operands.count; i++) {
+                const Node* arg = prim_op.operands.nodes[i];
+                is_uniform &= get_qualifier(arg->type) == Uniform;
+                const Type* arg_type = without_qualifier(arg->type);
+                assert(arg_type == first_arg_type && "Operands must have the same type");
+                switch (arg_type->tag) {
+                    case Int_TAG:
+                    case Bool_TAG: break;
+                    default: error("Logical operations can only be applied on booleans and on integers");
+                }
+            }
+            return qualified_type(arena, (QualifiedType) { .is_uniform = is_uniform, .type = first_arg_type });
+        }
+
         case lt_op:
         case lte_op:
         case gt_op:
@@ -432,8 +453,58 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = without_qualifier(prim_op.operands.nodes[2]->type)
             });
         }
+        case extract_dynamic_op:
         case extract_op: {
-
+            assert(prim_op.operands.count >= 2);
+            const Type* source = prim_op.operands.nodes[0];
+            const Type* current_type = source->type;
+            bool is_uniform = true;
+            for (size_t i = 1; i < prim_op.operands.count; i++) {
+                // Check index is valid !
+                const Node* ith_index = prim_op.operands.nodes[i];
+                bool dynamic_index = prim_op.op == extract_dynamic_op;
+                if (dynamic_index) {
+                    const Type* index_type = without_qualifier(ith_index->type);
+                    assert(index_type->tag == Int_TAG && "extract_dynamic uses integers");
+                } else {
+                    assert(ith_index->tag == IntLiteral_TAG && "extract takes integer literals");
+                }
+                // Go down one level...
+                is_uniform &= get_qualifier(current_type) != Varying;
+                current_type = without_qualifier(current_type);
+                switch(current_type->tag) {
+                    case RecordType_TAG: {
+                        assert(!dynamic_index);
+                        size_t index_value = ith_index->payload.int_literal.value_i32;
+                        assert(index_value < current_type->payload.record_type.members.count);
+                        current_type = current_type->payload.record_type.members.nodes[index_value];
+                        continue;
+                    }
+                    case ArrType_TAG: {
+                        assert(!dynamic_index);
+                        current_type = current_type->payload.arr_type.element_type;
+                        continue;
+                    }
+                    case PackType_TAG: {
+                        current_type = current_type->payload.pack_type.element_type;
+                        continue;
+                    }
+                    default: error("Not a valid type to extract from")
+                }
+            }
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = is_uniform,
+                .type = current_type
+            });
+        }
+        case convert_op: {
+            assert(prim_op.operands.count == 2);
+            const Type* dst_type = prim_op.operands.nodes[0];
+            bool is_uniform = without_qualifier(prim_op.operands.nodes[1]);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = is_uniform,
+                .type = dst_type
+            });
         }
         case empty_mask_op:
         case subgroup_active_mask_op: {
