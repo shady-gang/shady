@@ -11,11 +11,13 @@
 #include "list.h"
 #include "dict.h"
 
+#include <string.h>
 #include <assert.h>
 
 typedef struct Context_ {
     Rewriter rewriter;
     CompilerConfig* config;
+    const Node* src_program;
 
     const Node* physical_private_buffer;
     const Node* physical_subgroup_buffer;
@@ -85,6 +87,15 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
     return faked_pointer;
 }
 
+static const Node* find_decl(Context* ctx, const char* name) {
+    for (size_t i = 0; i < ctx->src_program->payload.root.declarations.count; i++) {
+        const Node* decl = ctx->src_program->payload.root.declarations.nodes[i];
+        if (strcmp(get_decl_name(decl), name) == 0)
+            return rewrite_node(&ctx->rewriter, decl);
+    }
+    assert(false);
+}
+
 static const Node* handle_block(Context* ctx, const Node* node) {
     assert(node->tag == Block_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
@@ -103,6 +114,18 @@ static const Node* handle_block(Context* ctx, const Node* node) {
         if (oinstruction->tag == PrimOp_TAG) {
             const PrimOp* oprim_op = &oinstruction->payload.prim_op;
             switch (oprim_op->op) {
+                case alloca_op: {
+                    if (!olet) continue;
+                    const Type* element_type = oprim_op->operands.nodes[0];
+                    TypeMemLayout layout = get_mem_layout(ctx->config, dst_arena, element_type);
+
+                    const Node* stack_pointer = find_decl(ctx, "stack_ptr");
+                    const Node* stack_size = gen_load(instructions, stack_pointer);
+                    register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], stack_size);
+                    stack_size = gen_primop_ce(instructions, add_op, 2, (const Node* []) { stack_size, int_literal(dst_arena, (IntLiteral) { .value_i32 = bytes_to_i32_cells(layout.size_in_bytes), .width = IntTy32 }) });
+                    gen_store(instructions, stack_pointer, stack_size);
+                    continue;
+                }
                 case lea_op: {
                     const Type* ptr_type = oprim_op->operands.nodes[0]->type;
                     ptr_type = without_qualifier(ptr_type);
@@ -231,6 +254,7 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
         },
 
         .config = config,
+        .src_program = src_program,
 
         .physical_private_buffer = physical_private_buffer,
         .physical_subgroup_buffer = physical_subgroup_buffer,

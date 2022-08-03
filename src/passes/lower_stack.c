@@ -65,7 +65,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     if (!push) // for pop, we decrease the stack size first
                         stack_size = gen_primop_ce(instructions, sub_op, 2, (const Node* []) { stack_size, element_size});
 
-                    const Node* addr = gen_lea(instructions, stack, stack_size, nodes(dst_arena, 1, (const Node* []) { int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 })}));
+                    const Node* addr = gen_lea(instructions, stack, stack_size, nodes(dst_arena, 1, (const Node* []) { int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 }) }));
                     assert(without_qualifier(addr->type)->tag == PtrType_TAG);
                     AddressSpace addr_space = without_qualifier(addr->type)->payload.ptr_type.address_space;
 
