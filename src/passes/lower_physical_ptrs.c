@@ -191,11 +191,9 @@ static const Node* process_node(Context* ctx, const Node* old) {
         }
         case Block_TAG: return handle_block(ctx, old);
         case PtrType_TAG: {
-            switch (old->payload.ptr_type.address_space) {
-                case AsSubgroupPhysical:
-                case AsPrivatePhysical: return int32_type(ctx->rewriter.dst_arena);
-                default: break;
-            }
+            if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
+                return int32_type(ctx->rewriter.dst_arena);
+
             return recreate_node_identity(&ctx->rewriter, old);
         }
         default: return recreate_node_identity(&ctx->rewriter, old);

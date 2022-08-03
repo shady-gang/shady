@@ -264,24 +264,31 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case mul_op:
         case div_op:
         case mod_op: {
-             bool is_result_uniform = true;
-             for (size_t i = 0; i < prim_op.operands.count; i++) {
-                 const Node* arg = prim_op.operands.nodes[i];
-                 DivergenceQualifier op_div;
-                 const Type* arg_actual_type = strip_qualifier(arg->type, &op_div);
-                 assert(op_div != Unknown); // we expect all operands to be clearly known !
-                 is_result_uniform &= op_div == Uniform;
-                 // we work with numerical operands
-                 assert(arg_actual_type->tag == Int_TAG && "todo improve this check");
-                 assert(arg_actual_type->payload.int_type.width == without_qualifier(prim_op.operands.nodes[0]->type)->payload.int_type.width && "Arithmetic operations expect all operands to have the same widths");
-             }
+            bool is_result_uniform = true;
+            for (size_t i = 0; i < prim_op.operands.count; i++) {
+                const Node* arg = prim_op.operands.nodes[i];
+                DivergenceQualifier op_div;
+                const Type* arg_actual_type = strip_qualifier(arg->type, &op_div);
+                assert(op_div != Unknown); // we expect all operands to be clearly known !
+                is_result_uniform &= op_div == Uniform;
+                // we work with numerical operands
+                assert(arg_actual_type->tag == Int_TAG && "todo improve this check");
+                assert(without_qualifier(prim_op.operands.nodes[0]->type)->tag == Int_TAG && "todo improve this check");
+                assert(arg_actual_type->payload.int_type.width == without_qualifier(prim_op.operands.nodes[0]->type)->payload.int_type.width && "Arithmetic operations expect all operands to have the same widths");
+            }
 
-            return qualified_type(arena, (QualifiedType) {
+            IntSizes width = without_qualifier(prim_op.operands.nodes[0]->type)->payload.int_type.width;
+
+            const Type* qt = qualified_type(arena, (QualifiedType) {
                 .is_uniform = is_result_uniform,
                 .type = int_type(arena, (Int) {
-                    .width = without_qualifier(prim_op.operands.nodes[0]->type)->payload.int_type.width
+                    .width = width
                 })
             });
+
+            assert(qt->payload.qualified_type.type->payload.int_type.width == width);
+
+            return qt;
         }
 
         case or_op:

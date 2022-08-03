@@ -66,13 +66,7 @@ const Node* process_block(Context* ctx, const Node* old_block) {
                         // extract the 64 bits of mask we care about
                         const Node* lo = gen_primop_ce(bb, extract_op, 2, (const Node* []) {result, int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 0 }) });
                         const Node* hi = gen_primop_ce(bb, extract_op, 2, (const Node* []) {result, int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 1 }) });
-                        // widen them
-                        lo = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []) {int64_type(dst_arena), lo});
-                        hi = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []) {int64_type(dst_arena), hi});
-                        // shift hi by 32
-                        hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []) { hi, int_literal(dst_arena, (IntLiteral) { .width = IntTy64, .value_i32 = 32 }) });
-                        // Merge the two
-                        result = gen_primop_ce(bb, or_op, 2, (const Node* []) { lo, hi });
+                        result = gen_merge_i32s_i64(bb, lo, hi);
                     }
                     register_processed(&ctx->rewriter, old_instruction->payload.let.variables.nodes[0], result);
                     continue;

@@ -53,9 +53,7 @@ const Node* fold_prim_op(IrArena* arena, const Node* node) {
         case mul_op: {
             for (size_t i = 0; i < 2; i++)
                 if (is_zero(prim_op.operands.nodes[i]))
-                    return int_literal(arena, (IntLiteral) {
-                        .value_i64 = 0
-                    });
+                    return prim_op.operands.nodes[i]; // return zero !
 
             for (size_t i = 0; i < 2; i++)
                 if (is_one(prim_op.operands.nodes[i]))
