@@ -40,7 +40,7 @@ const Node* process_block(Context* ctx, const Node* old_block) {
                     const Node* mask = rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
                     const Node* index = rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
                     index = gen_primop(bb, (PrimOp) {
-                        .op = convert_op,
+                        .op = reinterpret_op,
                         .operands = nodes(dst_arena, 2, (const Node* []) { int64_type(dst_arena), index })
                     }).nodes[0];
                     const Node* acc = mask;
@@ -89,11 +89,11 @@ const Node* process_block(Context* ctx, const Node* old_block) {
                         }).nodes[0];
                         // widen them
                         lo = gen_primop(bb, (PrimOp) {
-                            .op = convert_op,
+                            .op = reinterpret_op,
                             .operands = nodes(dst_arena, 2, (const Node* []) {int64_type(dst_arena), lo})
                         }).nodes[0];
                         hi = gen_primop(bb, (PrimOp) {
-                            .op = convert_op,
+                            .op = reinterpret_op,
                             .operands = nodes(dst_arena, 2, (const Node* []) {int64_type(dst_arena), hi})
                         }).nodes[0];
                         // shift hi by 32

@@ -34,6 +34,7 @@ static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
     }
 }
 
+// TODO consume layouts from memory_layout.h
 static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const PrimOp* lea) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     const Node* old_pointer = lea->operands.nodes[0];
@@ -48,7 +49,7 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
         const Type* element_type = arr_type->payload.arr_type.element_type;
         TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
-        const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value_i32 = element_t_layout.size_in_cells, .width = IntTy32 });
+        const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value_i32 = bytes_to_i32_cells(element_t_layout.size_in_bytes), .width = IntTy32 });
         const Node* computed_offset = gen_primop(instructions, (PrimOp) {
             .op = mul_op,
             .operands = nodes(dst_arena, 2, (const Node* []) { rewrite_node(&ctx->rewriter, old_offset), elem_size_val})
@@ -69,7 +70,7 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
 
                 TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
-                const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value_i32 = element_t_layout.size_in_cells, .width = IntTy32 });
+                const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value_i32 = bytes_to_i32_cells(element_t_layout.size_in_bytes), .width = IntTy32 });
                 const Node* computed_offset = gen_primop(instructions, (PrimOp) {
                     .op = mul_op,
                     .operands = nodes(dst_arena, 2, (const Node* []) { rewrite_node(&ctx->rewriter, lea->operands.nodes[i]), elem_size_val})
@@ -121,7 +122,8 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                         goto unchanged;
                     const Node* new = lower_lea(ctx, instructions, oprim_op);
-                    register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], new);
+                    if (olet)
+                        register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], new);
                     continue;
                 }
                 case reinterpret_op: {
@@ -131,7 +133,8 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                         goto unchanged;
                     // TODO ensure source is an integer and the bit width is appropriate
-                    register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]));
+                    if (olet)
+                        register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]));
                     continue;
                 }
                 case load_op:
@@ -156,7 +159,8 @@ static const Node* handle_block(Context* ctx, const Node* node) {
 
                     if (oprim_op->op == load_op) {
                         const Node* result = gen_deserialisation(instructions, element_type, base, fake_ptr);
-                        register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], result);
+                        if (olet)
+                            register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], result);
                     } else {
                         const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
                         gen_serialisation(instructions, element_type, base, fake_ptr, value);
