@@ -292,6 +292,7 @@ case Variable_TAG: {                  \
     break;                            \
 }                                     \
 case IntLiteral_TAG: {                \
+    field(int_literal.width);         \
     field(int_literal.value_i64);     \
     break;                            \
 }                                     \

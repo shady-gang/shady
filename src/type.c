@@ -68,6 +68,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
                 return false;
             return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
         }
+        case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width;
         // simple types without a payload
         default: return true;
     }
