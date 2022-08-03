@@ -14,7 +14,8 @@ typedef struct {
 
 /// Removes most instructions that deal with masks and lower them to bitwise operations on integers
 const Node* process_block(Context* ctx, const Node* old_block) {
-    BlockBuilder* bb = begin_block(ctx->rewriter.dst_arena);
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    BlockBuilder* bb = begin_block(dst_arena);
 
     Nodes old_instructions = old_block->payload.block.instructions;
     for (size_t i = 0; i < old_instructions.count; i++) {
@@ -28,14 +29,39 @@ const Node* process_block(Context* ctx, const Node* old_block) {
             Nodes old_nodes = old_actual_instruction->payload.prim_op.operands;
             switch(op) {
                 case empty_mask_op: {
-                    const Node* zero = int_literal(ctx->rewriter.dst_arena, (IntLiteral) {
+                    const Node* zero = int_literal(dst_arena, (IntLiteral) {
                         .width = IntTy64,
                         .value_i64 = 0
                     });
                     register_processed(&ctx->rewriter, old_instruction->payload.let.variables.nodes[0], zero);
                     continue;
                 }
-                case mask_is_thread_active_op: error("TODO")
+                case mask_is_thread_active_op: {
+                    const Node* mask = rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
+                    const Node* index = rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
+                    index = gen_primop(bb, (PrimOp) {
+                        .op = convert_op,
+                        .operands = nodes(dst_arena, 2, (const Node* []) { int64_type(dst_arena), index })
+                    }).nodes[0];
+                    const Node* acc = mask;
+                    // acc >>= index
+                    acc = gen_primop(bb, (PrimOp) {
+                        .op = rshift_logical_op,
+                        .operands = nodes(dst_arena, 2, (const Node* []) { acc, index })
+                    }).nodes[0];
+                    // acc &= 0x1
+                    acc = gen_primop(bb, (PrimOp) {
+                        .op = and_op,
+                        .operands = nodes(dst_arena, 2, (const Node* []) { acc, int_literal(dst_arena, (IntLiteral) { .width = IntTy64, .value_i32 = 1 }) })
+                    }).nodes[0];
+                    // acc == 1
+                    acc = gen_primop(bb, (PrimOp) {
+                        .op = eq_op,
+                        .operands = nodes(dst_arena, 2, (const Node* []) { acc, int_literal(dst_arena, (IntLiteral) { .width = IntTy64, .value_i32 = 1 }) })
+                    }).nodes[0];
+                    register_processed(&ctx->rewriter, old_instruction->payload.let.variables.nodes[0], acc);
+                    continue;
+                }
                 case subgroup_active_mask_op:
                     // this is just ballot(true), lower it to that
                     old_nodes = nodes(ctx->rewriter.src_arena, 1, (const Node* []) {true_lit(ctx->rewriter.src_arena)});
@@ -44,15 +70,42 @@ const Node* process_block(Context* ctx, const Node* old_block) {
                     if (old_actual_instruction == old_instruction)
                         continue; // This was a dead op anyways
 
-                    const Node *packed_result = gen_primop(bb, (PrimOp) {
+                    const Node* packed_result = gen_primop(bb, (PrimOp) {
                             .op = subgroup_ballot_op,
                             .operands = rewrite_nodes(&ctx->rewriter, old_nodes)
                     }).nodes[0];
 
-                    const Node *result = packed_result;
+                    const Node* result = packed_result;
                     // we need to extract the packed result ...
-                    if (ctx->rewriter.dst_arena->config.subgroup_mask_representation == SubgroupMaskSpvKHRBallot) {
-                        error("TODO")
+                    if (dst_arena->config.subgroup_mask_representation == SubgroupMaskSpvKHRBallot) {
+                        // extract the 64 bits of mask we care about
+                        const Node* lo = gen_primop(bb, (PrimOp) {
+                            .op = extract_op,
+                            .operands = nodes(dst_arena, 2, (const Node* []) {result, int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 0 }) })
+                        }).nodes[0];
+                        const Node* hi = gen_primop(bb, (PrimOp) {
+                            .op = extract_op,
+                            .operands = nodes(dst_arena, 2, (const Node* []) {result, int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 1 }) })
+                        }).nodes[0];
+                        // widen them
+                        lo = gen_primop(bb, (PrimOp) {
+                            .op = convert_op,
+                            .operands = nodes(dst_arena, 2, (const Node* []) {int64_type(dst_arena), lo})
+                        }).nodes[0];
+                        hi = gen_primop(bb, (PrimOp) {
+                            .op = convert_op,
+                            .operands = nodes(dst_arena, 2, (const Node* []) {int64_type(dst_arena), hi})
+                        }).nodes[0];
+                        // shift hi by 32
+                        hi = gen_primop(bb, (PrimOp) {
+                            .op = lshift_op,
+                            .operands = nodes(dst_arena, 2, (const Node* []) { hi, int_literal(dst_arena, (IntLiteral) { .width = IntTy64, .value_i32 = 32 }) })
+                        }).nodes[0];
+                        // Merge the two
+                        result = gen_primop(bb, (PrimOp) {
+                            .op = or_op,
+                            .operands = nodes(dst_arena, 2, (const Node* []) { lo, hi })
+                        }).nodes[0];
                     }
                     register_processed(&ctx->rewriter, old_instruction->payload.let.variables.nodes[0], result);
                     continue;
