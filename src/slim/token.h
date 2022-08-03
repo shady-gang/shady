@@ -52,9 +52,9 @@ TEXT_TOKEN(callc) \
 TOKEN(return, "return") \
 TEXT_TOKEN(unreachable) \
 PRIMOPS() \
-TOKEN(infix_lshift_logical, ">>>") \
-TOKEN(infix_lshift_arithm, ">>") \
-TOKEN(infix_rshift, "<<") \
+TOKEN(infix_rshift_logical, ">>>") \
+TOKEN(infix_rshift_arithm, ">>") \
+TOKEN(infix_lshift, "<<") \
 TOKEN(infix_eq, "==") \
 TOKEN(infix_neq, "!=") \
 TOKEN(infix_geq, ">=") \

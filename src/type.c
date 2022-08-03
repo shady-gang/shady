@@ -245,9 +245,9 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return prim_op.operands.nodes[0]->type;
             // return qualified_type(arena, (QualifiedType) { .is_uniform = , .type = bool_type(arena) });
         }
-        case lshift_arithm_op:
-        case lshift_logical_op:
-        case rshift_op:
+        case rshift_arithm_op:
+        case rshift_logical_op:
+        case lshift_op:
 
         case add_op:
         case sub_op:

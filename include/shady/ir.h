@@ -326,9 +326,9 @@ PRIMOP(0, and)                      \
 PRIMOP(0, or)                       \
 PRIMOP(0, xor)                      \
 PRIMOP(0, not)                      \
-PRIMOP(0, lshift_logical)           \
-PRIMOP(0, lshift_arithm)            \
-PRIMOP(0, rshift)                   \
+PRIMOP(0, rshift_logical)           \
+PRIMOP(0, rshift_arithm)            \
+PRIMOP(0, lshift)                   \
 PRIMOP(1, assign)                   \
 PRIMOP(1, subscript)                \
 PRIMOP(1, alloca)                   \

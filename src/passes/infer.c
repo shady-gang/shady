@@ -170,9 +170,9 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
     switch (node->payload.prim_op.op) {
         case neg_op:
             input_types = nodes(dst_arena, 1, (const Type*[]){ int32_type(dst_arena) }); break;
-        case lshift_arithm_op:
-        case lshift_logical_op:
-        case rshift_op:
+        case rshift_arithm_op:
+        case rshift_logical_op:
+        case lshift_op:
         case add_op:
         case sub_op:
         case mul_op:

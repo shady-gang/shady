@@ -12,9 +12,9 @@ typedef struct {
 INFIX_OPERATOR(Mul, star_tok,                 mul_op,            1) \
 INFIX_OPERATOR(Sub, minus_tok,                sub_op,            1) \
 INFIX_OPERATOR(Add, plus_tok,                 add_op,            2) \
-INFIX_OPERATOR(LSL, infix_lshift_logical_tok, lshift_logical_op, 3) \
-INFIX_OPERATOR(LSA, infix_lshift_arithm_tok,  lshift_arithm_op,  3) \
-INFIX_OPERATOR(RS,  infix_rshift_tok,         rshift_op,         3) \
+INFIX_OPERATOR(RSL, infix_rshift_logical_tok, rshift_logical_op, 3) \
+INFIX_OPERATOR(RSA, infix_rshift_arithm_tok,  rshift_arithm_op,  3) \
+INFIX_OPERATOR(LS,  infix_lshift_tok,         lshift_op,         3) \
 INFIX_OPERATOR(And, infix_and_tok,            and_op,            4) \
 INFIX_OPERATOR(Xor, infix_xor_tok,            xor_op,            5) \
 INFIX_OPERATOR(Or,  infix_or_tok,             or_op,             6) \
