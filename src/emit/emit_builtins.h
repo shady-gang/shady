@@ -25,13 +25,6 @@ VULKAN_BUILTINS()
   VulkanBuiltinsCount
 } VulkanBuiltins;
 
-// What's the decoration for the builtin
-static SpvBuiltIn vulkan_builtins_decoration[] = {
-#define BUILTIN(kind, name, datatype) SpvBuiltIn##name,
-VULKAN_BUILTINS()
-#undef BUILTIN
-};
-
 static enum {
     VulkanBuiltinInput,
     VulkanBuiltinOutput,

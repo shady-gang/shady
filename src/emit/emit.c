@@ -198,8 +198,8 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             default: error("unhandled result kind");
         }
 
-        if (args.count == 1)
-            register_result(emitter, variables.nodes[0], spvb_unop(bb_builder, opcode, emit_type(emitter, result_t), arr[0]));
+        if (args.count == 1 || first_op == 1)
+            register_result(emitter, variables.nodes[0], spvb_unop(bb_builder, opcode, emit_type(emitter, result_t), arr[first_op]));
         else if (args.count == 2)
             register_result(emitter, variables.nodes[0], spvb_binop(bb_builder, opcode, emit_type(emitter, result_t), arr[0], arr[1]));
         else
@@ -237,11 +237,12 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         case extract_op: {
             const Node* src_value = args.nodes[0];
             const Type* result_t = instr->type;
-            LARRAY(uint32_t, arr, variables.count - 1);
-            for (size_t i = 0; i < variables.count - 1; i++) {
-                arr[i] = extract_int_literal_value(variables.nodes[i + 1], false);
+            LARRAY(uint32_t, arr, args.count - 1);
+            for (size_t i = 0; i < args.count - 1; i++) {
+                arr[i] = extract_int_literal_value(args.nodes[i + 1], false);
             }
-            SpvId result = spvb_extract(bb_builder, emit_type(emitter, result_t), emit_value(emitter, src_value, NULL), variables.count - 1, arr);
+            assert(args.count > 1);
+            SpvId result = spvb_extract(bb_builder, emit_type(emitter, result_t), emit_value(emitter, src_value, NULL), args.count - 1, arr);
             register_result(emitter, variables.nodes[0], result);
             return;
         }
