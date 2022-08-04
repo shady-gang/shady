@@ -6,56 +6,13 @@
 #include "../type.h"
 #include "../analysis/scope.h"
 
-#include "spirv_builder.h"
-
-#include "builtins.h"
+#include "emit.h"
+#include "emit_builtins.h"
+#include "emit_type.h"
 
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
-
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
-typedef struct SpvFileBuilder* FileBuilder;
-typedef struct SpvFnBuilder* FnBuilder;
-typedef struct SpvBasicBlockBuilder* BBBuilder;
-
-typedef struct Emitter_ {
-    IrArena* arena;
-    CompilerConfig* configuration;
-    FileBuilder file_builder;
-    SpvId void_t;
-    struct Dict* node_ids;
-    SpvId emitted_builtins[VulkanBuiltinsCount];
-} Emitter;
-
-static SpvStorageClass emit_addr_space(AddressSpace address_space) {
-    switch(address_space) {
-        case AsGlobalLogical:   return SpvStorageClassStorageBuffer;
-        case AsSharedLogical:   return SpvStorageClassCrossWorkgroup;
-        case AsPrivateLogical:  return SpvStorageClassPrivate;
-        case AsFunctionLogical: return SpvStorageClassFunction;
-
-        case AsGeneric: error("not implemented");
-        case AsGlobalPhysical: return SpvStorageClassPhysicalStorageBuffer;
-        case AsSharedPhysical:
-        case AsSubgroupPhysical:
-        case AsPrivatePhysical: error("This should have been lowered before");
-
-        case AsInput: return SpvStorageClassInput;
-        case AsOutput: return SpvStorageClassOutput;
-
-        // TODO: depending on platform, use push constants/ubos/ssbos here
-        case AsExternal: return SpvStorageClassStorageBuffer;
-        default: SHADY_NOT_IMPLEM;
-    }
-}
-
-static SpvId emit_type(Emitter* emitter, const Type* type);
-static SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id);
-
-static SpvId emit_builtin(Emitter* emitter, VulkanBuiltins builtin);
 
 typedef struct Phi** Phis;
 
@@ -304,17 +261,6 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         default: error("TODO: unhandled op");
     }
     SHADY_UNREACHABLE;
-}
-
-static SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
-    switch (return_types.count) {
-        case 0: return emitter->void_t;
-        case 1: return emit_type(emitter, return_types.nodes[0]);
-        default: {
-            const Type* codom_ret_type = record_type(emitter->arena, (RecordType) {.members = return_types});
-            return emit_type(emitter, codom_ret_type);
-        }
-    }
 }
 
 static void emit_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, Call call, Nodes variables) {
@@ -626,7 +572,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
     spvb_define_function(emitter->file_builder, fn_builder);
 }
 
-static SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
+SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
     if (!use_id) { // re-emit the thing multiple times if we need a specific ID
         SpvId* existing = find_value_dict(struct Node*, SpvId, emitter->node_ids, node);
         if (existing)
@@ -663,98 +609,8 @@ static SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id)
     return new;
 }
 
-static SpvId emit_type(Emitter* emitter, const Type* type) {
-    SpvId* existing = find_value_dict(struct Node*, SpvId, emitter->node_ids, type);
-    if (existing)
-        return *existing;
-    
-    SpvId new;
-    switch (type->tag) {
-        case Int_TAG: {
-            int width;
-            switch (type->payload.int_type.width) {
-                case IntTy8:  width = 8;  break;
-                case IntTy16: width = 16; break;
-                case IntTy32: width = 32; break;
-                case IntTy64: width = 64; break;
-                default: assert(false);
-            }
-            new = spvb_int_type(emitter->file_builder, width, true);
-            break;
-        } case Bool_TAG:
-            new = spvb_bool_type(emitter->file_builder);
-            break;
-        case PtrType_TAG: {
-            SpvId pointee = emit_type(emitter, type->payload.ptr_type.pointed_type);
-            SpvStorageClass sc = emit_addr_space(type->payload.ptr_type.address_space);
-            new = spvb_ptr_type(emitter->file_builder, sc, pointee);
-            break;
-        }
-        case RecordType_TAG: {
-            LARRAY(SpvId, members, type->payload.record_type.members.count);
-            for (size_t i = 0; i < type->payload.record_type.members.count; i++)
-                members[i] = emit_type(emitter, type->payload.record_type.members.nodes[i]);
-            new = spvb_struct_type(emitter->file_builder, type->payload.record_type.members.count, members);
-            break;
-        }
-        case FnType_TAG: {
-            const FnType* fnt = &type->payload.fn_type;
-            assert(!fnt->is_basic_block);
-            LARRAY(SpvId, params, fnt->param_types.count);
-            for (size_t i = 0; i < fnt->param_types.count; i++)
-                params[i] = emit_type(emitter, fnt->param_types.nodes[i]);
-
-            new = spvb_fn_type(emitter->file_builder, fnt->param_types.count, params, nodes_to_codom(emitter, fnt->return_types));
-            break;
-        }
-        case QualifiedType_TAG: {
-            // SPIR-V does not care about our type qualifiers.
-            new = emit_type(emitter, type->payload.qualified_type.type);
-            break;
-        }
-        case ArrType_TAG: {
-            SpvId element_type = emit_type(emitter, type->payload.arr_type.element_type);
-            if (type->payload.arr_type.size) {
-                new = spvb_array_type(emitter->file_builder, element_type, emit_value(emitter, type->payload.arr_type.size, NULL));
-            } else {
-                new = spvb_runtime_array_type(emitter->file_builder, element_type);
-            }
-            break;
-        }
-        case PackType_TAG: {
-            assert(type->payload.pack_type.width >= 2);
-            SpvId element_type = emit_type(emitter, type->payload.pack_type.element_type);
-            new = spvb_vector_type(emitter->file_builder, element_type, type->payload.pack_type.width);
-            break;
-        }
-        default: error("Don't know how to emit type")
-    }
-
-    insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
-    return new;
-}
-
-static SpvId emit_builtin(Emitter* emitter, VulkanBuiltins builtin) {
-    if (emitter->emitted_builtins[builtin] != 0)
-        return emitter->emitted_builtins[builtin];
-
-    AddressSpace as = AsInput;
-    const Type* builtin_type = get_vulkan_builtins_type(emitter->arena, builtin);
-    switch (vulkan_builtins_kind[builtin]) {
-        case VulkanBuiltinConstant: error("TODO")
-        case VulkanBuiltinOutput: as = AsOutput; SHADY_FALLTHROUGH
-        case VulkanBuiltinInput: {
-            SpvId id = spvb_fresh_id(emitter->file_builder);
-            SpvId type = emit_type(emitter, ptr_type(emitter->arena, (PtrType) { .pointed_type = builtin_type, .address_space = as }));
-            spvb_global_variable(emitter->file_builder, id, type, emit_addr_space(as), false, 0);
-            uint32_t decoration_payload[] = { vulkan_builtins_decoration[builtin] };
-            spvb_decorate(emitter->file_builder, id, SpvDecorationBuiltIn, 1, decoration_payload);
-            emitter->emitted_builtins[builtin] = id;
-            return id;
-        }
-        default: error("unreachable")
-    }
-}
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
 
 void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, FILE* output) {
     const Root* top_level = &root_node->payload.root;
@@ -774,9 +630,13 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
 
     emitter.void_t = spvb_void_type(emitter.file_builder);
 
+    spvb_extension(file_builder, "SPV_KHR_shader_ballot");
+
     spvb_capability(file_builder, SpvCapabilityShader);
     spvb_capability(file_builder, SpvCapabilityLinkage);
+    spvb_capability(file_builder, SpvCapabilityInt64);
     spvb_capability(file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
+    spvb_capability(file_builder, SpvCapabilityGroupNonUniform);
     spvb_capability(file_builder, SpvCapabilitySubgroupBallotKHR);
 
     // First reserve IDs for declarations

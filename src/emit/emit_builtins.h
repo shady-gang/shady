@@ -1,3 +1,9 @@
+#ifndef SHADY_EMIT_BUILTINS
+#define SHADY_EMIT_BUILTINS
+
+#include "shady/ir.h"
+#include "spirv/unified1/spirv.h"
+
 #define VULKAN_BUILTINS() \
 BUILTIN(Input,  BaseInstance, int32_type(arena))                                                                   \
 BUILTIN(Input,  BaseVertex, int32_type(arena))                                                                     \
@@ -25,21 +31,14 @@ VULKAN_BUILTINS()
   VulkanBuiltinsCount
 } VulkanBuiltins;
 
-static enum {
+typedef enum {
     VulkanBuiltinInput,
     VulkanBuiltinOutput,
     VulkanBuiltinConstant
-} vulkan_builtins_kind[] = {
-#define BUILTIN(kind, name, datatype) VulkanBuiltin##kind,
-VULKAN_BUILTINS()
-#undef BUILTIN
-};
+} VulkanBuiltinKind;
 
-const Type* get_vulkan_builtins_type(IrArena* arena, VulkanBuiltins builtin) {
-    switch (builtin) {
-#define BUILTIN(kind, name, datatype) case VulkanBuiltin##name: return datatype;
-VULKAN_BUILTINS()
-#undef BUILTIN
-        default: error("Unhandled builtin")
-    }
-}
+extern VulkanBuiltinKind vulkan_builtins_kind[];
+
+const Type* get_vulkan_builtins_type(IrArena* arena, VulkanBuiltins builtin);
+
+#endif

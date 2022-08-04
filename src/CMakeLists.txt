@@ -36,7 +36,10 @@ set(SHADY_SOURCES
     passes/lower_physical_ptrs.c
     passes/lower_tailcalls.c
     passes/lower_mask.c
+
     emit/emit.c
+    emit/emit_type.c
+    emit/emit_builtins.c
     emit/spirv_builder.c)
 
 add_library(shady ${SHADY_SOURCES})
