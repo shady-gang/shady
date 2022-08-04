@@ -187,7 +187,8 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         }
         case subgroup_elect_first_op: {
             SpvId result_t = emit_type(emitter, bool_type(emitter->arena));
-            SpvId result = spvb_elect(bb_builder, result_t, SpvScopeSubgroup);
+            const Node* scope_subgroup = int_literal(emitter->arena, (IntLiteral) { .width = IntTy32, .value_i32 = SpvScopeSubgroup });
+            SpvId result = spvb_elect(bb_builder, result_t, emit_value(emitter, scope_subgroup, NULL));
             register_result(emitter, variables.nodes[0], result);
             return;
         }

@@ -88,7 +88,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
                 case IntTy64: width = 64; break;
                 default: assert(false);
             }
-            new = spvb_int_type(emitter->file_builder, width, true);
+            new = spvb_int_type(emitter->file_builder, width, false);
             break;
         } case Bool_TAG:
             new = spvb_bool_type(emitter->file_builder);

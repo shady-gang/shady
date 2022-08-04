@@ -268,12 +268,12 @@ SpvId spvb_unop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_
     return id;
 }
 
-SpvId spvb_elect(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvScope scope) {
+SpvId spvb_elect(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope) {
     op(SpvOpGroupNonUniformElect, 4);
     SpvId id = spvb_fresh_id(bb_builder->file_builder);
     ref_id(result_type);
     ref_id(id);
-    literal_int(scope);
+    ref_id(scope);
     return id;
 }
 
