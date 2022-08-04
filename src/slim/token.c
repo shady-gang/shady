@@ -40,7 +40,7 @@ typedef struct Tokenizer_ {
     Token current;
 } Tokenizer;
 
-Tokenizer* new_tokenizer(char* source) {
+Tokenizer* new_tokenizer(const char* source) {
     if (!constants_initialized) {
         init_tokenizer_constants();
         constants_initialized = true;

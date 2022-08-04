@@ -1,5 +1,6 @@
 add_subdirectory(slim)
 add_subdirectory(containers)
+add_subdirectory(builtin)
 
 add_library(murmur3 STATIC ../murmur3/murmur3.c)
 
@@ -45,6 +46,7 @@ set(SHADY_SOURCES
 add_library(shady ${SHADY_SOURCES})
 set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+target_link_libraries(shady PRIVATE builtin_code)
 target_link_libraries(shady PRIVATE murmur3 containers)
 target_link_libraries(shady PRIVATE SPIRV-Headers::SPIRV-Headers)
 target_include_directories(shady PUBLIC ../include containers/ ../murmur3)

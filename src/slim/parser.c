@@ -42,7 +42,7 @@ INFIX_OPERATORS()
 }
 
 // to avoid some repetition
-#define ctxparams SHADY_UNUSED ParserConfig config, SHADY_UNUSED char* contents, SHADY_UNUSED IrArena* arena, SHADY_UNUSED Tokenizer* tokenizer
+#define ctxparams SHADY_UNUSED ParserConfig config, SHADY_UNUSED const char* contents, SHADY_UNUSED IrArena* arena, SHADY_UNUSED Tokenizer* tokenizer
 #define ctx config, contents, arena, tokenizer
 
 #define expect(condition) expect_impl(condition, #condition)
@@ -849,7 +849,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     return gv;
 }
 
-const Node* parse(ParserConfig config, char* contents, IrArena* arena) {
+const Node* parse(ParserConfig config, const char* contents, IrArena* arena) {
     Tokenizer* tokenizer = new_tokenizer(contents);
 
     struct List* declarations = new_list(const Node*);

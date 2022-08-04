@@ -82,7 +82,7 @@ TOKEN(equal, "=") \
 TOKEN(LIST_END, NULL)
 
 typedef struct Tokenizer_ Tokenizer;
-Tokenizer* new_tokenizer(char* source);
+Tokenizer* new_tokenizer(const char* source);
 void destroy_tokenizer(Tokenizer*);
 
 #define PRIMOP(has_side_effects, name) TEXT_TOKEN(name)

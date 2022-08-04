@@ -1,16 +1,17 @@
 #include "shady/ir.h"
 
+#include "parser.h"
+
+#include "list.h"
+
 #include "../log.h"
 #include "../portability.h"
 #include "../passes/passes.h"
-#include "parser.h"
+#include "../builtin/builtin_code.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
-const char* input_filename = NULL;
-const char* output_filename = "out.spv";
 
 const char* cfg_output = NULL;
 
@@ -26,7 +27,7 @@ enum SlimErrorCodes {
 
 char* read_file(const char* filename);
 
-static void process_arguments(int argc, const char** argv) {
+static void process_arguments(int argc, const char** argv, struct List* input_filenames, const char** output_filename) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--log-level") == 0) {
             i++;
@@ -53,7 +54,7 @@ static void process_arguments(int argc, const char** argv) {
                 error_print("--output must be followed with a filename");
                 exit(MissingOutputArg);
             }
-            output_filename = argv[i];
+            *output_filename = argv[i];
         } else if (strcmp(argv[i], "--dump-cfg") == 0) {
             i++;
             if (i == argc) {
@@ -62,16 +63,11 @@ static void process_arguments(int argc, const char** argv) {
             }
             cfg_output = argv[i];
         } else {
-            // assume it is the filename
-            if (input_filename) {
-                error_print("We only supporting compiling from one file at the moment");
-                exit(MoreThanOneFilename);
-            }
-            input_filename = argv[i];
+            append_list(const char*, input_filenames, argv[i]);
         }
     }
 
-    if (input_filename == NULL) {
+    if (entries_count_list(input_filenames) == 0) {
         error_print("Usage: slim source.slim\n");
         error_print("Available arguments: \n");
         error_print("  --log-level [debug, info, warn, error]\n");
@@ -80,6 +76,9 @@ static void process_arguments(int argc, const char** argv) {
         exit(MissingInputArg);
     }
 }
+
+static size_t num_builtin_sources_files = 1;
+static const char* builtin_source_files[] = { builtin_scheduler_txt };
 
 int main(int argc, const char** argv) {
     platform_specific_terminal_init_extras();
@@ -90,24 +89,57 @@ int main(int argc, const char** argv) {
 
     CompilerConfig config = default_compiler_config();
 
-    process_arguments(argc, argv);
+    struct List* input_files = new_list(const char*);
+    const char* output_filename = "out.spv";
+    process_arguments(argc, argv, input_files, &output_filename);
 
-    info_print("compiling %s\n", input_filename);
-    const Node* program;
+    size_t num_source_files = num_builtin_sources_files + entries_count_list(input_files);
 
-    char* contents = read_file(input_filename);
-    if ((void*)contents == NULL) {
-        error_print("file does not exist\n");
-        exit(InputFileDoesNotExist);
-    } else {
-        info_print("Parsing: \n%s\n", contents);
+    LARRAY(const Node*, parsed_files, num_source_files);
+    size_t total_decls_count = 0;
+    for (size_t i = 0; i < num_source_files; i++) {
+        const char* input_file_contents = NULL;
+        bool loaded_from_disk = false;
+
+        if (i < num_builtin_sources_files) {
+            input_file_contents = builtin_source_files[i];
+        } else {
+            const char* input_filename = read_list(const char*, input_files)[i - num_builtin_sources_files];
+            input_file_contents = read_file(input_filename);
+            if ((void*)input_file_contents == NULL) {
+                error_print("file does not exist\n");
+                exit(InputFileDoesNotExist);
+            }
+            loaded_from_disk = true;
+        }
+
+        info_print("Parsing: \n%s\n", input_file_contents);
         ParserConfig pconfig = {
             .front_end = true
         };
-        program = parse(pconfig, contents, arena);
+        const Node* parsed_file = parse(pconfig, input_file_contents, arena);
+        parsed_files[i] = parsed_file;
+        assert(parsed_file->tag == Root_TAG);
+        total_decls_count += parsed_file->payload.root.declarations.count;
+
+        if (loaded_from_disk)
+            free((void*)input_file_contents);
     }
 
-    free(contents);
+    destroy_list(input_files);
+
+    // Merge all declarations into a giant program
+    const Node** all_decls = malloc(sizeof(const Node*) * total_decls_count);
+    size_t num_decl = 0;
+    for (size_t i = 0; i < num_source_files; i++) {
+        const Node* parsed_file = parsed_files[i];
+        for (size_t j = 0; j < parsed_file->payload.root.declarations.count; j++)
+            all_decls[num_decl++] = parsed_file->payload.root.declarations.nodes[j];
+    }
+    const Node* program = root(arena, (Root) {
+        .declarations = nodes(arena, num_decl, all_decls)
+    });
+    free(all_decls);
 
     info_print("Parsed program successfully: \n");
     print_node(program);
