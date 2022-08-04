@@ -773,16 +773,19 @@ struct SpvFnBuilder* spvb_begin_fn(struct SpvFileBuilder* file_builder, SpvId fn
     return fnb;
 }
 
-struct SpvBasicBlockBuilder* spvb_begin_bb(struct SpvFnBuilder* fn_builder, SpvId label) {
+struct SpvBasicBlockBuilder* spvb_begin_bb(struct SpvFileBuilder* file_builder, SpvId label) {
     struct SpvBasicBlockBuilder* bbb = (struct SpvBasicBlockBuilder*) malloc(sizeof(struct SpvBasicBlockBuilder));
     *bbb = (struct SpvBasicBlockBuilder) {
-        .file_builder = fn_builder->file_builder,
+        .file_builder = file_builder,
         .label = label,
         .phis = new_list(struct Phi*),
         .section_data = new_list(uint32_t)
     };
-    append_list(struct SpvBasicBlockBuilder*, fn_builder->bbs, bbb);
     return bbb;
+}
+
+void spvb_add_bb(struct SpvFnBuilder* fn_builder, struct SpvBasicBlockBuilder* bb_builder) {
+    append_list(struct SpvBasicBlockBuilder*, fn_builder->bbs, bb_builder);
 }
 
 SpvId fn_ret_type_id(struct SpvFnBuilder* fnb){
