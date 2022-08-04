@@ -1,6 +1,7 @@
 add_subdirectory(slim)
 add_subdirectory(containers)
 add_subdirectory(builtin)
+add_subdirectory(runtime)
 
 add_library(murmur3 STATIC ../murmur3/murmur3.c)
 
