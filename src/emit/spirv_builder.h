@@ -84,6 +84,11 @@ void  spvb_finish(struct SpvFileBuilder*, SpvSectionBuilder output);
 struct SpvFnBuilder* spvb_begin_fn(struct SpvFileBuilder*, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type);
 struct SpvBasicBlockBuilder* spvb_begin_bb(struct SpvFnBuilder*, SpvId label);
 
+struct Phi* spvb_add_phi(struct SpvBasicBlockBuilder*, SpvId type, SpvId id);
+void spvb_add_phi_source(struct Phi*, SpvId source_block, SpvId value);
+
+SpvId get_block_builder_id(struct SpvBasicBlockBuilder*);
+
 SpvId fn_ret_type_id(struct SpvFnBuilder*);
 
 SpvId spvb_fresh_id(struct SpvFileBuilder* file_builder);

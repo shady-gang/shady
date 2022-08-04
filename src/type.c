@@ -212,6 +212,9 @@ const Type* check_type_if_instr(IrArena* arena, If if_instr) {
     if (without_qualifier(if_instr.condition->type) != bool_type(arena))
         error("condition of a selection should be bool");
     // TODO check the contained Merge instrs
+    if (if_instr.yield_types.count > 0)
+        assert(if_instr.if_false);
+
     return wrap_multiple_yield_types(arena, if_instr.yield_types);
 }
 

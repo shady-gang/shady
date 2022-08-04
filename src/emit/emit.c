@@ -57,8 +57,11 @@ static SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id)
 
 static SpvId emit_builtin(Emitter* emitter, VulkanBuiltins builtin);
 
+typedef struct Phi** Phis;
+
 typedef struct {
     SpvId continue_target, break_target, join_target;
+    Phis continue_phis, break_phis, join_phis;
 } MergeTargets;
 
 static void emit_block(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets, const Node* node);
@@ -340,28 +343,39 @@ static void emit_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBui
 }
 
 static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, If if_instr, Nodes variables) {
-    assert(if_instr.yield_types.count == 0 && "TODO use phis");
-
-    SpvId next_id = spvb_fresh_id(emitter->file_builder);
+    SpvId join_bb_id = spvb_fresh_id(emitter->file_builder);
 
     SpvId true_id = spvb_fresh_id(emitter->file_builder);
-    SpvId false_id = if_instr.if_false ? spvb_fresh_id(emitter->file_builder) : next_id;
+    SpvId false_id = if_instr.if_false ? spvb_fresh_id(emitter->file_builder) : join_bb_id;
 
-    spvb_selection_merge(*bb_builder, next_id, 0);
+    spvb_selection_merge(*bb_builder, join_bb_id, 0);
     SpvId condition = emit_value(emitter, if_instr.condition, NULL);
     spvb_branch_conditional(*bb_builder, condition, true_id, false_id);
 
+    // When 'join' is codegen'd, these will be filled with the values given to it
+    BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
+    LARRAY(struct Phi*, join_phis, variables.count);
+    for (size_t i = 0; i < variables.count; i++) {
+        assert(if_instr.if_false && "Ifs with yield types need false branches !");
+        SpvId phi_id = spvb_fresh_id(emitter->file_builder);
+        SpvId type = emit_type(emitter, without_qualifier(variables.nodes[i]->type));
+        struct Phi* phi = spvb_add_phi(join_bb, type, phi_id);
+        join_phis[i] = phi;
+        register_result(emitter, variables.nodes[i], phi_id);
+    }
+
     MergeTargets merge_targets_branches = *merge_targets;
-    merge_targets_branches.join_target = next_id;
+    merge_targets_branches.join_target = join_bb_id;
+    merge_targets_branches.join_phis = join_phis;
 
-    emit_block(emitter, fn_builder, spvb_begin_bb(fn_builder, true_id), merge_targets_branches, if_instr.if_true);
-    if (if_instr.if_false)
-        emit_block(emitter, fn_builder, spvb_begin_bb(fn_builder, false_id), merge_targets_branches, if_instr.if_false);
+    BBBuilder true_bb = spvb_begin_bb(fn_builder, true_id);
+    emit_block(emitter, fn_builder, true_bb, merge_targets_branches, if_instr.if_true);
+    if (if_instr.if_false) {
+        BBBuilder false_bb = spvb_begin_bb(fn_builder, false_id);
+        emit_block(emitter, fn_builder, false_bb, merge_targets_branches, if_instr.if_false);
+    }
 
-    assert(variables.count == 0 && "TODO implement variables using phi nodes");
-
-    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
-    *bb_builder = next;
+    *bb_builder = join_bb;
 }
 
 static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match, Nodes variables) {
@@ -396,41 +410,74 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
 }
 
 static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Loop loop_instr, Nodes variables) {
-    assert(loop_instr.yield_types.count == 0 && "TODO use phis");
-    assert(loop_instr.params.count == 0 && "TODO use phis");
+    assert(loop_instr.yield_types.count == variables.count);
 
+    // First we create all the basic blocks we'll need
     SpvId header_id = spvb_fresh_id(emitter->file_builder);
+    BBBuilder header_builder = spvb_begin_bb(fn_builder, header_id);
+    spvb_name(emitter->file_builder, header_id, "loop_header");
+
     SpvId body_id = spvb_fresh_id(emitter->file_builder);
+    BBBuilder body_builder = spvb_begin_bb(fn_builder, body_id);
+    spvb_name(emitter->file_builder, body_id, "loop_body");
+
     SpvId continue_id = spvb_fresh_id(emitter->file_builder);
+    BBBuilder continue_builder = spvb_begin_bb(fn_builder, continue_id);
+    spvb_name(emitter->file_builder, continue_id, "loop_continue");
+
     SpvId next_id = spvb_fresh_id(emitter->file_builder);
+    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
+    spvb_name(emitter->file_builder, next_id, "loop_next");
+
+    // Wire up the phi nodes for loop exit
+    LARRAY(struct Phi*, loop_break_phis, loop_instr.params.count);
+    for (size_t i = 0; i < loop_instr.yield_types.count; i++) {
+        SpvId yielded_type = emit_type(emitter, without_qualifier(loop_instr.yield_types.nodes[i]));
+
+        SpvId break_phi_id = spvb_fresh_id(emitter->file_builder);
+        struct Phi* phi = spvb_add_phi(next, yielded_type, break_phi_id);
+        loop_break_phis[i] = phi;
+        register_result(emitter, variables.nodes[i], break_phi_id);
+    }
+
+    // Wire up the phi nodes for the loop contents
+    LARRAY(struct Phi*, loop_continue_phis, loop_instr.params.count);
+    for (size_t i = 0; i < loop_instr.params.count; i++) {
+        SpvId loop_param_type = emit_type(emitter, without_qualifier(loop_instr.params.nodes[i]->type));
+
+        SpvId continue_phi_id = spvb_fresh_id(emitter->file_builder);
+        struct Phi* continue_phi = spvb_add_phi(continue_builder, loop_param_type, continue_phi_id);
+        loop_continue_phis[i] = continue_phi;
+
+        // To get the actual loop parameter, we make a second phi for the nodes that go into the header
+        // We already know the two edges into the header so we immediately add the Phi sources for it.
+        SpvId loop_param_id = spvb_fresh_id(emitter->file_builder);
+        struct Phi* loop_param_phi = spvb_add_phi(header_builder, loop_param_type, loop_param_id);
+        SpvId param_initial_value = emit_value(emitter, loop_instr.initial_args.nodes[i], NULL);
+        spvb_add_phi_source(loop_param_phi, get_block_builder_id(*bb_builder), param_initial_value);
+        spvb_add_phi_source(loop_param_phi, get_block_builder_id(continue_builder), continue_phi_id);
+        register_result(emitter, loop_instr.params.nodes[i], loop_param_id);
+    }
 
     // The current block goes to the header (it can't be the header itself !)
     spvb_branch(*bb_builder, header_id);
 
-    // the header block receives the annotation
-    BBBuilder header_builder = spvb_begin_bb(fn_builder, header_id);
+    // the header block receives the loop merge annotation
     spvb_loop_merge(header_builder, next_id, continue_id, 0, 0, NULL);
     spvb_branch(header_builder, body_id);
-    spvb_name(emitter->file_builder, header_id, "loop_header");
 
     // Emission of the body requires extra info for the break/continue merge terminators
     MergeTargets merge_targets_branches = *merge_targets;
     merge_targets_branches.continue_target = continue_id;
+    merge_targets_branches.continue_phis = loop_continue_phis;
     merge_targets_branches.break_target = next_id;
-    BBBuilder body_builder = spvb_begin_bb(fn_builder, body_id);
+    merge_targets_branches.break_phis = loop_break_phis;
     emit_block(emitter, fn_builder, body_builder, merge_targets_branches, loop_instr.body);
-    spvb_name(emitter->file_builder, body_id, "loop_body");
 
     // the continue block just jumps back into the header
-    BBBuilder continue_builder = spvb_begin_bb(fn_builder, continue_id);
     spvb_branch(continue_builder, header_id);
-    spvb_name(emitter->file_builder, continue_id, "loop_continue");
-
-    assert(variables.count == 0 && "TODO implement variables using phi nodes");
 
     // We start the next block
-    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
-    spvb_name(emitter->file_builder, next_id, "loop_next");
     *bb_builder = next;
 }
 
@@ -445,7 +492,7 @@ static void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* 
     }
 
     switch (instruction->tag) {
-        case PrimOp_TAG: emit_primop(emitter, fn_builder, *bb_builder, instruction, variables);                   break;
+        case PrimOp_TAG: emit_primop(emitter, fn_builder, *bb_builder, instruction, variables);                                    break;
         case Call_TAG:     emit_call(emitter, fn_builder, *bb_builder, instruction->payload.call_instr, variables);                break;
         case If_TAG:         emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, variables);    break;
         case Match_TAG:   emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, variables); break;
@@ -497,19 +544,23 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         }
         case Join_TAG: error("Lower me");
         case MergeConstruct_TAG: {
+            Nodes args = terminator->payload.merge_construct.args;
             switch (terminator->payload.merge_construct.construct) {
                 case Selection: {
-                    assert(terminator->payload.merge_construct.args.count == 0);
+                    for (size_t i = 0; i < args.count; i++)
+                        spvb_add_phi_source(merge_targets.join_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, args.nodes[i], NULL));
                     spvb_branch(basic_block_builder, merge_targets.join_target);
                     return;
                 }
                 case Continue: {
-                    assert(terminator->payload.merge_construct.args.count == 0);
+                    for (size_t i = 0; i < args.count; i++)
+                        spvb_add_phi_source(merge_targets.continue_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, args.nodes[i], NULL));
                     spvb_branch(basic_block_builder, merge_targets.continue_target);
                     return;
                 }
                 case Break: {
-                    assert(terminator->payload.merge_construct.args.count == 0);
+                    for (size_t i = 0; i < args.count; i++)
+                        spvb_add_phi_source(merge_targets.break_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, args.nodes[i], NULL));
                     spvb_branch(basic_block_builder, merge_targets.break_target);
                     return;
                 }

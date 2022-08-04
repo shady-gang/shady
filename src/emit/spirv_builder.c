@@ -11,8 +11,8 @@
 typedef struct List* SpvSectionBuilder;
 
 struct PhiOp {
-    SpvId value;
     SpvId basic_block;
+    SpvId value;
 };
 
 struct Phi {
@@ -581,7 +581,7 @@ void spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuild
         }
 
         for (size_t j = 0; j < bb->phis->elements_count; j++) {
-            struct Phi* phi = &read_list(struct Phi, bb->phis)[j];
+            struct Phi* phi = read_list(struct Phi*, bb->phis)[j];
 
             op(SpvOpPhi, 3 + 2 * phi->preds->elements_count);
             ref_id(phi->type);
@@ -594,6 +594,7 @@ void spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuild
             }
 
             destroy_list(phi->preds);
+            free(phi);
         }
 
         copy_section(bb->section_data);
@@ -672,6 +673,24 @@ SpvId spvb_extended_import(struct SpvFileBuilder* file_builder, const char* name
 
 #undef target_data
 #define target_data final_output
+
+struct Phi* spvb_add_phi(struct SpvBasicBlockBuilder* bb_builder, SpvId type, SpvId id) {
+    struct Phi* phi = malloc(sizeof(struct Phi));
+    phi->preds = new_list(struct PhiOp);
+    phi->value = id;
+    phi->type = type;
+    append_list(struct Phi*, bb_builder->phis, phi);
+    return phi;
+}
+
+void spvb_add_phi_source(struct Phi* phi, SpvId source_block, SpvId value) {
+    struct PhiOp op = { .value = value, .basic_block = source_block };
+    append_list(struct Phi, phi->preds, op);
+}
+
+SpvId get_block_builder_id(struct SpvBasicBlockBuilder* basic_block_builder) {
+    return basic_block_builder->label;
+}
 
 inline static void merge_sections(SpvSectionBuilder final_output, struct SpvFileBuilder* file_builder) {
     literal_int(SpvMagicNumber);
@@ -759,7 +778,7 @@ struct SpvBasicBlockBuilder* spvb_begin_bb(struct SpvFnBuilder* fn_builder, SpvI
     *bbb = (struct SpvBasicBlockBuilder) {
         .file_builder = fn_builder->file_builder,
         .label = label,
-        .phis = new_list(struct Phi),
+        .phis = new_list(struct Phi*),
         .section_data = new_list(uint32_t)
     };
     append_list(struct SpvBasicBlockBuilder*, fn_builder->bbs, bbb);
