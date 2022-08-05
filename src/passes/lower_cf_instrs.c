@@ -66,7 +66,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                 destroy_list(accumulator);
                 const Node* branch_t = branch(dst_arena, (Branch) {
                     .branch_mode = BrIfElse,
-                    .branch_condition = instr->payload.if_instr.condition,
+                    .branch_condition = rewrite_node(&ctx->rewriter, instr->payload.if_instr.condition),
                     .true_target = true_branch,
                     .false_target = has_false_branch ? false_branch : join_cont,
                     .args = nodes(dst_arena, 0, NULL),
