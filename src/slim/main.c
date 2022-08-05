@@ -28,6 +28,7 @@ enum SlimErrorCodes {
 char* read_file(const char* filename);
 
 static void process_arguments(int argc, const char** argv, struct List* input_filenames, const char** output_filename) {
+    bool help = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--log-level") == 0) {
             i++;
@@ -62,18 +63,21 @@ static void process_arguments(int argc, const char** argv, struct List* input_fi
                 exit(MissingDumpCfgArg);
             }
             cfg_output = argv[i];
+        }  else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            help = true;
+            i++;
         } else {
             append_list(const char*, input_filenames, argv[i]);
         }
     }
 
-    if (entries_count_list(input_filenames) == 0) {
+    if (entries_count_list(input_filenames) == 0 || help) {
         error_print("Usage: slim source.slim\n");
         error_print("Available arguments: \n");
         error_print("  --log-level [debug, info, warn, error]\n");
         error_print("  --output output_filename\n");
         error_print("  --dump-cfg\n");
-        exit(MissingInputArg);
+        exit(help ? 0 : MissingInputArg);
     }
 }
 
