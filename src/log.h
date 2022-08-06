@@ -1,6 +1,8 @@
 #ifndef SHADY_LOG_H
 #define SHADY_LOG_H
 
+#include <stdio.h>
+
 typedef struct Node_ Node;
 
 typedef enum LogLevel_ {

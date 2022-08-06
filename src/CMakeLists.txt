@@ -1,7 +1,5 @@
-add_subdirectory(slim)
 add_subdirectory(containers)
 add_subdirectory(builtin)
-add_subdirectory(runtime)
 
 add_library(murmur3 STATIC ../murmur3/murmur3.c)
 
@@ -51,3 +49,6 @@ target_link_libraries(shady PRIVATE builtin_code)
 target_link_libraries(shady PRIVATE murmur3 containers)
 target_link_libraries(shady PRIVATE SPIRV-Headers::SPIRV-Headers)
 target_include_directories(shady PUBLIC ../include containers/ ../murmur3)
+
+add_subdirectory(runtime)
+add_subdirectory(slim)
