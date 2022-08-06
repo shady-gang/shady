@@ -5,19 +5,139 @@
 #include "../log.h"
 #include "../portability.h"
 
+#include <string.h>
 #include <stdlib.h>
 #include <assert.h>
 
-static void expect_success(VkResult result) {
-    assert(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR);
-}
+#define CHECK_VK(x, failure_handler) { VkResult the_result_ = x; if (the_result_ != VK_SUCCESS) { error_print(#x " failed (code %d)\n", the_result_); failure_handler; } }
+
+#define EX_debug_utils() \
+Y(vkCreateDebugUtilsMessengerEXT) \
+Y(vkDestroyDebugUtilsMessengerEXT) \
+
+#define INSTANCE_EXTENSIONS() \
+X(debug_utils)
 
 struct Runtime_ {
+    RuntimeConfig config;
     VkInstance instance;
     VkDevice device;
+
+    struct {
+        struct {
+            bool enabled;
+        } validation;
+    } enabled_layers;
+    struct {
+    #define Y(fn_name) PFN_##fn_name fn_name;
+    #define X(name) \
+        struct S_##name { \
+        bool enabled; \
+        EX_##name()  \
+        } name;
+    INSTANCE_EXTENSIONS()
+    #undef Y
+    #undef X
+    } enabled_exts;
+
+    VkDebugUtilsMessengerEXT debug_messenger;
 };
 
 static const char* necessary_device_extensions[] = { "VK_EXT_descriptor_indexing" };
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL the_callback(SHADY_UNUSED VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, SHADY_UNUSED VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, SHADY_UNUSED void* pUserData) {
+    warn_print("Validation says: %s\n", pCallbackData->pMessage);
+    return VK_FALSE;
+}
+
+static bool setup_debug_callback(Runtime* runtime) {
+    CHECK_VK(runtime->enabled_exts.debug_utils.vkCreateDebugUtilsMessengerEXT(runtime->instance, &(VkDebugUtilsMessengerCreateInfoEXT) {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        .pNext = NULL,
+        .flags = 0,
+        .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT,
+        .pfnUserCallback = the_callback,
+        .pUserData = NULL
+    }, NULL, &runtime->debug_messenger), return false);
+    return true;
+}
+
+static void obtain_instance_pointers(Runtime* runtime) {
+    #define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetInstanceProcAddr(runtime->instance, #fn_name);
+    #define X(name) \
+        if (runtime->enabled_exts.name.enabled) { \
+            struct S_##name* ext = &runtime->enabled_exts.name; \
+            EX_##name() \
+        }
+    INSTANCE_EXTENSIONS()
+    #undef Y
+    #undef X
+}
+
+static bool initialize_vk_instance(Runtime* runtime) {
+    uint32_t layers_count;
+    CHECK_VK(vkEnumerateInstanceLayerProperties(&layers_count, NULL), return false);
+    LARRAY(VkLayerProperties, layer_properties, layers_count);
+    CHECK_VK(vkEnumerateInstanceLayerProperties(&layers_count, layer_properties), return false);
+
+    uint32_t enabled_layers_count = 0;
+    LARRAY(const char*, enabled_layers, layers_count);
+
+    for (uint32_t i = 0; i < layers_count; i++) {
+        VkLayerProperties* layer = &layer_properties[i];
+
+        // Enable validation if the config says so
+        if (runtime->config.use_validation && strcmp(layer->layerName, "VK_LAYER_KHRONOS_validation") == 0) {
+            info_print("Enabling validation... \n");
+            runtime->enabled_layers.validation.enabled = true;
+            enabled_layers[enabled_layers_count++] = layer->layerName;
+        }
+    }
+
+    uint32_t extensions_count;
+    CHECK_VK(vkEnumerateInstanceExtensionProperties(NULL, &extensions_count, NULL), return false);
+    LARRAY(VkExtensionProperties, extensions, extensions_count);
+    CHECK_VK(vkEnumerateInstanceExtensionProperties(NULL, &extensions_count, extensions), return false);
+
+    uint32_t enabled_extensions_count = 0;
+    LARRAY(const char*, enabled_extensions, extensions_count);
+
+    for (uint32_t i = 0; i < layers_count; i++) {
+        VkExtensionProperties* extension = &extensions[i];
+
+        if (strcmp(extension->extensionName, "VK_EXT_debug_utils") == 0) {
+            info_print("Enabling EXT_debug_utils");
+            runtime->enabled_exts.debug_utils.enabled = true;
+            enabled_extensions[enabled_extensions_count++] = extension->extensionName;
+        }
+    }
+
+    CHECK_VK(vkCreateInstance(&(VkInstanceCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .pApplicationInfo = &(VkApplicationInfo) {
+            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            .pEngineName = "shady",
+            .pApplicationName = "business",
+            .pNext = NULL,
+            .engineVersion = 1,
+            .applicationVersion = 1,
+            .apiVersion = VK_MAKE_API_VERSION(0, 1, 2, 0)
+        },
+        .flags = 0,
+        .enabledExtensionCount = enabled_extensions_count,
+        .ppEnabledExtensionNames = enabled_extensions,
+        .enabledLayerCount = enabled_layers_count,
+        .ppEnabledLayerNames = enabled_layers,
+        .pNext = NULL
+    }, NULL, &runtime->instance), return false)
+
+    obtain_instance_pointers(runtime);
+
+    if (runtime->enabled_exts.debug_utils.enabled)
+        assert(setup_debug_callback(runtime));
+
+    return true;
+}
 
 static VkPhysicalDevice pick_device(SHADY_UNUSED Runtime* runtime, uint32_t devices_count, VkPhysicalDevice available_devices[]) {
     for (uint32_t i = 0; i < devices_count; i++) {
@@ -34,7 +154,7 @@ static VkPhysicalDevice pick_device(SHADY_UNUSED Runtime* runtime, uint32_t devi
     return NULL;
 }
 
-static VkDevice initialize_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
+static VkDevice initialize_physical_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
     uint32_t queue_families_count;
     vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_families_count, NULL);
     LARRAY(VkQueueFamilyProperties2, queue_families_properties, queue_families_count);
@@ -57,7 +177,7 @@ static VkDevice initialize_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevic
         return NULL;
 
     VkDevice device;
-    expect_success(vkCreateDevice(physical_device, &(VkDeviceCreateInfo) {
+    CHECK_VK(vkCreateDevice(physical_device, &(VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .flags = 0,
         .queueCreateInfoCount = 1,
@@ -65,7 +185,7 @@ static VkDevice initialize_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevic
             {
                 .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                 .flags = 0,
-                .pQueuePriorities = NULL,
+                .pQueuePriorities = (const float []) { 1.0f },
                 .queueCount = 1,
                 .queueFamilyIndex = compute_queue_family,
                 .pNext = NULL,
@@ -75,60 +195,60 @@ static VkDevice initialize_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevic
         .enabledExtensionCount = sizeof(necessary_device_extensions) / sizeof(const char*),
         .ppEnabledExtensionNames = necessary_device_extensions,
         .pNext = NULL,
-    }, NULL, &device));
+    }, NULL, &device), return NULL)
+
+    // vkUnmapMemory(device, 0);
+
     return device;
 }
 
-Runtime* initialize_runtime() {
-    Runtime* runtime = malloc(sizeof(Runtime));
-    if (vkCreateInstance(&(VkInstanceCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pApplicationInfo = &(VkApplicationInfo) {
-            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-            .pEngineName = "shady",
-            .pApplicationName = "business",
-            .pNext = NULL,
-            .engineVersion = 1,
-            .applicationVersion = 1,
-            .apiVersion = VK_MAKE_API_VERSION(0, 1, 2, 0)
-        },
-        .flags = 0,
-        .enabledExtensionCount = 0,
-        .ppEnabledExtensionNames = (const char* []) {},
-        .enabledLayerCount = 0,
-        .ppEnabledLayerNames = NULL,
-        .pNext = NULL
-    }, NULL, &runtime->instance) != VK_SUCCESS) {
-        error("Failed to initialise Vulkan instance");
-        goto init_fail_free;
+static bool initialize_vk_device(Runtime* runtime) {
+    uint32_t devices_count;
+    CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, NULL), return false)
+    LARRAY(VkPhysicalDevice, devices, devices_count);
+    CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, devices), return false)
+
+    if (devices_count == 0) {
+        error_print("No vulkan devices found!\n");
+        error_print("You may be able to diagnose this further using `VK_LOADER_DEBUG=all vulkaninfo`.\n");
+        return false;
     }
 
-#define CHECK(x) if (x != VK_SUCCESS) { error(#x " failed\n"); goto init_fail; }
-
-    uint32_t devices_count;
-    CHECK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, NULL))
-    LARRAY(VkPhysicalDevice, devices, devices_count);
-    CHECK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, devices))
-
-    assert(devices_count > 0 && "No Vulkan devices found !");
-
     VkPhysicalDevice physical_device = pick_device(runtime, devices_count, devices);
-    runtime->device = initialize_device(runtime, physical_device);
+    if (physical_device == NULL) {
+        error_print("No __suitable__ vulkan devices found!\n");
+        error_print("This is caused by running on weird hardware configurations. Hardware support might get better in the future.\n");
+        return false;
+    }
+    runtime->device = initialize_physical_device(runtime, physical_device);
+    return true;
+}
+
+Runtime* initialize_runtime(RuntimeConfig config) {
+    Runtime* runtime = malloc(sizeof(Runtime));
+    memset(runtime, 0, sizeof(Runtime));
+    runtime->config = config;
+
+    if (!initialize_vk_instance(runtime))
+        goto init_fail_free;
+
+    if (!initialize_vk_device(runtime))
+        goto init_fail;
 
     info_print("Shady runtime successfully initialized !\n");
     return runtime;
-#undef CHECK
 
     init_fail:
     vkDestroyInstance(runtime->instance, NULL);
 
     init_fail_free:
+    error_print("Failed to initialise the runtime.\n");
     free(runtime);
     return NULL;
 }
 
 void shutdown_runtime(Runtime* runtime) {
-    assert(runtime);
+    if (!runtime) return;
 
     vkDestroyDevice(runtime->device, NULL);
     vkDestroyInstance(runtime->instance, NULL);

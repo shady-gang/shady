@@ -1,10 +1,16 @@
 #ifndef SHADY_RUNTIME_H
 #define SHADY_RUNTIME_H
 
+#include <stdbool.h>
+
+typedef struct {
+    bool use_validation;
+} RuntimeConfig;
+
 typedef struct Runtime_ Runtime;
 typedef struct Program_ Program;
 
-Runtime* initialize_runtime();
+Runtime* initialize_runtime(RuntimeConfig config);
 void shutdown_runtime(Runtime*);
 
 Program* load_program(Runtime*, const char* program_src);
