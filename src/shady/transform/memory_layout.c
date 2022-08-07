@@ -1,7 +1,7 @@
 #include "memory_layout.h"
 #include "ir_gen_helpers.h"
 
-#include "../log.h"
+#include "log.h"
 #include "../block_builder.h"
 
 #include <assert.h>

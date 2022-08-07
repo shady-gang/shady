@@ -1,9 +1,9 @@
 #include "ir_gen_helpers.h"
 
 #include "list.h"
+#include "portability.h"
 
 #include "../arena.h"
-#include "../portability.h"
 #include "../type.h"
 #include "../block_builder.h"
 

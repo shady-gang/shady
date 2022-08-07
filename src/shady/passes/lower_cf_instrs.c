@@ -1,8 +1,8 @@
 #include "shady/ir.h"
 
-#include "../log.h"
+#include "log.h"
+#include "portability.h"
 #include "../type.h"
-#include "../portability.h"
 #include "../rewrite.h"
 
 #include "list.h"

@@ -1,6 +1,6 @@
 #include "shady/ir.h"
 
-#include "../portability.h"
+#include "portability.h"
 #include "../rewrite.h"
 
 #include <stdlib.h>

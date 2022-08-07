@@ -4,4 +4,4 @@ set(SLIM_SOURCES
     parser.c token.h)
 
 add_executable(slim ${SLIM_SOURCES})
-target_link_libraries(slim shady)
+target_link_libraries(slim shady common builtin_code)

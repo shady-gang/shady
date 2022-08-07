@@ -1,11 +1,11 @@
 #include "token.h"
 #include "parser.h"
 
-#include "../containers/list.h"
+#include "list.h"
+#include "portability.h"
+#include "log.h"
 
-#include "../log.h"
 #include "../type.h"
-#include "../portability.h"
 
 #include <stdlib.h>
 #include <stdio.h>

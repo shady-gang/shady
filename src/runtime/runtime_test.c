@@ -1,6 +1,6 @@
 #include "shady/runtime.h"
 
-#include "../log.h"
+#include "log.h"
 
 #include <stdlib.h>
 #include <stdio.h>

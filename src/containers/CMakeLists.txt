@@ -1,1 +1,0 @@
-add_library(containers STATIC list.c dict.c)

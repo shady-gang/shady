@@ -1,5 +1,5 @@
 #include "scope.h"
-#include "../log.h"
+#include "log.h"
 
 #include "list.h"
 #include "dict.h"

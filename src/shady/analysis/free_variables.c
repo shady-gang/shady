@@ -1,6 +1,6 @@
 #include "free_variables.h"
 
-#include "../log.h"
+#include "log.h"
 #include "../visit.h"
 
 #include "list.h"

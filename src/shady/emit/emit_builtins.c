@@ -1,8 +1,8 @@
 #include "emit.h"
 #include "emit_builtins.h"
 
-#include "../log.h"
-#include "../portability.h"
+#include "log.h"
+#include "portability.h"
 
 VulkanBuiltinKind vulkan_builtins_kind[] = {
 #define BUILTIN(kind, name, datatype) VulkanBuiltin##kind,

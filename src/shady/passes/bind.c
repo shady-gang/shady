@@ -1,9 +1,9 @@
 #include "passes.h"
 
 #include "list.h"
+#include "log.h"
+#include "portability.h"
 
-#include "../log.h"
-#include "../portability.h"
 #include "../arena.h"
 #include "../rewrite.h"
 

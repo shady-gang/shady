@@ -4,10 +4,9 @@
 
 #include "list.h"
 
-#include "../log.h"
-#include "../portability.h"
-#include "../passes/passes.h"
-#include "../builtin/builtin_code.h"
+#include "log.h"
+#include "portability.h"
+#include "builtin_code.h"
 
 #include <stdlib.h>
 #include <string.h>

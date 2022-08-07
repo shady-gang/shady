@@ -1,6 +1,6 @@
 #include "spirv_builder.h"
 
-#include "../containers/list.h"
+#include "list.h"
 
 #include <string.h>
 #include <stddef.h>

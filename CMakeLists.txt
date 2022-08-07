@@ -9,5 +9,5 @@ find_package(SPIRV-Headers REQUIRED)
 add_subdirectory(src)
 
 # todo: statically link those guys ?
-export(TARGETS shady containers murmur3 builtin_code FILE shady-targets.cmake)
+export(TARGETS api shady common murmur3 builtin_code FILE shady-targets.cmake)
 configure_file(cmake/shady-config.cmake.in shady-config.cmake)

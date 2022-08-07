@@ -1,7 +1,8 @@
 #include "passes.h"
 
-#include "../log.h"
-#include "../portability.h"
+#include "log.h"
+#include "portability.h"
+
 #include "../type.h"
 #include "../rewrite.h"
 

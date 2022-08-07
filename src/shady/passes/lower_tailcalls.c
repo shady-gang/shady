@@ -1,9 +1,10 @@
 #include "shady/ir.h"
 
+#include "log.h"
+#include "portability.h"
+
 #include "../rewrite.h"
 #include "../type.h"
-#include "../log.h"
-#include "../portability.h"
 
 #include "../transform/ir_gen_helpers.h"
 

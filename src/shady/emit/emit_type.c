@@ -1,8 +1,8 @@
 #include "emit_type.h"
 
 #include "../rewrite.h"
-#include "../portability.h"
-#include "../log.h"
+#include "portability.h"
+#include "log.h"
 
 #include "dict.h"
 

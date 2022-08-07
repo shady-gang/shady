@@ -2,8 +2,8 @@
 
 #include "vulkan/vulkan.h"
 
-#include "../log.h"
-#include "../portability.h"
+#include "log.h"
+#include "portability.h"
 
 #include <string.h>
 #include <stdlib.h>

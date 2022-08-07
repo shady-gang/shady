@@ -1,11 +1,11 @@
 #include "shady/ir.h"
 
 #include "dict.h"
+#include "log.h"
+#include "portability.h"
 
-#include "../log.h"
 #include "../arena.h"
 #include "../rewrite.h"
-#include "../portability.h"
 #include "../transform/ir_gen_helpers.h"
 
 typedef struct {

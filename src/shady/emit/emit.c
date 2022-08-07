@@ -1,8 +1,8 @@
 #include "list.h"
 #include "dict.h"
+#include "log.h"
+#include "portability.h"
 
-#include "../log.h"
-#include "../portability.h"
 #include "../type.h"
 #include "../analysis/scope.h"
 

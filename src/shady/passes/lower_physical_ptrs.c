@@ -5,8 +5,8 @@
 
 #include "../rewrite.h"
 #include "../type.h"
-#include "../log.h"
-#include "../portability.h"
+#include "log.h"
+#include "portability.h"
 
 #include "list.h"
 #include "dict.h"
