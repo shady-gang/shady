@@ -1,9 +1,11 @@
 #include "shady/runtime.h"
+#include "shady/ir.h"
 
 #include "vulkan/vulkan.h"
 
 #include "log.h"
 #include "portability.h"
+#include "list.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -40,7 +42,18 @@ struct Runtime_ {
     #undef X
     } enabled_exts;
 
+    struct List* pipelines;
+
     VkDebugUtilsMessengerEXT debug_messenger;
+};
+
+struct Program_ {
+    VkPipeline pipeline;
+    IrArena* arena;
+    const Node* program;
+
+    size_t spirv_size;
+    const char* spirv_bytes;
 };
 
 static const char* necessary_device_extensions[] = { "VK_EXT_descriptor_indexing" };
@@ -256,5 +269,17 @@ void shutdown_runtime(Runtime* runtime) {
     free(runtime);
 }
 
-Program* load_program(Runtime*, const char* program_src);
+static Program* actual_load_program(Runtime* runtime, const char* program_src) {
+    CompilerConfig config = default_compiler_config();
+    const Node* program = NULL;
+    ArenaConfig arena_config = {};
+    IrArena* arena = new_arena(arena_config);
+    parse_files(&config, 1, (const char* []){ program_src }, arena, &program);
+    run_compiler_passes(&config, &arena, &program);
+}
+
+Program* load_program(Runtime* runtime, const char* program_src) {
+    Program* program = malloc(sizeof(Program));
+}
+
 void launch_kernel(Program*, int dimx, int dimy, int dimz, int extra_args_count, void** extra_args);

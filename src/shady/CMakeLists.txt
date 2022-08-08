@@ -10,6 +10,9 @@ set(SHADY_SOURCES
     compile.c
     annotation.c
 
+    parser/parser.c
+    parser/token.c
+
     analysis/scope.c
     analysis/free_variables.c
     analysis/verify.c

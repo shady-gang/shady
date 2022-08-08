@@ -570,8 +570,7 @@ IrArena* new_arena(ArenaConfig);
 void destroy_arena(IrArena*);
 
 typedef struct CompilerConfig_ {
-    bool use_loop_for_fn_body;
-    bool use_loop_for_fn_calls;
+    bool allow_frontend_syntax;
 } CompilerConfig;
 
 CompilerConfig default_compiler_config();
@@ -580,6 +579,7 @@ typedef enum CompilationResult_ {
     CompilationNoError
 } CompilationResult;
 
+CompilationResult parse_files(CompilerConfig*, size_t num_files, const char** files_contents, IrArena*, const Node** program);
 CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program);
 void emit_spirv(CompilerConfig* config, IrArena*, const Node* root, FILE* output);
 void dump_cfg(FILE* file, const Node* root);
