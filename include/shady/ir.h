@@ -581,7 +581,7 @@ typedef enum CompilationResult_ {
 
 CompilationResult parse_files(CompilerConfig*, size_t num_files, const char** files_contents, IrArena*, const Node** program);
 CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program);
-void emit_spirv(CompilerConfig* config, IrArena*, const Node* root, FILE* output);
+void emit_spirv(CompilerConfig* config, IrArena*, const Node* root, size_t* size, char** output);
 void dump_cfg(FILE* file, const Node* root);
 void print_node(const Node* node);
 

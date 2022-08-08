@@ -10,7 +10,7 @@
 #include "emit_builtins.h"
 #include "emit_type.h"
 
-#include <stdio.h>
+#include <string.h>
 #include <stdint.h>
 #include <assert.h>
 
@@ -626,7 +626,7 @@ SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, FILE* output) {
+void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, size_t* output_size, char** output) {
     const Root* top_level = &root_node->payload.root;
     struct List* words = new_list(uint32_t);
 
@@ -691,7 +691,9 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, F
     // cleanup the emitter
     destroy_dict(emitter.node_ids);
 
-    fwrite(words->alloc, words->elements_count, 4, output);
+    *output_size = words->elements_count * sizeof(uint32_t);
+    *output = malloc(*output_size);
+    memcpy(*output, words->alloc, *output_size);
 
     destroy_list(words);
 }

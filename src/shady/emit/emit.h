@@ -25,6 +25,4 @@ SpvId emit_type(Emitter* emitter, const Type* type);
 SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id);
 SpvId emit_builtin(Emitter* emitter, VulkanBuiltins builtin);
 
-void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, FILE* output);
-
 #endif

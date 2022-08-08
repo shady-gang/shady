@@ -84,6 +84,7 @@ int main(int argc, const char** argv) {
     });
 
     CompilerConfig config = default_compiler_config();
+    config.allow_frontend_syntax = true;
 
     struct List* input_files = new_list(const char*);
     const char* output_filename = "out.spv";
@@ -128,9 +129,12 @@ int main(int argc, const char** argv) {
     }
 
     info_print("Emitting final result ... \n");
-    FILE *output = fopen(output_filename, "wb");
-    emit_spirv(&config, arena, program, output);
-    fclose(output);
+    FILE* output_file = fopen(output_filename, "wb");
+    size_t output_size;
+    char* output_buffer;
+    emit_spirv(&config, arena, program, &output_size, &output_buffer);
+    fwrite(output_buffer, output_size, 1, output_file);
+    fclose(output_file);
     info_print("Done\n");
 
     destroy_arena(arena);

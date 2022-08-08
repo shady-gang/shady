@@ -63,7 +63,7 @@ CompilationResult parse_files(CompilerConfig* config, size_t num_files, const ch
         if (i < num_builtin_sources_files) {
             input_file_contents = builtin_source_files[i];
         } else {
-            input_file_contents = files_contents[i];
+            input_file_contents = files_contents[i - num_builtin_sources_files];
         }
 
         info_print("Parsing: \n%s\n", input_file_contents);
