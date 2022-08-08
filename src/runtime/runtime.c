@@ -13,15 +13,15 @@
 
 #define CHECK_VK(x, failure_handler) { VkResult the_result_ = x; if (the_result_ != VK_SUCCESS) { error_print(#x " failed (code %d)\n", the_result_); failure_handler; } }
 
-#define EX_debug_utils() \
+#define empty_fns(Y)
+
+#define debug_utils_fns(Y) \
 Y(vkCreateDebugUtilsMessengerEXT) \
 Y(vkDestroyDebugUtilsMessengerEXT) \
 
-#define EX_portability_enumeration()
-
-#define INSTANCE_EXTENSIONS() \
-X(debug_utils) \
-X(portability_enumeration) \
+#define INSTANCE_EXTENSIONS(X) \
+X(debug_utils,             debug_utils_fns) \
+X(portability_enumeration, empty_fns)       \
 
 struct Runtime_ {
     RuntimeConfig config;
@@ -35,17 +35,15 @@ struct Runtime_ {
     } enabled_layers;
     struct {
     #define Y(fn_name) PFN_##fn_name fn_name;
-    #define X(name) \
+    #define X(name, fns) \
         struct S_##name { \
         bool enabled; \
-        EX_##name()  \
+        fns(Y)  \
         } name;
-    INSTANCE_EXTENSIONS()
+    INSTANCE_EXTENSIONS(X)
     #undef Y
     #undef X
-    } enabled_exts;
-
-    struct List* pipelines;
+    } instance_exts;
 
     VkDebugUtilsMessengerEXT debug_messenger;
 };
@@ -72,7 +70,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL the_callback(SHADY_UNUSED VkDebugUtilsMess
 }
 
 static bool setup_debug_callback(Runtime* runtime) {
-    CHECK_VK(runtime->enabled_exts.debug_utils.vkCreateDebugUtilsMessengerEXT(runtime->instance, &(VkDebugUtilsMessengerCreateInfoEXT) {
+    CHECK_VK(runtime->instance_exts.debug_utils.vkCreateDebugUtilsMessengerEXT(runtime->instance, &(VkDebugUtilsMessengerCreateInfoEXT) {
         .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
         .pNext = NULL,
         .flags = 0,
@@ -85,12 +83,12 @@ static bool setup_debug_callback(Runtime* runtime) {
 
 static void obtain_instance_pointers(Runtime* runtime) {
     #define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetInstanceProcAddr(runtime->instance, #fn_name);
-    #define X(name) \
-        if (runtime->enabled_exts.name.enabled) { \
-            struct S_##name* ext = &runtime->enabled_exts.name; \
-            EX_##name() \
+    #define X(name, fns) \
+        if (runtime->instance_exts.name.enabled) { \
+            struct S_##name* ext = &runtime->instance_exts.name; \
+            fns(Y) \
         }
-    INSTANCE_EXTENSIONS()
+    INSTANCE_EXTENSIONS(X)
     #undef Y
     #undef X
 }
@@ -128,17 +126,17 @@ static bool initialize_vk_instance(Runtime* runtime) {
 
         if (strcmp(extension->extensionName, "VK_EXT_debug_utils") == 0) {
             info_print("Enabling EXT_debug_utils\n");
-            runtime->enabled_exts.debug_utils.enabled = true;
+            runtime->instance_exts.debug_utils.enabled = true;
             enabled_extensions[enabled_extensions_count++] = extension->extensionName;
         } else if (strcmp(extension->extensionName, "VK_KHR_portability_enumeration") == 0) {
             info_print("Enabling KHR_portability_enumeration\n");
-            runtime->enabled_exts.portability_enumeration.enabled = true;
+            runtime->instance_exts.portability_enumeration.enabled = true;
             enabled_extensions[enabled_extensions_count++] = extension->extensionName;
         }
     }
 
     VkImageCreateFlagBits instance_flags = 0;
-    if (runtime->enabled_exts.portability_enumeration.enabled)
+    if (runtime->instance_exts.portability_enumeration.enabled)
         instance_flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 
     CHECK_VK(vkCreateInstance(&(VkInstanceCreateInfo) {
@@ -162,7 +160,7 @@ static bool initialize_vk_instance(Runtime* runtime) {
 
     obtain_instance_pointers(runtime);
 
-    if (runtime->enabled_exts.debug_utils.enabled)
+    if (runtime->instance_exts.debug_utils.enabled)
         assert(setup_debug_callback(runtime));
 
     return true;
