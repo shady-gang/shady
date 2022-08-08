@@ -17,8 +17,11 @@
 Y(vkCreateDebugUtilsMessengerEXT) \
 Y(vkDestroyDebugUtilsMessengerEXT) \
 
+#define EX_portability_enumeration()
+
 #define INSTANCE_EXTENSIONS() \
-X(debug_utils)
+X(debug_utils) \
+X(portability_enumeration) \
 
 struct Runtime_ {
     RuntimeConfig config;
@@ -120,15 +123,23 @@ static bool initialize_vk_instance(Runtime* runtime) {
     uint32_t enabled_extensions_count = 0;
     LARRAY(const char*, enabled_extensions, extensions_count);
 
-    for (uint32_t i = 0; i < layers_count; i++) {
+    for (uint32_t i = 0; i < extensions_count; i++) {
         VkExtensionProperties* extension = &extensions[i];
 
         if (strcmp(extension->extensionName, "VK_EXT_debug_utils") == 0) {
-            info_print("Enabling EXT_debug_utils");
+            info_print("Enabling EXT_debug_utils\n");
             runtime->enabled_exts.debug_utils.enabled = true;
+            enabled_extensions[enabled_extensions_count++] = extension->extensionName;
+        } else if (strcmp(extension->extensionName, "VK_KHR_portability_enumeration") == 0) {
+            info_print("Enabling KHR_portability_enumeration\n");
+            runtime->enabled_exts.portability_enumeration.enabled = true;
             enabled_extensions[enabled_extensions_count++] = extension->extensionName;
         }
     }
+
+    VkImageCreateFlagBits instance_flags = 0;
+    if (runtime->enabled_exts.portability_enumeration.enabled)
+        instance_flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 
     CHECK_VK(vkCreateInstance(&(VkInstanceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -139,9 +150,9 @@ static bool initialize_vk_instance(Runtime* runtime) {
             .pNext = NULL,
             .engineVersion = 1,
             .applicationVersion = 1,
-            .apiVersion = VK_MAKE_API_VERSION(0, 1, 2, 0)
+            .apiVersion = VK_MAKE_API_VERSION(0, 1, 1, 0)
         },
-        .flags = 0,
+        .flags = instance_flags,
         .enabledExtensionCount = enabled_extensions_count,
         .ppEnabledExtensionNames = enabled_extensions,
         .enabledLayerCount = enabled_layers_count,
