@@ -134,6 +134,7 @@ int main(int argc, const char** argv) {
     char* output_buffer;
     emit_spirv(&config, arena, program, &output_size, &output_buffer);
     fwrite(output_buffer, output_size, 1, output_file);
+    free((void*) output_buffer);
     fclose(output_file);
     info_print("Done\n");
 

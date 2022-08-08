@@ -439,7 +439,7 @@ PRIMOPS()
 }
 
 static const Node* accept_primop(ctxparams) {
-    Op op;
+    Op op = not_op;
     switch (curr_token(tokenizer).tag) {
         case load_tok: {
             next_token(tokenizer);
@@ -498,7 +498,7 @@ static const Node* accept_primop(ctxparams) {
                 .args = args,
             });
         }
-        default: if (translate_token_to_primop(curr_token(tokenizer).tag, &op)) break; return NULL;
+        default: if (translate_token_to_primop(curr_token(tokenizer).tag, &op)) break; else return NULL;
     }
     next_token(tokenizer);
     return prim_op(arena, (PrimOp) {

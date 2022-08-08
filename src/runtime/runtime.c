@@ -48,12 +48,17 @@ struct Runtime_ {
 };
 
 struct Program_ {
-    VkPipeline pipeline;
+    Runtime* runtime;
+
     IrArena* arena;
     const Node* program;
 
     size_t spirv_size;
-    const char* spirv_bytes;
+    char* spirv_bytes;
+
+    VkPipeline pipeline;
+    VkPipelineLayout layout;
+    VkShaderModule shader_module;
 };
 
 static const char* necessary_device_extensions[] = { "VK_EXT_descriptor_indexing" };
@@ -269,17 +274,66 @@ void shutdown_runtime(Runtime* runtime) {
     free(runtime);
 }
 
-static Program* actual_load_program(Runtime* runtime, const char* program_src) {
+static Program* actual_load_program(Program* program, const char* program_src) {
     CompilerConfig config = default_compiler_config();
-    const Node* program = NULL;
     ArenaConfig arena_config = {};
-    IrArena* arena = new_arena(arena_config);
-    parse_files(&config, 1, (const char* []){ program_src }, arena, &program);
-    run_compiler_passes(&config, &arena, &program);
+    program->arena = new_arena(arena_config);
+    parse_files(&config, 1, (const char* []){ program_src }, program->arena, &program->program);
+    run_compiler_passes(&config, &program->arena, &program->program);
+    emit_spirv(&config, program->arena, program->program, &program->spirv_size, &program->spirv_bytes);
+}
+
+static bool extract_layout(Program* program) {
+    CHECK_VK(vkCreatePipelineLayout(program->runtime->device, &(VkPipelineLayoutCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .pushConstantRangeCount = 0, // TODO !
+        .setLayoutCount = 0 // TODO !
+    }, NULL, &program->layout), return false);
+    return true;
+}
+
+static bool compile_pipeline(Program* program) {
+    CHECK_VK(vkCreateShaderModule(program->runtime->device, &(VkShaderModuleCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .codeSize = program->spirv_size,
+        .pCode = (uint32_t*) program->spirv_bytes
+    }, NULL, &program->shader_module), return false);
+
+    CHECK_VK(vkCreateComputePipelines(program->runtime->device, VK_NULL_HANDLE, 1, (VkComputePipelineCreateInfo []) { {
+        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = -1,
+        .layout = program->layout,
+        .stage = (VkPipelineShaderStageCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .module = program->shader_module,
+            .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pName = "the_shader_yo",
+            .pSpecializationInfo = NULL
+        }
+    } }, NULL, &program->pipeline), return false);
+    return true;
 }
 
 Program* load_program(Runtime* runtime, const char* program_src) {
     Program* program = malloc(sizeof(Program));
+    memset(program, 0, sizeof(Program));
+    program->runtime = runtime;
+    actual_load_program(program, program_src);
+    extract_layout(program);
+    compile_pipeline(program);
+    return program;
 }
 
-void launch_kernel(Program*, int dimx, int dimy, int dimz, int extra_args_count, void** extra_args);
+void launch_kernel(Program* program, int dimx, int dimy, int dimz, int extra_args_count, void** extra_args) {
+    error("TODO");
+}
+

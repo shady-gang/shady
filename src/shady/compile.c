@@ -88,4 +88,5 @@ CompilationResult parse_files(CompilerConfig* config, size_t num_files, const ch
         .declarations = nodes(arena, num_decl, all_decls)
     });
     free(all_decls);
+    return CompilationNoError;
 }
