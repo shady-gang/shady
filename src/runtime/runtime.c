@@ -20,8 +20,27 @@ Y(vkCreateDebugUtilsMessengerEXT) \
 Y(vkDestroyDebugUtilsMessengerEXT) \
 
 #define INSTANCE_EXTENSIONS(X) \
-X(debug_utils,             debug_utils_fns) \
-X(portability_enumeration, empty_fns)       \
+X(EXT, debug_utils,             debug_utils_fns) \
+X(KHR, portability_enumeration, empty_fns)       \
+
+#define DEVICE_EXTENSIONS(X) \
+X(EXT, descriptor_indexing,     empty_fns) \
+X(KHR, portability_subset,      empty_fns) \
+
+#define E(prefix, name, _) ShadySupports##prefix##name,
+enum ShadySupportedInstanceExtensions {
+    INSTANCE_EXTENSIONS(E)
+    ShadySupportedInstanceExtensionsCount
+};
+enum ShadySupportedDeviceExtensions {
+    DEVICE_EXTENSIONS(E)
+    ShadySupportedDeviceExtensionsCount
+};
+#define S(prefix, name, _) "VK_" #prefix "_" #name,
+const char* shady_supported_instance_extensions_names[] = { INSTANCE_EXTENSIONS(S) };
+const char* shady_supported_device_extensions_names[] = { DEVICE_EXTENSIONS(S) };
+#undef S
+#undef E
 
 struct Runtime_ {
     RuntimeConfig config;
@@ -35,7 +54,7 @@ struct Runtime_ {
     } enabled_layers;
     struct {
     #define Y(fn_name) PFN_##fn_name fn_name;
-    #define X(name, fns) \
+    #define X(prefix, name, fns) \
         struct S_##name { \
         bool enabled; \
         fns(Y)  \
@@ -62,8 +81,6 @@ struct Program_ {
     VkShaderModule shader_module;
 };
 
-static const char* necessary_device_extensions[] = { "VK_EXT_descriptor_indexing" };
-
 static VKAPI_ATTR VkBool32 VKAPI_CALL the_callback(SHADY_UNUSED VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, SHADY_UNUSED VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, SHADY_UNUSED void* pUserData) {
     warn_print("Validation says: %s\n", pCallbackData->pMessage);
     return VK_FALSE;
@@ -83,7 +100,7 @@ static bool setup_debug_callback(Runtime* runtime) {
 
 static void obtain_instance_pointers(Runtime* runtime) {
     #define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetInstanceProcAddr(runtime->instance, #fn_name);
-    #define X(name, fns) \
+    #define X(prefix, name, fns) \
         if (runtime->instance_exts.name.enabled) { \
             struct S_##name* ext = &runtime->instance_exts.name; \
             fns(Y) \
@@ -124,15 +141,14 @@ static bool initialize_vk_instance(Runtime* runtime) {
     for (uint32_t i = 0; i < extensions_count; i++) {
         VkExtensionProperties* extension = &extensions[i];
 
-        if (strcmp(extension->extensionName, "VK_EXT_debug_utils") == 0) {
-            info_print("Enabling EXT_debug_utils\n");
-            runtime->instance_exts.debug_utils.enabled = true;
-            enabled_extensions[enabled_extensions_count++] = extension->extensionName;
-        } else if (strcmp(extension->extensionName, "VK_KHR_portability_enumeration") == 0) {
-            info_print("Enabling KHR_portability_enumeration\n");
-            runtime->instance_exts.portability_enumeration.enabled = true;
-            enabled_extensions[enabled_extensions_count++] = extension->extensionName;
+#define X(prefix, name, _) \
+        if (strcmp(extension->extensionName, "VK_"#prefix"_"#name) == 0) { \
+            info_print("Enabling instance extension VK_"#prefix"_"#name"\n"); \
+            runtime->instance_exts.name.enabled = true; \
+            enabled_extensions[enabled_extensions_count++] = extension->extensionName; \
         }
+INSTANCE_EXTENSIONS(X)
+#undef X
     }
 
     VkImageCreateFlagBits instance_flags = 0;
@@ -219,12 +235,10 @@ static VkDevice initialize_physical_device(SHADY_UNUSED Runtime* runtime, VkPhys
             }
         },
         .enabledLayerCount = 0,
-        .enabledExtensionCount = sizeof(necessary_device_extensions) / sizeof(const char*),
-        .ppEnabledExtensionNames = necessary_device_extensions,
+        .enabledExtensionCount = 0,
+        .ppEnabledExtensionNames = NULL,
         .pNext = NULL,
     }, NULL, &device), return NULL)
-
-    // vkUnmapMemory(device, 0);
 
     return device;
 }
@@ -283,13 +297,14 @@ void shutdown_runtime(Runtime* runtime) {
     free(runtime);
 }
 
-static Program* actual_load_program(Program* program, const char* program_src) {
+static bool actual_load_program(Program* program, const char* program_src) {
     CompilerConfig config = default_compiler_config();
     ArenaConfig arena_config = {};
     program->arena = new_arena(arena_config);
     parse_files(&config, 1, (const char* []){ program_src }, program->arena, &program->program);
     run_compiler_passes(&config, &program->arena, &program->program);
     emit_spirv(&config, program->arena, program->program, &program->spirv_size, &program->spirv_bytes);
+    return true;
 }
 
 static bool extract_layout(Program* program) {
