@@ -66,16 +66,16 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                         stack_size = gen_primop_ce(instructions, sub_op, 2, (const Node* []) { stack_size, element_size});
 
                     const Node* addr = gen_lea(instructions, stack, stack_size, nodes(dst_arena, 1, (const Node* []) { int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 }) }));
-                    assert(without_qualifier(addr->type)->tag == PtrType_TAG);
-                    AddressSpace addr_space = without_qualifier(addr->type)->payload.ptr_type.address_space;
+                    assert(extract_operand_type(addr->type)->tag == PtrType_TAG);
+                    AddressSpace addr_space = extract_operand_type(addr->type)->payload.ptr_type.address_space;
 
                     addr = gen_primop_ce(instructions, reinterpret_op, 2, (const Node* []) { ptr_type(dst_arena, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr });
 
                     if (uniform) {
-                        assert(get_qualifier(stack_pointer->type) == Uniform);
-                        assert(get_qualifier(stack_size->type) == Uniform);
-                        assert(get_qualifier(stack->type) == Uniform);
-                        assert(get_qualifier(addr->type) == Uniform);
+                        assert(is_operand_uniform(stack_pointer->type));
+                        assert(is_operand_uniform(stack_size->type));
+                        assert(is_operand_uniform(stack->type));
+                        assert(is_operand_uniform(addr->type));
                     }
 
                     if (push) {

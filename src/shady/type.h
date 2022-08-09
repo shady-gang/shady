@@ -24,13 +24,15 @@ NODES()
 const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types);
 Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 
-// TODO: revise naming scheme
-const Type* strip_qualifier(const Type* type, DivergenceQualifier* qual_out);
-const Type* without_qualifier(const Type* type);
-DivergenceQualifier get_qualifier(const Type* type);
-
 const Type* derive_fn_type(IrArena* arena, const Function* fn);
 Nodes extract_variable_types(IrArena*, const Nodes*);
 Nodes extract_types(IrArena*, Nodes);
+
+/// Ensures an operand has divergence-annotated type and extracts it
+const Type* extract_operand_type(const Type*);
+bool is_operand_uniform(const Type*);
+void deconstruct_operand_type(const Type*, const Type**, bool* is_uniform_out);
+
+bool contains_qualified_type(const Type* type);
 
 #endif

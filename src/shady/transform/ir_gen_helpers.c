@@ -41,7 +41,7 @@ const Node* gen_primop_e(BlockBuilder* bb, Op op, Nodes nodes) {
 void gen_push_value_stack(BlockBuilder* instructions, const Node* value) {
     append_block(instructions, prim_op(instructions->arena, (PrimOp) {
         .op = push_stack_op,
-        .operands = nodes(instructions->arena, 2, (const Node*[]) { without_qualifier(value->type), value })
+        .operands = nodes(instructions->arena, 2, (const Node*[]) { extract_operand_type(value->type), value })
     }));
 }
 

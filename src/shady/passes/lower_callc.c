@@ -55,7 +55,7 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
         const Variable* var = &read_list(const Node*, recover_context)[i]->payload.var;
         // TODO: shouldn't we recreate everything (ie the type too) here ?
         // We should at least be consistent
-        const Node* args[] = {without_qualifier(var->type), read_list(const Node*, recover_context)[i] };
+        const Node* args[] = { extract_operand_type(var->type), read_list(const Node*, recover_context)[i] };
         const Node* save_instruction = prim_op(dst_arena, (PrimOp) {
             .op = push_stack_op,
             .operands = nodes(dst_arena, 2, args)
@@ -69,7 +69,7 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
         const Node* ovar = read_list(const Node*, recover_context)[i];
         const char* output_names[] = {ovar->payload.var.name };
 
-        const Type* type = rewrite_node(&ctx->rewriter, without_qualifier(ovar->payload.var.type));
+        const Type* type = rewrite_node(&ctx->rewriter, extract_operand_type(ovar->payload.var.type));
 
         const Node* let_load = let(dst_arena, prim_op(dst_arena, (PrimOp) {
             .op = pop_stack_op,

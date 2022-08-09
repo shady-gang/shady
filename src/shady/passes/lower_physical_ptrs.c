@@ -41,7 +41,7 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     const Node* old_pointer = lea->operands.nodes[0];
     const Node* faked_pointer = rewrite_node(&ctx->rewriter, old_pointer);
-    const Type* pointer_type = without_qualifier(old_pointer->type);
+    const Type* pointer_type = extract_operand_type(old_pointer->type);
     assert(pointer_type->tag == PtrType_TAG);
 
     const Node* old_offset = lea->operands.nodes[1];
@@ -128,7 +128,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                 }
                 case lea_op: {
                     const Type* ptr_type = oprim_op->operands.nodes[0]->type;
-                    ptr_type = without_qualifier(ptr_type);
+                    ptr_type = extract_operand_type(ptr_type);
                     assert(ptr_type->tag == PtrType_TAG);
                     if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                         goto unchanged;
@@ -139,7 +139,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                 }
                 case reinterpret_op: {
                     const Type* source_type = oprim_op->operands.nodes[1]->type;
-                    source_type = without_qualifier(source_type);
+                    source_type = extract_operand_type(source_type);
                     if (source_type->tag != PtrType_TAG || !is_as_emulated(ctx, source_type->payload.ptr_type.address_space))
                         goto unchanged;
                     // TODO ensure source is an integer and the bit width is appropriate
@@ -151,7 +151,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                 case store_op: {
                     const Node* old_ptr = oprim_op->operands.nodes[0];
                     const Type* ptr_type = old_ptr->type;
-                    ptr_type = without_qualifier(ptr_type);
+                    ptr_type = extract_operand_type(ptr_type);
                     assert(ptr_type->tag == PtrType_TAG);
                     if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                         goto unchanged;

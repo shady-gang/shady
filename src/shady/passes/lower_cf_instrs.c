@@ -79,8 +79,8 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
             case Loop_TAG: error("TODO")
             case Call_TAG: {
                 const Node* callee = instr->payload.call_instr.callee;
-                assert(get_qualifier(callee->type) == Uniform);
-                const Type* callee_type = without_qualifier(callee->type);
+                assert(is_operand_uniform(callee->type));
+                const Type* callee_type = extract_operand_type(callee->type);
                 assert(callee_type->tag == FnType_TAG);
 
                 Nodes cont_params = recreate_variables(&ctx->rewriter, let_node->payload.let.variables);

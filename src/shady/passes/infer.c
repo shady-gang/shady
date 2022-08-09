@@ -10,7 +10,7 @@
 
 static void annotate_all_types(IrArena* arena, Nodes* types, bool uniform_by_default) {
     for (size_t i = 0; i < types->count; i++) {
-        if (get_qualifier(types->nodes[i]) == Unknown)
+        if (!contains_qualified_type(types->nodes[i]))
             types->nodes[i] = qualified_type(arena, (QualifiedType) {
                 .type = types->nodes[i],
                 .is_uniform = uniform_by_default,
@@ -136,12 +136,19 @@ static const Node* infer_fn(Context* ctx, const Node* node) {
     return fun;
 }
 
+/// Like extract_operand_type but won't error out if type wasn't qualified to begin with
+static const Type* remove_uniformity_qualifier(const Node* type) {
+    if (contains_qualified_type(type))
+        return extract_operand_type(type);
+    return type;
+}
+
 static const Node* infer_value(Context* ctx, const Node* node, const Node* expected_type) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
         case UntypedNumber_TAG: {
-            expected_type = without_qualifier(expected_type);
+            expected_type = remove_uniformity_qualifier(expected_type);
             assert(expected_type->tag == Int_TAG);
             uint64_t v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
             // TODO chop off extra bits based on width ?
@@ -190,7 +197,7 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
         case push_stack_uniform_op: {
             assert(old_inputs.count == 2);
             const Type* element_type = import_node(dst_arena, old_inputs.nodes[0]);
-            assert(get_qualifier(element_type) == Unknown);
+            assert(!contains_qualified_type(element_type));
             new_inputs_scratch[0] = element_type;
             new_inputs_scratch[1] = infer_value(ctx, old_inputs.nodes[1], element_type);
             goto skip_input_types;
@@ -199,7 +206,7 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
         case pop_stack_uniform_op: {
             assert(old_inputs.count == 1);
             const Type* element_type = import_node(dst_arena, old_inputs.nodes[0]);
-            assert(get_qualifier(element_type) == Unknown);
+            assert(!contains_qualified_type(element_type));
             new_inputs_scratch[0] = element_type;
             goto skip_input_types;
         }
@@ -211,7 +218,7 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
         case store_op: {
             assert(old_inputs.count == 2);
             new_inputs_scratch[0] = infer_value(ctx, old_inputs.nodes[0], NULL);
-            const Type* op0_type = without_qualifier(new_inputs_scratch[0]->type);
+            const Type* op0_type = extract_operand_type(new_inputs_scratch[0]->type);
             assert(op0_type->tag == PtrType_TAG);
             const PtrType* ptr_type = &op0_type->payload.ptr_type;
             new_inputs_scratch[1] = infer_value(ctx, old_inputs.nodes[1], ptr_type->pointed_type);
@@ -220,8 +227,9 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
         case alloca_op: {
             assert(old_inputs.count == 1);
             new_inputs_scratch[0] = import_node(ctx->rewriter.dst_arena, old_inputs.nodes[0]);
+            const Type* element_type = new_inputs_scratch[0];
             assert(is_type(new_inputs_scratch[0]));
-            assert(get_qualifier(new_inputs_scratch[0]) == Unknown);
+            assert(!contains_qualified_type(element_type));
             goto skip_input_types;
         }
         case lea_op: {
@@ -268,7 +276,7 @@ static const Node* infer_call(Context* ctx, const Node* node) {
     const Node* new_callee = infer_value_or_cont(ctx, node->payload.call_instr.callee, NULL);
     LARRAY(const Node*, new_args, node->payload.call_instr.args.count);
 
-    const Type* callee_type = without_qualifier(new_callee->type);
+    const Type* callee_type = extract_operand_type(new_callee->type);
     if (callee_type->tag != FnType_TAG)
         error("Callees must have a function type");
     if (callee_type->payload.fn_type.param_types.count != node->payload.call_instr.args.count)
@@ -399,10 +407,12 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                 case BrTailcall:
                 case BrJump: {
                     const Node* ntarget = infer_fn(ctx, node->payload.branch.target);
-
-                    assert(get_qualifier(ntarget->type) == Uniform);
-                    assert(without_qualifier(ntarget->type)->tag == FnType_TAG);
-                    const FnType* tgt_type = &without_qualifier(ntarget->type)->payload.fn_type;
+                    const Type* ntarget_type;
+                    bool ntarget_is_uniform;
+                    deconstruct_operand_type(ntarget->type, &ntarget_type, &ntarget_is_uniform);
+                    assert(ntarget_is_uniform);
+                    assert(ntarget_type->tag == FnType_TAG);
+                    const FnType* tgt_type = &ntarget_type->payload.fn_type;
                     assert(tgt_type->is_basic_block);
 
                     LARRAY(const Node*, tmp, node->payload.branch.args.count);
@@ -424,14 +434,14 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                     const Node* t_target = infer_fn(ctx, node->payload.branch.true_target);
                     const Node* f_target = infer_fn(ctx, node->payload.branch.false_target);
 
-                    assert(get_qualifier(t_target->type) == Uniform);
-                    assert(without_qualifier(t_target->type)->tag == FnType_TAG);
-                    const FnType* t_tgt_type = &without_qualifier(t_target->type)->payload.fn_type;
+                    assert(is_operand_uniform(t_target->type));
+                    assert(extract_operand_type(t_target->type)->tag == FnType_TAG);
+                    const FnType* t_tgt_type = &extract_operand_type(t_target->type)->payload.fn_type;
                     assert(t_tgt_type->is_basic_block);
 
-                    assert(get_qualifier(f_target->type) == Uniform);
-                    assert(without_qualifier(f_target->type)->tag == FnType_TAG);
-                    const FnType* f_tgt_type = &without_qualifier(f_target->type)->payload.fn_type;
+                    assert(is_operand_uniform(f_target->type));
+                    assert(extract_operand_type(f_target->type)->tag == FnType_TAG);
+                    const FnType* f_tgt_type = &extract_operand_type(f_target->type)->payload.fn_type;
                     assert(f_tgt_type->is_basic_block);
 
                     // TODO: unify the two target types

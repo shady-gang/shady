@@ -64,7 +64,7 @@ const Node* fold_prim_op(IrArena* arena, const Node* node) {
         case reinterpret_op:
         case convert_op:
             // get rid of identity casts
-            if (is_subtype(prim_op.operands.nodes[0], without_qualifier(prim_op.operands.nodes[1]->type)))
+            if (is_subtype(prim_op.operands.nodes[0], extract_operand_type(prim_op.operands.nodes[1]->type)))
                 return prim_op.operands.nodes[1];
             break;
         default: break;

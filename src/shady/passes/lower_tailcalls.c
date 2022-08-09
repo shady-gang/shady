@@ -200,7 +200,7 @@ static const Node* process(Context* ctx, const Node* old) {
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fn.params.count; i++) {
                 const Node* old_param = old->payload.fn.params.nodes[i];
-                const Node* popped = gen_pop_value_stack(block_builder, format_string(dst_arena, "arg%d", i), rewrite_node(&ctx->rewriter, without_qualifier(old_param->type)));
+                const Node* popped = gen_pop_value_stack(block_builder, format_string(dst_arena, "arg%d", i), rewrite_node(&ctx->rewriter, extract_operand_type(old_param->type)));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
             fun->payload.fn.block = rewrite_block(ctx, old->payload.fn.block, block_builder);
