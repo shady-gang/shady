@@ -571,6 +571,8 @@ void destroy_arena(IrArena*);
 
 typedef struct CompilerConfig_ {
     bool allow_frontend_syntax;
+    size_t per_thread_stack_size;
+    size_t per_subgroup_stack_size;
 } CompilerConfig;
 
 CompilerConfig default_compiler_config();

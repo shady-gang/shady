@@ -36,11 +36,11 @@ enum ResultKind {
     Same, Bool, TyOperand
 };
 
-static enum OperandKind classify_operand(const Node* operand) {
-    if (!is_type(operand))
-        operand = operand->type;
+static enum OperandKind classify_primop_arg(const Node* arg) {
+    const Type* operand_type = is_type(arg) ? arg : extract_operand_type(arg->type);
+    assert(!contains_qualified_type(operand_type));
 
-    switch (extract_operand_type(operand)->tag) {
+    switch (operand_type->tag) {
         case Int_TAG:     return Signed;
         case Bool_TAG:    return Logical;
         case PtrType_TAG: return Ptr;
@@ -130,11 +130,11 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         SpvOp opcode;
         int first_op = 0;
         if (entry.i_sel_mechanism == FirstOp) {
-            enum OperandKind op_class = classify_operand(args.nodes[0]);
+            enum OperandKind op_class = classify_primop_arg(args.nodes[0]);
             opcode = entry.fo[op_class];
         } else if (entry.i_sel_mechanism == FirstAndResult) {
-            enum OperandKind return_t_class = classify_operand(args.nodes[0]);
-            enum OperandKind op_class = classify_operand(args.nodes[1]);
+            enum OperandKind return_t_class = classify_primop_arg(args.nodes[0]);
+            enum OperandKind op_class = classify_primop_arg(args.nodes[1]);
             opcode = entry.foar[op_class][return_t_class];
             first_op = 1;
         } else SHADY_UNREACHABLE;

@@ -19,6 +19,9 @@ typedef struct Context_ {
     CompilerConfig* config;
     const Node* src_program;
 
+    uint32_t preallocated_private_memory;
+    uint32_t preallocated_subgroup_memory;
+
     const Node* physical_private_buffer;
     const Node* physical_subgroup_buffer;
 
@@ -198,9 +201,20 @@ static const Node* process_node(Context* ctx, const Node* old) {
             // Global variables into emulated address spaces become integer constants (to index into arrays used for emulation of said address space)
             if (old_gvar->address_space == AsSubgroupPhysical || old_gvar->address_space == AsPrivatePhysical) {
                 Nodes annotations = rewrite_nodes(&ctx->rewriter, old_gvar->annotations); // We keep the old annotations
-                Node* cnst = constant(ctx->rewriter.dst_arena, annotations, old_gvar->name);
-                cnst->payload.constant.value = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 });
+
+                const char* emulated_heap_name = old_gvar->address_space == AsSubgroupPhysical ? "private" : "subgroup";
+
+                Node* cnst = constant(ctx->rewriter.dst_arena, annotations, format_string(ctx->rewriter.dst_arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
+
+                uint32_t* preallocated = old_gvar->address_space == AsSubgroupPhysical ? &ctx->preallocated_subgroup_memory : &ctx->preallocated_private_memory;
+                const Type* contents_type = rewrite_node(&ctx->rewriter, old_gvar->type);
+                assert(!contains_qualified_type(contents_type));
+                uint32_t required_space = bytes_to_i32_cells(get_mem_layout(ctx->config, ctx->rewriter.dst_arena, contents_type).size_in_bytes);
+
+                cnst->payload.constant.value = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value_u32 = *preallocated, .width = IntTy32 });
                 cnst->type = cnst->payload.constant.value->type;
+                *preallocated += required_space;
+
                 register_processed(&ctx->rewriter, old, cnst);
                 return cnst;
             }
@@ -221,6 +235,15 @@ static const Node* process_node(Context* ctx, const Node* old) {
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
     }
+}
+
+void update_base_stack_ptrs(Context* ctx) {
+    Node* per_thread_stack_ptr = (Node*) find_decl(ctx, "stack_ptr");
+    assert(per_thread_stack_ptr && per_thread_stack_ptr->tag == GlobalVariable_TAG);
+    per_thread_stack_ptr->payload.global_variable.init = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value_u32 = ctx->preallocated_private_memory, .width = IntTy32});
+    Node* subgroup_stack_ptr = (Node*)  find_decl(ctx, "uniform_stack_ptr");
+    assert(subgroup_stack_ptr && subgroup_stack_ptr->tag == GlobalVariable_TAG);
+    subgroup_stack_ptr->payload.global_variable.init = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value_u32 = ctx->preallocated_subgroup_memory, .width = IntTy32});
 }
 
 KeyHash hash_node(Node**);
@@ -256,6 +279,9 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
         .config = config,
         .src_program = src_program,
 
+        .preallocated_private_memory = 0,
+        .preallocated_subgroup_memory = 0,
+
         .physical_private_buffer = physical_private_buffer,
         .physical_subgroup_buffer = physical_subgroup_buffer,
 
@@ -271,6 +297,8 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
     rewritten = root(dst_arena, (Root) {
         .declarations = new_decls
     });
+
+    update_base_stack_ptrs(&ctx);
 
     destroy_list(new_decls_list);
 

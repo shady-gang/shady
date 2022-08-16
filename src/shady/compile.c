@@ -6,9 +6,14 @@
 #include "parser/parser.h"
 #include "builtin_code.h"
 
+#define KiB * 1024
+#define MiB * 1024 KiB
+
 CompilerConfig default_compiler_config() {
     return (CompilerConfig) {
         .allow_frontend_syntax = false,
+        .per_thread_stack_size = 256 KiB,
+        .per_subgroup_stack_size = 1 MiB
     };
 }
 

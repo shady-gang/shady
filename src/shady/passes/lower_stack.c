@@ -133,7 +133,11 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
     const Type* stack_base_element = int32_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = stack_base_element,
-        .size = NULL,
+        .size = int_literal(dst_arena, (IntLiteral) { .value_u32 = config->per_thread_stack_size }),
+    });
+    const Type* uniform_stack_arr_type = arr_type(dst_arena, (ArrType) {
+        .element_type = stack_base_element,
+        .size = int_literal(dst_arena, (IntLiteral) { .value_u32 = config->per_subgroup_stack_size }),
     });
     const Type* stack_counter_t = int32_type(dst_arena);
 
@@ -142,7 +146,7 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
 
     // Arrays for the stacks
     Node* stack_decl = global_var(dst_arena, annotations, stack_arr_type, "stack", AsPrivatePhysical);
-    Node* uniform_stack_decl = global_var(dst_arena, annotations, stack_arr_type, "uniform_stack", AsSubgroupPhysical);
+    Node* uniform_stack_decl = global_var(dst_arena, annotations, uniform_stack_arr_type, "uniform_stack", AsSubgroupPhysical);
 
     // Pointers into those arrays
     Node* stack_ptr_decl = global_var(dst_arena, annotations, stack_counter_t, "stack_ptr", AsPrivateLogical);
