@@ -306,6 +306,11 @@ case QualifiedType_TAG: {             \
     field(qualified_type.is_uniform); \
     break;                            \
 }                                     \
+case PackType_TAG: {                  \
+    field(pack_type.element_type);    \
+    field(pack_type.width);           \
+    break;                            \
+}                                     \
 case FnType_TAG: {                    \
     field(fn_type.is_basic_block);    \
     field(fn_type.return_types);      \

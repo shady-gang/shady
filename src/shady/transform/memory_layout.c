@@ -26,6 +26,16 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
             .type = type,
             .size_in_bytes = 4,
         };
+        case ArrType_TAG: {
+            const Node* size = type->payload.arr_type.size;
+            assert(size && "We can't know the full layout of arrays of unknown size !");
+            size_t actual_size = extract_int_literal_value(size, false);
+            TypeMemLayout element_layout = get_mem_layout(config, arena, type->payload.arr_type.element_type);
+            return (TypeMemLayout) {
+                .type = type,
+                .size_in_bytes = actual_size * element_layout.size_in_bytes
+            };
+        }
         case QualifiedType_TAG: return get_mem_layout(config, arena, type->payload.qualified_type.type);
         case RecordType_TAG: error("TODO");
         default: error("not a known type");

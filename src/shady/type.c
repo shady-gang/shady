@@ -174,6 +174,11 @@ const Type* check_type_qualified_type(IrArena* arena, QualifiedType qualified_ty
     return NULL;
 }
 
+const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
+    assert(!contains_qualified_type(pack_type.element_type));
+    return NULL;
+}
+
 const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
     error("should never happen");
 }
