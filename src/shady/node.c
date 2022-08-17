@@ -422,3 +422,8 @@ const IntLiteral* resolve_to_literal(const Node* node) {
         }
     }
 }
+
+const char* extract_string_literal(const Node* node) {
+    assert(node->tag == StringLiteral_TAG);
+    return node->payload.string_lit.string;
+}

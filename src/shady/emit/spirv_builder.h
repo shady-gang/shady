@@ -66,7 +66,7 @@ SpvId spvb_debug_string(struct SpvFileBuilder* file_builder, const char* string)
 
 void spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuilder* fn_builder);
 
-void  spvb_declare_entry_point(struct SpvFileBuilder* file_builder, SpvExecutionModel execution_model, SpvId entry_point, const char* name, size_t interface_elements_count, SpvId interface_elements[]);
+void  spvb_entry_point(struct SpvFileBuilder* file_builder, SpvExecutionModel execution_model, SpvId entry_point, const char* name, size_t interface_elements_count, SpvId interface_elements[]);
 void  spvb_execution_mode(struct SpvFileBuilder* file_builder, SpvId entry_point, SpvExecutionMode execution_mode, size_t payloads_count, uint32_t payloads[]);
 void  spvb_capability(struct SpvFileBuilder* file_builder, SpvCapability cap);
 

@@ -44,12 +44,14 @@ typedef enum AddressSpace_ {
 
 static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalLogical; }
 
-typedef enum EntryPointType_ {
+typedef enum {
     NotAnEntryPoint,
     Compute,
     Fragment,
     Vertex
-} EntryPointType;
+} ExecutionModel;
+
+ExecutionModel execution_model_from_string(const char*);
 
 //////////////////////////////// Node Types Enumeration ////////////////////////////////
 // NODEDEF(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name)
@@ -220,6 +222,8 @@ int64_t extract_int_literal_value(const Node*, bool sign_extend);
 typedef struct StringLiteral_ {
     const char* string;
 } StringLiteral;
+
+const char* extract_string_literal(const Node*);
 
 typedef struct Tuple_ {
     Nodes contents;

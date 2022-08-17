@@ -623,11 +623,94 @@ SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
     return new;
 }
 
+static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
+    switch (decl->tag) {
+        case GlobalVariable_TAG: {
+            const GlobalVariable* gvar = &decl->payload.global_variable;
+            SpvId init = 0;
+            if (gvar->init)
+                init = emit_value(emitter, gvar->init, NULL);
+            spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), emit_addr_space(gvar->address_space), false, init);
+            spvb_name(emitter->file_builder, given_id, gvar->name);
+            break;
+        } case Function_TAG: {
+            emit_function(emitter, decl);
+            spvb_name(emitter->file_builder, given_id, decl->payload.fn.name);
+            break;
+        } case Constant_TAG: {
+            const Constant* cnst = &decl->payload.constant;
+            emit_value(emitter, cnst->value, &given_id);
+            spvb_name(emitter->file_builder, given_id, cnst->name);
+            break;
+        }
+        default: error("unhandled declaration kind")
+    }
+}
+
+static void emit_root(Emitter* emitter, const Node* root) {
+    assert(root->tag == Root_TAG);
+    Nodes declarations = root->payload.root.declarations;
+
+     // First reserve IDs for declarations
+    LARRAY(SpvId, ids, declarations.count);
+    for (size_t i = 0; i < declarations.count; i++) {
+        const Node* decl = declarations.nodes[i];
+        ids[i] = spvb_fresh_id(emitter->file_builder);
+        insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, decl, ids[i]);
+    }
+
+    for (size_t i = 0; i < declarations.count; i++) {
+        const Node* decl = declarations.nodes[i];
+        emit_decl(emitter, decl, ids[i]);
+    }
+}
+
+static SpvExecutionModel emit_exec_model(ExecutionModel model) {
+    switch (model) {
+        case Compute:  return SpvExecutionModelGLCompute;
+        case Vertex:   return SpvExecutionModelVertex;
+        case Fragment: return SpvExecutionModelFragment;
+        default: error("Can't emit execution model");
+    }
+}
+
+static void emit_entry_points(Emitter* emitter, const Node* root) {
+    assert(root->tag == Root_TAG);
+    Nodes declarations = root->payload.root.declarations;
+
+    // First, collect all the global variables, they're needed for the interface section of OpEntryPoint
+    // it can be a superset of the ones actually used, so the easiest option is to just grab _all_ global variables and shove them in there
+    // my gut feeling says it's unlikely any drivers actually care, but validation needs to be happy so here we go...
+    LARRAY(SpvId, interface_arr, declarations.count);
+    size_t interface_size = 0;
+    for (size_t i = 0; i < declarations.count; i++) {
+        const Node* node = declarations.nodes[i];
+        if (node->tag != GlobalVariable_TAG) continue;
+        interface_arr[interface_size++] = find_reserved_id(emitter, node);
+    }
+
+    for (size_t i = 0; i < declarations.count; i++) {
+        const Node* node = declarations.nodes[i];
+        if (node->tag != Function_TAG) continue;
+
+        for (size_t j = 0; j < node->payload.fn.annotations.count; j++) {
+            const Node* annotation = node->payload.fn.annotations.nodes[j];
+            if (strcmp(annotation->payload.annotation.name, "EntryPoint") == 0) {
+                assert(annotation->payload.annotation.payload_type == AnPayloadValue);
+                const char* execution_model_name = extract_string_literal(annotation->payload.annotation.value);
+                SpvExecutionModel execution_model = emit_exec_model(execution_model_from_string(execution_model_name));
+
+                spvb_entry_point(emitter->file_builder, execution_model, find_reserved_id(emitter, node), node->payload.fn.name, interface_size, interface_arr);
+                emitter->num_entry_pts++;
+            }
+        }
+    }
+}
+
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, size_t* output_size, char** output) {
-    const Root* top_level = &root_node->payload.root;
     struct List* words = new_list(uint32_t);
 
     FileBuilder file_builder = spvb_begin();
@@ -637,6 +720,7 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, s
         .arena = arena,
         .file_builder = file_builder,
         .node_ids = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
+        .num_entry_pts = 0,
     };
 
     for (size_t i = 0; i < VulkanBuiltinsCount; i++)
@@ -646,45 +730,17 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, s
 
     spvb_extension(file_builder, "SPV_KHR_shader_ballot");
 
+    emit_root(&emitter, root_node);
+    emit_entry_points(&emitter, root_node);
+
+    if (emitter.num_entry_pts == 0)
+        spvb_capability(file_builder, SpvCapabilityLinkage);
+
     spvb_capability(file_builder, SpvCapabilityShader);
-    spvb_capability(file_builder, SpvCapabilityLinkage);
     spvb_capability(file_builder, SpvCapabilityInt64);
     spvb_capability(file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
     spvb_capability(file_builder, SpvCapabilityGroupNonUniform);
     spvb_capability(file_builder, SpvCapabilitySubgroupBallotKHR);
-
-    // First reserve IDs for declarations
-    LARRAY(SpvId, ids, top_level->declarations.count);
-    for (size_t i = 0; i < top_level->declarations.count; i++) {
-        const Node* decl = top_level->declarations.nodes[i];
-        ids[i] = spvb_fresh_id(file_builder);
-        insert_dict_and_get_result(struct Node*, SpvId, emitter.node_ids, decl, ids[i]);
-    }
-
-    for (size_t i = 0; i < top_level->declarations.count; i++) {
-        const Node* decl = top_level->declarations.nodes[i];
-        switch (decl->tag) {
-            case GlobalVariable_TAG: {
-                const GlobalVariable* gvar = &decl->payload.global_variable;
-                SpvId init = 0;
-                if (gvar->init)
-                    init = emit_value(&emitter, gvar->init, NULL);
-                spvb_global_variable(file_builder, ids[i], emit_type(&emitter, decl->type), emit_addr_space(gvar->address_space), false, init);
-                spvb_name(file_builder, ids[i], gvar->name);
-                break;
-            } case Function_TAG: {
-                emit_function(&emitter, decl);
-                spvb_name(file_builder, ids[i], decl->payload.fn.name);
-                break;
-            } case Constant_TAG: {
-                const Constant* cnst = &decl->payload.constant;
-                emit_value(&emitter, cnst->value, &ids[i]);
-                spvb_name(file_builder, ids[i], cnst->name);
-                break;
-            }
-            default: error("unhandled declaration kind")
-        }
-    }
 
     spvb_finish(file_builder, words);
 

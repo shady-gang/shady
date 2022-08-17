@@ -63,3 +63,13 @@ bool lookup_annotation_with_string_payload(const Node* decl, const char* annotat
             return true;
     }
 }
+
+ExecutionModel execution_model_from_string(const char* string) {
+    if (strcmp(string, "compute") == 0)
+        return Compute;
+    else if (strcmp(string, "vertex") == 0)
+        return Vertex;
+    else if (strcmp(string, "fragment") == 0)
+        return Fragment;
+    else error("Unknown execution model: %s\n", string)
+}
