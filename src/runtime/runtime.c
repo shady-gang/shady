@@ -324,7 +324,7 @@ static bool create_vk_pipeline(Program* program) {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .codeSize = program->spirv_size / 4,
+        .codeSize = program->spirv_size,
         .pCode = (uint32_t*) program->spirv_bytes
     }, NULL, &program->shader_module), return false);
 
@@ -341,7 +341,7 @@ static bool create_vk_pipeline(Program* program) {
             .flags = 0,
             .module = program->shader_module,
             .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-            .pName = "the_shader_yo",
+            .pName = "main",
             .pSpecializationInfo = NULL
         }
     } }, NULL, &program->pipeline), return false);
