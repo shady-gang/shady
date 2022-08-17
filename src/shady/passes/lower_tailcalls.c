@@ -126,7 +126,7 @@ static const Node* rewrite_block(Context* ctx, const Node* old_block, BlockBuild
 static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
-    Node* new_entry_pt = fn(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fn.annotations), old->payload.fn.name, true, old->payload.fn.params, nodes(dst_arena, 0, NULL));
+    Node* new_entry_pt = fn(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fn.annotations), old->payload.fn.name, false, old->payload.fn.params, nodes(dst_arena, 0, NULL));
     append_list(const Node*, ctx->new_decls, new_entry_pt);
 
     BlockBuilder* builder = begin_block(dst_arena);

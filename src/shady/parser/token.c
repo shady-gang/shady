@@ -62,7 +62,7 @@ void destroy_tokenizer(Tokenizer* tokenizer) {
 }
 
 static bool in_bounds(Tokenizer* tokenizer, size_t offset_to_slice) {
-    return (tokenizer->pos + offset_to_slice) < tokenizer->source_size;
+    return (tokenizer->pos + offset_to_slice) <= tokenizer->source_size;
 }
 
 const char whitespace[] = { ' ', '\t', '\n', '\r' };
@@ -98,7 +98,7 @@ Token next_token(Tokenizer* tokenizer) {
         tokenizer->current = token;
         return token;
     }
-    assert(in_bounds(tokenizer, 0));
+    assert(in_bounds(tokenizer, 1));
     const char* slice = &tokenizer->source[tokenizer->pos];
 
     Token token = {
