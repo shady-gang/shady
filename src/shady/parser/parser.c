@@ -744,7 +744,23 @@ static Nodes accept_annotations(ctxparams) {
                 if (first_value->tag == Unbound_TAG && accept_token(ctx, equal_tok)) {
                     error("TODO: parse map")
                 } else if (curr_token(tokenizer).tag == comma_tok) {
-                    error("TODO: parse array")
+                    next_token(tokenizer);
+                    struct List* values = new_list(const Node*);
+                    append_list(const Node*, values, first_value);
+                    while (true) {
+                        const Node* next_value = accept_value(ctx);
+                        assert(next_value);
+                        append_list(const Node*, values, next_value);
+                        if (accept_token(ctx, comma_tok))
+                            continue;
+                        else break;
+                    }
+                    annot = annotation(arena, (Annotation) {
+                        .name = id,
+                        .payload_type = AnPayloadValues,
+                        .values = nodes(arena, entries_count_list(values), read_list(const Node*, values))
+                    });
+                    destroy_list(values);
                 } else {
                     annot = annotation(arena, (Annotation) {
                         .name = id,

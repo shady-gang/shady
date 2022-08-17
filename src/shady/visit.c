@@ -192,6 +192,8 @@ void visit_children(Visitor* visitor, const Node* node) {
             switch (node->payload.annotation.payload_type) {
                 case AnPayloadNone: break;
                 case AnPayloadValue: visit(node->payload.annotation.value); break;
+                case AnPayloadValues:
+                case AnPayloadMap: visit_nodes(visitor, node->payload.annotation.values); break;
                 default: error("TODO");
             }
             break;

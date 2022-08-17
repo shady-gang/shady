@@ -40,6 +40,13 @@ static const Node* infer_let(Context* ctx, const Node* node);
 static const Node* infer_terminator(Context* ctx, const Node* node);
 static const Node* infer_value(Context* ctx, const Node* node, const Node* expected_type);
 
+static Nodes infer_values(Context* ctx, Nodes values) {
+    LARRAY(const Node*, inferred, values.count);
+    for (size_t i = 0; i < values.count; i++)
+        inferred[i] = infer_value(ctx, values.nodes[i], NULL);
+    return nodes(ctx->rewriter.dst_arena, values.count, inferred);
+}
+
 static Nodes infer_annotations(Context* ctx, Nodes annotations) {
     LARRAY(const Node*, arr, annotations.count);
     for (size_t i = 0; i < annotations.count; i++) {
@@ -50,7 +57,15 @@ static Nodes infer_annotations(Context* ctx, Nodes annotations) {
         };
         switch (old.payload_type) {
             case AnPayloadNone: break;
-            case AnPayloadValue: payload.value = infer_value(ctx, old.value, NULL); break;
+            case AnPayloadValue:
+                payload.value = infer_value(ctx, old.value, NULL);
+                break;
+            case AnPayloadMap:
+                payload.labels = import_strings(ctx->rewriter.dst_arena, old.labels);
+                SHADY_FALLTHROUGH
+            case AnPayloadValues:
+                payload.values = infer_values(ctx, old.values);
+                break;
             default: error("TODO");
         }
         arr[i] = annotation(ctx->rewriter.dst_arena, payload);
@@ -148,6 +163,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
     switch (node->tag) {
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
         case UntypedNumber_TAG: {
+            expected_type = expected_type ? expected_type : int32_type(ctx->rewriter.dst_arena);
             expected_type = remove_uniformity_qualifier(expected_type);
             assert(expected_type->tag == Int_TAG);
             uint64_t v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
