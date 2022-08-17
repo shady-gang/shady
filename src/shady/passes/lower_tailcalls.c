@@ -18,6 +18,7 @@ typedef uint32_t FnPtr;
 
 typedef struct Context_ {
     Rewriter rewriter;
+    bool disable_lowering;
     struct Dict* assigned_fn_ptrs;
     FnPtr next_fn_ptr;
 
@@ -163,20 +164,26 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case Function_TAG: {
             // Leave basic blocks alone
-            if (old->payload.fn.is_basic_block || lookup_annotation_with_string_payload(old, "DisablePass", "lower_tailcalls")) {
+            if (old->payload.fn.is_basic_block) {
                 goto recreate_decl;
+            }
+
+            Context ctx2 = *ctx;
+            ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_tailcalls");
+            if (ctx2.disable_lowering) {
+                Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
+                fun->payload.fn.block = process(&ctx2, old->payload.fn.block);
+                return fun;
             }
 
             String new_name = format_string(dst_arena, "%s_leaf", old->payload.fn.name);
 
             const Node* entry_point_annotation = NULL;
-
             Nodes old_annotations = old->payload.fn.annotations;
             LARRAY(const Node*, new_annotations, old_annotations.count);
             size_t new_annotations_count = 0;
             for (size_t i = 0; i < old_annotations.count; i++) {
                 const Node* annotation = rewrite_node(&ctx->rewriter, old_annotations.nodes[i]);
-
                 // Entry point annotations are removed
                 if (strcmp(annotation->payload.annotation.name, "EntryPoint") == 0) {
                     assert(!entry_point_annotation && "Only one entry point annotation is permitted.");
@@ -191,24 +198,25 @@ static const Node* process(Context* ctx, const Node* old) {
             Node* fun = fn(dst_arena, nodes(dst_arena, new_annotations_count, new_annotations), new_name, old->payload.fn.is_basic_block, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
             register_processed(&ctx->rewriter, old, fun);
 
-            if (entry_point_annotation) {
+            if (entry_point_annotation)
                 lift_entry_point(ctx, old, fun);
-            }
 
             BlockBuilder* block_builder = begin_block(dst_arena);
-
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fn.params.count; i++) {
                 const Node* old_param = old->payload.fn.params.nodes[i];
                 const Node* popped = gen_pop_value_stack(block_builder, format_string(dst_arena, "arg%d", i), rewrite_node(&ctx->rewriter, extract_operand_type(old_param->type)));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
-            fun->payload.fn.block = rewrite_block(ctx, old->payload.fn.block, block_builder);
+            fun->payload.fn.block = rewrite_block(&ctx2, old->payload.fn.block, block_builder);
 
             return fun;
+
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
         case Block_TAG: {
+            if (ctx->disable_lowering)
+                return recreate_node_identity(&ctx->rewriter, old);
             BlockBuilder* builder = begin_block(ctx->rewriter.dst_arena);
             return rewrite_block(ctx, old, builder);
         }
@@ -323,6 +331,7 @@ const Node* lower_tailcalls(SHADY_UNUSED CompilerConfig* config, IrArena* src_ar
             .rewrite_fn = (RewriteFn) process,
             .processed = done,
         },
+        .disable_lowering = false,
         .assigned_fn_ptrs = ptrs,
         .next_fn_ptr = 1,
 

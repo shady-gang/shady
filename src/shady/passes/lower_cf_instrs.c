@@ -13,7 +13,7 @@
 
 typedef struct Context_ {
     Rewriter rewriter;
-    bool do_not_lower;
+    bool disable_lowering;
 } Context;
 
 static const Node* process_node(Context* ctx, const Node* node);
@@ -31,9 +31,6 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
     for (size_t i = start; i < old_block->instructions.count; i++) {
         const Node* let_node = old_block->instructions.nodes[i];
         const Node* instr = let_node->tag == Let_TAG ? let_node->payload.let.instruction : let_node;
-
-        if (ctx->do_not_lower)
-            goto recreate_identity;
 
         switch (instr->tag) {
             case If_TAG: {
@@ -115,9 +112,6 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
     const Node* old_terminator = old_block->terminator;
     const Node* new_terminator = NULL;
 
-    if (ctx->do_not_lower)
-        goto recreate_terminator_identity;
-
     switch (old_terminator->tag) {
         case MergeConstruct_TAG: {
             switch (old_terminator->payload.merge_construct.construct) {
@@ -159,11 +153,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
             Context sub_ctx = *ctx;
-            sub_ctx.do_not_lower = lookup_annotation_with_string_payload(fun, "DisablePass", "lower_cf_instrs");
+            sub_ctx.disable_lowering = lookup_annotation_with_string_payload(fun, "DisablePass", "lower_cf_instrs");
             fun->payload.fn.block = process_node(&sub_ctx, node->payload.fn.block);
             return fun;
         }
-        case Block_TAG: return handle_block(ctx, node, 0, NULL, NULL);
+        case Block_TAG: return ctx->disable_lowering ? recreate_node_identity(&ctx->rewriter, node) : handle_block(ctx, node, 0, NULL, NULL);
         // leave other declarations alone
         case GlobalVariable_TAG:
         case Constant_TAG: {

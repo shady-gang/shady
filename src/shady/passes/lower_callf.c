@@ -16,6 +16,7 @@ typedef uint32_t FnPtr;
 
 typedef struct Context_ {
     Rewriter rewriter;
+    bool disable_lowering;
     struct Dict* assigned_fn_ptrs;
     FnPtr next_fn_ptr;
 
@@ -39,11 +40,15 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         }
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
-
-            fun->payload.fn.block = lower_callf_process(ctx, old->payload.fn.block);
+            Context ctx2 = *ctx;
+            ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
+            fun->payload.fn.block = lower_callf_process(&ctx2, old->payload.fn.block);
             return fun;
         }
         case Block_TAG: {
+            if (ctx->disable_lowering)
+                return recreate_node_identity(&ctx->rewriter, old);
+
             // this may miss call instructions...
             BlockBuilder* instructions = begin_block(dst_arena);
             for (size_t i = 0; i < old->payload.block.instructions.count; i++)
@@ -112,6 +117,7 @@ const Node* lower_callf(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
             .rewrite_fn = (RewriteFn) lower_callf_process,
             .processed = done,
         },
+        .disable_lowering = false,
         .assigned_fn_ptrs = ptrs,
         .next_fn_ptr = 1,
 
