@@ -297,8 +297,9 @@ void shutdown_runtime(Runtime* runtime) {
     free(runtime);
 }
 
-static bool actual_load_program(Program* program, const char* program_src) {
+static bool compile_program(Program* program, const char* program_src) {
     CompilerConfig config = default_compiler_config();
+    config.allow_frontend_syntax = true;
     ArenaConfig arena_config = {};
     program->arena = new_arena(arena_config);
     parse_files(&config, 1, (const char* []){ program_src }, program->arena, &program->program);
@@ -318,12 +319,12 @@ static bool extract_layout(Program* program) {
     return true;
 }
 
-static bool compile_pipeline(Program* program) {
+static bool create_vk_pipeline(Program* program) {
     CHECK_VK(vkCreateShaderModule(program->runtime->device, &(VkShaderModuleCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .codeSize = program->spirv_size,
+        .codeSize = program->spirv_size / 4,
         .pCode = (uint32_t*) program->spirv_bytes
     }, NULL, &program->shader_module), return false);
 
@@ -351,9 +352,9 @@ Program* load_program(Runtime* runtime, const char* program_src) {
     Program* program = malloc(sizeof(Program));
     memset(program, 0, sizeof(Program));
     program->runtime = runtime;
-    actual_load_program(program, program_src);
+    compile_program(program, program_src);
     extract_layout(program);
-    compile_pipeline(program);
+    create_vk_pipeline(program);
     return program;
 }
 
