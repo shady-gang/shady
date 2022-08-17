@@ -681,12 +681,23 @@ static void emit_entry_points(Emitter* emitter, const Node* root) {
     // First, collect all the global variables, they're needed for the interface section of OpEntryPoint
     // it can be a superset of the ones actually used, so the easiest option is to just grab _all_ global variables and shove them in there
     // my gut feeling says it's unlikely any drivers actually care, but validation needs to be happy so here we go...
-    LARRAY(SpvId, interface_arr, declarations.count);
+    LARRAY(SpvId, interface_arr, declarations.count + VulkanBuiltinsCount);
     size_t interface_size = 0;
     for (size_t i = 0; i < declarations.count; i++) {
         const Node* node = declarations.nodes[i];
         if (node->tag != GlobalVariable_TAG) continue;
         interface_arr[interface_size++] = find_reserved_id(emitter, node);
+    }
+    // Do the same with builtins ...
+    for (size_t i = 0; i < VulkanBuiltinsCount; i++) {
+        switch (vulkan_builtins_kind[i]) {
+            case VulkanBuiltinInput:
+            case VulkanBuiltinOutput:
+                if (emitter->emitted_builtins[i] != 0)
+                    interface_arr[interface_size++] = emitter->emitted_builtins[i];
+                break;
+            default: error("TODO")
+        }
     }
 
     for (size_t i = 0; i < declarations.count; i++) {
