@@ -703,6 +703,7 @@ static void emit_entry_points(Emitter* emitter, const Node* root) {
     for (size_t i = 0; i < declarations.count; i++) {
         const Node* node = declarations.nodes[i];
         if (node->tag != Function_TAG) continue;
+        SpvId fn_id = find_reserved_id(emitter, node);
 
         for (size_t j = 0; j < node->payload.fn.annotations.count; j++) {
             const Node* annotation = node->payload.fn.annotations.nodes[j];
@@ -711,8 +712,17 @@ static void emit_entry_points(Emitter* emitter, const Node* root) {
                 const char* execution_model_name = extract_string_literal(annotation->payload.annotation.value);
                 SpvExecutionModel execution_model = emit_exec_model(execution_model_from_string(execution_model_name));
 
-                spvb_entry_point(emitter->file_builder, execution_model, find_reserved_id(emitter, node), node->payload.fn.name, interface_size, interface_arr);
+                spvb_entry_point(emitter->file_builder, execution_model, fn_id, node->payload.fn.name, interface_size, interface_arr);
                 emitter->num_entry_pts++;
+            } else if (strcmp(annotation->payload.annotation.name, "WorkgroupSize") == 0) {
+                assert(annotation->payload.annotation.payload_type == AnPayloadValues);
+                Nodes values = annotation->payload.annotation.values;
+                assert(values.count == 3);
+                uint32_t wg_x_dim = (uint32_t) extract_int_literal_value(values.nodes[0], false);
+                uint32_t wg_y_dim = (uint32_t) extract_int_literal_value(values.nodes[1], false);
+                uint32_t wg_z_dim = (uint32_t) extract_int_literal_value(values.nodes[2], false);
+
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, (uint32_t[3]) { wg_x_dim, wg_y_dim, wg_z_dim });
             }
         }
     }
