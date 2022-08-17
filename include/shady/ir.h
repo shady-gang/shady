@@ -145,8 +145,13 @@ typedef struct RecordType_ {
     Nodes members;
     /// Can be empty (no names are given) or has to match the number of members
     Strings names;
-    /// Set to 'true' for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else.
-    bool must_be_deconstructed;
+    enum {
+        NotSpecial,
+        /// for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else
+        MultipleReturn,
+        /// Gets the 'Block' SPIR-V annotation, needed for UBO/SSBO variables
+        DecorateBlock
+    } special;
 } RecordType;
 
 typedef struct FnType_ {
@@ -355,6 +360,7 @@ PRIMOP(0, subgroup_ballot)          \
 PRIMOP(0, subgroup_local_id)        \
 PRIMOP(0, empty_mask)               \
 PRIMOP(0, mask_is_thread_active)    \
+PRIMOP(0, debug_printf)             \
 
 typedef enum Op_ {
 #define PRIMOP(has_side_effects, name) name##_op,

@@ -168,6 +168,8 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                         default: error("Emulation of this AS is not supported");
                     }
 
+                    base = gen_lea(instructions, base, NULL, nodes(dst_arena, 1, (const Node* []) { int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 0 }) }));
+
                     const Node* fake_ptr = rewrite_node(&ctx->rewriter, old_ptr);
 
                     if (oprim_op->op == load_op) {
@@ -262,8 +264,14 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
     // TODO add a @Synthetic annotation to tag those
     Nodes annotations = nodes(dst_arena, 0, NULL);
 
-    Node* physical_private_buffer = global_var(dst_arena, annotations, stack_arr_type, "physical_private_buffer", AsGlobalLogical);
-    Node* physical_subgroup_buffer = global_var(dst_arena, annotations, stack_arr_type, "physical_subgroup_buffer", AsGlobalLogical);
+    const Type* wrapped_type = record_type(dst_arena, (RecordType) {
+        .members = nodes(dst_arena, 1, (const Node* []) { stack_arr_type }),
+        .special = DecorateBlock,
+        .names = strings(dst_arena, 0, NULL)
+    });
+
+    Node* physical_private_buffer = global_var(dst_arena, annotations, wrapped_type, "physical_private_buffer", AsGlobalLogical);
+    Node* physical_subgroup_buffer = global_var(dst_arena, annotations, wrapped_type, "physical_subgroup_buffer", AsGlobalLogical);
 
     append_list(const Node*, new_decls_list, physical_private_buffer);
     append_list(const Node*, new_decls_list, physical_subgroup_buffer);

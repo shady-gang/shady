@@ -253,7 +253,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case RecordType_TAG:    return record_type(rewriter->dst_arena, (RecordType) {
                                     .members = rewrite_nodes(rewriter, node->payload.record_type.members),
                                     .names = import_strings(rewriter->dst_arena, node->payload.record_type.names),
-                                    .must_be_deconstructed = node->payload.record_type.must_be_deconstructed});
+                                    .special = node->payload.record_type.special});
         case FnType_TAG:        return fn_type(rewriter->dst_arena, (FnType) {
                                     .is_basic_block = node->payload.fn_type.is_basic_block,
                                     .param_types = rewrite_nodes(rewriter, node->payload.fn_type.param_types),

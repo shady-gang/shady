@@ -3,6 +3,7 @@
 #include "../rewrite.h"
 #include "portability.h"
 #include "log.h"
+#include "../transform/memory_layout.h"
 
 #include "dict.h"
 
@@ -62,10 +63,15 @@ SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
         case 0: return emitter->void_t;
         case 1: return emit_type(emitter, return_types.nodes[0]);
         default: {
-            const Type* codom_ret_type = record_type(emitter->arena, (RecordType) {.members = return_types});
+            const Type* codom_ret_type = record_type(emitter->arena, (RecordType) { .members = return_types, .special = MultipleReturn });
             return emit_type(emitter, codom_ret_type);
         }
     }
+}
+
+inline static size_t round_up(size_t a, size_t b) {
+    size_t divided = (a + b - 1) / b;
+    return divided * b;
 }
 
 SpvId emit_type(Emitter* emitter, const Type* type) {
@@ -100,10 +106,23 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             break;
         }
         case RecordType_TAG: {
-            LARRAY(SpvId, members, type->payload.record_type.members.count);
-            for (size_t i = 0; i < type->payload.record_type.members.count; i++)
-                members[i] = emit_type(emitter, type->payload.record_type.members.nodes[i]);
-            new = spvb_struct_type(emitter->file_builder, type->payload.record_type.members.count, members);
+            Nodes member_types = type->payload.record_type.members;
+            LARRAY(SpvId, members, member_types.count);
+            for (size_t i = 0; i < member_types.count; i++)
+                members[i] = emit_type(emitter, member_types.nodes[i]);
+            new = spvb_struct_type(emitter->file_builder, member_types.count, members);
+            if (type->payload.record_type.special == DecorateBlock) {
+                spvb_decorate(emitter->file_builder, new, SpvDecorationBlock, 0, NULL);
+                uint32_t offset = 0;
+                for (size_t i = 0; i < member_types.count; i++) {
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationOffset, 1, (uint32_t[]) { offset });
+                    // Don't compute the offset after the final member, as that one might be unsized !
+                    if (i + 1 < member_types.count) {
+                        TypeMemLayout mem_layout = get_mem_layout(emitter->configuration, emitter->arena, member_types.nodes[i]);
+                        offset = round_up(offset + (uint32_t) mem_layout.size_in_bytes, 4);
+                    }
+                }
+            }
             break;
         }
         case FnType_TAG: {
@@ -128,6 +147,8 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             } else {
                 new = spvb_runtime_array_type(emitter->file_builder, element_type);
             }
+            TypeMemLayout elem_mem_layout = get_mem_layout(emitter->configuration, emitter->arena, type->payload.arr_type.element_type);
+            spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });
             break;
         }
         case PackType_TAG: {

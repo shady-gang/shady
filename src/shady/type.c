@@ -196,7 +196,7 @@ const Type* check_type_false_lit(IrArena* arena) { return qualified_type(arena, 
 const Type* check_type_tuple(IrArena* arena, Tuple tuple) {
     return record_type(arena, (RecordType) {
         .members = extract_types(arena, tuple.contents),
-        .must_be_deconstructed = false,
+        .special = NotSpecial,
         .names = strings(arena, 0, NULL)
     });
 }
@@ -213,7 +213,7 @@ const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types) {
         default: return record_type(arena, (RecordType) {
             .members = types,
             .names = strings(arena, 0, NULL),
-            .must_be_deconstructed = true,
+            .special = MultipleReturn,
         });
     }
     SHADY_UNREACHABLE;
@@ -223,7 +223,7 @@ Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
     switch (type->tag) {
         case Unit_TAG: return nodes(arena, 0, NULL);
         case RecordType_TAG:
-            if (type->payload.record_type.must_be_deconstructed)
+            if (type->payload.record_type.special == MultipleReturn)
                 return type->payload.record_type.members;
             // fallthrough
         default: return nodes(arena, 1, (const Node* []) { type });
@@ -465,12 +465,22 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                             .pointed_type = pointee_type->payload.arr_type.element_type,
                             .address_space = curr_ptr_type->payload.ptr_type.address_space
                         });
-                        i++;
-                        continue;
+                        break;
                     }
-                    case RecordType_TAG: error("TODO"); // also remember to assert literals for the selectors !
+                    case RecordType_TAG: {
+                        assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
+                        size_t index = extract_int_literal_value(selector, false);
+                        assert(index < pointee_type->payload.record_type.members.count);
+                        curr_ptr_type = ptr_type(arena, (PtrType) {
+                            .pointed_type = pointee_type->payload.record_type.members.nodes[index],
+                            .address_space = curr_ptr_type->payload.ptr_type.address_space
+                        });
+                        break;
+                    }
+                    // also remember to assert literals for the selectors !
                     default: error("lea selectors can only work on pointers to arrays or records")
                 }
+                i++;
             }
 
             return qualified_type(arena, (QualifiedType) {

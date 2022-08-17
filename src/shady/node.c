@@ -311,6 +311,12 @@ case PackType_TAG: {                  \
     field(pack_type.width);           \
     break;                            \
 }                                     \
+case RecordType_TAG: {                \
+    field(record_type.members);       \
+    field(record_type.names);         \
+    field(record_type.special);       \
+    break;                            \
+}                                     \
 case FnType_TAG: {                    \
     field(fn_type.is_basic_block);    \
     field(fn_type.return_types);      \
