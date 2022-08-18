@@ -87,29 +87,7 @@ struct Device_ {
     } extensions;
 };
 
-struct Program_ {
-    Runtime* runtime;
-
-    IrArena* arena;
-    const Node* generic_program;
-
-    struct Dict* specialized;
-};
-
-typedef struct SpecProgram_ {
-    Program* base;
-    Device* device;
-
-    IrArena* arena;
-    const Node* final_program;
-
-    size_t spirv_size;
-    char* spirv_bytes;
-
-    VkPipeline pipeline;
-    VkPipelineLayout layout;
-    VkShaderModule shader_module;
-} SpecProgram;
+typedef struct SpecProgram_ SpecProgram;
 
 void unload_program(Program*);
 void shutdown_device(Device*);
