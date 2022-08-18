@@ -262,8 +262,12 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             return;
         }
         case debug_printf_op: {
-            SpvId arr[] = { spvb_debug_string(emitter->file_builder, "woooo \n\n\n\n") };
-            spvb_ext_instruction(bb_builder, emit_type(emitter, unit_type(emitter->arena)), emitter->non_semantic_imported_instrs.debug_printf, NonSemanticDebugPrintfDebugPrintf, 1, arr);
+            assert(args.count >= 1);
+            LARRAY(SpvId, arr, args.count);
+            arr[0] = spvb_debug_string(emitter->file_builder, extract_string_literal(args.nodes[0]));
+            for (size_t i = 1; i < args.count; i++)
+                arr[i] = emit_value(emitter, args.nodes[i], NULL);
+            spvb_ext_instruction(bb_builder, emit_type(emitter, unit_type(emitter->arena)), emitter->non_semantic_imported_instrs.debug_printf, NonSemanticDebugPrintfDebugPrintf, args.count, arr);
             return;
         }
         default: error("TODO: unhandled op");
