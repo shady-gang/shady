@@ -20,6 +20,8 @@ int main(int argc, const char* argv[]) {
         .dump_spv = true,
     };
     Runtime* runtime = initialize_runtime(config);
+    Device* device = initialize_device(runtime);
     Program* program = load_program(runtime, shader);
+    wait_completion(launch_kernel(program, device, 1, 1, 1, 0, NULL));
     shutdown_runtime(runtime);
 }
