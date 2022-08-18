@@ -624,6 +624,9 @@ void spvb_entry_point(struct SpvFileBuilder* file_builder, SpvExecutionModel exe
         ref_id(interface_elements[i]);
 }
 
+#undef target_data
+#define target_data file_builder->execution_modes
+
 void spvb_execution_mode(struct SpvFileBuilder* file_builder, SpvId entry_point, SpvExecutionMode execution_mode, size_t payloads_count, uint32_t payloads[]) {
     op(SpvOpExecutionMode, 3 + payloads_count);
     ref_id(entry_point);
