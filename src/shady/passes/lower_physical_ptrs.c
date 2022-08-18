@@ -19,11 +19,15 @@ typedef struct Context_ {
     CompilerConfig* config;
     const Node* src_program;
 
+    /// Bytes used up by static allocations
     uint32_t preallocated_private_memory;
     uint32_t preallocated_subgroup_memory;
 
-    const Node* physical_private_buffer;
-    const Node* physical_subgroup_buffer;
+    const Node* thread_private_memory;
+    const Node* subgroup_shared_memory;
+
+    bool tpm_is_block_buffer;
+    bool ssm_is_block_buffer;
 
     struct List* new_decls;
 } Context;
@@ -162,13 +166,22 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     const Type* element_type = ptr_type->payload.ptr_type.pointed_type;
 
                     const Node* base = NULL;
+                    bool is_backed_by_block_buffer;
                     switch (ptr_type->payload.ptr_type.address_space) {
-                        case AsSubgroupPhysical: base = ctx->physical_subgroup_buffer; break;
-                        case AsPrivatePhysical: base = ctx->physical_private_buffer; break;
+                        case AsPrivatePhysical:
+                            base = ctx->thread_private_memory;
+                            is_backed_by_block_buffer = ctx->tpm_is_block_buffer;
+                            break;
+                        case AsSubgroupPhysical:
+                            base = ctx->subgroup_shared_memory;
+                            is_backed_by_block_buffer = ctx->ssm_is_block_buffer;
+                            break;
                         default: error("Emulation of this AS is not supported");
                     }
 
-                    base = gen_lea(instructions, base, NULL, nodes(dst_arena, 1, (const Node* []) { int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 0 }) }));
+                    // some address spaces need to put the data in a special 'Block'-based record, so we need an extra lea to match
+                    if (is_backed_by_block_buffer)
+                        base = gen_lea(instructions, base, NULL, nodes(dst_arena, 1, (const Node* []) { int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 0 }) }));
 
                     const Node* fake_ptr = rewrite_node(&ctx->rewriter, old_ptr);
 
@@ -258,23 +271,29 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
     const Type* stack_base_element = int32_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = stack_base_element,
-        .size = NULL,
+        .size = int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = config->per_thread_stack_size }),
+    });
+    const Type* uniform_stack_arr_type = arr_type(dst_arena, (ArrType) {
+        .element_type = stack_base_element,
+        .size = int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = config->per_subgroup_stack_size }),
     });
 
     // TODO add a @Synthetic annotation to tag those
     Nodes annotations = nodes(dst_arena, 0, NULL);
 
+    // divide memory up between subgroups in a workgroup
+    // TODO decide between shared/global memory for this purpose
     const Type* wrapped_type = record_type(dst_arena, (RecordType) {
         .members = nodes(dst_arena, 1, (const Node* []) { stack_arr_type }),
         .special = DecorateBlock,
         .names = strings(dst_arena, 0, NULL)
     });
 
-    Node* physical_private_buffer = global_var(dst_arena, annotations, wrapped_type, "physical_private_buffer", AsGlobalLogical);
-    Node* physical_subgroup_buffer = global_var(dst_arena, annotations, wrapped_type, "physical_subgroup_buffer", AsGlobalLogical);
+    Node* thread_private_memory = global_var(dst_arena, annotations, stack_arr_type, "physical_private_buffer", AsPrivateLogical);
+    Node* subgroup_shared_memory = global_var(dst_arena, annotations, uniform_stack_arr_type, "physical_subgroup_buffer", AsSharedLogical);
 
-    append_list(const Node*, new_decls_list, physical_private_buffer);
-    append_list(const Node*, new_decls_list, physical_subgroup_buffer);
+    append_list(const Node*, new_decls_list, thread_private_memory);
+    append_list(const Node*, new_decls_list, subgroup_shared_memory);
 
     Context ctx = {
         .rewriter = {
@@ -290,8 +309,11 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
         .preallocated_private_memory = 0,
         .preallocated_subgroup_memory = 0,
 
-        .physical_private_buffer = physical_private_buffer,
-        .physical_subgroup_buffer = physical_subgroup_buffer,
+        .tpm_is_block_buffer = false,
+        .ssm_is_block_buffer = false,
+
+        .thread_private_memory = thread_private_memory,
+        .subgroup_shared_memory = subgroup_shared_memory,
 
         .new_decls = new_decls_list,
     };

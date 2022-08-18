@@ -630,8 +630,29 @@ static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
             SpvId init = 0;
             if (gvar->init)
                 init = emit_value(emitter, gvar->init, NULL);
-            spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), emit_addr_space(gvar->address_space), false, init);
+            SpvStorageClass storage_class = emit_addr_space(gvar->address_space);
+            spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), storage_class, false, init);
             spvb_name(emitter->file_builder, given_id, gvar->name);
+
+            switch (storage_class) {
+                case SpvStorageClassPushConstant: {
+                    break;
+                }
+                case SpvStorageClassStorageBuffer:
+                case SpvStorageClassUniform:
+                case SpvStorageClassUniformConstant: {
+                    const Node* descriptor_set = lookup_annotation(decl, "DescriptorSet");
+                    const Node* descriptor_binding = lookup_annotation(decl, "DescriptorBinding");
+                    assert(descriptor_set && descriptor_binding && "DescriptorSet and/or DescriptorBinding annotations are missing");
+                    size_t set     = extract_int_literal_value(extract_annotation_payload(descriptor_set),     false);
+                    size_t binding = extract_int_literal_value(extract_annotation_payload(descriptor_binding), false);
+                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationDescriptorSet, 1, (uint32_t []) { set });
+                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationBinding, 1, (uint32_t []) { binding });
+                    break;
+                }
+                default: break;
+            }
+
             break;
         } case Function_TAG: {
             emit_function(emitter, decl);

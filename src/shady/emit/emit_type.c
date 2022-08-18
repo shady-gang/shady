@@ -15,7 +15,7 @@ bool compare_node(Node**, Node**);
 SpvStorageClass emit_addr_space(AddressSpace address_space) {
     switch(address_space) {
         case AsGlobalLogical:   return SpvStorageClassStorageBuffer;
-        case AsSharedLogical:   return SpvStorageClassCrossWorkgroup;
+        case AsSharedLogical:   return SpvStorageClassWorkgroup;
         case AsPrivateLogical:  return SpvStorageClassPrivate;
         case AsFunctionLogical: return SpvStorageClassFunction;
 
