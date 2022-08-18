@@ -17,6 +17,7 @@ struct Dispatch_ {
 };
 
 Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, int dimz, int extra_args_count, void** extra_args) {
+    assert(program && device);
     assert(extra_args_count == 0 && "TODO");
 
     Dispatch* dispatch = calloc(1, sizeof(Dispatch));

@@ -697,7 +697,7 @@ SpvId get_block_builder_id(struct SpvBasicBlockBuilder* basic_block_builder) {
 
 inline static void merge_sections(SpvSectionBuilder final_output, struct SpvFileBuilder* file_builder) {
     literal_int(SpvMagicNumber);
-    literal_int(0x00010500);
+    literal_int(0x00010400);
     literal_int(0); // TODO get a magic number ?
     literal_int(file_builder->bound);
     literal_int(0); // instruction schema padding

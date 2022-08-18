@@ -3,14 +3,56 @@
 #include "log.h"
 #include "portability.h"
 
+#include <string.h>
+
+static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* count, const char* enabled_extensions[]) {
+    *count = 0;
+
+    uint32_t available_count;
+    CHECK_VK(vkEnumerateDeviceExtensionProperties(physical_device, NULL, &available_count, NULL), return false);
+    LARRAY(VkExtensionProperties, available_exts, available_count);
+    CHECK_VK(vkEnumerateDeviceExtensionProperties(physical_device, NULL, &available_count, available_exts), return false);
+
+    for (size_t i = 0; i < ShadySupportedDeviceExtensionsCount; i++) {
+        bool found = false;
+        for (size_t j = 0; j < available_count; j++) {
+            if (strcmp(shady_supported_device_extensions_names[i], available_exts[j].extensionName) == 0) {
+                found = true;
+                break;
+            }
+        }
+
+        if (is_device_ext_required[i] && !found) {
+            enabled_extensions[0] = shady_supported_device_extensions_names[i];
+            return false;
+        }
+        if (found)
+            enabled_extensions[(*count)++] = shady_supported_device_extensions_names[i];
+    }
+
+    return true;
+}
+
 static VkPhysicalDevice pick_device(SHADY_UNUSED Runtime* runtime, uint32_t devices_count, VkPhysicalDevice available_devices[]) {
     for (uint32_t i = 0; i < devices_count; i++) {
         VkPhysicalDevice physical_device = available_devices[i];
         VkPhysicalDeviceProperties device_properties;
         vkGetPhysicalDeviceProperties(physical_device, &device_properties);
+        VkPhysicalDeviceFeatures device_features;
+        vkGetPhysicalDeviceFeatures(physical_device, &device_features);
 
         if (device_properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0))
             continue;
+        if (!device_features.shaderInt64)
+            continue;
+
+        LARRAY(const char*, exts, ShadySupportedDeviceExtensionsCount);
+        size_t c;
+
+        if (!fill_available_extensions(physical_device, &c, exts)) {
+            info_print("Skipping device %s because it lacks support for %s\n", device_properties.deviceName, exts[0]);
+            continue;
+        }
 
         return available_devices[i];
     }
@@ -43,6 +85,14 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     Device* device = calloc(1, sizeof(Device));
     device->runtime = runtime;
 
+    LARRAY(const char*, enabled_device_exts, ShadySupportedDeviceExtensionsCount);
+    size_t enabled_device_exts_count;
+    CHECK(fill_available_extensions(physical_device, &enabled_device_exts_count, enabled_device_exts), assert(false));
+
+    VkPhysicalDeviceFeatures enabled_features = {
+        .shaderInt64 = true
+    };
+
     CHECK_VK(vkCreateDevice(physical_device, &(VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .flags = 0,
@@ -58,8 +108,9 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
             }
         },
         .enabledLayerCount = 0,
-        .enabledExtensionCount = 0,
-        .ppEnabledExtensionNames = NULL,
+        .enabledExtensionCount = enabled_device_exts_count,
+        .ppEnabledExtensionNames = enabled_device_exts,
+        .pEnabledFeatures = &enabled_features,
         .pNext = NULL,
     }, NULL, &device->device), return NULL)
 
@@ -71,7 +122,6 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     }, NULL, &device->cmd_pool), goto delete_device);
 
     vkGetDeviceQueue(device->device, compute_queue_family, 0, &device->compute_queue);
-
     return device;
 
     delete_device:

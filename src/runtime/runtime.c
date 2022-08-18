@@ -28,7 +28,7 @@ static bool setup_debug_callback(Runtime* runtime) {
 
 static void obtain_instance_pointers(Runtime* runtime) {
     #define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetInstanceProcAddr(runtime->instance, #fn_name);
-    #define X(prefix, name, fns) \
+    #define X(_, prefix, name, fns) \
         if (runtime->instance_exts.name.enabled) { \
             struct S_##name* ext = &runtime->instance_exts.name; \
             fns(Y) \
@@ -69,7 +69,7 @@ static bool initialize_vk_instance(Runtime* runtime) {
     for (uint32_t i = 0; i < extensions_count; i++) {
         VkExtensionProperties* extension = &extensions[i];
 
-#define X(prefix, name, _) \
+#define X(is_required, prefix, name, _) \
         if (strcmp(extension->extensionName, "VK_"#prefix"_"#name) == 0) { \
             info_print("Enabling instance extension VK_"#prefix"_"#name"\n"); \
             runtime->instance_exts.name.enabled = true; \

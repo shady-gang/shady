@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 static const char* shader =
 "// trivial function that returns its argument\n"
@@ -21,6 +22,7 @@ int main(int argc, const char* argv[]) {
     };
     Runtime* runtime = initialize_runtime(config);
     Device* device = initialize_device(runtime);
+    assert(device);
     Program* program = load_program(runtime, shader);
     wait_completion(launch_kernel(program, device, 1, 1, 1, 0, NULL));
     shutdown_runtime(runtime);

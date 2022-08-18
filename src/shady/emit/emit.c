@@ -784,6 +784,7 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, s
 
     spvb_extension(file_builder, "SPV_KHR_shader_ballot");
     spvb_extension(file_builder, "SPV_KHR_non_semantic_info");
+    spvb_extension(file_builder, "SPV_KHR_physical_storage_buffer");
 
     emit_root(&emitter, root_node);
     emit_entry_points(&emitter, root_node);

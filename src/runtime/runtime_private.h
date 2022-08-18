@@ -4,6 +4,8 @@
 #include "shady/runtime.h"
 #include "shady/ir.h"
 
+#include "portability.h"
+
 #include "vulkan/vulkan.h"
 
 #include <stdbool.h>
@@ -15,31 +17,45 @@ Y(vkCreateDebugUtilsMessengerEXT) \
 Y(vkDestroyDebugUtilsMessengerEXT) \
 
 #define INSTANCE_EXTENSIONS(X) \
-X(EXT, debug_utils,             debug_utils_fns) \
-X(KHR, portability_enumeration, empty_fns)       \
+X(0, EXT, debug_utils,                debug_utils_fns) \
+X(0, KHR, portability_enumeration,          empty_fns) \
+X(1, KHR, get_physical_device_properties2,  empty_fns) \
 
 #define DEVICE_EXTENSIONS(X) \
-X(EXT, descriptor_indexing,     empty_fns) \
-X(KHR, portability_subset,      empty_fns) \
+X(1, EXT, descriptor_indexing,          empty_fns) \
+X(1, EXT, shader_subgroup_ballot,       empty_fns) \
+X(1, KHR, buffer_device_address,        empty_fns) \
+X(1, KHR, storage_buffer_storage_class, empty_fns) \
+X(1, KHR, shader_non_semantic_info,     empty_fns) \
+X(1, KHR, spirv_1_4,                    empty_fns) \
+X(1, KHR, shader_float_controls,        empty_fns) \
+X(0, KHR, portability_subset,           empty_fns) \
 
-#define E(prefix, name, _) ShadySupports##prefix##name,
-enum ShadySupportedInstanceExtensions {
+#define E(is_required, prefix, name, _) ShadySupports##prefix##name,
+typedef enum {
     INSTANCE_EXTENSIONS(E)
     ShadySupportedInstanceExtensionsCount
-};
-enum ShadySupportedDeviceExtensions {
+} ShadySupportedInstanceExtensions;
+typedef enum {
     DEVICE_EXTENSIONS(E)
     ShadySupportedDeviceExtensionsCount
-};
-
-#define S(prefix, name, _) "VK_" #prefix "_" #name,
-static const char* shady_supported_instance_extensions_names[] = { INSTANCE_EXTENSIONS(S) };
-static const char* shady_supported_device_extensions_names[] = { DEVICE_EXTENSIONS(S) };
-#undef S
+} ShadySupportedDeviceExtensions;
 #undef E
+
+#define S(is_required, prefix, name, _) "VK_" #prefix "_" #name,
+SHADY_UNUSED static const char* shady_supported_instance_extensions_names[] = { INSTANCE_EXTENSIONS(S) };
+SHADY_UNUSED static const char* shady_supported_device_extensions_names[] = { DEVICE_EXTENSIONS(S) };
+#undef S
+
+#define R(is_required, _, _1, _2) is_required,
+SHADY_UNUSED static const bool is_instance_ext_required[] = { INSTANCE_EXTENSIONS(R) };
+SHADY_UNUSED static const bool is_device_ext_required[] = { DEVICE_EXTENSIONS(R) };
+#undef R
 
 #define CHECK(x, failure_handler) { if (!(x)) { error_print(#x " failed\n"); failure_handler; } }
 #define CHECK_VK(x, failure_handler) { VkResult the_result_ = x; if (the_result_ != VK_SUCCESS) { error_print(#x " failed (code %d)\n", the_result_); failure_handler; } }
+
+typedef struct SpecProgram_ SpecProgram;
 
 struct Runtime_ {
     RuntimeConfig config;
@@ -55,7 +71,7 @@ struct Runtime_ {
 
     struct {
     #define Y(fn_name) PFN_##fn_name fn_name;
-    #define X(prefix, name, fns) \
+    #define X(_, prefix, name, fns) \
         struct S_##name { \
         bool enabled; \
         fns(Y)  \
@@ -76,7 +92,7 @@ struct Device_ {
 
     struct {
     #define Y(fn_name) PFN_##fn_name fn_name;
-    #define X(prefix, name, fns) \
+    #define X(_, prefix, name, fns) \
         struct S_##name { \
         bool enabled; \
         fns(Y)  \
@@ -87,8 +103,29 @@ struct Device_ {
     } extensions;
 };
 
-typedef struct SpecProgram_ SpecProgram;
+struct Program_ {
+    Runtime* runtime;
 
+    IrArena* arena;
+    const Node* generic_program;
+
+    struct Dict* specialized;
+};
+
+struct SpecProgram_ {
+    Program* base;
+    Device* device;
+
+    IrArena* arena;
+    const Node* final_program;
+
+    size_t spirv_size;
+    char* spirv_bytes;
+
+    VkPipeline pipeline;
+    VkPipelineLayout layout;
+    VkShaderModule shader_module;
+};
 void unload_program(Program*);
 void shutdown_device(Device*);
 

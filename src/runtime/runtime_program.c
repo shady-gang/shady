@@ -9,30 +9,6 @@
 
 #include "murmur3.h"
 
-struct Program_ {
-    Runtime* runtime;
-
-    IrArena* arena;
-    const Node* generic_program;
-
-    struct Dict* specialized;
-};
-
-struct SpecProgram_ {
-    Program* base;
-    Device* device;
-
-    IrArena* arena;
-    const Node* final_program;
-
-    size_t spirv_size;
-    char* spirv_bytes;
-
-    VkPipeline pipeline;
-    VkPipelineLayout layout;
-    VkShaderModule shader_module;
-};
-
 // TODO: unduplicate
 static KeyHash hash_murmur(const void* data, size_t size) {
     int32_t out[4];
