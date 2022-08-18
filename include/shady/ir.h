@@ -353,6 +353,8 @@ PRIMOP(1, push_stack)               \
 PRIMOP(1, pop_stack)                \
 PRIMOP(1, push_stack_uniform)       \
 PRIMOP(1, pop_stack_uniform)        \
+PRIMOP(0, get_stack_pointer)        \
+PRIMOP(0, get_stack_pointer_uniform) \
 PRIMOP(0, subgroup_elect_first)     \
 PRIMOP(0, subgroup_broadcast_first) \
 PRIMOP(0, subgroup_active_mask)     \

@@ -55,7 +55,7 @@ void gen_push_values_stack(BlockBuilder* instructions, Nodes values) {
 const Node* gen_pop_value_stack(BlockBuilder* instructions, String var_name, const Type* type) {
     const char* names[] = { var_name };
     const Node* let_i = let(instructions->arena, prim_op(instructions->arena, (PrimOp) {
-            .op = pop_stack_uniform_op,
+            .op = pop_stack_op,
             .operands = nodes(instructions->arena, 1, (const Node*[]) { type })
     }), 1, names);
     append_block(instructions, let_i);

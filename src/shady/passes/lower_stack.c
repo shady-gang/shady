@@ -45,6 +45,14 @@ static const Node* handle_block(Context* ctx, const Node* node) {
         if (oinstruction->tag == PrimOp_TAG) {
             const PrimOp* oprim_op = &oinstruction->payload.prim_op;
             switch (oprim_op->op) {
+                case get_stack_pointer_op:
+                case get_stack_pointer_uniform_op: {
+                    bool uniform = oprim_op->op == get_stack_pointer_uniform_op;
+                    const Node* sp = gen_load(instructions, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer);
+                    register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], sp);
+                    continue;
+                }
+
                 case push_stack_op:
                 case push_stack_uniform_op:
                 case pop_stack_op:

@@ -357,6 +357,10 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             }
             return qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = bool_type(arena) });
         }
+        case get_stack_pointer_op:
+        case get_stack_pointer_uniform_op: {
+            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_pointer_uniform_op, .type = int32_type(arena) });
+        }
         case push_stack_uniform_op:
         case push_stack_op: {
             assert(prim_op.operands.count == 2);
