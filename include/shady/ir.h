@@ -360,7 +360,7 @@ PRIMOP(0, subgroup_ballot)          \
 PRIMOP(0, subgroup_local_id)        \
 PRIMOP(0, empty_mask)               \
 PRIMOP(0, mask_is_thread_active)    \
-PRIMOP(0, debug_printf)             \
+PRIMOP(1, debug_printf)             \
 
 typedef enum Op_ {
 #define PRIMOP(has_side_effects, name) name##_op,

@@ -18,6 +18,10 @@ typedef struct Emitter_ {
     struct Dict* node_ids;
     SpvId emitted_builtins[VulkanBuiltinsCount];
     size_t num_entry_pts;
+
+    struct {
+        SpvId debug_printf;
+    } non_semantic_imported_instrs;
 } Emitter;
 
 SpvStorageClass emit_addr_space(AddressSpace address_space);

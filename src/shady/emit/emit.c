@@ -14,6 +14,8 @@
 #include <stdint.h>
 #include <assert.h>
 
+#include "spirv/unified1/NonSemanticDebugPrintf.h"
+
 typedef struct Phi** Phis;
 
 typedef struct {
@@ -257,6 +259,11 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
 
             SpvId result = spvb_select(bb_builder, emit_type(emitter, variables.nodes[0]->type), cond, truv, flsv);
             register_result(emitter, variables.nodes[0], result);
+            return;
+        }
+        case debug_printf_op: {
+            SpvId arr[] = { spvb_debug_string(emitter->file_builder, "woooo \n\n\n\n") };
+            spvb_ext_instruction(bb_builder, emit_type(emitter, unit_type(emitter->arena)), emitter->non_semantic_imported_instrs.debug_printf, NonSemanticDebugPrintfDebugPrintf, 1, arr);
             return;
         }
         default: error("TODO: unhandled op");
@@ -768,12 +775,15 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, s
         .num_entry_pts = 0,
     };
 
+    emitter.non_semantic_imported_instrs.debug_printf = spvb_extended_import(file_builder, "NonSemantic.DebugPrintf");
+
     for (size_t i = 0; i < VulkanBuiltinsCount; i++)
         emitter.emitted_builtins[i] = 0;
 
     emitter.void_t = spvb_void_type(emitter.file_builder);
 
     spvb_extension(file_builder, "SPV_KHR_shader_ballot");
+    spvb_extension(file_builder, "SPV_KHR_non_semantic_info");
 
     emit_root(&emitter, root_node);
     emit_entry_points(&emitter, root_node);
