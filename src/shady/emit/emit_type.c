@@ -85,6 +85,10 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
 
     SpvId new;
     switch (type->tag) {
+        case Unit_TAG: {
+            new = emitter->void_t;
+            break;
+        }
         case Int_TAG: {
             int width;
             switch (type->payload.int_type.width) {

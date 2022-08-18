@@ -245,13 +245,17 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         }
         case ArrType_TAG: {
-            printf(BCYAN"[");
+            printf(RESET"[");
             print_node(node->payload.arr_type.element_type);
             if (node->payload.arr_type.size) {
                 printf("; ");
                 print_node(node->payload.arr_type.size);
             }
             printf("]"RESET);
+            break;
+        }
+        case Unit_TAG: {
+            printf(BCYAN"()");
             break;
         }
         case PackType_TAG: {

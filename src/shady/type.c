@@ -635,6 +635,9 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = bool_type(arena)
             });
         }
+        case debug_printf_op: {
+            return unit_type(arena);
+        }
         default: error("unhandled primop %s", primop_names[prim_op.op]);
     }
 }
