@@ -18,7 +18,7 @@ static VkPhysicalDevice pick_device(SHADY_UNUSED Runtime* runtime, uint32_t devi
     return NULL;
 }
 
-static VkDevice initialize_physical_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
+static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
     uint32_t queue_families_count;
     vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_families_count, NULL);
     LARRAY(VkQueueFamilyProperties2, queue_families_properties, queue_families_count);
@@ -40,7 +40,9 @@ static VkDevice initialize_physical_device(SHADY_UNUSED Runtime* runtime, VkPhys
     if (compute_queue_family == -1)
         return NULL;
 
-    VkDevice device;
+    Device* device = calloc(1, sizeof(Device));
+    device->runtime = runtime;
+
     CHECK_VK(vkCreateDevice(physical_device, &(VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .flags = 0,
@@ -59,9 +61,22 @@ static VkDevice initialize_physical_device(SHADY_UNUSED Runtime* runtime, VkPhys
         .enabledExtensionCount = 0,
         .ppEnabledExtensionNames = NULL,
         .pNext = NULL,
-    }, NULL, &device), return NULL)
+    }, NULL, &device->device), return NULL)
+
+    CHECK_VK(vkCreateCommandPool(device->device, &(VkCommandPoolCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext = NULL,
+        .queueFamilyIndex = compute_queue_family,
+        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
+    }, NULL, &device->cmd_pool), goto delete_device);
+
+    vkGetDeviceQueue(device->device, compute_queue_family, 0, &device->compute_queue);
 
     return device;
+
+    delete_device:
+    vkDestroyDevice(device->device, NULL);
+    return NULL;
 }
 
 Device* initialize_device(Runtime* runtime) {
@@ -83,10 +98,7 @@ Device* initialize_device(Runtime* runtime) {
         return false;
     }
 
-    Device* device = calloc(1, sizeof(Device));
-    device->runtime = runtime;
-    device->device = initialize_physical_device(runtime, physical_device);
-    return device;
+    return create_device(runtime, physical_device);
 }
 
 void shutdown_device(Device* device) {

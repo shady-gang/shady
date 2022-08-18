@@ -72,6 +72,7 @@ struct Device_ {
     Runtime* runtime;
     VkDevice device;
     VkCommandPool cmd_pool;
+    VkQueue compute_queue;
 
     struct {
     #define Y(fn_name) PFN_##fn_name fn_name;

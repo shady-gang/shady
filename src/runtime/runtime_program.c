@@ -121,6 +121,7 @@ static SpecProgram* create_specialized_program(Program* program, Device* device)
     CHECK(compile_specialized_program(spec_program), return NULL);
     CHECK(extract_layout(spec_program),              return NULL);
     CHECK(create_vk_pipeline(spec_program),          return NULL);
+    return spec_program;
 }
 
 SpecProgram* get_specialized_program(Program* program, Device* device) {
@@ -128,6 +129,7 @@ SpecProgram* get_specialized_program(Program* program, Device* device) {
     if (found)
         return *found;
     SpecProgram* spec = create_specialized_program(program, device);
+    assert(spec);
     insert_dict(Device*, SpecProgram*, program->specialized, device, spec);
     return spec;
 }
