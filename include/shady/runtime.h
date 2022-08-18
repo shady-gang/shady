@@ -5,6 +5,7 @@
 
 typedef struct {
     bool use_validation;
+    bool dump_spv;
 } RuntimeConfig;
 
 typedef struct Runtime_ Runtime;

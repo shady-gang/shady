@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#define CHECK(x, failure_handler) { if (!(x)) { error_print(#x " failed\n"); failure_handler; } }
 #define CHECK_VK(x, failure_handler) { VkResult the_result_ = x; if (the_result_ != VK_SUCCESS) { error_print(#x " failed (code %d)\n", the_result_); failure_handler; } }
 
 #define empty_fns(Y)
@@ -270,11 +271,8 @@ Runtime* initialize_runtime(RuntimeConfig config) {
     memset(runtime, 0, sizeof(Runtime));
     runtime->config = config;
 
-    if (!initialize_vk_instance(runtime))
-        goto init_fail_free;
-
-    if (!initialize_vk_device(runtime))
-        goto init_fail;
+    CHECK(initialize_vk_instance(runtime), goto init_fail_free)
+    CHECK(initialize_vk_device(runtime),   goto init_fail)
 
     info_print("Shady runtime successfully initialized !\n");
     return runtime;
@@ -302,9 +300,15 @@ static bool compile_program(Program* program, const char* program_src) {
     config.allow_frontend_syntax = true;
     ArenaConfig arena_config = {};
     program->arena = new_arena(arena_config);
-    parse_files(&config, 1, (const char* []){ program_src }, program->arena, &program->program);
-    run_compiler_passes(&config, &program->arena, &program->program);
+    CHECK(program->arena != NULL, return false);
+    CHECK(parse_files(&config, 1, (const char* []){ program_src }, program->arena, &program->program) == CompilationNoError, return false);
+    CHECK(run_compiler_passes(&config, &program->arena, &program->program) == CompilationNoError, return false);
     emit_spirv(&config, program->arena, program->program, &program->spirv_size, &program->spirv_bytes);
+    if (program->runtime->config.dump_spv) {
+        FILE* f = fopen("runtime-dump.spv", "wb");
+        fwrite(program->spirv_bytes, 1, program->spirv_size, f);
+        fclose(f);
+    }
     return true;
 }
 
@@ -352,9 +356,9 @@ Program* load_program(Runtime* runtime, const char* program_src) {
     Program* program = malloc(sizeof(Program));
     memset(program, 0, sizeof(Program));
     program->runtime = runtime;
-    compile_program(program, program_src);
-    extract_layout(program);
-    create_vk_pipeline(program);
+    CHECK(compile_program(program, program_src), return NULL);
+    CHECK(extract_layout(program),               return NULL);
+    CHECK(create_vk_pipeline(program),           return NULL);
     return program;
 }
 

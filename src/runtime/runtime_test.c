@@ -17,6 +17,7 @@ int main(int argc, const char* argv[]) {
 
     RuntimeConfig config = {
         .use_validation = true,
+        .dump_spv = true,
     };
     Runtime* runtime = initialize_runtime(config);
     Program* program = load_program(runtime, shader);
