@@ -345,16 +345,17 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
 
     SpvId next_id = spvb_fresh_id(emitter->file_builder);
 
+    assert(extract_operand_type(match.inspect->type)->tag == Int_TAG);
+    SpvId inspectee = emit_value(emitter, match.inspect, NULL);
+
     SpvId default_id = spvb_fresh_id(emitter->file_builder);
     LARRAY(SpvId, literals_and_cases, match.cases.count * 2);
     for (size_t i = 0; i < match.cases.count; i++) {
-        literals_and_cases[i * 2 + 0] = spvb_fresh_id(emitter->file_builder);
+        literals_and_cases[i * 2 + 0] = (SpvId) (uint32_t) extract_int_literal_value(match.literals.nodes[i], true);
         literals_and_cases[i * 2 + 1] = spvb_fresh_id(emitter->file_builder);
-        emit_value(emitter, match.literals.nodes[i], &literals_and_cases[i * 2 + 0]);
     }
 
     spvb_selection_merge(*bb_builder, next_id, 0);
-    SpvId inspectee = emit_value(emitter, match.inspect, NULL);
     spvb_switch(*bb_builder, inspectee, default_id, match.cases.count, literals_and_cases);
 
     MergeTargets merge_targets_branches = *merge_targets;
