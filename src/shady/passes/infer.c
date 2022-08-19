@@ -272,7 +272,12 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
             input_types = nodes(dst_arena, 2, (const Type* []) { mask_type(dst_arena), int32_type(dst_arena) });
             break;
         }
-        default: error("unhandled op params");
+        default: {
+            for (size_t i = 0; i < old_inputs.count; i++) {
+                new_inputs_scratch[i] = old_inputs.nodes[i] ? infer_value(ctx, old_inputs.nodes[i], int32_type(dst_arena)) : NULL;
+            }
+            goto skip_input_types;
+        }
     }
 
     assert(input_types.count == old_inputs.count);

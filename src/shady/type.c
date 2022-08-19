@@ -361,6 +361,15 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case get_stack_pointer_uniform_op: {
             return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_pointer_uniform_op, .type = int32_type(arena) });
         }
+        case set_stack_pointer_op:
+        case set_stack_pointer_uniform_op: {
+            assert(prim_op.operands.count == 1);
+            bool is_uniform = prim_op.op == set_stack_pointer_uniform_op;
+            if (is_uniform)
+                assert(is_operand_uniform(prim_op.operands.nodes[0]->type));
+            assert(extract_operand_type(prim_op.operands.nodes[0]->type) == int32_type(arena));
+            return unit_type(arena);
+        }
         case push_stack_uniform_op:
         case push_stack_op: {
             assert(prim_op.operands.count == 2);
@@ -417,8 +426,10 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(is_subtype(val_expected_type, val->type));
             return unit_type(arena);
         }
+        case alloca_slot_op:
         case alloca_op: {
-            assert(prim_op.operands.count == 1);
+            bool is_slot = prim_op.op == alloca_slot_op;
+            assert(prim_op.operands.count == (is_slot ? 2 : 1));
             const Type* elem_type = prim_op.operands.nodes[0];
             assert(is_type(elem_type));
             return qualified_type(arena, (QualifiedType) {

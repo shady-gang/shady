@@ -31,6 +31,7 @@ set(SHADY_SOURCES
     passes/lower_physical_ptrs.c
     passes/lower_tailcalls.c
     passes/lower_mask.c
+    passes/setup_stack_frames.c
 
     emit/emit.c
     emit/emit_type.c

@@ -41,6 +41,8 @@ CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrAre
 
     aconfig.allow_fold = true;
 
+    RUN_PASS(setup_stack_frames)
+
     RUN_PASS(lower_cf_instrs)
     RUN_PASS(lower_callc)
     RUN_PASS(lower_callf)

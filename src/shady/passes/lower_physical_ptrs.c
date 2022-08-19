@@ -121,7 +121,8 @@ static const Node* handle_block(Context* ctx, const Node* node) {
         if (oinstruction->tag == PrimOp_TAG) {
             const PrimOp* oprim_op = &oinstruction->payload.prim_op;
             switch (oprim_op->op) {
-                case alloca_op: {
+                case alloca_op: error("This has to be the slot variant")
+                case alloca_slot_op: {
                     if (!olet) continue;
                     const Type* element_type = oprim_op->operands.nodes[0];
                     TypeMemLayout layout = get_mem_layout(ctx->config, dst_arena, element_type);

@@ -146,7 +146,7 @@ void visit_children(Visitor* visitor, const Node* node) {
         case Callc_TAG: {
             if (visitor->visit_cf_targets) {
                 visit(node->payload.callc.ret_cont);
-                visit(node->payload.callc.callee);
+                //visit(node->payload.callc.callee);
             }
             visit_nodes(visitor, node->payload.callc.args);
             break;

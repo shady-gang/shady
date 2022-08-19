@@ -62,11 +62,16 @@ fn builtin_join(uniform i32 join_at, uniform mask join_with) {
             clear = false;
             break;
         }
+
+        // We're clear to enter
+        if (clear) {
+            next_fn = join_at;
+            next_mask = join_with;
+        }
     }
-    // We're clear to enter
+    // Make sure everyone returns
     if (subgroup_broadcast_first(clear)) {
-        next_fn = join_at;
-        next_mask = join_with;
+        // TODO: maybe zero-out resume_at/resume_with ?
         return;
     }
 

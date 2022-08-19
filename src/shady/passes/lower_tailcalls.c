@@ -131,6 +131,11 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     append_list(const Node*, ctx->new_decls, new_entry_pt);
 
     BlockBuilder* builder = begin_block(dst_arena);
+
+    // Put a special zero marker at the bottom of the stack so the program ends after the entry point is done
+    gen_push_value_stack(builder, gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL));
+    gen_push_value_stack(builder, int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 0 }));
+
     for (size_t i = fun->payload.fn.params.count - 1; i < fun->payload.fn.params.count; i--) {
         gen_push_value_stack(builder, fun->payload.fn.params.nodes[i]);
     }

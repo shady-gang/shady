@@ -21,6 +21,8 @@ RewritePass lower_stack;
 /// Emulates physical pointers to certain address spaces by using integer indices into global arrays
 RewritePass lower_physical_ptrs;
 
+RewritePass setup_stack_frames;
+
 RewritePass lower_mask;
 
 // Optimisation passes

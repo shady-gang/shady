@@ -52,6 +52,13 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], sp);
                     continue;
                 }
+                case set_stack_pointer_op:
+                case set_stack_pointer_uniform_op: {
+                    bool uniform = oprim_op->op == set_stack_pointer_uniform_op;
+                    const Node* val = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
+                    gen_store(instructions, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer, val);
+                    continue;
+                }
 
                 case push_stack_op:
                 case push_stack_uniform_op:
