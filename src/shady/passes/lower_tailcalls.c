@@ -300,13 +300,14 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
     destroy_list(cases);
 
     const Node* loop_body = finish_block(loop_body_builder, unreachable(dst_arena));
-
-    Nodes dispatcher_body_instructions = nodes(dst_arena, 1, (const Node* []) { loop_instr(dst_arena, (Loop) {
+    const Node* the_loop = loop_instr(dst_arena, (Loop) {
         .yield_types = nodes(dst_arena, 0, NULL),
         .params = nodes(dst_arena, 0, NULL),
         .initial_args = nodes(dst_arena, 0, NULL),
         .body = loop_body
-    }) });
+    });
+
+    Nodes dispatcher_body_instructions = nodes(dst_arena, 1, (const Node* []) { the_loop });
 
     dispatcher_fn->payload.fn.block = block(dst_arena, (Block) {
         .instructions = dispatcher_body_instructions,

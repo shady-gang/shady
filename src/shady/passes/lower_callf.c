@@ -73,6 +73,10 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     const Node* return_address = gen_pop_value_stack(instructions, "return_addr", return_address_type);
                     const Node* return_convtok = gen_pop_value_stack(instructions, "return_convtok", mask_type(dst_arena));
 
+                    // This effectively asserts those things to be uniform...
+                    return_address = gen_primop_ce(instructions, subgroup_broadcast_first_op, 1, (const Node* []) { return_address });
+                    return_convtok = gen_primop_ce(instructions, subgroup_broadcast_first_op, 1, (const Node* []) { return_convtok });
+
                     // Join up at the return address
                     terminator = join(dst_arena, (Join) {
                         .is_indirect = true,

@@ -83,7 +83,7 @@ void gen_serialisation(BlockBuilder* bb, const Type* element_type, const Node* a
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset });
             const Node* zero = int_literal(bb->arena, (IntLiteral) { .value_i8 = 0, .width = IntTy32 });
             const Node* one = int_literal(bb->arena, (IntLiteral) { .value_i8 = 1, .width = IntTy32 });
-            const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, zero, one });
+            const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one, zero });
             gen_store(bb, logical_ptr, int_value);
             return;
         }
