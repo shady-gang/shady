@@ -61,7 +61,7 @@ static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice ph
         info_print("Rejecting device '%s' because it does not support Vulkan 1.1 or later\n", device_properties.deviceName);
         return false;
     }
-    if (device_features.shaderInt64) {
+    if (!device_features.shaderInt64) {
         info_print("Rejecting device '%s' because it does not support 64-bit integers in shaders\n", device_properties.deviceName);
         return false;
     }
