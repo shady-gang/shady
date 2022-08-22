@@ -1,10 +1,10 @@
-const i32 MASK_SIZE = 64;
-
 subgroup i32 next_fn;
 subgroup mask next_mask;
 
-subgroup [i32; 64] resume_at;
-subgroup [mask; 64] resume_with;
+subgroup [i32; MASK_SIZE] resume_at;
+subgroup [mask; MASK_SIZE] resume_with;
+
+const i32 MASK_SIZE = 64;
 
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
 fn builtin_branch(varying i32 branch_destination) {
