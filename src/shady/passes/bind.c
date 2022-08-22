@@ -22,22 +22,64 @@ typedef struct {
     Rewriter unused;
     IrArena* src_arena;
     IrArena* dst_arena;
-    NamedBindEntry* bound_variables;
+    const Node* old_root;
+
+    const Node** new_decls;
+    /// Top level declarations are bound lazily, they may be reordered
+    size_t* new_decls_count;
+
     const Node* current_function;
+    NamedBindEntry* local_variables;
 } Context;
 
-static const NamedBindEntry* resolve_using_name(const Context* ctx, const char* name) {
-    for (NamedBindEntry* entry = ctx->bound_variables; entry != NULL; entry = entry->next) {
+static const Node* rewrite_decl(Context* ctx, const Node*decl);
+
+typedef struct {
+    bool is_var;
+    const Node* node;
+} Resolved;
+
+static Resolved resolve_using_name(Context* ctx, const char* name) {
+    for (NamedBindEntry* entry = ctx->local_variables; entry != NULL; entry = entry->next) {
         if (strcmp(entry->name, name) == 0) {
-            return entry;
+            return (Resolved) {
+                .is_var = entry->is_var,
+                .node = entry->node
+            };
         }
     }
+
+    for (size_t i = 0; i < *ctx->new_decls_count; i++) {
+        const Node* decl = ctx->new_decls[i];
+        if (strcmp(get_decl_name(decl), name) == 0) {
+            return (Resolved) {
+                .is_var = decl->tag == GlobalVariable_TAG,
+                .node = decl
+            };
+        }
+    }
+
+    Nodes root_decls = ctx->old_root->payload.root.declarations;
+    for (size_t i = 0; i < root_decls.count; i++) {
+        const Node* old_decl = root_decls.nodes[i];
+        if (strcmp(get_decl_name(old_decl), name) == 0) {
+            Context top_ctx = *ctx;
+            top_ctx.current_function = NULL;
+            top_ctx.local_variables = NULL;
+            const Node* decl = rewrite_decl(&top_ctx, old_decl);
+            return (Resolved) {
+                .is_var = decl->tag == GlobalVariable_TAG,
+                .node = decl
+            };
+        }
+    }
+
     error("could not resolve node %s", name)
 }
 
 static void bind_named_entry(Context* ctx, NamedBindEntry* entry) {
-    entry->next = ctx->bound_variables;
-    ctx->bound_variables = entry;
+    entry->next = ctx->local_variables;
+    ctx->local_variables = entry;
 }
 
 static const Node* bind_node(Context* ctx, const Node* node);
@@ -53,9 +95,9 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
     IrArena* dst_arena = ctx->dst_arena;
     switch (node->tag) {
         case Unbound_TAG: {
-            const NamedBindEntry* entry = resolve_using_name(ctx, node->payload.unbound.name);
-            assert(entry->is_var);
-            return entry->node;
+            Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
+            assert(entry.is_var && "Cannot take the address");
+            return entry.node;
         }
         case PrimOp_TAG: {
             if (node->tag == PrimOp_TAG && node->payload.prim_op.op == subscript_op) {
@@ -69,8 +111,7 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
         }
         default: break;
     }
-    error("This doesn't really look like a place expression...");
-    //return bind_node(ctx, node, true);
+    error("This doesn't really look like a place expression...")
 }
 
 static Node* rewrite_fn_head(Context* ctx, const Node* node) {
@@ -105,7 +146,7 @@ static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
             .next = NULL
         };
         bind_named_entry(&body_infer_ctx, entry);
-        printf("Bound param %s\n", entry->name);
+        debug_print("Bound param %s\n", entry->name);
     }
 
     if (node->payload.fn.is_basic_block) {
@@ -115,6 +156,44 @@ static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
         body_infer_ctx.current_function = target;
     }
     target->payload.fn.block = bind_node(&body_infer_ctx, node->payload.fn.block);
+}
+
+static const Node* rewrite_decl(Context* ctx, const Node* decl) {
+    IrArena* dst_arena = ctx->dst_arena;
+    Node* bound = NULL;
+
+    switch (decl->tag) {
+        case GlobalVariable_TAG: {
+            const GlobalVariable* ogvar = &decl->payload.global_variable;
+            bound = global_var(dst_arena, bind_nodes(ctx, ogvar->annotations), bind_node(ctx, ogvar->type), ogvar->name, ogvar->address_space);
+            break;
+        }
+        case Constant_TAG: {
+            const Constant* cnst = &decl->payload.constant;
+            Node* new_constant = constant(dst_arena, bind_nodes(ctx, cnst->annotations), cnst->name);
+            new_constant->payload.constant.type_hint = bind_node(ctx, decl->payload.constant.type_hint);
+            bound = new_constant;
+            break;
+        }
+        case Function_TAG: {
+            bound = rewrite_fn_head(ctx, decl);
+            break;
+        }
+        default: error("unknown declaration kind");
+    }
+
+    ctx->new_decls[(*ctx->new_decls_count)++] = bound;
+    debug_print("Bound declaration %s\n", get_decl_name(bound));
+
+    // Handle the bodies after registering the heads
+    switch (decl->tag) {
+        case Function_TAG: rewrite_fn_body(ctx, decl, bound); break;
+        case Constant_TAG: bound->payload.constant.value = bind_node(ctx, decl->payload.constant.value); break;
+        case GlobalVariable_TAG: bound->payload.global_variable.init = bind_node(ctx, decl->payload.global_variable.init); break;
+        default: SHADY_UNREACHABLE;
+    }
+
+    return bound;
 }
 
 static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
@@ -193,72 +272,23 @@ static const Node* bind_node(Context* ctx, const Node* node) {
 
     IrArena* dst_arena = ctx->dst_arena;
     switch (node->tag) {
-        case Root_TAG: {
-            const Root* src_root = &node->payload.root;
-            const size_t count = src_root->declarations.count;
-
-            Context root_context = *ctx;
-            LARRAY(const Node*, new_decls, count);
-
-            for (size_t i = 0; i < count; i++) {
-                const Node* decl = src_root->declarations.nodes[i];
-
-                const Node* bound = NULL;
-                NamedBindEntry* entry = arena_alloc(ctx->src_arena, sizeof(NamedBindEntry));
-                entry->next = NULL;
-
-                switch (decl->tag) {
-                    case GlobalVariable_TAG: {
-                        const GlobalVariable* ogvar = &decl->payload.global_variable;
-                        bound = global_var(dst_arena, bind_nodes(ctx, ogvar->annotations), bind_node(ctx, ogvar->type), ogvar->name, ogvar->address_space);
-                        entry->name = ogvar->name;
-                        entry->is_var = true;
-                        break;
-                    }
-                    case Constant_TAG: {
-                        const Constant* cnst = &decl->payload.constant;
-                        Node* new_constant = constant(dst_arena, bind_nodes(ctx, cnst->annotations), cnst->name);
-                        new_constant->payload.constant.type_hint = bind_node(ctx, decl->payload.constant.type_hint);
-                        bound = new_constant;
-                        entry->name = cnst->name;
-                        break;
-                    }
-                    case Function_TAG: {
-                        const Function* ofn = &decl->payload.fn;
-                        bound = rewrite_fn_head(ctx, decl);
-                        entry->name = ofn->name;
-                        break;
-                    }
-                    default: error("unknown declaration kind");
-                }
-
-                entry->node = (Node*) bound;
-                bind_named_entry(&root_context, entry);
-                printf("Bound root def %s\n", entry->name);
-
-                new_decls[i] = bound;
-            }
-
-            for (size_t i = 0; i < count; i++) {
-                const Node* odecl = src_root->declarations.nodes[i];
-                if (odecl->tag != GlobalVariable_TAG)
-                    new_decls[i] = bind_node(&root_context, odecl);
-            }
-
-            return root(dst_arena, (Root) {
-                .declarations = nodes(dst_arena, count, new_decls),
-            });
+        case Function_TAG:
+        case Constant_TAG:
+        case GlobalVariable_TAG: {
+            assert(false);
+            break;
         }
+        case Root_TAG: assert(false);
         case Variable_TAG: error("the binders should be handled such that this node is never reached");
         case Unbound_TAG: {
-            const NamedBindEntry* entry = resolve_using_name(ctx, node->payload.unbound.name);
-            if (entry->is_var) {
+            Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
+            if (entry.is_var) {
                 return prim_op(dst_arena, (PrimOp) {
                     .op = load_op,
                     .operands = nodes(dst_arena, 1, (const Node* []) { get_node_address(ctx, node) })
                 });
             } else {
-                return entry->node;
+                return entry.node;
             }
         }
         case Let_TAG: error("rewrite_instructions should handle this");
@@ -340,19 +370,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 .values = bind_nodes(ctx, node->payload.fn_ret.values)
             });
         }
-        case Function_TAG: {
-            Node* head = resolve_using_name(ctx, node->payload.fn.name)->node;
-            rewrite_fn_body(ctx, node, head);
-            return head;
-        }
-        case Constant_TAG: {
-            Node* head = resolve_using_name(ctx, node->payload.fn.name)->node;
-            head->payload.constant.value = bind_node(ctx, node->payload.constant.value);
-            return head;
-        }
-        default:
-        /*case Call_TAG:
-        case PrimOp_TAG:*/ {
+        default: {
             if (node->tag == PrimOp_TAG && node->payload.prim_op.op == assign_op) {
                 const Node* target_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);
                 const Node* value = bind_node(ctx, node->payload.prim_op.operands.nodes[1]);
@@ -381,12 +399,25 @@ static const Node* bind_node(Context* ctx, const Node* node) {
 }
 
 const Node* bind_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* source) {
+    Nodes decls = source->payload.root.declarations;
+    LARRAY(const Node*, new_decls, decls.count);
+    size_t decls_count = 0;
+
     Context ctx = {
         .src_arena = src_arena,
         .dst_arena = dst_arena,
-        .bound_variables = NULL
+        .old_root = source,
+        .local_variables = NULL,
+        .current_function = NULL,
+        .new_decls = new_decls,
+        .new_decls_count = &decls_count
     };
 
-    const Node* rewritten = bind_node(&ctx, source);
-    return rewritten;
+    for (size_t i = 0; i < decls.count; i++)
+        resolve_using_name(&ctx, get_decl_name(decls.nodes[i]));
+
+    assert(decls_count == decls.count);
+    return root(dst_arena, (Root) {
+        .declarations = nodes(dst_arena, decls.count, new_decls),
+    });
 }
