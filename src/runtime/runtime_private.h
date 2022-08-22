@@ -84,8 +84,16 @@ struct Runtime_ {
     VkDebugUtilsMessengerEXT debug_messenger;
 };
 
+typedef struct DeviceProperties_ {
+    VkPhysicalDevice physical_device;
+    size_t subgroup_size;
+    bool supported_extensions[ShadySupportedDeviceExtensionsCount];
+    uint32_t compute_queue_family;
+} DeviceProperties;
+
 struct Device_ {
     Runtime* runtime;
+    DeviceProperties properties;
     VkDevice device;
     VkCommandPool cmd_pool;
     VkQueue compute_queue;

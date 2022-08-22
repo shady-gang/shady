@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* count, const char* enabled_extensions[]) {
+static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* count, const char* enabled_extensions[], bool support_vector[]) {
     *count = 0;
 
     uint32_t available_count;
@@ -22,6 +22,9 @@ static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* 
             }
         }
 
+        if (support_vector)
+            support_vector[i] = found;
+
         if (is_device_ext_required[i] && !found) {
             enabled_extensions[0] = shady_supported_device_extensions_names[i];
             return false;
@@ -33,34 +36,47 @@ static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* 
     return true;
 }
 
-static VkPhysicalDevice pick_device(SHADY_UNUSED Runtime* runtime, uint32_t devices_count, VkPhysicalDevice available_devices[]) {
-    for (uint32_t i = 0; i < devices_count; i++) {
-        VkPhysicalDevice physical_device = available_devices[i];
-        VkPhysicalDeviceProperties device_properties;
-        vkGetPhysicalDeviceProperties(physical_device, &device_properties);
-        VkPhysicalDeviceFeatures device_features;
-        vkGetPhysicalDeviceFeatures(physical_device, &device_features);
+/// Considers a given physical device for running on, returns false if it's unusable, otherwise returns a report in out
+static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice physical_device, DeviceProperties* out) {
+    out->physical_device = physical_device;
 
-        if (device_properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0))
-            continue;
-        if (!device_features.shaderInt64)
-            continue;
-
-        LARRAY(const char*, exts, ShadySupportedDeviceExtensionsCount);
-        size_t c;
-
-        if (!fill_available_extensions(physical_device, &c, exts)) {
-            info_print("Skipping device %s because it lacks support for %s\n", device_properties.deviceName, exts[0]);
-            continue;
-        }
-
-        return available_devices[i];
+    VkPhysicalDeviceSubgroupProperties subgroup_properties = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES,
+        .pNext = NULL
+    };
+    VkPhysicalDeviceProperties device_properties;
+    {
+        VkPhysicalDeviceProperties2 device_properties2 = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+                .pNext = &subgroup_properties
+        };
+        vkGetPhysicalDeviceProperties2(physical_device, &device_properties2);
+        device_properties = device_properties2.properties;
     }
 
-    return NULL;
-}
+    VkPhysicalDeviceFeatures device_features;
+    vkGetPhysicalDeviceFeatures(physical_device, &device_features);
 
-static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
+    if (device_properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0)) {
+        info_print("Rejecting device '%s' because it does not support Vulkan 1.1 or later\n", device_properties.deviceName);
+        return false;
+    }
+    if (device_features.shaderInt64) {
+        info_print("Rejecting device '%s' because it does not support 64-bit integers in shaders\n", device_properties.deviceName);
+        return false;
+    }
+
+    out->subgroup_size = subgroup_properties.subgroupSize;
+    info_print("Subgroup size for device '%s' is %d\n", device_properties.deviceName, out->subgroup_size);
+
+    LARRAY(const char*, exts, ShadySupportedDeviceExtensionsCount);
+    size_t c;
+
+    if (!fill_available_extensions(physical_device, &c, exts, out->supported_extensions)) {
+        info_print("Rejecting device %s because it lacks support for '%s'\n", device_properties.deviceName, exts[0]);
+        return false;
+    }
+
     uint32_t queue_families_count;
     vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_families_count, NULL);
     LARRAY(VkQueueFamilyProperties2, queue_families_properties, queue_families_count);
@@ -70,24 +86,42 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     }
     vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_families_count, queue_families_properties);
 
-    uint32_t compute_queue_family = -1;
-    for (uint32_t i = 0; i < queue_families_count; i++) {
+    int32_t compute_queue_family = -1;
+    for (int32_t i = 0; i < queue_families_count; i++) {
         VkQueueFamilyProperties2 queue_family_properties = queue_families_properties[i];
         if (queue_family_properties.queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT) {
             compute_queue_family = i;
             break;
         }
     }
-
-    if (compute_queue_family == -1)
+    if (compute_queue_family < 0) {
+        info_print("Rejecting device %s because it lacks a compute queue family\n", device_properties.deviceName);
         return NULL;
+    }
+    out->compute_queue_family = compute_queue_family;
 
+    return true;
+}
+
+static VkPhysicalDevice pick_device(Runtime* runtime, uint32_t devices_count, VkPhysicalDevice available_devices[]) {
+    for (uint32_t i = 0; i < devices_count; i++) {
+        VkPhysicalDevice physical_device = available_devices[i];
+        DeviceProperties dummy;
+        if (get_physical_device_properties(runtime, physical_device, &dummy))
+            return available_devices[i];
+    }
+
+    return NULL;
+}
+
+static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
     Device* device = calloc(1, sizeof(Device));
     device->runtime = runtime;
+    CHECK(get_physical_device_properties(runtime, physical_device, &device->properties), assert(false));
 
     LARRAY(const char*, enabled_device_exts, ShadySupportedDeviceExtensionsCount);
     size_t enabled_device_exts_count;
-    CHECK(fill_available_extensions(physical_device, &enabled_device_exts_count, enabled_device_exts), assert(false));
+    CHECK(fill_available_extensions(physical_device, &enabled_device_exts_count, enabled_device_exts, NULL), assert(false));
 
     VkPhysicalDeviceFeatures enabled_features = {
         .shaderInt64 = true
@@ -103,7 +137,7 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
                 .flags = 0,
                 .pQueuePriorities = (const float []) { 1.0f },
                 .queueCount = 1,
-                .queueFamilyIndex = compute_queue_family,
+                .queueFamilyIndex = device->properties.compute_queue_family,
                 .pNext = NULL,
             }
         },
@@ -117,11 +151,11 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     CHECK_VK(vkCreateCommandPool(device->device, &(VkCommandPoolCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = NULL,
-        .queueFamilyIndex = compute_queue_family,
+        .queueFamilyIndex = device->properties.compute_queue_family,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
     }, NULL, &device->cmd_pool), goto delete_device);
 
-    vkGetDeviceQueue(device->device, compute_queue_family, 0, &device->compute_queue);
+    vkGetDeviceQueue(device->device, device->properties.compute_queue_family, 0, &device->compute_queue);
     return device;
 
     delete_device:
