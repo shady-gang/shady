@@ -32,6 +32,7 @@ set(SHADY_SOURCES
     passes/lower_tailcalls.c
     passes/lower_mask.c
     passes/setup_stack_frames.c
+    passes/eliminate_constants.c
 
     emit/emit.c
     emit/emit_type.c

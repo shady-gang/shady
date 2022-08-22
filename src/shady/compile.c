@@ -48,6 +48,8 @@ CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrAre
     RUN_PASS(lower_callf)
     RUN_PASS(lower_tailcalls)
 
+    RUN_PASS(eliminate_constants)
+
     aconfig.subgroup_mask_representation = SubgroupMaskSpvKHRBallot;
     RUN_PASS(lower_mask)
     RUN_PASS(lower_stack)

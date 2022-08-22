@@ -22,6 +22,7 @@ RewritePass lower_stack;
 RewritePass lower_physical_ptrs;
 
 RewritePass setup_stack_frames;
+RewritePass eliminate_constants;
 
 RewritePass lower_mask;
 
