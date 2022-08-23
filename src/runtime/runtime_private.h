@@ -23,12 +23,10 @@ X(1, KHR, get_physical_device_properties2,  empty_fns) \
 
 #define DEVICE_EXTENSIONS(X) \
 X(1, EXT, descriptor_indexing,          empty_fns) \
-X(1, EXT, shader_subgroup_ballot,       empty_fns) \
-X(1, KHR, buffer_device_address,        empty_fns) \
+X(0, KHR, buffer_device_address,        empty_fns) \
 X(1, KHR, storage_buffer_storage_class, empty_fns) \
-X(1, KHR, shader_non_semantic_info,     empty_fns) \
-X(1, KHR, spirv_1_4,                    empty_fns) \
-X(1, KHR, shader_float_controls,        empty_fns) \
+X(0, KHR, shader_non_semantic_info,     empty_fns) \
+X(0, KHR, spirv_1_4,                    empty_fns) \
 X(0, KHR, portability_subset,           empty_fns) \
 
 #define E(is_required, prefix, name, _) ShadySupports##prefix##name,
@@ -86,6 +84,14 @@ struct Runtime_ {
 
 typedef struct DeviceProperties_ {
     VkPhysicalDevice physical_device;
+    struct {
+        unsigned int major;
+        unsigned int minor;
+    } vk_version;
+    struct {
+        uint8_t major;
+        uint8_t minor;
+    } spirv_version;
     size_t subgroup_size;
     bool supported_extensions[ShadySupportedDeviceExtensionsCount];
     uint32_t compute_queue_family;

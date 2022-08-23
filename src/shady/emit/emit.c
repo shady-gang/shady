@@ -771,6 +771,7 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, s
     struct List* words = new_list(uint32_t);
 
     FileBuilder file_builder = spvb_begin();
+    spvb_set_version(file_builder, config->target_spirv_version.major, config->target_spirv_version.minor);
 
     Emitter emitter = {
         .configuration = config,

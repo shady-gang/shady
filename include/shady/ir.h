@@ -588,6 +588,11 @@ typedef struct CompilerConfig_ {
     bool allow_frontend_syntax;
     size_t per_thread_stack_size;
     size_t per_subgroup_stack_size;
+
+    struct {
+        uint8_t major;
+        uint8_t minor;
+    } target_spirv_version;
 } CompilerConfig;
 
 CompilerConfig default_compiler_config();

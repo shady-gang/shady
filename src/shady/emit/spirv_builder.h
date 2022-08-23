@@ -79,7 +79,8 @@ SpvId spvb_subgroup_ballot(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId p
 SpvId spvb_subgroup_broadcast_first(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId value);
 
 struct SpvFileBuilder* spvb_begin();
-void  spvb_finish(struct SpvFileBuilder*, SpvSectionBuilder output);
+void spvb_set_version(struct SpvFileBuilder* file_builder, uint8_t major, uint8_t minor);
+void spvb_finish(struct SpvFileBuilder*, SpvSectionBuilder output);
 
 struct SpvFnBuilder* spvb_begin_fn(struct SpvFileBuilder*, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type);
 struct SpvBasicBlockBuilder* spvb_begin_bb(struct SpvFileBuilder*, SpvId label);

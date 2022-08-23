@@ -48,6 +48,11 @@ struct SpvFileBuilder {
 
     uint32_t bound;
 
+    struct {
+        uint8_t major;
+        uint8_t minor;
+    } version;
+
     // Ordered as per https://www.khronos.org/registry/spir-v/specs/unified1/SPIRV.pdf#subsection.2.4
     SpvSectionBuilder capabilities;
     SpvSectionBuilder extensions;
@@ -697,7 +702,10 @@ SpvId get_block_builder_id(struct SpvBasicBlockBuilder* basic_block_builder) {
 
 inline static void merge_sections(SpvSectionBuilder final_output, struct SpvFileBuilder* file_builder) {
     literal_int(SpvMagicNumber);
-    literal_int(0x00010400);
+    uint32_t version_tag = 0;
+    version_tag |= ((uint32_t) file_builder->version.major) << 16;
+    version_tag |= ((uint32_t) file_builder->version.minor) << 8;
+    literal_int(version_tag);
     literal_int(0); // TODO get a magic number ?
     literal_int(file_builder->bound);
     literal_int(0); // instruction schema padding
@@ -741,6 +749,11 @@ struct SpvFileBuilder* spvb_begin() {
         .fn_defs = new_list(uint32_t),
     };
     return file_builder;
+}
+
+void spvb_set_version(struct SpvFileBuilder* file_builder, uint8_t major, uint8_t minor) {
+    file_builder->version.major = major;
+    file_builder->version.minor = minor;
 }
 
 void spvb_finish(struct SpvFileBuilder* file_builder, SpvSectionBuilder output) {

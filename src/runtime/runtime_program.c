@@ -93,11 +93,20 @@ static bool create_vk_pipeline(SpecProgram* program) {
     return true;
 }
 
-static bool compile_specialized_program(SpecProgram* spec) {
+static CompilerConfig get_compiler_config_for_device(Device* device) {
     CompilerConfig config = default_compiler_config();
 
     // TODO set subgroup size from this !
     // config.per_thread_stack_size = ...
+
+    config.target_spirv_version.major = device->properties.spirv_version.major;
+    config.target_spirv_version.minor = device->properties.spirv_version.minor;
+
+    return config;
+}
+
+static bool compile_specialized_program(SpecProgram* spec) {
+    CompilerConfig config = get_compiler_config_for_device(spec->device);
 
     CHECK(run_compiler_passes(&config, &spec->arena, &spec->final_program) == CompilationNoError, return false);
     emit_spirv(&config, spec->arena, spec->final_program, &spec->spirv_size, &spec->spirv_bytes);

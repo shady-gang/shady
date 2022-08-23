@@ -36,6 +36,28 @@ static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* 
     return true;
 }
 
+static void figure_out_spirv_version(DeviceProperties* device) {
+    assert(device->vk_version.major >= 1);
+    device->spirv_version.major = 1;
+    if (device->vk_version.major == 1 && device->vk_version.minor <= 1) {
+        // Vulkan 1.1 guarantees ... not a lot
+        if (device->supported_extensions[ShadySupportsKHRspirv_1_4]) {
+            device->spirv_version.minor = 4;
+        } else {
+            // there is no way to signal support for spv <= 1.3, so we just shove 1.3 in there and hope for the best
+            device->spirv_version.minor = 3;
+        }
+    } else if (device->vk_version.major == 1 && device->vk_version.minor == 2) {
+        // Vulkan 1.2 guarantees support for spv 1.5
+        device->spirv_version.minor = 5;
+    } else {
+        // Vulkan 1.3 and later can do spv 1.6
+        device->spirv_version.minor = 6;
+    }
+
+    debug_print("Using SPIR-V version %d.%d, on Vulkan %d.%d\n", device->spirv_version.major, device->spirv_version.minor, device->vk_version.major, device->vk_version.minor);
+}
+
 /// Considers a given physical device for running on, returns false if it's unusable, otherwise returns a report in out
 static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice physical_device, DeviceProperties* out) {
     out->physical_device = physical_device;
@@ -61,6 +83,7 @@ static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice ph
         info_print("Rejecting device '%s' because it does not support Vulkan 1.1 or later\n", device_properties.deviceName);
         return false;
     }
+
     if (!device_features.shaderInt64) {
         info_print("Rejecting device '%s' because it does not support 64-bit integers in shaders\n", device_properties.deviceName);
         return false;
@@ -76,6 +99,10 @@ static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice ph
         info_print("Rejecting device %s because it lacks support for '%s'\n", device_properties.deviceName, exts[0]);
         return false;
     }
+
+    out->vk_version.major = VK_VERSION_MAJOR(device_properties.apiVersion);
+    out->vk_version.minor = VK_VERSION_MINOR(device_properties.apiVersion);
+    figure_out_spirv_version(out);
 
     uint32_t queue_families_count;
     vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_families_count, NULL);
