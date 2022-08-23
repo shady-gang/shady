@@ -53,13 +53,13 @@ bool is_subtype(const Type* supertype, const Type* type) {
             return true;
         }
         case FnType_TAG:
-            if (supertype->payload.fn.is_basic_block != type->payload.fn.is_basic_block)
+            if (supertype->payload.fn_type.is_basic_block != type->payload.fn_type.is_basic_block)
                 return false;
             // check returns
-            if (supertype->payload.fn.return_types.count != type->payload.fn.return_types.count)
+            if (supertype->payload.fn_type.return_types.count != type->payload.fn_type.return_types.count)
                 return false;
-            for (size_t i = 0; i < type->payload.fn.return_types.count; i++)
-                if (!is_subtype(supertype->payload.fn.return_types.nodes[i], type->payload.fn.return_types.nodes[i]))
+            for (size_t i = 0; i < type->payload.fn_type.return_types.count; i++)
+                if (!is_subtype(supertype->payload.fn_type.return_types.nodes[i], type->payload.fn_type.return_types.nodes[i]))
                     return false;
             // check params
             const Nodes* superparams = &supertype->payload.fn_type.param_types;
