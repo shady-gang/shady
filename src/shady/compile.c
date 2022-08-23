@@ -5,6 +5,7 @@
 #include "analysis/verify.h"
 #include "parser/parser.h"
 #include "builtin_code.h"
+#include "transform/internal_constants.h"
 
 #define KiB * 1024
 #define MiB * 1024 KiB
@@ -26,7 +27,7 @@ info_node(*program);                                       \
 verify_program(*program);                                  \
 destroy_arena(old_arena);
 
-CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrArena** arena, const Node** program) {
+CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program) {
     ArenaConfig aconfig = {
         .allow_fold = false,
         .check_types = false
@@ -35,6 +36,9 @@ CompilationResult run_compiler_passes(SHADY_UNUSED CompilerConfig* config, IrAre
 
     RUN_PASS(bind_program)
     RUN_PASS(normalize)
+
+    // TODO: do this late
+    patch_constants(config, *arena, (Node*) *program);
 
     aconfig.check_types = true;
     RUN_PASS(infer_program)
@@ -85,6 +89,9 @@ CompilationResult parse_files(CompilerConfig* config, size_t num_files, const ch
         total_decls_count += parsed_file->payload.root.declarations.count;
     }
 
+    Nodes internal_constants = generate_dummy_constants(config, arena);
+    total_decls_count += internal_constants.count;
+
     // Merge all declarations into a giant program
     const Node** all_decls = malloc(sizeof(const Node*) * total_decls_count);
     size_t num_decl = 0;
@@ -93,6 +100,9 @@ CompilationResult parse_files(CompilerConfig* config, size_t num_files, const ch
         for (size_t j = 0; j < parsed_file->payload.root.declarations.count; j++)
             all_decls[num_decl++] = parsed_file->payload.root.declarations.nodes[j];
     }
+    for (size_t i = 0; i < internal_constants.count; i++)
+        all_decls[num_decl++] = internal_constants.nodes[i];
+
     *program = root(arena, (Root) {
         .declarations = nodes(arena, num_decl, all_decls)
     });

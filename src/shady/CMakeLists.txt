@@ -20,6 +20,7 @@ set(SHADY_SOURCES
     transform/import.c
     transform/memory_layout.c
     transform/ir_gen_helpers.c
+    transform/internal_constants.c
 
     passes/bind.c
     passes/normalize.c

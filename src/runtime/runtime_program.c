@@ -96,7 +96,8 @@ static bool create_vk_pipeline(SpecProgram* program) {
 static CompilerConfig get_compiler_config_for_device(Device* device) {
     CompilerConfig config = default_compiler_config();
 
-    // TODO set subgroup size from this !
+    config.subgroup_size = device->properties.subgroup_size;
+    assert(config.subgroup_size > 0);
     // config.per_thread_stack_size = ...
 
     config.target_spirv_version.major = device->properties.spirv_version.major;
