@@ -47,7 +47,7 @@ const Node* gen_deserialisation(BlockBuilder* bb, const Type* element_type, cons
         case Bool_TAG: {
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset });
             const Node* value = gen_load(bb, logical_ptr);
-            const Node* zero = int_literal(bb->arena, (IntLiteral) { .value_i8 = 0, .width = IntTy32 });
+            const Node* zero = int32_literal(bb->arena, 0);
             return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, zero});
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
@@ -67,7 +67,7 @@ const Node* gen_deserialisation(BlockBuilder* bb, const Type* element_type, cons
                 // We need to decompose this into two loads, then we use the merge routine
                 const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset });
                 const Node* lo = gen_load(bb, logical_ptr);
-                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int_literal(bb->arena, (IntLiteral) { .width = IntTy32, .value_i64 = 1 }) });
+                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
                             logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, hi_destination_offset });
                 const Node* hi = gen_load(bb, logical_ptr);
                 return gen_merge_i32s_i64(bb, lo, hi);
@@ -81,8 +81,8 @@ void gen_serialisation(BlockBuilder* bb, const Type* element_type, const Node* a
     switch (element_type->tag) {
         case Bool_TAG: {
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset });
-            const Node* zero = int_literal(bb->arena, (IntLiteral) { .value_i8 = 0, .width = IntTy32 });
-            const Node* one = int_literal(bb->arena, (IntLiteral) { .value_i8 = 1, .width = IntTy32 });
+            const Node* zero = int32_literal(bb->arena, 0);
+            const Node* one = int32_literal(bb->arena, 1);
             const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one, zero });
             gen_store(bb, logical_ptr, int_value);
             return;
@@ -99,12 +99,12 @@ void gen_serialisation(BlockBuilder* bb, const Type* element_type, const Node* a
                 gen_store(bb, logical_ptr, value);
             } else {
                 const Node* lo = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []){ int32_type(bb->arena), value });
-                const Node* hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []){ value, int_literal(bb->arena, (IntLiteral) { .width = IntTy64, .value_i64 = 32 }) });
+                const Node* hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []){ value, int64_literal(bb->arena, 32) });
                 hi = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []){ int32_type(bb->arena), hi });
                 // TODO: make this dependant on the emulation array type
                 const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset});
                 gen_store(bb, logical_ptr, lo);
-                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int_literal(bb->arena, (IntLiteral) { .width = IntTy32, .value_i64 = 1 }) });
+                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
                             logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, hi_destination_offset});
                 gen_store(bb, logical_ptr, hi);
             }

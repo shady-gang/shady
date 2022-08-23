@@ -75,7 +75,7 @@ const Node* gen_merge_i32s_i64(BlockBuilder* bb, const Node* lo, const Node* hi)
     lo = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []) {int64_type(bb->arena), lo});
     hi = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []) {int64_type(bb->arena), hi});
     // shift hi by 32
-    hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []) { hi, int_literal(bb->arena, (IntLiteral) { .width = IntTy64, .value_i32 = 32 }) });
+    hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []) { hi, int64_literal(bb->arena, 32) });
     // Merge the two
     return gen_primop_ce(bb, or_op, 2, (const Node* []) { lo, hi });
 }

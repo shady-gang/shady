@@ -567,6 +567,16 @@ inline static const Type* int16_type(IrArena* arena) { return int_type(arena, (I
 inline static const Type* int32_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy32 }); }
 inline static const Type* int64_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy64 }); }
 
+inline static const Type* int8_literal(IrArena* arena,  int8_t i)  { return int_literal(arena, (IntLiteral) { .width = IntTy8,  .value_i8  = i }); }
+inline static const Type* int16_literal(IrArena* arena, int16_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy16, .value_i16 = i }); }
+inline static const Type* int32_literal(IrArena* arena, int32_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy32, .value_i32 = i }); }
+inline static const Type* int64_literal(IrArena* arena, int64_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy64, .value_i64 = i }); }
+
+inline static const Type* uint8_literal(IrArena* arena,  uint8_t i)  { return int_literal(arena, (IntLiteral) { .width = IntTy8,  .value_u8  = i }); }
+inline static const Type* uint16_literal(IrArena* arena, uint16_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy16, .value_u16 = i }); }
+inline static const Type* uint32_literal(IrArena* arena, uint32_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy32, .value_u32 = i }); }
+inline static const Type* uint64_literal(IrArena* arena, uint64_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy64, .value_u64 = i }); }
+
 //////////////////////////////// IR management ////////////////////////////////
 
 typedef struct {
@@ -586,8 +596,10 @@ void destroy_arena(IrArena*);
 
 typedef struct CompilerConfig_ {
     bool allow_frontend_syntax;
-    size_t per_thread_stack_size;
-    size_t per_subgroup_stack_size;
+    uint32_t per_thread_stack_size;
+    uint32_t per_subgroup_stack_size;
+
+    uint32_t subgroup_size;
 
     struct {
         uint8_t major;

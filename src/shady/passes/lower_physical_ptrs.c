@@ -58,7 +58,7 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
         const Type* element_type = arr_type->payload.arr_type.element_type;
         TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
-        const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value_i32 = bytes_to_i32_cells(element_t_layout.size_in_bytes), .width = IntTy32 });
+        const Node* elem_size_val = int32_literal(dst_arena, bytes_to_i32_cells(element_t_layout.size_in_bytes));
         const Node* computed_offset = gen_primop_ce(instructions, mul_op, 2, (const Node* []) { rewrite_node(&ctx->rewriter, old_offset), elem_size_val});
 
         faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, computed_offset});
@@ -73,7 +73,7 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
 
                 TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
-                const Node* elem_size_val = int_literal(dst_arena, (IntLiteral) { .value_i32 = bytes_to_i32_cells(element_t_layout.size_in_bytes), .width = IntTy32 });
+                const Node* elem_size_val = int32_literal(dst_arena, bytes_to_i32_cells(element_t_layout.size_in_bytes));
                 const Node* computed_offset = gen_primop_ce(instructions, mul_op, 2, (const Node* []) { rewrite_node(&ctx->rewriter, lea->operands.nodes[i]), elem_size_val});
 
                 faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, computed_offset});
@@ -130,7 +130,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     const Node* stack_pointer = find_decl(ctx, "stack_ptr");
                     const Node* stack_size = gen_load(instructions, stack_pointer);
                     register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], stack_size);
-                    stack_size = gen_primop_ce(instructions, add_op, 2, (const Node* []) { stack_size, int_literal(dst_arena, (IntLiteral) { .value_i32 = bytes_to_i32_cells(layout.size_in_bytes), .width = IntTy32 }) });
+                    stack_size = gen_primop_ce(instructions, add_op, 2, (const Node* []) { stack_size, int32_literal(dst_arena, bytes_to_i32_cells(layout.size_in_bytes)) });
                     gen_store(instructions, stack_pointer, stack_size);
                     continue;
                 }
@@ -182,7 +182,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
 
                     // some address spaces need to put the data in a special 'Block'-based record, so we need an extra lea to match
                     if (is_backed_by_block_buffer)
-                        base = gen_lea(instructions, base, NULL, nodes(dst_arena, 1, (const Node* []) { int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 0 }) }));
+                        base = gen_lea(instructions, base, NULL, nodes(dst_arena, 1, (const Node* []) { int32_literal(dst_arena, 0) }));
 
                     const Node* fake_ptr = rewrite_node(&ctx->rewriter, old_ptr);
 
@@ -227,7 +227,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
                 assert(!contains_qualified_type(contents_type));
                 uint32_t required_space = bytes_to_i32_cells(get_mem_layout(ctx->config, ctx->rewriter.dst_arena, contents_type).size_in_bytes);
 
-                cnst->payload.constant.value = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value_u32 = *preallocated, .width = IntTy32 });
+                cnst->payload.constant.value = uint32_literal(ctx->rewriter.dst_arena, *preallocated);
                 cnst->type = cnst->payload.constant.value->type;
                 *preallocated += required_space;
 
@@ -256,10 +256,10 @@ static const Node* process_node(Context* ctx, const Node* old) {
 void update_base_stack_ptrs(Context* ctx) {
     Node* per_thread_stack_ptr = (Node*) find_decl(ctx, "stack_ptr");
     assert(per_thread_stack_ptr && per_thread_stack_ptr->tag == GlobalVariable_TAG);
-    per_thread_stack_ptr->payload.global_variable.init = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value_u32 = ctx->preallocated_private_memory, .width = IntTy32});
+    per_thread_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_private_memory);
     Node* subgroup_stack_ptr = (Node*)  find_decl(ctx, "uniform_stack_ptr");
     assert(subgroup_stack_ptr && subgroup_stack_ptr->tag == GlobalVariable_TAG);
-    subgroup_stack_ptr->payload.global_variable.init = int_literal(ctx->rewriter.dst_arena, (IntLiteral) { .value_u32 = ctx->preallocated_subgroup_memory, .width = IntTy32});
+    subgroup_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_subgroup_memory);
 }
 
 KeyHash hash_node(Node**);
@@ -272,11 +272,11 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
     const Type* stack_base_element = int32_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = stack_base_element,
-        .size = int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = config->per_thread_stack_size }),
+        .size = uint32_literal(dst_arena, config->per_thread_stack_size),
     });
     const Type* uniform_stack_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = stack_base_element,
-        .size = int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = config->per_subgroup_stack_size }),
+        .size = uint32_literal(dst_arena, config->per_subgroup_stack_size),
     });
 
     // TODO add a @Synthetic annotation to tag those

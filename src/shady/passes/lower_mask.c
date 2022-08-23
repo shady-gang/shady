@@ -29,10 +29,7 @@ const Node* process_block(Context* ctx, const Node* old_block) {
             Nodes old_nodes = old_actual_instruction->payload.prim_op.operands;
             switch(op) {
                 case empty_mask_op: {
-                    const Node* zero = int_literal(dst_arena, (IntLiteral) {
-                        .width = IntTy64,
-                        .value_i64 = 0
-                    });
+                    const Node* zero = int64_literal(dst_arena, 0);
                     register_processed(&ctx->rewriter, old_instruction->payload.let.variables.nodes[0], zero);
                     continue;
                 }
@@ -44,9 +41,9 @@ const Node* process_block(Context* ctx, const Node* old_block) {
                     // acc >>= index
                     acc = gen_primop_ce(bb, rshift_logical_op, 2, (const Node* []) { acc, index });
                     // acc &= 0x1
-                    acc = gen_primop_ce(bb, and_op, 2, (const Node* []) { acc, int_literal(dst_arena, (IntLiteral) { .width = IntTy64, .value_i32 = 1 }) });
+                    acc = gen_primop_ce(bb, and_op, 2, (const Node* []) { acc, int64_literal(dst_arena, 1) });
                     // acc == 1
-                    acc = gen_primop_ce(bb, eq_op, 2, (const Node* []) { acc, int_literal(dst_arena, (IntLiteral) { .width = IntTy64, .value_i32 = 1 }) });
+                    acc = gen_primop_ce(bb, eq_op, 2, (const Node* []) { acc, int64_literal(dst_arena, 1) });
                     register_processed(&ctx->rewriter, old_instruction->payload.let.variables.nodes[0], acc);
                     continue;
                 }
@@ -64,8 +61,8 @@ const Node* process_block(Context* ctx, const Node* old_block) {
                     // we need to extract the packed result ...
                     if (dst_arena->config.subgroup_mask_representation == SubgroupMaskSpvKHRBallot) {
                         // extract the 64 bits of mask we care about
-                        const Node* lo = gen_primop_ce(bb, extract_op, 2, (const Node* []) {result, int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 0 }) });
-                        const Node* hi = gen_primop_ce(bb, extract_op, 2, (const Node* []) {result, int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 1 }) });
+                        const Node* lo = gen_primop_ce(bb, extract_op, 2, (const Node* []) {result, int32_literal(dst_arena, 0) });
+                        const Node* hi = gen_primop_ce(bb, extract_op, 2, (const Node* []) {result, int32_literal(dst_arena, 1) });
                         result = gen_merge_i32s_i64(bb, lo, hi);
                     }
                     register_processed(&ctx->rewriter, old_instruction->payload.let.variables.nodes[0], result);

@@ -40,10 +40,7 @@ static const Node* find_decl(Context* ctx, const char* name) {
 }
 
 static const Node* fn_ptr_as_value(IrArena* arena, FnPtr ptr) {
-    return int_literal(arena, (IntLiteral) {
-        .value_i32 = ptr,
-        .width = IntTy32
-    });
+    return uint32_literal(arena, ptr);
 }
 
 static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
@@ -134,7 +131,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     // Put a special zero marker at the bottom of the stack so the program ends after the entry point is done
     gen_push_value_stack(builder, gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL));
-    gen_push_value_stack(builder, int_literal(dst_arena, (IntLiteral) { .width = IntTy32, .value_i32 = 0 }));
+    gen_push_value_stack(builder, int32_literal(dst_arena, 0));
 
     for (size_t i = fun->payload.fn.params.count - 1; i < fun->payload.fn.params.count; i--) {
         gen_push_value_stack(builder, fun->payload.fn.params.nodes[i]);
@@ -247,7 +244,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
     struct List* literals = new_list(const Node*);
     struct List* cases = new_list(const Node*);
 
-    const Node* zero_lit = int_literal(dst_arena, (IntLiteral) { .value_i32 = 0, .width = IntTy32 });
+    const Node* zero_lit = int32_literal(dst_arena, 0);
     const Node* zero_case = block(dst_arena, (Block) {
         .instructions = nodes(dst_arena, 0, NULL),
         .terminator = merge_construct(dst_arena, (MergeConstruct) {

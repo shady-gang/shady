@@ -92,7 +92,7 @@ typedef struct DeviceProperties_ {
         uint8_t major;
         uint8_t minor;
     } spirv_version;
-    size_t subgroup_size;
+    uint32_t subgroup_size;
     bool supported_extensions[ShadySupportedDeviceExtensionsCount];
     uint32_t compute_queue_family;
 } DeviceProperties;

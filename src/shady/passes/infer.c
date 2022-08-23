@@ -171,13 +171,25 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
+        case IntLiteral_TAG:
         case UntypedNumber_TAG: {
             expected_type = expected_type ? expected_type : int32_type(ctx->rewriter.dst_arena);
             expected_type = remove_uniformity_qualifier(expected_type);
             assert(expected_type->tag == Int_TAG);
-            uint64_t v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
-            // TODO chop off extra bits based on width ?
-            return int_literal(dst_arena, (IntLiteral) { .value_i64 = v, .width = expected_type->payload.int_type.width });
+            if (node->tag == UntypedNumber_TAG) {
+                int64_t v;
+                if (sizeof(long) == sizeof(int64_t))
+                    v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
+                else if (sizeof(long long) == sizeof(int64_t))
+                    v = strtoll(node->payload.untyped_number.plaintext, NULL, 10);
+                else
+                    assert(false);
+                // TODO chop off extra bits based on width ?
+                return int_literal(dst_arena, (IntLiteral) { .value_i64 = v, .width = expected_type->payload.int_type.width });
+            } else {
+                assert(expected_type->payload.int_type.width == node->payload.int_literal.width);
+                return int_literal(dst_arena, (IntLiteral) { .width = node->payload.int_literal.width, .value_u64 = node->payload.int_literal.value_u64 });
+            }
         }
         case True_TAG: return true_lit(dst_arena);
         case False_TAG: return false_lit(dst_arena);
