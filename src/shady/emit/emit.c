@@ -171,12 +171,14 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
     switch (prim_op.op) {
         case subgroup_ballot_op: {
             const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = int32_type(emitter->arena) });
-            SpvId result = spvb_subgroup_ballot(bb_builder, emit_type(emitter, i32x4), emit_value(emitter, args.nodes[0], NULL));
+            SpvId scope_subgroup = emit_value(emitter, int32_literal(emitter->arena, SpvScopeSubgroup), NULL);
+            SpvId result = spvb_ballot(bb_builder, emit_type(emitter, i32x4), emit_value(emitter, args.nodes[0], NULL), scope_subgroup);
             register_result(emitter, variables.nodes[0], result);
             return;
         }
         case subgroup_broadcast_first_op: {
-            SpvId result = spvb_subgroup_broadcast_first(bb_builder, emit_type(emitter, extract_operand_type(args.nodes[0]->type)), emit_value(emitter, args.nodes[0], NULL));
+            SpvId scope_subgroup = emit_value(emitter, int32_literal(emitter->arena, SpvScopeSubgroup), NULL);
+            SpvId result = spvb_broadcast_first(bb_builder, emit_type(emitter, extract_operand_type(args.nodes[0]->type)), emit_value(emitter, args.nodes[0], NULL), scope_subgroup);
             register_result(emitter, variables.nodes[0], result);
             return;
         }
@@ -189,8 +191,8 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         }
         case subgroup_elect_first_op: {
             SpvId result_t = emit_type(emitter, bool_type(emitter->arena));
-            const Node* scope_subgroup = int32_literal(emitter->arena, SpvScopeSubgroup);
-            SpvId result = spvb_elect(bb_builder, result_t, emit_value(emitter, scope_subgroup, NULL));
+            SpvId scope_subgroup = emit_value(emitter, int32_literal(emitter->arena, SpvScopeSubgroup), NULL);
+            SpvId result = spvb_elect(bb_builder, result_t, scope_subgroup);
             register_result(emitter, variables.nodes[0], result);
             return;
         }
@@ -788,7 +790,6 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, s
 
     emitter.void_t = spvb_void_type(emitter.file_builder);
 
-    spvb_extension(file_builder, "SPV_KHR_shader_ballot");
     spvb_extension(file_builder, "SPV_KHR_non_semantic_info");
     spvb_extension(file_builder, "SPV_KHR_physical_storage_buffer");
 
@@ -802,7 +803,7 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, s
     spvb_capability(file_builder, SpvCapabilityInt64);
     spvb_capability(file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
     spvb_capability(file_builder, SpvCapabilityGroupNonUniform);
-    spvb_capability(file_builder, SpvCapabilitySubgroupBallotKHR);
+    spvb_capability(file_builder, SpvCapabilityGroupNonUniformBallot);
 
     spvb_finish(file_builder, words);
 

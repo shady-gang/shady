@@ -150,8 +150,12 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     size_t enabled_device_exts_count;
     CHECK(fill_available_extensions(physical_device, &enabled_device_exts_count, enabled_device_exts, NULL), assert(false));
 
-    VkPhysicalDeviceFeatures enabled_features = {
-        .shaderInt64 = true
+    VkPhysicalDeviceFeatures2 enabled_features = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = NULL,
+        .features = {
+            .shaderInt64 = true
+        }
     };
 
     CHECK_VK(vkCreateDevice(physical_device, &(VkDeviceCreateInfo) {
@@ -171,8 +175,8 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
         .enabledLayerCount = 0,
         .enabledExtensionCount = enabled_device_exts_count,
         .ppEnabledExtensionNames = enabled_device_exts,
-        .pEnabledFeatures = &enabled_features,
-        .pNext = NULL,
+        .pEnabledFeatures = NULL,
+        .pNext = &enabled_features,
     }, NULL, &device->device), return NULL)
 
     CHECK_VK(vkCreateCommandPool(device->device, &(VkCommandPoolCreateInfo) {

@@ -282,6 +282,26 @@ SpvId spvb_elect(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, Spv
     return id;
 }
 
+SpvId spvb_ballot(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId predicate, SpvId scope) {
+    op(SpvOpGroupNonUniformBallot, 5);
+    SpvId id = spvb_fresh_id(bb_builder->file_builder);
+    ref_id(result_type);
+    ref_id(id);
+    ref_id(scope);
+    ref_id(predicate);
+    return id;
+}
+
+SpvId spvb_broadcast_first(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope) {
+    op(SpvOpGroupNonUniformBroadcastFirst, 5);
+    SpvId id = spvb_fresh_id(bb_builder->file_builder);
+    ref_id(result_type);
+    ref_id(id);
+    ref_id(scope);
+    ref_id(value);
+    return id;
+}
+
 void spvb_branch(struct SpvBasicBlockBuilder* bb_builder, SpvId target) {
     op(SpvOpBranch, 2);
     ref_id(target);
@@ -354,24 +374,6 @@ void spvb_return_value(struct SpvBasicBlockBuilder* bb_builder, SpvId value) {
 
 void spvb_unreachable(struct SpvBasicBlockBuilder* bb_builder) {
     op(SpvOpUnreachable, 1);
-}
-
-SpvId spvb_subgroup_ballot(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId predicate) {
-    op(SpvOpSubgroupBallotKHR, 4);
-    SpvId id = spvb_fresh_id(bb_builder->file_builder);
-    ref_id(result_type);
-    ref_id(id);
-    ref_id(predicate);
-    return id;
-}
-
-SpvId spvb_subgroup_broadcast_first(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value) {
-    op(SpvOpSubgroupFirstInvocationKHR, 4);
-    SpvId id = spvb_fresh_id(bb_builder->file_builder);
-    ref_id(result_type);
-    ref_id(id);
-    ref_id(value);
-    return id;
 }
 
 #undef target_data

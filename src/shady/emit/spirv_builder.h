@@ -28,6 +28,9 @@ void  spvb_store(struct SpvBasicBlockBuilder* bb_builder, SpvId value, SpvId poi
 SpvId spvb_binop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, SpvId lhs, SpvId rhs);
 SpvId spvb_unop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, SpvId value);
 SpvId spvb_elect(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope);
+SpvId spvb_ballot(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId predicate, SpvId scope);
+SpvId spvb_broadcast_first(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId value, SpvId scope);
+
 void  spvb_branch(struct SpvBasicBlockBuilder* bb_builder, SpvId target);
 void  spvb_branch_conditional(struct SpvBasicBlockBuilder* bb_builder, SpvId condition, SpvId true_target, SpvId false_target);
 void  spvb_switch(struct SpvBasicBlockBuilder* bb_builder, SpvId selector, SpvId default_target, size_t targets_count, SpvId* targets);
@@ -73,10 +76,6 @@ void  spvb_capability(struct SpvFileBuilder* file_builder, SpvCapability cap);
 void  spvb_extension(struct SpvFileBuilder* file_builder, const char* name);
 
 SpvId spvb_extended_import(struct SpvFileBuilder* file_builder, const char* name);
-
-// SPV_KHR_shader_ballot
-SpvId spvb_subgroup_ballot(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId predicate);
-SpvId spvb_subgroup_broadcast_first(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId value);
 
 struct SpvFileBuilder* spvb_begin();
 void spvb_set_version(struct SpvFileBuilder* file_builder, uint8_t major, uint8_t minor);
