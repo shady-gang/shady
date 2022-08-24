@@ -85,6 +85,7 @@ struct Runtime_ {
 
 typedef struct DeviceProperties_ {
     VkPhysicalDevice physical_device;
+    uint32_t compute_queue_family;
     struct {
         unsigned int major;
         unsigned int minor;
@@ -95,7 +96,9 @@ typedef struct DeviceProperties_ {
     } spirv_version;
     uint32_t subgroup_size;
     bool supported_extensions[ShadySupportedDeviceExtensionsCount];
-    uint32_t compute_queue_family;
+    struct {
+        bool subgroup_extended_types;
+    } features;
 } DeviceProperties;
 
 struct Device_ {

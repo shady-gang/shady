@@ -60,39 +60,37 @@ static void figure_out_spirv_version(DeviceProperties* device) {
 
 /// Considers a given physical device for running on, returns false if it's unusable, otherwise returns a report in out
 static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice physical_device, DeviceProperties* out) {
+    memset(out, 0, sizeof(DeviceProperties));
     out->physical_device = physical_device;
 
     VkPhysicalDeviceSubgroupProperties subgroup_properties = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES,
         .pNext = NULL
     };
-    VkPhysicalDeviceProperties device_properties;
-    {
-        VkPhysicalDeviceProperties2 device_properties2 = {
-                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-                .pNext = &subgroup_properties
-        };
-        vkGetPhysicalDeviceProperties2(physical_device, &device_properties2);
-        device_properties = device_properties2.properties;
+    VkPhysicalDeviceProperties2 dp = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+        .pNext = NULL
+    };
+    append_pnext(&dp, &subgroup_properties);
+    vkGetPhysicalDeviceProperties2(physical_device, &dp);
 
-        if (device_properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0)) {
-            info_print("Rejecting device '%s' because it does not support Vulkan 1.1 or later\n", device_properties.deviceName);
-            return false;
-        }
-
-        LARRAY(const char*, exts, ShadySupportedDeviceExtensionsCount);
-        size_t c;
-        if (!fill_available_extensions(physical_device, &c, exts, out->supported_extensions)) {
-            info_print("Rejecting device %s because it lacks support for '%s'\n", device_properties.deviceName, exts[0]);
-            return false;
-        }
+    if (dp.properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0)) {
+        info_print("Rejecting device '%s' because it does not support Vulkan 1.1 or later\n", dp.properties.deviceName);
+        return false;
     }
 
-    out->vk_version.major = VK_VERSION_MAJOR(device_properties.apiVersion);
-    out->vk_version.minor = VK_VERSION_MINOR(device_properties.apiVersion);
+    LARRAY(const char*, exts, ShadySupportedDeviceExtensionsCount);
+    size_t c;
+    if (!fill_available_extensions(physical_device, &c, exts, out->supported_extensions)) {
+        info_print("Rejecting device %s because it lacks support for '%s'\n", dp.properties.deviceName, exts[0]);
+        return false;
+    }
+
+    out->vk_version.major = VK_VERSION_MAJOR(dp.properties.apiVersion);
+    out->vk_version.minor = VK_VERSION_MINOR(dp.properties.apiVersion);
     figure_out_spirv_version(out);
 
-    VkPhysicalDeviceFeatures2 device_features = {
+    VkPhysicalDeviceFeatures2 df = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = NULL
     };
@@ -101,26 +99,19 @@ static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice ph
         .pNext = NULL,
         .shaderSubgroupExtendedTypes = false
     };
-    if (out->supported_extensions[ShadySupportsKHRshader_subgroup_extended_types] || device_properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0))
-        append_pnext(&device_features, &subgroup_extended_features);
-    else {
-        // TODO lower this problem away
-        info_print("Rejecting device '%s' because it doesn't support VK_KHR_shader_subgroup_extended_types, nor Vulkan 1.2\n");
+    if (out->supported_extensions[ShadySupportsKHRshader_subgroup_extended_types] || dp.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0))
+        append_pnext(&df, &subgroup_extended_features);
+    vkGetPhysicalDeviceFeatures2(physical_device, &df);
+
+    if (!df.features.shaderInt64) {
+        info_print("Rejecting device '%s' because it does not support 64-bit integers in shaders\n", dp.properties.deviceName);
         return false;
     }
 
-    vkGetPhysicalDeviceFeatures2(physical_device, &device_features);
-    if (!device_features.features.shaderInt64) {
-        info_print("Rejecting device '%s' because it does not support 64-bit integers in shaders\n", device_properties.deviceName);
-        return false;
-    }
-    if (!subgroup_extended_features.shaderSubgroupExtendedTypes) {
-        info_print("Rejecting device '%s' because it does not support shaderSubgroupExtendedTypes\n", device_properties.deviceName);
-        return false;
-    }
+    out->features.subgroup_extended_types = subgroup_extended_features.shaderSubgroupExtendedTypes;
 
     out->subgroup_size = subgroup_properties.subgroupSize;
-    info_print("Subgroup size for device '%s' is %d\n", device_properties.deviceName, out->subgroup_size);
+    info_print("Subgroup size for device '%s' is %d\n", dp.properties.deviceName, out->subgroup_size);
 
     uint32_t queue_families_count;
     vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_families_count, NULL);
@@ -140,7 +131,7 @@ static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice ph
         }
     }
     if (compute_queue_family < 0) {
-        info_print("Rejecting device %s because it lacks a compute queue family\n", device_properties.deviceName);
+        info_print("Rejecting device %s because it lacks a compute queue family\n", dp.properties.deviceName);
         return NULL;
     }
     out->compute_queue_family = compute_queue_family;
@@ -180,7 +171,8 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
         .pNext = NULL,
         .shaderSubgroupExtendedTypes = true
     };
-    append_pnext(&enabled_features, &subgroup_extended_features);
+    if (device->properties.features.subgroup_extended_types)
+        append_pnext(&enabled_features, &subgroup_extended_features);
 
     CHECK_VK(vkCreateDevice(physical_device, &(VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
