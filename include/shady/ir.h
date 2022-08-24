@@ -342,6 +342,7 @@ PRIMOP(1, assign)                    \
 PRIMOP(1, subscript)                 \
 PRIMOP(1, alloca)                    \
 PRIMOP(1, alloca_slot)               \
+PRIMOP(1, alloca_logical)            \
 PRIMOP(0, load)                      \
 PRIMOP(1, store)                     \
 PRIMOP(0, lea)                       \
@@ -605,6 +606,11 @@ typedef struct CompilerConfig_ {
         uint8_t major;
         uint8_t minor;
     } target_spirv_version;
+
+    struct {
+        bool emulate_subgroup_ops;
+        bool emulate_subgroup_ops_extended_types;
+    } lower;
 } CompilerConfig;
 
 CompilerConfig default_compiler_config();

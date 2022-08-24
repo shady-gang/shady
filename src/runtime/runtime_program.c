@@ -103,6 +103,12 @@ static CompilerConfig get_compiler_config_for_device(Device* device) {
     config.target_spirv_version.major = device->properties.spirv_version.major;
     config.target_spirv_version.minor = device->properties.spirv_version.minor;
 
+    if (!device->properties.features.subgroup_extended_types)
+        config.lower.emulate_subgroup_ops_extended_types = true;
+
+    if (device->properties.implementation.is_moltenvk)
+        config.lower.emulate_subgroup_ops_extended_types = true;
+
     return config;
 }
 

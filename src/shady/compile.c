@@ -59,6 +59,10 @@ CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, c
     RUN_PASS(lower_stack)
     RUN_PASS(lower_physical_ptrs)
 
+    if (config->lower.emulate_subgroup_ops_extended_types || config->lower.emulate_subgroup_ops) {
+        RUN_PASS(lower_subgroup_ops)
+    }
+
     return CompilationNoError;
 }
 

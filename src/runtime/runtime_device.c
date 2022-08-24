@@ -90,6 +90,11 @@ static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice ph
     out->vk_version.minor = VK_VERSION_MINOR(dp.properties.apiVersion);
     figure_out_spirv_version(out);
 
+#ifdef __APPLE__
+    // TODO: this is not a proper check
+    out->implementation.is_moltenvk = true;
+#endif
+
     VkPhysicalDeviceFeatures2 df = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = NULL

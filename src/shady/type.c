@@ -426,9 +426,12 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(is_subtype(val_expected_type, val->type));
             return unit_type(arena);
         }
+        case alloca_logical_op:
         case alloca_slot_op:
         case alloca_op: {
             bool is_slot = prim_op.op == alloca_slot_op;
+            bool is_logical = prim_op.op == alloca_logical_op;
+
             assert(prim_op.operands.count == (is_slot ? 2 : 1));
             const Type* elem_type = prim_op.operands.nodes[0];
             assert(is_type(elem_type));
@@ -436,7 +439,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .is_uniform = true,
                 .type = ptr_type(arena, (PtrType) {
                     .pointed_type = elem_type,
-                    .address_space = AsPrivatePhysical
+                    .address_space = is_logical ? AsFunctionLogical : AsPrivatePhysical
                 })
             });
         }
@@ -637,9 +640,11 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         }
         case subgroup_broadcast_first_op: {
             assert(prim_op.operands.count == 1);
+            const Type* operand_type = extract_operand_type(prim_op.operands.nodes[0]->type);
+            //assert(operand_type->tag == Int_TAG || operand_type->tag == Bool_TAG);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
-                .type = extract_operand_type(prim_op.operands.nodes[0]->type)
+                .type = operand_type
             });
         }
         case mask_is_thread_active_op: {

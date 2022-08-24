@@ -229,7 +229,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             spvb_store(bb_builder, eval, eptr, 0, NULL);
             return;
         }
-        case alloca_op: {
+        case alloca_logical_op: {
             const Type* elem_type = args.nodes[0];
             SpvId result = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
                 .address_space = AsFunctionLogical,

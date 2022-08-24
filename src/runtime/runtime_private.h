@@ -99,6 +99,9 @@ typedef struct DeviceProperties_ {
     struct {
         bool subgroup_extended_types;
     } features;
+    struct {
+        bool is_moltenvk;
+    } implementation;
 } DeviceProperties;
 
 struct Device_ {
