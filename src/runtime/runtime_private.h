@@ -22,12 +22,13 @@ X(0, KHR, portability_enumeration,          empty_fns) \
 X(1, KHR, get_physical_device_properties2,  empty_fns) \
 
 #define DEVICE_EXTENSIONS(X) \
-X(1, EXT, descriptor_indexing,          empty_fns) \
-X(0, KHR, buffer_device_address,        empty_fns) \
-X(1, KHR, storage_buffer_storage_class, empty_fns) \
-X(0, KHR, shader_non_semantic_info,     empty_fns) \
-X(0, KHR, spirv_1_4,                    empty_fns) \
-X(0, KHR, portability_subset,           empty_fns) \
+X(1, EXT, descriptor_indexing,            empty_fns) \
+X(0, KHR, buffer_device_address,          empty_fns) \
+X(1, KHR, storage_buffer_storage_class,   empty_fns) \
+X(0, KHR, shader_non_semantic_info,       empty_fns) \
+X(0, KHR, spirv_1_4,                      empty_fns) \
+X(0, KHR, portability_subset,             empty_fns) \
+X(0, KHR, shader_subgroup_extended_types, empty_fns) \
 
 #define E(is_required, prefix, name, _) ShadySupports##prefix##name,
 typedef enum {
@@ -144,5 +145,11 @@ void unload_program(Program*);
 void shutdown_device(Device*);
 
 SpecProgram* get_specialized_program(Program*, Device*);
+
+static inline void append_pnext(struct { VkStructureType sType; void* pNext; }* s, void* n) {
+    while (s->pNext != NULL)
+        s = s->pNext;
+    s->pNext = n;
+}
 
 #endif
