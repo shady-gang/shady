@@ -10,13 +10,9 @@ add_subdirectory(src)
 
 include(CMakePackageConfigHelpers)
 
-install(TARGETS shady api EXPORT shady_export_set
-        ARCHIVE DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/lib
-        #PUBLIC_HEADER DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include
-        #PRIVATE_HEADER DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include
-        #FILE_SET HEADERS
-        )
-#install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION include)
+install(TARGETS api EXPORT shady_export_set)
+install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/lib)
+install(TARGETS runtime EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/shady DESTINATION include)
 install(EXPORT shady_export_set DESTINATION share/cmake/shady/ NAMESPACE shady:: FILE shady-targets.cmake)

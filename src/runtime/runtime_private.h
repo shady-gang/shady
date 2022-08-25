@@ -29,6 +29,8 @@ X(0, KHR, shader_non_semantic_info,       empty_fns) \
 X(0, KHR, spirv_1_4,                      empty_fns) \
 X(0, KHR, portability_subset,             empty_fns) \
 X(0, KHR, shader_subgroup_extended_types, empty_fns) \
+X(0, EXT, external_memory,                empty_fns) \
+X(0, EXT, external_memory_host,           empty_fns) \
 
 #define E(is_required, prefix, name, _) ShadySupports##prefix##name,
 typedef enum {
@@ -98,6 +100,7 @@ typedef struct DeviceProperties_ {
     bool supported_extensions[ShadySupportedDeviceExtensionsCount];
     struct {
         bool subgroup_extended_types;
+        bool physical_global_ptrs;
     } features;
     struct {
         bool is_moltenvk;
