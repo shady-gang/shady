@@ -624,5 +624,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, c
 void emit_spirv(CompilerConfig* config, IrArena*, const Node* root, size_t* size, char** output);
 void dump_cfg(FILE* file, const Node* root);
 void print_node(const Node* node);
+void print_node_into_str(const Node* node, char** str_ptr, size_t*);
 
 #endif

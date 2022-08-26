@@ -6,12 +6,15 @@
 
 #include <assert.h>
 #include <inttypes.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 
-struct PrinterCtx {
-    FILE* output;
+typedef struct PrinterCtx {
+    void (*print_fn)(struct PrinterCtx*, char* format, ...);
     unsigned int indent;
     bool print_ptrs;
-};
+} PrinterCtx;
 
 #define RESET    "\033[0m"
 #define RED      "\033[0;31m"
@@ -31,7 +34,8 @@ struct PrinterCtx {
 #define BCYAN    "\033[0;96m"
 #define BWHITE   "\033[0;97m"
 
-#define printf(...) fprintf(ctx->output, __VA_ARGS__)
+//#define printf(...) fprintf(ctx->output, __VA_ARGS__)
+#define printf(...) ctx->print_fn(ctx, __VA_ARGS__)
 #define print_node(n) print_node_impl(ctx, n)
 
 static void print_node_impl(struct PrinterCtx* ctx, const Node* node);
@@ -582,13 +586,80 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
 #undef print_node
 #undef printf
 
-static void print_node_in_output(FILE* output, const Node* node, bool dump_ptrs) {
-    struct PrinterCtx ctx = {
-        .output = output,
-        .indent = 0,
-        .print_ptrs = dump_ptrs
+typedef struct {
+    PrinterCtx base;
+    char* alloc;
+    size_t size;
+    size_t used;
+} StringPrinterCtx;
+
+static void print_into_string(StringPrinterCtx* ctx, const char* format, ...) {
+    va_list args;
+    size_t buf_len = 256;
+    char* buf = malloc(buf_len);
+    size_t real_len;
+    while (true) {
+        va_start(args, format);
+        int written = vsnprintf(buf, buf_len, format, args);
+        va_end(args);
+        if (written < buf_len) {
+            real_len = written;
+            break;
+        } else {
+            buf_len *= 2;
+            buf = realloc(buf, buf_len);
+        }
+    }
+
+    if (ctx->used + real_len >= ctx->size) {
+        ctx->size *= 2;
+        ctx->alloc = realloc(ctx->alloc, ctx->size);
+    }
+
+    memcpy(ctx->alloc + ctx->used, buf, real_len);
+    ctx->used += real_len;
+
+    free(buf);
+}
+
+void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
+    StringPrinterCtx ctx = {
+        .base = {
+            .print_fn = print_into_string,
+            .indent = 0,
+            .print_ptrs = false
+        },
+        .size = 1024,
+        .used = 0
     };
-    print_node_impl(&ctx, node);
+    ctx.alloc = malloc(ctx.size);
+    print_node_impl(&ctx.base, node);
+    *str_ptr = ctx.alloc;
+    *size = ctx.used;
+}
+
+typedef struct {
+    PrinterCtx base;
+    FILE* file;
+} FilePrinterCtx;
+
+static void print_into_file(FilePrinterCtx* ctx, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(ctx->file, format, args);
+    va_end(args);
+}
+
+static void print_node_in_output(FILE* output, const Node* node, bool dump_ptrs) {
+    FilePrinterCtx ctx = {
+        .base = {
+            .print_fn = print_into_file,
+            .indent = 0,
+            .print_ptrs = dump_ptrs
+        },
+        .file = output
+    };
+    print_node_impl(&ctx.base, node);
 }
 
 void print_node(const Node* node) {

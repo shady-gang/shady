@@ -11,18 +11,24 @@
 
 char* read_file(const char* filename);
 
-const char* cfg_output = NULL;
-
 enum SlimErrorCodes {
     NoError,
     MissingInputArg,
     MissingOutputArg,
     InputFileDoesNotExist,
     IncorrectLogLevel,
-    MissingDumpCfgArg
+    MissingDumpCfgArg,
+    MissingDumpIrArg,
 };
 
-static void process_arguments(int argc, const char** argv, struct List* input_filenames, const char** output_filename) {
+typedef struct {
+     struct List* input_filenames;
+     const char* spv_output_filename;
+     const char* shd_output_filename;
+     const char* cfg_output_filename;
+} Args;
+
+static void process_arguments(int argc, const char** argv, Args* args) {
     bool help = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--log-level") == 0) {
@@ -44,34 +50,42 @@ static void process_arguments(int argc, const char** argv, struct List* input_fi
                 error_print("\n");
                 exit(IncorrectLogLevel);
             }
-        } else if (strcmp(argv[i], "--output") == 0) {
+        } else if (strcmp(argv[i], "--output") == 0 || strcmp(argv[i], "-o") == 0) {
             i++;
             if (i == argc) {
                 error_print("--output must be followed with a filename");
                 exit(MissingOutputArg);
             }
-            *output_filename = argv[i];
+            args->spv_output_filename = argv[i];
         } else if (strcmp(argv[i], "--dump-cfg") == 0) {
             i++;
             if (i == argc) {
                 error_print("--dump-cfg must be followed with a filename");
                 exit(MissingDumpCfgArg);
             }
-            cfg_output = argv[i];
-        }  else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            args->cfg_output_filename = argv[i];
+        } else if (strcmp(argv[i], "--dump-ir") == 0) {
+            i++;
+            if (i == argc) {
+                error_print("--dump-ir must be followed with a filename");
+                exit(MissingDumpIrArg);
+            }
+            args->shd_output_filename = argv[i];
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             i++;
         } else {
-            append_list(const char*, input_filenames, argv[i]);
+            append_list(const char*, args->input_filenames, argv[i]);
         }
     }
 
-    if (entries_count_list(input_filenames) == 0 || help) {
+    if (entries_count_list(args->input_filenames) == 0 || help) {
         error_print("Usage: slim source.slim\n");
         error_print("Available arguments: \n");
         error_print("  --log-level [debug, info, warn, error]\n");
-        error_print("  --output output_filename\n");
-        error_print("  --dump-cfg\n");
+        error_print("  --output <filename>, -o <filename>\n");
+        error_print("  --dump-cfg <filename>\n");
+        error_print("  --dump-ir <filename>\n");
         exit(help ? 0 : MissingInputArg);
     }
 }
@@ -86,22 +100,26 @@ int main(int argc, const char** argv) {
     CompilerConfig config = default_compiler_config();
     config.allow_frontend_syntax = true;
 
-    struct List* input_files = new_list(const char*);
-    const char* output_filename = "out.spv";
-    process_arguments(argc, argv, input_files, &output_filename);
+    Args args = {
+        .input_filenames = new_list(const char*),
+        .spv_output_filename = "out.spv",
+        .cfg_output_filename = NULL,
+        .shd_output_filename = NULL,
+    };
+    process_arguments(argc, argv, &args);
 
     // Read the files
-    size_t num_source_files = entries_count_list(input_files);
+    size_t num_source_files = entries_count_list(args.input_filenames);
     LARRAY(const char*, read_files, num_source_files);
     for (size_t i = 0; i < num_source_files; i++) {
-        const char* input_file_contents = read_file(read_list(const char*, input_files)[i]);
+        const char* input_file_contents = read_file(read_list(const char*, args.input_filenames)[i]);
         if ((void*)input_file_contents == NULL) {
             error_print("file does not exist\n");
             exit(InputFileDoesNotExist);
         }
         read_files[i] = input_file_contents;
     }
-    destroy_list(input_files);
+    destroy_list(args.input_filenames);
 
     // Parse the lot
     const Node* program = NULL;
@@ -120,22 +138,37 @@ int main(int argc, const char** argv) {
         error_print("Compilation pipeline failed, errcode=%d\n", (int) result);
         exit(result);
     }
+    info_print("Ran all passes successfully\n");
 
-    if (cfg_output) {
-        FILE* cfg_output_f = fopen(cfg_output, "wb");
-        assert(cfg_output_f);
-        dump_cfg(cfg_output_f, program);
-        fclose(cfg_output_f);
+    if (args.cfg_output_filename) {
+        FILE* f = fopen(args.cfg_output_filename, "wb");
+        assert(f);
+        dump_cfg(f, program);
+        fclose(f);
+        info_print("CFG dumped\n");
     }
 
-    info_print("Emitting final result ... \n");
-    FILE* output_file = fopen(output_filename, "wb");
-    size_t output_size;
-    char* output_buffer;
-    emit_spirv(&config, arena, program, &output_size, &output_buffer);
-    fwrite(output_buffer, output_size, 1, output_file);
-    free((void*) output_buffer);
-    fclose(output_file);
+    if (args.shd_output_filename) {
+        FILE* f = fopen(args.shd_output_filename, "wb");
+        assert(f);
+        size_t output_size;
+        char* output_buffer;
+        print_node_into_str(program, &output_buffer, &output_size);
+        fwrite(output_buffer, output_size, 1, f);
+        free((void*) output_buffer);
+        fclose(f);
+        info_print("IR dumped\n");
+    }
+
+    if (args.spv_output_filename) {
+        FILE* f = fopen(args.spv_output_filename, "wb");
+        size_t output_size;
+        char* output_buffer;
+        emit_spirv(&config, arena, program, &output_size, &output_buffer);
+        fwrite(output_buffer, output_size, 1, f);
+        free((void*) output_buffer);
+        fclose(f);
+    }
     info_print("Done\n");
 
     destroy_arena(arena);
