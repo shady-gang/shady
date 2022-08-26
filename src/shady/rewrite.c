@@ -142,6 +142,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case True_TAG:          return true_lit(rewriter->dst_arena);
         case False_TAG:         return false_lit(rewriter->dst_arena);
         case StringLiteral_TAG: return string_lit(rewriter->dst_arena, (StringLiteral) { .string = string(rewriter->dst_arena, node->payload.string_lit.string )});
+        case ArrayLiteral_TAG:  return arr_lit(rewriter->dst_arena, (ArrayLiteral) {
+            .element_type = rewrite_node(rewriter, node->payload.arr_lit.element_type),
+            .contents = rewrite_nodes(rewriter, node->payload.arr_lit.contents)
+        });
         case Variable_TAG:      error("We expect variables to be available for us in the `processed` set");
         case Let_TAG:           {
             const Node* ninstruction = rewrite_node(rewriter, node->payload.let.instruction);
@@ -234,6 +238,12 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .join_at = rewrite_node(rewriter, node->payload.join.join_at),
             .desired_mask = rewrite_node(rewriter, node->payload.join.desired_mask),
             .args = rewrite_nodes(rewriter, node->payload.join.args)
+        });
+        case Callc_TAG:         return callc(rewriter->dst_arena, (Callc) {
+            .is_return_indirect = node->payload.callc.is_return_indirect,
+            .callee = rewrite_node(rewriter, node->payload.callc.callee),
+            .ret_cont = rewrite_node(rewriter, node->payload.callc.ret_cont),
+            .args = rewrite_nodes(rewriter, node->payload.callc.args),
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
             .fn = rewrite_node(rewriter, node->payload.fn_ret.fn),

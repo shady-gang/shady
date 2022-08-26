@@ -77,7 +77,8 @@ NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
 NODEDEF(1, 1, 1, IntLiteral, int_literal) \
 NODEDEF(1, 1, 0, True, true_lit) \
 NODEDEF(1, 1, 0, False, false_lit) \
-NODEDEF(1, 0, 1, StringLiteral, string_lit) \
+NODEDEF(1, 1, 1, StringLiteral, string_lit) \
+NODEDEF(1, 1, 1, ArrayLiteral, arr_lit) \
 NODEDEF(0, 1, 1, Tuple, tuple) \
 NODEDEF(1, 1, 1, FnAddr, fn_addr) \
 
@@ -227,6 +228,11 @@ int64_t extract_int_literal_value(const Node*, bool sign_extend);
 typedef struct StringLiteral_ {
     const char* string;
 } StringLiteral;
+
+typedef struct ArrayLiteral_ {
+    const Type* element_type;
+    Nodes contents;
+} ArrayLiteral;
 
 const char* extract_string_literal(const Node*);
 

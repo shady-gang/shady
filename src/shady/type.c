@@ -146,10 +146,11 @@ const Type* derive_fn_type(IrArena* arena, const Function* fn) {
 
 const Type* check_type_fn(IrArena* arena, Function fn) {
     assert(!fn.is_basic_block || fn.return_types.count == 0);
-    return qualified_type(arena, (QualifiedType) {
+    /*return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = derive_fn_type(arena, &fn)
-    });
+    });*/
+    return derive_fn_type(arena, &fn);
 }
 
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
@@ -198,6 +199,30 @@ const Type* check_type_tuple(IrArena* arena, Tuple tuple) {
         .members = extract_types(arena, tuple.contents),
         .special = NotSpecial,
         .names = strings(arena, 0, NULL)
+    });
+}
+
+const Type* check_type_arr_lit(IrArena* arena, ArrayLiteral arr_lit) {
+    const Type* elem_type = arr_lit.element_type;
+    assert(!contains_qualified_type(elem_type));
+    bool uniform = true;
+    for (size_t i = 0; i < arr_lit.contents.count; i++) {
+        assert(is_subtype(elem_type, extract_operand_type(arr_lit.contents.nodes[i]->type)));
+        uniform &= is_operand_uniform(arr_lit.contents.nodes[i]->type);
+    }
+    return qualified_type(arena, (QualifiedType) {
+        .type = arr_type(arena, (ArrType) {
+            .element_type = elem_type,
+            .size = int32_literal(arena, arr_lit.contents.count)
+        }),
+        .is_uniform = uniform
+    });
+}
+
+const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
+    return arr_type(arena, (ArrType) {
+        .element_type = int8_type(arena),
+        .size = int32_literal(arena, strlen(str_lit.string))
     });
 }
 
@@ -802,10 +827,10 @@ const Type* check_type_callc(IrArena* arena, Callc callc) {
 
     const Nodes returned_types = check_callsite_helper(callee_type, extract_types(arena, callc.args));
 
-    const Type* ret_cont_type;
-    bool ret_cont_uniform;
-    deconstruct_operand_type(callc.ret_cont->type, &ret_cont_type, &ret_cont_uniform);
+    const Type* ret_cont_type = callc.ret_cont->type;
     if (callc.is_return_indirect) {
+        bool ret_cont_uniform;
+        deconstruct_operand_type(ret_cont_type, &ret_cont_type, &ret_cont_uniform);
         assert(ret_cont_type->tag == PtrType_TAG);
         ret_cont_type = ret_cont_type->payload.ptr_type.pointed_type;
     }

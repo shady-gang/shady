@@ -457,6 +457,23 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("\"%s\"", node->payload.string_lit.string);
             printf(RESET);
             break;
+        case ArrayLiteral_TAG:
+            printf(BBLUE);
+            printf("array ");
+            printf(RESET);
+            printf("(");
+            print_node(node->payload.arr_lit.element_type);
+            printf(")");
+            printf(" {");
+            Nodes nodes = node->payload.arr_lit.contents;
+            for (size_t i = 0; i < nodes.count; i++) {
+                print_node(nodes.nodes[i]);
+                if (i + 1 < nodes.count)
+                    printf(", ");
+            }
+            printf("}");
+            printf(RESET);
+            break;
         // ----------------- INSTRUCTIONS
         case Let_TAG:
             if (node->payload.let.variables.count > 0) {

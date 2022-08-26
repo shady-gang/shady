@@ -78,6 +78,11 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.tuple.contents);
             break;
         }
+        case ArrayLiteral_TAG: {
+            visit(node->payload.arr_lit.element_type);
+            visit_nodes(visitor, node->payload.arr_lit.contents);
+            break;
+        }
         case FnAddr_TAG: {
             visit(node->payload.fn_addr.fn);
             break;
