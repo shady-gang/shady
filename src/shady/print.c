@@ -596,7 +596,7 @@ void print_node(const Node* node) {
 }
 
 void log_node(LogLevel level, const Node* node) {
-    if (level >= log_level)
+    if (level >= get_log_level())
         print_node_in_output(stderr, node, false);
 }
 

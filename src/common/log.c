@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-LogLevel log_level = ERROR;
+static LogLevel log_level = ERROR;
+
+LogLevel get_log_level() {
+    return log_level;
+}
 
 void set_log_level(LogLevel l) {
     log_level = l;

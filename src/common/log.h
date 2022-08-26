@@ -12,8 +12,7 @@ typedef enum LogLevel_ {
     ERROR
 } LogLevel;
 
-extern LogLevel log_level;
-
+LogLevel get_log_level();
 void set_log_level(LogLevel);
 void log_string(LogLevel level, const char* format, ...);
 void log_node(LogLevel level, const Node* node);
