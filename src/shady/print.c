@@ -681,11 +681,34 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
 #undef printf
 
 typedef struct {
-    PrinterCtx base;
     char* alloc;
     size_t size;
     size_t used;
+} GrowyBuffer;
+
+typedef struct {
+    PrinterCtx base;
+    GrowyBuffer buffer;
 } StringPrinterCtx;
+
+static GrowyBuffer new_growy_buffer(size_t base_size) {
+    GrowyBuffer buf = {
+        .used = 0,
+        .size = base_size,
+        .alloc = malloc(base_size)
+    };
+    return buf;
+}
+
+static void grow_growy_buffer(GrowyBuffer* buf, const void* src, size_t size) {
+    if (buf->used + size >= buf->size) {
+        buf->size *= 2;
+        buf->alloc = realloc(buf->alloc, buf->size);
+    }
+
+    memcpy(buf->alloc + buf->used, src, size);
+    buf->used += size;
+}
 
 static void print_into_string(StringPrinterCtx* ctx, const char* format, ...) {
     va_list args;
@@ -705,13 +728,7 @@ static void print_into_string(StringPrinterCtx* ctx, const char* format, ...) {
         }
     }
 
-    if (ctx->used + real_len >= ctx->size) {
-        ctx->size *= 2;
-        ctx->alloc = realloc(ctx->alloc, ctx->size);
-    }
-
-    memcpy(ctx->alloc + ctx->used, buf, real_len);
-    ctx->used += real_len;
+    grow_growy_buffer(&ctx->buffer, buf, real_len);
 
     free(buf);
 }
@@ -724,13 +741,12 @@ void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
             .print_ptrs = false,
             .color = false,
         },
-        .size = 1024,
-        .used = 0
+        .buffer = new_growy_buffer(1024)
     };
-    ctx.alloc = malloc(ctx.size);
     print_node_impl(&ctx.base, node);
-    *str_ptr = ctx.alloc;
-    *size = ctx.used;
+
+    *str_ptr = ctx.buffer.alloc;
+    *size = ctx.buffer.used;
 }
 
 typedef struct {
