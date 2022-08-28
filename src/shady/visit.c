@@ -25,6 +25,8 @@ void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
     dispose_scope(&scope);
 }
 
+#pragma GCC diagnostic error "-Wswitch"
+
 void visit_children(Visitor* visitor, const Node* node) {
     if (!node_type_has_payload[node->tag])
         return;
@@ -82,6 +84,10 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit(node->payload.arr_lit.element_type);
             visit_nodes(visitor, node->payload.arr_lit.contents);
             break;
+        }
+        case RefDecl_TAG: {
+            if (visitor->visit_referenced_decls)
+                visit(node->payload.ref_decl.decl);
         }
         case FnAddr_TAG: {
             visit(node->payload.fn_addr.fn);
@@ -219,6 +225,5 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.root.declarations);
             break;
         }
-        default: assert(false);
     }
 }

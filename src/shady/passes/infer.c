@@ -194,15 +194,11 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
         case True_TAG: return true_lit(dst_arena);
         case False_TAG: return false_lit(dst_arena);
         case StringLiteral_TAG: return string_lit(dst_arena, (StringLiteral) { .string = string(dst_arena, node->payload.string_lit.string )});
-        case GlobalVariable_TAG: return infer_decl(ctx, node); // TODO check types match
-        case Constant_TAG: return infer_decl(ctx, node); // TODO check types match
+        case GlobalVariable_TAG: return ref_decl(dst_arena, (RefDecl) { .decl = infer_decl(ctx, node) }); // TODO check types match
+        case Constant_TAG: return ref_decl(dst_arena, (RefDecl) { .decl = infer_decl(ctx, node) }); // TODO check types match
+        case Function_TAG: return fn_addr(dst_arena, (FnAddr) { .fn = infer_decl(ctx, node) }); // TODO check types match
         default: error("not a value");
     }
-}
-
-static const Node* infer_value_or_cont(Context* ctx, const Node* node, const Node* expected_type) {
-    const Node* typed = node->tag == Function_TAG ? infer_decl(ctx, node) : infer_value(ctx, node, expected_type);
-    return typed;
 }
 
 static const Node* infer_primop(Context* ctx, const Node* node) {
@@ -315,10 +311,14 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
 static const Node* infer_call(Context* ctx, const Node* node) {
     assert(node->tag == Call_TAG);
 
-    const Node* new_callee = infer_value_or_cont(ctx, node->payload.call_instr.callee, NULL);
+    const Node* new_callee = infer_value(ctx, node->payload.call_instr.callee, NULL);
     LARRAY(const Node*, new_args, node->payload.call_instr.args.count);
 
     const Type* callee_type = extract_operand_type(new_callee->type);
+    if (callee_type->tag != PtrType_TAG)
+        error("functions are called through function pointers");
+    callee_type = callee_type->payload.ptr_type.pointed_type;
+
     if (callee_type->tag != FnType_TAG)
         error("Callees must have a function type");
     if (callee_type->payload.fn_type.param_types.count != node->payload.call_instr.args.count)

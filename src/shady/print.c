@@ -46,6 +46,8 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node);
 #define INDENT for (unsigned int j = 0; j < ctx->indent; j++) \
     printf("   ");
 
+#pragma GCC diagnostic error "-Wswitch"
+
 static void print_storage_qualifier_for_global(struct PrinterCtx* ctx, AddressSpace as) {
     printf(BLUE);
     switch (as) {
@@ -65,7 +67,6 @@ static void print_storage_qualifier_for_global(struct PrinterCtx* ctx, AddressSp
         case AsOutput:               printf("output"); break;
         case AsExternal:           printf("external"); break;
         case AsProgramCode:    printf("program_code"); break;
-        default: error("Unknown address space: %d", (int) as);
     }
     printf(RESET);
 }
@@ -89,7 +90,6 @@ static void print_ptr_addr_space(struct PrinterCtx* ctx, AddressSpace as) {
         case AsOutput:               printf("output"); break;
         case AsExternal:           printf("external"); break;
         case AsProgramCode:    printf("program_code"); break;
-        default: error("Unknown address space: %d", (int) as);
     }
     printf(RESET);
 }

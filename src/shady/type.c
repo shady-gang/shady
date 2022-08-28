@@ -9,6 +9,8 @@
 #include <string.h>
 #include <assert.h>
 
+#pragma GCC diagnostic error "-Wswitch"
+
 #define empty() nodes(arena, 0, NULL)
 #define singleton(t) singleton_impl(arena, t)
 Nodes singleton_impl(IrArena* arena, const Type* type) {
@@ -17,9 +19,11 @@ Nodes singleton_impl(IrArena* arena, const Type* type) {
 }
 
 bool are_types_identical(size_t num_types, const Type* types[]) {
-    for (size_t i = 0; i < num_types; i++)
+    for (size_t i = 0; i < num_types; i++) {
+        assert(types[i]);
         if (types[0] != types[i])
             return false;
+    }
     return true;
 }
 
@@ -66,8 +70,14 @@ bool is_subtype(const Type* supertype, const Type* type) {
             return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
         }
         case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width;
-        // simple types without a payload
-        default: return true;
+        case ArrType_TAG:
+        case PackType_TAG: error("TODO");
+        case Unit_TAG:
+        case NoRet_TAG:
+        case Bool_TAG:
+        case MaskType_TAG:
+        case Float_TAG:
+            return true;
     }
     SHADY_UNREACHABLE;
 }
@@ -130,97 +140,6 @@ Nodes extract_types(IrArena* arena, Nodes values) {
     return nodes(arena, values.count, arr);
 }
 
-const Type* derive_fn_type(IrArena* arena, const Function* fn) {
-    return fn_type(arena, (FnType) { .is_basic_block = fn->is_basic_block, .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
-}
-
-const Type* check_type_fn(IrArena* arena, Function fn) {
-    assert(!fn.is_basic_block || fn.return_types.count == 0);
-    /*return qualified_type(arena, (QualifiedType) {
-        .is_uniform = true,
-        .type = derive_fn_type(arena, &fn)
-    });*/
-    return derive_fn_type(arena, &fn);
-}
-
-const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
-    return qualified_type(arena, (QualifiedType) {
-        .type = ptr_type(arena, (PtrType) {
-            .pointed_type = global_variable.type,
-            .address_space = global_variable.address_space
-        }),
-        .is_uniform = true
-    });
-}
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-const Type* check_type_var(IrArena* arena, Variable variable) {
-    assert(variable.type);
-    return variable.type;
-}
-
-const Type* check_type_qualified_type(IrArena* arena, QualifiedType qualified_type) {
-    assert(!contains_qualified_type(qualified_type.type));
-    return NULL;
-}
-
-const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
-    assert(!contains_qualified_type(pack_type.element_type));
-    return NULL;
-}
-
-const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
-    error("should never happen");
-}
-
-const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
-    return qualified_type(arena, (QualifiedType) {
-        .is_uniform = true,
-        .type = int_type(arena, (Int) { .width = lit.width })
-    });
-}
-
-const Type* check_type_true_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
-const Type* check_type_false_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
-
-const Type* check_type_tuple(IrArena* arena, Tuple tuple) {
-    return record_type(arena, (RecordType) {
-        .members = extract_types(arena, tuple.contents),
-        .special = NotSpecial,
-        .names = strings(arena, 0, NULL)
-    });
-}
-
-const Type* check_type_arr_lit(IrArena* arena, ArrayLiteral arr_lit) {
-    const Type* elem_type = arr_lit.element_type;
-    assert(!contains_qualified_type(elem_type));
-    bool uniform = true;
-    for (size_t i = 0; i < arr_lit.contents.count; i++) {
-        assert(is_subtype(elem_type, extract_operand_type(arr_lit.contents.nodes[i]->type)));
-        uniform &= is_operand_uniform(arr_lit.contents.nodes[i]->type);
-    }
-    return qualified_type(arena, (QualifiedType) {
-        .type = arr_type(arena, (ArrType) {
-            .element_type = elem_type,
-            .size = int32_literal(arena, arr_lit.contents.count)
-        }),
-        .is_uniform = uniform
-    });
-}
-
-const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
-    return arr_type(arena, (ArrType) {
-        .element_type = int8_type(arena),
-        .size = int32_literal(arena, strlen(str_lit.string))
-    });
-}
-
-const Type* check_type_fn_ret(IrArena* arena, Return ret) {
-    // TODO check it then !
-    return NULL;
-}
-
 const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types) {
     switch (types.count) {
         case 0: return unit_type(arena);
@@ -245,28 +164,6 @@ Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
     }
 }
 
-const Type* check_type_if_instr(IrArena* arena, If if_instr) {
-    if (extract_operand_type(if_instr.condition->type) != bool_type(arena))
-        error("condition of a selection should be bool");
-    // TODO check the contained Merge instrs
-    if (if_instr.yield_types.count > 0)
-        assert(if_instr.if_false);
-
-    return wrap_multiple_yield_types(arena, if_instr.yield_types);
-}
-
-const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
-    // TODO check param against initial_args
-    // TODO check the contained Merge instrs
-    return wrap_multiple_yield_types(arena, loop_instr.yield_types);
-}
-
-const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
-    // TODO check param against initial_args
-    // TODO check the contained Merge instrs
-    return wrap_multiple_yield_types(arena, match_instr.yield_types);
-}
-
 /// Oracle of what casts are legal
 static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
     // TODO implement rules
@@ -274,12 +171,159 @@ static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type
     return true;
 }
 
+bool is_addr_space_uniform(AddressSpace as) {
+    switch (as) {
+        case AsPrivateLogical:
+        case AsPrivatePhysical:
+        case AsInput:
+            return true;
+        default:
+            return false;
+    }
+}
+
+const Type* derive_fn_type(IrArena* arena, const Function* fn) {
+    return fn_type(arena, (FnType) { .is_basic_block = fn->is_basic_block, .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
+}
+
+static const Type* remove_ptr_type_layer(const Type* t) {
+    assert(t->tag == PtrType_TAG);
+    return t->payload.ptr_type.pointed_type;
+}
+
 static const Type* get_actual_mask_type(IrArena* arena) {
     switch (arena->config.subgroup_mask_representation) {
         case SubgroupMaskAbstract: return mask_type(arena);
         case SubgroupMaskSpvKHRBallot: return pack_type(arena, (PackType) { .element_type = int32_type(arena), .width = 4 });
-        default: error("unimplemented");
     }
+}
+
+static void check_arguments_types_against_parameters_helper(Nodes param_types, Nodes arg_types) {
+    if (param_types.count != arg_types.count)
+        error("Mismatched number of arguments/parameters");
+    for (size_t i = 0; i < param_types.count; i++)
+        check_subtype(param_types.nodes[i], arg_types.nodes[i]);
+}
+
+static Nodes check_callsite_helper(const Type* callee_type, Nodes argument_types) {
+    assert(!contains_qualified_type(callee_type) && callee_type->tag == FnType_TAG);
+    const FnType* fn_type = &callee_type->payload.fn_type;
+    check_arguments_types_against_parameters_helper(fn_type->param_types, argument_types);
+    return fn_type->return_types;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
+const Type* check_type_qualified_type(IrArena* arena, QualifiedType qualified_type) {
+    assert(!contains_qualified_type(qualified_type.type));
+    return NULL;
+}
+
+const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
+    assert(!contains_qualified_type(pack_type.element_type));
+    return NULL;
+}
+
+const Type* check_type_var(IrArena* arena, Variable variable) {
+    assert(variable.type);
+    return variable.type;
+}
+
+const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
+    error("should never happen");
+}
+
+const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
+    return qualified_type(arena, (QualifiedType) {
+        .is_uniform = true,
+        .type = int_type(arena, (Int) { .width = lit.width })
+    });
+}
+
+const Type* check_type_true_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
+const Type* check_type_false_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
+
+const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
+    return arr_type(arena, (ArrType) {
+        .element_type = int8_type(arena),
+        .size = int32_literal(arena, strlen(str_lit.string))
+    });
+}
+
+const Type* check_type_arr_lit(IrArena* arena, ArrayLiteral arr_lit) {
+    const Type* elem_type = arr_lit.element_type;
+    assert(!contains_qualified_type(elem_type));
+    bool uniform = true;
+    for (size_t i = 0; i < arr_lit.contents.count; i++) {
+        assert(is_subtype(elem_type, extract_operand_type(arr_lit.contents.nodes[i]->type)));
+        uniform &= is_operand_uniform(arr_lit.contents.nodes[i]->type);
+    }
+    return qualified_type(arena, (QualifiedType) {
+        .type = arr_type(arena, (ArrType) {
+            .element_type = elem_type,
+            .size = int32_literal(arena, arr_lit.contents.count)
+        }),
+        .is_uniform = uniform
+    });
+}
+
+const Type* check_type_tuple(IrArena* arena, Tuple tuple) {
+    return record_type(arena, (RecordType) {
+        .members = extract_types(arena, tuple.contents),
+        .special = NotSpecial,
+        .names = strings(arena, 0, NULL)
+    });
+}
+
+const Type* check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
+    assert(!contains_qualified_type(fn_addr.fn->type));
+    assert(fn_addr.fn->tag == Function_TAG);
+    return qualified_type(arena, (QualifiedType) {
+        .is_uniform = true,
+        .type = ptr_type(arena, (PtrType) {
+            .pointed_type = fn_addr.fn->type,
+            .address_space = AsProgramCode,
+        })
+    });
+}
+
+const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
+    const Type* t = ref_decl.decl->type;
+    assert(t && "RefDecl needs to be applied on a decl with a non-null type. Did you forget to set 'type' on a constant ?");
+    switch (ref_decl.decl->tag) {
+        case GlobalVariable_TAG: {
+            t = qualified_type(arena, (QualifiedType) { .type = t, .is_uniform = is_addr_space_uniform(ref_decl.decl->payload.global_variable.address_space) });
+            break;
+        }
+        case Constant_TAG: break;
+        default: error("You can only use RefDecl on a global or a constant. See FnAddr for taking addresses of functions.")
+    }
+    return t;
+}
+
+const Type* check_type_let(IrArena* arena, Let let) {
+    const Type* result_type = let.instruction->type;
+
+    // check outputs
+    Nodes var_tys = extract_variable_types(arena, &let.variables);
+    switch (result_type->tag) {
+        case Unit_TAG: error("You can only let-bind non-unit nodes");
+        case RecordType_TAG: {
+            if (result_type->payload.record_type.members.count != var_tys.count)
+                error("let variables count != yield count from operation")
+            for (size_t i = 0; i < var_tys.count; i++)
+                check_subtype(var_tys.nodes[i], result_type->payload.record_type.members.nodes[i]);
+            break;
+        }
+        default: {
+            assert(var_tys.count == 1);
+            check_subtype(var_tys.nodes[0], result_type);
+            break;
+        }
+    }
+
+    return unit_type(arena);
 }
 
 /// Checks the operands to a Primop and returns the produced types
@@ -677,21 +721,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     }
 }
 
-static void check_arguments_types_against_parameters_helper(Nodes param_types, Nodes arg_types) {
-    if (param_types.count != arg_types.count)
-        error("Mismatched number of arguments/parameters");
-    for (size_t i = 0; i < param_types.count; i++)
-        check_subtype(param_types.nodes[i], arg_types.nodes[i]);
-}
-
-static Nodes check_callsite_helper(const Type* callee_type, Nodes argument_types) {
-    assert(!contains_qualified_type(callee_type) && callee_type->tag == FnType_TAG);
-    const FnType* fn_type = &callee_type->payload.fn_type;
-    check_arguments_types_against_parameters_helper(fn_type->param_types, argument_types);
-
-    return fn_type->return_types;
-}
-
 const Type* check_type_call_instr(IrArena* arena, Call call) {
     for (size_t i = 0; i < call.args.count; i++) {
         const Node* argument = call.args.nodes[i];
@@ -701,33 +730,32 @@ const Type* check_type_call_instr(IrArena* arena, Call call) {
     const Type* callee_type;
     bool callee_uniform;
     deconstruct_operand_type(call.callee->type, &callee_type, &callee_uniform);
+    if (call.is_indirect)
+        callee_type = remove_ptr_type_layer(callee_type);
     assert(callee_uniform);
     return wrap_multiple_yield_types(arena, check_callsite_helper(callee_type, extract_types(arena, call.args)));
 }
 
-const Type* check_type_let(IrArena* arena, Let let) {
-    //Nodes output_types = typecheck_instruction(arena, let.instruction);
-    const Type* result_type = let.instruction->type;
+const Type* check_type_if_instr(IrArena* arena, If if_instr) {
+    if (extract_operand_type(if_instr.condition->type) != bool_type(arena))
+        error("condition of a selection should be bool");
+    // TODO check the contained Merge instrs
+    if (if_instr.yield_types.count > 0)
+        assert(if_instr.if_false);
 
-    // check outputs
-    Nodes var_tys = extract_variable_types(arena, &let.variables);
-    switch (result_type->tag) {
-        case Unit_TAG: error("You can only let-bind non-unit nodes");
-        case RecordType_TAG: {
-            if (result_type->payload.record_type.members.count != var_tys.count)
-                error("let variables count != yield count from operation")
-            for (size_t i = 0; i < var_tys.count; i++)
-                check_subtype(var_tys.nodes[i], result_type->payload.record_type.members.nodes[i]);
-            break;
-        }
-        default: {
-            assert(var_tys.count == 1);
-            check_subtype(var_tys.nodes[0], result_type);
-            break;
-        }
-    }
+    return wrap_multiple_yield_types(arena, if_instr.yield_types);
+}
 
-    return unit_type(arena);
+const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
+    // TODO check param against initial_args
+    // TODO check the contained Merge instrs
+    return wrap_multiple_yield_types(arena, loop_instr.yield_types);
+}
+
+const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
+    // TODO check param against initial_args
+    // TODO check the contained Merge instrs
+    return wrap_multiple_yield_types(arena, match_instr.yield_types);
 }
 
 const Type* check_type_branch(IrArena* arena, Branch branch) {
@@ -812,12 +840,11 @@ const Type* check_type_callc(IrArena* arena, Callc callc) {
     const Type* callee_type;
     bool callee_uniform;
     deconstruct_operand_type(callc.callee->type, &callee_type, &callee_uniform);
-    assert(callee_type->tag == PtrType_TAG);
-    callee_type = callee_type->payload.ptr_type.pointed_type;
+    callee_type = remove_ptr_type_layer(callee_type);
 
     const Nodes returned_types = check_callsite_helper(callee_type, extract_types(arena, callc.args));
 
-    const Type* ret_cont_type = callc.ret_cont->type;
+    const Type* ret_cont_type = callc.join_at->type;
     if (callc.is_return_indirect) {
         bool ret_cont_uniform;
         deconstruct_operand_type(ret_cont_type, &ret_cont_type, &ret_cont_uniform);
@@ -830,15 +857,20 @@ const Type* check_type_callc(IrArena* arena, Callc callc) {
     return NULL;
 }
 
-const Type* check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
-    assert(!contains_qualified_type(fn_addr.fn->type));
-    assert(fn_addr.fn->tag == Function_TAG);
-    return qualified_type(arena, (QualifiedType) {
-        .is_uniform = true,
-        .type = ptr_type(arena, (PtrType) {
-            .pointed_type = fn_addr.fn->type,
-            .address_space = AsProgramCode,
-        })
+const Type* check_type_fn_ret(IrArena* arena, Return ret) {
+    // TODO check it then !
+    return NULL;
+}
+
+const Type* check_type_fn(IrArena* arena, Function fn) {
+    assert(!fn.is_basic_block || fn.return_types.count == 0);
+    return derive_fn_type(arena, &fn);
+}
+
+const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
+    return ptr_type(arena, (PtrType) {
+        .pointed_type = global_variable.type,
+        .address_space = global_variable.address_space
     });
 }
 

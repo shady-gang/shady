@@ -44,6 +44,9 @@ typedef enum AddressSpace_ {
 
 static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalLogical; }
 
+/// Returns true if variables in that address space can contain different data for threads in the same subgroup
+bool is_addr_space_uniform(AddressSpace);
+
 typedef enum {
     NotAnEntryPoint,
     Compute,
@@ -81,6 +84,7 @@ N(1, 1, 1, StringLiteral, string_lit) \
 N(1, 1, 1, ArrayLiteral, arr_lit) \
 N(0, 1, 1, Tuple, tuple) \
 N(1, 1, 1, FnAddr, fn_addr) \
+N(1, 1, 1, RefDecl, ref_decl) \
 
 #define INSTRUCTION_NODES(N) \
 N(0, 1, 1, Let, let) \
@@ -235,17 +239,24 @@ typedef struct StringLiteral_ {
     const char* string;
 } StringLiteral;
 
+const char* extract_string_literal(const Node*);
+
 typedef struct ArrayLiteral_ {
     const Type* element_type;
     Nodes contents;
 } ArrayLiteral;
 
-const char* extract_string_literal(const Node*);
-
 typedef struct Tuple_ {
     Nodes contents;
 } Tuple;
 
+/// References either a global (yielding a pointer to it), or a constant (yielding a value of the type itself)
+/// Declarations are not values themselves, this node is required to "convert" them.
+typedef struct RefDecl_ {
+    const Node* decl;
+} RefDecl;
+
+/// Like RefDecl but for functions, it yields a _function pointer_ !
 typedef struct FnAddr_ {
     const Node* fn;
 } FnAddr;
