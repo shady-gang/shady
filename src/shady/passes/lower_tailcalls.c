@@ -30,15 +30,6 @@ typedef struct Context_ {
 
 static const Node* process(Context* ctx, const Node* old);
 
-static const Node* find_decl(Context* ctx, const char* name) {
-    for (size_t i = 0; i < ctx->src_program->payload.root.declarations.count; i++) {
-        const Node* decl = ctx->src_program->payload.root.declarations.nodes[i];
-        if (strcmp(get_decl_name(decl), name) == 0)
-            return process(ctx, decl);
-    }
-    assert(false);
-}
-
 static const Node* fn_ptr_as_value(IrArena* arena, FnPtr ptr) {
     return uint32_literal(arena, ptr);
 }
@@ -81,7 +72,7 @@ static const Node* rewrite_block(Context* ctx, const Node* old_block, BlockBuild
 
             const Node* call = call_instr(arena, (Call) {
                 .is_indirect = false,
-                .callee = find_decl(ctx, "builtin_branch"),
+                .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_branch"),
                 .args = nodes(arena, 2, (const Node*[]) { target })
             });
 
@@ -99,7 +90,7 @@ static const Node* rewrite_block(Context* ctx, const Node* old_block, BlockBuild
 
             const Node* call = call_instr(arena, (Call) {
                 .is_indirect = false,
-                .callee = find_decl(ctx, "builtin_join"),
+                .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_join"),
                 .args = nodes(arena, 2, (const Node*[]) { target, mask })
             });
 
@@ -139,9 +130,9 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
         gen_push_value_stack(builder, fun->payload.fn.params.nodes[i]);
     }
 
-    gen_store(builder, find_decl(ctx, "next_fn"), lower_fn_addr(ctx, fun));
+    gen_store(builder, access_decl(&ctx->rewriter, ctx->src_program, "next_fn"), lower_fn_addr(ctx, fun));
     const Node* entry_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
-    gen_store(builder, find_decl(ctx, "next_mask"), entry_mask);
+    gen_store(builder, access_decl(&ctx->rewriter, ctx->src_program, "next_mask"), entry_mask);
 
     append_block(builder, call_instr(dst_arena, (Call) {
         .is_indirect = false,
@@ -242,7 +233,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
 
     BlockBuilder* loop_body_builder = begin_block(dst_arena);
 
-    const Node* next_function = gen_load(loop_body_builder, find_decl(ctx, "next_fn"));
+    const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, ctx->src_program, "next_fn"));
 
     struct List* literals = new_list(const Node*);
     struct List* cases = new_list(const Node*);

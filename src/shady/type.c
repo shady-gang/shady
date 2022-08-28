@@ -72,8 +72,14 @@ bool is_subtype(const Type* supertype, const Type* type) {
             return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
         }
         case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width;
-        case ArrType_TAG:
-        case PackType_TAG: error("TODO");
+        case ArrType_TAG: {
+            return supertype->payload.arr_type.size == type->payload.arr_type.size
+            && is_subtype(supertype->payload.arr_type.element_type, type->payload.arr_type.element_type);
+        }
+        case PackType_TAG: {
+            return supertype->payload.pack_type.width == type->payload.pack_type.width
+            && is_subtype(supertype->payload.pack_type.element_type, type->payload.pack_type.element_type);
+        }
         case Unit_TAG:
         case NoRet_TAG:
         case Bool_TAG:

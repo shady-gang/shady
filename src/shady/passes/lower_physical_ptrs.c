@@ -94,15 +94,6 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
     return faked_pointer;
 }
 
-static const Node* find_decl(Context* ctx, const char* name) {
-    for (size_t i = 0; i < ctx->src_program->payload.root.declarations.count; i++) {
-        const Node* decl = ctx->src_program->payload.root.declarations.nodes[i];
-        if (strcmp(get_decl_name(decl), name) == 0)
-            return rewrite_node(&ctx->rewriter, decl);
-    }
-    assert(false);
-}
-
 static const Node* handle_block(Context* ctx, const Node* node) {
     assert(node->tag == Block_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
@@ -127,7 +118,7 @@ static const Node* handle_block(Context* ctx, const Node* node) {
                     const Type* element_type = oprim_op->operands.nodes[0];
                     TypeMemLayout layout = get_mem_layout(ctx->config, dst_arena, element_type);
 
-                    const Node* stack_pointer = find_decl(ctx, "stack_ptr");
+                    const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->src_program, "stack_ptr");
                     const Node* stack_size = gen_load(instructions, stack_pointer);
                     register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], stack_size);
                     stack_size = gen_primop_ce(instructions, add_op, 2, (const Node* []) { stack_size, int32_literal(dst_arena, bytes_to_i32_cells(layout.size_in_bytes)) });
@@ -254,10 +245,10 @@ static const Node* process_node(Context* ctx, const Node* old) {
 }
 
 void update_base_stack_ptrs(Context* ctx) {
-    Node* per_thread_stack_ptr = (Node*) find_decl(ctx, "stack_ptr");
+    Node* per_thread_stack_ptr = (Node*) find_or_process_decl(&ctx->rewriter, ctx->src_program, "stack_ptr");
     assert(per_thread_stack_ptr && per_thread_stack_ptr->tag == GlobalVariable_TAG);
     per_thread_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_private_memory);
-    Node* subgroup_stack_ptr = (Node*)  find_decl(ctx, "uniform_stack_ptr");
+    Node* subgroup_stack_ptr = (Node*) find_or_process_decl(&ctx->rewriter, ctx->src_program, "uniform_stack_ptr");
     assert(subgroup_stack_ptr && subgroup_stack_ptr->tag == GlobalVariable_TAG);
     subgroup_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_subgroup_memory);
 }
@@ -313,8 +304,8 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
         .tpm_is_block_buffer = false,
         .ssm_is_block_buffer = false,
 
-        .thread_private_memory = thread_private_memory,
-        .subgroup_shared_memory = subgroup_shared_memory,
+        .thread_private_memory = ref_decl(dst_arena, (RefDecl) { .decl = thread_private_memory }),
+        .subgroup_shared_memory = ref_decl(dst_arena, (RefDecl) { .decl = subgroup_shared_memory }),
 
         .new_decls = new_decls_list,
     };

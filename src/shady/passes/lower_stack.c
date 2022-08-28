@@ -184,10 +184,10 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
 
         .config = config,
 
-        .stack = stack_decl,
-        .stack_pointer = stack_ptr_decl,
-        .uniform_stack = uniform_stack_decl,
-        .uniform_stack_pointer = uniform_stack_ptr_decl,
+        .stack = ref_decl(dst_arena, (RefDecl) { .decl = stack_decl }),
+        .stack_pointer = ref_decl(dst_arena, (RefDecl) { .decl = stack_ptr_decl }),
+        .uniform_stack = ref_decl(dst_arena, (RefDecl) { .decl = uniform_stack_decl }),
+        .uniform_stack_pointer = ref_decl(dst_arena, (RefDecl) { .decl = uniform_stack_ptr_decl }),
 
         .new_decls = new_decls_list,
     };

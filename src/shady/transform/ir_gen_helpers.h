@@ -21,4 +21,9 @@ const Node* gen_load(BlockBuilder*, const Node* ptr);
 void gen_store(BlockBuilder*, const Node* ptr, const Node* value);
 const Node* gen_lea(BlockBuilder*, const Node* base, const Node* offset, Nodes selectors);
 
+typedef struct Rewriter_ Rewriter;
+
+const Node* find_or_process_decl(Rewriter*, const Node* root, const char* name);
+const Node* access_decl(Rewriter*, const Node* root, const char* name);
+
 #endif

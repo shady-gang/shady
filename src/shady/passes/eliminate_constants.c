@@ -27,10 +27,17 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             return root(arena, (Root) { .declarations = nodes(arena, new_decls_count, decls) });
         }
+        case RefDecl_TAG: {
+            const Node* decl = process(ctx, node->payload.ref_decl.decl);
+            if (decl->tag == Constant_TAG) {
+                return decl->payload.constant.value;
+            }
+            return recreate_node_identity(&ctx->rewriter, node);
+        }
         case Constant_TAG: {
-            const Node* value = process(ctx, node->payload.constant.value);
-            register_processed(&ctx->rewriter, node, value);
-            return value;
+            //const Node* value = process(ctx, node->payload.constant.value);
+            //register_processed(&ctx->rewriter, node, value);
+            //return value;
         }
         case GlobalVariable_TAG:
         case Function_TAG: {

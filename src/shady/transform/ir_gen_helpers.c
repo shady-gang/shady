@@ -6,6 +6,10 @@
 #include "../arena.h"
 #include "../type.h"
 #include "../block_builder.h"
+#include "../rewrite.h"
+
+#include <string.h>
+#include <assert.h>
 
 Nodes gen_primop(BlockBuilder* instructions, Op op, Nodes operands) {
     const Node* instruction = prim_op(instructions->arena, (PrimOp) { .op = op, .operands = operands });
@@ -95,4 +99,22 @@ const Node* gen_lea(BlockBuilder* instructions, const Node* base, const Node* of
     for (size_t i = 0; i < selectors.count; i++)
         ops[2 + i] = selectors.nodes[i];
     return gen_primop_ce(instructions, lea_op, 2 + selectors.count, ops);
+}
+
+const Node* find_or_process_decl(Rewriter* rewriter, const Node* root, const char* name) {
+    for (size_t i = 0; i < root->payload.root.declarations.count; i++) {
+        const Node* decl = root->payload.root.declarations.nodes[i];
+        if (strcmp(get_decl_name(decl), name) == 0) {
+            return rewrite_node(rewriter, decl);
+        }
+    }
+    assert(false);
+}
+
+const Node* access_decl(Rewriter* rewriter, const Node* root, const char* name) {
+    const Node* decl = find_or_process_decl(rewriter, root, name);
+    if (decl->tag == Function_TAG)
+        return fn_addr(rewriter->dst_arena, (FnAddr) { .fn = decl });
+    else
+        return ref_decl(rewriter->dst_arena, (RefDecl) { .decl = decl });
 }

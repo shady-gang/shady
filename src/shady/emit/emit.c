@@ -30,6 +30,49 @@ static void register_result(Emitter* emitter, const Node* variable, SpvId id) {
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variable, id);
 }
 
+SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
+    if (!use_id) { // re-emit the thing multiple times if we need a specific ID
+        SpvId* existing = find_value_dict(struct Node*, SpvId, emitter->node_ids, node);
+        if (existing)
+            return *existing;
+
+        if (node->tag == RefDecl_TAG) {
+            SpvId value = emit_value(emitter, node->payload.ref_decl.decl, NULL);
+            insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, value);
+            return value;
+        }
+    }
+
+    SpvId new = use_id ? *use_id : spvb_fresh_id(emitter->file_builder);
+    insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, new);
+
+    switch (node->tag) {
+        case Variable_TAG: error("this node should have been resolved already");
+        case IntLiteral_TAG: {
+            SpvId ty = emit_type(emitter, node->type);
+            // 64-bit constants take two spirv words, anythinfg else fits in one
+            if (node->payload.int_literal.width == IntTy64) {
+                uint32_t arr[] = { node->payload.int_literal.value_i64 >> 32, node->payload.int_literal.value_i64 & 0xFFFFFFFF };
+                spvb_constant(emitter->file_builder, new, ty, 2, arr);
+            } else {
+                uint32_t arr[] = { node->payload.int_literal.value_i32 };
+                spvb_constant(emitter->file_builder, new, ty, 1, arr);
+            }
+            break;
+        }
+        case True_TAG: {
+            spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), true);
+            break;
+        }
+        case False_TAG: {
+            spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), false);
+            break;
+        }
+        default: error("don't know hot to emit value");
+    }
+    return new;
+}
+
 enum OperandKind {
     Signed, Unsigned, Float, Logical, Ptr, Other, OperandKindsCount
 };
@@ -278,7 +321,12 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
 }
 
 static void emit_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, Call call, Nodes variables) {
-    const Type* callee_type = extract_operand_type(call.callee->type);
+    const Type* callee_type = call.callee->type;
+    if (call.is_indirect) {
+        callee_type = extract_operand_type(call.callee->type);
+        assert(callee_type->tag == PtrType_TAG);
+        callee_type = callee_type->payload.ptr_type.pointed_type;
+    }
     assert(callee_type->tag == FnType_TAG);
     SpvId return_type = nodes_to_codom(emitter, callee_type->payload.fn_type.return_types);
     SpvId callee = emit_value(emitter, call.callee, NULL);
@@ -598,43 +646,6 @@ static void emit_function(Emitter* emitter, const Node* node) {
     dispose_scope(&scope);
 
     spvb_define_function(emitter->file_builder, fn_builder);
-}
-
-SpvId emit_value(Emitter* emitter, const Node* node, const SpvId* use_id) {
-    if (!use_id) { // re-emit the thing multiple times if we need a specific ID
-        SpvId* existing = find_value_dict(struct Node*, SpvId, emitter->node_ids, node);
-        if (existing)
-            return *existing;
-    }
-
-    SpvId new = use_id ? *use_id : spvb_fresh_id(emitter->file_builder);
-    insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, new);
-
-    switch (node->tag) {
-        case Variable_TAG: error("this node should have been resolved already");
-        case IntLiteral_TAG: {
-            SpvId ty = emit_type(emitter, node->type);
-            // 64-bit constants take two spirv words, anythinfg else fits in one
-            if (node->payload.int_literal.width == IntTy64) {
-                uint32_t arr[] = { node->payload.int_literal.value_i64 >> 32, node->payload.int_literal.value_i64 & 0xFFFFFFFF };
-                spvb_constant(emitter->file_builder, new, ty, 2, arr);
-            } else {
-                uint32_t arr[] = { node->payload.int_literal.value_i32 };
-                spvb_constant(emitter->file_builder, new, ty, 1, arr);
-            }
-            break;
-        }
-        case True_TAG: {
-            spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), true);
-            break;
-        }
-        case False_TAG: {
-            spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), false);
-            break;
-        }
-        default: error("don't know hot to emit value");
-    }
-    return new;
 }
 
 static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
