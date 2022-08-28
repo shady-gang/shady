@@ -20,8 +20,6 @@ static void verify_same_arena(const Node* program) {
         .visitor = {
             .visit_fn = (VisitFn) visit_verify_same_arena,
             .visit_fn_scope_rpo = true,
-            .visit_cf_targets = false,
-            .visit_return_fn_annotation = false,
         },
         .arena = arena
     };

@@ -94,10 +94,8 @@ static const Node* process(Context* ctx, const Node* old) {
             if (old == ctx->old_entry_block) {
                 VContext vctx = {
                     .visitor = {
-                        .visit_fn = collect_allocas,
-                        .visit_cf_targets = false,
+                        .visit_fn = (VisitFn) collect_allocas,
                         .visit_fn_scope_rpo = true,
-                        .visit_return_fn_annotation = false
                     },
                     .context = ctx,
                     .builder = instructions,

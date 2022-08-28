@@ -91,7 +91,8 @@ void visit_children(Visitor* visitor, const Node* node) {
                 visit(node->payload.ref_decl.decl);
         }
         case FnAddr_TAG: {
-            visit(node->payload.fn_addr.fn);
+            if (visitor->visit_fn_addr)
+                visit(node->payload.fn_addr.fn);
             break;
         }
         // Instructions
@@ -105,7 +106,8 @@ void visit_children(Visitor* visitor, const Node* node) {
             break;
         }
         case Call_TAG: {
-            // visit(node->payload.call_instr.callee);
+            if (visitor->visit_continuations || node->payload.call_instr.is_indirect)
+                visit(node->payload.call_instr.callee);
             visit_nodes(visitor, node->payload.call_instr.args);
             break;
         }
@@ -133,11 +135,14 @@ void visit_children(Visitor* visitor, const Node* node) {
         // Terminators
         case Branch_TAG: {
             switch (node->payload.branch.branch_mode) {
-                case BrTailcall:
-                case BrJump: visit(node->payload.branch.target); break;
-                case BrIfElse: {
+                case BrTailcall: visit(node->payload.branch.target); break;
+                case BrJump: {
+                    if (visitor->visit_continuations)
+                        visit(node->payload.branch.target);
+                    break;
+                } case BrIfElse: {
                     visit(node->payload.branch.branch_condition);
-                    if (visitor->visit_cf_targets) {
+                    if (visitor->visit_continuations) {
                         visit(node->payload.branch.true_target);
                         visit(node->payload.branch.false_target);
                     }
@@ -150,16 +155,15 @@ void visit_children(Visitor* visitor, const Node* node) {
             break;
         }
         case Join_TAG: {
-            if (visitor->visit_cf_targets)
+            if (node->payload.join.is_indirect || visitor->visit_continuations)
                 visit(node->payload.join.join_at);
             visit_nodes(visitor, node->payload.join.args);
             break;
         }
         case Callc_TAG: {
-            if (visitor->visit_cf_targets) {
-                visit(node->payload.callc.ret_cont);
-                //visit(node->payload.callc.callee);
-            }
+            visit(node->payload.callc.callee);
+            if (node->payload.callc.is_return_indirect || visitor->visit_continuations)
+                visit(node->payload.callc.join_at);
             visit_nodes(visitor, node->payload.callc.args);
             break;
         }
@@ -174,7 +178,6 @@ void visit_children(Visitor* visitor, const Node* node) {
             break;
         }
         case Unreachable_TAG: break;
-
         // Decls
         case Constant_TAG: {
             visit_nodes(visitor, node->payload.constant.annotations);

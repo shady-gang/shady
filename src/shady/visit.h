@@ -10,9 +10,12 @@ struct Visitor_ {
    VisitFn visit_fn;
    // Enabling this will make visit_children build the scope of functions and look at their continuations in RPO
    bool visit_fn_scope_rpo;
-   // Enabling this will make visit_children visit targets of control flow terminators, be wary this could cause infinite loops
-   bool visit_cf_targets;
+   // Enabling this will make visit_children visit continuation targets (inside terminators), be wary this could cause infinite loops
+   bool visit_continuations;
+
    bool visit_return_fn_annotation;
+   bool visit_fn_addr;
+   bool visit_referenced_decls;
 };
 
 void visit_children(Visitor*, const Node*);
