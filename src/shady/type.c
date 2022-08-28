@@ -16,16 +16,6 @@ Nodes singleton_impl(IrArena* arena, const Type* type) {
     return nodes(arena, 1, arr);
 }
 
-bool is_type(const Node* node) {
-    switch (node->tag) {
-#define NODEDEF(_, _2, _3, name, _4) case name##_TAG:
-TYPE_NODES()
-#undef NODEDEF
-                 return true;
-        default: return false;
-    }
-}
-
 bool are_types_identical(size_t num_types, const Type* types[]) {
     for (size_t i = 0; i < num_types; i++)
         if (types[0] != types[i])

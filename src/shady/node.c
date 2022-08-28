@@ -60,15 +60,15 @@ static Node* create_node_helper(IrArena* arena, Node node) {
 }
 
 #define NODE_CTOR_0(has_typing_fn, has_payload, struct_name, short_name)
-#define NODEDEF(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_typing_fn, has_payload, struct_name, short_name)
-NODES()
-#undef NODEDEF
+#define NODE_CTOR(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_typing_fn, has_payload, struct_name, short_name)
+NODES(NODE_CTOR)
+#undef NODE_CTOR
 
 bool is_instruction(const Node* node) {
     switch (node->tag) {
-#define NODEDEF(_, _2, _3, name, _4) case name##_TAG:
-        INSTRUCTION_NODES()
-#undef NODEDEF
+#define IS_INSTRUCTION(_, _2, _3, name, _4) case name##_TAG:
+        INSTRUCTION_NODES(IS_INSTRUCTION)
+#undef IS_INSTRUCTION
             return true;
         default: return false;
     }
@@ -76,9 +76,9 @@ bool is_instruction(const Node* node) {
 
 bool is_terminator(const Node* node) {
     switch (node->tag) {
-#define NODEDEF(_, _2, _3, name, _4) case name##_TAG:
-        TERMINATOR_NODES()
-#undef NODEDEF
+#define IS_TERMINATOR(_, _2, _3, name, _4) case name##_TAG:
+        TERMINATOR_NODES(IS_TERMINATOR)
+#undef IS_TERMINATOR
             return true;
         default: return false;
     }
@@ -86,12 +86,22 @@ bool is_terminator(const Node* node) {
 
 bool is_value(const Node* node) {
     switch (node->tag) {
-#define NODEDEF(_, _2, _3, name, _4) case name##_TAG:
-        VALUE_NODES()
-#undef NODEDEF
+#define IS_VALUE(_, _2, _3, name, _4) case name##_TAG:
+        VALUE_NODES(IS_VALUE)
+#undef IS_VALUE
         case GlobalVariable_TAG:
         case Constant_TAG:
             return true;
+        default: return false;
+    }
+}
+
+bool is_type(const Node* node) {
+    switch (node->tag) {
+#define IS_TYPE(_, _2, _3, name, _4) case name##_TAG:
+TYPE_NODES(IS_TYPE)
+#undef IS_TYPE
+                 return true;
         default: return false;
     }
 }
@@ -245,9 +255,9 @@ Node* global_var(IrArena* arena, Nodes annotations, const Type* type, const char
 }
 
 const char* node_tags[] = {
-#define NODEDEF(_, _2, _3, _4, str) #str,
-NODES()
-#undef NODEDEF
+#define NODE_NAME(_, _2, _3, _4, str) #str,
+NODES(NODE_NAME)
+#undef NODE_NAME
 };
 
 const char* primop_names[] = {
@@ -267,9 +277,9 @@ bool has_primop_got_side_effects(Op op) {
 }
 
 const bool node_type_has_payload[] = {
-#define NODEDEF(_, _2, has_payload, _4, _5) has_payload,
-NODES()
-#undef NODEDEF
+#define NODE_HAS_PAYLOAD(_, _2, has_payload, _4, _5) has_payload,
+NODES(NODE_HAS_PAYLOAD)
+#undef NODE_HAS_PAYLOAD
 };
 
 String merge_what_string[] = { "join", "continue", "break" };

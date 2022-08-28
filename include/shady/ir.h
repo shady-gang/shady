@@ -56,60 +56,66 @@ ExecutionModel execution_model_from_string(const char*);
 //////////////////////////////// Node Types Enumeration ////////////////////////////////
 // NODEDEF(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name)
 
-#define TYPE_NODES() \
-NODEDEF(1, 0, 0, MaskType, mask_type) \
-NODEDEF(1, 0, 0, NoRet, noret_type) \
-NODEDEF(1, 0, 0, Unit, unit_type) \
-NODEDEF(1, 0, 1, Int, int_type) \
-NODEDEF(1, 0, 0, Float, float_type) \
-NODEDEF(1, 0, 0, Bool, bool_type) \
-NODEDEF(1, 0, 1, RecordType, record_type) \
-NODEDEF(1, 0, 1, FnType, fn_type) \
-NODEDEF(1, 0, 1, PtrType, ptr_type) \
-NODEDEF(1, 1, 1, QualifiedType, qualified_type) \
-NODEDEF(1, 0, 1, ArrType, arr_type) \
-NODEDEF(1, 1, 1, PackType, pack_type) \
+#define TYPE_NODES(N) \
+N(1, 0, 0, MaskType, mask_type) \
+N(1, 0, 0, NoRet, noret_type) \
+N(1, 0, 0, Unit, unit_type) \
+N(1, 0, 1, Int, int_type) \
+N(1, 0, 0, Float, float_type) \
+N(1, 0, 0, Bool, bool_type) \
+N(1, 0, 1, RecordType, record_type) \
+N(1, 0, 1, FnType, fn_type) \
+N(1, 0, 1, PtrType, ptr_type) \
+N(1, 1, 1, QualifiedType, qualified_type) \
+N(1, 0, 1, ArrType, arr_type) \
+N(1, 1, 1, PackType, pack_type) \
 
-#define VALUE_NODES() \
-NODEDEF(0, 1, 1, Variable, var) \
-NODEDEF(1, 0, 1, Unbound, unbound) \
-NODEDEF(1, 1, 1, UntypedNumber, untyped_number) \
-NODEDEF(1, 1, 1, IntLiteral, int_literal) \
-NODEDEF(1, 1, 0, True, true_lit) \
-NODEDEF(1, 1, 0, False, false_lit) \
-NODEDEF(1, 1, 1, StringLiteral, string_lit) \
-NODEDEF(1, 1, 1, ArrayLiteral, arr_lit) \
-NODEDEF(0, 1, 1, Tuple, tuple) \
-NODEDEF(1, 1, 1, FnAddr, fn_addr) \
+#define VALUE_NODES(N) \
+N(0, 1, 1, Variable, var) \
+N(1, 0, 1, Unbound, unbound) \
+N(1, 1, 1, UntypedNumber, untyped_number) \
+N(1, 1, 1, IntLiteral, int_literal) \
+N(1, 1, 0, True, true_lit) \
+N(1, 1, 0, False, false_lit) \
+N(1, 1, 1, StringLiteral, string_lit) \
+N(1, 1, 1, ArrayLiteral, arr_lit) \
+N(0, 1, 1, Tuple, tuple) \
+N(1, 1, 1, FnAddr, fn_addr) \
 
-#define INSTRUCTION_NODES() \
-NODEDEF(0, 1, 1, Let, let) \
-NODEDEF(1, 1, 1, PrimOp, prim_op)  \
-NODEDEF(1, 1, 1, Call, call_instr)  \
-NODEDEF(1, 1, 1, If, if_instr) \
-NODEDEF(1, 1, 1, Match, match_instr) \
-NODEDEF(1, 1, 1, Loop, loop_instr) \
+#define INSTRUCTION_NODES(N) \
+N(0, 1, 1, Let, let) \
+N(1, 1, 1, PrimOp, prim_op)  \
+N(1, 1, 1, Call, call_instr)  \
+N(1, 1, 1, If, if_instr) \
+N(1, 1, 1, Match, match_instr) \
+N(1, 1, 1, Loop, loop_instr) \
 
-#define TERMINATOR_NODES() \
-NODEDEF(1, 1, 1, Branch, branch) \
-NODEDEF(1, 1, 1, Join, join) \
-NODEDEF(1, 1, 1, Callc, callc) \
-NODEDEF(1, 1, 1, Return, fn_ret) \
-NODEDEF(1, 0, 1, MergeConstruct, merge_construct) \
-NODEDEF(1, 0, 0, Unreachable, unreachable) \
+#define TERMINATOR_NODES(N) \
+N(1, 1, 1, Branch, branch) \
+N(1, 1, 1, Join, join) \
+N(1, 1, 1, Callc, callc) \
+N(1, 1, 1, Return, fn_ret) \
+N(1, 0, 1, MergeConstruct, merge_construct) \
+N(1, 0, 0, Unreachable, unreachable) \
 
-#define NODES() \
-VALUE_NODES() \
-INSTRUCTION_NODES() \
-TERMINATOR_NODES() \
-TYPE_NODES() \
-NODEDEF(0, 1, 1, Function, fn) \
-NODEDEF(0, 0, 1, Constant, constant) \
-NODEDEF(0, 1, 1, GlobalVariable, global_variable) \
-NODEDEF(1, 0, 1, Block, block) \
-NODEDEF(1, 0, 1, ParsedBlock, parsed_block) \
-NODEDEF(1, 0, 1, Annotation, annotation) \
-NODEDEF(1, 0, 1, Root, root) \
+#define NODES(N) \
+VALUE_NODES(N) \
+INSTRUCTION_NODES(N) \
+TERMINATOR_NODES(N) \
+TYPE_NODES(N) \
+N(0, 1, 1, Function, fn) \
+N(0, 0, 1, Constant, constant) \
+N(0, 1, 1, GlobalVariable, global_variable) \
+N(1, 0, 1, Block, block) \
+N(1, 0, 1, ParsedBlock, parsed_block) \
+N(1, 0, 1, Annotation, annotation) \
+N(1, 0, 1, Root, root)   \
+
+typedef enum NodeTag_ {
+#define NODE_GEN_TAG(_, _2, _3, struct_name, short_name) struct_name##_TAG,
+NODES(NODE_GEN_TAG)
+#undef NODE_GEN_TAG
+} NodeTag;
 
 //////////////////////////////// Lists & Strings ////////////////////////////////
 
@@ -502,12 +508,6 @@ extern const bool node_type_has_payload[];
 /// Get the name out of a global variable, function or constant
 String get_decl_name(const Node*);
 
-typedef enum NodeTag_ {
-#define NODEDEF(_, _2, _3, struct_name, short_name) struct_name##_TAG,
-NODES()
-#undef NODEDEF
-} NodeTag;
-
 inline static bool is_nominal(NodeTag tag) {
     return tag == Function_TAG || tag == Root_TAG || tag == Constant_TAG || tag == Variable_TAG || tag == GlobalVariable_TAG;
 }
@@ -525,9 +525,9 @@ struct Node_ {
     union NodesUnion {
 #define NODE_PAYLOAD_1(u, o) u o;
 #define NODE_PAYLOAD_0(u, o)
-#define NODEDEF(_, _2, has_payload, struct_name, short_name) NODE_PAYLOAD_##has_payload(struct_name, short_name)
-        NODES()
-#undef NODEDEF
+#define NODE_PAYLOAD(_, _2, has_payload, struct_name, short_name) NODE_PAYLOAD_##has_payload(struct_name, short_name)
+        NODES(NODE_PAYLOAD)
+#undef NODE_PAYLOAD
     } payload;
 };
 
@@ -536,9 +536,9 @@ struct Node_ {
 #define NODE_CTOR_DECL_0(struct_name, short_name) const Node* short_name(IrArena*);
 #define NODE_CTOR_1(has_payload, struct_name, short_name) NODE_CTOR_DECL_##has_payload(struct_name, short_name)
 #define NODE_CTOR_0(has_payload, struct_name, short_name)
-#define NODEDEF(autogen_ctor, _, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_payload, struct_name, short_name)
-NODES()
-#undef NODEDEF
+#define NODE_CTOR(autogen_ctor, _, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_payload, struct_name, short_name)
+NODES(NODE_CTOR)
+#undef NODE_CTOR
 #undef NODE_CTOR_0
 #undef NODE_CTOR_1
 #undef NODE_CTOR_DECL_0

@@ -17,9 +17,9 @@ void check_subtype(const Type* supertype, const Type* type);
 
 #define DEFINE_NODE_CHECK_FN_1(struct_name, short_name, has_payload) DEFINE_NODE_CHECK_FN_1_##has_payload(struct_name, short_name)
 #define DEFINE_NODE_CHECK_FN_0(struct_name, short_name, _)
-#define NODEDEF(_, has_typing_fn, has_payload, struct_name, short_name) DEFINE_NODE_CHECK_FN_##has_typing_fn(struct_name, short_name, has_payload)
-NODES()
-#undef NODEDEF
+#define DEFINE_NODE_CHECK_FN(_, has_typing_fn, has_payload, struct_name, short_name) DEFINE_NODE_CHECK_FN_##has_typing_fn(struct_name, short_name, has_payload)
+NODES(DEFINE_NODE_CHECK_FN)
+#undef DEFINE_NODE_CHECK_FN
 
 const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types);
 Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
