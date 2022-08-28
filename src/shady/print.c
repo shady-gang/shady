@@ -171,33 +171,23 @@ static void print_annotations(struct PrinterCtx* ctx, Nodes annotations) {
     }
 }
 
-static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
-
-    if (node == NULL) {
-        printf("?");
-        return;
-    }
-
-    if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)node);
-
-    switch (node->tag) {
-        // --------------------------- TYPES
+static void print_type(PrinterCtx* ctx, const Node* node) {
+    printf(BCYAN);
+    switch (is_type(node)) {
+        case NotAType: assert(false); break;
+        case Unit_TAG: printf("()"); break;
+        case NoRet_TAG: printf("!"); break;
+        case Bool_TAG: printf("bool"); break;
+        case Float_TAG: printf("float"); break;
+        case MaskType_TAG: printf("mask"); break;
         case QualifiedType_TAG:
             printf(CYAN);
-            if (node->payload.qualified_type.is_uniform)
-                printf("uniform ");
-            else
-                printf("varying ");
+            printf(node->payload.qualified_type.is_uniform ? "uniform" : "varying");
+            printf(" ");
+            printf(RESET);
             print_node(node->payload.qualified_type.type);
-            printf(RESET);
-            break;
-        case NoRet_TAG:
-            printf(BCYAN);
-            printf("!");
-            printf(RESET);
             break;
         case Int_TAG:
-            printf(BCYAN);
             switch (node->payload.int_literal.width) {
                 case IntTy8:  printf("i8");  break;
                 case IntTy16: printf("i16"); break;
@@ -205,39 +195,21 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                 case IntTy64: printf("i64"); break;
                 default: error("Not a known valid int width")
             }
-            printf(RESET);
-            break;
-        case Bool_TAG:
-            printf(BCYAN);
-            printf("bool");
-            printf(RESET);
-            break;
-        case Float_TAG:
-            printf(BCYAN);
-            printf("float");
-            printf(RESET);
-            break;
-        case MaskType_TAG:
-            printf(BCYAN);
-            printf("mask");
-            printf(RESET);
             break;
         case RecordType_TAG:
-            printf(BCYAN);
             printf("struct");
             printf(RESET);
             printf(" {");
             const Nodes* members = &node->payload.record_type.members;
             for (size_t i = 0; i < members->count; i++) {
                 print_node(members->nodes[i]);
+                printf(RESET);
                 if (i < members->count - 1)
                     printf(", ");
             }
-            printf(RESET);
             printf("}");
             break;
         case FnType_TAG: {
-            printf(BCYAN);
             if (node->payload.fn_type.is_basic_block) {
                 printf("cont");
                 printf(RESET);
@@ -262,7 +234,6 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             break;
         }
         case PtrType_TAG: {
-            printf(BCYAN);
             printf("ptr");
             printf(RESET);
             printf("(");
@@ -280,13 +251,6 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                 print_node(node->payload.arr_type.size);
             }
             printf("]");
-            printf(RESET);
-            break;
-        }
-        case Unit_TAG: {
-            printf(BCYAN);
-            printf("()");
-            printf(RESET);
             break;
         }
         case PackType_TAG: {
@@ -299,87 +263,13 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf(")");
             break;
         }
+    }
+    printf(RESET);
+}
 
-        case Root_TAG: {
-            const Root* top_level = &node->payload.root;
-            for (size_t i = 0; i < top_level->declarations.count; i++) {
-                const Node* decl = top_level->declarations.nodes[i];
-                if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)decl);
-                if (decl->tag == GlobalVariable_TAG) {
-                    const GlobalVariable* gvar = &decl->payload.global_variable;
-                    print_annotations(ctx, gvar->annotations);
-                    print_storage_qualifier_for_global(ctx, gvar->address_space);
-                    printf(" ");
-                    print_node(gvar->type);
-                    printf(BYELLOW);
-                    printf(" %s", gvar->name);
-                    printf(RESET);
-                    if (gvar->init) {
-                        printf(" = ");
-                        print_node(gvar->init);
-                    }
-                    printf(";\n");
-                } else if (decl->tag == Function_TAG) {
-                    const Function* fun = &decl->payload.fn;
-                    assert(!fun->is_basic_block && "basic blocks aren't supposed to be found at the top level");
-                    print_annotations(ctx, fun->annotations);
-                    printf(BLUE);
-                    printf("fn");
-                    printf(RESET);
-                    printf(BYELLOW);
-                    printf(" %s", fun->name);
-                    printf(RESET);
-                    print_function(ctx, decl);
-                    printf(";\n\n");
-                } else if (decl->tag == Constant_TAG) {
-                    const Constant* cnst = &decl->payload.constant;
-                    print_annotations(ctx, cnst->annotations);
-                    printf(BLUE);
-                    printf("const ");
-                    printf(RESET);
-                    print_node(decl->type);
-                    printf(BYELLOW);
-                    printf(" %s", cnst->name);
-                    printf(RESET);
-                    printf(" = ");
-                    print_node(cnst->value);
-                    printf(";\n");
-                } else error("Unammed node at the top level")
-            }
-            break;
-        }
-        case Annotation_TAG: {
-            const Annotation* annotation = &node->payload.annotation;
-            printf(RED);
-            printf("@%s", annotation->name);
-            printf(RESET);
-            switch (annotation->payload_type) {
-                case AnPayloadValue:
-                    printf("(");
-                    print_node(annotation->value);
-                    printf(")");
-                    break;
-                default: break;
-            }
-            break;
-        }
-
-        case Constant_TAG:
-            printf(BYELLOW);
-            printf("%s", node->payload.constant.name);
-            printf(RESET);
-            break;
-        case GlobalVariable_TAG:
-            printf(BYELLOW);
-            printf("%s", node->payload.global_variable.name);
-            printf(RESET);
-            break;
-        case Function_TAG:
-            printf(BYELLOW);
-            printf("%s", node->payload.fn.name);
-            printf(RESET);
-            break;
-
+static void print_value(PrinterCtx* ctx, const Node* node) {
+    switch (is_value(node)) {
+        case NotAValue: assert(false); break;
         case Variable_TAG:
             printf(YELLOW);
             printf("%s~%d", node->payload.var.name, node->payload.var.id);
@@ -390,42 +280,6 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("`%s`", node->payload.unbound.name);
             printf(RESET);
             break;
-        case FnAddr_TAG:
-            printf("&");
-            print_node(node->payload.fn_addr.fn);
-            break;
-        case Block_TAG: {
-            const Block* block = &node->payload.block;
-            for(size_t i = 0; i < block->instructions.count; i++) {
-                INDENT
-                print_node(block->instructions.nodes[i]);
-                printf(";\n");
-            }
-            INDENT
-            print_node(block->terminator);
-            printf("\n");
-            break;
-        }
-        case ParsedBlock_TAG: {
-            const ParsedBlock* pblock = &node->payload.parsed_block;
-            for(size_t i = 0; i < pblock->instructions.count; i++) {
-                INDENT
-                print_node(pblock->instructions.nodes[i]);
-                printf(";\n");
-            }
-            INDENT
-            print_node(pblock->terminator);
-            printf("\n");
-
-            if (pblock->continuations.count > 0) {
-                printf("\n");
-            }
-            for(size_t i = 0; i < pblock->continuations.count; i++) {
-                INDENT
-                print_node_impl(ctx, pblock->continuations.nodes[i]);
-            }
-            break;
-        }
         case UntypedNumber_TAG:
             printf(BBLUE);
             printf("%s", node->payload.untyped_number.plaintext);
@@ -474,7 +328,23 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             printf("}");
             printf(RESET);
             break;
-        // ----------------- INSTRUCTIONS
+        case Value_Tuple_TAG: error("TODO")
+        case Value_RefDecl_TAG: {
+            printf(BYELLOW);
+            printf((char*) get_decl_name(node->payload.ref_decl.decl));
+            printf(RESET);
+            break;
+        }
+        case FnAddr_TAG:
+            printf("&");
+            printf((char*) get_decl_name(node->payload.fn_addr.fn));
+            break;
+    }
+}
+
+static void print_instruction(PrinterCtx* ctx, const Node* node) {
+    switch (is_instruction(node)) {
+        case NotAnInstruction: assert(false); break;
         case Let_TAG:
             if (node->payload.let.variables.count > 0) {
                 printf(GREEN);
@@ -588,7 +458,12 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             ctx->indent--;
             INDENT printf("}");
             break;
-        // --------------------- TERMINATORS
+    }
+}
+
+static void print_terminator(PrinterCtx* ctx, const Node* node) {
+    switch (is_terminator(node)) {
+        case NotATerminator: assert(false); break;
         case Return_TAG:
             printf(BGREEN);
             printf("return");
@@ -668,7 +543,7 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
             else
                 printf("callc ");
             printf(RESET);
-            print_node(node->payload.callc.ret_cont);
+            print_node(node->payload.callc.join_at);
             printf(" ");
             print_node(node->payload.callc.callee);
             for (size_t i = 0; i < node->payload.callc.args.count; i++) {
@@ -690,6 +565,134 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
                 printf(" ");
             }
             break;
+    }
+}
+
+static void print_decl(PrinterCtx* ctx, const Node* node) {
+    switch (node->tag) {
+        case GlobalVariable_TAG: {
+            const GlobalVariable* gvar = &node->payload.global_variable;
+            print_annotations(ctx, gvar->annotations);
+            print_storage_qualifier_for_global(ctx, gvar->address_space);
+            printf(" ");
+            print_node(gvar->type);
+            printf(BYELLOW);
+            printf(" %s", gvar->name);
+            printf(RESET);
+            if (gvar->init) {
+                printf(" = ");
+                print_node(gvar->init);
+            }
+            printf(";\n");
+            break;
+        }
+        case Constant_TAG: {
+            const Constant* cnst = &node->payload.constant;
+            print_annotations(ctx, cnst->annotations);
+            printf(BLUE);
+            printf("const ");
+            printf(RESET);
+            print_node(node->type);
+            printf(BYELLOW);
+            printf(" %s", cnst->name);
+            printf(RESET);
+            printf(" = ");
+            print_node(cnst->value);
+            printf(";\n");
+            break;
+        }
+        case Function_TAG: {
+            const Function* fun = &node->payload.fn;
+            assert(!fun->is_basic_block && "basic blocks aren't supposed to be found at the top level");
+            print_annotations(ctx, fun->annotations);
+            printf(BLUE);
+            printf("fn");
+            printf(RESET);
+            printf(BYELLOW);
+            printf(" %s", fun->name);
+            printf(RESET);
+            print_function(ctx, node);
+            printf(";\n\n");
+            break;
+        }
+        default: error("Not a decl");
+    }
+}
+
+static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
+    if (node == NULL) {
+        printf("?");
+        return;
+    }
+
+    if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)node);
+
+    if (is_type(node))
+        print_type(ctx, node);
+    else if (is_value(node))
+        print_value(ctx, node);
+    else if (is_instruction(node))
+        print_instruction(ctx, node);
+    else if (is_terminator(node))
+        print_terminator(ctx, node);
+    else if (is_declaration(node->tag))
+        print_decl(ctx, node);
+    else switch (node->tag) {
+        case Root_TAG: {
+            const Root* top_level = &node->payload.root;
+            for (size_t i = 0; i < top_level->declarations.count; i++) {
+                const Node* decl = top_level->declarations.nodes[i];
+                print_node(decl);
+            }
+            break;
+        }
+        case Annotation_TAG: {
+            const Annotation* annotation = &node->payload.annotation;
+            printf(RED);
+            printf("@%s", annotation->name);
+            printf(RESET);
+            switch (annotation->payload_type) {
+                case AnPayloadValue:
+                    printf("(");
+                    print_node(annotation->value);
+                    printf(")");
+                    break;
+                default: break;
+            }
+            break;
+        }
+        case Block_TAG: {
+            const Block* block = &node->payload.block;
+            for(size_t i = 0; i < block->instructions.count; i++) {
+                INDENT
+                print_node(block->instructions.nodes[i]);
+                printf(";\n");
+            }
+            INDENT
+            print_node(block->terminator);
+            printf("\n");
+            break;
+        }
+        case ParsedBlock_TAG: {
+            const ParsedBlock* pblock = &node->payload.parsed_block;
+            for(size_t i = 0; i < pblock->instructions.count; i++) {
+                INDENT
+                print_node(pblock->instructions.nodes[i]);
+                printf(";\n");
+            }
+            INDENT
+            print_node(pblock->terminator);
+            printf("\n");
+
+            if (pblock->continuations.count > 0) {
+                printf("\n");
+            }
+            for(size_t i = 0; i < pblock->continuations.count; i++) {
+                INDENT
+                print_node_impl(ctx, pblock->continuations.nodes[i]);
+            }
+            break;
+        }
         default: error("dunno how to print %s", node_tags[node->tag]);
     }
 }
