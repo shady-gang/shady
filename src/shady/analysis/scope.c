@@ -102,7 +102,7 @@ Scope build_scope(const Node* entry) {
             }
             case Callc_TAG: {
                 if (terminator->payload.callc.is_return_indirect) break;
-                const Node* target = terminator->payload.callc.ret_cont;
+                const Node* target = terminator->payload.callc.join_at;
                 process_edge(target);
                 break;
             }

@@ -64,45 +64,39 @@ static Node* create_node_helper(IrArena* arena, Node node) {
 NODES(NODE_CTOR)
 #undef NODE_CTOR
 
-bool is_instruction(const Node* node) {
+TypeTag is_type(const Node* node) {
     switch (node->tag) {
-#define IS_INSTRUCTION(_, _2, _3, name, _4) case name##_TAG:
-        INSTRUCTION_NODES(IS_INSTRUCTION)
-#undef IS_INSTRUCTION
-            return true;
-        default: return false;
-    }
-}
-
-bool is_terminator(const Node* node) {
-    switch (node->tag) {
-#define IS_TERMINATOR(_, _2, _3, name, _4) case name##_TAG:
-        TERMINATOR_NODES(IS_TERMINATOR)
-#undef IS_TERMINATOR
-            return true;
-        default: return false;
-    }
-}
-
-bool is_value(const Node* node) {
-    switch (node->tag) {
-#define IS_VALUE(_, _2, _3, name, _4) case name##_TAG:
-        VALUE_NODES(IS_VALUE)
-#undef IS_VALUE
-        case GlobalVariable_TAG:
-        case Constant_TAG:
-            return true;
-        default: return false;
-    }
-}
-
-bool is_type(const Node* node) {
-    switch (node->tag) {
-#define IS_TYPE(_, _2, _3, name, _4) case name##_TAG:
+#define IS_TYPE(_, _2, _3, name, _4) case name##_TAG: return Type_##name##_TAG;
 TYPE_NODES(IS_TYPE)
 #undef IS_TYPE
-                 return true;
-        default: return false;
+        default: return NotAType;
+    }
+}
+
+ValueTag is_value(const Node* node) {
+    switch (node->tag) {
+#define IS_VALUE(_, _2, _3, name, _4) case name##_TAG: return Value_##name##_TAG;
+        VALUE_NODES(IS_VALUE)
+#undef IS_VALUE
+        default: return NotAValue;
+    }
+}
+
+InstructionTag is_instruction(const Node* node) {
+    switch (node->tag) {
+#define IS_INSTRUCTION(_, _2, _3, name, _4) case name##_TAG: return Instruction_##name##_TAG;
+        INSTRUCTION_NODES(IS_INSTRUCTION)
+#undef IS_INSTRUCTION
+        default: return NotAnInstruction;
+    }
+}
+
+TerminatorTag is_terminator(const Node* node) {
+    switch (node->tag) {
+#define IS_TERMINATOR(_, _2, _3, name, _4) case name##_TAG: return Terminator_##name##_TAG;
+        TERMINATOR_NODES(IS_TERMINATOR)
+#undef IS_TERMINATOR
+        default: return NotATerminator;
     }
 }
 

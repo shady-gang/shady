@@ -90,6 +90,7 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
 }
 
 void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new) {
+    assert(is_declaration(new->tag) && is_declaration(old->tag));
     switch (old->tag) {
         case GlobalVariable_TAG: {
             new->payload.global_variable.init = rewrite_node(rewriter, old->payload.global_variable.init);
@@ -109,6 +110,8 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
         default: error("not a decl");
     }
 }
+
+#pragma GCC diagnostic error "-Wswitch"
 
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
@@ -260,7 +263,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Callc_TAG:         return callc(rewriter->dst_arena, (Callc) {
             .is_return_indirect = node->payload.callc.is_return_indirect,
             .callee = rewrite_node(rewriter, node->payload.callc.callee),
-            .ret_cont = rewrite_node(rewriter, node->payload.callc.ret_cont),
+            .join_at = rewrite_node(rewriter, node->payload.callc.join_at),
             .args = rewrite_nodes(rewriter, node->payload.callc.args),
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {

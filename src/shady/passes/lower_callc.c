@@ -145,18 +145,18 @@ static void handle_todo_entry(Context* ctx, Todo todo) {
     const Callc* old_callc = &todo.old_block->payload.block.terminator->payload.callc;
 
     debug_print("Processing callc ret_cont: ");
-    debug_node(old_callc->ret_cont);
+    debug_node(old_callc->join_at);
     debug_print("\n");
 
     Nodes instructions = todo.old_block->payload.block.instructions;
-    const Node* lifted_fn = lift_continuation_into_function(ctx, old_callc->ret_cont, &instructions);
+    const Node* lifted_fn = lift_continuation_into_function(ctx, old_callc->join_at, &instructions);
     *todo.new_block = block(ctx->rewriter.dst_arena, (Block) {
         .instructions = rewrite_nodes(&ctx->rewriter, instructions),
         .terminator = callc(ctx->rewriter.dst_arena, (Callc) {
             .is_return_indirect = true,
             .callee = process_node(ctx, old_callc->callee),
             .args = rewrite_nodes(&ctx->rewriter, old_callc->args),
-            .ret_cont = fn_addr(ctx->rewriter.dst_arena, (FnAddr) {.fn = lifted_fn}),
+            .join_at = fn_addr(ctx->rewriter.dst_arena, (FnAddr) {.fn = lifted_fn}),
         })
     });
 }

@@ -94,7 +94,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                 return block(dst_arena, (Block) {
                     .instructions = instructions,
                     .terminator = callc(dst_arena, (Callc) {
-                        .ret_cont = return_continuation,
+                        .join_at = return_continuation,
                         .callee = fn_addr(dst_arena, (FnAddr) {.fn = process_node(ctx, callee) }),
                         .args = rewrite_nodes(&ctx->rewriter, instr->payload.call_instr.args)
                     })

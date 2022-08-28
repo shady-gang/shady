@@ -28,9 +28,11 @@ bool are_types_identical(size_t num_types, const Type* types[]) {
 }
 
 bool is_subtype(const Type* supertype, const Type* type) {
+    assert(supertype && type);
     if (supertype->tag != type->tag)
         return false;
-    switch (supertype->tag) {
+    switch (is_type(supertype)) {
+        case NotAType: error("supplied not a type to is_subtype");
         case QualifiedType_TAG: {
             // uniform T <: varying T
             if (supertype->payload.qualified_type.is_uniform && !type->payload.qualified_type.is_uniform)

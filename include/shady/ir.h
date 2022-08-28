@@ -103,10 +103,11 @@ N(1, 0, 1, MergeConstruct, merge_construct) \
 N(1, 0, 0, Unreachable, unreachable) \
 
 #define NODES(N) \
+N(0, 0, 0, InvalidNode, invalid_node) \
+TYPE_NODES(N) \
 VALUE_NODES(N) \
 INSTRUCTION_NODES(N) \
 TERMINATOR_NODES(N) \
-TYPE_NODES(N) \
 N(0, 1, 1, Function, fn) \
 N(0, 0, 1, Constant, constant) \
 N(0, 1, 1, GlobalVariable, global_variable) \
@@ -145,7 +146,14 @@ String unique_name(IrArena* arena, const char* start);
 
 //////////////////////////////// Types ////////////////////////////////
 
-bool is_type(const Node*);
+typedef enum {
+    NotAType = 0,
+#define X(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) Type_##struct_name##_TAG = struct_name##_TAG,
+TYPE_NODES(X)
+#undef X
+} TypeTag;
+
+TypeTag is_type(const Node*);
 
 typedef struct QualifiedType_ {
     bool is_uniform;
@@ -199,7 +207,14 @@ typedef struct PackType_ {
 
 //////////////////////////////// Values ////////////////////////////////
 
-bool is_value(const Node*);
+typedef enum {
+    NotAValue = 0,
+#define X(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) Value_##struct_name##_TAG = struct_name##_TAG,
+VALUE_NODES(X)
+#undef X
+} ValueTag;
+
+ValueTag is_value(const Node*);
 
 typedef struct Variable_ {
     const Type* type;
@@ -331,7 +346,14 @@ typedef struct Root_ {
 
 //////////////////////////////// Instructions ////////////////////////////////
 
-bool is_instruction(const Node*);
+typedef enum {
+    NotAnInstruction = 0,
+#define X(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) Instruction_##struct_name##_TAG = struct_name##_TAG,
+INSTRUCTION_NODES(X)
+#undef X
+} InstructionTag;
+
+InstructionTag is_instruction(const Node*);
 
 typedef struct Let_ {
     Nodes variables;
@@ -442,7 +464,14 @@ typedef struct Loop_ {
 
 //////////////////////////////// Terminators ////////////////////////////////
 
-bool is_terminator(const Node*);
+typedef enum {
+    NotATerminator = 0,
+#define X(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) Terminator_##struct_name##_TAG = struct_name##_TAG,
+TERMINATOR_NODES(X)
+#undef X
+} TerminatorTag;
+
+TerminatorTag is_terminator(const Node*);
 
 /// A branch. Branches can cause divergence, but they can never cause re-convergence.
 /// @n @p BrJump is guaranteed to not cause divergence, but all the other forms may cause it.
@@ -497,7 +526,7 @@ typedef struct Return_ {
 /// See lower_callc.c
 typedef struct Callc_ {
     bool is_return_indirect;
-    const Node* ret_cont;
+    const Node* join_at;
     const Node* callee;
     Nodes args;
 } Callc;

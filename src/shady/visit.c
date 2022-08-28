@@ -33,6 +33,7 @@ void visit_children(Visitor* visitor, const Node* node) {
 
     switch(node->tag) {
         // Types
+        case InvalidNode_TAG:
         case MaskType_TAG:
         case NoRet_TAG:
         case Unit_TAG:
