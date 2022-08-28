@@ -8,7 +8,7 @@
 
 #define visit(t) if (t && visitor->visit_fn) visitor->visit_fn(visitor, t);
 
-static void visit_nodes(Visitor* visitor, Nodes nodes) {
+void visit_nodes(Visitor* visitor, Nodes nodes) {
     for (size_t i = 0; i < nodes.count; i++) {
          visit(nodes.nodes[i]);
     }

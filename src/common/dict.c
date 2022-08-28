@@ -270,3 +270,26 @@ bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr)
 
     return !replacing;
 }
+
+bool dict_iter(struct Dict* dict, size_t* iterator_state, void* key, void* value) {
+    bool found_something = false;
+    while (!found_something) {
+        if (*iterator_state >= dict->size) {
+            return false;
+        }
+        const size_t alloc_base = (size_t) dict->alloc;
+        size_t bucket = alloc_base + (*iterator_state) * dict->bucket_entry_size;
+        struct BucketTag* tag = (struct BucketTag*) (void*) (bucket + dict->tag_offset);
+        if (tag->is_present) {
+            found_something = true;
+            void* in_dict_key = (void*) bucket;
+            if (key)
+                memcpy(key, in_dict_key, dict->key_size);
+            void* in_dict_value = (void*) (bucket + dict->value_offset);
+            if (value && dict->value_size > 0)
+                memcpy(value, in_dict_value, dict->value_size);
+        }
+        (*iterator_state)++;
+    }
+    return true;
+}

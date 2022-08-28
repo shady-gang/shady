@@ -20,6 +20,8 @@ struct Dict* clone_dict(struct Dict*);
 void destroy_dict(struct Dict*);
 void clear_dict(struct Dict*);
 
+bool dict_iter(struct Dict*, size_t* iterator_state, void* key, void* value);
+
 size_t entries_count_dict(struct Dict*);
 
 #define find_value_dict(K, T, dict, key) (T*) find_value_dict_impl(dict, (void*) (&(key)))

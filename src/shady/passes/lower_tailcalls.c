@@ -80,6 +80,7 @@ static const Node* rewrite_block(Context* ctx, const Node* old_block, BlockBuild
             const Node* target = rewrite_node(&ctx->rewriter, old_terminator->payload.branch.target);
 
             const Node* call = call_instr(arena, (Call) {
+                .is_indirect = false,
                 .callee = find_decl(ctx, "builtin_branch"),
                 .args = nodes(arena, 2, (const Node*[]) { target })
             });
@@ -97,6 +98,7 @@ static const Node* rewrite_block(Context* ctx, const Node* old_block, BlockBuild
             const Node* mask = rewrite_node(&ctx->rewriter, old_terminator->payload.join.desired_mask);
 
             const Node* call = call_instr(arena, (Call) {
+                .is_indirect = false,
                 .callee = find_decl(ctx, "builtin_join"),
                 .args = nodes(arena, 2, (const Node*[]) { target, mask })
             });
@@ -142,6 +144,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     gen_store(builder, find_decl(ctx, "next_mask"), entry_mask);
 
     append_block(builder, call_instr(dst_arena, (Call) {
+        .is_indirect = false,
         .callee = ctx->god_fn,
         .args = nodes(dst_arena, 0, NULL)
     }));
@@ -268,6 +271,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
 
             // TODO wrap in if(mask)
             append_block(case_builder, call_instr(dst_arena, (Call) {
+                .is_indirect = false,
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, 0, NULL)
             }));

@@ -8,14 +8,18 @@
 
 #include <assert.h>
 
-static void annotate_all_types(IrArena* arena, Nodes* types, bool uniform_by_default) {
-    for (size_t i = 0; i < types->count; i++) {
-        if (!contains_qualified_type(types->nodes[i]))
-            types->nodes[i] = qualified_type(arena, (QualifiedType) {
-                .type = types->nodes[i],
+static Nodes annotate_all_types(IrArena* arena, Nodes types, bool uniform_by_default) {
+    LARRAY(const Type*, ntypes, types.count);
+    for (size_t i = 0; i < types.count; i++) {
+        if (!contains_qualified_type(types.nodes[i]))
+            ntypes[i] = qualified_type(arena, (QualifiedType) {
+                .type = types.nodes[i],
                 .is_uniform = uniform_by_default,
             });
+        else
+            ntypes[i] = types.nodes[i];
     }
+    return nodes(arena, types.count, ntypes);
 }
 
 typedef struct {
@@ -122,7 +126,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
                 register_processed(&body_context.rewriter, node->payload.fn.params.nodes[i], nparams[i]);
             }
 
-            Nodes nret_types = infer_types(ctx, node->payload.fn.return_types);
+            Nodes nret_types = annotate_all_types(dst_arena, infer_types(ctx, node->payload.fn.return_types), false);
 
             Node* fun = fn(dst_arena, infer_annotations(ctx, node->payload.fn.annotations), string(dst_arena, node->payload.fn.name), node->payload.fn.is_basic_block, nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
             register_processed(&ctx->rewriter, node, fun);
@@ -315,9 +319,11 @@ static const Node* infer_call(Context* ctx, const Node* node) {
     LARRAY(const Node*, new_args, node->payload.call_instr.args.count);
 
     const Type* callee_type = extract_operand_type(new_callee->type);
-    if (callee_type->tag != PtrType_TAG)
-        error("functions are called through function pointers");
-    callee_type = callee_type->payload.ptr_type.pointed_type;
+    if (node->payload.call_instr.is_indirect) {
+        if (callee_type->tag != PtrType_TAG)
+            error("functions are called through function pointers");
+        callee_type = callee_type->payload.ptr_type.pointed_type;
+    }
 
     if (callee_type->tag != FnType_TAG)
         error("Callees must have a function type");
@@ -331,6 +337,7 @@ static const Node* infer_call(Context* ctx, const Node* node) {
     }
 
     return call_instr(ctx->rewriter.dst_arena, (Call) {
+        .is_indirect = node->payload.call_instr.is_indirect,
         .callee = new_callee,
         .args = nodes(ctx->rewriter.dst_arena, node->payload.call_instr.args.count, new_args)
     });
@@ -342,7 +349,7 @@ static const Node* infer_if(Context* ctx, const Node* node) {
 
     Nodes join_types = infer_types(ctx, node->payload.if_instr.yield_types);
     // The type annotation on `if` may not include divergence/convergence info, we default that stuff to divergent
-    annotate_all_types(ctx->rewriter.dst_arena, &join_types, false);
+    join_types = annotate_all_types(ctx->rewriter.dst_arena, join_types, false);
     Context joinable_ctx = *ctx;
     joinable_ctx.join_types = &join_types;
 
@@ -378,7 +385,7 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
     }
 
     Nodes loop_yield_types = infer_types(ctx, node->payload.loop_instr.yield_types);
-    annotate_all_types(ctx->rewriter.dst_arena, &loop_yield_types, false);
+    loop_yield_types = annotate_all_types(ctx->rewriter.dst_arena, loop_yield_types, false);
 
     loop_body_ctx.join_types = NULL;
     loop_body_ctx.break_types = &loop_yield_types;

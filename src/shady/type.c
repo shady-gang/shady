@@ -729,12 +729,13 @@ const Type* check_type_call_instr(IrArena* arena, Call call) {
         assert(is_value(argument));
     }
 
-    const Type* callee_type;
+    const Type* callee_type = call.callee->type;
     bool callee_uniform;
-    deconstruct_operand_type(call.callee->type, &callee_type, &callee_uniform);
-    if (call.is_indirect)
+    if (call.is_indirect) {
+        deconstruct_operand_type(callee_type, &callee_type, &callee_uniform);
+        assert(callee_uniform);
         callee_type = remove_ptr_type_layer(callee_type);
-    assert(callee_uniform);
+    }
     return wrap_multiple_yield_types(arena, check_callsite_helper(callee_type, extract_types(arena, call.args)));
 }
 
@@ -795,13 +796,8 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
             assert(bool_type(arena) == condition_type);
 
             const Node* branches[2] = { branch.true_target, branch.false_target };
-            for (size_t i = 0; i < 2; i++) {
-                const Type* target_type;
-                bool target_uniform;
-                deconstruct_operand_type(branches[i]->type, &target_type, &target_uniform);
-                assert(target_uniform && "Non-uniform branch targets are not allowed");
-                check_callsite_helper(target_type, extract_types(arena, branch.args));
-            }
+            for (size_t i = 0; i < 2; i++)
+                check_callsite_helper(branches[i]->type, extract_types(arena, branch.args));
 
             return NULL;
         }
@@ -818,12 +814,12 @@ const Type* check_type_join(IrArena* arena, Join join) {
         assert(is_value(argument));
     }
 
-    const Type* join_target_type;
-    bool join_target_uniform;
-    deconstruct_operand_type(join.join_at->type, &join_target_type, &join_target_uniform);
-    assert(join_target_uniform);
+    const Type* join_target_type = join.join_at->type;
 
     if (join.is_indirect) {
+        bool join_target_uniform;
+        deconstruct_operand_type(join_target_type, &join_target_type, &join_target_uniform);
+        assert(join_target_uniform);
         assert(join_target_type->tag == PtrType_TAG);
         join_target_type = join_target_type->payload.ptr_type.pointed_type;
     }
@@ -866,6 +862,9 @@ const Type* check_type_fn_ret(IrArena* arena, Return ret) {
 
 const Type* check_type_fn(IrArena* arena, Function fn) {
     assert(!fn.is_basic_block || fn.return_types.count == 0);
+    for (size_t i = 0; i < fn.return_types.count; i++) {
+        assert(contains_qualified_type(fn.return_types.nodes[i]));
+    }
     return derive_fn_type(arena, &fn);
 }
 

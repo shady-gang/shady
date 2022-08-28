@@ -305,6 +305,7 @@ static const Node* accept_primary_expr(ctxparams) {
             case lpar_tok: {
                 Nodes args = expect_operands(ctx);
                 expr = call_instr(arena, (Call) {
+                    .is_indirect = true,
                     .callee = expr,
                     .args = args
                 });
@@ -494,6 +495,7 @@ static const Node* accept_primop(ctxparams) {
             expect(accept_token(ctx, rpar_tok));
             Nodes args = expect_operands(ctx);
             return call_instr(arena, (Call) {
+                .is_indirect = true,
                 .callee = callee,
                 .args = args,
             });

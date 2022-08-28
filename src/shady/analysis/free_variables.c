@@ -39,17 +39,17 @@ static void visit_fv(VisitorFV* visitor, const Node* node) {
             const Block* entry_block = &fun->block->payload.block;
             assert(fun->block);
             for (size_t j = 0; j < entry_block->instructions.count; j++) {
-                const Node* let_node = entry_block->instructions.nodes[j];
-                assert(let_node->tag == Let_TAG);
-
-                visit_fv(visitor, let_node->payload.let.instruction);
-
-                // after being computed, outputs are no longer considered free
-                Nodes outputs = let_node->payload.let.variables;
-                for (size_t k = 0; k < outputs.count; k++) {
-                    const Node* output = outputs.nodes[k];
-                    bool r = insert_set_get_result(const Node*, visitor->ignore_set, output);
-                    assert(r);
+                const Node* instr = entry_block->instructions.nodes[j];
+                const Node* actual_instr = instr->tag == Let_TAG ? instr->payload.let.instruction : instr;
+                visit_fv(visitor, actual_instr);
+                if (instr->tag == Let_TAG) {
+                    // after being computed, outputs are no longer considered free
+                    Nodes outputs = instr->payload.let.variables;
+                    for (size_t k = 0; k < outputs.count; k++) {
+                        const Node* output = outputs.nodes[k];
+                        bool r = insert_set_get_result(const Node*, visitor->ignore_set, output);
+                        assert(r);
+                    }
                 }
             }
 

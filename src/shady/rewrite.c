@@ -193,6 +193,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .operands = rewrite_nodes(rewriter, node->payload.prim_op.operands)
         });
         case Call_TAG:          return call_instr(rewriter->dst_arena, (Call) {
+            .is_indirect = node->payload.call_instr.is_indirect,
             .callee = rewrite_node(rewriter, node->payload.call_instr.callee),
             .args = rewrite_nodes(rewriter, node->payload.call_instr.args)
         });

@@ -75,10 +75,8 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
             }
             case Loop_TAG: error("TODO")
             case Call_TAG: {
-                const Node* callee = instr->payload.call_instr.callee;
-                assert(is_operand_uniform(callee->type));
-                const Type* callee_type = extract_operand_type(callee->type);
-                assert(callee_type->tag == FnType_TAG);
+                if (!instr->payload.call_instr.is_indirect)
+                    goto recreate_identity;
 
                 Nodes cont_params = recreate_variables(&ctx->rewriter, let_node->payload.let.variables);
                 for (size_t j = 0; j < cont_params.count; j++)
@@ -95,7 +93,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                     .instructions = instructions,
                     .terminator = callc(dst_arena, (Callc) {
                         .join_at = return_continuation,
-                        .callee = fn_addr(dst_arena, (FnAddr) {.fn = process_node(ctx, callee) }),
+                        .callee = process_node(ctx, instr->payload.call_instr.callee),
                         .args = rewrite_nodes(&ctx->rewriter, instr->payload.call_instr.args)
                     })
                 });

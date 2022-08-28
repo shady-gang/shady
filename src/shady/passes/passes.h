@@ -28,6 +28,9 @@ RewritePass lower_subgroup_ops;
 RewritePass lower_mask;
 
 // Optimisation passes
+
+/// Eliminates indirect calls where legal (the address isn't being captured, and there is no recursion)
+RewritePass remove_indirect_calls;
 RewritePass opt_simplify_cf;
 RewritePass opt_restructurize;
 

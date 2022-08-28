@@ -42,6 +42,19 @@ static const Node* ensure_is_value(Context* ctx, const Node* node) {
             }), 1, NULL);
             break;
         }
+        case Call_TAG: {
+            Nodes oargs = node->payload.call_instr.args;
+            LARRAY(const Node*, nargs, oargs.count);
+            for (size_t i = 0; i < oargs.count; i++)
+                nargs[i] = ensure_is_value(ctx, oargs.nodes[i]);
+            const Node* ncallee = node->payload.call_instr.is_indirect ? ensure_is_value(ctx, node->payload.call_instr.callee) : process_node(ctx, node->payload.call_instr.callee);
+            let_bound = let(dst_arena, call_instr(dst_arena, (Call) {
+                .is_indirect = node->payload.call_instr.is_indirect,
+                .callee = ncallee,
+                .args = nodes(dst_arena, oargs.count, nargs)
+            }), 1, NULL);
+            break;
+        }
         default: {
             return process_node(ctx, node);
         }

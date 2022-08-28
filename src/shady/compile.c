@@ -45,6 +45,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, c
 
     aconfig.allow_fold = true;
 
+    RUN_PASS(remove_indirect_calls)
     RUN_PASS(setup_stack_frames)
 
     RUN_PASS(lower_cf_instrs)

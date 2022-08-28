@@ -1,14 +1,17 @@
 #include "shady/ir.h"
 
-#include "../rewrite.h"
+#include "dict.h"
 #include "portability.h"
 #include "log.h"
 
+#include "../rewrite.h"
+
+#include "../analysis/callgraph.h"
+
 typedef struct {
     Rewriter rewriter;
+    CallGraph* graph;
 } Context;
-
-#include "dict.h"
 
 static const Node* process(Context* ctx, const Node* node) {
     IrArena* arena = ctx->rewriter.dst_arena;
@@ -27,17 +30,33 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             return root(arena, (Root) { .declarations = nodes(arena, new_decls_count, decls) });
         }
-        case Constant_TAG: {
-            const Node* value = process(ctx, node->payload.constant.value);
-            register_processed(&ctx->rewriter, node, value);
-            return value;
+        case Call_TAG: {
+            if (!node->payload.call_instr.is_indirect)
+                goto skip;
+            const Node* ocallee = node->payload.call_instr.callee;
+            if (ocallee->tag != FnAddr_TAG)
+                goto skip;
+            ocallee = ocallee->payload.fn_addr.fn;
+            assert(ocallee);
+            CGNode* callee_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
+            if (callee_node->is_recursive || callee_node->is_address_captured)
+                goto skip;
+            debug_print("Call to %s is not recursive, turning the call direct\n");
+            Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.call_instr.args);
+            return call_instr(ctx->rewriter.dst_arena, (Call) {
+                .is_indirect = false,
+                .callee = process(ctx, ocallee),
+                .args = nargs
+            });
         }
+        case Constant_TAG:
         case GlobalVariable_TAG:
         case Function_TAG: {
             Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
             recreate_decl_body_identity(&ctx->rewriter, node, new);
             return new;
         }
+        skip:
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }
@@ -45,7 +64,7 @@ static const Node* process(Context* ctx, const Node* node) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-const Node* eliminate_constants(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+const Node* remove_indirect_calls(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     Context ctx = {
         .rewriter = {
@@ -54,10 +73,10 @@ const Node* eliminate_constants(SHADY_UNUSED CompilerConfig* config, IrArena* sr
             .rewrite_fn = (RewriteFn) process,
             .processed = done,
         },
+        .graph = get_callgraph(src_program)
     };
-
     const Node* rewritten = process(&ctx, src_program);
-
     destroy_dict(done);
+    dispose_callgraph(ctx.graph);
     return rewritten;
 }

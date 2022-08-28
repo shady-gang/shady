@@ -1,0 +1,6 @@
+fn rec_pow i32(varying i32 x, varying i32 y) {
+    if (y > 1) {
+        return (x * rec_pow(x, y - 1));
+    }
+    return (1);
+}

@@ -336,8 +336,10 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case FnAddr_TAG:
+            printf(BYELLOW);
             printf("&");
             printf((char*) get_decl_name(node->payload.fn_addr.fn));
+            printf(RESET);
             break;
     }
 }
@@ -381,7 +383,8 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(GREEN);
             printf("call ");
             printf(RESET);
-            print_node(node->payload.call_instr.callee);
+            const Node* callee = node->payload.call_instr.callee;
+            print_node(callee);
             printf("(");
             for (size_t i = 0; i < node->payload.call_instr.args.count; i++) {
                 print_node(node->payload.call_instr.args.nodes[i]);
@@ -635,14 +638,16 @@ static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
         print_instruction(ctx, node);
     else if (is_terminator(node))
         print_terminator(ctx, node);
-    else if (is_declaration(node->tag))
-        print_decl(ctx, node);
-    else switch (node->tag) {
+    else if (is_declaration(node->tag)) {
+        printf(BYELLOW);
+        printf("%s", get_decl_name(node));
+        printf(RESET);
+    } else switch (node->tag) {
         case Root_TAG: {
             const Root* top_level = &node->payload.root;
             for (size_t i = 0; i < top_level->declarations.count; i++) {
                 const Node* decl = top_level->declarations.nodes[i];
-                print_node(decl);
+                print_decl(ctx, decl);
             }
             break;
         }

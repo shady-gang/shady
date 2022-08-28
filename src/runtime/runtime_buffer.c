@@ -42,7 +42,7 @@ struct Buffer_ {
 };
 
 Buffer* allocate_buffer_device(Device* device, size_t size) {
-    Buffer* buffer = calloc(sizeof(Buffer), 0);
+    Buffer* buffer = calloc(sizeof(Buffer), 1);
     buffer->imported = false;
 
     VkBufferCreateInfo buffer_create_info = {

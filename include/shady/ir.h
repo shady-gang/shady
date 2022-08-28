@@ -429,6 +429,7 @@ typedef struct PrimOp_ {
 } PrimOp;
 
 typedef struct Call_ {
+    bool is_indirect;
     const Node* callee;
     Nodes args;
 } Call;

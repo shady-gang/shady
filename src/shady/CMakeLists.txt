@@ -16,6 +16,7 @@ set(SHADY_SOURCES
     analysis/scope.c
     analysis/free_variables.c
     analysis/verify.c
+    analysis/callgraph.c
 
     transform/import.c
     transform/memory_layout.c
@@ -35,6 +36,7 @@ set(SHADY_SOURCES
     passes/setup_stack_frames.c
     passes/eliminate_constants.c
     passes/lower_subgroup_ops.c
+    passes/remove_indirect_calls.c
 
     emit/emit.c
     emit/emit_type.c
