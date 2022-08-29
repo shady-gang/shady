@@ -59,6 +59,14 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
     struct List* recover_context = compute_free_variables(cont);
     size_t recover_context_size = entries_count_list(recover_context);
 
+    debug_print("free variables at '%s': ", cont->payload.fn.name);
+    for (size_t i = 0; i < recover_context_size; i++) {
+        debug_print("%s", read_list(const Node*, recover_context)[i]->payload.var.name);
+        if (i + 1 < recover_context_size)
+            debug_print(", ");
+    }
+    debug_print("\n");
+
     // Create and register new parameters for the lifted continuation
     Nodes new_params = recreate_variables(&ctx->rewriter, cont->payload.fn.params);
     for (size_t i = 0; i < new_params.count; i++)
