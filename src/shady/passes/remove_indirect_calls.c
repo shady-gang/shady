@@ -37,11 +37,11 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ocallee->tag != FnAddr_TAG)
                 goto skip;
             ocallee = ocallee->payload.fn_addr.fn;
-            assert(ocallee);
+            assert(ocallee && ocallee->tag == Function_TAG);
             CGNode* callee_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
             if (callee_node->is_recursive || callee_node->is_address_captured)
                 goto skip;
-            debug_print("Call to %s is not recursive, turning the call direct\n");
+            debug_print("Call to %s is not recursive, turning the call direct\n", ocallee->payload.fn.name);
             Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.call_instr.args);
             return call_instr(ctx->rewriter.dst_arena, (Call) {
                 .is_indirect = false,
@@ -49,9 +49,28 @@ static const Node* process(Context* ctx, const Node* node) {
                 .args = nargs
             });
         }
-        case Constant_TAG:
-        case GlobalVariable_TAG:
         case Function_TAG: {
+            if (!node->payload.fn.is_basic_block) {
+                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
+                Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fn.annotations);
+                if (fn_node->is_address_captured || fn_node->is_recursive) {
+                    annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) {
+                        .name = "IndirectlyCalled",
+                        .payload_type = AnPayloadNone
+                    }));
+                }
+                Node* new = fn(arena, annotations, node->payload.fn.name, node->payload.fn.is_basic_block, recreate_variables(&ctx->rewriter, node->payload.fn.params), rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
+                for (size_t i = 0; i < new->payload.fn.params.count; i++)
+                    register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
+                register_processed(&ctx->rewriter, node, new);
+
+                recreate_decl_body_identity(&ctx->rewriter, node, new);
+                return new;
+            }
+            SHADY_FALLTHROUGH
+        }
+        case Constant_TAG:
+        case GlobalVariable_TAG: {
             Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
             recreate_decl_body_identity(&ctx->rewriter, node, new);
             return new;
