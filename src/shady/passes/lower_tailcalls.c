@@ -73,7 +73,7 @@ static const Node* rewrite_block(Context* ctx, const Node* old_block, BlockBuild
             const Node* call = call_instr(arena, (Call) {
                 .is_indirect = false,
                 .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_branch"),
-                .args = nodes(arena, 2, (const Node*[]) { target })
+                .args = nodes(arena, 1, (const Node*[]) { target })
             });
 
             append_block(block_builder, call);

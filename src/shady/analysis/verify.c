@@ -30,6 +30,14 @@ static void verify_same_arena(const Node* program) {
         .visitor = {
             .visit_fn = (VisitFn) visit_verify_same_arena,
             .visit_fn_scope_rpo = true,
+
+            // we also need to visit these potentially recursive things
+            // not because we might miss nodes in a well-formed program (we shouldn't)
+            // but rather because we might in a program that isn't.
+            .visit_fn_addr = true,
+            .visit_referenced_decls = true,
+            .visit_continuations = true,
+            .visit_return_fn_annotation = true,
         },
         .arena = arena,
         .once = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)

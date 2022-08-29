@@ -91,7 +91,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     // put the return address and a convergence token in the stack
                     const Node* conv_token = gen_primop_ce(instructions, subgroup_active_mask_op, 0, NULL);
                     gen_push_value_stack(instructions, conv_token);
-                    gen_push_value_stack(instructions, terminator->payload.callc.join_at);
+                    gen_push_value_stack(instructions, rewrite_node(&ctx->rewriter, terminator->payload.callc.join_at));
                     // Branch to the callee
                     terminator = branch(dst_arena, (Branch) {
                         .branch_mode = BrTailcall,
