@@ -12,8 +12,8 @@ RewritePass normalize;
 RewritePass infer_program;
 /// Gets rid of structured control flow constructs, and turns them into branches, joins and callcs
 RewritePass lower_cf_instrs;
-/// Turns callc into callf by extracting the return continuations into separate functions (including spilling)
-RewritePass lower_callc;
+/// Extracts non-structured CF targets (continuations) inside basic blocks into separate functions (including spilling)
+RewritePass lower_continuations;
 /// Lowers calls to stack saves and branches, lowers returns to stack pops and joins
 RewritePass lower_callf;
 /// Turns stack pushes and pops into accesses into pointer load and stores

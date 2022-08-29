@@ -134,11 +134,22 @@ Strings strings(IrArena* arena, size_t count, const char* in_strs[])  {
 }
 
 Nodes append_nodes(IrArena* arena, Nodes old, const Node* new) {
-    LARRAY(const Node*, tmp, old.count + 2);
+    LARRAY(const Node*, tmp, old.count + 1);
     for (size_t i = 0; i < old.count; i++)
         tmp[i] = old.nodes[i];
     tmp[old.count] = new;
     return nodes(arena, old.count + 1, tmp);
+}
+
+Nodes concat_nodes(IrArena* arena, Nodes a, Nodes b) {
+    LARRAY(const Node*, tmp, a.count + b.count);
+    size_t j = 0;
+    for (size_t i = 0; i < a.count; i++)
+        tmp[j++] = a.nodes[i];
+    for (size_t i = 0; i < b.count; i++)
+        tmp[j++] = b.nodes[i];
+    assert(j == a.count + b.count);
+    return nodes(arena, j, tmp);
 }
 
 /// takes care of structural sharing

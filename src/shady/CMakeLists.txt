@@ -27,7 +27,7 @@ set(SHADY_SOURCES
     passes/normalize.c
     passes/infer.c
     passes/lower_cf_instrs.c
-    passes/lower_callc.c
+    passes/lower_continuations.c
     passes/lower_callf.c
     passes/lower_stack.c
     passes/lower_physical_ptrs.c

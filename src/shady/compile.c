@@ -49,7 +49,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, c
     RUN_PASS(setup_stack_frames)
 
     RUN_PASS(lower_cf_instrs)
-    RUN_PASS(lower_callc)
+    RUN_PASS(lower_continuations)
     RUN_PASS(lower_callf)
     RUN_PASS(lower_tailcalls)
 

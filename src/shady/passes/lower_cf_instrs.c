@@ -116,6 +116,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                 case Selection: {
                     assert(outer_join);
                     new_terminator = join(dst_arena, (Join) {
+                        .is_indirect = false,
                         .join_at = outer_join,
                         .args = nodes(dst_arena, old_terminator->payload.merge_construct.args.count, old_terminator->payload.merge_construct.args.nodes),
                         .desired_mask = reconvergence_token
