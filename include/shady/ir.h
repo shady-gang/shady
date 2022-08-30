@@ -611,20 +611,20 @@ void append_block(BlockBuilder*, const Node* instruction);
 void copy_instrs(BlockBuilder*, Nodes);
 const Node* finish_block(BlockBuilder*, const Node* terminator);
 
-inline static const Type* int8_type(IrArena* arena)  { return int_type(arena, (Int) { .width = IntTy8  }); }
-inline static const Type* int16_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy16 }); }
-inline static const Type* int32_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy32 }); }
-inline static const Type* int64_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy64 }); }
+const Type* int8_type(IrArena* arena);
+const Type* int16_type(IrArena* arena);
+const Type* int32_type(IrArena* arena);
+const Type* int64_type(IrArena* arena);
 
-inline static const Type* int8_literal(IrArena* arena,  int8_t i)  { return int_literal(arena, (IntLiteral) { .width = IntTy8,  .value_i8  = i }); }
-inline static const Type* int16_literal(IrArena* arena, int16_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy16, .value_i16 = i }); }
-inline static const Type* int32_literal(IrArena* arena, int32_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy32, .value_i32 = i }); }
-inline static const Type* int64_literal(IrArena* arena, int64_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy64, .value_i64 = i }); }
+const Type* int8_literal(IrArena* arena,  int8_t i);
+const Type* int16_literal(IrArena* arena, int16_t i);
+const Type* int32_literal(IrArena* arena, int32_t i);
+const Type* int64_literal(IrArena* arena, int64_t i);
 
-inline static const Type* uint8_literal(IrArena* arena,  uint8_t i)  { return int_literal(arena, (IntLiteral) { .width = IntTy8,  .value_u8  = i }); }
-inline static const Type* uint16_literal(IrArena* arena, uint16_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy16, .value_u16 = i }); }
-inline static const Type* uint32_literal(IrArena* arena, uint32_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy32, .value_u32 = i }); }
-inline static const Type* uint64_literal(IrArena* arena, uint64_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy64, .value_u64 = i }); }
+const Type* uint8_literal(IrArena* arena,  uint8_t i);
+const Type* uint16_literal(IrArena* arena, uint16_t i);
+const Type* uint32_literal(IrArena* arena, uint32_t i);
+const Type* uint64_literal(IrArena* arena, uint64_t i);
 
 //////////////////////////////// IR management ////////////////////////////////
 
