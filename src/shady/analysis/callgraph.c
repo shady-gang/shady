@@ -99,6 +99,17 @@ static CGNode* process_node(CallGraph* graph, const Node* fn) {
     return new;
 }
 
+#ifdef _MSC_VER
+// MSVC is the world's worst C11 compiler.
+// Standard headers pollute the global namespace, they do have an path to not do so, but they rely on __STDC__ being defined, which it isn't as of the latest Visual Studio 2022 release.
+// Of course the Visual Studio docs say __STDC__ should be defined, but after wasting a day to this, I can positively say that's a big fat lie.
+// https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170
+// I could, of course, simply avoid this issue by renaming. That would work and would be practical, and would be the sane thing to do.
+// But it's not the right thing :tm: to do, and out of spite, this hack will remain in place until this issue is fixed.
+// (Visual Studio 17.3.2, build tools 14.33.31629, windows 10 SDK 10.0.22621.0)
+#undef min
+#endif
+
 static int min(int a, int b) { return a < b ? a : b; }
 
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm

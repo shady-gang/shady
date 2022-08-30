@@ -37,7 +37,7 @@ Program* load_program(Runtime* runtime, const char* program_src) {
 
     CompilerConfig config = default_compiler_config();
     config.allow_frontend_syntax = true;
-    ArenaConfig arena_config = {};
+    ArenaConfig arena_config = { 0 };
     program->arena = new_arena(arena_config);
     CHECK(program->arena != NULL, return false);
     CHECK(parse_files(&config, 1, (const char* []){ program_src }, program->arena, &program->generic_program) == CompilationNoError, return false);
@@ -130,7 +130,7 @@ static SpecProgram* create_specialized_program(Program* program, Device* device)
     spec_program->base = program;
     spec_program->device = device;
 
-    ArenaConfig arena_config = {};
+    ArenaConfig arena_config = { 0 };
     spec_program->arena = new_arena(arena_config);
     spec_program->final_program = program->generic_program;
 
