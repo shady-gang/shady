@@ -61,7 +61,6 @@ static const Node* rewrite_block(Context* ctx, const Node* old_block) {
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    IrArena* arena = ctx->rewriter.dst_arena;
     if (!node) return NULL;
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;

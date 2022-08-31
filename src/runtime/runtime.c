@@ -30,7 +30,7 @@ static void obtain_instance_pointers(Runtime* runtime) {
     #define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetInstanceProcAddr(runtime->instance, #fn_name);
     #define X(_, prefix, name, fns) \
         if (runtime->instance_exts.name.enabled) { \
-            struct S_##name* ext = &runtime->instance_exts.name; \
+            SHADY_UNUSED struct S_##name* ext = &runtime->instance_exts.name; \
             fns(Y) \
         }
     INSTANCE_EXTENSIONS(X)

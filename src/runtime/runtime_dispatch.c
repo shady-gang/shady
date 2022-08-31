@@ -16,7 +16,7 @@ struct Dispatch_ {
     VkFence done_fence;
 };
 
-Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, int dimz, int extra_args_count, void** extra_args) {
+Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, int dimz, int extra_args_count, SHADY_UNUSED void** extra_args) {
     assert(program && device);
     assert(extra_args_count == 0 && "TODO");
 
@@ -66,4 +66,5 @@ bool wait_completion(Dispatch* dispatch) {
     CHECK_VK(vkWaitForFences(dispatch->src->device->device, 1, (VkFence[]) { dispatch->done_fence }, true, UINT32_MAX), return false);
 
     free(dispatch);
+    return true;
 }

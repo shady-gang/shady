@@ -12,7 +12,6 @@ static uint32_t find_suitable_memory_type(Device* device, uint32_t memory_type_b
     vkGetPhysicalDeviceMemoryProperties(device->properties.physical_device, &device_memory_properties);
     for (size_t bit = 0; bit < 32; bit++) {
         VkMemoryType memory_type = device_memory_properties.memoryTypes[bit];
-        VkMemoryHeap memory_heap = device_memory_properties.memoryHeaps[memory_type.heapIndex];
 
         bool is_host_visible = (memory_type.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
         bool is_host_coherent = (memory_type.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
@@ -80,7 +79,7 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
         .allocationSize = (VkDeviceSize) size, // the driver might want padding !
         .memoryTypeIndex = find_suitable_memory_type(device, mem_requirements.memoryRequirements.memoryTypeBits, AllocDeviceLocal),
     };
-    append_pnext(&allocation_info, &allocate_flags);
+    append_pnext((VkBaseOutStructure*) &allocation_info, &allocate_flags);
 
     vkAllocateMemory(device->device, &allocation_info, NULL, &buffer->memory);
     vkBindBufferMemory(device->device, buffer->buffer, buffer->memory, 0);
@@ -91,11 +90,13 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
     return NULL;
 }
 
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 Buffer* import_buffer_host(Device* device, void* ptr, size_t size) {
     error("TODO");
 }
 
-Buffer* destroy_buffer(Buffer* buffer) {
+void destroy_buffer(Buffer* buffer) {
     vkDestroyBuffer(buffer->device->device, buffer->buffer, NULL);
     if (!buffer->imported)
         vkFreeMemory(buffer->device->device, buffer->memory, NULL);

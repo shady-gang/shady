@@ -1,5 +1,6 @@
 #include "fold.h"
 #include "type.h"
+#include "portability.h"
 
 #include <assert.h>
 
@@ -40,7 +41,7 @@ bool is_one(const Node* node) {
     return false;
 }
 
-const Node* fold_prim_op(IrArena* arena, const Node* node) {
+const Node* fold_prim_op(SHADY_UNUSED IrArena* arena, const Node* node) {
     PrimOp prim_op = node->payload.prim_op;
     switch (prim_op.op) {
         case add_op: {

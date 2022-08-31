@@ -155,7 +155,7 @@ void shutdown_device(Device*);
 
 SpecProgram* get_specialized_program(Program*, Device*);
 
-static inline void append_pnext(struct { VkStructureType sType; void* pNext; }* s, void* n) {
+static inline void append_pnext(VkBaseOutStructure* s, void* n) {
     while (s->pNext != NULL)
         s = s->pNext;
     s->pNext = n;

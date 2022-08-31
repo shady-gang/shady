@@ -34,7 +34,7 @@ typedef struct {
 
 static const Node* process_block(Context* ctx, BlockBuilder* builder, const Block* oblock);
 
-static const Node* add_spill_instrs(Context* ctx, BlockBuilder* builder, struct List* spilled_vars) {
+static void add_spill_instrs(Context* ctx, BlockBuilder* builder, struct List* spilled_vars) {
     IrArena* arena = ctx->rewriter.dst_arena;
 
     size_t recover_context_size = entries_count_list(spilled_vars);

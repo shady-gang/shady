@@ -10,14 +10,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct PrinterCtx {
-    void (*print_fn)(struct PrinterCtx*, char* format, ...);
+typedef struct PrinterCtx_ PrinterCtx;
+typedef void (*PrintFn)(PrinterCtx* ctx, char* format, ...);
+
+struct PrinterCtx_ {
+    PrintFn print_fn;
     unsigned int indent;
     bool print_ptrs;
     bool color;
-} PrinterCtx;
+};
 
-#define COLOR(x) (ctx->color ? x : "")
+#define COLOR(x) (ctx->color ? (x) : "")
 
 #define RESET    COLOR("\033[0m")
 #define RED      COLOR("\033[0;31m")
@@ -41,14 +44,14 @@ typedef struct PrinterCtx {
 #define printf(...) ctx->print_fn(ctx, __VA_ARGS__)
 #define print_node(n) print_node_impl(ctx, n)
 
-static void print_node_impl(struct PrinterCtx* ctx, const Node* node);
+static void print_node_impl(PrinterCtx* ctx, const Node* node);
 
 #define INDENT for (unsigned int j = 0; j < ctx->indent; j++) \
     printf("   ");
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static void print_storage_qualifier_for_global(struct PrinterCtx* ctx, AddressSpace as) {
+static void print_storage_qualifier_for_global(PrinterCtx* ctx, AddressSpace as) {
     printf(BLUE);
     switch (as) {
         case AsGeneric:             printf("generic"); break;
@@ -71,7 +74,7 @@ static void print_storage_qualifier_for_global(struct PrinterCtx* ctx, AddressSp
     printf(RESET);
 }
 
-static void print_ptr_addr_space(struct PrinterCtx* ctx, AddressSpace as) {
+static void print_ptr_addr_space(PrinterCtx* ctx, AddressSpace as) {
     printf(GREY);
     switch (as) {
         case AsGeneric:             printf("generic"); break;
@@ -94,7 +97,7 @@ static void print_ptr_addr_space(struct PrinterCtx* ctx, AddressSpace as) {
     printf(RESET);
 }
 
-static void print_param_list(struct PrinterCtx* ctx, Nodes vars, const Nodes* defaults) {
+static void print_param_list(PrinterCtx* ctx, Nodes vars, const Nodes* defaults) {
     if (defaults != NULL)
         assert(defaults->count == vars.count);
     printf("(");
@@ -115,7 +118,7 @@ static void print_param_list(struct PrinterCtx* ctx, Nodes vars, const Nodes* de
     printf(")");
 }
 
-static void print_yield_types(struct PrinterCtx* ctx, Nodes types) {
+static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     bool space = false;
     for (size_t i = 0; i < types.count; i++) {
         if (!space) {
@@ -130,7 +133,7 @@ static void print_yield_types(struct PrinterCtx* ctx, Nodes types) {
     }
 }
 
-static void print_function(struct PrinterCtx* ctx, const Node* node) {
+static void print_function(PrinterCtx* ctx, const Node* node) {
     print_yield_types(ctx, node->payload.fn.return_types);
     print_param_list(ctx, node->payload.fn.params, NULL);
     printf(" {\n");
@@ -164,7 +167,7 @@ static void print_function(struct PrinterCtx* ctx, const Node* node) {
     INDENT printf("}");
 }
 
-static void print_annotations(struct PrinterCtx* ctx, Nodes annotations) {
+static void print_annotations(PrinterCtx* ctx, Nodes annotations) {
     for (size_t i = 0; i < annotations.count; i++) {
         print_node(annotations.nodes[i]);
         printf(" ");
@@ -622,7 +625,7 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
     }
 }
 
-static void print_node_impl(struct PrinterCtx* ctx, const Node* node) {
+static void print_node_impl(PrinterCtx* ctx, const Node* node) {
     if (node == NULL) {
         printf("?");
         return;
@@ -742,7 +745,7 @@ static void print_into_string(StringPrinterCtx* ctx, const char* format, ...) {
     size_t real_len;
     while (true) {
         va_start(args, format);
-        int written = vsnprintf(buf, buf_len, format, args);
+        size_t written = vsnprintf(buf, buf_len, format, args);
         va_end(args);
         if (written < buf_len) {
             real_len = written;
@@ -761,7 +764,7 @@ static void print_into_string(StringPrinterCtx* ctx, const char* format, ...) {
 void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     StringPrinterCtx ctx = {
         .base = {
-            .print_fn = print_into_string,
+            .print_fn = (PrintFn) print_into_string,
             .indent = 0,
             .print_ptrs = false,
             .color = false,
@@ -789,7 +792,7 @@ static void print_into_file(FilePrinterCtx* ctx, const char* format, ...) {
 static void print_node_in_output(FILE* output, const Node* node, bool dump_ptrs) {
     FilePrinterCtx ctx = {
         .base = {
-            .print_fn = print_into_file,
+            .print_fn = (PrintFn) print_into_file,
             .indent = 0,
             .print_ptrs = dump_ptrs,
             .color = true,

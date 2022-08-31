@@ -130,7 +130,6 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
             }
             break;
         }
-        recreate_terminator_identity:
         default: new_terminator = recreate_node_identity(&ctx->rewriter, old_terminator); break;
     }
 

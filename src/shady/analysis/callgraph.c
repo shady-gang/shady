@@ -146,7 +146,7 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
     // If v is a root node, pop the stack and generate an SCC
     if (v->tarjan.lowlink == v->tarjan.index) {
         LARRAY(CGNode*, scc, entries_count_list(stack));
-        int scc_size = 0;
+        size_t scc_size = 0;
         {
             CGNode* w;
             assert(entries_count_list(stack) > 0);

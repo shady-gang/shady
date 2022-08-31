@@ -59,7 +59,7 @@ static void figure_out_spirv_version(DeviceProperties* device) {
 }
 
 /// Considers a given physical device for running on, returns false if it's unusable, otherwise returns a report in out
-static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice physical_device, DeviceProperties* out) {
+static bool get_physical_device_properties(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device, DeviceProperties* out) {
     memset(out, 0, sizeof(DeviceProperties));
     out->physical_device = physical_device;
 
@@ -71,7 +71,7 @@ static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice ph
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
         .pNext = NULL
     };
-    append_pnext(&dp, &subgroup_properties);
+    append_pnext((VkBaseOutStructure*) &dp, &subgroup_properties);
     vkGetPhysicalDeviceProperties2(physical_device, &dp);
 
     if (dp.properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0)) {
@@ -105,7 +105,7 @@ static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice ph
         .shaderSubgroupExtendedTypes = false
     };
     if (out->supported_extensions[ShadySupportsKHRshader_subgroup_extended_types] || dp.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0))
-        append_pnext(&df, &subgroup_extended_features);
+        append_pnext((VkBaseOutStructure*) &df, &subgroup_extended_features);
     vkGetPhysicalDeviceFeatures2(physical_device, &df);
 
     if (!df.features.shaderInt64) {
@@ -127,15 +127,15 @@ static bool get_physical_device_properties(Runtime* runtime, VkPhysicalDevice ph
     }
     vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_families_count, queue_families_properties);
 
-    int32_t compute_queue_family = -1;
-    for (int32_t i = 0; i < queue_families_count; i++) {
+    uint32_t compute_queue_family = queue_families_count;
+    for (uint32_t i = 0; i < queue_families_count; i++) {
         VkQueueFamilyProperties2 queue_family_properties = queue_families_properties[i];
         if (queue_family_properties.queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT) {
             compute_queue_family = i;
             break;
         }
     }
-    if (compute_queue_family < 0) {
+    if (compute_queue_family >= queue_families_count) {
         info_print("Rejecting device %s because it lacks a compute queue family\n", dp.properties.deviceName);
         return NULL;
     }
@@ -177,7 +177,7 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
         .shaderSubgroupExtendedTypes = true
     };
     if (device->properties.features.subgroup_extended_types)
-        append_pnext(&enabled_features, &subgroup_extended_features);
+        append_pnext((VkBaseOutStructure*) &enabled_features, &subgroup_extended_features);
 
     CHECK_VK(vkCreateDevice(physical_device, &(VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,

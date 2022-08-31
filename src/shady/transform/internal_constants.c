@@ -1,8 +1,10 @@
 #include "internal_constants.h"
 
+#include "portability.h"
+
 #include <string.h>
 
-Nodes generate_dummy_constants(CompilerConfig* config, IrArena* arena) {
+Nodes generate_dummy_constants(SHADY_UNUSED CompilerConfig* config, IrArena* arena) {
 #define X(name, placeholder, real) \
     Node* name##_var = constant(arena, nodes(arena, 0, NULL), #name); \
     name##_var->payload.constant.value = placeholder;
