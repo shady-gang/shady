@@ -32,12 +32,6 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (old->tag) {
-        case GlobalVariable_TAG:
-        case Constant_TAG: {
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
-            recreate_decl_body_identity(&ctx->rewriter, old, new);
-            return new;
-        }
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
             Context ctx2 = *ctx;

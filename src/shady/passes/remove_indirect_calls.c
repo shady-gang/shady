@@ -67,13 +67,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 recreate_decl_body_identity(&ctx->rewriter, node, new);
                 return new;
             }
-            SHADY_FALLTHROUGH
-        }
-        case Constant_TAG:
-        case GlobalVariable_TAG: {
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-            recreate_decl_body_identity(&ctx->rewriter, node, new);
-            return new;
+            return recreate_node_identity(&ctx->rewriter, node);
         }
         skip:
         default: return recreate_node_identity(&ctx->rewriter, node);

@@ -156,14 +156,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return fun;
         }
         case Block_TAG: return ctx->disable_lowering ? recreate_node_identity(&ctx->rewriter, node) : handle_block(ctx, node, 0, NULL, NULL);
-        // leave other declarations alone
-        case GlobalVariable_TAG:
-        case Constant_TAG: {
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-            recreate_decl_body_identity(&ctx->rewriter, node, new);
-            return new;
-        }
-        case Root_TAG: error("illegal node");
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }

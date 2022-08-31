@@ -85,11 +85,7 @@ const Node* process(Context* ctx, const Node* node) {
 
     if (node->tag == MaskType_TAG)
         return int64_type(ctx->rewriter.dst_arena);
-    else if (is_declaration(node->tag)) {
-        Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-        recreate_decl_body_identity(&ctx->rewriter, node, new);
-        return new;
-    } else if (node->tag == Block_TAG)
+    else if (node->tag == Block_TAG)
         return process_block(ctx, node);
     else return recreate_node_identity(&ctx->rewriter, node);
 }

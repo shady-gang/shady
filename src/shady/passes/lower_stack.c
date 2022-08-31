@@ -125,14 +125,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
     if (found) return found;
 
     switch (old->tag) {
-        case Constant_TAG:
-        case Function_TAG:
-        case GlobalVariable_TAG: {
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
-            debug_print("processing declaration %s \n", get_decl_name(old));
-            recreate_decl_body_identity(&ctx->rewriter, old, new);
-            return new;
-        }
         case Block_TAG: return handle_block(ctx, old);
         default: return recreate_node_identity(&ctx->rewriter, old);
     }

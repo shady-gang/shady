@@ -221,20 +221,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (found) return found;
 
     switch (node->tag) {
+        case Block_TAG: return process_block(ctx, begin_block(ctx->rewriter.dst_arena), &node->payload.block);
         case Function_TAG: {
             if (node->payload.fn.is_basic_block)
                 return lift_continuation_into_function(ctx, node);
-            SHADY_FALLTHROUGH
+            // leave other declarations alone
+            return recreate_node_identity(&ctx->rewriter, node);
         }
-        // leave other declarations alone
-        case GlobalVariable_TAG:
-        case Constant_TAG: {
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-            recreate_decl_body_identity(&ctx->rewriter, node, new);
-            return new;
-        }
-        case Block_TAG: return process_block(ctx, begin_block(ctx->rewriter.dst_arena), &node->payload.block);
-        case Root_TAG: error("illegal node");
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }

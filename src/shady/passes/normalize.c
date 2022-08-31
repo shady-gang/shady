@@ -86,20 +86,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         return already_done;
 
     switch (node->tag) {
-        case Function_TAG: {
-            Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
-            fun->payload.fn.block = process_node(ctx, node->payload.fn.block);
-            return fun;
-        }
         case Block_TAG: return handle_block(ctx, node);
-        // leave other declarations alone
-        case GlobalVariable_TAG:
-        case Constant_TAG: {
-            Node* decl = recreate_decl_header_identity(&ctx->rewriter, node);
-            recreate_decl_body_identity(&ctx->rewriter, node, decl);
-            return decl;
-        }
-        case Root_TAG: error("illegal node");
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }

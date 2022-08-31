@@ -279,7 +279,11 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
 
         case GlobalVariable_TAG:
         case Constant_TAG:
-        case Function_TAG:      error("Declarations are not handled");
+        case Function_TAG: {
+            Node* new = recreate_decl_header_identity(rewriter, node);
+            recreate_decl_body_identity(rewriter, node, new);
+            return new;
+        }
 
         case Root_TAG: {
             Nodes decls = rewrite_nodes(rewriter, node->payload.root.declarations);

@@ -34,17 +34,6 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             return recreate_node_identity(&ctx->rewriter, node);
         }
-        case Constant_TAG: {
-            //const Node* value = process(ctx, node->payload.constant.value);
-            //register_processed(&ctx->rewriter, node, value);
-            //return value;
-        }
-        case GlobalVariable_TAG:
-        case Function_TAG: {
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-            recreate_decl_body_identity(&ctx->rewriter, node, new);
-            return new;
-        }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }

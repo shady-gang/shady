@@ -203,6 +203,13 @@ static const Node* process_node(Context* ctx, const Node* old) {
     if (found) return found;
 
     switch (old->tag) {
+        case Block_TAG: return handle_block(ctx, old);
+        case PtrType_TAG: {
+            if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
+                return int32_type(ctx->rewriter.dst_arena);
+
+            return recreate_node_identity(&ctx->rewriter, old);
+        }
         case GlobalVariable_TAG: {
             const GlobalVariable* old_gvar = &old->payload.global_variable;
             // Global variables into emulated address spaces become integer constants (to index into arrays used for emulation of said address space)
@@ -225,19 +232,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
                 register_processed(&ctx->rewriter, old, cnst);
                 return cnst;
             }
-            SHADY_FALLTHROUGH
-        }
-        case Constant_TAG:
-        case Function_TAG: {
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
-            recreate_decl_body_identity(&ctx->rewriter, old, new);
-            return new;
-        }
-        case Block_TAG: return handle_block(ctx, old);
-        case PtrType_TAG: {
-            if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
-                return int32_type(ctx->rewriter.dst_arena);
-
             return recreate_node_identity(&ctx->rewriter, old);
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
