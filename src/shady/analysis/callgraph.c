@@ -177,6 +177,8 @@ static void tarjan(struct Dict* verts) {
         if (n->tarjan.index == -1)
             strongconnect(n, &index, stack);
     }
+
+    destroy_list(stack);
 }
 
 CallGraph* get_callgraph(const Node* root) {
@@ -204,7 +206,9 @@ void dispose_callgraph(CallGraph* graph) {
     CGNode* node;
     while (dict_iter(graph->fn2cgn, &i, NULL, &node)) {
         debug_print("Freeing CG node: %s\n", node->fn->payload.fn.name);
+        destroy_dict(node->callees);
         free(node);
     }
+    destroy_dict(graph->fn2cgn);
     free(graph);
 }
