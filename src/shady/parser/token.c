@@ -28,7 +28,7 @@ static bool constants_initialized = false;
 
 static void init_tokenizer_constants() {
     for (int i = 0; i < LIST_END_tok; i++) {
-        token_strings_size[i] = token_strings[i] == NULL ? -1U : strlen(token_strings[i]);
+        token_strings_size[i] = token_strings[i] == NULL ? 0 : strlen(token_strings[i]);
     }
 }
 
@@ -145,7 +145,7 @@ Token next_token(Tokenizer* tokenizer) {
     for (int i = 0; i < LIST_END_tok; i++) {
         size_t tok_size = token_strings_size[i];
         // if there is a match ...
-        if (in_bounds(tokenizer, tok_size) && strncmp(token_strings[i], slice, tok_size) == 0) {
+        if (tok_size != 0 && in_bounds(tokenizer, tok_size) && strncmp(token_strings[i], slice, tok_size) == 0) {
             // if this is an identifier, we need the size to match exactly
             if (!can_be_identifier || tok_size == token_size) {
                 token.tag = i;
