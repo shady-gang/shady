@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.13)
 project (shady C)
 
 set(CMAKE_C_STANDARD 11)
@@ -15,8 +15,11 @@ add_subdirectory(src)
 include(CMakePackageConfigHelpers)
 
 install(TARGETS api EXPORT shady_export_set)
-install(TARGETS shady EXPORT shady_export_set)
-install(TARGETS runtime EXPORT shady_export_set)
+install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+
+if (TARGET runtime)
+  install(TARGETS runtime EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+endif()
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/shady DESTINATION include)
 install(EXPORT shady_export_set DESTINATION share/cmake/shady/ NAMESPACE shady:: FILE shady-targets.cmake)

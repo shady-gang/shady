@@ -1,5 +1,6 @@
 find_package(Vulkan)
 
+if (Vulkan_FOUND)
 add_library(runtime runtime.c runtime_device.c runtime_program.c runtime_dispatch.c runtime_buffer.c)
 target_link_libraries(runtime PUBLIC api)
 target_link_libraries(runtime PRIVATE shady)
@@ -11,3 +12,6 @@ target_include_directories(runtime PRIVATE ../../include)
 add_executable(runtime_test runtime_test.c)
 target_link_libraries(runtime_test runtime)
 target_link_libraries(runtime_test common)
+else()
+  message("Vulkan not found, runtime component will not be built.")
+endif()
