@@ -2,7 +2,7 @@
 #include "rewrite.h"
 #include "fold.h"
 #include "log.h"
-#include "arena.h"
+#include "ir_private.h"
 
 #include "list.h"
 #include "dict.h"

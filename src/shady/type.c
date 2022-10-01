@@ -1,7 +1,7 @@
 #include "type.h"
 
 #include "log.h"
-#include "arena.h"
+#include "ir_private.h"
 #include "portability.h"
 
 #include "dict.h"

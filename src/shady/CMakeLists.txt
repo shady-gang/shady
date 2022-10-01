@@ -1,5 +1,5 @@
 set(SHADY_SOURCES
-    arena.c
+    ir.c
     node.c
     type.c
     rewrite.c

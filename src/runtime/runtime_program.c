@@ -38,7 +38,7 @@ Program* load_program(Runtime* runtime, const char* program_src) {
     CompilerConfig config = default_compiler_config();
     config.allow_frontend_syntax = true;
     ArenaConfig arena_config = { 0 };
-    program->arena = new_arena(arena_config);
+    program->arena = new_ir_arena(arena_config);
     CHECK(program->arena != NULL, return false);
     CHECK(parse_files(&config, 1, (const char* []){ program_src }, program->arena, &program->generic_program) == CompilationNoError, return false);
     // TODO split the compilation pipeline into generic and non-generic parts
@@ -49,7 +49,7 @@ Program* load_program(Runtime* runtime, const char* program_src) {
 
 void unload_program(Program* program) {
     // TODO iterate over the specialized stuff
-    destroy_arena(program->arena);
+    destroy_ir_arena(program->arena);
     free(program);
 }
 
@@ -131,7 +131,7 @@ static SpecProgram* create_specialized_program(Program* program, Device* device)
     spec_program->device = device;
 
     ArenaConfig arena_config = { 0 };
-    spec_program->arena = new_arena(arena_config);
+    spec_program->arena = new_ir_arena(arena_config);
     spec_program->final_program = program->generic_program;
 
     CHECK(compile_specialized_program(spec_program), return NULL);

@@ -647,8 +647,8 @@ typedef struct {
     } subgroup_mask_representation;
 } ArenaConfig;
 
-IrArena* new_arena(ArenaConfig);
-void destroy_arena(IrArena*);
+IrArena* new_ir_arena(ArenaConfig);
+void destroy_ir_arena(IrArena*);
 
 typedef struct CompilerConfig_ {
     bool allow_frontend_syntax;

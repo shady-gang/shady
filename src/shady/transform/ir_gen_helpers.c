@@ -3,7 +3,7 @@
 #include "list.h"
 #include "portability.h"
 
-#include "../arena.h"
+#include "../ir_private.h"
 #include "../type.h"
 #include "../block_builder.h"
 #include "../rewrite.h"

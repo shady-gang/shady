@@ -4,7 +4,7 @@
 #include "log.h"
 #include "portability.h"
 
-#include "../arena.h"
+#include "../ir_private.h"
 #include "../rewrite.h"
 #include "../transform/ir_gen_helpers.h"
 

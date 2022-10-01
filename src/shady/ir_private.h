@@ -1,17 +1,15 @@
-#ifndef SHADY_ARENA_H
-#define SHADY_ARENA_H
+#ifndef SHADY_IR_PRIVATE_H
+#define SHADY_IR_PRIVATE_H
 
 #include "shady/ir.h"
+
+#include "arena.h"
 
 #include "stdlib.h"
 #include "stdio.h"
 
 typedef struct IrArena_ {
-    int nblocks;
-    int maxblocks;
-    void** blocks;
-    size_t available;
-
+    Arena* arena;
     ArenaConfig config;
 
     VarId next_free_id;
@@ -23,7 +21,6 @@ typedef struct IrArena_ {
     struct Dict* strings_set;
 } IrArena_;
 
-void* arena_alloc(IrArena* arena, size_t size);
 VarId fresh_id(IrArena*);
 
 struct List;

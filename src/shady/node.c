@@ -1,6 +1,6 @@
 #include "type.h"
 #include "log.h"
-#include "arena.h"
+#include "ir_private.h"
 #include "fold.h"
 #include "portability.h"
 
@@ -29,7 +29,7 @@ static Node* create_node_helper(IrArena* arena, Node node) {
     }
 
     // place the node in the arena and return it
-    Node* alloc = (Node*) arena_alloc(arena, sizeof(Node));
+    Node* alloc = (Node*) arena_alloc(arena->arena, sizeof(Node));
     *alloc = node;
     insert_set_get_result(const Node*, arena->node_set, alloc);
 
@@ -51,10 +51,10 @@ static Node* create_node_helper(IrArena* arena, Node node) {
     Node node;                                                                                                                                        \
     memset((void*) &node, 0, sizeof(Node));                                                                                                           \
     node = (Node) {                                                                                                                                   \
-        .arena = arena,                                                                                                                                 \
-        .type = CALL_TYPING_METHOD_##has_typing_fn##has_payload(short_name),                                                                            \
-        .tag = struct_name##_TAG,                                                                                                                       \
-        SET_PAYLOAD_##has_payload(short_name)                                                                                                           \
+        .arena = arena,                                                                                                                               \
+        .type = CALL_TYPING_METHOD_##has_typing_fn##has_payload(short_name),                                                                          \
+        .tag = struct_name##_TAG,                                                                                                                     \
+        SET_PAYLOAD_##has_payload(short_name)                                                                                                         \
     };                                                                                                                                                \
     return create_node_helper(arena, node);                                                                                                           \
 }

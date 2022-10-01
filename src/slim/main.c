@@ -93,7 +93,7 @@ static void process_arguments(int argc, const char** argv, Args* args) {
 int main(int argc, const char** argv) {
     platform_specific_terminal_init_extras();
 
-    IrArena* arena = new_arena((ArenaConfig) {
+    IrArena* arena = new_ir_arena((ArenaConfig) {
         .check_types = false
     });
 
@@ -171,6 +171,6 @@ int main(int argc, const char** argv) {
     }
     info_print("Done\n");
 
-    destroy_arena(arena);
+    destroy_ir_arena(arena);
     return NoError;
 }

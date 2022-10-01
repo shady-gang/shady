@@ -20,12 +20,12 @@ CompilerConfig default_compiler_config() {
 
 #define RUN_PASS(pass_name) \
 old_arena = *arena;                                        \
-*arena = new_arena(aconfig);                               \
+*arena = new_ir_arena(aconfig);                            \
 *program = pass_name(config, old_arena, *arena, *program); \
 info_print("After "#pass_name" pass: \n");                 \
 info_node(*program);                                       \
 verify_program(*program);                                  \
-destroy_arena(old_arena);
+destroy_ir_arena(old_arena);
 
 CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program) {
     ArenaConfig aconfig = {

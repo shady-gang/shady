@@ -4,7 +4,7 @@
 #include "log.h"
 #include "portability.h"
 
-#include "../arena.h"
+#include "../ir_private.h"
 #include "../rewrite.h"
 
 #include <assert.h>
@@ -138,7 +138,7 @@ static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
     // bind the rebuilt parameters for rewriting the body
     for (size_t i = 0; i < node->payload.fn.params.count; i++) {
         const Node* param = target->payload.fn.params.nodes[i];
-        NamedBindEntry* entry = arena_alloc(ctx->dst_arena, sizeof(NamedBindEntry));
+        NamedBindEntry* entry = arena_alloc(ctx->dst_arena->arena, sizeof(NamedBindEntry));
         *entry = (NamedBindEntry) {
             .name = string(dst_arena, param->payload.var.name),
             .is_var = false,
@@ -218,7 +218,7 @@ static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
 
                 for (size_t j = 0; j < outputs_count; j++) {
                     const Variable* old_var = &old_instruction->payload.let.variables.nodes[j]->payload.var;
-                    NamedBindEntry* entry = arena_alloc(ctx->src_arena, sizeof(NamedBindEntry));
+                    NamedBindEntry* entry = arena_alloc(ctx->src_arena->arena, sizeof(NamedBindEntry));
 
                     *entry = (NamedBindEntry) {
                         .name = string(dst_arena, old_var->name),
@@ -301,7 +301,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 const Node* new_param = var(dst_arena, bind_node(ctx, old_param->type), old_param->name);
                 new_params[i] = new_param;
 
-                NamedBindEntry* entry = arena_alloc(ctx->src_arena, sizeof(NamedBindEntry));
+                NamedBindEntry* entry = arena_alloc(ctx->src_arena->arena, sizeof(NamedBindEntry));
                 *entry = (NamedBindEntry) {
                     .name = string(dst_arena, old_param->name),
                     .is_var = false,
@@ -332,7 +332,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             for (size_t i = 0; i < inner_conts_count; i++) {
                 Node* new_cont = rewrite_fn_head(ctx, pblock->continuations.nodes[i]);
                 new_conts[i] = new_cont;
-                NamedBindEntry* entry = arena_alloc(ctx->src_arena, sizeof(NamedBindEntry));
+                NamedBindEntry* entry = arena_alloc(ctx->src_arena->arena, sizeof(NamedBindEntry));
                 *entry = (NamedBindEntry) {
                     .name = string(dst_arena, pblock->continuations_vars.nodes[i]->payload.var.name),
                     .is_var = false,
