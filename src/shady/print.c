@@ -257,7 +257,6 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case PackType_TAG: {
-            printf(BCYAN);
             printf("pack");
             printf(RESET);
             printf("(%d", node->payload.pack_type.width);
@@ -265,6 +264,9 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.pack_type.element_type);
             printf(")");
             break;
+        }
+        case NominalType_TAG: {
+            printf("%s", node->payload.nom_type.name);
         }
     }
     printf(RESET);

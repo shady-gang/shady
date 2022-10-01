@@ -72,6 +72,7 @@ N(1, 0, 1, PtrType, ptr_type) \
 N(1, 1, 1, QualifiedType, qualified_type) \
 N(1, 0, 1, ArrType, arr_type) \
 N(1, 1, 1, PackType, pack_type) \
+N(0, 0, 1, NominalType, nom_type) \
 
 #define VALUE_NODES(N) \
 N(0, 1, 1, Variable, var) \
@@ -205,6 +206,11 @@ typedef struct PackType_ {
     const Type* element_type;
     int width;
 } PackType;
+
+typedef struct NominalType_ {
+    String name;
+    const Type* body;
+} NominalType;
 
 //////////////////////////////// Values ////////////////////////////////
 
@@ -599,6 +605,7 @@ const Node* tuple(IrArena* arena, Nodes contents);
 Node* fn(IrArena*,         Nodes annotations, const char* name, bool, Nodes params, Nodes return_types);
 Node* constant(IrArena*,   Nodes annotations, const char* name);
 Node* global_var(IrArena*, Nodes annotations, const Type*, String, AddressSpace);
+Type* nominal_type(IrArena*, String name);
 
 typedef struct BlockBuilder_ BlockBuilder;
 

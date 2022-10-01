@@ -151,6 +151,12 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                                     .element_type = rewrite_node(rewriter, node->payload.pack_type.element_type),
                                     .width = node->payload.pack_type.width
         });
+        case NominalType_TAG: {
+            Type* new = nominal_type(rewriter->dst_arena, node->payload.nom_type.name);
+                register_processed(rewriter, node, new);
+            new->payload.nom_type.body = rewrite_node(rewriter, node->payload.nom_type.body);
+            return new;
+        }
 
         case Variable_TAG:      error("We expect variables to be available for us in the `processed` set");
         case Unbound_TAG:       return unbound(rewriter->dst_arena, (Unbound) { .name = string(rewriter->dst_arena, node->payload.unbound.name) });

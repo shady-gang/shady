@@ -80,6 +80,9 @@ bool is_subtype(const Type* supertype, const Type* type) {
             return supertype->payload.pack_type.width == type->payload.pack_type.width
             && is_subtype(supertype->payload.pack_type.element_type, type->payload.pack_type.element_type);
         }
+        case NominalType_TAG: {
+            return supertype == type;
+        }
         case Unit_TAG:
         case NoRet_TAG:
         case Bool_TAG:
@@ -203,6 +206,7 @@ static const Type* get_actual_mask_type(IrArena* arena) {
     switch (arena->config.subgroup_mask_representation) {
         case SubgroupMaskAbstract: return mask_type(arena);
         case SubgroupMaskSpvKHRBallot: return pack_type(arena, (PackType) { .element_type = int32_type(arena), .width = 4 });
+        default: assert(false);
     }
 }
 

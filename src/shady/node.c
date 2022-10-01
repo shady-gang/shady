@@ -248,6 +248,23 @@ Node* global_var(IrArena* arena, Nodes annotations, const Type* type, const char
     return create_node_helper(arena, node);
 }
 
+Type* nominal_type(IrArena* arena, String name) {
+    NominalType payload = {
+        .name = string(arena, name),
+        .body = NULL,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+        .arena = arena,
+        .type = NULL,
+        .tag = NominalType_TAG,
+        .payload.nom_type = payload
+    };
+    return create_node_helper(arena, node);
+}
+
 const char* node_tags[] = {
 #define NODE_NAME(_, _2, _3, _4, str) #str,
 NODES(NODE_NAME)

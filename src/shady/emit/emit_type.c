@@ -74,6 +74,32 @@ inline static size_t round_up(size_t a, size_t b) {
     return divided * b;
 }
 
+static void emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
+    switch (type->tag) {
+        case RecordType_TAG: {
+            Nodes member_types = type->payload.record_type.members;
+            LARRAY(SpvId, members, member_types.count);
+            for (size_t i = 0; i < member_types.count; i++)
+                members[i] = emit_type(emitter, member_types.nodes[i]);
+            spvb_struct_type(emitter->file_builder, id, member_types.count, members);
+            if (type->payload.record_type.special == DecorateBlock) {
+                spvb_decorate(emitter->file_builder, id, SpvDecorationBlock, 0, NULL);
+                uint32_t offset = 0;
+                for (size_t i = 0; i < member_types.count; i++) {
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationOffset, 1, (uint32_t[]) { offset });
+                    // Don't compute the offset after the final member, as that one might be unsized !
+                    if (i + 1 < member_types.count) {
+                        TypeMemLayout mem_layout = get_mem_layout(emitter->configuration, emitter->arena, member_types.nodes[i]);
+                        offset = round_up(offset + (uint32_t) mem_layout.size_in_bytes, 4);
+                    }
+                }
+            }
+            break;
+        }
+        default: error("not a suitable nominal type body (tag=%s)", node_tags[type->tag]);
+    }
+}
+
 SpvId emit_type(Emitter* emitter, const Type* type) {
     // Some types in shady lower to the same spir-v type, but spir-v is unhappy with having duplicates of the same types
     // we could hash the spirv types we generate to find duplicates, but it is easier to normalise our shady types and reuse their infra
@@ -109,26 +135,6 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
             break;
         }
-        case RecordType_TAG: {
-            Nodes member_types = type->payload.record_type.members;
-            LARRAY(SpvId, members, member_types.count);
-            for (size_t i = 0; i < member_types.count; i++)
-                members[i] = emit_type(emitter, member_types.nodes[i]);
-            new = spvb_struct_type(emitter->file_builder, member_types.count, members);
-            if (type->payload.record_type.special == DecorateBlock) {
-                spvb_decorate(emitter->file_builder, new, SpvDecorationBlock, 0, NULL);
-                uint32_t offset = 0;
-                for (size_t i = 0; i < member_types.count; i++) {
-                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationOffset, 1, (uint32_t[]) { offset });
-                    // Don't compute the offset after the final member, as that one might be unsized !
-                    if (i + 1 < member_types.count) {
-                        TypeMemLayout mem_layout = get_mem_layout(emitter->configuration, emitter->arena, member_types.nodes[i]);
-                        offset = round_up(offset + (uint32_t) mem_layout.size_in_bytes, 4);
-                    }
-                }
-            }
-            break;
-        }
         case FnType_TAG: {
             const FnType* fnt = &type->payload.fn_type;
             assert(!fnt->is_basic_block);
@@ -160,6 +166,17 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             SpvId element_type = emit_type(emitter, type->payload.pack_type.element_type);
             new = spvb_vector_type(emitter->file_builder, element_type, type->payload.pack_type.width);
             break;
+        }
+        case RecordType_TAG: {
+            new = spvb_fresh_id(emitter->file_builder);
+            emit_nominal_type_body(emitter, type, new);
+            break;
+        }
+        case NominalType_TAG: {
+            new = spvb_fresh_id(emitter->file_builder);
+            insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
+            emit_nominal_type_body(emitter, type, new);
+            return new;
         }
         default: error("Don't know how to emit type")
     }

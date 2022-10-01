@@ -479,9 +479,8 @@ SpvId spvb_fn_type(struct SpvFileBuilder* file_builder, size_t args_count, SpvId
     return id;
 }
 
-SpvId spvb_struct_type(struct SpvFileBuilder* file_builder, size_t members_count, SpvId members[]) {
+SpvId spvb_struct_type(struct SpvFileBuilder* file_builder, SpvId id, size_t members_count, SpvId members[]) {
     op(SpvOpTypeStruct, 2 + members_count);
-    SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
     for (size_t i = 0; i < members_count; i++)
         ref_id(members[i]);
