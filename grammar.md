@@ -11,8 +11,12 @@ DECL := const [TYPE] IDENTIFIER = VALUE; // constant definition
 
 VAR := IDENTIFIER
 
-VALUE := VAR | LITERAL
-VALUES := VALUE+
+VALUE := VAR
+       | LITERAL
+       | tuple ( VALUES )
+       | array (TYPE) ( [VALUES] )
+
+VALUES := VALUE [, VALUES]
 
 PARAMS := ( [QTYPE IDENTIFIER [(, QTYPE IDENTIFIER)*]] )
 
@@ -47,27 +51,28 @@ TERMINATOR := unreachable;                              // use as a placeholder 
             | joinc ID OPERAND OPERANDS;                // yields to the innermost if/match statement
             | joinf OPERAND OPERAND OPERANDS;           // yields to the innermost if/match statement
             
-            | return OPERANDS;                          // return from current function
             | callc OPERAND ID OPERANDS;                // call a function with a return continuation
             | callf OPERAND OPERAND OPERANDS;           // call a function with a return function
+            | return OPERANDS;                          // return from current function
             
             | merge OPERANDS;                           // Merges the current structured if/match construct
             | continue OPERANDS;                        // Structured continue
             | break OPERANDS;                           // Structured break
 
-TYPE := void | int | float | ptr DATA_TYPE | fn RET_TYPE ( [QTYPE [(, QTYPE)*]] )
+// things that have a non-opaque representation in memory
+TYPE := int | float | ptr P_TYPE | struct { (TYPE IDENTIFIER;)* }
 
-DATA_TYPE := TYPE | struct { (TYPE IDENTIFIER;)* }
+// such types can be pointed to by pointers
+P_TYPE := DATA_TYPE | fn RET_TYPE ( [QTYPE [(, QTYPE)*]] )
 
-MQ_TYPES = MQ_TYPE [(, MQ_TYPE)*]
+// types with uniformity info
+VARIANCE_Q = uniform | varying
+QTYPE = VARIANCE_Q TYPE
 Q_TYPES = Q_TYPE [(, Q_TYPE)*]
 
-VARIANCE_Q = uniform | varying
-
-// qualified and maybe-qualified types
-// maybe-qualified have inferrable unifornity
-QTYPE = VARIANCE_Q TYPE
+// optionally qualified types, the type inference can figure those out
 MQTYPE = [VARIANCE_Q] TYPE
+MQ_TYPES = MQ_TYPE [(, MQ_TYPE)*]
 
 ```
 
