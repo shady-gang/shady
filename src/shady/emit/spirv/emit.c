@@ -3,8 +3,8 @@
 #include "log.h"
 #include "portability.h"
 
-#include "../type.h"
-#include "../analysis/scope.h"
+#include "../../type.h"
+#include "../../analysis/scope.h"
 
 #include "emit.h"
 #include "emit_builtins.h"

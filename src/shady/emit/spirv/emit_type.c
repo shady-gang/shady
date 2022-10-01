@@ -1,9 +1,10 @@
 #include "emit_type.h"
 
-#include "../rewrite.h"
 #include "portability.h"
 #include "log.h"
-#include "../transform/memory_layout.h"
+
+#include "../../rewrite.h"
+#include "../../transform/memory_layout.h"
 
 #include "dict.h"
 

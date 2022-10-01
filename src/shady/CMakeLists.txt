@@ -37,20 +37,16 @@ set(SHADY_SOURCES
     passes/eliminate_constants.c
     passes/lower_subgroup_ops.c
     passes/remove_indirect_calls.c
-
-    emit/emit.c
-    emit/emit_type.c
-    emit/emit_builtins.c
-    emit/spirv_builder.c)
+)
 
 add_library(shady ${SHADY_SOURCES})
 set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(builtin)
+add_subdirectory(emit)
 
 target_link_libraries(shady PUBLIC "api")
 #target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:api>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:builtin_code>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:common>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:murmur3>")
-target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
