@@ -3,19 +3,17 @@
 
 #include "log.h"
 #include "list.h"
+#include "growy.h"
+#include "printer.h"
 
 #include <assert.h>
 #include <inttypes.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
 
 typedef struct PrinterCtx_ PrinterCtx;
 typedef void (*PrintFn)(PrinterCtx* ctx, char* format, ...);
 
 struct PrinterCtx_ {
-    PrintFn print_fn;
-    unsigned int indent;
+    Printer* printer;
     bool print_ptrs;
     bool color;
 };
@@ -40,14 +38,10 @@ struct PrinterCtx_ {
 #define BCYAN    COLOR("\033[0;96m")
 #define BWHITE   COLOR("\033[0;97m")
 
-//#define printf(...) fprintf(ctx->output, __VA_ARGS__)
-#define printf(...) ctx->print_fn(ctx, __VA_ARGS__)
+#define printf(...) print(ctx->printer, __VA_ARGS__)
 #define print_node(n) print_node_impl(ctx, n)
 
 static void print_node_impl(PrinterCtx* ctx, const Node* node);
-
-#define INDENT for (unsigned int j = 0; j < ctx->indent; j++) \
-    printf("   ");
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -133,12 +127,23 @@ static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     }
 }
 
+static void print_block_insides(PrinterCtx* ctx, const Block* block) {
+    for(size_t i = 0; i < block->instructions.count; i++) {
+        printf("\n");
+        print_node(block->instructions.nodes[i]);
+        printf(";");
+    }
+    printf("\n");
+    print_node(block->terminator);
+    printf(";");
+}
+
 static void print_function(PrinterCtx* ctx, const Node* node) {
     print_yield_types(ctx, node->payload.fn.return_types);
     print_param_list(ctx, node->payload.fn.params, NULL);
-    printf(" {\n");
-    ctx->indent++;
-    print_node(node->payload.fn.block);
+    printf(" {");
+    indent(ctx->printer);
+    print_block_insides(ctx, &node->payload.fn.block->payload.block);
 
     if (node->type != NULL && node->payload.fn.block) {
         bool section_space = false;
@@ -150,21 +155,15 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
             }
 
             const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
-            INDENT
-            printf("cont %s = ", cfnode->node->payload.fn.name);
+            printf("\ncont %s = ", cfnode->node->payload.fn.name);
             print_param_list(ctx, cfnode->node->payload.fn.params, NULL);
-            printf(" {\n");
-            ctx->indent++;
             print_node(cfnode->node->payload.fn.block);
-            ctx->indent--;
-            INDENT
-            printf("} \n");
         }
         dispose_scope(&scope);
     }
 
-    ctx->indent--;
-    INDENT printf("}");
+    deindent(ctx->printer);
+    printf("\n}");
 }
 
 static void print_annotations(PrinterCtx* ctx, Nodes annotations) {
@@ -406,21 +405,13 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("(");
             print_node(node->payload.if_instr.condition);
             printf(")");
-            printf(" {\n");
-            ctx->indent++;
             print_node(node->payload.if_instr.if_true);
-            ctx->indent--;
             if (node->payload.if_instr.if_false) {
-                INDENT printf("} ");
                 printf(GREEN);
                 printf("else");
                 printf(RESET);
-                printf(" {\n");
-                ctx->indent++;
                 print_node(node->payload.if_instr.if_false);
-                ctx->indent--;
-            } // else if (node->payload.if_instr.)
-            INDENT printf("}");
+            }
             break;
         case Loop_TAG:
             printf(GREEN);
@@ -428,11 +419,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(RESET);
             print_yield_types(ctx, node->payload.loop_instr.yield_types);
             print_param_list(ctx, node->payload.loop_instr.params, &node->payload.loop_instr.initial_args);
-            printf(" {\n");
-            ctx->indent++;
             print_node(node->payload.loop_instr.body);
-            ctx->indent--;
-            INDENT printf("}");
             break;
         case Match_TAG:
             printf(GREEN);
@@ -442,29 +429,28 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("(");
             print_node(node->payload.match_instr.inspect);
             printf(")");
-            printf(" {\n");
-            ctx->indent++;
+            printf(" {");
+            indent(ctx->printer);
             for (size_t i = 0; i < node->payload.match_instr.literals.count; i++) {
-                INDENT
-                printf("case ");
+                printf("\n");
+                printf(GREEN);
+                printf("case");
+                printf(RESET);
+                printf(" ");
                 print_node(node->payload.match_instr.literals.nodes[i]);
-                printf(": {\n");
-                ctx->indent++;
+                printf(": ");
                 print_node(node->payload.match_instr.cases.nodes[i]);
-                ctx->indent--;
-                INDENT printf("}\n");
             }
 
-            INDENT
+            printf("\n");
+            printf(GREEN);
             printf("default");
-            printf(": {\n");
-            ctx->indent++;
+            printf(RESET);
+            printf(": ");
             print_node(node->payload.match_instr.default_case);
-            ctx->indent--;
-            INDENT printf("}\n");
 
-            ctx->indent--;
-            INDENT printf("}");
+            deindent(ctx->printer);
+            printf("\n}");
             break;
     }
 }
@@ -484,10 +470,10 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
         case Branch_TAG:
             printf(BGREEN);
             switch (node->payload.branch.branch_mode) {
-                case BrTailcall: printf("tail_call ");   break;
-                case BrJump:     printf("jump "     );        break;
-                case BrIfElse:   printf("br_ifelse ");   break;
-                case BrSwitch:   printf("br_switch ");   break;
+                case BrTailcall: printf("tail_call "); break;
+                case BrJump:     printf("jump "     ); break;
+                case BrIfElse:   printf("br_ifelse "); break;
+                case BrSwitch:   printf("br_switch "); break;
                 default: error("unknown branch mode");
             }
             if (node->payload.branch.yield)
@@ -672,35 +658,33 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case Block_TAG: {
+            printf(" {");
+            indent(ctx->printer);
+
             const Block* block = &node->payload.block;
-            for(size_t i = 0; i < block->instructions.count; i++) {
-                INDENT
-                print_node(block->instructions.nodes[i]);
-                printf(";\n");
-            }
-            INDENT
-            print_node(block->terminator);
-            printf("\n");
+            print_block_insides(ctx, block);
+
+            deindent(ctx->printer);
+            printf("\n}");
             break;
         }
         case ParsedBlock_TAG: {
+            printf(" {");
+            indent(ctx->printer);
+
             const ParsedBlock* pblock = &node->payload.parsed_block;
-            for(size_t i = 0; i < pblock->instructions.count; i++) {
-                INDENT
-                print_node(pblock->instructions.nodes[i]);
-                printf(";\n");
-            }
-            INDENT
-            print_node(pblock->terminator);
-            printf("\n");
+            print_block_insides(ctx, (const Block*) pblock);
 
             if (pblock->continuations.count > 0) {
                 printf("\n");
             }
             for(size_t i = 0; i < pblock->continuations.count; i++) {
-                INDENT
+                printf("\n");
                 print_node_impl(ctx, pblock->continuations.nodes[i]);
             }
+
+            deindent(ctx->printer);
+            printf("\n}");
             break;
         }
         default: error("dunno how to print %s", node_tags[node->tag]);
@@ -710,98 +694,29 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
 #undef print_node
 #undef printf
 
-typedef struct {
-    char* alloc;
-    size_t size;
-    size_t used;
-} GrowyBuffer;
-
-typedef struct {
-    PrinterCtx base;
-    GrowyBuffer buffer;
-} StringPrinterCtx;
-
-static GrowyBuffer new_growy_buffer(size_t base_size) {
-    GrowyBuffer buf = {
-        .used = 0,
-        .size = base_size,
-        .alloc = malloc(base_size)
-    };
-    return buf;
-}
-
-static void grow_growy_buffer(GrowyBuffer* buf, const void* src, size_t size) {
-    if (buf->used + size >= buf->size) {
-        buf->size *= 2;
-        buf->alloc = realloc(buf->alloc, buf->size);
-    }
-
-    memcpy(buf->alloc + buf->used, src, size);
-    buf->used += size;
-}
-
-static void print_into_string(StringPrinterCtx* ctx, const char* format, ...) {
-    va_list args;
-    size_t buf_len = 256;
-    char* buf = malloc(buf_len);
-    size_t real_len;
-    while (true) {
-        va_start(args, format);
-        size_t written = vsnprintf(buf, buf_len, format, args);
-        va_end(args);
-        if (written < buf_len) {
-            real_len = written;
-            break;
-        } else {
-            buf_len *= 2;
-            buf = realloc(buf, buf_len);
-        }
-    }
-
-    grow_growy_buffer(&ctx->buffer, buf, real_len);
-
-    free(buf);
-}
-
 void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
-    StringPrinterCtx ctx = {
-        .base = {
-            .print_fn = (PrintFn) print_into_string,
-            .indent = 0,
-            .print_ptrs = false,
-            .color = false,
-        },
-        .buffer = new_growy_buffer(1024)
+    Growy* g = new_growy();
+    PrinterCtx ctx = {
+        .printer = open_growy_as_printer(g),
+        .print_ptrs = false,
+        .color = false,
     };
-    print_node_impl(&ctx.base, node);
+    print_node_impl(&ctx, node);
 
-    *str_ptr = ctx.buffer.alloc;
-    *size = ctx.buffer.used;
-}
-
-typedef struct {
-    PrinterCtx base;
-    FILE* file;
-} FilePrinterCtx;
-
-static void print_into_file(FilePrinterCtx* ctx, const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    vfprintf(ctx->file, format, args);
-    va_end(args);
+    *size = growy_size(g);
+    *str_ptr = growy_deconstruct(g);
+    destroy_printer(ctx.printer);
 }
 
 static void print_node_in_output(FILE* output, const Node* node, bool dump_ptrs) {
-    FilePrinterCtx ctx = {
-        .base = {
-            .print_fn = (PrintFn) print_into_file,
-            .indent = 0,
-            .print_ptrs = dump_ptrs,
-            .color = true,
-        },
-        .file = output
+    PrinterCtx ctx = {
+        .printer = open_file_as_printer(output),
+        .print_ptrs = dump_ptrs,
+        .color = true,
     };
-    print_node_impl(&ctx.base, node);
+    print_node_impl(&ctx, node);
+    flush(ctx.printer);
+    destroy_printer(ctx.printer);
 }
 
 void print_node(const Node* node) {
