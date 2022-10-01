@@ -10,13 +10,14 @@ Technical discussion about shady and SPIR-V in general can be had on [this disco
  * Hash-consed IR with nominal (functions) and structural (everything else) nodes. Structural nodes are immutable.
  * The function node encodes both functions and continuations. For many intents, the distinction does not matter.
  * Function bodies (named "blocks" inside the IR) are made out of lists of instructions without control flow, followed by a terminator
- * Implicit scoping like in Thorin, but using the CFG to establish scopes rather than the uses of params
+ * Statically structured control flow constructs (selection and iteration constructs) can be represented by special instructions
+ * Experimental new dynamically structured control flow primitives (paper/writeup coming later)
 
 ## Goals
 
  * Achieve code generation for arbitrarily complex/divergent/indirect programs using magic (hacks)
- * Emulate missing features by polyfill/shims
- * SPIR-V is currently the only target, but since other shading languages offer similar programming models, this could be extended to GLSL, HLSL, MSL, WGSL, ...
+ * Emulate missing features where support is missing, while using extensions opportunistically
+ * SPIR-V is currently the primary target, but since other shading languages offer similar programming models, this can be extended to GLSL, HLSL, MSL, WGSL, ...
 
 ## Syntax
 
