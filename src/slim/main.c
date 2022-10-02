@@ -19,13 +19,43 @@ enum SlimErrorCodes {
     IncorrectLogLevel,
     MissingDumpCfgArg,
     MissingDumpIrArg,
+    InvalidTarget,
 };
 
+typedef enum {
+    TgtAuto, TgtC, TgtSPV
+} CodegenTarget;
+
+
+static bool string_ends_with(const char* string, const char* suffix) {
+    size_t len = strlen(string);
+    size_t slen = strlen(suffix);
+    if (len < slen)
+        return false;
+    for (size_t i = 0; i < slen; i++) {
+        if (string[len - 1 - i] != suffix[slen - 1 - i])
+            return false;
+    }
+    return true;
+}
+
+static CodegenTarget guess_target(const char* filename) {
+    if (string_ends_with(filename, ".c"))
+        return TgtC;
+    else if (string_ends_with(filename, "spirv"))
+        return TgtSPV;
+    else if (string_ends_with(filename, "spv"))
+        return TgtSPV;
+    error_print("No target has been specified, and output filename '%s' did not allow guessing the right one\n");
+    exit(InvalidTarget);
+}
+
 typedef struct {
-     struct List* input_filenames;
-     const char* spv_output_filename;
-     const char* shd_output_filename;
-     const char* cfg_output_filename;
+    CodegenTarget target;
+    struct List* input_filenames;
+    const char*     output_filename;
+    const char* shd_output_filename;
+    const char* cfg_output_filename;
 } Args;
 
 static void process_arguments(int argc, const char** argv, Args* args) {
@@ -56,7 +86,7 @@ static void process_arguments(int argc, const char** argv, Args* args) {
                 error_print("--output must be followed with a filename");
                 exit(MissingOutputArg);
             }
-            args->spv_output_filename = argv[i];
+            args->output_filename = argv[i];
         } else if (strcmp(argv[i], "--dump-cfg") == 0) {
             i++;
             if (i == argc) {
@@ -71,6 +101,20 @@ static void process_arguments(int argc, const char** argv, Args* args) {
                 exit(MissingDumpIrArg);
             }
             args->shd_output_filename = argv[i];
+        } else if (strcmp(argv[i], "--target") == 0) {
+            i++;
+            if (i == argc)
+                goto invalid_target;
+            else if (strcmp(argv[i], "c") == 0)
+                args->target = TgtC;
+            else if (strcmp(argv[i], "spirv") == 0)
+                args->target = TgtSPV;
+            else
+                goto invalid_target;
+            continue;
+            invalid_target:
+            error_print("--target must be followed with a valid target (see help for list of targets)");
+            exit(InvalidTarget);
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             i++;
@@ -83,6 +127,7 @@ static void process_arguments(int argc, const char** argv, Args* args) {
         error_print("Usage: slim source.slim\n");
         error_print("Available arguments: \n");
         error_print("  --log-level [debug, info, warn, error]\n");
+        error_print("  --target c spirv\n");
         error_print("  --output <filename>, -o <filename>\n");
         error_print("  --dump-cfg <filename>\n");
         error_print("  --dump-ir <filename>\n");
@@ -101,8 +146,9 @@ int main(int argc, const char** argv) {
     config.allow_frontend_syntax = true;
 
     Args args = {
+        .target = TgtAuto,
         .input_filenames = new_list(const char*),
-        .spv_output_filename = "out.spv",
+        .output_filename = NULL,
         .cfg_output_filename = NULL,
         .shd_output_filename = NULL,
     };
@@ -160,11 +206,17 @@ int main(int argc, const char** argv) {
         info_print("IR dumped\n");
     }
 
-    if (args.spv_output_filename) {
-        FILE* f = fopen(args.spv_output_filename, "wb");
+    if (args.output_filename) {
+        if (args.target == TgtAuto)
+            args.target = guess_target(args.output_filename);
+        FILE* f = fopen(args.output_filename, "wb");
         size_t output_size;
         char* output_buffer;
-        emit_spirv(&config, arena, program, &output_size, &output_buffer);
+        switch (args.target) {
+            case TgtAuto: SHADY_UNREACHABLE;
+            case TgtSPV: emit_spirv(&config, arena, program, &output_size, &output_buffer); break;
+            case TgtC: emit_c(&config, arena, program, &output_size, &output_buffer); break;
+        }
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);
         fclose(f);
