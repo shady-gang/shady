@@ -25,6 +25,9 @@ typedef struct {
     struct Dict* emitted;
 } Emitter;
 
+#define emit_type c_emit_type
+#define emit_value c_emit_value
+
 String emit_type(Emitter* emitter, const Type* type, const char* identifier);
 String emit_value(Emitter* emitter, const Node* value);
 
