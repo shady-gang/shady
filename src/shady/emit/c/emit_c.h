@@ -22,6 +22,9 @@ typedef struct {
     IrArena* arena;
     unsigned next_id;
     Printer *type_decls, *fn_decls, *fn_defs;
+    struct {
+        const Nodes *selection, *loop_continue, *loop_break;
+    } phis;
     struct Dict* emitted;
 } Emitter;
 
@@ -30,5 +33,8 @@ typedef struct {
 
 String emit_type(Emitter* emitter, const Type* type, const char* identifier);
 String emit_value(Emitter* emitter, const Node* value);
+
+void emit_pack_code(Emitter*, Printer*, const Nodes* src, String dst);
+void emit_unpack_code(Emitter*, Printer*, String src, const Nodes* dst);
 
 #endif

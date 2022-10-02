@@ -4,6 +4,8 @@
 #include "dict.h"
 #include "log.h"
 
+#include "../../type.h"
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,17 +18,6 @@ static String append_unique_number(Emitter* emitter, String name) {
     unsigned id = emitter->next_id++;
     String formatted = format_string(emitter->arena, "%s_%d", name, id);
     return formatted;
-}
-
-static const Type* codom_to_single_type(IrArena* arena, Nodes codom) {
-    switch (codom.count) {
-        case 0: return unit_type(arena);
-        case 1: return codom.nodes[0];
-        default: {
-            const Type* codom_ret_type = record_type(arena, (RecordType) { .members = codom, .special = MultipleReturn });
-            return codom_ret_type;
-        }
-    }
 }
 
 String emit_type(Emitter* emitter, const Type* type, const char* center) {
@@ -114,7 +105,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             center = format_string(emitter->arena, "(%s)(%s)", center, parameters);
             free(parameters);
 
-            return emit_type(emitter, codom_to_single_type(emitter->arena, codom), center);
+            return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
         }
         case Type_ArrType_TAG: {
             const Node* size = type->payload.arr_type.size;
@@ -168,7 +159,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn) {
     String center = format_string(emitter->arena, "%s(%s)", fn->payload.fn.name, parameters);
     free(parameters);
 
-    return emit_type(emitter, codom_to_single_type(emitter->arena, codom), center);
+    return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
 }
 
 String emit_value(Emitter* emitter, const Node* value) {
@@ -316,7 +307,7 @@ static void emit_call(Emitter* emitter, Printer* p, const Call* call, const Type
         declare_variables_helper(emitter, p, outputs);
         String named = format_string(emitter->arena, "result_%d", emitter->next_id++);
         print(p, "\n%s = %s(%s);", emit_type(emitter, result_type, named), emit_callee(emitter, call->callee), params);
-        // TODO: extract the components
+        emit_unpack_code(emitter, p, named, outputs);
     } else if (outputs->count == 1) {
         const Variable* var = &outputs->nodes[0]->payload.var;
         String named = format_string(emitter->arena, "%s_%d", var->name, var->id);
@@ -333,8 +324,11 @@ static void emit_if(Emitter* emitter, Printer* p, const If* if_instr, const Node
         print(p, "\n/* if yield values */");
     declare_variables_helper(emitter, p, outputs);
 
-    String true_block = emit_block_helper(emitter, if_instr->if_true, NULL);
-    String false_block = if_instr->if_false ? emit_block_helper(emitter, if_instr->if_false, NULL) : NULL;
+    Emitter sub_emiter = *emitter;
+    sub_emiter.phis.selection = outputs;
+
+    String true_block = emit_block_helper(&sub_emiter, if_instr->if_true, NULL);
+    String false_block = if_instr->if_false ? emit_block_helper(&sub_emiter, if_instr->if_false, NULL) : NULL;
     print(p, "\nif (%s) %s", emit_value(emitter, if_instr->condition), true_block);
     if (false_block)
         print(p, " else %s", false_block);
@@ -347,15 +341,18 @@ static void emit_match(Emitter* emitter, Printer* p, const Match* match_instr, c
         print(p, "\n/* match yield values */");
     declare_variables_helper(emitter, p, outputs);
 
+    Emitter sub_emiter = *emitter;
+    sub_emiter.phis.selection = outputs;
+
     print(p, "\nswitch (%s) {", emit_value(emitter, match_instr->inspect));
     indent(p);
     for (size_t i = 0; i < match_instr->cases.count; i++) {
-        String case_body = emit_block_helper(emitter, match_instr->cases.nodes[i], NULL);
+        String case_body = emit_block_helper(&sub_emiter, match_instr->cases.nodes[i], NULL);
         print(p, "\ncase %s: %s\n", emit_value(emitter, match_instr->literals.nodes[i]), case_body);
         free(case_body);
     }
     if (match_instr->default_case) {
-        String default_case_body = emit_block_helper(emitter, match_instr->default_case, NULL);
+        String default_case_body = emit_block_helper(&sub_emiter, match_instr->default_case, NULL);
         print(p, "\ndefault: %s\n", default_case_body);
         free(default_case_body);
     }
@@ -371,7 +368,11 @@ static void emit_loop(Emitter* emitter, Printer* p, const Loop* loop_instr, cons
         print(p, "\n/* loop yield values */");
     declare_variables_helper(emitter, p, outputs);
 
-    String body = emit_block_helper(emitter, loop_instr->body, NULL);
+    Emitter sub_emiter = *emitter;
+    sub_emiter.phis.loop_continue = &loop_instr->params;
+    sub_emiter.phis.loop_break = outputs;
+
+    String body = emit_block_helper(&sub_emiter, loop_instr->body, NULL);
     print(p, "\nwhile(true) %s", body);
     free(body);
 }
@@ -396,6 +397,53 @@ static void emit_instruction(Emitter* emitter, Printer* p, const Node* instructi
     }
 }
 
+static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator) {
+    switch (is_terminator(terminator)) {
+        case NotATerminator: assert(false);
+        case Terminator_Join_TAG:
+        case Terminator_Callc_TAG:  error("this must be lowered away!");
+        case Terminator_Branch_TAG: break;
+        case Terminator_Return_TAG: {
+            Nodes args = terminator->payload.fn_ret.values;
+            if (args.count == 0) {
+                print(p, "\nreturn;");
+            } else if (args.count == 1) {
+                print(p, "\nreturn %s;", emit_value(emitter, args.nodes[0]));
+            } else {
+                String packed = format_string(emitter->arena, "pack_return_%d", emitter->next_id++);
+                emit_pack_code(emitter, p, &args, packed);
+                print(p, "\nreturn %s;", packed);
+            }
+            break;
+        }
+        case Terminator_MergeConstruct_TAG: {
+            Nodes args = terminator->payload.merge_construct.args;
+            const Nodes* phis;
+            switch (terminator->payload.merge_construct.construct) {
+                case Selection: phis = emitter->phis.selection; break;
+                case Continue:  phis = emitter->phis.loop_continue; break;
+                case Break:     phis = emitter->phis.loop_break; break;
+            }
+            assert(phis && phis->count == args.count);
+            for (size_t i = 0; i < phis->count; i++) {
+                print(p, "\n%s = %s;", emit_value(emitter, phis->nodes[i]), emit_value(emitter, args.nodes[i]));
+            }
+
+            switch (terminator->payload.merge_construct.construct) {
+                case Selection: break;
+                case Continue:  print(p, "\ncontinue;"); break;
+                case Break:     print(p, "\nbreak;"); break;
+            }
+            break;
+        }
+        case Terminator_Unreachable_TAG: {
+            assert(emitter->config.dialect == C);
+            print(p, "\n__builtin_unreachable();");
+            break;
+        }
+    }
+}
+
 static void emit_block(Emitter* emitter, Printer* p, const Node* block) {
     assert(block && block->tag == Block_TAG);
     print(p, "{");
@@ -404,6 +452,8 @@ static void emit_block(Emitter* emitter, Printer* p, const Node* block) {
     for (size_t i = 0; i < block->payload.block.instructions.count; i++) {
         emit_instruction(emitter, p, block->payload.block.instructions.nodes[i]);
     }
+    
+    emit_terminator(emitter, p, block->payload.block.terminator);
 
     deindent(p);
     print(p, "\n}");
