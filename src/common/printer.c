@@ -145,9 +145,11 @@ void print_size_suffix(Printer* p, size_t s, int extra) {
     print(p, "%llu%s", s, suffixes[i]);
 }
 
-const char* printer_growy_unrwap(Printer* p) {
+const char* printer_growy_unwrap(Printer* p) {
     assert(p->output == PoGrowy);
-    return growy_deconstruct(p->growy);
+    const char* insides = growy_deconstruct(p->growy);
+    free(p);
+    return insides;
 }
 
 const char* replace_string(const char* source, const char* match, const char* replace_with) {
