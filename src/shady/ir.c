@@ -145,10 +145,10 @@ const char* string(IrArena* arena, const char* str) {
 }
 
 String format_string(IrArena* arena, const char* str, ...) {
-    char tmp[64];
+    char tmp[128];
     va_list args;
     va_start(args, str);
-    int len = vsnprintf(tmp, 64, str, args);
+    int len = vsnprintf(tmp, 128, str, args);
     const char* interned = string_impl(arena, len, tmp);
     va_end(args);
     return interned;

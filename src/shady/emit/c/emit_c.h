@@ -20,7 +20,6 @@ typedef struct {
 typedef struct {
     EmitterConfig config;
     IrArena* arena;
-    unsigned next_id;
     Printer *type_decls, *fn_decls, *fn_defs;
     struct {
         const Nodes *selection, *loop_continue, *loop_break;

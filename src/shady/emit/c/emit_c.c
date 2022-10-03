@@ -5,6 +5,7 @@
 #include "log.h"
 
 #include "../../type.h"
+#include "../../ir_private.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -14,11 +15,8 @@ typedef const char* String;
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static String append_unique_number(Emitter* emitter, String name) {
-    unsigned id = emitter->next_id++;
-    String formatted = format_string(emitter->arena, "%s_%d", name, id);
-    return formatted;
-}
+static String emit_decl(Emitter* emitter, const Node* decl);
+static String emit_block_helper(Emitter* emitter, const Node* block, const Nodes* bbs);
 
 String emit_type(Emitter* emitter, const Type* type, const char* center) {
     if (center == NULL)
@@ -40,24 +38,24 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         case Int_TAG: {
             if (emitter->config.explicitly_sized_types) {
                 switch (type->payload.int_type.width) {
-                    case IntTy8:  emitted = "int8_t" ; break;
-                    case IntTy16: emitted = "int16_t"; break;
-                    case IntTy32: emitted = "int32_t"; break;
-                    case IntTy64: emitted = "int64_t"; break;
+                    case IntTy8:  emitted = "unt8_t" ; break;
+                    case IntTy16: emitted = "unt16_t"; break;
+                    case IntTy32: emitted = "unt32_t"; break;
+                    case IntTy64: emitted = "unt64_t"; break;
                 }
             } else {
                 switch (type->payload.int_type.width) {
-                    case IntTy8:  emitted = "char";  break;
-                    case IntTy16: emitted = "short"; break;
-                    case IntTy32: emitted = "int";   break;
-                    case IntTy64: emitted = "long";  break;
+                    case IntTy8:  emitted = "unsigned char";  break;
+                    case IntTy16: emitted = "unsigned short"; break;
+                    case IntTy32: emitted = "unsigned int";   break;
+                    case IntTy64: emitted = "unsigned long";  break;
                 }
             }
             break;
         }
         case Float_TAG: emitted = "float"; break;
         case Type_RecordType_TAG: {
-            emitted = append_unique_number(emitter, "struct Record");
+            emitted = unique_name(emitter->arena, "struct Record");
             Growy* g = new_growy();
             Printer* p = open_growy_as_printer(g);
 
@@ -72,9 +70,9 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
 
                 print(p, "\n%s;", emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
             }
-            growy_append_bytes(g, 1, (char[]) { '\0' });
             deindent(p);
             print(p, "\n};\n");
+            growy_append_bytes(g, 1, (char[]) { '\0' });
 
             print(emitter->type_decls, growy_data(g));
             growy_destroy(g);
@@ -108,12 +106,34 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
         }
         case Type_ArrType_TAG: {
+            emitted = unique_name(emitter->arena, "struct Array");
+            Growy* g = new_growy();
+            Printer* p = open_growy_as_printer(g);
+
+            print(p, "\n%s {", emitted);
+            indent(p);
             const Node* size = type->payload.arr_type.size;
+            String inner_decl_rhs;
+            if (size)
+                inner_decl_rhs = format_string(emitter->arena, "arr[%s]", emit_value(emitter, size));
+            else
+                inner_decl_rhs = format_string(emitter->arena, "arr[0]");
+            print(p, "\n%s;", emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));
+            deindent(p);
+            print(p, "\n};\n");
+            growy_append_bytes(g, 1, (char[]) { '\0' });
+
+            String subdecl = printer_growy_unwrap(p);
+            print(emitter->type_decls, subdecl);
+            free(subdecl);
+            break;
+
+            /*const Node* size = type->payload.arr_type.size;
             if (size)
                 center = format_string(emitter->arena, "%s[%s]", center, emit_value(emitter, size));
             else
                 center = format_string(emitter->arena, "%s[]", center);
-            return emit_type(emitter, type->payload.arr_type.element_type, center);
+            return emit_type(emitter, type->payload.arr_type.element_type, center);*/
         }
         case Type_PackType_TAG: {
             emitted = emit_type(emitter, type->payload.pack_type.element_type, NULL);
@@ -162,6 +182,46 @@ String emit_fn_head(Emitter* emitter, const Node* fn) {
     return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
 }
 
+#include <ctype.h>
+
+static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* p, Growy* g, const Node* array) {
+    const Type* t = array->payload.arr_lit.element_type;
+    Nodes c = array->payload.arr_lit.contents;
+    if (t->tag == Int_TAG && t->payload.int_type.width == 8) {
+        uint8_t* tmp = malloc(sizeof(uint8_t) * c.count);
+        bool ends_zero = false, has_zero = false;
+        for (size_t i = 0; i < c.count; i++) {
+            tmp[i] = extract_int_literal_value(c.nodes[i], false);
+            if (tmp[i] == 0) {
+                if (i == c.count - 1)
+                    ends_zero = true;
+                else
+                    has_zero = true;
+            }
+        }
+        bool is_stringy = ends_zero /*&& !has_zero*/;
+        for (size_t i = 0; i < c.count; i++) {
+            // ignore the last char in a string
+            if (is_stringy && i == c.count - 1)
+                break;
+            if (isprint(tmp[i]))
+                print(p, "%c", tmp[i]);
+            else
+                print(p, "\\x%02x", tmp[i]);
+        }
+        free(tmp);
+        return is_stringy ? StringLit : CharsLit;
+    } else {
+        for (size_t i = 0; i < c.count; i++) {
+            print(p, emit_value(e, c.nodes[i]));
+            if (i + 1 < c.count)
+                print(p, ", ");
+        }
+        growy_append_bytes(g, 1, "\0");
+        return ObjectsList;
+    }
+}
+
 String emit_value(Emitter* emitter, const Node* value) {
     String* found = find_value_dict(const Node*, String, emitter->emitted, value);
     if (found)
@@ -179,12 +239,33 @@ String emit_value(Emitter* emitter, const Node* value) {
         case Value_False_TAG: return "false";
         case Value_Tuple_TAG: break;
         case Value_StringLiteral_TAG: break;
-        case Value_ArrayLiteral_TAG: break;
-        case Value_FnAddr_TAG:
-            emitted = get_decl_name(value->payload.ref_decl.decl);
+        case Value_ArrayLiteral_TAG: {
+            Growy* g = new_growy();
+            Printer* p = open_growy_as_printer(g);
+            switch (array_insides_helper(emitter, p, g, value)) {
+                case ObjectsList:
+                    emitted = format_string(emitter->arena, "((%s) { %s })", emit_type(emitter, value->payload.arr_lit.element_type, NULL), growy_data(g));
+                    break;
+                case StringLit:
+                    emitted = format_string(emitter->arena, "((%s) { \"s\" })", emit_type(emitter, value->payload.arr_lit.element_type, NULL), growy_data(g));
+                    break;
+                case CharsLit:
+                    emitted = format_string(emitter->arena, "((%s) { '%s' })", emit_type(emitter, value->payload.arr_lit.element_type, NULL), growy_data(g));
+                    break;
+            }
+            growy_destroy(g);
+            destroy_printer(p);
+            break;
+        }
+        case Value_FnAddr_TAG: {
+            emitted = get_decl_name(value->payload.fn_addr.fn);
             emitted = format_string(emitter->arena, "&%s", emitted);
             break;
-        case Value_RefDecl_TAG: emitted = get_decl_name(value->payload.ref_decl.decl); break;
+        }
+        case Value_RefDecl_TAG: {
+            emitted = emit_decl(emitter, value->payload.ref_decl.decl);
+            break;
+        }
     }
 
     assert(emitted);
@@ -204,7 +285,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const PrimOp* prim_op, con
     enum {
         Infix, Prefix
     } m = Infix;
-    const char* s = NULL;
+    String s = NULL, rhs = NULL;
     switch (prim_op->op) {
         case add_op: s = "+";  break;
         case sub_op: s = "-";  break;
@@ -234,10 +315,33 @@ static void emit_primop(Emitter* emitter, Printer* p, const PrimOp* prim_op, con
         case store_op:
             print(p, "\n*%s = %s;", emit_value(emitter, prim_op->operands.nodes[0]), emit_value(emitter, prim_op->operands.nodes[1]));
             break;
-        case lea_op:break;
+        case lea_op: {
+            const char* acc = emit_value(emitter, prim_op->operands.nodes[0]);
+            assert(acc);
+            if (prim_op->operands.nodes[1])
+                acc = format_string(emitter->arena, "&(%s[%s])", acc, emit_value(emitter, prim_op->operands.nodes[1]));
+            const Type* t = extract_operand_type(prim_op->operands.nodes[0]->type);
+            assert(t->tag == PtrType_TAG);
+            t = t->payload.ptr_type.pointed_type;
+            for (size_t i = 2; i < prim_op->operands.count; i++) {
+                switch (is_type(t)) {
+                    case ArrType_TAG: {
+                        acc = format_string(emitter->arena, "&(%s[%s])", acc, emit_value(emitter, prim_op->operands.nodes[i]));
+                        break;
+                    }
+                    case RecordType_TAG: error("TODO");
+                    default: error("lea can't work on this");
+                }
+            }
+            rhs = acc;
+            break;
+        }
         case select_op:break;
         case convert_op:break;
-        case reinterpret_op:break;
+        case reinterpret_op: {
+            rhs = format_string(emitter->arena, "(%s) %s", emit_type(emitter, prim_op->operands.nodes[0], NULL), emit_value(emitter, prim_op->operands.nodes[1]));
+            break;
+        }
         case extract_op:break;
         case extract_dynamic_op:break;
         case push_stack_op:break;
@@ -274,8 +378,11 @@ static void emit_primop(Emitter* emitter, Printer* p, const PrimOp* prim_op, con
     String decl = emit_type(emitter, outputs->nodes[0]->type, format_string(emitter->arena, "const %s_%d", var->name, var->id));
 
     if (s == NULL) {
-        print(p, "\n%s; /* todo */", decl);
-        return; // TODO !
+        if (rhs)
+            print(p, "\n%s = %s;", decl, rhs);
+        else
+            print(p, "\n%s; /* todo: implement %s */", decl, primop_names[prim_op->op]);
+        return;
     }
 
     switch (m) {
@@ -283,8 +390,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const PrimOp* prim_op, con
         case Prefix: print(p, "\n%s = %s%s;", decl, s, emit_value(emitter, prim_op->operands.nodes[0])); break;
     }
 }
-
-static String emit_block_helper(Emitter* emitter, const Node* block, const Nodes* bbs);
 
 static String emit_callee(Emitter* e, const Node* callee) {
     if (callee->tag == Function_TAG)
@@ -305,7 +410,7 @@ static void emit_call(Emitter* emitter, Printer* p, const Call* call, const Type
 
     if (outputs->count > 1) {
         declare_variables_helper(emitter, p, outputs);
-        String named = format_string(emitter->arena, "result_%d", emitter->next_id++);
+        String named = unique_name(emitter->arena, "result");
         print(p, "\n%s = %s(%s);", emit_type(emitter, result_type, named), emit_callee(emitter, call->callee), params);
         emit_unpack_code(emitter, p, named, outputs);
     } else if (outputs->count == 1) {
@@ -410,7 +515,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             } else if (args.count == 1) {
                 print(p, "\nreturn %s;", emit_value(emitter, args.nodes[0]));
             } else {
-                String packed = format_string(emitter->arena, "pack_return_%d", emitter->next_id++);
+                String packed = unique_name(emitter->arena, "pack_return");
                 emit_pack_code(emitter, p, &args, packed);
                 print(p, "\nreturn %s;", packed);
             }
@@ -481,16 +586,23 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
         return *found;
 
     const char* name = get_decl_name(decl);
-    insert_dict(const Node*, String, emitter->emitted, decl, name);
+    const Type* decl_type = decl->type;
     const char* decl_center = name;
+    const char* emit_as = NULL;
 
     switch (decl->tag) {
         case GlobalVariable_TAG: {
+            decl_type = decl->payload.global_variable.type;
+            // users of the global variable are actually using its address
+            emit_as = format_string(emitter->arena, "(&%s)", name);
+            insert_dict(const Node*, String, emitter->emitted, decl, emit_as);
             if (decl->payload.global_variable.init)
-                print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl->type, decl_center), emit_value(emitter, decl->payload.global_variable.init));
+                print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), emit_value(emitter, decl->payload.global_variable.init));
             break;
         }
         case Function_TAG: {
+            emit_as = name;
+            insert_dict(const Node*, String, emitter->emitted, decl, emit_as);
             if (decl->payload.fn.block) {
                 for (size_t i = 0; i < decl->payload.fn.params.count; i++) {
                     const char* param_name = format_string(emitter->arena, "%s_%d", decl->payload.fn.params.nodes[i]->payload.var.name, decl->payload.fn.params.nodes[i]->payload.var.id);
@@ -504,6 +616,8 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
             break;
         }
         case Constant_TAG: {
+            emit_as = name;
+            insert_dict(const Node*, String, emitter->emitted, decl, emit_as);
             decl_center = format_string(emitter->arena, "const %s", decl_center);
             print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl->type, decl_center), emit_value(emitter, decl->payload.constant.value));
             break;
@@ -511,8 +625,9 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
         default: error("not a decl");
     }
 
-    String declaration = emit_type(emitter, decl->type, decl_center);
+    String declaration = emit_type(emitter, decl_type, decl_center);
     print(emitter->fn_decls, "\n%s;", declaration);
+    return emit_as;
 }
 
 KeyHash hash_node(Node**);
