@@ -13,7 +13,6 @@
 #pragma GCC diagnostic error "-Wswitch"
 
 static String emit_decl(Emitter* emitter, const Node* decl);
-static String emit_block_helper(Emitter* emitter, const Node* block, const Nodes* bbs);
 
 String emit_fn_head(Emitter* emitter, const Node* fn) {
     assert(fn->tag == Function_TAG);
@@ -231,7 +230,7 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
                     insert_dict(const Node*, String, emitter->emitted, decl->payload.fn.params.nodes[i], param_name);
                 }
 
-                String fn_body = emit_block_helper(emitter, decl->payload.fn.block, NULL);
+                String fn_body = emit_block(emitter, decl->payload.fn.block, NULL);
                 print(emitter->fn_defs, "\n%s %s", emit_fn_head(emitter, decl), fn_body);
                 free(fn_body);
             }
