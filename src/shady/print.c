@@ -141,6 +141,9 @@ static void print_block_insides(PrinterCtx* ctx, const Block* block) {
 static void print_function(PrinterCtx* ctx, const Node* node) {
     print_yield_types(ctx, node->payload.fn.return_types);
     print_param_list(ctx, node->payload.fn.params, NULL);
+    if (!node->payload.fn.block)
+        return;
+
     printf(" {");
     indent(ctx->printer);
     print_block_insides(ctx, &node->payload.fn.block->payload.block);

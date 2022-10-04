@@ -120,13 +120,6 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             print(emitter->type_decls, subdecl);
             free(subdecl);
             break;
-
-            /*const Node* size = type->payload.arr_type.size;
-            if (size)
-                center = format_string(emitter->arena, "%s[%s]", center, emit_value(emitter, size));
-            else
-                center = format_string(emitter->arena, "%s[]", center);
-            return emit_type(emitter, type->payload.arr_type.element_type, center);*/
         }
         case Type_PackType_TAG: {
             emitted = emit_type(emitter, type->payload.pack_type.element_type, NULL);
