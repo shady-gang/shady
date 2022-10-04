@@ -5,6 +5,8 @@
 
 #define TEXT_TOKEN(t) TOKEN(t, #t)
 
+#define REGISTER_PRIMOP_AS_TOKEN(has_side_effects, name) TEXT_TOKEN(name)
+
 #define TOKENS() \
 TOKEN(EOF, NULL) \
 TOKEN(identifier, NULL) \
@@ -51,7 +53,7 @@ TEXT_TOKEN(callf) \
 TEXT_TOKEN(callc) \
 TOKEN(return, "return") \
 TEXT_TOKEN(unreachable) \
-PRIMOPS() \
+PRIMOPS(REGISTER_PRIMOP_AS_TOKEN) \
 TOKEN(infix_rshift_logical, ">>>") \
 TOKEN(infix_rshift_arithm, ">>") \
 TOKEN(infix_lshift, "<<") \
@@ -85,15 +87,11 @@ typedef struct Tokenizer_ Tokenizer;
 Tokenizer* new_tokenizer(const char* source);
 void destroy_tokenizer(Tokenizer*);
 
-#define PRIMOP(has_side_effects, name) TEXT_TOKEN(name)
-
 typedef enum {
 #define TOKEN(name, str) name##_tok,
     TOKENS()
 #undef TOKEN
 } TokenTag;
-
-#undef PRIMOP
 
 extern const char* token_tags[];
 

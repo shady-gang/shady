@@ -433,8 +433,9 @@ static const Node* accept_control_flow_instruction(ctxparams) {
 
 static bool translate_token_to_primop(TokenTag token, Op* op) {
     switch (token) {
-#define  PRIMOP(has_side_effects, name) case name##_tok: { *op = name##_op; return true; }
-PRIMOPS()
+#define TRANSLATE_PRIMOP_CASE(has_side_effects, name) case name##_tok: { *op = name##_op; return true; }
+PRIMOPS(TRANSLATE_PRIMOP_CASE)
+#undef TRANSLATE_PRIMOP_CASE
         default: return false;
     }
 }

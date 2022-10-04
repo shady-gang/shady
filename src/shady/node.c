@@ -272,15 +272,15 @@ NODES(NODE_NAME)
 };
 
 const char* primop_names[] = {
-#define PRIMOP(se, str) #str,
-PRIMOPS()
-#undef PRIMOP
+#define DECLARE_PRIMOP_NAME(se, str) #str,
+PRIMOPS(DECLARE_PRIMOP_NAME)
+#undef DECLARE_PRIMOP_NAME
 };
 
 const bool primop_side_effects[] = {
-#define PRIMOP(se, str) se,
-PRIMOPS()
-#undef PRIMOP
+#define PRIMOP_SIDE_EFFECTFUL(se, str) se,
+PRIMOPS(PRIMOP_SIDE_EFFECTFUL)
+#undef PRIMOP_SIDE_EFFECTFUL
 };
 
 bool has_primop_got_side_effects(Op op) {

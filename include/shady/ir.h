@@ -370,60 +370,60 @@ typedef struct Let_ {
 
 // PRIMOP(has_side_effects, name)
 
-#define PRIMOPS()                    \
-PRIMOP(0, add)                       \
-PRIMOP(0, sub)                       \
-PRIMOP(0, mul)                       \
-PRIMOP(0, div)                       \
-PRIMOP(0, mod)                       \
-PRIMOP(0, neg)                       \
-PRIMOP(0, gt)                        \
-PRIMOP(0, gte)                       \
-PRIMOP(0, lt)                        \
-PRIMOP(0, lte)                       \
-PRIMOP(0, eq)                        \
-PRIMOP(0, neq)                       \
-PRIMOP(0, and)                       \
-PRIMOP(0, or)                        \
-PRIMOP(0, xor)                       \
-PRIMOP(0, not)                       \
-PRIMOP(0, rshift_logical)            \
-PRIMOP(0, rshift_arithm)             \
-PRIMOP(0, lshift)                    \
-PRIMOP(1, assign)                    \
-PRIMOP(1, subscript)                 \
-PRIMOP(1, alloca)                    \
-PRIMOP(1, alloca_slot)               \
-PRIMOP(1, alloca_logical)            \
-PRIMOP(0, load)                      \
-PRIMOP(1, store)                     \
-PRIMOP(0, lea)                       \
-PRIMOP(0, select)                    \
-PRIMOP(0, convert)                   \
-PRIMOP(0, reinterpret)               \
-PRIMOP(0, extract)                   \
-PRIMOP(0, extract_dynamic)           \
-PRIMOP(1, push_stack)                \
-PRIMOP(1, pop_stack)                 \
-PRIMOP(1, push_stack_uniform)        \
-PRIMOP(1, pop_stack_uniform)         \
-PRIMOP(0, get_stack_pointer)         \
-PRIMOP(0, get_stack_pointer_uniform) \
-PRIMOP(1, set_stack_pointer)         \
-PRIMOP(1, set_stack_pointer_uniform) \
-PRIMOP(0, subgroup_elect_first)      \
-PRIMOP(0, subgroup_broadcast_first)  \
-PRIMOP(0, subgroup_active_mask)      \
-PRIMOP(0, subgroup_ballot)           \
-PRIMOP(0, subgroup_local_id)         \
-PRIMOP(0, empty_mask)                \
-PRIMOP(0, mask_is_thread_active)     \
-PRIMOP(1, debug_printf)              \
+#define PRIMOPS(P)              \
+P(0, add)                       \
+P(0, sub)                       \
+P(0, mul)                       \
+P(0, div)                       \
+P(0, mod)                       \
+P(0, neg)                       \
+P(0, gt)                        \
+P(0, gte)                       \
+P(0, lt)                        \
+P(0, lte)                       \
+P(0, eq)                        \
+P(0, neq)                       \
+P(0, and)                       \
+P(0, or)                        \
+P(0, xor)                       \
+P(0, not)                       \
+P(0, rshift_logical)            \
+P(0, rshift_arithm)             \
+P(0, lshift)                    \
+P(1, assign)                    \
+P(1, subscript)                 \
+P(1, alloca)                    \
+P(1, alloca_slot)               \
+P(1, alloca_logical)            \
+P(0, load)                      \
+P(1, store)                     \
+P(0, lea)                       \
+P(0, select)                    \
+P(0, convert)                   \
+P(0, reinterpret)               \
+P(0, extract)                   \
+P(0, extract_dynamic)           \
+P(1, push_stack)                \
+P(1, pop_stack)                 \
+P(1, push_stack_uniform)        \
+P(1, pop_stack_uniform)         \
+P(0, get_stack_pointer)         \
+P(0, get_stack_pointer_uniform) \
+P(1, set_stack_pointer)         \
+P(1, set_stack_pointer_uniform) \
+P(0, subgroup_elect_first)      \
+P(0, subgroup_broadcast_first)  \
+P(0, subgroup_active_mask)      \
+P(0, subgroup_ballot)           \
+P(0, subgroup_local_id)         \
+P(0, empty_mask)                \
+P(0, mask_is_thread_active)     \
+P(1, debug_printf)              \
 
 typedef enum Op_ {
-#define PRIMOP(has_side_effects, name) name##_op,
-PRIMOPS()
-#undef PRIMOP
+#define DECLARE_PRIMOP_ENUM(has_side_effects, name) name##_op,
+PRIMOPS(DECLARE_PRIMOP_ENUM)
+#undef DECLARE_PRIMOP_ENUM
     PRIMOPS_COUNT
 } Op;
 
