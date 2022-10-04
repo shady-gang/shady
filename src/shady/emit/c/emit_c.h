@@ -29,9 +29,13 @@ typedef struct {
 
 #define emit_type c_emit_type
 #define emit_value c_emit_value
+#define emit_instruction c_emit_instruction
+#define emit_block c_emit_block
 
 String emit_type(Emitter* emitter, const Type* type, const char* identifier);
 String emit_value(Emitter* emitter, const Node* value);
+void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction);
+String emit_block(Emitter* emitter, const Node* block, const Nodes* bbs);
 
 void emit_pack_code(Emitter*, Printer*, const Nodes* src, String dst);
 void emit_unpack_code(Emitter*, Printer*, String src, const Nodes* dst);
