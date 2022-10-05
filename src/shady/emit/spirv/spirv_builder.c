@@ -701,13 +701,15 @@ SpvId get_block_builder_id(struct SpvBasicBlockBuilder* basic_block_builder) {
     return basic_block_builder->label;
 }
 
+#define SHADY_GENERATOR_MAGIC_NUMBER 35
+
 inline static void merge_sections(SpvSectionBuilder final_output, struct SpvFileBuilder* file_builder) {
     literal_int(SpvMagicNumber);
     uint32_t version_tag = 0;
     version_tag |= ((uint32_t) file_builder->version.major) << 16;
     version_tag |= ((uint32_t) file_builder->version.minor) << 8;
     literal_int(version_tag);
-    literal_int(0); // TODO get a magic number ?
+    literal_int(SHADY_GENERATOR_MAGIC_NUMBER);
     literal_int(file_builder->bound);
     literal_int(0); // instruction schema padding
 
