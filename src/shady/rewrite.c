@@ -297,10 +297,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 .declarations = decls,
             });
         }
-        case ParsedBody_TAG: error("TODO")
         case Body_TAG:         return body(rewriter->dst_arena, (Body) {
             .instructions = rewrite_nodes(rewriter, node->payload.body.instructions),
-            .terminator = rewrite_node(rewriter, node->payload.body.terminator)
+            .terminator = rewrite_node(rewriter, node->payload.body.terminator)->type,
+            .children_continuations = nodes(rewriter->dst_arena, 0, NULL),
         });
         case Annotation_TAG: switch (node->payload.annotation.payload_type) {
             case AnPayloadNone: return annotation(rewriter->dst_arena, (Annotation) {

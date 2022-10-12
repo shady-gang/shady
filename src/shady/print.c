@@ -136,6 +136,14 @@ static void print_body_insides(PrinterCtx* ctx, const Body* body) {
     printf("\n");
     print_node(body->terminator);
     printf(";");
+
+    if (body->children_continuations.count > 0) {
+        printf("\n");
+    }
+    for(size_t i = 0; i < body->children_continuations.count; i++) {
+        printf("\n");
+        print_node_impl(ctx, body->children_continuations.nodes[i]);
+    }
 }
 
 static void print_function(PrinterCtx* ctx, const Node* node) {
@@ -666,25 +674,6 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
 
             const Body* body = &node->payload.body;
             print_body_insides(ctx, body);
-
-            deindent(ctx->printer);
-            printf("\n}");
-            break;
-        }
-        case ParsedBody_TAG: {
-            printf(" {");
-            indent(ctx->printer);
-
-            const ParsedBody* body = &node->payload.parsed_body;
-            print_body_insides(ctx, (const Body*) body);
-
-            if (body->continuations.count > 0) {
-                printf("\n");
-            }
-            for(size_t i = 0; i < body->continuations.count; i++) {
-                printf("\n");
-                print_node_impl(ctx, body->continuations.nodes[i]);
-            }
 
             deindent(ctx->printer);
             printf("\n}");

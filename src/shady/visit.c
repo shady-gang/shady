@@ -220,13 +220,7 @@ void visit_children(Visitor* visitor, const Node* node) {
         case Body_TAG: {
             visit_nodes(visitor, node->payload.body.instructions);
             visit(node->payload.body.terminator);
-            break;
-        }
-        case ParsedBody_TAG: {
-            visit_nodes(visitor, node->payload.parsed_body.instructions);
-            visit(node->payload.parsed_body.terminator);
-            visit_nodes(visitor, node->payload.parsed_body.continuations_vars);
-            visit_nodes(visitor, node->payload.parsed_body.continuations);
+            visit_nodes(visitor, node->payload.body.children_continuations);
             break;
         }
         case Root_TAG: {

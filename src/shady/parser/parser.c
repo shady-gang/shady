@@ -667,7 +667,6 @@ static const Node* expect_body(ctxparams, const Node* implicit_join) {
     struct List* instructions = new_list(Node*);
 
     Nodes continuations = nodes(arena, 0, NULL);
-    Nodes continuations_names = nodes(arena, 0, NULL);
 
     while (true) {
         const Node* instruction = accept_instruction_maybe_with_let_too(ctx);
@@ -692,7 +691,6 @@ static const Node* expect_body(ctxparams, const Node* implicit_join) {
 
     if (curr_token(tokenizer).tag == identifier_tok) {
         struct List* conts = new_list(Node*);
-        struct List* names = new_list(Node*);
         while (true) {
             const char* name = accept_identifier(ctx);
             if (!name)
@@ -701,30 +699,21 @@ static const Node* expect_body(ctxparams, const Node* implicit_join) {
 
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL);
-            const Node* body = expect_body(ctx, NULL);
-
             Node* continuation = fn(arena, nodes(arena, 0, NULL), name, true, parameters, nodes(arena, 0, NULL));
+            const Node* body = expect_body(ctx, NULL);
             continuation->payload.fn.body = body;
-            const Node* contvar = var(arena, qualified_type(arena, (QualifiedType) {
-                .type = derive_fn_type(arena, &continuation->payload.fn),
-                .is_uniform = true
-            }), name);
             append_list(Node*, conts, continuation);
-            append_list(Node*, names, contvar);
         }
 
         continuations = nodes(arena, entries_count_list(conts), read_list(const Node*, conts));
-        continuations_names = nodes(arena, entries_count_list(names), read_list(const Node*, names));
         destroy_list(conts);
-        destroy_list(names);
     }
 
     expect(accept_token(ctx, rbracket_tok));
 
-    return parsed_body(arena, (ParsedBody) {
+    return body(arena, (Body) {
         .instructions = instrs,
-        .continuations = continuations,
-        .continuations_vars = continuations_names,
+        .children_continuations = continuations,
         .terminator = terminator,
     });
 }

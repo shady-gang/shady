@@ -321,20 +321,20 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 .params = nodes(dst_arena, old_params.count, new_params)
             });
         }
-        case ParsedBody_TAG: {
-            const ParsedBody* unbound_body = &node->payload.parsed_body;
+        case Body_TAG: {
+            const Body* unbound_body = &node->payload.body;
             Context body_context = *ctx;
 
-            size_t inner_conts_count = unbound_body->continuations_vars.count;
+            size_t inner_conts_count = unbound_body->children_continuations.count;
             LARRAY(Node*, new_conts, inner_conts_count);
 
             // First create stubs and inline that crap
             for (size_t i = 0; i < inner_conts_count; i++) {
-                Node* new_cont = rewrite_fn_head(ctx, unbound_body->continuations.nodes[i]);
+                Node* new_cont = rewrite_fn_head(ctx, unbound_body->children_continuations.nodes[i]);
                 new_conts[i] = new_cont;
                 NamedBindEntry* entry = arena_alloc(ctx->src_arena->arena, sizeof(NamedBindEntry));
                 *entry = (NamedBindEntry) {
-                    .name = string(dst_arena, unbound_body->continuations_vars.nodes[i]->payload.var.name),
+                    .name = new_cont->payload.fn.name,
                     .is_var = false,
                     .node = new_cont,
                     .next = NULL
@@ -350,18 +350,11 @@ static const Node* bind_node(Context* ctx, const Node* node) {
 
             // Rebuild the actual continuations now
             for (size_t i = 0; i < inner_conts_count; i++) {
-                rewrite_fn_body(&body_context, unbound_body->continuations.nodes[i], new_conts[i]);
-                printf("Processed (full) continuation %s\n", new_conts[i]->payload.fn.name);
+                rewrite_fn_body(&body_context, unbound_body->children_continuations.nodes[i], new_conts[i]);
+                debug_print("Processed (full) continuation %s\n", new_conts[i]->payload.fn.name);
             }
 
             return new_body;
-        }
-        case Body_TAG: {
-             const Node* new_body = body(dst_arena, (Body) {
-                 .instructions = rewrite_instructions(ctx, node->payload.body.instructions),
-                 .terminator = bind_node(ctx, node->payload.body.terminator)
-             });
-             return new_body;
         }
         case Return_TAG: {
             assert(ctx->current_function);

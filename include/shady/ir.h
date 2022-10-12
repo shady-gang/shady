@@ -113,7 +113,6 @@ N(0, 1, 1, Function, fn) \
 N(0, 0, 1, Constant, constant) \
 N(0, 1, 1, GlobalVariable, global_variable) \
 N(1, 0, 1, Body, body) \
-N(1, 0, 1, ParsedBody, parsed_body) \
 N(1, 0, 1, Annotation, annotation) \
 N(1, 0, 1, Root, root)   \
 
@@ -336,16 +335,10 @@ typedef struct GlobalVariable_ {
 typedef struct Body_ {
     Nodes instructions;
     const Node* terminator;
+    /// Populated by the parser for the bind pass, should be empty at all other times after that
+    /// (use the Scope analysis to figure out the real scope of a function)
+    Nodes children_continuations;
 } Body;
-
-/// used for the front-end to hold continuations before name binding
-typedef struct ParsedBody_ {
-    Nodes instructions;
-    const Node* terminator;
-
-    Nodes continuations_vars;
-    Nodes continuations;
-} ParsedBody;
 
 typedef struct Root_ {
     Nodes declarations;
