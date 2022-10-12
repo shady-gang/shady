@@ -127,28 +127,28 @@ static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     }
 }
 
-static void print_block_insides(PrinterCtx* ctx, const Block* block) {
-    for(size_t i = 0; i < block->instructions.count; i++) {
+static void print_body_insides(PrinterCtx* ctx, const Body* body) {
+    for(size_t i = 0; i < body->instructions.count; i++) {
         printf("\n");
-        print_node(block->instructions.nodes[i]);
+        print_node(body->instructions.nodes[i]);
         printf(";");
     }
     printf("\n");
-    print_node(block->terminator);
+    print_node(body->terminator);
     printf(";");
 }
 
 static void print_function(PrinterCtx* ctx, const Node* node) {
     print_yield_types(ctx, node->payload.fn.return_types);
     print_param_list(ctx, node->payload.fn.params, NULL);
-    if (!node->payload.fn.block)
+    if (!node->payload.fn.body)
         return;
 
     printf(" {");
     indent(ctx->printer);
-    print_block_insides(ctx, &node->payload.fn.block->payload.block);
+    print_body_insides(ctx, &node->payload.fn.body->payload.body);
 
-    if (node->type != NULL && node->payload.fn.block) {
+    if (node->type != NULL && node->payload.fn.body) {
         bool section_space = false;
         Scope scope = build_scope(node);
         for (size_t i = 1; i < scope.size; i++) {
@@ -160,7 +160,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
             const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
             printf("\ncont %s = ", cfnode->node->payload.fn.name);
             print_param_list(ctx, cfnode->node->payload.fn.params, NULL);
-            print_node(cfnode->node->payload.fn.block);
+            print_node(cfnode->node->payload.fn.body);
         }
         dispose_scope(&scope);
     }
@@ -660,30 +660,30 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
             }
             break;
         }
-        case Block_TAG: {
+        case Body_TAG: {
             printf(" {");
             indent(ctx->printer);
 
-            const Block* block = &node->payload.block;
-            print_block_insides(ctx, block);
+            const Body* body = &node->payload.body;
+            print_body_insides(ctx, body);
 
             deindent(ctx->printer);
             printf("\n}");
             break;
         }
-        case ParsedBlock_TAG: {
+        case ParsedBody_TAG: {
             printf(" {");
             indent(ctx->printer);
 
-            const ParsedBlock* pblock = &node->payload.parsed_block;
-            print_block_insides(ctx, (const Block*) pblock);
+            const ParsedBody* body = &node->payload.parsed_body;
+            print_body_insides(ctx, (const Body*) body);
 
-            if (pblock->continuations.count > 0) {
+            if (body->continuations.count > 0) {
                 printf("\n");
             }
-            for(size_t i = 0; i < pblock->continuations.count; i++) {
+            for(size_t i = 0; i < body->continuations.count; i++) {
                 printf("\n");
-                print_node_impl(ctx, pblock->continuations.nodes[i]);
+                print_node_impl(ctx, body->continuations.nodes[i]);
             }
 
             deindent(ctx->printer);

@@ -74,12 +74,9 @@ Scope build_scope(const Node* entry) {
         insert_set_get_result(Node*, done, element);
 
         assert(element->tag == Function_TAG);
-        // const Function* fn = &element->payload.fn;
-        // assert(fn->atttributes.is_basic_block || element == entry);
-
-        const Block* block = &element->payload.fn.block->payload.block;
-        assert(element->payload.fn.block);
-        const Node* terminator = block->terminator;
+        const Body* body = &element->payload.fn.body->payload.body;
+        assert(body);
+        const Node* terminator = body->terminator;
         switch (terminator->tag) {
             case Branch_TAG: {
                 switch (terminator->payload.branch.branch_mode) {

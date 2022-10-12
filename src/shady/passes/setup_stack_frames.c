@@ -17,7 +17,7 @@ typedef struct Context_ {
     Rewriter rewriter;
     bool disable_lowering;
 
-    const Node* old_entry_block;
+    const Node* old_entry_body;
     const Node* entry_sp_val;
 
     struct List* new_decls;
@@ -26,7 +26,7 @@ typedef struct Context_ {
 typedef struct {
     Visitor visitor;
     Context* context;
-    BlockBuilder* builder;
+    BodyBuilder* builder;
 } VContext;
 
 KeyHash hash_node(Node**);
@@ -66,26 +66,26 @@ static const Node* process(Context* ctx, const Node* old) {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "setup_stack_frames");
-            ctx2.old_entry_block = old->payload.fn.block;
+            ctx2.old_entry_body = old->payload.fn.body;
             ctx2.entry_sp_val = NULL;
-            fun->payload.fn.block = process(&ctx2, old->payload.fn.block);
+            fun->payload.fn.body = process(&ctx2, old->payload.fn.body);
             return fun;
         }
-        case Block_TAG: {
+        case Body_TAG: {
             if (ctx->disable_lowering)
                 return recreate_node_identity(&ctx->rewriter, old);
 
             // this may miss call instructions...
-            BlockBuilder* instructions = begin_block(dst_arena);
+            BodyBuilder* instructions = begin_body(dst_arena);
 
             // We are the entry block for a FN !
-            if (old == ctx->old_entry_block) {
+            if (old == ctx->old_entry_body) {
                 assert(!ctx->entry_sp_val);
                 ctx->entry_sp_val = gen_primop_ce(instructions, get_stack_pointer_op, 0, NULL);
             }
             assert(ctx->entry_sp_val);
 
-            if (old == ctx->old_entry_block) {
+            if (old == ctx->old_entry_body) {
                 VContext vctx = {
                     .visitor = {
                         .visit_fn = (VisitFn) collect_allocas,
@@ -98,8 +98,8 @@ static const Node* process(Context* ctx, const Node* old) {
                 visit_children(&vctx.visitor, old);
             }
 
-            for (size_t i = 0; i < old->payload.block.instructions.count; i++) {
-                const Node* old_instr = old->payload.block.instructions.nodes[i];
+            for (size_t i = 0; i < old->payload.body.instructions.count; i++) {
+                const Node* old_instr = old->payload.body.instructions.nodes[i];
 
                 const Node* actual_old_instr = old_instr;
                 if (actual_old_instr->tag == Let_TAG)
@@ -113,10 +113,10 @@ static const Node* process(Context* ctx, const Node* old) {
                     assert(find_processed(&ctx->rewriter, old_instr->payload.let.variables.nodes[0]));
                     continue;
                 }
-                append_block(instructions, rewrite_node(&ctx->rewriter, old_instr));
+                append_body(instructions, rewrite_node(&ctx->rewriter, old_instr));
             }
 
-            const Node* terminator = old->payload.block.terminator;
+            const Node* terminator = old->payload.body.terminator;
             switch (terminator->tag) {
                 case Return_TAG: {
                     // Restore SP before calling exit
@@ -125,7 +125,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 }
                 default: terminator = process(ctx, terminator); break;
             }
-            return finish_block(instructions, terminator);
+            return finish_body(instructions, terminator);
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
     }

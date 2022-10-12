@@ -44,7 +44,7 @@ static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
 }
 
 // TODO consume layouts from memory_layout.h
-static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const PrimOp* lea) {
+static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const PrimOp* lea) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     const Node* old_pointer = lea->operands.nodes[0];
     const Node* faked_pointer = rewrite_node(&ctx->rewriter, old_pointer);
@@ -94,12 +94,12 @@ static const Node* lower_lea(Context* ctx, BlockBuilder* instructions, const Pri
     return faked_pointer;
 }
 
-static const Node* handle_block(Context* ctx, const Node* node) {
-    assert(node->tag == Block_TAG);
+static const Node* process_body(Context* ctx, const Node* node) {
+    assert(node->tag == Body_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    BlockBuilder* instructions = begin_block(dst_arena);
-    Nodes oinstructions = node->payload.block.instructions;
+    BodyBuilder* instructions = begin_body(dst_arena);
+    Nodes oinstructions = node->payload.body.instructions;
 
     for (size_t i = 0; i < oinstructions.count; i++) {
         const Node* oinstruction = oinstructions.nodes[i];
@@ -192,10 +192,10 @@ static const Node* handle_block(Context* ctx, const Node* node) {
         }
 
         unchanged:
-        append_block(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
+        append_body(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
     }
 
-    return finish_block(instructions, recreate_node_identity(&ctx->rewriter, node->payload.block.terminator));
+    return finish_body(instructions, recreate_node_identity(&ctx->rewriter, node->payload.body.terminator));
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {
@@ -203,7 +203,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
     if (found) return found;
 
     switch (old->tag) {
-        case Block_TAG: return handle_block(ctx, old);
+        case Body_TAG: return process_body(ctx, old);
         case PtrType_TAG: {
             if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
                 return int32_type(ctx->rewriter.dst_arena);

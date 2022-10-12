@@ -6,7 +6,7 @@ set(SHADY_SOURCES
     visit.c
     print.c
     fold.c
-    block_builder.c
+    body_builder.c
     compile.c
     annotation.c
 

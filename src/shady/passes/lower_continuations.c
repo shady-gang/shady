@@ -32,9 +32,9 @@ typedef struct {
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static const Node* process_block(Context* ctx, BlockBuilder* builder, const Block* oblock);
+static const Node* process_body(Context* ctx, BodyBuilder* builder, const Body* old_body);
 
-static void add_spill_instrs(Context* ctx, BlockBuilder* builder, struct List* spilled_vars) {
+static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* spilled_vars) {
     IrArena* arena = ctx->rewriter.dst_arena;
 
     size_t recover_context_size = entries_count_list(spilled_vars);
@@ -47,7 +47,7 @@ static void add_spill_instrs(Context* ctx, BlockBuilder* builder, struct List* s
             .op = push_stack_op,
             .operands = nodes(arena, 2, args)
         });
-        append_block(builder, save_instruction);
+        append_body(builder, save_instruction);
     }
 }
 
@@ -86,8 +86,8 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
     Context spilled_ctx = *ctx;
     spilled_ctx.spilled = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
 
-    // Recover that stuff inside the new block
-    BlockBuilder* builder = begin_block(dst_arena);
+    // Recover that stuff inside the new body
+    BodyBuilder* builder = begin_body(dst_arena);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
         assert(ovar->tag == Variable_TAG);
@@ -102,37 +102,37 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
 
         // this dict overrides the 'processed' region
         insert_dict(const Node*, const Node*, spilled_ctx.spilled, ovar, let_load->payload.let.variables.nodes[0]);
-        append_block(builder, let_load);
+        append_body(builder, let_load);
     }
 
-    // Write out the rest of the new block using this fresh context
-    const Node* nbody = process_block(&spilled_ctx, builder, &cont->payload.fn.block->payload.block);
+    // Write out the rest of the new body using this fresh context
+    const Node* nbody = process_body(&spilled_ctx, builder, &cont->payload.fn.body->payload.body);
     destroy_dict(spilled_ctx.spilled);
 
-    new_fn->payload.fn.block = nbody;
+    new_fn->payload.fn.body = nbody;
     append_list(const Node*, ctx->new_fns, new_fn);
 
     return new_fn;
 }
 
-static const Node* process_block(Context* ctx, BlockBuilder* builder, const Block* oblock) {
+static const Node* process_body(Context* ctx, BodyBuilder* builder, const Body* old_body) {
     IrArena* arena = ctx->rewriter.dst_arena;
 
-    for (size_t i = 0; i < oblock->instructions.count; i++) {
-        append_block(builder, rewrite_node(&ctx->rewriter, oblock->instructions.nodes[i]));
+    for (size_t i = 0; i < old_body->instructions.count; i++) {
+        append_body(builder, rewrite_node(&ctx->rewriter, old_body->instructions.nodes[i]));
     }
 
-    const Node* const oterminator = oblock->terminator;
+    const Node* const oterminator = old_body->terminator;
     const Node* nterminator;
-    switch (is_terminator(oblock->terminator)) {
+    switch (is_terminator(old_body->terminator)) {
         case NotATerminator: error("Not a terminator");
         case Branch_TAG: {
             const Node* ncallee;
-            switch (oblock->terminator->payload.branch.branch_mode) {
+            switch (old_body->terminator->payload.branch.branch_mode) {
                 case BrTailcall: goto identity;
                 case BrJump: {
                     // make sure the target is rewritten before we lookup the 'lifted' dict
-                    const Node* otarget = oblock->terminator->payload.branch.target;
+                    const Node* otarget = old_body->terminator->payload.branch.target;
                     const Node* ntarget = rewrite_node(&ctx->rewriter, otarget);
 
                     LiftedCont* lifted = *find_value_dict(const Node*, LiftedCont*, ctx->lifted, otarget);
@@ -143,9 +143,9 @@ static const Node* process_block(Context* ctx, BlockBuilder* builder, const Bloc
                     break;
                 }
                 case BrIfElse: {
-                    const Node* otargets[] = { oblock->terminator->payload.branch.true_target, oblock->terminator->payload.branch.false_target };
+                    const Node* otargets[] = { old_body->terminator->payload.branch.true_target, old_body->terminator->payload.branch.false_target };
                     const Node* ntargets[2];
-                    const Node* blocks[2];
+                    const Node* cases[2];
                     for (size_t i = 0; i < 2; i++) {
                         const Node* otarget = otargets[i];
                         const Node* ntarget = rewrite_node(&ctx->rewriter, otarget);
@@ -154,14 +154,14 @@ static const Node* process_block(Context* ctx, BlockBuilder* builder, const Bloc
                         LiftedCont* lifted = *find_value_dict(const Node*, LiftedCont*, ctx->lifted, otarget);
                         assert(lifted->lifted_fn == ntarget);
 
-                        BlockBuilder* case_builder = begin_block(arena);
+                        BodyBuilder* case_builder = begin_body(arena);
                         add_spill_instrs(ctx, case_builder, lifted->save_values);
-                        blocks[i] = finish_block(case_builder, merge_construct(arena, (MergeConstruct) { .args = nodes(arena, 0, NULL), .construct = Selection }));
+                        cases[i] = finish_body(case_builder, merge_construct(arena, (MergeConstruct) { .args = nodes(arena, 0, NULL), .construct = Selection }));
                     }
 
                     // Put the spilling code inside a selection construct
-                    const Node* ncondition = rewrite_node(&ctx->rewriter, oblock->terminator->payload.branch.branch_condition);
-                    append_block(builder, if_instr(arena, (If) { .condition = ncondition, .if_true = blocks[0], .if_false = blocks[1], .yield_types = nodes(arena, 0, NULL) }));
+                    const Node* ncondition = rewrite_node(&ctx->rewriter, old_body->terminator->payload.branch.branch_condition);
+                    append_body(builder, if_instr(arena, (If) { .condition = ncondition, .if_true = cases[0], .if_false = cases[1], .yield_types = nodes(arena, 0, NULL) }));
 
                     // Make the callee selection a select
                     ncallee = gen_primop_ce(builder, select_op, 3, (const Node* []) { ncondition, fn_addr(arena, (FnAddr) { .fn = ntargets[0] }), fn_addr(arena, (FnAddr) { .fn = ntargets[1] }) });
@@ -170,7 +170,7 @@ static const Node* process_block(Context* ctx, BlockBuilder* builder, const Bloc
                 case BrSwitch: error("TODO")
             }
             assert(ncallee && is_value(ncallee));
-            Nodes nargs = rewrite_nodes(&ctx->rewriter, oblock->terminator->payload.branch.args);
+            Nodes nargs = rewrite_nodes(&ctx->rewriter, old_body->terminator->payload.branch.args);
             nterminator = branch(arena, (Branch) {
                 .branch_mode = BrTailcall,
                 .target = ncallee,
@@ -203,12 +203,12 @@ static const Node* process_block(Context* ctx, BlockBuilder* builder, const Bloc
         case Return_TAG:
         case MergeConstruct_TAG:
         case Unreachable_TAG: {
-            nterminator = recreate_node_identity(&ctx->rewriter, oblock->terminator);
+            nterminator = recreate_node_identity(&ctx->rewriter, old_body->terminator);
             break;
         }
     }
     assert(nterminator);
-    return finish_block(builder, nterminator);
+    return finish_body(builder, nterminator);
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -221,7 +221,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (found) return found;
 
     switch (node->tag) {
-        case Block_TAG: return process_block(ctx, begin_block(ctx->rewriter.dst_arena), &node->payload.block);
+        case Body_TAG: return process_body(ctx, begin_body(ctx->rewriter.dst_arena), &node->payload.body);
         case Function_TAG: {
             if (node->payload.fn.is_basic_block)
                 return lift_continuation_into_function(ctx, node);

@@ -174,23 +174,24 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
     }
 }
 
-static void print_block(Emitter* emitter, Printer* p, const Node* block) {
-    assert(block && block->tag == Block_TAG);
+static void emit_body_guts(Emitter* emitter, Printer* p, const Node* body) {
+    assert(body && body->tag == Body_TAG);
     print(p, "{");
     indent(p);
 
-    for (size_t i = 0; i < block->payload.block.instructions.count; i++)
-        emit_instruction(emitter, p, block->payload.block.instructions.nodes[i]);
-    emit_terminator(emitter, p, block->payload.block.terminator);
+    for (size_t i = 0; i < body->payload.body.instructions.count; i++)
+        emit_instruction(emitter, p, body->payload.body.instructions.nodes[i]);
+    emit_terminator(emitter, p, body->payload.body.terminator);
 
     deindent(p);
     print(p, "\n}");
 }
 
-String emit_block(Emitter* emitter, const Node* block, const Nodes* bbs) {
+String emit_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
+    assert(body && body->tag == Body_TAG);
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
-    print_block(emitter, p, block);
+    emit_body_guts(emitter, p, body);
     growy_append_bytes(g, 1, (char[]) { 0 });
     if (bbs && bbs->count > 0) {
         assert(emitter->config.dialect != GLSL);
@@ -224,13 +225,13 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
         case Function_TAG: {
             emit_as = name;
             insert_dict(const Node*, String, emitter->emitted, decl, emit_as);
-            if (decl->payload.fn.block) {
+            if (decl->payload.fn.body) {
                 for (size_t i = 0; i < decl->payload.fn.params.count; i++) {
                     const char* param_name = format_string(emitter->arena, "%s_%d", decl->payload.fn.params.nodes[i]->payload.var.name, decl->payload.fn.params.nodes[i]->payload.var.id);
                     insert_dict(const Node*, String, emitter->emitted, decl->payload.fn.params.nodes[i], param_name);
                 }
 
-                String fn_body = emit_block(emitter, decl->payload.fn.block, NULL);
+                String fn_body = emit_body(emitter, decl->payload.fn.body, NULL);
                 print(emitter->fn_defs, "\n%s %s", emit_fn_head(emitter, decl), fn_body);
                 free(fn_body);
             }

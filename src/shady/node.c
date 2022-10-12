@@ -195,7 +195,7 @@ Node* fn(IrArena* arena, Nodes annotations, const char* name, bool is_basic_bloc
         .is_basic_block = is_basic_block,
         .params = params,
         .return_types = return_types,
-        .block = NULL,
+        .body = NULL,
     };
 
     Node node;

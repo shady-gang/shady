@@ -14,7 +14,7 @@
 
 typedef struct Context_ {
     Rewriter rewriter;
-    BlockBuilder* bb;
+    BodyBuilder* bb;
 } Context;
 
 static const Node* process_node(Context* ctx, const Node* node);
@@ -60,22 +60,22 @@ static const Node* ensure_is_value(Context* ctx, const Node* node) {
         }
     }
 
-    append_block(ctx->bb, let_bound);
+    append_body(ctx->bb, let_bound);
     //register_processed(&ctx->rewriter, node, let_bound->payload.let.variables.nodes[0]);
     return let_bound->payload.let.variables.nodes[0];
 }
 
-static const Node* handle_block(Context* ctx, const Node* block) {
-    BlockBuilder* bb = begin_block(ctx->rewriter.dst_arena);
+static const Node* process_body(Context* ctx, const Node* old_body) {
+    BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
     Context in_bb_ctx = *ctx;
     in_bb_ctx.rewriter.rewrite_fn = (RewriteFn) ensure_is_value;
     in_bb_ctx.bb = bb;
 
-    Nodes old_instructions = block->payload.block.instructions;
+    Nodes old_instructions = old_body->payload.body.instructions;
     for (size_t i = 0; i < old_instructions.count; i++)
-        append_block(bb, recreate_node_identity(&in_bb_ctx.rewriter, old_instructions.nodes[i]));
+        append_body(bb, recreate_node_identity(&in_bb_ctx.rewriter, old_instructions.nodes[i]));
 
-    return finish_block(bb, recreate_node_identity(&in_bb_ctx.rewriter, block->payload.block.terminator));
+    return finish_body(bb, recreate_node_identity(&in_bb_ctx.rewriter, old_body->payload.body.terminator));
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -86,7 +86,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         return already_done;
 
     switch (node->tag) {
-        case Block_TAG: return handle_block(ctx, node);
+        case Body_TAG: return process_body(ctx, node);
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }

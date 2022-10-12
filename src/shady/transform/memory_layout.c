@@ -2,7 +2,7 @@
 #include "ir_gen_helpers.h"
 
 #include "log.h"
-#include "../block_builder.h"
+#include "../body_builder.h"
 
 #include <assert.h>
 
@@ -42,7 +42,7 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
     }
 }
 
-const Node* gen_deserialisation(BlockBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset) {
+const Node* gen_deserialisation(BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset) {
     switch (element_type->tag) {
         case Bool_TAG: {
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset });
@@ -77,7 +77,7 @@ const Node* gen_deserialisation(BlockBuilder* bb, const Type* element_type, cons
     }
 }
 
-void gen_serialisation(BlockBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset, const Node* value) {
+void gen_serialisation(BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset, const Node* value) {
     switch (element_type->tag) {
         case Bool_TAG: {
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset });

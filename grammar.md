@@ -6,7 +6,7 @@ For the front-end mode, we can easily extend this by redefining `VALUE` as an ar
 PROGRAM := (DECL)*
 
 DECL := const [TYPE] IDENTIFIER = VALUE; // constant definition
-        fn IDENTIFIER Q_TYPES (PARAMS) BLOCK
+        fn IDENTIFIER Q_TYPES (PARAMS) BODY
         var ADDRESS_SPACE TYPE IDENTIFIER;
 
 VAR := IDENTIFIER
@@ -20,9 +20,9 @@ VALUES := VALUE [, VALUES]
 
 OPERANDS := ( [QTYPE IDENTIFIER [(, QTYPE IDENTIFIER)*]] )
 
-CONTINUATION := cont PARAMS BLOCK
+CONTINUATION := cont PARAMS BODY
 
-BLOCK := { (LET;)* TERMINATOR; [CONTINUATION*] } // the list of continuations is only for the front-end
+BODY := { (LET;)* TERMINATOR; [CONTINUATION*] } // the list of continuations is only for the front-end
 
 CALLEE := (DECL | VALUE) // calls can be direct or indirect
 
@@ -32,12 +32,12 @@ LET := let IDENTIFIER [(, IDENTIFIER)*] = INSTRUCTION; // Some instructions have
 INSTRUCTION := PRIMOP OPERANDS                    // primop
              | call (OPERAND) OPERANDS            // direct-style call
              | if Q_TYPES (OPERAND)               // structured if statement, can be defined to yield values
-                   then BLOCK 
-                   else (BLOCK | OPERANDS);       // else case can be a block, or default yield values
+                   then BODY 
+                   else (BODY | OPERANDS);       // else case can be a body, or default yield values
              | match Q_TYPES (OPERAND)            // structured match statement
-                   (case LITERAL BLOCK)* 
-                   default (BLOCK | OPERANDS);    // default case can be a block, or default yield values
-             | loop Q_TYPES DEFAULT_PARAMS BLOCK  // structured loop statement
+                   (case LITERAL BODY)* 
+                   default (BODY | OPERANDS);    // default case can be a body, or default yield values
+             | loop Q_TYPES DEFAULT_PARAMS BODY  // structured loop statement
 
 TERMINATOR := unreachable;                              // use as a placeholder if nothing belongs. undefined behaviour if reached.
             

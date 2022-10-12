@@ -71,7 +71,7 @@ static const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-static const Node* expect_block(ctxparams, const Node*);
+static const Node* expect_body(ctxparams, const Node*);
 static const Node* accept_value(ctxparams);
 static const Node* accept_primop(ctxparams);
 static const Node* accept_expr(ctxparams, int);
@@ -398,12 +398,12 @@ static const Node* accept_control_flow_instruction(ctxparams) {
             expect(condition);
             expect(accept_token(ctx, rpar_tok));
             const Node* merge = config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Selection }) : NULL;
-            const Node* if_true = expect_block(ctx, merge);
+            const Node* if_true = expect_body(ctx, merge);
             bool has_else = accept_token(ctx, else_tok);
-            // default to an empty block
+            // default to an empty body
             const Node* if_false = NULL;
             if (has_else) {
-                if_false = expect_block(ctx, merge);
+                if_false = expect_body(ctx, merge);
             }
             return if_instr(arena, (If) {
                 .yield_types = yield_types,
@@ -418,7 +418,7 @@ static const Node* accept_control_flow_instruction(ctxparams) {
             Nodes parameters;
             Nodes default_values;
             expect_parameters(ctx, &parameters, &default_values);
-            const Node* body = expect_block(ctx, config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Continue }) : NULL);
+            const Node* body = expect_body(ctx, config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Continue }) : NULL);
             return loop_instr(arena, (Loop) {
                 .initial_args = default_values,
                 .params = parameters,
@@ -662,7 +662,7 @@ static const Node* accept_terminator(ctxparams) {
     return NULL;
 }
 
-static const Node* expect_block(ctxparams, const Node* implicit_join) {
+static const Node* expect_body(ctxparams, const Node* implicit_join) {
     expect(accept_token(ctx, lbracket_tok));
     struct List* instructions = new_list(Node*);
 
@@ -701,10 +701,10 @@ static const Node* expect_block(ctxparams, const Node* implicit_join) {
 
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL);
-            const Node* block = expect_block(ctx, NULL);
+            const Node* body = expect_body(ctx, NULL);
 
             Node* continuation = fn(arena, nodes(arena, 0, NULL), name, true, parameters, nodes(arena, 0, NULL));
-            continuation->payload.fn.block= block;
+            continuation->payload.fn.body = body;
             const Node* contvar = var(arena, qualified_type(arena, (QualifiedType) {
                 .type = derive_fn_type(arena, &continuation->payload.fn),
                 .is_uniform = true
@@ -721,7 +721,7 @@ static const Node* expect_block(ctxparams, const Node* implicit_join) {
 
     expect(accept_token(ctx, rbracket_tok));
 
-    return parsed_block(arena, (ParsedBlock) {
+    return parsed_body(arena, (ParsedBody) {
         .instructions = instrs,
         .continuations = continuations,
         .continuations_vars = continuations_names,
@@ -822,10 +822,10 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     Nodes parameters;
     expect_parameters(ctx, &parameters, NULL);
 
-    const Node* block = expect_block(ctx, types.count == 0 ? fn_ret(arena, (Return) { .values = types }) : NULL);
+    const Node* body = expect_body(ctx, types.count == 0 ? fn_ret(arena, (Return) { .values = types }) : NULL);
 
     Node *function = fn(arena, annotations, name, false, parameters, types);
-    function->payload.fn.block = block;
+    function->payload.fn.body = body;
 
     const Node* declaration = function;
     assert(declaration);

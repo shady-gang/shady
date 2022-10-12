@@ -28,7 +28,7 @@ static void visit_fv(Context* visitor, const Node* node) {
                 append_list(const Node*, visitor->free_list, node);
             break;
         }
-        case Function_TAG: break; // we do not visit the insides of functions/basic blocks, that's what the domtree search does!
+        case Function_TAG: break; // we do not visit the insides of functions/basic blocks, that's what the domtree search is already doing!
         default: visit_children(&visitor->visitor, node); break;
     }
 }
@@ -47,10 +47,10 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
         assert(r);
     }
 
-    const Block* entry_block = &fun->block->payload.block;
-    assert(fun->block);
-    for (size_t j = 0; j < entry_block->instructions.count; j++) {
-        const Node* instr = entry_block->instructions.nodes[j];
+    const Body* entry_body = &fun->body->payload.body;
+    assert(fun->body);
+    for (size_t j = 0; j < entry_body->instructions.count; j++) {
+        const Node* instr = entry_body->instructions.nodes[j];
         const Node* actual_instr = instr->tag == Let_TAG ? instr->payload.let.instruction : instr;
         visit_fv(ctx, actual_instr);
         if (instr->tag == Let_TAG) {
@@ -64,7 +64,7 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
         }
     }
 
-    visit_fv(ctx, entry_block->terminator);
+    visit_fv(ctx, entry_body->terminator);
 
     for (size_t i = 0; i < entries_count_list(cfnode->dominates); i++) {
         CFNode* child = read_list(CFNode*, cfnode->dominates)[i];

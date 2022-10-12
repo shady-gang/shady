@@ -103,8 +103,8 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             break;
         }
         case Function_TAG: {
-            assert(new->payload.fn.block == NULL);
-            new->payload.fn.block = rewrite_node(rewriter, old->payload.fn.block);
+            assert(new->payload.fn.body == NULL);
+            new->payload.fn.body = rewrite_node(rewriter, old->payload.fn.body);
             break;
         }
         default: error("not a decl");
@@ -297,10 +297,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 .declarations = decls,
             });
         }
-        case ParsedBlock_TAG: error("TODO")
-        case Block_TAG:         return block(rewriter->dst_arena, (Block) {
-            .instructions = rewrite_nodes(rewriter, node->payload.block.instructions),
-            .terminator = rewrite_node(rewriter, node->payload.block.terminator)
+        case ParsedBody_TAG: error("TODO")
+        case Body_TAG:         return body(rewriter->dst_arena, (Body) {
+            .instructions = rewrite_nodes(rewriter, node->payload.body.instructions),
+            .terminator = rewrite_node(rewriter, node->payload.body.terminator)
         });
         case Annotation_TAG: switch (node->payload.annotation.payload_type) {
             case AnPayloadNone: return annotation(rewriter->dst_arena, (Annotation) {

@@ -4,7 +4,7 @@
 #include "log.h"
 
 #include "../rewrite.h"
-#include "../block_builder.h"
+#include "../body_builder.h"
 #include "../type.h"
 #include "../transform/ir_gen_helpers.h"
 #include "../transform/memory_layout.h"
@@ -14,11 +14,11 @@ typedef struct {
     CompilerConfig* config;
 } Context;
 
-static const Node* rewrite_block(Context* ctx, const Node* old_block) {
-    assert(old_block->tag == Block_TAG);
+static const Node* process_body(Context* ctx, const Node* old_body) {
+    assert(old_body->tag == Body_TAG);
     IrArena* arena = ctx->rewriter.dst_arena;
-    BlockBuilder* builder = begin_block(arena);
-    Nodes old_instructions = old_block->payload.block.instructions;
+    BodyBuilder* builder = begin_body(arena);
+    Nodes old_instructions = old_body->payload.body.instructions;
     for (size_t i = 0; i < old_instructions.count; i++) {
         const Node* old_instruction = old_instructions.nodes[i];
         const Node* old_actual_instr = old_instruction->tag == Let_TAG ? old_instruction->payload.let.instruction : old_instruction;
@@ -55,9 +55,9 @@ static const Node* rewrite_block(Context* ctx, const Node* old_block) {
             }
         }
         identity:
-        append_block(builder, recreate_node_identity(&ctx->rewriter, old_instruction));
+        append_body(builder, recreate_node_identity(&ctx->rewriter, old_instruction));
     }
-    return finish_block(builder, recreate_node_identity(&ctx->rewriter, old_block->payload.block.terminator));
+    return finish_body(builder, recreate_node_identity(&ctx->rewriter, old_body->payload.body.terminator));
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -66,7 +66,7 @@ static const Node* process(Context* ctx, const Node* node) {
     if (found) return found;
 
     switch (node->tag) {
-        case Block_TAG: return rewrite_block(ctx, node);
+        case Body_TAG: return process_body(ctx, node);
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }

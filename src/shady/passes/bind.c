@@ -155,7 +155,7 @@ static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
         assert(ctx->current_function == NULL);
         body_infer_ctx.current_function = target;
     }
-    target->payload.fn.block = bind_node(&body_infer_ctx, node->payload.fn.block);
+    target->payload.fn.body = bind_node(&body_infer_ctx, node->payload.fn.body);
 }
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {
@@ -321,47 +321,47 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 .params = nodes(dst_arena, old_params.count, new_params)
             });
         }
-        case ParsedBlock_TAG: {
-            const ParsedBlock* pblock = &node->payload.parsed_block;
-            Context pblock_ctx = *ctx;
+        case ParsedBody_TAG: {
+            const ParsedBody* unbound_body = &node->payload.parsed_body;
+            Context body_context = *ctx;
 
-            size_t inner_conts_count = pblock->continuations_vars.count;
+            size_t inner_conts_count = unbound_body->continuations_vars.count;
             LARRAY(Node*, new_conts, inner_conts_count);
 
             // First create stubs and inline that crap
             for (size_t i = 0; i < inner_conts_count; i++) {
-                Node* new_cont = rewrite_fn_head(ctx, pblock->continuations.nodes[i]);
+                Node* new_cont = rewrite_fn_head(ctx, unbound_body->continuations.nodes[i]);
                 new_conts[i] = new_cont;
                 NamedBindEntry* entry = arena_alloc(ctx->src_arena->arena, sizeof(NamedBindEntry));
                 *entry = (NamedBindEntry) {
-                    .name = string(dst_arena, pblock->continuations_vars.nodes[i]->payload.var.name),
+                    .name = string(dst_arena, unbound_body->continuations_vars.nodes[i]->payload.var.name),
                     .is_var = false,
                     .node = new_cont,
                     .next = NULL
                 };
-                bind_named_entry(&pblock_ctx, entry);
+                bind_named_entry(&body_context, entry);
                 printf("Bound (stub) continuation %s\n", entry->name);
             }
 
-            const Node* new_block = block(dst_arena, (Block) {
-                .instructions = rewrite_instructions(&pblock_ctx, pblock->instructions),
-                .terminator = bind_node(&pblock_ctx, pblock->terminator)
+            const Node* new_body = body(dst_arena, (Body) {
+                .instructions = rewrite_instructions(&body_context, unbound_body->instructions),
+                .terminator = bind_node(&body_context, unbound_body->terminator)
             });
 
             // Rebuild the actual continuations now
             for (size_t i = 0; i < inner_conts_count; i++) {
-                rewrite_fn_body(&pblock_ctx, pblock->continuations.nodes[i], new_conts[i]);
+                rewrite_fn_body(&body_context, unbound_body->continuations.nodes[i], new_conts[i]);
                 printf("Processed (full) continuation %s\n", new_conts[i]->payload.fn.name);
             }
 
-            return new_block;
+            return new_body;
         }
-        case Block_TAG: {
-             const Node* new_block = block(dst_arena, (Block) {
-                 .instructions = rewrite_instructions(ctx, node->payload.block.instructions),
-                 .terminator = bind_node(ctx, node->payload.block.terminator)
+        case Body_TAG: {
+             const Node* new_body = body(dst_arena, (Body) {
+                 .instructions = rewrite_instructions(ctx, node->payload.body.instructions),
+                 .terminator = bind_node(ctx, node->payload.body.terminator)
              });
-             return new_block;
+             return new_body;
         }
         case Return_TAG: {
             assert(ctx->current_function);

@@ -90,18 +90,18 @@ static const Node* infer_type(Context* ctx, const Type* type) {
     }
 }
 
-static const Node* infer_block(Context* ctx, const Node* node) {
+static const Node* infer_body(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
 
-    LARRAY(const Node*, ninstructions, node->payload.block.instructions.count);
+    LARRAY(const Node*, ninstructions, node->payload.body.instructions.count);
 
-    for (size_t i = 0; i < node->payload.block.instructions.count; i++)
-        ninstructions[i] = infer_instruction(ctx, node->payload.block.instructions.nodes[i]);
+    for (size_t i = 0; i < node->payload.body.instructions.count; i++)
+        ninstructions[i] = infer_instruction(ctx, node->payload.body.instructions.nodes[i]);
 
-    Nodes typed_instructions = nodes(ctx->rewriter.dst_arena, node->payload.block.instructions.count, ninstructions);
-    const Node* typed_term = infer_terminator(ctx, node->payload.block.terminator);
+    Nodes typed_instructions = nodes(ctx->rewriter.dst_arena, node->payload.body.instructions.count, ninstructions);
+    const Node* typed_term = infer_terminator(ctx, node->payload.body.terminator);
 
-    return block(ctx->rewriter.dst_arena, (Block) {
+    return body(ctx->rewriter.dst_arena, (Body) {
         .instructions = typed_instructions,
         .terminator = typed_term,
     });
@@ -131,8 +131,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             Node* fun = fn(dst_arena, infer_annotations(ctx, node->payload.fn.annotations), string(dst_arena, node->payload.fn.name), node->payload.fn.is_basic_block, nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
             register_processed(&ctx->rewriter, node, fun);
 
-            const Node* nblock = infer_block(&body_context, node->payload.fn.block);
-            fun->payload.fn.block = nblock;
+            fun->payload.fn.body = infer_body(&body_context, node->payload.fn.body);
 
             return fun;
         }
@@ -353,16 +352,16 @@ static const Node* infer_if(Context* ctx, const Node* node) {
     Context joinable_ctx = *ctx;
     joinable_ctx.join_types = &join_types;
 
-    const Node* true_block = infer_block(&joinable_ctx, node->payload.if_instr.if_true);
+    const Node* true_body = infer_body(&joinable_ctx, node->payload.if_instr.if_true);
     // don't allow seeing the variables made available in the true branch
     joinable_ctx.rewriter = ctx->rewriter;
-    const Node* false_block = infer_block(&joinable_ctx, node->payload.if_instr.if_false);
+    const Node* false_body = infer_body(&joinable_ctx, node->payload.if_instr.if_false);
 
     return if_instr(ctx->rewriter.dst_arena, (If) {
         .yield_types = join_types,
         .condition = condition,
-        .if_true = true_block,
-        .if_false = false_block,
+        .if_true = true_body,
+        .if_false = false_body,
     });
 }
 
@@ -396,7 +395,7 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
         .yield_types = loop_yield_types,
         .params = nodes(ctx->rewriter.dst_arena, old_params.count, new_params),
         .initial_args = nodes(ctx->rewriter.dst_arena, old_params.count, new_initial_args),
-        .body = infer_block(&loop_body_ctx, node->payload.loop_instr.body)
+        .body = infer_body(&loop_body_ctx, node->payload.loop_instr.body)
     });
 }
 

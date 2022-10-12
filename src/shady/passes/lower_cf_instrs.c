@@ -18,18 +18,18 @@ typedef struct Context_ {
 
 static const Node* process_node(Context* ctx, const Node* node);
 
-static const Node* handle_block(Context* ctx, const Node* node, size_t start, const Node* outer_join, const Node* reconvergence_token) {
-    assert(node->tag == Block_TAG);
+static const Node* process_body(Context* ctx, const Node* node, size_t start, const Node* outer_join, const Node* reconvergence_token) {
+    assert(node->tag == Body_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    const Block* old_block = &node->payload.block;
+    const Body* old_body = &node->payload.body;
     struct List* accumulator = new_list(const Node*);
     // TODO add a @Synthetic annotation to tag those
     Nodes annotations = nodes(dst_arena, 0, NULL);
 
-    assert(start <= old_block->instructions.count);
-    for (size_t i = start; i < old_block->instructions.count; i++) {
-        const Node* let_node = old_block->instructions.nodes[i];
+    assert(start <= old_body->instructions.count);
+    for (size_t i = start; i < old_body->instructions.count; i++) {
+        const Node* let_node = old_body->instructions.nodes[i];
         const Node* instr = let_node->tag == Let_TAG ? let_node->payload.let.instruction : let_node;
 
         switch (instr->tag) {
@@ -54,10 +54,10 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                 Node* true_branch = fn(dst_arena, annotations, unique_name(dst_arena, "if_true"), true, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
                 Node* false_branch = has_false_branch ? fn(dst_arena, annotations, unique_name(dst_arena, "if_false"), true, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL)) : NULL;
 
-                true_branch->payload.fn.block = handle_block(ctx,  instr->payload.if_instr.if_true, 0, join_cont, let_mask->payload.let.variables.nodes[0]);
+                true_branch->payload.fn.body = process_body(ctx,  instr->payload.if_instr.if_true, 0, join_cont, let_mask->payload.let.variables.nodes[0]);
                 if (has_false_branch)
-                    false_branch->payload.fn.block = handle_block(ctx,  instr->payload.if_instr.if_false, 0, join_cont, let_mask->payload.let.variables.nodes[0]);
-                join_cont->payload.fn.block = handle_block(ctx, node, i + 1, outer_join, reconvergence_token);
+                    false_branch->payload.fn.body = process_body(ctx,  instr->payload.if_instr.if_false, 0, join_cont, let_mask->payload.let.variables.nodes[0]);
+                join_cont->payload.fn.body = process_body(ctx, node, i + 1, outer_join, reconvergence_token);
 
                 Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
                 destroy_list(accumulator);
@@ -68,7 +68,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                     .false_target = has_false_branch ? false_branch : join_cont,
                     .args = nodes(dst_arena, 0, NULL),
                 });
-                return block(dst_arena, (Block) {
+                return body(dst_arena, (Body) {
                     .instructions = instructions,
                     .terminator = branch_t
                 });
@@ -83,13 +83,13 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
                     register_processed(&ctx->rewriter, let_node->payload.let.variables.nodes[j], cont_params.nodes[j]);
 
                 Node* return_continuation = fn(dst_arena, annotations, unique_name(dst_arena, "call_continue"), true, cont_params, nodes(dst_arena, 0, NULL));
-                return_continuation->payload.fn.block = handle_block(ctx, node, i + 1, outer_join, reconvergence_token);
+                return_continuation->payload.fn.body = process_body(ctx, node, i + 1, outer_join, reconvergence_token);
 
                 Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
                 destroy_list(accumulator);
 
                 // TODO we probably want to emit a callc here and lower that later to a separate function in an optional pass
-                return block(dst_arena, (Block) {
+                return body(dst_arena, (Body) {
                     .instructions = instructions,
                     .terminator = callc(dst_arena, (Callc) {
                         .join_at = return_continuation,
@@ -107,7 +107,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
         }
     }
 
-    const Node* old_terminator = old_block->terminator;
+    const Node* old_terminator = old_body->terminator;
     const Node* new_terminator = NULL;
 
     switch (old_terminator->tag) {
@@ -136,7 +136,7 @@ static const Node* handle_block(Context* ctx, const Node* node, size_t start, co
     assert(new_terminator);
     Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
     destroy_list(accumulator);
-    return block(dst_arena, (Block) {
+    return body(dst_arena, (Body) {
         .instructions = instructions,
         .terminator = new_terminator
     });
@@ -152,10 +152,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
             Context sub_ctx = *ctx;
             sub_ctx.disable_lowering = lookup_annotation_with_string_payload(fun, "DisablePass", "lower_cf_instrs");
-            fun->payload.fn.block = process_node(&sub_ctx, node->payload.fn.block);
+            fun->payload.fn.body = process_node(&sub_ctx, node->payload.fn.body);
             return fun;
         }
-        case Block_TAG: return ctx->disable_lowering ? recreate_node_identity(&ctx->rewriter, node) : handle_block(ctx, node, 0, NULL, NULL);
+        case Body_TAG: return ctx->disable_lowering ? recreate_node_identity(&ctx->rewriter, node) : process_body(ctx, node, 0, NULL, NULL);
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }

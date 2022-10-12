@@ -23,7 +23,7 @@ typedef struct {
     Phis continue_phis, break_phis, join_phis;
 } MergeTargets;
 
-static void emit_block(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets, const Node* node);
+static void emit_body(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* node);
 
 static void register_result(Emitter* emitter, const Node* variable, SpvId id) {
     spvb_name(emitter->file_builder, id, variable->payload.var.name);
@@ -389,11 +389,11 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
 
     BBBuilder true_bb = spvb_begin_bb(emitter->file_builder, true_id);
     spvb_add_bb(fn_builder, true_bb);
-    emit_block(emitter, fn_builder, true_bb, merge_targets_branches, if_instr.if_true);
+    emit_body(emitter, fn_builder, true_bb, merge_targets_branches, if_instr.if_true);
     if (if_instr.if_false) {
         BBBuilder false_bb = spvb_begin_bb(emitter->file_builder, false_id);
         spvb_add_bb(fn_builder, false_bb);
-        emit_block(emitter, fn_builder, false_bb, merge_targets_branches, if_instr.if_false);
+        emit_body(emitter, fn_builder, false_bb, merge_targets_branches, if_instr.if_false);
     }
 
     spvb_add_bb(fn_builder, join_bb);
@@ -423,11 +423,11 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
 
     for (size_t i = 0; i < match.cases.count; i++) {
         BBBuilder case_bb = spvb_begin_bb(emitter->file_builder, literals_and_cases[i * 2 + 1]);
-        emit_block(emitter, fn_builder, case_bb, merge_targets_branches, match.cases.nodes[i]);
+        emit_body(emitter, fn_builder, case_bb, merge_targets_branches, match.cases.nodes[i]);
         spvb_add_bb(fn_builder, case_bb);
     }
     BBBuilder default_bb = spvb_begin_bb(emitter->file_builder, default_id);
-    emit_block(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case);
+    emit_body(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case);
     spvb_add_bb(fn_builder, default_bb);
 
     assert(variables.count == 0 && "TODO implement variables using phi nodes");
@@ -502,7 +502,7 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     merge_targets_branches.continue_phis = loop_continue_phis;
     merge_targets_branches.break_target = next_id;
     merge_targets_branches.break_phis = loop_break_phis;
-    emit_block(emitter, fn_builder, body_builder, merge_targets_branches, loop_instr.body);
+    emit_body(emitter, fn_builder, body_builder, merge_targets_branches, loop_instr.body);
 
     // the continue block just jumps back into the header
     spvb_branch(continue_builder, header_id);
@@ -608,12 +608,12 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
     SHADY_UNREACHABLE;
 }
 
-static void emit_block(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* node) {
-    assert(node->tag == Block_TAG);
-    const Block* block = &node->payload.block;
-    for (size_t i = 0; i < block->instructions.count; i++)
-        emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, block->instructions.nodes[i]);
-    emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, block->terminator);
+static void emit_body(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* node) {
+    assert(node->tag == Body_TAG);
+    const Body* body = &node->payload.body;
+    for (size_t i = 0; i < body->instructions.count; i++)
+        emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, body->instructions.nodes[i]);
+    emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, body->terminator);
 }
 
 static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNode* node, bool is_entry) {
@@ -629,7 +629,7 @@ static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNod
         .break_target = 0,
         .join_target = 0
     };
-    emit_block(emitter, fn_builder, basic_block_builder, merge_targets, node->node->payload.fn.block);
+    emit_body(emitter, fn_builder, basic_block_builder, merge_targets, node->node->payload.fn.body);
 
     // Emit the child nodes for real
     size_t dom_count = entries_count_list(node->dominates);

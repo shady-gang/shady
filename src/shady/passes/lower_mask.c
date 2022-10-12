@@ -13,11 +13,11 @@ typedef struct {
 } Context;
 
 /// Removes most instructions that deal with masks and lower them to bitwise operations on integers
-const Node* process_block(Context* ctx, const Node* old_block) {
+const Node* process_body(Context* ctx, const Node* old_body) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
-    BlockBuilder* bb = begin_block(dst_arena);
+    BodyBuilder* bb = begin_body(dst_arena);
 
-    Nodes old_instructions = old_block->payload.block.instructions;
+    Nodes old_instructions = old_body->payload.body.instructions;
     for (size_t i = 0; i < old_instructions.count; i++) {
         const Node* old_instruction = old_instructions.nodes[i];
         const Node* old_actual_instruction = old_instruction;
@@ -73,10 +73,10 @@ const Node* process_block(Context* ctx, const Node* old_block) {
             }
         }
 
-        append_block(bb, rewrite_node(&ctx->rewriter, old_instruction));
+        append_body(bb, rewrite_node(&ctx->rewriter, old_instruction));
     }
 
-    return finish_block(bb, rewrite_node(&ctx->rewriter, old_block->payload.block.terminator));
+    return finish_body(bb, rewrite_node(&ctx->rewriter, old_body->payload.body.terminator));
 }
 
 const Node* process(Context* ctx, const Node* node) {
@@ -85,8 +85,8 @@ const Node* process(Context* ctx, const Node* node) {
 
     if (node->tag == MaskType_TAG)
         return int64_type(ctx->rewriter.dst_arena);
-    else if (node->tag == Block_TAG)
-        return process_block(ctx, node);
+    else if (node->tag == Body_TAG)
+        return process_body(ctx, node);
     else return recreate_node_identity(&ctx->rewriter, node);
 }
 

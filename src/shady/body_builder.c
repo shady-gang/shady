@@ -1,4 +1,4 @@
-#include "block_builder.h"
+#include "body_builder.h"
 #include "rewrite.h"
 #include "fold.h"
 #include "log.h"
@@ -10,22 +10,22 @@
 #include <stdlib.h>
 #include <assert.h>
 
-BlockBuilder* begin_block(IrArena* arena) {
-    BlockBuilder* builder = malloc(sizeof(BlockBuilder));
-    *builder = (BlockBuilder) {
+BodyBuilder* begin_body(IrArena* arena) {
+    BodyBuilder* builder = malloc(sizeof(BodyBuilder));
+    *builder = (BodyBuilder) {
         .arena = arena,
         .list = new_list(const Node*)
     };
     return builder;
 }
 
-void append_block(BlockBuilder* builder, const Node* instruction) {
+void append_body(BodyBuilder* builder, const Node* instruction) {
     append_list(const Node*, builder->list, instruction);
 }
 
-void copy_instrs(BlockBuilder* builder, Nodes instructions) {
+void copy_instrs(BodyBuilder* builder, Nodes instructions) {
     for (size_t i = 0; i < instructions.count; i++)
-        append_block(builder, instructions.nodes[i]);
+        append_body(builder, instructions.nodes[i]);
 }
 
 KeyHash hash_node(Node**);
@@ -74,7 +74,7 @@ static bool has_side_effects(const Node* instruction) {
     SHADY_UNREACHABLE;
 }
 
-const Node* finish_block(BlockBuilder* builder, const Node* terminator) {
+const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
     struct List* folded_list = new_list(const Node*);
     struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
 
@@ -112,7 +112,7 @@ const Node* finish_block(BlockBuilder* builder, const Node* terminator) {
             append_list(const Node*, final_list, instruction);
     }
 
-    const Node* fblock = block(builder->arena, (Block) {
+    const Node* finished = body(builder->arena, (Body) {
         .instructions = nodes(builder->arena, entries_count_list(final_list), read_list(const Node*, final_list)),
         .terminator = nterminator
     });
@@ -122,5 +122,5 @@ const Node* finish_block(BlockBuilder* builder, const Node* terminator) {
     destroy_list(folded_list);
     destroy_list(final_list);
     free(builder);
-    return fblock;
+    return finished;
 }

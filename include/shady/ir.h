@@ -112,8 +112,8 @@ TERMINATOR_NODES(N) \
 N(0, 1, 1, Function, fn) \
 N(0, 0, 1, Constant, constant) \
 N(0, 1, 1, GlobalVariable, global_variable) \
-N(1, 0, 1, Block, block) \
-N(1, 0, 1, ParsedBlock, parsed_block) \
+N(1, 0, 1, Body, body) \
+N(1, 0, 1, ParsedBody, parsed_body) \
 N(1, 0, 1, Annotation, annotation) \
 N(1, 0, 1, Root, root)   \
 
@@ -313,7 +313,7 @@ typedef struct Function_ {
     String name;
     bool is_basic_block;
     Nodes params;
-    const Node* block;
+    const Node* body;
     Nodes return_types;
 } Function;
 
@@ -333,19 +333,19 @@ typedef struct GlobalVariable_ {
 } GlobalVariable;
 
 /// The body inside functions, continuations, if branches ...
-typedef struct Block_ {
+typedef struct Body_ {
     Nodes instructions;
     const Node* terminator;
-} Block;
+} Body;
 
 /// used for the front-end to hold continuations before name binding
-typedef struct ParsedBlock_ {
+typedef struct ParsedBody_ {
     Nodes instructions;
     const Node* terminator;
 
     Nodes continuations_vars;
     Nodes continuations;
-} ParsedBlock;
+} ParsedBody;
 
 typedef struct Root_ {
     Nodes declarations;
@@ -541,7 +541,7 @@ typedef struct Callc_ {
 
 extern String merge_what_string[];
 
-/// These terminators are used in conjunction with structured constructs, they go at the end of structured blocks
+/// These terminators are used in conjunction with structured constructs, they are used inside their bodies to yield a value
 /// Using those terminators outside of an appropriate structured construct is undefined behaviour, and should probably be validated against
 typedef struct MergeConstruct_ {
     enum { Selection, Continue, Break } construct;
@@ -607,16 +607,16 @@ Node* constant(IrArena*,   Nodes annotations, const char* name);
 Node* global_var(IrArena*, Nodes annotations, const Type*, String, AddressSpace);
 Type* nominal_type(IrArena*, String name);
 
-typedef struct BlockBuilder_ BlockBuilder;
+typedef struct BodyBuilder_ BodyBuilder;
 
-BlockBuilder* begin_block(IrArena*);
+BodyBuilder* begin_body(IrArena*arena);
 
-/// Appends an instruction to the block, and may apply optimisations.
+/// Appends an instruction to the builder, may apply optimisations.
 /// If you are interested in the result of one operation, you should obtain it from the return of this function, as it might get optimised out and in such cases this function will account for that
-void append_block(BlockBuilder*, const Node* instruction);
+void append_body(BodyBuilder*, const Node* instruction);
 
-void copy_instrs(BlockBuilder*, Nodes);
-const Node* finish_block(BlockBuilder*, const Node* terminator);
+void copy_instrs(BodyBuilder*, Nodes);
+const Node* finish_body(BodyBuilder* builder, const Node* terminator);
 
 const Type* int8_type(IrArena* arena);
 const Type* int16_type(IrArena* arena);

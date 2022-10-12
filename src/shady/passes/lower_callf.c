@@ -36,19 +36,19 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
-            fun->payload.fn.block = lower_callf_process(&ctx2, old->payload.fn.block);
+            fun->payload.fn.body = lower_callf_process(&ctx2, old->payload.fn.body);
             return fun;
         }
-        case Block_TAG: {
+        case Body_TAG: {
             if (ctx->disable_lowering)
                 return recreate_node_identity(&ctx->rewriter, old);
 
             // this may miss call instructions...
-            BlockBuilder* instructions = begin_block(dst_arena);
-            for (size_t i = 0; i < old->payload.block.instructions.count; i++)
-                append_block(instructions, rewrite_node(&ctx->rewriter, old->payload.block.instructions.nodes[i]));
+            BodyBuilder* instructions = begin_body(dst_arena);
+            for (size_t i = 0; i < old->payload.body.instructions.count; i++)
+                append_body(instructions, rewrite_node(&ctx->rewriter, old->payload.body.instructions.nodes[i]));
 
-            const Node* terminator = old->payload.block.terminator;
+            const Node* terminator = old->payload.body.terminator;
 
             switch (terminator->tag) {
                 case Return_TAG: {
@@ -97,7 +97,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 }
                 default: terminator = lower_callf_process(ctx, terminator); break;
             }
-            return finish_block(instructions, terminator);
+            return finish_body(instructions, terminator);
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
     }

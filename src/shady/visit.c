@@ -193,7 +193,7 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.fn.annotations);
             visit_nodes(visitor, node->payload.fn.params);
             visit_nodes(visitor, node->payload.fn.return_types);
-            visit(node->payload.fn.block);
+            visit(node->payload.fn.body);
 
             if (visitor->visit_fn_scope_rpo && !node->payload.fn.is_basic_block)
                 visit_fn_blocks_except_head(visitor, node);
@@ -217,16 +217,16 @@ void visit_children(Visitor* visitor, const Node* node) {
             }
             break;
         }
-        case Block_TAG: {
-            visit_nodes(visitor, node->payload.block.instructions);
-            visit(node->payload.block.terminator);
+        case Body_TAG: {
+            visit_nodes(visitor, node->payload.body.instructions);
+            visit(node->payload.body.terminator);
             break;
         }
-        case ParsedBlock_TAG: {
-            visit_nodes(visitor, node->payload.parsed_block.instructions);
-            visit(node->payload.parsed_block.terminator);
-            visit_nodes(visitor, node->payload.parsed_block.continuations_vars);
-            visit_nodes(visitor, node->payload.parsed_block.continuations);
+        case ParsedBody_TAG: {
+            visit_nodes(visitor, node->payload.parsed_body.instructions);
+            visit(node->payload.parsed_body.terminator);
+            visit_nodes(visitor, node->payload.parsed_body.continuations_vars);
+            visit_nodes(visitor, node->payload.parsed_body.continuations);
             break;
         }
         case Root_TAG: {

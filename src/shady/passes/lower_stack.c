@@ -27,12 +27,12 @@ typedef struct Context_ {
     struct List* new_decls;
 } Context;
 
-static const Node* handle_block(Context* ctx, const Node* node) {
-    assert(node->tag == Block_TAG);
+static const Node* process_body(Context* ctx, const Node* node) {
+    assert(node->tag == Body_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    BlockBuilder* instructions = begin_block(dst_arena);
-    Nodes oinstructions = node->payload.block.instructions;
+    BodyBuilder* instructions = begin_body(dst_arena);
+    Nodes oinstructions = node->payload.body.instructions;
 
     for (size_t i = 0; i < oinstructions.count; i++) {
         const Node* oinstruction = oinstructions.nodes[i];
@@ -114,10 +114,10 @@ static const Node* handle_block(Context* ctx, const Node* node) {
         }
 
         unchanged:
-        append_block(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
+        append_body(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
     }
 
-    return finish_block(instructions, recreate_node_identity(&ctx->rewriter, node->payload.block.terminator));
+    return finish_body(instructions, recreate_node_identity(&ctx->rewriter, node->payload.body.terminator));
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {
@@ -125,7 +125,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
     if (found) return found;
 
     switch (old->tag) {
-        case Block_TAG: return handle_block(ctx, old);
+        case Body_TAG: return process_body(ctx, old);
         default: return recreate_node_identity(&ctx->rewriter, old);
     }
 }

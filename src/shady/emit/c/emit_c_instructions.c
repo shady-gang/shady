@@ -181,13 +181,13 @@ static void emit_if(Emitter* emitter, Printer* p, const If* if_instr, const Node
     Emitter sub_emiter = *emitter;
     sub_emiter.phis.selection = outputs;
 
-    String true_block = emit_block(&sub_emiter, if_instr->if_true, NULL);
-    String false_block = if_instr->if_false ? emit_block(&sub_emiter, if_instr->if_false, NULL) : NULL;
-    print(p, "\nif (%s) %s", emit_value(emitter, if_instr->condition), true_block);
-    if (false_block)
-        print(p, " else %s", false_block);
-    free(true_block);
-    free(false_block);
+    String true_body = emit_body(&sub_emiter, if_instr->if_true, NULL);
+    String false_body = if_instr->if_false ? emit_body(&sub_emiter, if_instr->if_false, NULL) : NULL;
+    print(p, "\nif (%s) %s", emit_value(emitter, if_instr->condition), true_body);
+    if (false_body)
+        print(p, " else %s", false_body);
+    free(true_body);
+    free(false_body);
 }
 
 static void emit_match(Emitter* emitter, Printer* p, const Match* match_instr, const Nodes* outputs) {
@@ -201,12 +201,12 @@ static void emit_match(Emitter* emitter, Printer* p, const Match* match_instr, c
     print(p, "\nswitch (%s) {", emit_value(emitter, match_instr->inspect));
     indent(p);
     for (size_t i = 0; i < match_instr->cases.count; i++) {
-        String case_body = emit_block(&sub_emiter, match_instr->cases.nodes[i], NULL);
+        String case_body = emit_body(&sub_emiter, match_instr->cases.nodes[i], NULL);
         print(p, "\ncase %s: %s\n", emit_value(emitter, match_instr->literals.nodes[i]), case_body);
         free(case_body);
     }
     if (match_instr->default_case) {
-        String default_case_body = emit_block(&sub_emiter, match_instr->default_case, NULL);
+        String default_case_body = emit_body(&sub_emiter, match_instr->default_case, NULL);
         print(p, "\ndefault: %s\n", default_case_body);
         free(default_case_body);
     }
@@ -226,7 +226,7 @@ static void emit_loop(Emitter* emitter, Printer* p, const Loop* loop_instr, cons
     sub_emiter.phis.loop_continue = &loop_instr->params;
     sub_emiter.phis.loop_break = outputs;
 
-    String body = emit_block(&sub_emiter, loop_instr->body, NULL);
+    String body = emit_body(&sub_emiter, loop_instr->body, NULL);
     print(p, "\nwhile(true) %s", body);
     free(body);
 }
