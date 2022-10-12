@@ -249,7 +249,7 @@ static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
                     }
 
                     bind_named_entry(ctx, entry);
-                    printf("Bound primop result %s\n", entry->name);
+                    debug_print("Bound primop result %s\n", entry->name);
                 }
 
                 break;
@@ -309,7 +309,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                     .next = NULL
                 };
                 bind_named_entry(&loop_body_ctx, entry);
-                printf("Bound loop param %s\n", entry->name);
+                debug_print("Bound loop param %s\n", entry->name);
             }
 
             const Node* new_body = bind_node(&loop_body_ctx, node->payload.loop_instr.body);
@@ -340,7 +340,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                     .next = NULL
                 };
                 bind_named_entry(&body_context, entry);
-                printf("Bound (stub) continuation %s\n", entry->name);
+                debug_print("Bound (stub) continuation %s\n", entry->name);
             }
 
             const Node* new_body = body(dst_arena, (Body) {
