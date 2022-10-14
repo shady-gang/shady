@@ -80,10 +80,10 @@ static const Node* process_body(Context* ctx, const Node* old_body, BodyBuilder*
             break;
         }
         case Join_TAG: {
-            assert(old_terminator->payload.join.is_indirect);
+            assert(old_terminator->payload.join.is_dynamic);
             push_args_stack(ctx, rewrite_nodes(&ctx->rewriter, old_terminator->payload.join.args), builder);
 
-            const Node* target = rewrite_node(&ctx->rewriter, old_terminator->payload.join.join_at);
+            /*const Node* target = rewrite_node(&ctx->rewriter, old_terminator->payload.join.join_at);
             const Node* mask = rewrite_node(&ctx->rewriter, old_terminator->payload.join.desired_mask);
 
             const Node* call = call_instr(arena, (Call) {
@@ -92,7 +92,8 @@ static const Node* process_body(Context* ctx, const Node* old_body, BodyBuilder*
                 .args = nodes(arena, 2, (const Node*[]) { target, mask })
             });
 
-            append_body(builder, call);
+            append_body(builder, call);*/
+            error("TODO");
 
             new_terminator = fn_ret(arena, (Return) { .fn = NULL, .values = nodes(arena, 0, NULL) });
             break;
@@ -230,13 +231,10 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
     struct List* cases = new_list(const Node*);
 
     const Node* zero_lit = int32_literal(dst_arena, 0);
-    const Node* zero_case = body(dst_arena, (Body) {
-        .instructions = nodes(dst_arena, 0, NULL),
-        .terminator = merge_construct(dst_arena, (MergeConstruct) {
-            .args = nodes(dst_arena, 0, NULL),
-            .construct = Break
-        })
-    });
+    const Node* zero_case = finish_body(begin_body(ctx->rewriter.dst_arena), merge_construct(dst_arena, (MergeConstruct) {
+        .args = nodes(dst_arena, 0, NULL),
+        .construct = Break
+    }));
 
     append_list(const Node*, literals, zero_lit);
     append_list(const Node*, cases, zero_case);
@@ -273,10 +271,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
         .inspect = next_function,
         .literals = nodes(dst_arena, entries_count_list(literals), read_list(const Node*, literals)),
         .cases = nodes(dst_arena, entries_count_list(cases), read_list(const Node*, cases)),
-        .default_case = body(dst_arena, (Body) {
-            .instructions = nodes(dst_arena, 0, NULL),
-            .terminator = unreachable(dst_arena)
-        })
+        .default_case = finish_body(begin_body(ctx->rewriter.dst_arena), unreachable(dst_arena)),
     }));
 
     destroy_list(literals);
@@ -290,15 +285,13 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
         .body = loop_body
     });
 
-    Nodes dispatcher_body_instructions = nodes(dst_arena, 1, (const Node* []) { the_loop });
+    BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_arena);
+    append_body(dispatcher_body_builder, the_loop);
 
-    dispatcher_fn->payload.fn.body = body(dst_arena, (Body) {
-        .instructions = dispatcher_body_instructions,
-        .terminator = fn_ret(dst_arena, (Return) {
-            .values = nodes(dst_arena, 0, NULL),
-            .fn = NULL,
-        })
-    });
+    dispatcher_fn->payload.fn.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
+        .values = nodes(dst_arena, 0, NULL),
+        .fn = NULL,
+    }));
 }
 
 KeyHash hash_node(Node**);

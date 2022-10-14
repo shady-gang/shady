@@ -227,6 +227,24 @@ Type* nominal_type(IrArena* arena, String name) {
     return create_node_helper(arena, node);
 }
 
+const Node* body(IrArena* arena, Nodes instructions, const Node* terminator, Nodes children_continuations) {
+    Body b = {
+        .instructions = instructions,
+        .terminator = terminator,
+        .children_continuations = children_continuations,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_body(arena, b) : NULL,
+        .tag = Body_TAG,
+        .payload.body = b
+    };
+    return create_node_helper(arena, node);
+}
+
 const Type* int8_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy8 }); }
 const Type* int16_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy16 }); }
 const Type* int32_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy32 }); }

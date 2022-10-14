@@ -196,12 +196,14 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
     return bound;
 }
 
-static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
+/// Rewrites a body, but ignores children continuation
+static const Node* rewrite_body_contents(Context* ctx, const Body* old_body) {
     IrArena* dst_arena = ctx->dst_arena;
 
-    struct List* list = new_list(const Node*);
-    for (size_t k = 0; k < instructions.count; k++) {
-        const Node* old_instruction = instructions.nodes[k];
+    BodyBuilder* bb = begin_body(ctx->dst_arena);
+
+    for (size_t k = 0; k < old_body->instructions.count; k++) {
+        const Node* old_instruction = old_body->instructions.nodes[k];
         switch (old_instruction->tag) {
             case Let_TAG: {
                 const Node* bound_instr = bind_node(ctx, old_instruction->payload.let.instruction);
@@ -214,7 +216,7 @@ static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
                     names[j] = old_instruction->payload.let.variables.nodes[j]->payload.var.name;
 
                 const Node* new_let = let(dst_arena, bound_instr, outputs_count, names);
-                append_list(const Node*, list, new_let);
+                append_body(bb, new_let);
 
                 for (size_t j = 0; j < outputs_count; j++) {
                     const Variable* old_var = &old_instruction->payload.let.variables.nodes[j]->payload.var;
@@ -235,13 +237,13 @@ static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
                             .op = alloca_op,
                             .operands = nodes(dst_arena, 1, (const Node* []){ bind_node(ctx, old_var->type) })
                         }), 1, &names[j]);
-                        append_list(const Node*, list, let_alloca);
+                        append_body(bb, let_alloca);
                         const Node* ptr = let_alloca->payload.let.variables.nodes[0];
                         const Node* store = prim_op(dst_arena, (PrimOp) {
                             .op = store_op,
                             .operands = nodes(dst_arena, 2, (const Node* []) { ptr, value })
                         });
-                        append_list(const Node*, list, store);
+                        append_body(bb, store);
                         // In this case, the node is a _pointer_, not the value !
                         entry->node = (Node*) ptr;
                     } else {
@@ -256,14 +258,13 @@ static Nodes rewrite_instructions(Context* ctx, Nodes instructions) {
             }
             default: {
                 const Node* ninstruction = bind_node(ctx, old_instruction);
-                append_list(const Node*, list, ninstruction);
+                append_body(bb, ninstruction);
                 break;
             }
         }
     }
-    Nodes ninstructions = nodes(dst_arena, entries_count_list(list), read_list(const Node*, list));
-    destroy_list(list);
-    return ninstructions;
+    const Node* terminator = bind_node(ctx, old_body->terminator);
+    return finish_body(bb, terminator);
 }
 
 static const Node* bind_node(Context* ctx, const Node* node) {
@@ -343,10 +344,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 debug_print("Bound (stub) continuation %s\n", entry->name);
             }
 
-            const Node* new_body = body(dst_arena, (Body) {
-                .instructions = rewrite_instructions(&body_context, unbound_body->instructions),
-                .terminator = bind_node(&body_context, unbound_body->terminator)
-            });
+            const Node* new_body = rewrite_body_contents(&body_context, unbound_body);
 
             // Rebuild the actual continuations now
             for (size_t i = 0; i < inner_conts_count; i++) {

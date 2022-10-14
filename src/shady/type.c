@@ -825,7 +825,7 @@ const Type* check_type_join(IrArena* arena, Join join) {
         assert(is_value(argument));
     }
 
-    const Type* join_target_type = join.join_at->type;
+    /*const Type* join_target_type = join.join_at->type;
 
     if (join.is_indirect) {
         bool join_target_uniform;
@@ -835,7 +835,8 @@ const Type* check_type_join(IrArena* arena, Join join) {
         join_target_type = join_target_type->payload.ptr_type.pointed_type;
     }
 
-    check_callsite_helper(join_target_type, extract_types(arena, join.args));
+    check_callsite_helper(join_target_type, extract_types(arena, join.args));*/
+    error("TODO")
 
     return NULL;
 }
@@ -884,6 +885,11 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space
     });
+}
+
+const Type* check_type_body(IrArena* arena, Body body) {
+    assert(body.children_continuations.count == 0);
+    return body.terminator->type;
 }
 
 #pragma GCC diagnostic pop

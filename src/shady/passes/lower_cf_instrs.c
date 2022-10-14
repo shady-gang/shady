@@ -18,12 +18,19 @@ typedef struct Context_ {
 
 static const Node* process_node(Context* ctx, const Node* node);
 
-static const Node* process_body(Context* ctx, const Node* node, size_t start, const Node* outer_join, const Node* outer_reconvergence_token) {
+typedef struct {
+    const Node* join_point_selection_merge;
+    const Node* join_point_switch_merge;
+    const Node* join_point_loop_break;
+    const Node* join_point_loop_continue;
+} JoinPoints;
+
+static const Node* process_body(Context* ctx, const Node* node, size_t start, JoinPoints join_points) {
     assert(node->tag == Body_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
+    BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
     const Body* old_body = &node->payload.body;
-    struct List* accumulator = new_list(const Node*);
     // TODO add a @Synthetic annotation to tag those
     Nodes annotations = nodes(dst_arena, 0, NULL);
 
@@ -43,12 +50,11 @@ static const Node* process_body(Context* ctx, const Node* node, size_t start, co
                     rest_params[j] = let_node->payload.let.variables.nodes[j];
                 }
 
-                const Node* let_mask = let(dst_arena, prim_op(dst_arena, (PrimOp) {
+                /*const Node* let_mask = let(dst_arena, prim_op(dst_arena, (PrimOp) {
                     .op = subgroup_active_mask_op,
                     .operands = nodes(dst_arena, 0, NULL)
                 }), 1, NULL);
-                append_list(const Node*, accumulator, let_mask);
-                // reconvergence_token = NULL;
+                append_body(bb, let_control);
 
                 Node* join_cont = fn(dst_arena, annotations, unique_name(dst_arena, "if_join"), true, nodes(dst_arena, yield_types.count, rest_params), nodes(dst_arena, 0, NULL));
                 Node* true_branch = fn(dst_arena, annotations, unique_name(dst_arena, "if_true"), true, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
@@ -57,10 +63,8 @@ static const Node* process_body(Context* ctx, const Node* node, size_t start, co
                 true_branch->payload.fn.body = process_body(ctx,  instr->payload.if_instr.if_true, 0, join_cont, let_mask->payload.let.variables.nodes[0]);
                 if (has_false_branch)
                     false_branch->payload.fn.body = process_body(ctx,  instr->payload.if_instr.if_false, 0, join_cont, let_mask->payload.let.variables.nodes[0]);
-                join_cont->payload.fn.body = process_body(ctx, node, i + 1, outer_join, reconvergence_token);
+                join_cont->payload.fn.body = process_body(ctx, node, i + 1, join_points);
 
-                Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
-                destroy_list(accumulator);
                 const Node* branch_t = branch(dst_arena, (Branch) {
                     .branch_mode = BrIfElse,
                     .branch_condition = rewrite_node(&ctx->rewriter, instr->payload.if_instr.condition),
@@ -68,10 +72,8 @@ static const Node* process_body(Context* ctx, const Node* node, size_t start, co
                     .false_target = has_false_branch ? false_branch : join_cont,
                     .args = nodes(dst_arena, 0, NULL),
                 });
-                return body(dst_arena, (Body) {
-                    .instructions = instructions,
-                    .terminator = branch_t
-                });
+                return finish_body(bb, branch_t);*/
+                error("TODO");
             }
             case Loop_TAG: error("TODO")
             case Call_TAG: {
@@ -83,27 +85,21 @@ static const Node* process_body(Context* ctx, const Node* node, size_t start, co
                     register_processed(&ctx->rewriter, let_node->payload.let.variables.nodes[j], cont_params.nodes[j]);
 
                 Node* return_continuation = fn(dst_arena, annotations, unique_name(dst_arena, "call_continue"), true, cont_params, nodes(dst_arena, 0, NULL));
-                return_continuation->payload.fn.body = process_body(ctx, node, i + 1, outer_join, reconvergence_token);
-
-                Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
-                destroy_list(accumulator);
+                return_continuation->payload.fn.body = process_body(ctx, node, i + 1, join_points);
 
                 // TODO we probably want to emit a callc here and lower that later to a separate function in an optional pass
-                return body(dst_arena, (Body) {
-                    .instructions = instructions,
-                    .terminator = callc(dst_arena, (Callc) {
-                        .join_at = return_continuation,
-                        .callee = process_node(ctx, instr->payload.call_instr.callee),
-                        .args = rewrite_nodes(&ctx->rewriter, instr->payload.call_instr.args)
-                    })
-                });
+                return finish_body(bb, callc(dst_arena, (Callc) {
+                    .join_at = return_continuation,
+                    .callee = process_node(ctx, instr->payload.call_instr.callee),
+                    .args = rewrite_nodes(&ctx->rewriter, instr->payload.call_instr.args)
+                }));
             }
             default: break;
         }
 
         recreate_identity: {
-            const Node* imported = recreate_node_identity(&ctx->rewriter, let_node);
-            append_list(const Node*, accumulator, imported);
+            const Node* unchanged = recreate_node_identity(&ctx->rewriter, let_node);
+            append_body(bb, unchanged);
         }
     }
 
@@ -114,12 +110,10 @@ static const Node* process_body(Context* ctx, const Node* node, size_t start, co
         case MergeConstruct_TAG: {
             switch (old_terminator->payload.merge_construct.construct) {
                 case Selection: {
-                    assert(outer_join);
+                    assert(join_points.join_point_selection_merge);
                     new_terminator = join(dst_arena, (Join) {
-                        .is_indirect = false,
-                        .join_at = outer_join,
+                        .join_point = join_points.join_point_selection_merge,
                         .args = nodes(dst_arena, old_terminator->payload.merge_construct.args.count, old_terminator->payload.merge_construct.args.nodes),
-                        .desired_mask = reconvergence_token
                     });
                     break;
                 }
@@ -134,12 +128,7 @@ static const Node* process_body(Context* ctx, const Node* node, size_t start, co
     }
 
     assert(new_terminator);
-    Nodes instructions = nodes(dst_arena, entries_count_list(accumulator), read_list(const Node*, accumulator));
-    destroy_list(accumulator);
-    return body(dst_arena, (Body) {
-        .instructions = instructions,
-        .terminator = new_terminator
-    });
+    return finish_body(bb, new_terminator);
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -152,10 +141,19 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
             Context sub_ctx = *ctx;
             sub_ctx.disable_lowering = lookup_annotation_with_string_payload(fun, "DisablePass", "lower_cf_instrs");
-            fun->payload.fn.body = process_node(&sub_ctx, node->payload.fn.body);
+            JoinPoints jpts = {
+                .join_point_selection_merge = NULL,
+                .join_point_switch_merge = NULL,
+                .join_point_loop_break = NULL,
+                .join_point_loop_continue = NULL,
+            };
+            if (sub_ctx.disable_lowering)
+                fun->payload.fn.body = recreate_node_identity(&ctx->rewriter, node);
+            else
+                fun->payload.fn.body = process_body(&sub_ctx, node->payload.fn.body, 0, jpts);
             return fun;
         }
-        case Body_TAG: return ctx->disable_lowering ? recreate_node_identity(&ctx->rewriter, node) : process_body(ctx, node, 0, NULL, NULL);
+        // case Body_TAG: error("all instances of bodies should be already covered");
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }

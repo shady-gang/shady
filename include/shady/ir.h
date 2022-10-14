@@ -113,7 +113,7 @@ TERMINATOR_NODES(N) \
 N(0, 1, 1, Function, fn) \
 N(0, 0, 1, Constant, constant) \
 N(0, 1, 1, GlobalVariable, global_variable) \
-N(1, 0, 1, Body, body) \
+N(0, 1, 1, Body, body) \
 N(1, 0, 1, Annotation, annotation) \
 N(1, 0, 1, Root, root)   \
 
@@ -508,10 +508,8 @@ typedef struct Branch_ {
 /// If @p is_indirect is set, the target must be a function pointer. Otherwise, the target must be a function directly.
 /// @p join_at _must_ be uniform.
 typedef struct Join_ {
-    bool is_indirect;
-    const Node* join_at;
+    const Node* join_point;
     Nodes args;
-    const Node* desired_mask;
 } Join;
 
 typedef struct Return_ {
@@ -605,7 +603,7 @@ Type* nominal_type(IrArena*, String name);
 
 typedef struct BodyBuilder_ BodyBuilder;
 
-BodyBuilder* begin_body(IrArena*arena);
+BodyBuilder* begin_body(IrArena*);
 
 /// Appends an instruction to the builder, may apply optimisations.
 /// If you are interested in the result of one operation, you should obtain it from the return of this function, as it might get optimised out and in such cases this function will account for that

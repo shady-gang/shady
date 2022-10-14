@@ -112,10 +112,7 @@ const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
             append_list(const Node*, final_list, instruction);
     }
 
-    const Node* finished = body(builder->arena, (Body) {
-        .instructions = nodes(builder->arena, entries_count_list(final_list), read_list(const Node*, final_list)),
-        .terminator = nterminator
-    });
+    const Node* finished = body(builder->arena, nodes(builder->arena, entries_count_list(final_list), read_list(const Node*, final_list)), nterminator);
 
     destroy_dict(done);
     destroy_dict(ctx.in_use);

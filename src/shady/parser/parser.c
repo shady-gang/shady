@@ -6,6 +6,7 @@
 #include "log.h"
 
 #include "../type.h"
+#include "../ir_private.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -591,7 +592,6 @@ static const Node* accept_terminator(ctxparams) {
             expect(target);
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
             return branch(arena, (Branch) {
-                .yield = false,
                 .branch_mode = BrJump,
                 .target = target,
                 .args = args
@@ -613,7 +613,6 @@ static const Node* accept_terminator(ctxparams) {
 
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
             return branch(arena, (Branch) {
-                .yield = false,
                 .branch_mode = BrIfElse,
                 .branch_condition = condition,
                 .true_target = true_target,
@@ -711,11 +710,7 @@ static const Node* expect_body(ctxparams, const Node* implicit_join) {
 
     expect(accept_token(ctx, rbracket_tok));
 
-    return body(arena, (Body) {
-        .instructions = instrs,
-        .children_continuations = continuations,
-        .terminator = terminator,
-    });
+    return body(arena, instrs, terminator, continuations);
 }
 
 static Nodes accept_annotations(ctxparams) {

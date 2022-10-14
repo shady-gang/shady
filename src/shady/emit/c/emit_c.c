@@ -133,6 +133,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
         case Terminator_Join_TAG:
         case Terminator_Callc_TAG:
         case Terminator_Branch_TAG: error("this must be lowered away!");
+        case Terminator_TailCall_TAG: error("TODO");
         case Terminator_Return_TAG: {
             Nodes args = terminator->payload.fn_ret.values;
             if (args.count == 0) {

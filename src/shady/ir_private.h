@@ -26,4 +26,6 @@ VarId fresh_id(IrArena*);
 struct List;
 Nodes list_to_nodes(IrArena*, struct List*);
 
+const Node* body(IrArena*, Nodes instructions, const Node* terminator, Nodes children_continuations);
+
 #endif

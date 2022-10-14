@@ -93,18 +93,11 @@ static const Node* infer_type(Context* ctx, const Type* type) {
 static const Node* infer_body(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
 
-    LARRAY(const Node*, ninstructions, node->payload.body.instructions.count);
-
+    BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
     for (size_t i = 0; i < node->payload.body.instructions.count; i++)
-        ninstructions[i] = infer_instruction(ctx, node->payload.body.instructions.nodes[i]);
-
-    Nodes typed_instructions = nodes(ctx->rewriter.dst_arena, node->payload.body.instructions.count, ninstructions);
-    const Node* typed_term = infer_terminator(ctx, node->payload.body.terminator);
-
-    return body(ctx->rewriter.dst_arena, (Body) {
-        .instructions = typed_instructions,
-        .terminator = typed_term,
-    });
+        append_body(bb, infer_instruction(ctx, node->payload.body.instructions.nodes[i]));
+    const Node* typed_terminator = infer_terminator(ctx, node->payload.body.terminator);
+    return finish_body(bb, typed_terminator);
 }
 
 static const Node* infer_decl(Context* ctx, const Node* node) {

@@ -513,47 +513,39 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 case BrIfElse: {
                     printf("(");
                     print_node(node->payload.branch.branch_condition);
-                    printf(" ? ");
+                    printf(", ");
                     print_node(node->payload.branch.true_target);
-                    printf(" : ");
+                    printf(", ");
                     print_node(node->payload.branch.false_target);
                     printf(")");
                     break;
                 }
                 case BrSwitch: {
+                    printf("(");
                     print_node(node->payload.branch.switch_value);
-                    printf(" ? (");
+                    printf(", ");
                     for (size_t i = 0; i < node->payload.branch.case_values.count; i++) {
                         print_node(node->payload.branch.case_values.nodes[i]);
-                        printf(" ");
+                        printf(", ");
                         print_node(node->payload.branch.case_targets.nodes[i]);
                         if (i + 1 < node->payload.branch.case_values.count)
                             printf(", ");
                     }
-                    printf(" : ");
+                    printf(", ");
                     print_node(node->payload.branch.default_target);
                     printf(") ");
                 }
             }
-            for (size_t i = 0; i < node->payload.branch.args.count; i++) {
-                printf(" ");
-                print_node(node->payload.branch.args.nodes[i]);
-            }
+            print_args_list(ctx, node->payload.branch.args);
             break;
         case Join_TAG:
             printf(BGREEN);
-            if (node->payload.join.is_indirect)
-                printf("joinf ");
-            else
-                printf("joinc ");
+            printf("join");
             printf(RESET);
-            print_node(node->payload.join.join_at);
-            printf(" ");
-            print_node(node->payload.join.desired_mask);
-            for (size_t i = 0; i < node->payload.join.args.count; i++) {
-                printf(" ");
-                print_node(node->payload.join.args.nodes[i]);
-            }
+            printf("(");
+            print_node(node->payload.join.join_point);
+            printf(")");
+            print_args_list(ctx, node->payload.join.args);
             break;
         case Callc_TAG:
             printf(BGREEN);

@@ -72,12 +72,13 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     return_convtok = gen_primop_ce(instructions, subgroup_broadcast_first_op, 1, (const Node* []) { return_convtok });
 
                     // Join up at the return address
-                    terminator = join(dst_arena, (Join) {
+                    /*terminator = join(dst_arena, (Join) {
                         .is_indirect = true,
                         .join_at = return_address,
                         .args = nargs,
                         .desired_mask = return_convtok,
-                    });
+                    });*/
+                    error("TODO");
                     break;
                 }
                 case Callc_TAG: {

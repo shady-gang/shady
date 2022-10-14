@@ -261,9 +261,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             default: SHADY_UNREACHABLE;
         }
         case Join_TAG:        return join(rewriter->dst_arena, (Join) {
-            .is_indirect = node->payload.join.is_indirect,
-            .join_at = rewrite_node(rewriter, node->payload.join.join_at),
-            .desired_mask = rewrite_node(rewriter, node->payload.join.desired_mask),
+            .join_point = rewrite_node(rewriter, node->payload.join.join_point),
             .args = rewrite_nodes(rewriter, node->payload.join.args)
         });
         case Callc_TAG:         return callc(rewriter->dst_arena, (Callc) {
@@ -296,11 +294,17 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 .declarations = decls,
             });
         }
-        case Body_TAG:         return body(rewriter->dst_arena, (Body) {
-            .instructions = rewrite_nodes(rewriter, node->payload.body.instructions),
-            .terminator = rewrite_node(rewriter, node->payload.body.terminator)->type,
-            .children_continuations = nodes(rewriter->dst_arena, 0, NULL),
-        });
+        case Body_TAG: {
+            Body old = node->payload.body;
+            assert(old.children_continuations.count == 0 && "run bind first");
+            BodyBuilder* bb = begin_body(rewriter->dst_arena);
+            for (size_t i = 0; i < old.instructions.count; i++) {
+                const Node* instruction = rewrite_node(rewriter, old.instructions.nodes[i]);
+                append_body(bb, instruction);
+            }
+            const Node* terminator = rewrite_node(rewriter, old.terminator);
+            return finish_body(bb, terminator);
+        }
         case Annotation_TAG: switch (node->payload.annotation.payload_type) {
             case AnPayloadNone: return annotation(rewriter->dst_arena, (Annotation) {
                                     .payload_type = node->payload.annotation.payload_type,
