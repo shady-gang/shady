@@ -1,6 +1,7 @@
 set(SHADY_SOURCES
     ir.c
     node.c
+    constructors.c
     type.c
     rewrite.c
     visit.c
