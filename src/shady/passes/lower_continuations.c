@@ -129,7 +129,6 @@ static const Node* process_body(Context* ctx, BodyBuilder* builder, const Body* 
         case Branch_TAG: {
             const Node* ncallee;
             switch (old_body->terminator->payload.branch.branch_mode) {
-                case BrTailcall: goto identity;
                 case BrJump: {
                     // make sure the target is rewritten before we lookup the 'lifted' dict
                     const Node* otarget = old_body->terminator->payload.branch.target;
@@ -171,8 +170,7 @@ static const Node* process_body(Context* ctx, BodyBuilder* builder, const Body* 
             }
             assert(ncallee && is_value(ncallee));
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old_body->terminator->payload.branch.args);
-            nterminator = branch(arena, (Branch) {
-                .branch_mode = BrTailcall,
+            nterminator = tail_call(arena, (TailCall) {
                 .target = ncallee,
                 .args = nargs,
             });
@@ -200,6 +198,7 @@ static const Node* process_body(Context* ctx, BodyBuilder* builder, const Body* 
             break;
         }
         identity:
+        case TailCall_TAG:
         case Return_TAG:
         case MergeConstruct_TAG:
         case Unreachable_TAG: {

@@ -558,7 +558,6 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         }
         case Branch_TAG: {
             assert(terminator->payload.branch.args.count == 0 && "TODO: implement bb params");
-            assert(terminator->payload.branch.yield == false && "Yielding needs to be lowered away");
             switch (terminator->payload.branch.branch_mode) {
                 case BrJump: {
                     spvb_branch(basic_block_builder, find_reserved_id(emitter, terminator->payload.branch.target));
@@ -570,7 +569,6 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
                     return;
                 }
                 case BrSwitch: error("TODO");
-                case BrTailcall: error("Lower me beforehand !")
                 default: SHADY_UNREACHABLE;
             }
         }

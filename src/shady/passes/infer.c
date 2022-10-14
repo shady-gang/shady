@@ -458,7 +458,6 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         }
         case Branch_TAG: {
             switch (node->payload.branch.branch_mode) {
-                case BrTailcall:
                 case BrJump: {
                     const Node* ntarget = infer_fn(ctx, node->payload.branch.target);
                     const Type* ntarget_type;
@@ -477,7 +476,6 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
 
                     return branch(ctx->rewriter.dst_arena, (Branch) {
                         .branch_mode = node->payload.branch.branch_mode,
-                        .yield = false,
                         .target = ntarget,
                         .args = new_args
                     });
@@ -508,7 +506,6 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
 
                     return branch(ctx->rewriter.dst_arena, (Branch) {
                         .branch_mode = node->payload.branch.branch_mode,
-                        .yield = false,
                         .branch_condition = ncond,
                         .true_target = t_target,
                         .false_target = f_target,

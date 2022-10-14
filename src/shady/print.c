@@ -112,6 +112,17 @@ static void print_param_list(PrinterCtx* ctx, Nodes vars, const Nodes* defaults)
     printf(")");
 }
 
+static void print_args_list(PrinterCtx* ctx, Nodes args) {
+    printf("(");
+    for (size_t i = 0; i < args.count; i++) {
+        if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)args.nodes[i]);
+        print_node(args.nodes[i]);
+        if (i < args.count - 1)
+            printf(", ");
+    }
+    printf(")");
+}
+
 static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     bool space = false;
     for (size_t i = 0; i < types.count; i++) {
@@ -478,20 +489,23 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 print_node(node->payload.fn_ret.values.nodes[i]);
             }
             break;
+        case Terminator_TailCall_TAG:
+            printf(BGREEN);
+            printf("tail_call ");
+            printf(RESET);
+            print_node(node->payload.tail_call.target);
+            print_args_list(ctx, node->payload.tail_call.args);
+            break;
         case Branch_TAG:
             printf(BGREEN);
             switch (node->payload.branch.branch_mode) {
-                case BrTailcall: printf("tail_call "); break;
                 case BrJump:     printf("jump "     ); break;
                 case BrIfElse:   printf("br_ifelse "); break;
                 case BrSwitch:   printf("br_switch "); break;
                 default: error("unknown branch mode");
             }
-            if (node->payload.branch.yield)
-                printf("yield ");
             printf(RESET);
             switch (node->payload.branch.branch_mode) {
-                case BrTailcall:
                 case BrJump: {
                     print_node(node->payload.branch.target);
                     break;

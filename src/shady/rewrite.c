@@ -231,19 +231,19 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .cases = rewrite_nodes(rewriter, node->payload.match_instr.cases),
             .default_case = rewrite_node(rewriter, node->payload.match_instr.default_case),
         });
-
+        case TailCall_TAG: return tail_call(rewriter->dst_arena, (TailCall) {
+            .target = rewrite_node(rewriter, node->payload.tail_call.target),
+            .args = rewrite_nodes(rewriter, node->payload.tail_call.args),
+        });
         case Branch_TAG: switch (node->payload.branch.branch_mode) {
-            case BrTailcall:
             case BrJump: return branch(rewriter->dst_arena, (Branch) {
                 .branch_mode = node->payload.branch.branch_mode,
-                .yield = node->payload.branch.yield,
 
                 .target = rewrite_node(rewriter, node->payload.branch.target),
                 .args = rewrite_nodes(rewriter, node->payload.branch.args)
             });
             case BrIfElse: return branch(rewriter->dst_arena, (Branch) {
                 .branch_mode = node->payload.branch.branch_mode,
-                .yield = node->payload.branch.yield,
 
                 .branch_condition = rewrite_node(rewriter, node->payload.branch.branch_condition),
                 .true_target = rewrite_node(rewriter, node->payload.branch.true_target),
@@ -252,7 +252,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             });
             case BrSwitch: return branch(rewriter->dst_arena, (Branch) {
                 .branch_mode = node->payload.branch.branch_mode,
-                .yield = node->payload.branch.yield,
 
                 .switch_value = rewrite_node(rewriter, node->payload.branch.switch_value),
                 .default_target = rewrite_node(rewriter, node->payload.branch.default_target),

@@ -64,11 +64,9 @@ static const Node* process_body(Context* ctx, const Node* old_body, BodyBuilder*
     const Node* new_terminator = NULL;
 
     switch (old_terminator->tag) {
-        case Branch_TAG: {
-            assert(old_terminator->payload.branch.branch_mode == BrTailcall);
-            push_args_stack(ctx, rewrite_nodes(&ctx->rewriter, old_terminator->payload.branch.args), builder);
-
-            const Node* target = rewrite_node(&ctx->rewriter, old_terminator->payload.branch.target);
+        case TailCall_TAG: {
+            push_args_stack(ctx, rewrite_nodes(&ctx->rewriter, old_terminator->payload.tail_call.args), builder);
+            const Node* target = rewrite_node(&ctx->rewriter, old_terminator->payload.tail_call.target);
 
             const Node* call = call_instr(arena, (Call) {
                 .is_indirect = false,

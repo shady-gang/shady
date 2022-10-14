@@ -771,6 +771,20 @@ const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
     return wrap_multiple_yield_types(arena, match_instr.yield_types);
 }
 
+const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
+    const Type* callee_type;
+    bool callee_uniform;
+    deconstruct_operand_type(tail_call.target->type, &callee_type, &callee_uniform);
+    assert(callee_type->tag == PtrType_TAG && "Tail calls are indirect calls, they consume pointers to functions.");
+
+    assert(callee_type->payload.ptr_type.address_space == AsProgramCode);
+    callee_type = callee_type->payload.ptr_type.pointed_type;
+
+    // TODO say something about uniformity of the target ?
+    check_callsite_helper(callee_type, extract_types(arena, tail_call.args));
+    return NULL;
+}
+
 const Type* check_type_branch(IrArena* arena, Branch branch) {
     for (size_t i = 0; i < branch.args.count; i++) {
         const Node* argument = branch.args.nodes[i];
@@ -778,19 +792,6 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
     }
 
     switch (branch.branch_mode) {
-        case BrTailcall: {
-            const Type* callee_type;
-            bool callee_uniform;
-            deconstruct_operand_type(branch.target->type, &callee_type, &callee_uniform);
-            assert(callee_type->tag == PtrType_TAG && "Tail calls are indirect calls, they consume pointers to functions.");
-
-            assert(callee_type->payload.ptr_type.address_space == AsProgramCode);
-            callee_type = callee_type->payload.ptr_type.pointed_type;
-
-            // TODO say something about uniformity of the target ?
-            check_callsite_helper(callee_type, extract_types(arena, branch.args));
-            return NULL;
-        }
         case BrJump: {
             const Type* target_type;
             bool target_uniform;

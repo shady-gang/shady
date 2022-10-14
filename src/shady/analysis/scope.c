@@ -93,7 +93,6 @@ Scope build_scope(const Node* entry) {
                         break;
                     }
                     case BrSwitch: error("TODO")
-                    case BrTailcall: break; // that doesn't count here !
                 }
                 break;
             }
@@ -109,6 +108,7 @@ Scope build_scope(const Node* entry) {
                 process_edge(target);
                 break;
             }
+            case TailCall_TAG:
             case Return_TAG:
             case Unreachable_TAG:
             case MergeConstruct_TAG: break;

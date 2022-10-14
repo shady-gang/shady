@@ -136,10 +136,13 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.loop_instr.initial_args);
             break;
         }
+        case TailCall_TAG: {
+            visit(node->payload.tail_call.target);
+            break;
+        }
         // Terminators
         case Branch_TAG: {
             switch (node->payload.branch.branch_mode) {
-                case BrTailcall: visit(node->payload.branch.target); break;
                 case BrJump: {
                     if (visitor->visit_continuations)
                         visit(node->payload.branch.target);

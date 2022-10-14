@@ -99,6 +99,7 @@ N(1, 1, 1, Loop, loop_instr) \
 N(1, 1, 1, Branch, branch) \
 N(1, 1, 1, Join, join) \
 N(1, 1, 1, Callc, callc) \
+N(1, 1, 1, TailCall, tail_call) \
 N(1, 1, 1, Return, fn_ret) \
 N(1, 0, 1, MergeConstruct, merge_construct) \
 N(1, 0, 0, Unreachable, unreachable) \
@@ -477,10 +478,7 @@ TerminatorTag is_terminator(const Node*);
 /// A branch. Branches can cause divergence, but they can never cause re-convergence.
 /// @n @p BrJump is guaranteed to not cause divergence, but all the other forms may cause it.
 typedef struct Branch_ {
-    bool yield;
     enum {
-        /// Uses the @p target field, it must be a value of a function pointer type matching the arguments. It may be varying.
-        BrTailcall = 1,
         /// Uses the @p target field, it must point directly to a function, not a function pointer.
         BrJump,
         /// Uses the @p branch_condition and true/false targets, like for @p BrJump, the targets have to point directly to functions
@@ -531,6 +529,11 @@ typedef struct Callc_ {
     const Node* callee;
     Nodes args;
 } Callc;
+
+typedef struct TailCall_ {
+    const Node* target;
+    Nodes args;
+} TailCall;
 
 extern String merge_what_string[];
 

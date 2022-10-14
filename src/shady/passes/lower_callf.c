@@ -87,9 +87,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     gen_push_value_stack(instructions, conv_token);
                     gen_push_value_stack(instructions, rewrite_node(&ctx->rewriter, terminator->payload.callc.join_at));
                     // Branch to the callee
-                    terminator = branch(dst_arena, (Branch) {
-                        .branch_mode = BrTailcall,
-                        .yield = false,
+                    terminator = tail_call(dst_arena, (TailCall) {
                         .target = rewrite_node(&ctx->rewriter, terminator->payload.callc.callee),
                         .args = rewrite_nodes(&ctx->rewriter, terminator->payload.callc.args),
                     });

@@ -18,7 +18,7 @@ typedef struct Context_ {
 
 static const Node* process_node(Context* ctx, const Node* node);
 
-static const Node* process_body(Context* ctx, const Node* node, size_t start, const Node* outer_join, const Node* reconvergence_token) {
+static const Node* process_body(Context* ctx, const Node* node, size_t start, const Node* outer_join, const Node* outer_reconvergence_token) {
     assert(node->tag == Body_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
