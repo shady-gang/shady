@@ -15,9 +15,9 @@
 static String emit_decl(Emitter* emitter, const Node* decl);
 
 String emit_fn_head(Emitter* emitter, const Node* fn) {
-    assert(fn->tag == Function_TAG);
-    Nodes dom = fn->payload.fn.params;
-    Nodes codom = fn->payload.fn.return_types;
+    assert(fn->tag == Lambda_TAG);
+    Nodes dom = fn->payload.lam.params;
+    Nodes codom = fn->payload.lam.return_types;
 
     Growy* paramg = new_growy();
     Printer* paramp = open_growy_as_printer(paramg);
@@ -31,7 +31,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn) {
     }
     growy_append_bytes(paramg, 1, (char[]) { 0 });
     const char* parameters = printer_growy_unwrap(paramp);
-    String center = format_string(emitter->arena, "%s(%s)", fn->payload.fn.name, parameters);
+    String center = format_string(emitter->arena, "%s(%s)", fn->payload.lam.name, parameters);
     free(parameters);
 
     return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
@@ -203,7 +203,7 @@ String emit_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
 }
 
 static String emit_decl(Emitter* emitter, const Node* decl) {
-    assert(is_declaration(decl->tag));
+    assert(is_declaration(decl));
 
     String* found = find_value_dict(const Node*, String, emitter->emitted, decl);
     if (found)
@@ -224,16 +224,17 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
                 print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), emit_value(emitter, decl->payload.global_variable.init));
             break;
         }
-        case Function_TAG: {
+        case Lambda_TAG: {
             emit_as = name;
             insert_dict(const Node*, String, emitter->emitted, decl, emit_as);
-            if (decl->payload.fn.body) {
-                for (size_t i = 0; i < decl->payload.fn.params.count; i++) {
-                    const char* param_name = format_string(emitter->arena, "%s_%d", decl->payload.fn.params.nodes[i]->payload.var.name, decl->payload.fn.params.nodes[i]->payload.var.id);
-                    insert_dict(const Node*, String, emitter->emitted, decl->payload.fn.params.nodes[i], param_name);
+            const Node* body = decl->payload.lam.body;
+            if (body) {
+                for (size_t i = 0; i < decl->payload.lam.params.count; i++) {
+                    const char* param_name = format_string(emitter->arena, "%s_%d", decl->payload.lam.params.nodes[i]->payload.var.name, decl->payload.lam.params.nodes[i]->payload.var.id);
+                    insert_dict(const Node*, String, emitter->emitted, decl->payload.lam.params.nodes[i], param_name);
                 }
 
-                String fn_body = emit_body(emitter, decl->payload.fn.body, NULL);
+                String fn_body = emit_body(emitter, body, NULL);
                 print(emitter->fn_defs, "\n%s %s", emit_fn_head(emitter, decl), fn_body);
                 free(fn_body);
             }

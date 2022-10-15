@@ -193,7 +193,7 @@ bool is_addr_space_uniform(AddressSpace as) {
     }
 }
 
-const Type* derive_fn_type(IrArena* arena, const Function* fn) {
+const Type* derive_fn_type(IrArena* arena, const Lambda* fn) {
     return fn_type(arena, (FnType) { .tier = fn->tier, .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
 }
 
@@ -290,7 +290,7 @@ const Type* check_type_tuple(IrArena* arena, Tuple tuple) {
 
 const Type* check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
     assert(!contains_qualified_type(fn_addr.fn->type));
-    assert(fn_addr.fn->tag == Function_TAG);
+    assert(fn_addr.fn->tag == Lambda_TAG);
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = ptr_type(arena, (PtrType) {
@@ -876,12 +876,12 @@ const Type* check_type_fn_ret(IrArena* arena, Return ret) {
     return NULL;
 }
 
-const Type* check_type_fn(IrArena* arena, Function fn) {
-    assert(fn.tier == FnTier_Function || fn.return_types.count == 0);
-    for (size_t i = 0; i < fn.return_types.count; i++) {
-        assert(contains_qualified_type(fn.return_types.nodes[i]));
+const Type* check_type_lam(IrArena* arena, Lambda lam) {
+    assert(lam.tier == FnTier_Function || lam.return_types.count == 0);
+    for (size_t i = 0; i < lam.return_types.count; i++) {
+        assert(contains_qualified_type(lam.return_types.nodes[i]));
     }
-    return derive_fn_type(arena, &fn);
+    return derive_fn_type(arena, &lam);
 }
 
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {

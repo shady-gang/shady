@@ -158,16 +158,16 @@ static void print_body_insides(PrinterCtx* ctx, const Body* body) {
 }
 
 static void print_function(PrinterCtx* ctx, const Node* node) {
-    print_yield_types(ctx, node->payload.fn.return_types);
-    print_param_list(ctx, node->payload.fn.params, NULL);
-    if (!node->payload.fn.body)
+    print_yield_types(ctx, node->payload.lam.return_types);
+    print_param_list(ctx, node->payload.lam.params, NULL);
+    if (!node->payload.lam.body)
         return;
 
     printf(" {");
     indent(ctx->printer);
-    print_body_insides(ctx, &node->payload.fn.body->payload.body);
+    print_body_insides(ctx, &node->payload.lam.body->payload.body);
 
-    if (node->type != NULL && node->payload.fn.body) {
+    if (node->type != NULL && node->payload.lam.body) {
         bool section_space = false;
         Scope scope = build_scope_from_basic_block(node);
         for (size_t i = 1; i < scope.size; i++) {
@@ -178,9 +178,9 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
 
             const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
             assert(cfnode->location.offset == 0);
-            printf("\ncont %s = ", cfnode->location.head->payload.fn.name);
-            print_param_list(ctx, cfnode->location.head->payload.fn.params, NULL);
-            print_node(cfnode->location.head->payload.fn.body);
+            printf("\ncont %s = ", cfnode->location.head->payload.lam.name);
+            print_param_list(ctx, cfnode->location.head->payload.lam.params, NULL);
+            print_node(cfnode->location.head->payload.lam.body);
         }
         dispose_scope(&scope);
     }
@@ -622,8 +622,8 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(";\n");
             break;
         }
-        case Function_TAG: {
-            const Function* fun = &node->payload.fn;
+        case Lambda_TAG: {
+            const Lambda* fun = &node->payload.lam;
             assert(fun->tier == FnTier_Function && "basic blocks aren't supposed to be found at the top level");
             print_annotations(ctx, fun->annotations);
             printf(BLUE);
@@ -656,7 +656,7 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         print_instruction(ctx, node);
     else if (is_terminator(node))
         print_terminator(ctx, node);
-    else if (is_declaration(node->tag)) {
+    else if (is_declaration(node)) {
         printf(BYELLOW);
         printf("%s", get_decl_name(node));
         printf(RESET);

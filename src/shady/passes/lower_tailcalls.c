@@ -35,7 +35,7 @@ static const Node* fn_ptr_as_value(IrArena* arena, FnPtr ptr) {
 }
 
 static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
-    assert(the_function->tag == Function_TAG);
+    assert(the_function->tag == Lambda_TAG);
 
     FnPtr* found = find_value_dict(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function);
     if (found) return fn_ptr_as_value(ctx->rewriter.dst_arena, *found);
@@ -116,7 +116,7 @@ static const Node* process_body(Context* ctx, const Node* old_body, BodyBuilder*
 static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
-    Node* new_entry_pt = function(dst_arena, old->payload.fn.params, old->payload.fn.name, rewrite_nodes(&ctx->rewriter, old->payload.fn.annotations), nodes(dst_arena, 0, NULL));
+    Node* new_entry_pt = function(dst_arena, old->payload.lam.params, old->payload.lam.name, rewrite_nodes(&ctx->rewriter, old->payload.lam.annotations), nodes(dst_arena, 0, NULL));
     append_list(const Node*, ctx->new_decls, new_entry_pt);
 
     BodyBuilder* builder = begin_body(dst_arena);
@@ -125,8 +125,8 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     gen_push_value_stack(builder, gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL));
     gen_push_value_stack(builder, int32_literal(dst_arena, 0));
 
-    for (size_t i = fun->payload.fn.params.count - 1; i < fun->payload.fn.params.count; i--) {
-        gen_push_value_stack(builder, fun->payload.fn.params.nodes[i]);
+    for (size_t i = fun->payload.lam.params.count - 1; i < fun->payload.lam.params.count; i--) {
+        gen_push_value_stack(builder, fun->payload.lam.params.nodes[i]);
     }
 
     gen_store(builder, access_decl(&ctx->rewriter, ctx->src_program, "next_fn"), lower_fn_addr(ctx, fun));
@@ -139,7 +139,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
         .args = nodes(dst_arena, 0, NULL)
     }));
 
-    new_entry_pt->payload.fn.body = finish_body(builder, fn_ret(dst_arena, (Return) {
+    new_entry_pt->payload.lam.body = finish_body(builder, fn_ret(dst_arena, (Return) {
         .fn = NULL,
         .values = nodes(dst_arena, 0, NULL)
     }));
@@ -151,23 +151,23 @@ static const Node* process(Context* ctx, const Node* old) {
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (old->tag) {
-        case Function_TAG: {
+        case Lambda_TAG: {
             // Leave basic blocks and lambdas alone
-            if (old->payload.fn.tier != FnTier_Function)
+            if (old->payload.lam.tier != FnTier_Function)
                 return recreate_node_identity(&ctx->rewriter, old);
 
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_tailcalls");
             if (ctx2.disable_lowering) {
                 Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
-                fun->payload.fn.body = process(&ctx2, old->payload.fn.body);
+                fun->payload.lam.body = process(&ctx2, old->payload.lam.body);
                 return fun;
             }
 
-            String new_name = format_string(dst_arena, "%s_leaf", old->payload.fn.name);
+            String new_name = format_string(dst_arena, "%s_leaf", old->payload.lam.name);
 
             const Node* entry_point_annotation = NULL;
-            Nodes old_annotations = old->payload.fn.annotations;
+            Nodes old_annotations = old->payload.lam.annotations;
             LARRAY(const Node*, new_annotations, old_annotations.count);
             size_t new_annotations_count = 0;
             for (size_t i = 0; i < old_annotations.count; i++) {
@@ -190,12 +190,12 @@ static const Node* process(Context* ctx, const Node* old) {
 
             BodyBuilder* builder = begin_body(dst_arena);
             // Params become stack pops !
-            for (size_t i = 0; i < old->payload.fn.params.count; i++) {
-                const Node* old_param = old->payload.fn.params.nodes[i];
+            for (size_t i = 0; i < old->payload.lam.params.count; i++) {
+                const Node* old_param = old->payload.lam.params.nodes[i];
                 const Node* popped = gen_pop_value_stack(builder, format_string(dst_arena, "arg%d", i), rewrite_node(&ctx->rewriter, extract_operand_type(old_param->type)));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
-            fun->payload.fn.body = process_body(&ctx2, old->payload.fn.body, builder);
+            fun->payload.lam.body = process_body(&ctx2, old->payload.lam.body, builder);
 
             return fun;
 
@@ -240,7 +240,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
 
     for (size_t i = 0; i < old_root->payload.root.declarations.count; i++) {
         const Node* decl = old_root->payload.root.declarations.nodes[i];
-        if (decl->tag == Function_TAG) {
+        if (decl->tag == Lambda_TAG) {
             if (lookup_annotation(decl, "Builtin"))
                 continue;
 
@@ -287,7 +287,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
     BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_arena);
     append_body(dispatcher_body_builder, the_loop);
 
-    dispatcher_fn->payload.fn.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
+    dispatcher_fn->payload.lam.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
         .values = nodes(dst_arena, 0, NULL),
         .fn = NULL,
     }));

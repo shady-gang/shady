@@ -8,7 +8,11 @@ static const Node* search_annotations(const Node* decl, const char* name, size_t
     assert(decl);
     const Nodes* annotations = NULL;
     switch (decl->tag) {
-        case Function_TAG: annotations = &decl->payload.fn.annotations; break;
+        case Lambda_TAG:
+            if (decl->payload.lam.tier != FnTier_Function)
+                error("Only proper functions have annotations");
+            annotations = &decl->payload.lam.annotations;
+            break;
         case GlobalVariable_TAG: annotations = &decl->payload.global_variable.annotations; break;
         case Constant_TAG: annotations = &decl->payload.constant.annotations; break;
         default: error("Not a declaration")

@@ -52,14 +52,14 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
 }
 
 static const Node* lift_continuation_into_function(Context* ctx, const Node* cont) {
-    assert(cont->tag == Function_TAG);
+    assert(cont->tag == Lambda_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     // Compute the live stuff we'll need
     struct List* recover_context = compute_free_variables(cont);
     size_t recover_context_size = entries_count_list(recover_context);
 
-    debug_print("free variables at '%s': ", cont->payload.fn.name);
+    debug_print("free variables at '%s': ", cont->payload.lam.name);
     for (size_t i = 0; i < recover_context_size; i++) {
         debug_print("%s", read_list(const Node*, recover_context)[i]->payload.var.name);
         if (i + 1 < recover_context_size)
@@ -68,14 +68,14 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
     debug_print("\n");
 
     // Create and register new parameters for the lifted continuation
-    Nodes new_params = recreate_variables(&ctx->rewriter, cont->payload.fn.params);
+    Nodes new_params = recreate_variables(&ctx->rewriter, cont->payload.lam.params);
     for (size_t i = 0; i < new_params.count; i++)
-        register_processed(&ctx->rewriter, cont->payload.fn.params.nodes[i], new_params.nodes[i]);
+        register_processed(&ctx->rewriter, cont->payload.lam.params.nodes[i], new_params.nodes[i]);
         //register_processed(&new_ctx.rewriter, cont->payload.fn.params.nodes[i], new_params.nodes[i]);
 
     // Keep annotations the same
-    Nodes annotations = rewrite_nodes(&ctx->rewriter, cont->payload.fn.annotations);
-    Node* new_fn = function(dst_arena, new_params, cont->payload.fn.name, annotations, nodes(dst_arena, 0, NULL));
+    Nodes annotations = rewrite_nodes(&ctx->rewriter, cont->payload.lam.annotations);
+    Node* new_fn = function(dst_arena, new_params, cont->payload.lam.name, annotations, nodes(dst_arena, 0, NULL));
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = cont;
@@ -106,10 +106,10 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
     }
 
     // Write out the rest of the new body using this fresh context
-    const Node* nbody = process_body(&spilled_ctx, builder, &cont->payload.fn.body->payload.body);
+    const Node* nbody = process_body(&spilled_ctx, builder, &cont->payload.lam.body->payload.body);
     destroy_dict(spilled_ctx.spilled);
 
-    new_fn->payload.fn.body = nbody;
+    new_fn->payload.lam.body = nbody;
     append_list(const Node*, ctx->new_fns, new_fn);
 
     return new_fn;
@@ -222,8 +222,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Body_TAG: return process_body(ctx, begin_body(ctx->rewriter.dst_arena), &node->payload.body);
-        case Function_TAG: {
-            if (node->payload.fn.tier == FnTier_BasicBlock)
+        case Lambda_TAG: {
+            if (node->payload.lam.tier == FnTier_BasicBlock)
                 return lift_continuation_into_function(ctx, node);
             // leave other declarations alone
             return recreate_node_identity(&ctx->rewriter, node);

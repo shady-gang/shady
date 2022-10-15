@@ -13,7 +13,7 @@ struct List* build_scopes(const Node* root) {
 
     for (size_t i = 0; i < root->payload.root.declarations.count; i++) {
         const Node* decl = root->payload.root.declarations.nodes[i];
-        if (decl->tag != Function_TAG) continue;
+        if (decl->tag != Lambda_TAG) continue;
         Scope scope = build_scope_from_basic_block(decl);
         append_list(Scope, scopes, scope);
     }
@@ -46,7 +46,7 @@ typedef struct {
 } ScopeBuildContext;
 
 static CFNode* get_or_enqueue(ScopeBuildContext* ctx, CFLocation location) {
-    assert(location.head->tag == Function_TAG);
+    assert(location.head->tag == Lambda_TAG);
     CFNode** found = find_value_dict(const Node*, CFNode*, ctx->nodes, location);
     if (found) return *found;
 
@@ -80,8 +80,8 @@ static void add_edge(ScopeBuildContext* ctx, CFLocation src, CFLocation dst, CFE
 
 /// Adds an edge to the start of a basic block
 static void add_edge_to_bb(ScopeBuildContext* ctx, CFLocation src, const Node* dest_bb, CFEdgeType type) {
-    assert(dest_bb->tag == Function_TAG && dest_bb->payload.fn.tier != FnTier_Function);
-    const Node* dest_body = dest_bb->payload.fn.body;
+    assert(dest_bb->tag == Lambda_TAG && dest_bb->payload.lam.tier != FnTier_Function);
+    const Node* dest_body = dest_bb->payload.lam.body;
     assert(dest_body && dest_body->tag == Body_TAG);
     CFLocation dst = {
         .head = dest_bb,
@@ -92,7 +92,7 @@ static void add_edge_to_bb(ScopeBuildContext* ctx, CFLocation src, const Node* d
 
 static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     CFLocation const location = node->location;
-    const Body* body = &location.head->payload.fn.body->payload.body;
+    const Body* body = &location.head->payload.lam.body->payload.body;
     assert(body);
 
     for (size_t i = 0; i < body->instructions.count; i++) {
@@ -140,7 +140,7 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
 }
 
 Scope build_scope_from_basic_block(const Node* bb) {
-    assert(bb->tag == Function_TAG);
+    assert(bb->tag == Lambda_TAG);
     CFLocation entry_location = {
         .head = bb,
         .offset = 0
@@ -149,7 +149,7 @@ Scope build_scope_from_basic_block(const Node* bb) {
 }
 
 Scope build_scope(CFLocation entry_location) {
-    assert(entry_location.head->tag == Function_TAG);
+    assert(entry_location.head->tag == Lambda_TAG);
     Arena* arena = new_arena();
 
     ScopeBuildContext context = {
@@ -204,7 +204,7 @@ void compute_rpo(Scope* scope) {
 
     debug_print("RPO: ");
     for (size_t i = 0; i < scope->size; i++) {
-        debug_print("%s %d, ", scope->rpo[i]->location.head->payload.fn.name, scope->rpo[i]->location.offset);
+        debug_print("%s %d, ", scope->rpo[i]->location.head->payload.lam.name, scope->rpo[i]->location.offset);
     }
     debug_print("\n");
 }
@@ -229,7 +229,7 @@ void compute_domtree(Scope* scope) {
                 goto outer_loop;
             }
         }
-        error("no idom found for %s", n->location.head->payload.fn.name);
+        error("no idom found for %s", n->location.head->payload.lam.name);
         outer_loop:;
     }
 
@@ -280,21 +280,21 @@ static int extra_uniqueness = 0;
 static void dump_cfg_scope(FILE* output, Scope* scope) {
     extra_uniqueness++;
 
-    const Function* entry = &scope->entry->location.head->payload.fn;
+    const Lambda* entry = &scope->entry->location.head->payload.lam;
     fprintf(output, "subgraph cluster_%s {\n", entry->name);
     fprintf(output, "label = \"%s\";\n", entry->name);
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const Function* bb = &read_list(const CFNode*, scope->contents)[i]->location.head->payload.fn;
+        const Lambda* bb = &read_list(const CFNode*, scope->contents)[i]->location.head->payload.lam;
         fprintf(output, "%s_%d;\n", bb->name, extra_uniqueness);
     }
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
-        const Function* bb = &bb_node->location.head->payload.fn;
+        const Lambda* bb = &bb_node->location.head->payload.lam;
 
         for (size_t j = 0; j < entries_count_list(bb_node->succ_edges); j++) {
             CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
             const CFNode* target_node = edge.dst;
-            const Function* target_bb = &target_node->location.head->payload.fn;
+            const Lambda* target_bb = &target_node->location.head->payload.lam;
             fprintf(output, "%s_%d -> %s_%d;\n", bb->name, extra_uniqueness, target_bb->name, extra_uniqueness);
         }
     }

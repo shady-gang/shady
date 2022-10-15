@@ -83,7 +83,7 @@ static const Node* process_body(Context* ctx, const Node* node, size_t start, Jo
                     register_processed(&ctx->rewriter, let_node->payload.let.variables.nodes[j], cont_params.nodes[j]);
 
                 Node* return_continuation = basic_block(dst_arena, cont_params, unique_name(dst_arena, "call_continue"));
-                return_continuation->payload.fn.body = process_body(ctx, node, i + 1, join_points);
+                return_continuation->payload.lam.body = process_body(ctx, node, i + 1, join_points);
 
                 // TODO we probably want to emit a callc here and lower that later to a separate function in an optional pass
                 return finish_body(bb, callc(dst_arena, (Callc) {
@@ -135,7 +135,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         return already_done;
 
     switch (node->tag) {
-        case Function_TAG: {
+        case Lambda_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
             Context sub_ctx = *ctx;
             sub_ctx.disable_lowering = lookup_annotation_with_string_payload(fun, "DisablePass", "lower_cf_instrs");
@@ -146,9 +146,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .join_point_loop_continue = NULL,
             };
             if (sub_ctx.disable_lowering)
-                fun->payload.fn.body = recreate_node_identity(&ctx->rewriter, node);
+                fun->payload.lam.body = recreate_node_identity(&ctx->rewriter, node);
             else
-                fun->payload.fn.body = process_body(&sub_ctx, node->payload.fn.body, 0, jpts);
+                fun->payload.lam.body = process_body(&sub_ctx, node->payload.lam.body, 0, jpts);
             return fun;
         }
         // case Body_TAG: error("all instances of bodies should be already covered");

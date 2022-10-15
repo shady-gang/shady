@@ -16,7 +16,7 @@ static void visit_verify_same_arena(ArenaVerifyVisitor* visitor, const Node* nod
     assert(visitor->arena == node->arena);
     if (find_key_dict(const Node*, visitor->once, node))
         return;
-    if (node->tag == Function_TAG)
+    if (node->tag == Lambda_TAG)
         insert_set_get_result(const Node*, visitor->once, node);
     visit_children(&visitor->visitor, node);
 }

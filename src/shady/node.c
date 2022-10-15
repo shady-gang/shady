@@ -75,9 +75,9 @@ NODES(NODE_HAS_PAYLOAD)
 String get_decl_name(const Node* node) {
     switch (node->tag) {
         case Constant_TAG: return node->payload.constant.name;
-        case Function_TAG: {
-            assert(node->payload.fn.tier != FnTier_Lambda && "lambdas are not decls");
-            return node->payload.fn.name;
+        case Lambda_TAG: {
+            assert(node->payload.lam.tier != FnTier_Lambda && "lambdas are not decls");
+            return node->payload.lam.name;
         }
         case GlobalVariable_TAG: return node->payload.global_variable.name;
         default: error("Not a decl !");
@@ -181,7 +181,7 @@ KeyHash hash_node(Node** pnode) {
     const Node* node = *pnode;
     KeyHash combined;
 
-    if (is_nominal(node->tag)) {
+    if (is_nominal(node)) {
         size_t ptr = (size_t) node;
         uint32_t upper = ptr >> 32;
         uint32_t lower = ptr;
@@ -211,7 +211,7 @@ KeyHash hash_node(Node** pnode) {
 
 bool compare_node(Node** pa, Node** pb) {
     if ((*pa)->tag != (*pb)->tag) return false;
-    if (is_nominal((*pa)->tag)) {
+    if (is_nominal((*pa))) {
         // debug_node(*pa);
         // debug_print(" vs ");
         // debug_node(*pb);

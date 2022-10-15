@@ -615,21 +615,21 @@ static void emit_body(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_bl
 }
 
 static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNode* node, bool is_entry) {
-    assert(node->location.head->tag == Function_TAG);
+    assert(node->location.head->tag == Lambda_TAG);
     assert(node->location.offset == 0);
     const Node* bb_node = node->location.head;
     // Find the preassigned ID to this
     SpvId bb_id = is_entry ? spvb_fresh_id(emitter->file_builder) : find_reserved_id(emitter, bb_node);
     BBBuilder basic_block_builder = spvb_begin_bb(emitter->file_builder, bb_id);
     spvb_add_bb(fn_builder, basic_block_builder);
-    spvb_name(emitter->file_builder, bb_id, bb_node->payload.fn.name);
+    spvb_name(emitter->file_builder, bb_id, bb_node->payload.lam.name);
 
     MergeTargets merge_targets = {
         .continue_target = 0,
         .break_target = 0,
         .join_target = 0
     };
-    emit_body(emitter, fn_builder, basic_block_builder, merge_targets, bb_node->payload.fn.body);
+    emit_body(emitter, fn_builder, basic_block_builder, merge_targets, bb_node->payload.lam.body);
 
     // Emit the child nodes for real
     size_t dom_count = entries_count_list(node->dominates);
@@ -640,12 +640,12 @@ static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNod
 }
 
 static void emit_function(Emitter* emitter, const Node* node) {
-    assert(node->tag == Function_TAG);
+    assert(node->tag == Lambda_TAG);
 
     const Type* fn_type = node->type;
-    FnBuilder fn_builder = spvb_begin_fn(emitter->file_builder, find_reserved_id(emitter, node), emit_type(emitter, fn_type), nodes_to_codom(emitter, node->payload.fn.return_types));
+    FnBuilder fn_builder = spvb_begin_fn(emitter->file_builder, find_reserved_id(emitter, node), emit_type(emitter, fn_type), nodes_to_codom(emitter, node->payload.lam.return_types));
 
-    Nodes params = node->payload.fn.params;
+    Nodes params = node->payload.lam.params;
     for (size_t i = 0; i < params.count; i++) {
         SpvId param_id = spvb_parameter(fn_builder, emit_type(emitter, params.nodes[i]->payload.var.type));
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
@@ -689,9 +689,9 @@ static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
             }
 
             break;
-        } case Function_TAG: {
+        } case Lambda_TAG: {
             emit_function(emitter, decl);
-            spvb_name(emitter->file_builder, given_id, decl->payload.fn.name);
+            spvb_name(emitter->file_builder, given_id, decl->payload.lam.name);
             break;
         } case Constant_TAG: {
             // We don't emit constants at all !
@@ -760,7 +760,7 @@ static void emit_entry_points(Emitter* emitter, const Node* root) {
 
     for (size_t i = 0; i < declarations.count; i++) {
         const Node* decl = declarations.nodes[i];
-        if (decl->tag != Function_TAG) continue;
+        if (decl->tag != Lambda_TAG) continue;
         SpvId fn_id = find_reserved_id(emitter, decl);
 
         const Node* entry_point = lookup_annotation(decl, "EntryPoint");
@@ -769,7 +769,7 @@ static void emit_entry_points(Emitter* emitter, const Node* root) {
             const char* execution_model_name = extract_string_literal(entry_point->payload.annotation.value);
             SpvExecutionModel execution_model = emit_exec_model(execution_model_from_string(execution_model_name));
 
-            spvb_entry_point(emitter->file_builder, execution_model, fn_id, decl->payload.fn.name, interface_size, interface_arr);
+            spvb_entry_point(emitter->file_builder, execution_model, fn_id, decl->payload.lam.name, interface_size, interface_arr);
             emitter->num_entry_pts++;
 
             const Node* workgroup_size = lookup_annotation(decl, "WorkgroupSize");

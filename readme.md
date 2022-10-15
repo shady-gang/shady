@@ -9,7 +9,7 @@ Technical discussion about shady and SPIR-V in general can be had on [this disco
  * Written in C11
  * Hash-consed IR with nominal (functions) and structural (everything else) nodes. Structural nodes are immutable.
  * The function node encodes both functions and continuations. For many intents, the distinction does not matter.
- * Function bodies (named "blocks" inside the IR) are made out of lists of instructions without control flow, followed by a terminator
+ * Lambda bodies (named "blocks" inside the IR) are made out of lists of instructions without control flow, followed by a terminator
  * Statically structured control flow constructs (selection and iteration constructs) can be represented by special instructions
  * Experimental new dynamically structured control flow primitives (paper/writeup coming later)
 

@@ -76,22 +76,22 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     switch (old->tag) {
         case GlobalVariable_TAG: new = global_var(rewriter->dst_arena, rewrite_nodes(rewriter, old->payload.global_variable.annotations), rewrite_node(rewriter, old->payload.global_variable.type), old->payload.global_variable.name, old->payload.global_variable.address_space); break;
         case Constant_TAG: new = constant(rewriter->dst_arena, rewrite_nodes(rewriter, old->payload.constant.annotations), old->payload.constant.name); break;
-        case Function_TAG: {
-            Nodes new_params = recreate_variables(rewriter, old->payload.fn.params);
-            switch (old->payload.fn.tier) {
+        case Lambda_TAG: {
+            Nodes new_params = recreate_variables(rewriter, old->payload.lam.params);
+            switch (old->payload.lam.tier) {
                 case FnTier_Lambda:
                     new = lambda(rewriter->dst_arena, new_params);
                     break;
                 case FnTier_BasicBlock:
-                    new = basic_block(rewriter->dst_arena, new_params, old->payload.fn.name);
+                    new = basic_block(rewriter->dst_arena, new_params, old->payload.lam.name);
                     break;
                 case FnTier_Function:
-                    new = function(rewriter->dst_arena, new_params, old->payload.fn.name, rewrite_nodes(rewriter, old->payload.fn.annotations), rewrite_nodes(rewriter, old->payload.fn.return_types));
+                    new = function(rewriter->dst_arena, new_params, old->payload.lam.name, rewrite_nodes(rewriter, old->payload.lam.annotations), rewrite_nodes(rewriter, old->payload.lam.return_types));
                     break;
             }
-            assert(new && new->tag == Function_TAG);
-            for (size_t i = 0; i < new->payload.fn.params.count; i++)
-                register_processed(rewriter, old->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
+            assert(new && new->tag == Lambda_TAG);
+            for (size_t i = 0; i < new->payload.lam.params.count; i++)
+                register_processed(rewriter, old->payload.lam.params.nodes[i], new->payload.lam.params.nodes[i]);
             break;
         }
         default: error("not a decl");
@@ -102,7 +102,7 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
 }
 
 void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new) {
-    assert(is_declaration(new->tag) && is_declaration(old->tag));
+    // assert(is_declaration(new) && is_declaration(old));
     switch (old->tag) {
         case GlobalVariable_TAG: {
             new->payload.global_variable.init = rewrite_node(rewriter, old->payload.global_variable.init);
@@ -114,9 +114,9 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             new->type                       = rewrite_node(rewriter, new->payload.constant.value->type);
             break;
         }
-        case Function_TAG: {
-            assert(new->payload.fn.body == NULL);
-            new->payload.fn.body = rewrite_node(rewriter, old->payload.fn.body);
+        case Lambda_TAG: {
+            assert(new->payload.lam.body == NULL);
+            new->payload.lam.body = rewrite_node(rewriter, old->payload.lam.body);
             break;
         }
         default: error("not a decl");
@@ -298,7 +298,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
 
         case GlobalVariable_TAG:
         case Constant_TAG:
-        case Function_TAG: {
+        case Lambda_TAG: {
             Node* new = recreate_decl_header_identity(rewriter, node);
             recreate_decl_body_identity(rewriter, node, new);
             return new;

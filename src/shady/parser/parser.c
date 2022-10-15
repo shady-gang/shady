@@ -700,7 +700,7 @@ static const Node* expect_body(ctxparams, const Node* implicit_join) {
             expect_parameters(ctx, &parameters, NULL);
             Node* continuation = basic_block(arena, parameters, name);
             const Node* body = expect_body(ctx, NULL);
-            continuation->payload.fn.body = body;
+            continuation->payload.lam.body = body;
             append_list(Node*, conts, continuation);
         }
 
@@ -809,7 +809,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     const Node* body = expect_body(ctx, types.count == 0 ? fn_ret(arena, (Return) { .values = types }) : NULL);
 
     Node* fn = function(arena, parameters, name, annotations, types);
-    fn->payload.fn.body = body;
+    fn->payload.lam.body = body;
 
     const Node* declaration = fn;
     assert(declaration);

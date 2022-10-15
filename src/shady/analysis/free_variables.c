@@ -28,13 +28,13 @@ static void visit_fv(Context* visitor, const Node* node) {
                 append_list(const Node*, visitor->free_list, node);
             break;
         }
-        case Function_TAG: break; // we do not visit the insides of functions/basic blocks, that's what the domtree search is already doing!
+        case Lambda_TAG: break; // we do not visit the insides of functions/basic blocks, that's what the domtree search is already doing!
         default: visit_children(&visitor->visitor, node); break;
     }
 }
 
 static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
-    const Function* fun = &cfnode->location.head->payload.fn;
+    const Lambda* fun = &cfnode->location.head->payload.lam;
 
     for (int i = 0; i < depth; i++)
         debug_print(" ");

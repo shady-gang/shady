@@ -37,11 +37,11 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ocallee->tag != FnAddr_TAG)
                 goto skip;
             ocallee = ocallee->payload.fn_addr.fn;
-            assert(ocallee && ocallee->tag == Function_TAG);
+            assert(ocallee && ocallee->tag == Lambda_TAG);
             CGNode* callee_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
             if (callee_node->is_recursive || callee_node->is_address_captured)
                 goto skip;
-            debug_print("Call to %s is not recursive, turning the call direct\n", ocallee->payload.fn.name);
+            debug_print("Call to %s is not recursive, turning the call direct\n", ocallee->payload.lam.name);
             Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.call_instr.args);
             return call_instr(ctx->rewriter.dst_arena, (Call) {
                 .is_indirect = false,
@@ -49,19 +49,19 @@ static const Node* process(Context* ctx, const Node* node) {
                 .args = nargs
             });
         }
-        case Function_TAG: {
-            if (node->payload.fn.tier == FnTier_Function) {
+        case Lambda_TAG: {
+            if (node->payload.lam.tier == FnTier_Function) {
                 CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
-                Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fn.annotations);
+                Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.lam.annotations);
                 if (fn_node->is_address_captured || fn_node->is_recursive) {
                     annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) {
                         .name = "IndirectlyCalled",
                         .payload_type = AnPayloadNone
                     }));
                 }
-                Node* new = function(arena, recreate_variables(&ctx->rewriter, node->payload.fn.params), node->payload.fn.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
-                for (size_t i = 0; i < new->payload.fn.params.count; i++)
-                    register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
+                Node* new = function(arena, recreate_variables(&ctx->rewriter, node->payload.lam.params), node->payload.lam.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.lam.return_types));
+                for (size_t i = 0; i < new->payload.lam.params.count; i++)
+                    register_processed(&ctx->rewriter, node->payload.lam.params.nodes[i], new->payload.lam.params.nodes[i]);
                 register_processed(&ctx->rewriter, node, new);
 
                 recreate_decl_body_identity(&ctx->rewriter, node, new);

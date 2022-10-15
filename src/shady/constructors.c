@@ -13,7 +13,7 @@ static Node* create_node_helper(IrArena* arena, Node node) {
     Node* ptr = &node;
     Node** found = find_key_dict(Node*, arena->node_set, ptr);
     // sanity check nominal nodes to be unique, check for duplicates in structural nodes
-    if (is_nominal(node.tag))
+    if (is_nominal(&node))
         assert(!found);
     else if (found)
         return *found;
@@ -152,7 +152,7 @@ const Node* tuple(IrArena* arena, Nodes contents) {
 }
 
 static Node* lambda_internal(IrArena* arena, FnTier tier, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
-    Function fn = {
+    Lambda lam = {
         .tier = tier,
         .params = params,
         .body = NULL,
@@ -167,9 +167,9 @@ static Node* lambda_internal(IrArena* arena, FnTier tier, Nodes params, const ch
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_fn(arena, fn) : NULL,
-        .tag = Function_TAG,
-        .payload.fn = fn
+        .type = arena->config.check_types ? check_type_lam(arena, lam) : NULL,
+        .tag = Lambda_TAG,
+        .payload.lam = lam
     };
     return create_node_helper(arena, node);
 }

@@ -101,42 +101,42 @@ static const Node* infer_body(Context* ctx, const Node* node) {
 }
 
 static const Node* infer_decl(Context* ctx, const Node* node) {
-    assert(is_declaration(node->tag));
+    assert(is_declaration(node));
     const Node* already_done = search_processed(&ctx->rewriter, node);
     if (already_done)
         return already_done;
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
-        case Function_TAG: {
+        case Lambda_TAG: {
             Context body_context = *ctx;
 
-            LARRAY(const Node*, nparams, node->payload.fn.params.count);
-            for (size_t i = 0; i < node->payload.fn.params.count; i++) {
-                const Variable* old_param = &node->payload.fn.params.nodes[i]->payload.var;
-                const Type* imported_param_type = infer_type(ctx, node->payload.fn.params.nodes[i]->payload.var.type);
+            LARRAY(const Node*, nparams, node->payload.lam.params.count);
+            for (size_t i = 0; i < node->payload.lam.params.count; i++) {
+                const Variable* old_param = &node->payload.lam.params.nodes[i]->payload.var;
+                const Type* imported_param_type = infer_type(ctx, node->payload.lam.params.nodes[i]->payload.var.type);
                 nparams[i] = var(body_context.rewriter.dst_arena, imported_param_type, old_param->name);
-                register_processed(&body_context.rewriter, node->payload.fn.params.nodes[i], nparams[i]);
+                register_processed(&body_context.rewriter, node->payload.lam.params.nodes[i], nparams[i]);
             }
 
             Node* fun = NULL;
-            switch (node->payload.fn.tier) {
+            switch (node->payload.lam.tier) {
                 case FnTier_Lambda:
-                    fun = lambda(dst_arena, nodes(dst_arena, node->payload.fn.params.count, nparams));
+                    fun = lambda(dst_arena, nodes(dst_arena, node->payload.lam.params.count, nparams));
                     break;
                 case FnTier_BasicBlock:
-                    fun = basic_block(dst_arena, nodes(dst_arena, node->payload.fn.params.count, nparams), string(dst_arena, node->payload.fn.name));
+                    fun = basic_block(dst_arena, nodes(dst_arena, node->payload.lam.params.count, nparams), string(dst_arena, node->payload.lam.name));
                     break;
                 case FnTier_Function: {
-                    Nodes nret_types = annotate_all_types(dst_arena, infer_types(ctx, node->payload.fn.return_types), false);
-                    fun = function(dst_arena, nodes(dst_arena, node->payload.fn.params.count, nparams), string(dst_arena, node->payload.fn.name), infer_annotations(ctx, node->payload.fn.annotations), nret_types);
+                    Nodes nret_types = annotate_all_types(dst_arena, infer_types(ctx, node->payload.lam.return_types), false);
+                    fun = function(dst_arena, nodes(dst_arena, node->payload.lam.params.count, nparams), string(dst_arena, node->payload.lam.name), infer_annotations(ctx, node->payload.lam.annotations), nret_types);
                     break;
                 }
             }
             assert(fun);
             register_processed(&ctx->rewriter, node, fun);
 
-            fun->payload.fn.body = infer_body(&body_context, node->payload.fn.body);
+            fun->payload.lam.body = infer_body(&body_context, node->payload.lam.body);
 
             return fun;
         }
@@ -204,7 +204,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
         case StringLiteral_TAG: return string_lit(dst_arena, (StringLiteral) { .string = string(dst_arena, node->payload.string_lit.string )});
         case GlobalVariable_TAG: return ref_decl(dst_arena, (RefDecl) { .decl = infer_decl(ctx, node) }); // TODO check types match
         case Constant_TAG: return ref_decl(dst_arena, (RefDecl) { .decl = infer_decl(ctx, node) }); // TODO check types match
-        case Function_TAG: return fn_addr(dst_arena, (FnAddr) { .fn = infer_decl(ctx, node) }); // TODO check types match
+        case Lambda_TAG: return fn_addr(dst_arena, (FnAddr) { .fn = infer_decl(ctx, node) }); // TODO check types match
         default: error("not a value");
     }
 }
@@ -441,7 +441,7 @@ static const Node* infer_let(Context* ctx, const Node* node) {
 }
 
 static const Node* infer_fn(Context* ctx, const Node* node) {
-    assert(node->tag == Function_TAG);
+    assert(node->tag == Lambda_TAG);
     // TODO: handle non-decl functions here
     return infer_decl(ctx, node);
 }
@@ -450,7 +450,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Return_TAG: {
             const Node* imported_fn = infer_decl(ctx, node->payload.fn_ret.fn);
-            Nodes return_types = imported_fn->payload.fn.return_types;
+            Nodes return_types = imported_fn->payload.lam.return_types;
 
             const Nodes* old_values = &node->payload.fn_ret.values;
             LARRAY(const Node*, nvalues, old_values->count);

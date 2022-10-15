@@ -62,13 +62,13 @@ static const Node* process(Context* ctx, const Node* old) {
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (old->tag) {
-        case Function_TAG: {
+        case Lambda_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "setup_stack_frames");
-            ctx2.old_entry_body = old->payload.fn.body;
+            ctx2.old_entry_body = old->payload.lam.body;
             ctx2.entry_sp_val = NULL;
-            fun->payload.fn.body = process(&ctx2, old->payload.fn.body);
+            fun->payload.lam.body = process(&ctx2, old->payload.lam.body);
             return fun;
         }
         case Body_TAG: {

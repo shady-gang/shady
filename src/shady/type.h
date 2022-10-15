@@ -24,7 +24,7 @@ NODES(DEFINE_NODE_CHECK_FN)
 const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types);
 Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 
-const Type* derive_fn_type(IrArena* arena, const Function* fn);
+const Type* derive_fn_type(IrArena* arena, const Lambda* fn);
 Nodes extract_variable_types(IrArena*, const Nodes*);
 Nodes extract_types(IrArena*, Nodes);
 

@@ -40,7 +40,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (is_instruction(node) || is_terminator(node))
         return recreate_node_identity(&ctx->rewriter, node);
 
-    if (is_declaration(node->tag))
+    if (is_declaration(node))
         return node;
 
     if (node->tag == Variable_TAG) {

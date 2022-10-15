@@ -141,8 +141,8 @@ static void emit_primop(Emitter* emitter, Printer* p, const PrimOp* prim_op, con
 }
 
 static String emit_callee(Emitter* e, const Node* callee) {
-    if (callee->tag == Function_TAG)
-        return callee->payload.fn.name;
+    if (callee->tag == Lambda_TAG)
+        return callee->payload.lam.name;
     else
         return emit_value(e, callee);
 }

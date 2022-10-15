@@ -32,11 +32,11 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (old->tag) {
-        case Function_TAG: {
+        case Lambda_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
-            fun->payload.fn.body = lower_callf_process(&ctx2, old->payload.fn.body);
+            fun->payload.lam.body = lower_callf_process(&ctx2, old->payload.lam.body);
             return fun;
         }
         case Body_TAG: {

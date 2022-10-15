@@ -78,7 +78,7 @@ MQ_TYPES = MQ_TYPE [(, MQ_TYPE)*]
 
 ## Control flow instructions
 
-| Target   | Function call* | One-way jump         | One-way jump with sync |
+| Target   | Lambda call* | One-way jump         | One-way jump with sync |
 |----------|----------------|----------------------|------------------------|
 | direct   | callc          | br_jump / br_if_else | joinc                  |
 | indirect | callf          | tailcall             | joinf                  |
