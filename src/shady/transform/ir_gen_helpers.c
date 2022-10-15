@@ -5,7 +5,6 @@
 
 #include "../ir_private.h"
 #include "../type.h"
-#include "../body_builder.h"
 #include "../rewrite.h"
 
 #include <string.h>

@@ -134,7 +134,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         return already_done_before;
 
     switch (node->tag) {
-        case InvalidNode_TAG: assert(false);
+        case InvalidNode_TAG:   assert(false);
         case NoRet_TAG:         return noret_type(rewriter->dst_arena);
         case Int_TAG:           return int_type(rewriter->dst_arena, node->payload.int_type);
         case Bool_TAG:          return bool_type(rewriter->dst_arena);
@@ -345,4 +345,5 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             default: error("Unknown annotation payload type");
         }
     }
+    SHADY_UNREACHABLE;
 }

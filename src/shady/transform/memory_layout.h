@@ -1,7 +1,7 @@
 #ifndef SHADY_MEMORY_LAYOUT_H
 #define SHADY_MEMORY_LAYOUT_H
 
-#include "shady/ir.h"
+#include "../ir_private.h"
 
 typedef struct {
     const Type* type;

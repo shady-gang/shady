@@ -1,4 +1,3 @@
-#include "body_builder.h"
 #include "rewrite.h"
 #include "fold.h"
 #include "log.h"

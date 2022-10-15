@@ -21,6 +21,11 @@ typedef struct IrArena_ {
     struct Dict* strings_set;
 } IrArena_;
 
+struct BodyBuilder_ {
+    IrArena* arena;
+    struct List* list;
+};
+
 VarId fresh_id(IrArena*);
 
 struct List;

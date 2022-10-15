@@ -2,7 +2,6 @@
 #include "ir_gen_helpers.h"
 
 #include "log.h"
-#include "../body_builder.h"
 
 #include <assert.h>
 
