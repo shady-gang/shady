@@ -176,8 +176,17 @@ typedef struct RecordType_ {
     } special;
 } RecordType;
 
+typedef enum {
+    /// Lambda: binds an argument, can be used as a direct operand in structured constructs
+    FnTier_Lambda,
+    /// Named basic block, can be jumped to.
+    FnTier_BasicBlock,
+    /// First-class function, can be called indirectly, can return values
+    FnTier_Function
+} FnTier;
+
 typedef struct FnType_ {
-    bool is_basic_block;
+    FnTier tier;
     Nodes param_types;
     Nodes return_types;
 } FnType;
@@ -310,11 +319,13 @@ const char*  extract_annotation_string_payload(const Node* annotation);
 bool lookup_annotation_with_string_payload(const Node* decl, const char* annotation_name, const char* expected_payload);
 
 typedef struct Function_ {
-    Nodes annotations;
-    String name;
-    bool is_basic_block;
+    FnTier tier;
     Nodes params;
     const Node* body;
+    // only for basic blocks and functions
+    String name;
+    // only for functions
+    Nodes annotations;
     Nodes return_types;
 } Function;
 
@@ -602,8 +613,10 @@ const Node* let_mut(IrArena* arena, const Node* instruction, Nodes types, size_t
 
 const Node* tuple(IrArena* arena, Nodes contents);
 
-Node* fn(IrArena*,         Nodes annotations, const char* name, bool, Nodes params, Nodes return_types);
-Node* constant(IrArena*,   Nodes annotations, const char* name);
+Node* lambda     (IrArena*, Nodes params);
+Node* basic_block(IrArena*, Nodes params, const char* name);
+Node* function   (IrArena*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
+Node* constant(IrArena*, Nodes annotations, const char* name);
 Node* global_var(IrArena*, Nodes annotations, const Type*, String, AddressSpace);
 Type* nominal_type(IrArena*, String name);
 

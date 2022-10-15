@@ -77,7 +77,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             return emit_type(emitter, type->payload.ptr_type.pointed_type, format_string(emitter->arena, "*%s", center));
         }
         case Type_FnType_TAG: {
-            assert(!type->payload.fn_type.is_basic_block);
+            assert(type->payload.fn_type.tier == FnTier_Function && "we can't emit arrow types that aren't those of first-class functions");
             Nodes dom = type->payload.fn_type.param_types;
             Nodes codom = type->payload.fn_type.return_types;
 

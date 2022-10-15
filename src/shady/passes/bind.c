@@ -127,7 +127,15 @@ static Node* rewrite_fn_head(Context* ctx, const Node* node) {
         nparams[i] = new_param;
     }
 
-    return fn(dst_arena, bind_nodes(ctx, node->payload.fn.annotations), string(dst_arena, node->payload.fn.name), node->payload.fn.is_basic_block, nodes(dst_arena, params_count, nparams), bind_nodes(ctx, node->payload.fn.return_types));
+    switch (node->payload.fn.tier) {
+        case FnTier_Lambda:
+            return lambda(dst_arena, nodes(dst_arena, params_count, nparams));
+        case FnTier_BasicBlock:
+            return basic_block(dst_arena, nodes(dst_arena, params_count, nparams), string(dst_arena, node->payload.fn.name));
+        case FnTier_Function:
+            return function(dst_arena, nodes(dst_arena, params_count, nparams), string(dst_arena, node->payload.fn.name), bind_nodes(ctx, node->payload.fn.annotations), bind_nodes(ctx, node->payload.fn.return_types));
+    }
+    SHADY_UNREACHABLE;
 }
 
 static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
@@ -149,7 +157,7 @@ static void rewrite_fn_body(Context* ctx, const Node* node, Node* target) {
         debug_print("Bound param %s\n", entry->name);
     }
 
-    if (node->payload.fn.is_basic_block) {
+    if (node->payload.fn.tier != FnTier_Function) {
         assert(body_infer_ctx.current_function && "basic blocks should be nested inside functions");
     } else {
         assert(ctx->current_function == NULL);

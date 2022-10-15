@@ -77,7 +77,19 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
         case GlobalVariable_TAG: new = global_var(rewriter->dst_arena, rewrite_nodes(rewriter, old->payload.global_variable.annotations), rewrite_node(rewriter, old->payload.global_variable.type), old->payload.global_variable.name, old->payload.global_variable.address_space); break;
         case Constant_TAG: new = constant(rewriter->dst_arena, rewrite_nodes(rewriter, old->payload.constant.annotations), old->payload.constant.name); break;
         case Function_TAG: {
-            new = fn(rewriter->dst_arena, rewrite_nodes(rewriter, old->payload.fn.annotations), old->payload.fn.name, old->payload.fn.is_basic_block, recreate_variables(rewriter, old->payload.fn.params), rewrite_nodes(rewriter, old->payload.fn.return_types));
+            Nodes new_params = recreate_variables(rewriter, old->payload.fn.params);
+            switch (old->payload.fn.tier) {
+                case FnTier_Lambda:
+                    new = lambda(rewriter->dst_arena, new_params);
+                    break;
+                case FnTier_BasicBlock:
+                    new = basic_block(rewriter->dst_arena, new_params, old->payload.fn.name);
+                    break;
+                case FnTier_Function:
+                    new = function(rewriter->dst_arena, new_params, old->payload.fn.name, rewrite_nodes(rewriter, old->payload.fn.annotations), rewrite_nodes(rewriter, old->payload.fn.return_types));
+                    break;
+            }
+            assert(new && new->tag == Function_TAG);
             for (size_t i = 0; i < new->payload.fn.params.count; i++)
                 register_processed(rewriter, old->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
             break;
@@ -134,7 +146,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                                     .names = import_strings(rewriter->dst_arena, node->payload.record_type.names),
                                     .special = node->payload.record_type.special});
         case FnType_TAG:        return fn_type(rewriter->dst_arena, (FnType) {
-                                    .is_basic_block = node->payload.fn_type.is_basic_block,
+                                    .tier = node->payload.fn_type.tier,
                                     .param_types = rewrite_nodes(rewriter, node->payload.fn_type.param_types),
                                     .return_types = rewrite_nodes(rewriter, node->payload.fn_type.return_types)});
         case PtrType_TAG:       return ptr_type(rewriter->dst_arena, (PtrType) {

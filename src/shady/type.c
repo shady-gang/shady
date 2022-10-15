@@ -49,7 +49,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
             return true;
         }
         case FnType_TAG:
-            if (supertype->payload.fn_type.is_basic_block != type->payload.fn_type.is_basic_block)
+            if (supertype->payload.fn_type.tier != type->payload.fn_type.tier)
                 return false;
             // check returns
             if (supertype->payload.fn_type.return_types.count != type->payload.fn_type.return_types.count)
@@ -194,7 +194,7 @@ bool is_addr_space_uniform(AddressSpace as) {
 }
 
 const Type* derive_fn_type(IrArena* arena, const Function* fn) {
-    return fn_type(arena, (FnType) { .is_basic_block = fn->is_basic_block, .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
+    return fn_type(arena, (FnType) { .tier = fn->tier, .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
 }
 
 static const Type* remove_ptr_type_layer(const Type* t) {
@@ -877,7 +877,7 @@ const Type* check_type_fn_ret(IrArena* arena, Return ret) {
 }
 
 const Type* check_type_fn(IrArena* arena, Function fn) {
-    assert(!fn.is_basic_block || fn.return_types.count == 0);
+    assert(fn.tier == FnTier_Function || fn.return_types.count == 0);
     for (size_t i = 0; i < fn.return_types.count; i++) {
         assert(contains_qualified_type(fn.return_types.nodes[i]));
     }

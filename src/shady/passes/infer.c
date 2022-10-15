@@ -119,9 +119,21 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
                 register_processed(&body_context.rewriter, node->payload.fn.params.nodes[i], nparams[i]);
             }
 
-            Nodes nret_types = annotate_all_types(dst_arena, infer_types(ctx, node->payload.fn.return_types), false);
-
-            Node* fun = fn(dst_arena, infer_annotations(ctx, node->payload.fn.annotations), string(dst_arena, node->payload.fn.name), node->payload.fn.is_basic_block, nodes(dst_arena, node->payload.fn.params.count, nparams), nret_types);
+            Node* fun = NULL;
+            switch (node->payload.fn.tier) {
+                case FnTier_Lambda:
+                    fun = lambda(dst_arena, nodes(dst_arena, node->payload.fn.params.count, nparams));
+                    break;
+                case FnTier_BasicBlock:
+                    fun = basic_block(dst_arena, nodes(dst_arena, node->payload.fn.params.count, nparams), string(dst_arena, node->payload.fn.name));
+                    break;
+                case FnTier_Function: {
+                    Nodes nret_types = annotate_all_types(dst_arena, infer_types(ctx, node->payload.fn.return_types), false);
+                    fun = function(dst_arena, nodes(dst_arena, node->payload.fn.params.count, nparams), string(dst_arena, node->payload.fn.name), infer_annotations(ctx, node->payload.fn.annotations), nret_types);
+                    break;
+                }
+            }
+            assert(fun);
             register_processed(&ctx->rewriter, node, fun);
 
             fun->payload.fn.body = infer_body(&body_context, node->payload.fn.body);
@@ -459,7 +471,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                     assert(ntarget_is_uniform);
                     assert(ntarget_type->tag == FnType_TAG);
                     const FnType* tgt_type = &ntarget_type->payload.fn_type;
-                    assert(tgt_type->is_basic_block);
+                    assert(tgt_type->tier == FnTier_BasicBlock);
 
                     LARRAY(const Node*, tmp, node->payload.branch.args.count);
                     for (size_t i = 0; i < node->payload.branch.args.count; i++)
@@ -482,12 +494,12 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                     assert(is_operand_uniform(t_target->type));
                     assert(extract_operand_type(t_target->type)->tag == FnType_TAG);
                     const FnType* t_tgt_type = &extract_operand_type(t_target->type)->payload.fn_type;
-                    assert(t_tgt_type->is_basic_block);
+                    assert(t_tgt_type->tier == FnTier_BasicBlock);
 
                     assert(is_operand_uniform(f_target->type));
                     assert(extract_operand_type(f_target->type)->tag == FnType_TAG);
                     const FnType* f_tgt_type = &extract_operand_type(f_target->type)->payload.fn_type;
-                    assert(f_tgt_type->is_basic_block);
+                    assert(f_tgt_type->tier == FnTier_BasicBlock);
 
                     // TODO: unify the two target types
 

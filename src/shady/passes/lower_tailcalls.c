@@ -116,7 +116,7 @@ static const Node* process_body(Context* ctx, const Node* old_body, BodyBuilder*
 static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
-    Node* new_entry_pt = fn(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fn.annotations), old->payload.fn.name, false, old->payload.fn.params, nodes(dst_arena, 0, NULL));
+    Node* new_entry_pt = function(dst_arena, old->payload.fn.params, old->payload.fn.name, rewrite_nodes(&ctx->rewriter, old->payload.fn.annotations), nodes(dst_arena, 0, NULL));
     append_list(const Node*, ctx->new_decls, new_entry_pt);
 
     BodyBuilder* builder = begin_body(dst_arena);
@@ -152,8 +152,8 @@ static const Node* process(Context* ctx, const Node* old) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (old->tag) {
         case Function_TAG: {
-            // Leave basic blocks alone
-            if (old->payload.fn.is_basic_block)
+            // Leave basic blocks and lambdas alone
+            if (old->payload.fn.tier != FnTier_Function)
                 return recreate_node_identity(&ctx->rewriter, old);
 
             Context ctx2 = *ctx;
@@ -175,7 +175,6 @@ static const Node* process(Context* ctx, const Node* old) {
                 // Entry point annotations are removed
                 if (strcmp(annotation->payload.annotation.name, "EntryPoint") == 0) {
                     assert(!entry_point_annotation && "Only one entry point annotation is permitted.");
-                    assert(!old->payload.fn.is_basic_block && "Basic blocks can't be entry points.");
                     entry_point_annotation = annotation;
                     continue;
                 }
@@ -183,7 +182,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 new_annotations_count++;
             }
 
-            Node* fun = fn(dst_arena, nodes(dst_arena, new_annotations_count, new_annotations), new_name, old->payload.fn.is_basic_block, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
+            Node* fun = function(dst_arena, nodes(dst_arena, 0, NULL), new_name, nodes(dst_arena, new_annotations_count, new_annotations), nodes(dst_arena, 0, NULL));
             register_processed(&ctx->rewriter, old, fun);
 
             if (entry_point_annotation)
@@ -303,7 +302,7 @@ const Node* lower_tailcalls(SHADY_UNUSED CompilerConfig* config, IrArena* src_ar
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
 
     Nodes top_dispatcher_annotations = nodes(dst_arena, 0, NULL);
-    Node* dispatcher_fn = fn(dst_arena, top_dispatcher_annotations, "top_dispatcher", false, nodes(dst_arena, 0, NULL), nodes(dst_arena, 0, NULL));
+    Node* dispatcher_fn = function(dst_arena, nodes(dst_arena, 0, NULL), "top_dispatcher", top_dispatcher_annotations, nodes(dst_arena, 0, NULL));
     append_list(const Node*, new_decls_list, dispatcher_fn);
 
     Context ctx = {

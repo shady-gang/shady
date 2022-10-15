@@ -75,7 +75,7 @@ static const Node* lift_continuation_into_function(Context* ctx, const Node* con
 
     // Keep annotations the same
     Nodes annotations = rewrite_nodes(&ctx->rewriter, cont->payload.fn.annotations);
-    Node* new_fn = fn(dst_arena, annotations, cont->payload.fn.name, false, new_params, nodes(dst_arena, 0, NULL));
+    Node* new_fn = function(dst_arena, new_params, cont->payload.fn.name, annotations, nodes(dst_arena, 0, NULL));
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = cont;
@@ -223,7 +223,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Body_TAG: return process_body(ctx, begin_body(ctx->rewriter.dst_arena), &node->payload.body);
         case Function_TAG: {
-            if (node->payload.fn.is_basic_block)
+            if (node->payload.fn.tier == FnTier_BasicBlock)
                 return lift_continuation_into_function(ctx, node);
             // leave other declarations alone
             return recreate_node_identity(&ctx->rewriter, node);

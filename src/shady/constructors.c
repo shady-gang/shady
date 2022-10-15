@@ -151,14 +151,16 @@ const Node* tuple(IrArena* arena, Nodes contents) {
     return create_node_helper(arena, node);
 }
 
-Node* fn(IrArena* arena, Nodes annotations, const char* name, bool is_basic_block, Nodes params, Nodes return_types) {
+static Node* lambda_internal(IrArena* arena, FnTier tier, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
     Function fn = {
-        .annotations = annotations,
-        .name = string(arena, name),
-        .is_basic_block = is_basic_block,
+        .tier = tier,
         .params = params,
-        .return_types = return_types,
         .body = NULL,
+
+        .name = string(arena, name),
+
+        .annotations = annotations,
+        .return_types = return_types,
     };
 
     Node node;
@@ -170,6 +172,18 @@ Node* fn(IrArena* arena, Nodes annotations, const char* name, bool is_basic_bloc
         .payload.fn = fn
     };
     return create_node_helper(arena, node);
+}
+
+Node* lambda(IrArena* arena, Nodes params) {
+    return lambda_internal(arena, FnTier_Lambda, params, NULL, nodes(arena, 0, NULL), nodes(arena, 0, NULL));
+}
+
+Node* basic_block(IrArena* arena, Nodes params, const char* name) {
+    return lambda_internal(arena, FnTier_BasicBlock, params, name, nodes(arena, 0, NULL), nodes(arena, 0, NULL));
+}
+
+Node* function   (IrArena* arena, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
+    return lambda_internal(arena, FnTier_Function, params, name, annotations, return_types);
 }
 
 Node* constant(IrArena* arena, Nodes annotations, String name) {

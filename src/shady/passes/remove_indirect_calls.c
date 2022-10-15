@@ -50,7 +50,7 @@ static const Node* process(Context* ctx, const Node* node) {
             });
         }
         case Function_TAG: {
-            if (!node->payload.fn.is_basic_block) {
+            if (node->payload.fn.tier == FnTier_Function) {
                 CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
                 Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fn.annotations);
                 if (fn_node->is_address_captured || fn_node->is_recursive) {
@@ -59,7 +59,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         .payload_type = AnPayloadNone
                     }));
                 }
-                Node* new = fn(arena, annotations, node->payload.fn.name, node->payload.fn.is_basic_block, recreate_variables(&ctx->rewriter, node->payload.fn.params), rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
+                Node* new = function(arena, recreate_variables(&ctx->rewriter, node->payload.fn.params), node->payload.fn.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fn.return_types));
                 for (size_t i = 0; i < new->payload.fn.params.count; i++)
                     register_processed(&ctx->rewriter, node->payload.fn.params.nodes[i], new->payload.fn.params.nodes[i]);
                 register_processed(&ctx->rewriter, node, new);

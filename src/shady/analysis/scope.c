@@ -80,7 +80,7 @@ static void add_edge(ScopeBuildContext* ctx, CFLocation src, CFLocation dst, CFE
 
 /// Adds an edge to the start of a basic block
 static void add_edge_to_bb(ScopeBuildContext* ctx, CFLocation src, const Node* dest_bb, CFEdgeType type) {
-    assert(dest_bb->tag == Function_TAG && dest_bb->payload.fn.is_basic_block);
+    assert(dest_bb->tag == Function_TAG && dest_bb->payload.fn.tier != FnTier_Function);
     const Node* dest_body = dest_bb->payload.fn.body;
     assert(dest_body && dest_body->tag == Body_TAG);
     CFLocation dst = {

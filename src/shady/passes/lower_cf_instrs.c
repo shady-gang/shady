@@ -31,8 +31,6 @@ static const Node* process_body(Context* ctx, const Node* node, size_t start, Jo
 
     BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
     const Body* old_body = &node->payload.body;
-    // TODO add a @Synthetic annotation to tag those
-    Nodes annotations = nodes(dst_arena, 0, NULL);
 
     assert(start <= old_body->instructions.count);
     for (size_t i = start; i < old_body->instructions.count; i++) {
@@ -84,7 +82,7 @@ static const Node* process_body(Context* ctx, const Node* node, size_t start, Jo
                 for (size_t j = 0; j < cont_params.count; j++)
                     register_processed(&ctx->rewriter, let_node->payload.let.variables.nodes[j], cont_params.nodes[j]);
 
-                Node* return_continuation = fn(dst_arena, annotations, unique_name(dst_arena, "call_continue"), true, cont_params, nodes(dst_arena, 0, NULL));
+                Node* return_continuation = basic_block(dst_arena, cont_params, unique_name(dst_arena, "call_continue"));
                 return_continuation->payload.fn.body = process_body(ctx, node, i + 1, join_points);
 
                 // TODO we probably want to emit a callc here and lower that later to a separate function in an optional pass

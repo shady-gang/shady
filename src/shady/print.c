@@ -235,8 +235,8 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             printf("}");
             break;
         case FnType_TAG: {
-            if (node->payload.fn_type.is_basic_block) {
-                printf("cont");
+            if (node->payload.fn_type.tier != FnTier_Function) {
+                printf(node->payload.fn_type.tier == FnTier_Lambda ? "lambda" : "cont");
                 printf(RESET);
             } else {
                 printf("fn ");
@@ -624,7 +624,7 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
         }
         case Function_TAG: {
             const Function* fun = &node->payload.fn;
-            assert(!fun->is_basic_block && "basic blocks aren't supposed to be found at the top level");
+            assert(fun->tier == FnTier_Function && "basic blocks aren't supposed to be found at the top level");
             print_annotations(ctx, fun->annotations);
             printf(BLUE);
             printf("fn");

@@ -75,7 +75,10 @@ NODES(NODE_HAS_PAYLOAD)
 String get_decl_name(const Node* node) {
     switch (node->tag) {
         case Constant_TAG: return node->payload.constant.name;
-        case Function_TAG: return node->payload.fn.name;
+        case Function_TAG: {
+            assert(node->payload.fn.tier != FnTier_Lambda && "lambdas are not decls");
+            return node->payload.fn.name;
+        }
         case GlobalVariable_TAG: return node->payload.global_variable.name;
         default: error("Not a decl !");
     }
@@ -163,7 +166,7 @@ case RecordType_TAG: {                \
     break;                            \
 }                                     \
 case FnType_TAG: {                    \
-    field(fn_type.is_basic_block);    \
+    field(fn_type.tier);              \
     field(fn_type.return_types);      \
     field(fn_type.param_types);       \
     break;                            \
