@@ -169,7 +169,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
 
     if (node->type != NULL && node->payload.fn.body) {
         bool section_space = false;
-        Scope scope = build_scope(node);
+        Scope scope = build_scope_from_basic_block(node);
         for (size_t i = 1; i < scope.size; i++) {
             if (!section_space) {
                 printf("\n");
@@ -177,9 +177,10 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
             }
 
             const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
-            printf("\ncont %s = ", cfnode->node->payload.fn.name);
-            print_param_list(ctx, cfnode->node->payload.fn.params, NULL);
-            print_node(cfnode->node->payload.fn.body);
+            assert(cfnode->location.offset == 0);
+            printf("\ncont %s = ", cfnode->location.head->payload.fn.name);
+            print_param_list(ctx, cfnode->location.head->payload.fn.params, NULL);
+            print_node(cfnode->location.head->payload.fn.body);
         }
         dispose_scope(&scope);
     }
@@ -546,6 +547,15 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.join.join_point);
             printf(")");
             print_args_list(ctx, node->payload.join.args);
+            break;
+        case Control_TAG:
+            printf(BGREEN);
+            printf("control");
+            printf(RESET);
+            printf("(");
+            print_node(node->payload.control.target);
+            print_node(node->payload.control.join_target);
+            printf(")");
             break;
         case Callc_TAG:
             printf(BGREEN);

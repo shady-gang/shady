@@ -176,6 +176,7 @@ static const Node* process_body(Context* ctx, BodyBuilder* builder, const Body* 
             });
             break;
         }
+        case Control_TAG:
         case Join_TAG: error("TODO")
         case Callc_TAG: {
             const Callc ocallc = oterminator->payload.callc;

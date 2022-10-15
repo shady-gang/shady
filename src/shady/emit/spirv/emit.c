@@ -615,19 +615,21 @@ static void emit_body(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_bl
 }
 
 static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNode* node, bool is_entry) {
-    assert(node->node->tag == Function_TAG);
+    assert(node->location.head->tag == Function_TAG);
+    assert(node->location.offset == 0);
+    const Node* bb_node = node->location.head;
     // Find the preassigned ID to this
-    SpvId bb_id = is_entry ? spvb_fresh_id(emitter->file_builder) : find_reserved_id(emitter, node->node);
+    SpvId bb_id = is_entry ? spvb_fresh_id(emitter->file_builder) : find_reserved_id(emitter, bb_node);
     BBBuilder basic_block_builder = spvb_begin_bb(emitter->file_builder, bb_id);
     spvb_add_bb(fn_builder, basic_block_builder);
-    spvb_name(emitter->file_builder, bb_id, node->node->payload.fn.name);
+    spvb_name(emitter->file_builder, bb_id, bb_node->payload.fn.name);
 
     MergeTargets merge_targets = {
         .continue_target = 0,
         .break_target = 0,
         .join_target = 0
     };
-    emit_body(emitter, fn_builder, basic_block_builder, merge_targets, node->node->payload.fn.body);
+    emit_body(emitter, fn_builder, basic_block_builder, merge_targets, bb_node->payload.fn.body);
 
     // Emit the child nodes for real
     size_t dom_count = entries_count_list(node->dominates);
@@ -649,7 +651,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
     }
 
-    Scope scope = build_scope(node);
+    Scope scope = build_scope_from_basic_block(node);
     emit_basic_block(emitter, fn_builder, scope.entry, true);
     dispose_scope(&scope);
 

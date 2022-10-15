@@ -97,6 +97,7 @@ N(1, 1, 1, Loop, loop_instr) \
 
 #define TERMINATOR_NODES(N) \
 N(1, 1, 1, Branch, branch) \
+N(1, 1, 1, Control, control) \
 N(1, 1, 1, Join, join) \
 N(1, 1, 1, Callc, callc) \
 N(1, 1, 1, TailCall, tail_call) \
@@ -511,6 +512,11 @@ typedef struct Join_ {
     const Node* join_point;
     Nodes args;
 } Join;
+
+typedef struct Control_ {
+    const Node* target;
+    const Node* join_target;
+} Control;
 
 typedef struct Return_ {
     // set to NULL after typing

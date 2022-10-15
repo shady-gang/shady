@@ -17,10 +17,11 @@ void visit_nodes(Visitor* visitor, Nodes nodes) {
 void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
     assert(function->tag == Function_TAG);
     assert(!function->payload.fn.is_basic_block);
-    Scope scope = build_scope(function);
-    assert(scope.rpo[0]->node == function);
+    Scope scope = build_scope_from_basic_block(function);
+    assert(scope.rpo[0]->location.head == function);
+    //assert(scope.rpo[0]->location.head == function);
     for (size_t i = 1; i < scope.size; i++) {
-        visit(scope.rpo[i]->node);
+        visit(scope.rpo[i]->location.head);
     }
     dispose_scope(&scope);
 }
@@ -161,9 +162,15 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.branch.args);
             break;
         }
+        case Control_TAG: {
+            if (visitor->visit_continuations) {
+                visit(node->payload.control.target);
+                visit(node->payload.control.join_target);
+            }
+            break;
+        }
         case Join_TAG: {
-            if (node->payload.join.is_indirect || visitor->visit_continuations)
-                visit(node->payload.join.join_at);
+            visit(node->payload.join.join_point);
             visit_nodes(visitor, node->payload.join.args);
             break;
         }

@@ -34,7 +34,7 @@ static void visit_fv(Context* visitor, const Node* node) {
 }
 
 static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
-    const Function* fun = &cfnode->node->payload.fn;
+    const Function* fun = &cfnode->location.head->payload.fn;
 
     for (int i = 0; i < depth; i++)
         debug_print(" ");
@@ -72,11 +72,9 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
     }
 }
 
-struct List* compute_free_variables(const Node* entry) {
+struct List* compute_free_variables(const Scope* scope) {
     struct Dict* ignore_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct List* free_list = new_list(const Node*);
-
-    assert(entry && entry->tag == Function_TAG);
 
     Context ctx = {
         .visitor = {
@@ -86,12 +84,7 @@ struct List* compute_free_variables(const Node* entry) {
         .free_list = free_list,
     };
 
-    Scope s = build_scope(entry);
-
-    debug_print("Visiting the domtree rooted at %s\n", entry->payload.fn.name);
-    visit_domtree(&ctx, s.entry, 0);
-
-    dispose_scope(&s);
+    visit_domtree(&ctx, scope->entry, 0);
 
     destroy_dict(ignore_set);
     return free_list;

@@ -3,6 +3,8 @@
 
 #include "shady/ir.h"
 
-struct List* compute_free_variables(const Node*);
+typedef struct Scope_ Scope;
+
+struct List* compute_free_variables(const Scope* scope);
 
 #endif

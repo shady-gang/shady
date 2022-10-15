@@ -841,6 +841,10 @@ const Type* check_type_join(IrArena* arena, Join join) {
     return NULL;
 }
 
+const Type* check_type_control(IrArena* arena, Control control) {
+    error("TODO")
+}
+
 const Type* check_type_callc(IrArena* arena, Callc callc) {
     for (size_t i = 0; i < callc.args.count; i++) {
         const Node* argument = callc.args.nodes[i];

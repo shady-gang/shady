@@ -3,6 +3,7 @@
 
 #include "list.h"
 #include "dict.h"
+#include "arena.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -13,121 +14,168 @@ struct List* build_scopes(const Node* root) {
     for (size_t i = 0; i < root->payload.root.declarations.count; i++) {
         const Node* decl = root->payload.root.declarations.nodes[i];
         if (decl->tag != Function_TAG) continue;
-        Scope scope = build_scope(decl);
+        Scope scope = build_scope_from_basic_block(decl);
         append_list(Scope, scopes, scope);
     }
 
     return scopes;
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash hash_node(const Node**);
+bool compare_node(const Node**, const Node**);
 
-static CFNode* get_or_create_cf_node(struct List* contents, struct Dict* d, const Node* n) {
-    CFNode** found = find_value_dict(const Node*, CFNode*, d, n);
+KeyHash hash_location(const CFLocation** ploc) {
+    const Node* head = (*ploc)->head;
+    const Node* body = (*ploc)->body;
+    return hash_node(&head) ^ hash_node(&body) ^ (*ploc)->offset;
+}
+
+bool compare_location(const CFLocation** a, const CFLocation** b) {
+    const Node* ahead = (*a)->head;
+    const Node* bhead = (*b)->head;
+    const Node* abody = (*a)->body;
+    const Node* bbody = (*b)->body;
+    return compare_node(&ahead, &bhead) && compare_node(&abody, &bbody) && (*a)->offset == (*b)->offset;
+}
+
+typedef struct {
+    Arena* arena;
+    struct Dict* nodes;
+    struct List* queue;
+    struct List* contents;
+} ScopeBuildContext;
+
+static CFNode* get_or_enqueue(ScopeBuildContext* ctx, CFLocation location) {
+    assert(location.head->tag == Function_TAG);
+    CFNode** found = find_value_dict(const Node*, CFNode*, ctx->nodes, location);
     if (found) return *found;
-    CFNode* new = malloc(sizeof(CFNode));
+
+    CFNode* new = arena_alloc(ctx->arena, sizeof(CFNode));
     *new = (CFNode) {
-        .node = n,
-        .succs = new_list(CFNode*),
-        .preds = new_list(CFNode*),
+        .location = location,
+        .succ_edges = new_list(CFEdge),
+        .pred_edges = new_list(CFEdge),
         .rpo_index = SIZE_MAX,
         .idom = NULL,
         .dominates = NULL,
     };
-    insert_dict(const Node*, CFNode*, d, n, new);
-    append_list(CFNode*, contents, new);
+    insert_dict(const Node*, CFNode*, ctx->nodes, location, new);
+    append_list(Node*, ctx->queue, new);
+    append_list(Node*, ctx->contents, new);
     return new;
 }
 
-Scope build_scope(const Node* entry) {
-    assert(entry->tag == Function_TAG);
-    struct List* contents = new_list(CFNode*);
+/// Adds an edge to somewhere inside a basic block (see CFLocation)
+static void add_edge(ScopeBuildContext* ctx, CFLocation src, CFLocation dst, CFEdgeType type) {
+    CFNode* src_node = get_or_enqueue(ctx, src);
+    CFNode* dst_node = get_or_enqueue(ctx, dst);
+    CFEdge edge = {
+        .type = type,
+        .src = src_node,
+        .dst = dst_node,
+    };
+    append_list(CFNode*, src_node->succ_edges, edge);
+    append_list(CFNode*, dst_node->pred_edges, edge);
+}
 
-    struct Dict* nodes = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node);
+/// Adds an edge to the start of a basic block
+static void add_edge_to_bb(ScopeBuildContext* ctx, CFLocation src, const Node* dest_bb, CFEdgeType type) {
+    assert(dest_bb->tag == Function_TAG && dest_bb->payload.fn.is_basic_block);
+    const Node* dest_body = dest_bb->payload.fn.body;
+    assert(dest_body && dest_body->tag == Body_TAG);
+    CFLocation dst = {
+        .head = dest_bb,
+        .body = dest_body,
+    };
+    add_edge(ctx, src, dst, type);
+}
 
-    struct Dict* done = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
-    struct List* queue = new_list(const Node*);
+static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
+    CFLocation const location = node->location;
+    const Body* body = &location.head->payload.fn.body->payload.body;
+    assert(body);
 
-    #define enqueue(node) {                                         \
-        if (!find_key_dict(Node*, done, node)) {                    \
-            append_list(Node*, queue, node);                        \
-        }                                                           \
+    for (size_t i = 0; i < body->instructions.count; i++) {
+        // TODO: walk the body and search for structured constructs...
     }
 
-    enqueue(entry);
-
-    #define process_edge(tgt) {                                               \
-        assert(tgt);                                                          \
-        CFNode* src_node = get_or_create_cf_node(contents, nodes, element);   \
-        CFNode* tgt_node = get_or_create_cf_node(contents, nodes, tgt);       \
-        append_list(CFNode*, src_node->succs, tgt_node);                      \
-        append_list(CFNode*, tgt_node->preds, src_node);                      \
-        enqueue(tgt);                                                         \
-    }
-
-    while (entries_count_list(queue) > 0) {
-        const Node* element = pop_last_list(const Node*, queue);
-
-        if (find_key_dict(Node*, done, element))
-            continue;
-        insert_set_get_result(Node*, done, element);
-
-        assert(element->tag == Function_TAG);
-        const Body* body = &element->payload.fn.body->payload.body;
-        assert(body);
-        const Node* terminator = body->terminator;
-        switch (terminator->tag) {
-            case Branch_TAG: {
-                switch (terminator->payload.branch.branch_mode) {
-                    case BrJump: {
-                        const Node* target = terminator->payload.branch.target;
-                        process_edge(target)
-                        break;
-                    }
-                    case BrIfElse: {
-                        const Node* true_target = terminator->payload.branch.true_target;
-                        const Node* false_target = terminator->payload.branch.false_target;
-                        process_edge(true_target);
-                        process_edge(false_target);
-                        break;
-                    }
-                    case BrSwitch: error("TODO")
+    const Node* terminator = body->terminator;
+    switch (terminator->tag) {
+        case Branch_TAG: {
+            switch (terminator->payload.branch.branch_mode) {
+                case BrJump: {
+                    const Node* target = terminator->payload.branch.target;
+                    add_edge_to_bb(ctx, location, target, ForwardEdge);
+                    break;
                 }
-                break;
+                case BrIfElse: {
+                    const Node* true_target = terminator->payload.branch.true_target;
+                    const Node* false_target = terminator->payload.branch.false_target;
+                    add_edge_to_bb(ctx, location, true_target, ForwardEdge);
+                    add_edge_to_bb(ctx, location, false_target, ForwardEdge);
+                    break;
+                }
+                case BrSwitch: error("TODO")
             }
-            case Callc_TAG: {
-                if (terminator->payload.callc.is_return_indirect) break;
-                const Node* target = terminator->payload.callc.join_at;
-                process_edge(target);
-                break;
-            }
-            case Join_TAG: {
-                if (terminator->payload.join.is_indirect) break;
-                const Node* target = terminator->payload.join.join_at;
-                process_edge(target);
-                break;
-            }
-            case TailCall_TAG:
-            case Return_TAG:
-            case Unreachable_TAG:
-            case MergeConstruct_TAG: break;
-            default: error("scope: unhandled terminator");
+            break;
         }
+        case Callc_TAG: {
+            if (terminator->payload.callc.is_return_indirect) break;
+            const Node* target = terminator->payload.callc.join_at;
+            add_edge_to_bb(ctx, location, target, CallcReturnEdge);
+            break;
+        }
+        case Join_TAG: {
+            break;
+        }
+        case MergeConstruct_TAG: {
+            error("TODO: only allow this if we have traversed structured constructs...")
+            break;
+        }
+        case TailCall_TAG:
+        case Return_TAG:
+        case Unreachable_TAG: break;
+        default: error("scope: unhandled terminator");
     }
+}
 
-    CFNode* entry_node = get_or_create_cf_node(contents, nodes, entry);
+Scope build_scope_from_basic_block(const Node* bb) {
+    assert(bb->tag == Function_TAG);
+    CFLocation entry_location = {
+        .head = bb,
+        .offset = 0
+    };
+    return build_scope(entry_location);
+}
 
-    Scope scope = {
-        .entry = entry_node,
-        .size = entries_count_list(contents),
-        .contents = contents,
-        .rpo = NULL
+Scope build_scope(CFLocation entry_location) {
+    assert(entry_location.head->tag == Function_TAG);
+    Arena* arena = new_arena();
+
+    ScopeBuildContext context = {
+        .arena = arena,
+        .nodes = new_dict(CFLocation, CFNode*, (HashFn) hash_location, (CmpFn) compare_location),
+        .queue = new_list(CFNode*),
+        .contents = new_list(CFNode*),
     };
 
-    destroy_dict(done);
-    destroy_dict(nodes);
-    destroy_list(queue);
+    CFNode* entry_node = get_or_enqueue(&context, entry_location);
+
+    while (entries_count_list(context.queue) > 0) {
+        CFNode* this = pop_last_list(CFNode*, context.queue);
+        process_cf_node(&context, this);
+    }
+
+    destroy_dict(context.nodes);
+    destroy_list(context.queue);
+
+    Scope scope = {
+        .arena = arena,
+        .entry = entry_node,
+        .size = entries_count_list(context.contents),
+        .contents = context.contents,
+        .rpo = NULL
+    };
 
     compute_rpo(&scope);
     compute_domtree(&scope);
@@ -138,10 +186,10 @@ Scope build_scope(const Node* entry) {
 static size_t post_order_visit(Scope* scope, CFNode* n, size_t i) {
     n->rpo_index = -2;
 
-    for (size_t j = 0; j < entries_count_list(n->succs); j++) {
-        CFNode* succ = read_list(CFNode*, n->succs)[j];
-        if (succ->rpo_index == SIZE_MAX)
-            i = post_order_visit(scope, succ, i);
+    for (size_t j = 0; j < entries_count_list(n->succ_edges); j++) {
+        CFEdge edge = read_list(CFEdge, n->succ_edges)[j];
+        if (edge.dst->rpo_index == SIZE_MAX)
+            i = post_order_visit(scope, edge.dst, i);
     }
 
     n->rpo_index = i - 1;
@@ -156,7 +204,7 @@ void compute_rpo(Scope* scope) {
 
     debug_print("RPO: ");
     for (size_t i = 0; i < scope->size; i++) {
-        debug_print("%s, ", scope->rpo[i]->node->payload.fn.name);
+        debug_print("%s %d, ", scope->rpo[i]->location.head->payload.fn.name, scope->rpo[i]->location.offset);
     }
     debug_print("\n");
 }
@@ -173,14 +221,15 @@ CFNode* least_common_ancestor(CFNode* i, CFNode* j) {
 void compute_domtree(Scope* scope) {
     for (size_t i = 1; i < scope->size; i++) {
         CFNode* n = read_list(CFNode*, scope->contents)[i];
-        for (size_t j = 0; j < entries_count_list(n->preds); j++) {
-            CFNode* p = read_list(CFNode*, n->preds)[j];
+        for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
+            CFEdge e = read_list(CFEdge, n->pred_edges)[j];
+            CFNode* p = e.src;
             if (p->rpo_index < n->rpo_index) {
                 n->idom = p;
                 goto outer_loop;
             }
         }
-        error("no idom found for %s", n->node->payload.fn.name);
+        error("no idom found for %s", n->location.head->payload.fn.name);
         outer_loop:;
     }
 
@@ -190,8 +239,9 @@ void compute_domtree(Scope* scope) {
         for (size_t i = 1; i < scope->size; i++) {
             CFNode* n = read_list(CFNode*, scope->contents)[i];
             CFNode* new_idom = NULL;
-            for (size_t j = 0; j < entries_count_list(n->preds); j++) {
-                CFNode* p = read_list(CFNode*, n->preds)[j];
+            for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
+                CFEdge e = read_list(CFEdge, n->pred_edges)[j];
+                CFNode* p = e.src;
                 new_idom = new_idom ? least_common_ancestor(new_idom, p) : p;
             }
             assert(new_idom);
@@ -215,12 +265,12 @@ void compute_domtree(Scope* scope) {
 void dispose_scope(Scope* scope) {
     for (size_t i = 0; i < scope->size; i++) {
         CFNode* node = read_list(CFNode*, scope->contents)[i];
-        destroy_list(node->preds);
-        destroy_list(node->succs);
+        destroy_list(node->pred_edges);
+        destroy_list(node->succ_edges);
         if (node->dominates)
             destroy_list(node->dominates);
-        free(node);
     }
+    destroy_arena(scope->arena);
     free(scope->rpo);
     destroy_list(scope->contents);
 }
@@ -230,20 +280,21 @@ static int extra_uniqueness = 0;
 static void dump_cfg_scope(FILE* output, Scope* scope) {
     extra_uniqueness++;
 
-    const Function* entry = &scope->entry->node->payload.fn;
+    const Function* entry = &scope->entry->location.head->payload.fn;
     fprintf(output, "subgraph cluster_%s {\n", entry->name);
     fprintf(output, "label = \"%s\";\n", entry->name);
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const Function* bb = &read_list(const CFNode*, scope->contents)[i]->node->payload.fn;
+        const Function* bb = &read_list(const CFNode*, scope->contents)[i]->location.head->payload.fn;
         fprintf(output, "%s_%d;\n", bb->name, extra_uniqueness);
     }
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
-        const Function* bb = &bb_node->node->payload.fn;
+        const Function* bb = &bb_node->location.head->payload.fn;
 
-        for (size_t j = 0; j < entries_count_list(bb_node->succs); j++) {
-            const CFNode* target_node = read_list(CFNode*, bb_node->succs)[j];
-            const Function* target_bb = &target_node->node->payload.fn;
+        for (size_t j = 0; j < entries_count_list(bb_node->succ_edges); j++) {
+            CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
+            const CFNode* target_node = edge.dst;
+            const Function* target_bb = &target_node->location.head->payload.fn;
             fprintf(output, "%s_%d -> %s_%d;\n", bb->name, extra_uniqueness, target_bb->name, extra_uniqueness);
         }
     }

@@ -80,7 +80,7 @@ static const Node* process_body(Context* ctx, const Node* old_body, BodyBuilder*
             break;
         }
         case Join_TAG: {
-            assert(old_terminator->payload.join.is_dynamic);
+            //assert(old_terminator->payload.join.is_dynamic);
             push_args_stack(ctx, rewrite_nodes(&ctx->rewriter, old_terminator->payload.join.args), builder);
 
             /*const Node* target = rewrite_node(&ctx->rewriter, old_terminator->payload.join.join_at);

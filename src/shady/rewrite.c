@@ -260,6 +260,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             });
             default: SHADY_UNREACHABLE;
         }
+        case Control_TAG:     return control(rewriter->dst_arena, (Control) {
+            .target = rewrite_node(rewriter, node->payload.control.target),
+            .join_target = rewrite_node(rewriter, node->payload.control.join_target),
+        });
         case Join_TAG:        return join(rewriter->dst_arena, (Join) {
             .join_point = rewrite_node(rewriter, node->payload.join.join_point),
             .args = rewrite_nodes(rewriter, node->payload.join.args)
