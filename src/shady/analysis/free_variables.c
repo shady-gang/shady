@@ -47,7 +47,7 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
         assert(r);
     }
 
-    const Body* entry_body = &fun->body->payload.body;
+    /*const Body* entry_body = &fun->body->payload.body;
     assert(fun->body);
     for (size_t j = 0; j < entry_body->instructions.count; j++) {
         const Node* instr = entry_body->instructions.nodes[j];
@@ -62,9 +62,9 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
                 assert(r);
             }
         }
-    }
+    }*/
 
-    visit_fv(ctx, entry_body->terminator);
+    visit_fv(ctx, fun->body);
 
     for (size_t i = 0; i < entries_count_list(cfnode->dominates); i++) {
         CFNode* child = read_list(CFNode*, cfnode->dominates)[i];

@@ -102,7 +102,6 @@ void visit_children(Visitor* visitor, const Node* node) {
         }
         // Instructions
         case Let_TAG: {
-            visit_nodes(visitor, node->payload.let.variables);
             visit(node->payload.let.instruction);
             visit(node->payload.let.tail);
             break;

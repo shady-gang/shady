@@ -185,9 +185,12 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case FnAddr_TAG:        return fn_addr(rewriter->dst_arena, (FnAddr) { .fn = rewrite_node(rewriter, node->payload.fn_addr.fn) });
         case RefDecl_TAG:       return ref_decl(rewriter->dst_arena, (RefDecl) { .decl = rewrite_node(rewriter, node->payload.ref_decl.decl) });
 
-        case Let_TAG:           {
+        case Let_TAG: {
+            assert(!node->payload.let.is_mutable);
             const Node* ninstruction = rewrite_node(rewriter, node->payload.let.instruction);
-            const Nodes output_types = rewriter->dst_arena->config.check_types ? unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type) : import_nodes(rewriter->dst_arena, extract_variable_types(rewriter->src_arena, &node->payload.let.variables));
+            const Node* tail = rewrite_node(rewriter, node->payload.let.tail);
+            return let(rewriter->dst_arena, false, ninstruction, tail);
+            /*const Nodes output_types = rewriter->dst_arena->config.check_types ? unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type) : import_nodes(rewriter->dst_arena, extract_variable_types(rewriter->src_arena, &node->payload.let.variables));
             Nodes oldvars = node->payload.let.variables;
             assert(output_types.count == oldvars.count);
 
@@ -205,7 +208,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
 
             rewritten->payload.let
 
-            return rewritten;
+            return rewritten;*/
         }
         case PrimOp_TAG:        return prim_op(rewriter->dst_arena, (PrimOp) {
             .op = node->payload.prim_op.op,

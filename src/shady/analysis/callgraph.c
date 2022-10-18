@@ -62,12 +62,11 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             visit_nodes(&visitor->visitor, node->payload.call_instr.args);
             break;
         }
-        case Callc_TAG: {
-            const Node* callee = node->payload.callc.callee;
+        case Let_TAG: {
+            const Node* callee = node->payload.let.tail;
             callee = ignore_immediate_fn_addr(callee);
             visit_node(visitor, callee);
-            visit_nodes(&visitor->visitor, node->payload.callc.args);
-            break;
+            visit_node(visitor, node->payload.let.instruction);
         }
         default: visit_children(&visitor->visitor, node);
     }

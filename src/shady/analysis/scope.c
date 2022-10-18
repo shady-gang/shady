@@ -26,16 +26,13 @@ bool compare_node(const Node**, const Node**);
 
 KeyHash hash_location(const CFLocation** ploc) {
     const Node* head = (*ploc)->head;
-    const Node* body = (*ploc)->body;
-    return hash_node(&head) ^ hash_node(&body) ^ (*ploc)->offset;
+    return hash_node(&head);
 }
 
 bool compare_location(const CFLocation** a, const CFLocation** b) {
     const Node* ahead = (*a)->head;
     const Node* bhead = (*b)->head;
-    const Node* abody = (*a)->body;
-    const Node* bbody = (*b)->body;
-    return compare_node(&ahead, &bhead) && compare_node(&abody, &bbody) && (*a)->offset == (*b)->offset;
+    return compare_node(&ahead, &bhead);
 }
 
 typedef struct {
@@ -81,25 +78,35 @@ static void add_edge(ScopeBuildContext* ctx, CFLocation src, CFLocation dst, CFE
 /// Adds an edge to the start of a basic block
 static void add_edge_to_bb(ScopeBuildContext* ctx, CFLocation src, const Node* dest_bb, CFEdgeType type) {
     assert(dest_bb->tag == Lambda_TAG && dest_bb->payload.lam.tier != FnTier_Function);
-    const Node* dest_body = dest_bb->payload.lam.body;
-    assert(dest_body && dest_body->tag == Body_TAG);
     CFLocation dst = {
         .head = dest_bb,
-        .body = dest_body,
     };
     add_edge(ctx, src, dst, type);
 }
 
+static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction) {
+    switch (is_instruction(instruction)) {
+        case NotAnInstruction: error("");
+        case Instruction_Call_TAG:
+        case Instruction_PrimOp_TAG: break;
+        case Instruction_If_TAG:
+            error("TODO")
+            break;
+        case Instruction_Match_TAG:
+        error("TODO")
+            break;
+        case Instruction_Loop_TAG:
+        error("TODO")
+            break;
+        case Instruction_Control_TAG:
+        error("TODO")
+            break;
+    }
+}
+
 static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     CFLocation const location = node->location;
-    const Body* body = &location.head->payload.lam.body->payload.body;
-    assert(body);
-
-    for (size_t i = 0; i < body->instructions.count; i++) {
-        // TODO: walk the body and search for structured constructs...
-    }
-
-    const Node* terminator = body->terminator;
+    const Node* terminator = &location.head->payload.lam.body;
     switch (terminator->tag) {
         case Branch_TAG: {
             switch (terminator->payload.branch.branch_mode) {
@@ -119,11 +126,10 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
             }
             break;
         }
-        case Callc_TAG: {
-            if (terminator->payload.callc.is_return_indirect) break;
-            const Node* target = terminator->payload.callc.join_at;
-            add_edge_to_bb(ctx, location, target, CallcReturnEdge);
-            break;
+        case Let_TAG: {
+            process_instruction(ctx, node, terminator->payload.let.instruction);
+            const Node* target = terminator->payload.let.tail;
+            add_edge_to_bb(ctx, location, target, LetTailEdge);
         }
         case Join_TAG: {
             break;
@@ -143,7 +149,6 @@ Scope build_scope_from_basic_block(const Node* bb) {
     assert(bb->tag == Lambda_TAG);
     CFLocation entry_location = {
         .head = bb,
-        .offset = 0
     };
     return build_scope(entry_location);
 }
@@ -204,7 +209,7 @@ void compute_rpo(Scope* scope) {
 
     debug_print("RPO: ");
     for (size_t i = 0; i < scope->size; i++) {
-        debug_print("%s %d, ", scope->rpo[i]->location.head->payload.lam.name, scope->rpo[i]->location.offset);
+        debug_print("%, ", scope->rpo[i]->location.head->payload.lam.name);
     }
     debug_print("\n");
 }

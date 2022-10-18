@@ -7,6 +7,7 @@ typedef struct CFNode_ CFNode;
 typedef enum {
     UncoloredEdge,
     ForwardEdge,
+    LetTailEdge,
     CallcReturnEdge,
     SelectionMergeTargetEdge,
     LoopBreakEdge,
@@ -24,10 +25,6 @@ typedef struct {
 typedef struct {
     /// The head (function node)
     const Node* head;
-    /// The body we are referring to
-    /// (a given block might have multiple bodies associated with it in the case of structured CF)
-    const Node* body;
-    size_t offset;
 } CFLocation;
 
 struct CFNode_ {
