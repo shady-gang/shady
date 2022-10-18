@@ -88,21 +88,20 @@ N(1, 1, 1, FnAddr, fn_addr) \
 N(1, 1, 1, RefDecl, ref_decl) \
 
 #define INSTRUCTION_NODES(N) \
-N(0, 1, 1, Let, let) \
-N(1, 1, 1, PrimOp, prim_op)  \
 N(1, 1, 1, Call, call_instr)  \
+N(1, 1, 1, PrimOp, prim_op)  \
 N(1, 1, 1, If, if_instr) \
 N(1, 1, 1, Match, match_instr) \
 N(1, 1, 1, Loop, loop_instr) \
+N(1, 1, 1, Control, control) \
 
 #define TERMINATOR_NODES(N) \
-N(1, 1, 1, Branch, branch) \
-N(1, 1, 1, Control, control) \
-N(1, 1, 1, Join, join) \
-N(1, 1, 1, Callc, callc) \
+N(0, 1, 1, Let, let) \
 N(1, 1, 1, TailCall, tail_call) \
-N(1, 1, 1, Return, fn_ret) \
+N(1, 1, 1, Branch, branch) \
+N(1, 1, 1, Join, join) \
 N(1, 0, 1, MergeConstruct, merge_construct) \
+N(1, 1, 1, Return, fn_ret) \
 N(1, 0, 0, Unreachable, unreachable) \
 
 #define NODES(N) \
@@ -114,9 +113,8 @@ TERMINATOR_NODES(N) \
 N(0, 1, 1, Lambda, lam) \
 N(0, 0, 1, Constant, constant) \
 N(0, 1, 1, GlobalVariable, global_variable) \
-N(0, 1, 1, Body, body) \
 N(1, 0, 1, Annotation, annotation) \
-N(1, 0, 1, Root, root)   \
+N(1, 0, 1, Root, root) \
 
 typedef enum NodeTag_ {
 #define NODE_GEN_TAG(_, _2, _3, struct_name, short_name) struct_name##_TAG,
@@ -327,6 +325,9 @@ typedef struct Lambda_ {
     // only for functions
     Nodes annotations;
     Nodes return_types;
+    /// Populated by the parser for the bind pass, should be empty at all other times after that
+    /// (use the Scope analysis to figure out the real scope of a function)
+    Nodes children_continuations;
 } Lambda;
 
 typedef struct Constant_ {
@@ -344,15 +345,6 @@ typedef struct GlobalVariable_ {
     const Node* init;
 } GlobalVariable;
 
-/// The body inside functions, continuations, if branches ...
-typedef struct Body_ {
-    Nodes instructions;
-    const Node* terminator;
-    /// Populated by the parser for the bind pass, should be empty at all other times after that
-    /// (use the Scope analysis to figure out the real scope of a function)
-    Nodes children_continuations;
-} Body;
-
 typedef struct Root_ {
     Nodes declarations;
 } Root;
@@ -367,12 +359,6 @@ INSTRUCTION_NODES(X)
 } InstructionTag;
 
 InstructionTag is_instruction(const Node*);
-
-typedef struct Let_ {
-    Nodes variables;
-    const Node* instruction;
-    bool is_mutable;
-} Let;
 
 // PRIMOP(has_side_effects, name)
 
@@ -476,6 +462,12 @@ typedef struct Loop_ {
     Nodes initial_args;
 } Loop;
 
+/// Structured "control" construct
+typedef struct Control_ {
+    Nodes yield_types;
+    const Node* inside;
+} Control;
+
 //////////////////////////////// Terminators ////////////////////////////////
 
 typedef enum {
@@ -486,6 +478,12 @@ TERMINATOR_NODES(X)
 } TerminatorTag;
 
 TerminatorTag is_terminator(const Node*);
+
+typedef struct Let_ {
+    const Node* instruction;
+    bool is_mutable;
+    Node* tail;
+} Let;
 
 /// A branch. Branches can cause divergence, but they can never cause re-convergence.
 /// @n @p BrJump is guaranteed to not cause divergence, but all the other forms may cause it.
@@ -524,26 +522,11 @@ typedef struct Join_ {
     Nodes args;
 } Join;
 
-typedef struct Control_ {
-    const Node* target;
-    const Node* join_target;
-} Control;
-
 typedef struct Return_ {
     // set to NULL after typing
     const Node* fn;
     Nodes values;
 } Return;
-
-/// Calls to a function, and mentions the basic block/continuation where execution should resume.
-/// NOTE: Since most targets do not allow entering a function from multiple entry points, it is necessary to split functions containing callc.
-/// See lower_callc.c
-typedef struct Callc_ {
-    bool is_return_indirect;
-    const Node* join_at;
-    const Node* callee;
-    Nodes args;
-} Callc;
 
 typedef struct TailCall_ {
     const Node* target;
@@ -606,12 +589,12 @@ NODES(NODE_CTOR)
 #undef NODE_CTOR_DECL_1
 
 const Node* var(IrArena* arena, const Type* type, const char* name);
+
 /// Wraps an instruction and binds the outputs to variables we can use
 /// Should not be used if the instruction have no outputs !
-const Node* let(IrArena* arena, const Node* instruction, size_t variables_count, const char* variable_names[]);
-
+//const Node* let(IrArena* arena, const Node* instruction, size_t variables_count, const char* variable_names[]);
 /// Not meant to be valid IR, useful for the builtin frontend desugaring
-const Node* let_mut(IrArena* arena, const Node* instruction, Nodes types, size_t variables_count, const char* variable_names[]);
+//const Node* let_mut(IrArena* arena, const Node* instruction, Nodes types, size_t variables_count, const char* variable_names[]);
 
 const Node* tuple(IrArena* arena, Nodes contents);
 
@@ -622,13 +605,19 @@ Node* constant(IrArena*, Nodes annotations, const char* name);
 Node* global_var(IrArena*, Nodes annotations, const Type*, String, AddressSpace);
 Type* nominal_type(IrArena*, String name);
 
-typedef struct BodyBuilder_ BodyBuilder;
+const Node* let(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail);
+// const Node* seq(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail);
 
+typedef struct BodyBuilder_ BodyBuilder;
 BodyBuilder* begin_body(IrArena*);
 
 /// Appends an instruction to the builder, may apply optimisations.
-/// If you are interested in the result of one operation, you should obtain it from the return of this function, as it might get optimised out and in such cases this function will account for that
-void append_body(BodyBuilder*, const Node* instruction);
+/// If the arena is typed, returns a list of variables bound to the values yielded by that instruction
+Nodes append_instruction(BodyBuilder*, const Node* instruction);
+
+/// Like append instruction, but you explicitly give it information about any yielded values
+/// ! In untyped arenas, you need to call this because we can't guess how many things are returned without typing info !
+Nodes declare_local_variable(BodyBuilder*, const Node* initial_value, bool mut, Nodes* provided_types, size_t outputs_count, const char* output_names[]);
 
 void copy_instrs(BodyBuilder*, Nodes);
 const Node* finish_body(BodyBuilder* builder, const Node* terminator);
@@ -651,6 +640,7 @@ const Type* uint64_literal(IrArena* arena, uint64_t i);
 //////////////////////////////// IR management ////////////////////////////////
 
 typedef struct {
+    bool name_bound;
     bool check_types;
     bool allow_fold;
     /// Selects which type the subgroup intrinsic primops use to manipulate masks

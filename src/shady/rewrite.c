@@ -198,11 +198,12 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 old_names[i] = oldvars.nodes[i]->payload.var.name;
             }
 
-            const Node* rewritten = (node->payload.let.is_mutable) ?
-                let_mut(rewriter->dst_arena, ninstruction, extract_variable_types(rewriter->dst_arena, &oldvars), output_types.count, old_names) :
-                let(rewriter->dst_arena, ninstruction, output_types.count, old_names);
+            Nodes ntypes = extract_variable_types(rewriter->dst_arena, &oldvars);
+            Node* rewritten = let_internal(rewriter->dst_arena, ninstruction, node->payload.let.is_mutable, &ntypes, output_types.count, old_names);
             for (size_t i = 0; i < oldvars.count; i++)
                 register_processed(rewriter, oldvars.nodes[i], rewritten->payload.let.variables.nodes[i]);
+
+            rewritten->payload.let
 
             return rewritten;
         }
@@ -273,18 +274,12 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             default: SHADY_UNREACHABLE;
         }
         case Control_TAG:     return control(rewriter->dst_arena, (Control) {
-            .target = rewrite_node(rewriter, node->payload.control.target),
-            .join_target = rewrite_node(rewriter, node->payload.control.join_target),
+            .yield_types = rewrite_nodes(rewriter, node->payload.control.yield_types),
+            .inside = rewrite_node(rewriter, node->payload.control.inside),
         });
         case Join_TAG:        return join(rewriter->dst_arena, (Join) {
             .join_point = rewrite_node(rewriter, node->payload.join.join_point),
             .args = rewrite_nodes(rewriter, node->payload.join.args)
-        });
-        case Callc_TAG:         return callc(rewriter->dst_arena, (Callc) {
-            .is_return_indirect = node->payload.callc.is_return_indirect,
-            .callee = rewrite_node(rewriter, node->payload.callc.callee),
-            .join_at = rewrite_node(rewriter, node->payload.callc.join_at),
-            .args = rewrite_nodes(rewriter, node->payload.callc.args),
         });
         case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
             .fn = rewrite_node(rewriter, node->payload.fn_ret.fn),
@@ -309,17 +304,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             return root(rewriter->dst_arena, (Root) {
                 .declarations = decls,
             });
-        }
-        case Body_TAG: {
-            Body old = node->payload.body;
-            assert(old.children_continuations.count == 0 && "run bind first");
-            BodyBuilder* bb = begin_body(rewriter->dst_arena);
-            for (size_t i = 0; i < old.instructions.count; i++) {
-                const Node* instruction = rewrite_node(rewriter, old.instructions.nodes[i]);
-                append_body(bb, instruction);
-            }
-            const Node* terminator = rewrite_node(rewriter, old.terminator);
-            return finish_body(bb, terminator);
         }
         case Annotation_TAG: switch (node->payload.annotation.payload_type) {
             case AnPayloadNone: return annotation(rewriter->dst_arena, (Annotation) {

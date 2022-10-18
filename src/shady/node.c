@@ -145,8 +145,9 @@ case IntLiteral_TAG: {                \
     break;                            \
 }                                     \
 case Let_TAG: {                       \
-    field(let.variables);             \
+    field(let.is_mutable);            \
     field(let.instruction);           \
+    field(let.tail);                  \
     break;                            \
 }                                     \
 case QualifiedType_TAG: {             \

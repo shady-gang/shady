@@ -34,6 +34,7 @@ destroy_ir_arena(old_arena);
 
 CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program) {
     ArenaConfig aconfig = {
+        .name_bound = true,
         .allow_fold = false,
         .check_types = false
     };

@@ -72,7 +72,7 @@ static const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-static const Node* expect_body(ctxparams, const Node*);
+static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminator);
 static const Node* accept_value(ctxparams);
 static const Node* accept_primop(ctxparams);
 static const Node* accept_expr(ctxparams, int);
@@ -388,7 +388,7 @@ static Nodes expect_operands(ctxparams) {
     return final;
 }
 
-static const Node* accept_control_flow_instruction(ctxparams) {
+static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
     Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
         case if_tok: {
@@ -399,12 +399,12 @@ static const Node* accept_control_flow_instruction(ctxparams) {
             expect(condition);
             expect(accept_token(ctx, rpar_tok));
             const Node* merge = config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Selection }) : NULL;
-            const Node* if_true = expect_body(ctx, merge);
+            const Node* if_true = expect_body(ctx, fn, merge);
             bool has_else = accept_token(ctx, else_tok);
             // default to an empty body
             const Node* if_false = NULL;
             if (has_else) {
-                if_false = expect_body(ctx, merge);
+                if_false = expect_body(ctx, fn, merge);
             }
             return if_instr(arena, (If) {
                 .yield_types = yield_types,
@@ -419,7 +419,9 @@ static const Node* accept_control_flow_instruction(ctxparams) {
             Nodes parameters;
             Nodes default_values;
             expect_parameters(ctx, &parameters, &default_values);
-            const Node* body = expect_body(ctx, config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Continue }) : NULL);
+            // by default loops continue forever
+            const Node* default_loop_end_behaviour = config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Continue, .args = nodes(arena, 0, NULL) }) : NULL;
+            const Node* body = expect_body(ctx, fn, default_loop_end_behaviour);
             return loop_instr(arena, (Loop) {
                 .initial_args = default_values,
                 .params = parameters,
@@ -511,13 +513,13 @@ static const Node* accept_primop(ctxparams) {
     });
 }
 
-static const Node* accept_instruction(ctxparams) {
+static const Node* accept_instruction(ctxparams, Node* fn) {
     const Node* instr = config.front_end ? accept_expr(ctx, max_precedence()) : accept_primop(ctx);
 
     if (instr)
         expect(accept_token(ctx, semi_tok) && "Non-control flow instructions must be followed by a semicolon");
 
-    if (!instr) instr = accept_control_flow_instruction(ctx);
+    if (!instr) instr = accept_control_flow_instruction(ctx, fn);
     return instr;
 }
 
@@ -564,22 +566,25 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
     destroy_list(tlist);
 }
 
-static const Node* accept_instruction_maybe_with_let_too(ctxparams) {
+static bool accept_instruction_maybe_with_let_too(ctxparams, BodyBuilder* bb, Node* fn) {
     Strings ids;
     Nodes types;
     if (accept_token(ctx, let_tok)) {
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok));
-        const Node* instruction = accept_instruction(ctx);
-        return let(arena, instruction, ids.count, ids.strings);
+        const Node* instruction = accept_instruction(ctx, fn);
+        declare_local_variable(bb, instruction, false, &types, ids.count, ids.strings);
     } else if (accept_token(ctx, var_tok)) {
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok));
-        const Node* instruction = accept_instruction(ctx);
-        return let_mut(arena, instruction, types, ids.count, ids.strings);
+        const Node* instruction = accept_instruction(ctx, fn);
+        declare_local_variable(bb, instruction, true, &types, ids.count, ids.strings);
     } else {
-        return accept_instruction(ctx);
+        const Node* instr = accept_instruction(ctx, fn);
+        if (!instr) return false;
+        append_instruction(bb, instr);
     }
+    return true;
 }
 
 static const Node* accept_terminator(ctxparams) {
@@ -661,20 +666,16 @@ static const Node* accept_terminator(ctxparams) {
     return NULL;
 }
 
-static const Node* expect_body(ctxparams, const Node* implicit_join) {
+static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminator) {
+    assert(fn->tag == Lambda_TAG && fn->payload.lam.tier == FnTier_Function);
     expect(accept_token(ctx, lbracket_tok));
-    struct List* instructions = new_list(Node*);
-
-    Nodes continuations = nodes(arena, 0, NULL);
+    BodyBuilder* bb = begin_body(arena);
+    Nodes* children_conts = &fn->payload.lam.children_continuations;
 
     while (true) {
-        const Node* instruction = accept_instruction_maybe_with_let_too(ctx);
-        if (!instruction) break;
-        append_list(Node*, instructions, instruction);
+        if (!accept_instruction_maybe_with_let_too(ctx, bb, fn))
+            break;
     }
-
-    Nodes instrs = nodes(arena, entries_count_list(instructions), read_list(const Node*, instructions));
-    destroy_list(instructions);
 
     const Node* terminator = accept_terminator(ctx);
 
@@ -682,8 +683,8 @@ static const Node* expect_body(ctxparams, const Node* implicit_join) {
         expect(accept_token(ctx, semi_tok));
 
     if (!terminator) {
-        if (implicit_join)
-            terminator = implicit_join;
+        if (default_terminator)
+            terminator = default_terminator;
         else
             error("expected terminator: return, jump, branch ...");
     }
@@ -699,18 +700,17 @@ static const Node* expect_body(ctxparams, const Node* implicit_join) {
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL);
             Node* continuation = basic_block(arena, parameters, name);
-            const Node* body = expect_body(ctx, NULL);
-            continuation->payload.lam.body = body;
+            continuation->payload.lam.body = expect_body(ctx, fn, NULL);
             append_list(Node*, conts, continuation);
         }
 
-        continuations = nodes(arena, entries_count_list(conts), read_list(const Node*, conts));
+        *children_conts = concat_nodes(arena, *children_conts, nodes(arena, entries_count_list(conts), read_list(const Node*, conts)));
         destroy_list(conts);
     }
 
     expect(accept_token(ctx, rbracket_tok));
 
-    return body(arena, instrs, terminator, continuations);
+    return finish_body(bb, terminator);
 }
 
 static Nodes accept_annotations(ctxparams) {
@@ -806,10 +806,8 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     Nodes parameters;
     expect_parameters(ctx, &parameters, NULL);
 
-    const Node* body = expect_body(ctx, types.count == 0 ? fn_ret(arena, (Return) { .values = types }) : NULL);
-
     Node* fn = function(arena, parameters, name, annotations, types);
-    fn->payload.lam.body = body;
+    fn->payload.lam.body = expect_body(ctx, fn, types.count == 0 ? fn_ret(arena, (Return) { .values = types }) : NULL);
 
     const Node* declaration = fn;
     assert(declaration);

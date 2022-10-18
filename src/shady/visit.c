@@ -104,6 +104,7 @@ void visit_children(Visitor* visitor, const Node* node) {
         case Let_TAG: {
             visit_nodes(visitor, node->payload.let.variables);
             visit(node->payload.let.instruction);
+            visit(node->payload.let.tail);
             break;
         }
         case PrimOp_TAG: {
@@ -137,11 +138,18 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.loop_instr.initial_args);
             break;
         }
+        case Control_TAG: {
+            visit_nodes(visitor, node->payload.control.yield_types);
+            if (visitor->visit_continuations && node->payload.control.inside->payload.lam.tier == FnTier_BasicBlock) {
+                visit(node->payload.control.inside);
+            }
+            break;
+        }
+        // Terminators
         case TailCall_TAG: {
             visit(node->payload.tail_call.target);
             break;
         }
-        // Terminators
         case Branch_TAG: {
             switch (node->payload.branch.branch_mode) {
                 case BrJump: {
@@ -162,23 +170,9 @@ void visit_children(Visitor* visitor, const Node* node) {
             visit_nodes(visitor, node->payload.branch.args);
             break;
         }
-        case Control_TAG: {
-            if (visitor->visit_continuations) {
-                visit(node->payload.control.target);
-                visit(node->payload.control.join_target);
-            }
-            break;
-        }
         case Join_TAG: {
             visit(node->payload.join.join_point);
             visit_nodes(visitor, node->payload.join.args);
-            break;
-        }
-        case Callc_TAG: {
-            visit(node->payload.callc.callee);
-            if (node->payload.callc.is_return_indirect || visitor->visit_continuations)
-                visit(node->payload.callc.join_at);
-            visit_nodes(visitor, node->payload.callc.args);
             break;
         }
         case Return_TAG: {
@@ -208,6 +202,8 @@ void visit_children(Visitor* visitor, const Node* node) {
             if (visitor->visit_fn_scope_rpo && node->payload.lam.tier == FnTier_Function)
                 visit_fn_blocks_except_head(visitor, node);
 
+            // TODO flag for visiting children_conts ?
+
             break;
         }
         case GlobalVariable_TAG: {
@@ -225,12 +221,6 @@ void visit_children(Visitor* visitor, const Node* node) {
                 case AnPayloadMap: visit_nodes(visitor, node->payload.annotation.values); break;
                 default: error("TODO");
             }
-            break;
-        }
-        case Body_TAG: {
-            visit_nodes(visitor, node->payload.body.instructions);
-            visit(node->payload.body.terminator);
-            visit_nodes(visitor, node->payload.body.children_continuations);
             break;
         }
         case Root_TAG: {

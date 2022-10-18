@@ -23,7 +23,7 @@ typedef struct IrArena_ {
 
 struct BodyBuilder_ {
     IrArena* arena;
-    struct List* list;
+    struct List* stack;
 };
 
 VarId fresh_id(IrArena*);
@@ -31,6 +31,6 @@ VarId fresh_id(IrArena*);
 struct List;
 Nodes list_to_nodes(IrArena*, struct List*);
 
-const Node* body(IrArena*, Nodes instructions, const Node* terminator, Nodes children_continuations);
+//Node* let_internal(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail);
 
 #endif

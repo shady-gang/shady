@@ -138,26 +138,8 @@ static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     }
 }
 
-static void print_body_insides(PrinterCtx* ctx, const Body* body) {
-    for(size_t i = 0; i < body->instructions.count; i++) {
-        printf("\n");
-        print_node(body->instructions.nodes[i]);
-        printf(";");
-    }
-    printf("\n");
-    print_node(body->terminator);
-    printf(";");
-
-    if (body->children_continuations.count > 0) {
-        printf("\n");
-    }
-    for(size_t i = 0; i < body->children_continuations.count; i++) {
-        printf("\n");
-        print_node_impl(ctx, body->children_continuations.nodes[i]);
-    }
-}
-
 static void print_function(PrinterCtx* ctx, const Node* node) {
+    assert(node->tag == Lambda_TAG && node->payload.lam.tier == FnTier_Function);
     print_yield_types(ctx, node->payload.lam.return_types);
     print_param_list(ctx, node->payload.lam.params, NULL);
     if (!node->payload.lam.body)
@@ -165,7 +147,8 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
 
     printf(" {");
     indent(ctx->printer);
-    print_body_insides(ctx, &node->payload.lam.body->payload.body);
+
+    print_node(node->payload.lam.body);
 
     if (node->type != NULL && node->payload.lam.body) {
         bool section_space = false;
@@ -185,8 +168,25 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
         dispose_scope(&scope);
     }
 
+    if (node->payload.lam.children_continuations.count > 0)
+        printf("\n");
+    for(size_t i = 0; i < node->payload.lam.children_continuations.count; i++) {
+        printf("\n");
+        print_node_impl(ctx, node->payload.lam.children_continuations.nodes[i]);
+    }
+
     deindent(ctx->printer);
     printf("\n}");
+}
+
+static void print_lambda_body(PrinterCtx* ctx, const Node* node);
+
+static void print_cf_target(PrinterCtx* ctx, const Node* node) {
+    assert(node->tag == Lambda_TAG);
+    switch (node->payload.lam.tier) {
+        case FnTier_Lambda: break;
+        default: break;
+    }
 }
 
 static void print_annotations(PrinterCtx* ctx, Nodes annotations) {
@@ -374,26 +374,6 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
 static void print_instruction(PrinterCtx* ctx, const Node* node) {
     switch (is_instruction(node)) {
         case NotAnInstruction: assert(false); break;
-        case Let_TAG:
-            if (node->payload.let.variables.count > 0) {
-                printf(GREEN);
-                if (node->payload.let.is_mutable)
-                    printf("var");
-                else
-                    printf("let");
-                printf(RESET);
-                for (size_t i = 0; i < node->payload.let.variables.count; i++) {
-                    printf(" ");
-                    print_node(node->payload.let.variables.nodes[i]->payload.var.type);
-                    printf(YELLOW);
-                    printf(" %s", node->payload.let.variables.nodes[i]->payload.var.name);
-                    printf("~%d", node->payload.let.variables.nodes[i]->payload.var.id);
-                    printf(RESET);
-                }
-                printf(" = ");
-            }
-            print_node(node->payload.let.instruction);
-            break;
         case PrimOp_TAG:
             printf(GREEN);
             printf("%s", primop_names[node->payload.prim_op.op]);
@@ -475,12 +455,41 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             deindent(ctx->printer);
             printf("\n}");
             break;
+        case Control_TAG:
+            printf(BGREEN);
+            printf("control");
+            printf(RESET);
+            printf("(");
+            print_node(node->payload.control.target);
+            print_node(node->payload.control.join_target);
+            printf(")");
+            break;
     }
 }
 
 static void print_terminator(PrinterCtx* ctx, const Node* node) {
     switch (is_terminator(node)) {
         case NotATerminator: assert(false); break;
+        case Let_TAG:
+            if (node->payload.let.variables.count > 0) {
+                printf(GREEN);
+                if (node->payload.let.is_mutable)
+                    printf("var");
+                else
+                    printf("let");
+                printf(RESET);
+                for (size_t i = 0; i < node->payload.let.variables.count; i++) {
+                    printf(" ");
+                    print_node(node->payload.let.variables.nodes[i]->payload.var.type);
+                    printf(YELLOW);
+                    printf(" %s", node->payload.let.variables.nodes[i]->payload.var.name);
+                    printf("~%d", node->payload.let.variables.nodes[i]->payload.var.id);
+                    printf(RESET);
+                }
+                printf(" = ");
+            }
+            print_node(node->payload.let.instruction);
+            break;
         case Return_TAG:
             printf(BGREEN);
             printf("return");
@@ -547,30 +556,6 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.join.join_point);
             printf(")");
             print_args_list(ctx, node->payload.join.args);
-            break;
-        case Control_TAG:
-            printf(BGREEN);
-            printf("control");
-            printf(RESET);
-            printf("(");
-            print_node(node->payload.control.target);
-            print_node(node->payload.control.join_target);
-            printf(")");
-            break;
-        case Callc_TAG:
-            printf(BGREEN);
-            if (node->payload.callc.is_return_indirect)
-                printf("callf ");
-            else
-                printf("callc ");
-            printf(RESET);
-            print_node(node->payload.callc.join_at);
-            printf(" ");
-            print_node(node->payload.callc.callee);
-            for (size_t i = 0; i < node->payload.callc.args.count; i++) {
-                printf(" ");
-                print_node(node->payload.callc.args.nodes[i]);
-            }
             break;
         case Unreachable_TAG:
             printf(BGREEN);
@@ -656,6 +641,8 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         print_instruction(ctx, node);
     else if (is_terminator(node))
         print_terminator(ctx, node);
+    else if (node->tag == Lambda_TAG && node->payload.lam.tier)
+        error("use print_cf_target")
     else if (is_declaration(node)) {
         printf(BYELLOW);
         printf("%s", get_decl_name(node));
@@ -682,17 +669,6 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
                     break;
                 default: break;
             }
-            break;
-        }
-        case Body_TAG: {
-            printf(" {");
-            indent(ctx->printer);
-
-            const Body* body = &node->payload.body;
-            print_body_insides(ctx, body);
-
-            deindent(ctx->printer);
-            printf("\n}");
             break;
         }
         default: error("dunno how to print %s", node_tags[node->tag]);

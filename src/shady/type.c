@@ -318,7 +318,7 @@ const Type* check_type_let(IrArena* arena, Let let) {
     const Type* result_type = let.instruction->type;
 
     // check outputs
-    Nodes var_tys = extract_variable_types(arena, &let.variables);
+    /*Nodes var_tys = extract_variable_types(arena, &let.variables);
     switch (result_type->tag) {
         case Unit_TAG: error("You can only let-bind non-unit nodes");
         case RecordType_TAG: {
@@ -333,9 +333,11 @@ const Type* check_type_let(IrArena* arena, Let let) {
             check_subtype(var_tys.nodes[0], result_type);
             break;
         }
-    }
+    }*/
 
-    return unit_type(arena);
+    error("TODO: check the call to the tail")
+
+    return let.tail->type;
 }
 
 /// Checks the operands to a Primop and returns the produced types
@@ -845,32 +847,6 @@ const Type* check_type_control(IrArena* arena, Control control) {
     error("TODO")
 }
 
-const Type* check_type_callc(IrArena* arena, Callc callc) {
-    for (size_t i = 0; i < callc.args.count; i++) {
-        const Node* argument = callc.args.nodes[i];
-        assert(is_value(argument));
-    }
-
-    const Type* callee_type;
-    bool callee_uniform;
-    deconstruct_operand_type(callc.callee->type, &callee_type, &callee_uniform);
-    callee_type = remove_ptr_type_layer(callee_type);
-
-    const Nodes returned_types = check_callsite_helper(callee_type, extract_types(arena, callc.args));
-
-    const Type* ret_cont_type = callc.join_at->type;
-    if (callc.is_return_indirect) {
-        bool ret_cont_uniform;
-        deconstruct_operand_type(ret_cont_type, &ret_cont_type, &ret_cont_uniform);
-        assert(ret_cont_type->tag == PtrType_TAG);
-        ret_cont_type = ret_cont_type->payload.ptr_type.pointed_type;
-    }
-
-    check_callsite_helper(ret_cont_type, returned_types);
-
-    return NULL;
-}
-
 const Type* check_type_fn_ret(IrArena* arena, Return ret) {
     // TODO check it then !
     return NULL;
@@ -889,11 +865,6 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space
     });
-}
-
-const Type* check_type_body(IrArena* arena, Body body) {
-    assert(body.children_continuations.count == 0);
-    return body.terminator->type;
 }
 
 #pragma GCC diagnostic pop
