@@ -190,25 +190,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             const Node* ninstruction = rewrite_node(rewriter, node->payload.let.instruction);
             const Node* tail = rewrite_node(rewriter, node->payload.let.tail);
             return let(rewriter->dst_arena, false, ninstruction, tail);
-            /*const Nodes output_types = rewriter->dst_arena->config.check_types ? unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type) : import_nodes(rewriter->dst_arena, extract_variable_types(rewriter->src_arena, &node->payload.let.variables));
-            Nodes oldvars = node->payload.let.variables;
-            assert(output_types.count == oldvars.count);
-
-            // TODO: pull into a helper fn
-            LARRAY(const char*, old_names, oldvars.count);
-            for (size_t i = 0; i < oldvars.count; i++) {
-                assert(oldvars.nodes[i]->tag == Variable_TAG);
-                old_names[i] = oldvars.nodes[i]->payload.var.name;
-            }
-
-            Nodes ntypes = extract_variable_types(rewriter->dst_arena, &oldvars);
-            Node* rewritten = let_internal(rewriter->dst_arena, ninstruction, node->payload.let.is_mutable, &ntypes, output_types.count, old_names);
-            for (size_t i = 0; i < oldvars.count; i++)
-                register_processed(rewriter, oldvars.nodes[i], rewritten->payload.let.variables.nodes[i]);
-
-            rewritten->payload.let
-
-            return rewritten;*/
         }
         case PrimOp_TAG:        return prim_op(rewriter->dst_arena, (PrimOp) {
             .op = node->payload.prim_op.op,
@@ -226,16 +207,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             .if_false = rewrite_node(rewriter, node->payload.if_instr.if_false),
         });
         case Loop_TAG: {
-            Nodes oparams = node->payload.loop_instr.params;
-            Nodes nparams = recreate_variables(rewriter, oparams);
-
-            for (size_t i = 0; i < oparams.count; i++)
-                register_processed(rewriter, oparams.nodes[i], nparams.nodes[i]);
             const Node* nbody = rewrite_node(rewriter, node->payload.loop_instr.body);
 
             return loop_instr(rewriter->dst_arena, (Loop) {
                 .yield_types = rewrite_nodes(rewriter, node->payload.loop_instr.yield_types),
-                .params = nparams,
                 .initial_args = rewrite_nodes(rewriter, node->payload.loop_instr.initial_args),
                 .body = nbody,
             });

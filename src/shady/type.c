@@ -217,11 +217,14 @@ static void check_arguments_types_against_parameters_helper(Nodes param_types, N
         check_subtype(param_types.nodes[i], arg_types.nodes[i]);
 }
 
-static Nodes check_callsite_helper(const Type* callee_type, Nodes argument_types) {
+static const Type* check_callsite_helper(IrArena* arena, const Type* callee_type, Nodes argument_types) {
     assert(!contains_qualified_type(callee_type) && callee_type->tag == FnType_TAG);
     const FnType* fn_type = &callee_type->payload.fn_type;
     check_arguments_types_against_parameters_helper(fn_type->param_types, argument_types);
-    return fn_type->return_types;
+    if (fn_type->tier == FnTier_Function)
+        return wrap_multiple_yield_types(arena, fn_type->return_types);
+    else
+        return noret_type(arena);
 }
 
 #pragma GCC diagnostic push
@@ -315,29 +318,11 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
-    const Type* result_type = let.instruction->type;
-
-    // check outputs
-    /*Nodes var_tys = extract_variable_types(arena, &let.variables);
-    switch (result_type->tag) {
-        case Unit_TAG: error("You can only let-bind non-unit nodes");
-        case RecordType_TAG: {
-            if (result_type->payload.record_type.members.count != var_tys.count)
-                error("let variables count != yield count from operation")
-            for (size_t i = 0; i < var_tys.count; i++)
-                check_subtype(var_tys.nodes[i], result_type->payload.record_type.members.nodes[i]);
-            break;
-        }
-        default: {
-            assert(var_tys.count == 1);
-            check_subtype(var_tys.nodes[0], result_type);
-            break;
-        }
-    }*/
-
-    error("TODO: check the call to the tail")
-
-    return let.tail->type;
+    assert(!let.is_mutable && "this is a front-end only thing, we ban it in the IR");
+    Nodes produce_types = unwrap_multiple_yield_types(arena, let.instruction->type);
+    const Type* applied_tail_result = check_callsite_helper(arena, let.tail->type, produce_types);
+    assert(applied_tail_result == noret_type(arena) && "the tail of lets must be noret");
+    return noret_type(arena);
 }
 
 /// Checks the operands to a Primop and returns the produced types
@@ -748,7 +733,7 @@ const Type* check_type_call_instr(IrArena* arena, Call call) {
         assert(callee_uniform);
         callee_type = remove_ptr_type_layer(callee_type);
     }
-    return wrap_multiple_yield_types(arena, check_callsite_helper(callee_type, extract_types(arena, call.args)));
+    return check_callsite_helper(arena, callee_type, extract_types(arena, call.args));
 }
 
 const Type* check_type_if_instr(IrArena* arena, If if_instr) {
@@ -783,8 +768,8 @@ const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
     callee_type = callee_type->payload.ptr_type.pointed_type;
 
     // TODO say something about uniformity of the target ?
-    check_callsite_helper(callee_type, extract_types(arena, tail_call.args));
-    return NULL;
+    check_callsite_helper(arena, callee_type, extract_types(arena, tail_call.args));
+    return noret_type(arena);
 }
 
 const Type* check_type_branch(IrArena* arena, Branch branch) {
@@ -799,7 +784,7 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
             bool target_uniform;
             deconstruct_operand_type(branch.target->type, &target_type, &target_uniform);
             assert(target_uniform && "Non-uniform jump targets are not allowed");
-            check_callsite_helper(target_type, extract_types(arena, branch.args));
+            check_callsite_helper(arena, target_type, extract_types(arena, branch.args));
             return NULL;
         }
         case BrIfElse: {
@@ -810,7 +795,7 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
 
             const Node* branches[2] = { branch.true_target, branch.false_target };
             for (size_t i = 0; i < 2; i++)
-                check_callsite_helper(branches[i]->type, extract_types(arena, branch.args));
+                check_callsite_helper(arena, branches[i]->type, extract_types(arena, branch.args));
 
             return NULL;
         }

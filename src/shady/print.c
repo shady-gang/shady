@@ -160,7 +160,6 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
             }
 
             const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
-            assert(cfnode->location.offset == 0);
             printf("\ncont %s = ", cfnode->location.head->payload.lam.name);
             print_param_list(ctx, cfnode->location.head->payload.lam.params, NULL);
             print_node(cfnode->location.head->payload.lam.body);
@@ -179,14 +178,12 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     printf("\n}");
 }
 
-static void print_lambda_body(PrinterCtx* ctx, const Node* node);
-
-static void print_cf_target(PrinterCtx* ctx, const Node* node) {
-    assert(node->tag == Lambda_TAG);
-    switch (node->payload.lam.tier) {
-        case FnTier_Lambda: break;
-        default: break;
-    }
+static void print_lambda_body(PrinterCtx* ctx, const Node* body) {
+    printf("{");
+    indent(ctx->printer);
+    print_node(body);
+    deindent(ctx->printer);
+    printf("\n}");
 }
 
 static void print_annotations(PrinterCtx* ctx, Nodes annotations) {
@@ -407,13 +404,13 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             print_yield_types(ctx, node->payload.if_instr.yield_types);
             printf("(");
             print_node(node->payload.if_instr.condition);
-            printf(")");
-            print_node(node->payload.if_instr.if_true);
+            printf(") ");
+            print_lambda_body(ctx, node->payload.if_instr.if_true);
             if (node->payload.if_instr.if_false) {
                 printf(GREEN);
-                printf("else");
+                printf(" else ");
                 printf(RESET);
-                print_node(node->payload.if_instr.if_false);
+                print_lambda_body(ctx, node->payload.if_instr.if_false);
             }
             break;
         case Loop_TAG:
@@ -421,8 +418,10 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("loop");
             printf(RESET);
             print_yield_types(ctx, node->payload.loop_instr.yield_types);
-            print_param_list(ctx, node->payload.loop_instr.params, &node->payload.loop_instr.initial_args);
-            print_node(node->payload.loop_instr.body);
+            const Node* body = node->payload.loop_instr.body;
+            assert(body->tag == Lambda_TAG && body->payload.lam.tier == FnTier_Lambda);
+            print_param_list(ctx, body->payload.lam.params, &node->payload.loop_instr.initial_args);
+            print_lambda_body(ctx, body->payload.lam.body);
             break;
         case Match_TAG:
             printf(GREEN);
@@ -459,9 +458,8 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(BGREEN);
             printf("control");
             printf(RESET);
+            print_yield_types(ctx, node->payload.control.yield_types);
             printf("(");
-            print_node(node->payload.control.target);
-            print_node(node->payload.control.join_target);
             printf(")");
             break;
     }
@@ -469,28 +467,47 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
 
 static void print_terminator(PrinterCtx* ctx, const Node* node) {
     switch (is_terminator(node)) {
-        case NotATerminator: assert(false); break;
-        case Let_TAG:
-            if (node->payload.let.variables.count > 0) {
+        case NotATerminator: assert(false);
+        case Let_TAG: {
+            const Node* tail = node->payload.let.tail;
+            if (is_anonymous_lambda(tail)) {
+                // if the let tail is a lambda, we apply some syntactic sugar
+                if (tail->payload.lam.params.count > 0) {
+                    printf(GREEN);
+                    if (node->payload.let.is_mutable)
+                        printf("var");
+                    else
+                        printf("val");
+                    printf(RESET);
+                    Nodes params = tail->payload.lam.params;
+                    for (size_t i = 0; i < params.count; i++) {
+                        printf(" ");
+                        print_node(params.nodes[i]->payload.var.type);
+                        printf(YELLOW);
+                        printf(" %s", params.nodes[i]->payload.var.name);
+                        printf("~%d", params.nodes[i]->payload.var.id);
+                        printf(RESET);
+                    }
+                }
+                printf(" = ");
+                print_node(node->payload.let.instruction);
+                printf(";\n");
+                print_node(node->payload.let.tail);
+            } else {
                 printf(GREEN);
                 if (node->payload.let.is_mutable)
-                    printf("var");
+                    printf("let mut");
                 else
                     printf("let");
                 printf(RESET);
-                for (size_t i = 0; i < node->payload.let.variables.count; i++) {
-                    printf(" ");
-                    print_node(node->payload.let.variables.nodes[i]->payload.var.type);
-                    printf(YELLOW);
-                    printf(" %s", node->payload.let.variables.nodes[i]->payload.var.name);
-                    printf("~%d", node->payload.let.variables.nodes[i]->payload.var.id);
-                    printf(RESET);
-                }
-                printf(" = ");
+                print_node(node->payload.let.instruction);
+                printf(GREEN);
+                printf(" in ");
+                printf(RESET);
+                print_node(node->payload.let.tail);
             }
-            print_node(node->payload.let.instruction);
             break;
-        case Return_TAG:
+        } case Return_TAG:
             printf(BGREEN);
             printf("return");
             printf(RESET);

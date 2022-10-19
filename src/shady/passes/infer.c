@@ -39,7 +39,6 @@ static Nodes infer_types(Context* ctx, Nodes types) {
     return nodes(ctx->rewriter.dst_arena, types.count, new);
 }
 
-static const Node* infer_instruction(Context* ctx, const Node* node);
 static const Node* infer_let(Context* ctx, const Node* node);
 static const Node* infer_terminator(Context* ctx, const Node* node);
 static const Node* infer_value(Context* ctx, const Node* node, const Node* expected_type);
@@ -90,16 +89,6 @@ static const Node* infer_type(Context* ctx, const Type* type) {
     }
 }
 
-static const Node* infer_body(Context* ctx, const Node* node) {
-    if (node == NULL) return NULL;
-
-    BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
-    for (size_t i = 0; i < node->payload.body.instructions.count; i++)
-        append_body(bb, infer_instruction(ctx, node->payload.body.instructions.nodes[i]));
-    const Node* typed_terminator = infer_terminator(ctx, node->payload.body.terminator);
-    return finish_body(bb, typed_terminator);
-}
-
 static const Node* infer_decl(Context* ctx, const Node* node) {
     assert(is_declaration(node));
     const Node* already_done = search_processed(&ctx->rewriter, node);
@@ -114,16 +103,14 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             LARRAY(const Node*, nparams, node->payload.lam.params.count);
             for (size_t i = 0; i < node->payload.lam.params.count; i++) {
                 const Variable* old_param = &node->payload.lam.params.nodes[i]->payload.var;
-                const Type* imported_param_type = infer_type(ctx, node->payload.lam.params.nodes[i]->payload.var.type);
+                const Type* imported_param_type = infer_type(ctx, old_param->type);
                 nparams[i] = var(body_context.rewriter.dst_arena, imported_param_type, old_param->name);
                 register_processed(&body_context.rewriter, node->payload.lam.params.nodes[i], nparams[i]);
             }
 
             Node* fun = NULL;
             switch (node->payload.lam.tier) {
-                case FnTier_Lambda:
-                    fun = lambda(dst_arena, nodes(dst_arena, node->payload.lam.params.count, nparams));
-                    break;
+                case FnTier_Lambda: assert(false);
                 case FnTier_BasicBlock:
                     fun = basic_block(dst_arena, nodes(dst_arena, node->payload.lam.params.count, nparams), string(dst_arena, node->payload.lam.name));
                     break;
@@ -136,7 +123,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             assert(fun);
             register_processed(&ctx->rewriter, node, fun);
 
-            fun->payload.lam.body = infer_body(&body_context, node->payload.lam.body);
+            fun->payload.lam.body = infer_terminator(&body_context, node->payload.lam.body);
 
             return fun;
         }
@@ -173,7 +160,7 @@ static const Type* remove_uniformity_qualifier(const Node* type) {
     return type;
 }
 
-static const Node* infer_value(Context* ctx, const Node* node, const Node* expected_type) {
+static const Node* infer_value(Context* ctx, const Node* node, const Type* expected_type) {
     if (!node) return NULL;
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
@@ -207,6 +194,33 @@ static const Node* infer_value(Context* ctx, const Node* node, const Node* expec
         case Lambda_TAG: return fn_addr(dst_arena, (FnAddr) { .fn = infer_decl(ctx, node) }); // TODO check types match
         default: error("not a value");
     }
+}
+
+static const Node* infer_tail(Context* ctx, const Node* tail, Nodes inferred_arg_type) {
+    assert(tail->tag == Lambda_TAG);
+    assert(inferred_arg_type.count == tail->payload.lam.params.count);
+    IrArena* arena = ctx->rewriter.dst_arena;
+
+    if (is_anonymous_lambda(tail)) {
+        Context body_context = *ctx;
+        LARRAY(const Node*, nparams, tail->payload.lam.params.count);
+        for (size_t i = 0; i < tail->payload.lam.params.count; i++) {
+            const Variable* old_param = &tail->payload.lam.params.nodes[i]->payload.var;
+            // for the param type: use the inferred one if none is already provided
+            // if one is provided, check the inferred argument type is a subtype of the param type
+            const Type* param_type = old_param->type;
+            param_type = param_type ? param_type : inferred_arg_type.nodes[i];
+            assert(is_subtype(param_type, inferred_arg_type.nodes[i]));
+            nparams[i] = var(body_context.rewriter.dst_arena, param_type, old_param->name);
+            register_processed(&body_context.rewriter, tail->payload.lam.params.nodes[i], nparams[i]);
+        }
+
+        Node* fun = lambda(arena, nodes(arena, tail->payload.lam.params.count, nparams));
+        assert(fun);
+        register_processed(&ctx->rewriter, tail, fun);
+
+        fun->payload.lam.body = infer_terminator(&body_context, tail->payload.lam.body);
+    } else return infer_decl(ctx, tail);
 }
 
 static const Node* infer_primop(Context* ctx, const Node* node) {
@@ -357,10 +371,10 @@ static const Node* infer_if(Context* ctx, const Node* node) {
     Context joinable_ctx = *ctx;
     joinable_ctx.join_types = &join_types;
 
-    const Node* true_body = infer_body(&joinable_ctx, node->payload.if_instr.if_true);
+    const Node* true_body = infer_tail(&joinable_ctx, node->payload.if_instr.if_true, nodes(ctx->rewriter.dst_arena, 0, NULL));
     // don't allow seeing the variables made available in the true branch
     joinable_ctx.rewriter = ctx->rewriter;
-    const Node* false_body = infer_body(&joinable_ctx, node->payload.if_instr.if_false);
+    const Node* false_body = infer_tail(&joinable_ctx, node->payload.if_instr.if_false, nodes(ctx->rewriter.dst_arena, 0, NULL));
 
     return if_instr(ctx->rewriter.dst_arena, (If) {
         .yield_types = join_types,
@@ -372,20 +386,20 @@ static const Node* infer_if(Context* ctx, const Node* node) {
 
 static const Node* infer_loop(Context* ctx, const Node* node) {
     assert(node->tag == Loop_TAG);
-
     Context loop_body_ctx = *ctx;
-    Nodes old_params = node->payload.loop_instr.params;
+    const Node* old_body = node->payload.loop_instr.body;
+    Nodes old_params = old_body->payload.lam.params;
     Nodes old_initial_args = node->payload.loop_instr.initial_args;
     assert(old_params.count == old_initial_args.count);
     LARRAY(const Type*, new_params_types, old_params.count);
-    LARRAY(const Node*, new_params, old_params.count);
+    //LARRAY(const Node*, new_params, old_params.count);
     LARRAY(const Node*, new_initial_args, old_params.count);
     for (size_t i = 0; i < old_params.count; i++) {
         const Variable* old_param = &old_params.nodes[i]->payload.var;
         new_params_types[i] = import_node(ctx->rewriter.dst_arena, old_param->type);
         new_initial_args[i] = infer_value(ctx, old_initial_args.nodes[i], new_params_types[i]);
-        new_params[i] = var(loop_body_ctx.rewriter.dst_arena, new_params_types[i], old_param->name);
-        register_processed(&loop_body_ctx.rewriter, old_params.nodes[i], new_params[i]);
+        //new_params[i] = var(loop_body_ctx.rewriter.dst_arena, new_params_types[i], old_param->name);
+        //register_processed(&loop_body_ctx.rewriter, old_params.nodes[i], new_params[i]);
     }
 
     Nodes loop_yield_types = infer_types(ctx, node->payload.loop_instr.yield_types);
@@ -398,56 +412,41 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
 
     return loop_instr(ctx->rewriter.dst_arena, (Loop) {
         .yield_types = loop_yield_types,
-        .params = nodes(ctx->rewriter.dst_arena, old_params.count, new_params),
         .initial_args = nodes(ctx->rewriter.dst_arena, old_params.count, new_initial_args),
-        .body = infer_body(&loop_body_ctx, node->payload.loop_instr.body)
+        .body = infer_tail(&loop_body_ctx, node->payload.loop_instr.body, param_types)
     });
 }
 
-static const Node* infer_instruction(Context* ctx, const Node* node) {
-    switch (node->tag) {
-        case Let_TAG:    return infer_let(ctx, node);
-        case PrimOp_TAG: return infer_primop(ctx, node);
-        case Call_TAG:   return infer_call(ctx, node);
-        case If_TAG:     return infer_if(ctx, node);
-        case Loop_TAG:   return infer_loop(ctx, node);
-        default: error("not an instruction");
+static const Node* infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
+    switch (is_instruction(node)) {
+        case PrimOp_TAG:  return infer_primop(ctx, node);
+        case Call_TAG:    return infer_call  (ctx, node);
+        case If_TAG:      return infer_if    (ctx, node);
+        case Loop_TAG:    return infer_loop  (ctx, node);
+        case Match_TAG:   error("TODO")
+        case Control_TAG: error("TODO")
+        case NotAnInstruction: error("not an instruction");
     }
     SHADY_UNREACHABLE;
 }
 
-static const Node* infer_let(Context* ctx, const Node* node) {
-    assert(node->tag == Let_TAG);
-    const size_t outputs_count = node->payload.let.variables.count;
-
-    const Node* new_rhs = is_value(node->payload.let.instruction) ? infer_value(ctx, node->payload.let.instruction, NULL) : infer_instruction(ctx, node->payload.let.instruction);
-    Nodes output_types = unwrap_multiple_yield_types(ctx->rewriter.dst_arena, new_rhs->type);
-
-    assert(output_types.count == outputs_count);
-
-    LARRAY(const char*, names, outputs_count);
-    for (size_t i = 0; i < outputs_count; i++)
-        names[i] = node->payload.let.variables.nodes[i]->payload.var.name;
-
-    const Node* let_i = let(ctx->rewriter.dst_arena, new_rhs, outputs_count, names);
-
-    // extract the outputs
-    for (size_t i = 0; i < outputs_count; i++) {
-        const Node* old_output = node->payload.let.variables.nodes[i];
-        register_processed(&ctx->rewriter, old_output, let_i->payload.let.variables.nodes[i]);
-    }
-
-    return let_i;
-}
-
-static const Node* infer_fn(Context* ctx, const Node* node) {
-    assert(node->tag == Lambda_TAG);
-    // TODO: handle non-decl functions here
-    return infer_decl(ctx, node);
-}
-
 static const Node* infer_terminator(Context* ctx, const Node* node) {
+    IrArena* arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
+        case Let_TAG: {
+            assert(!node->payload.let.is_mutable);
+            const Node* otail = node->payload.let.tail;
+            assert(otail->tag == Lambda_TAG);
+            Nodes annotated_types = extract_variable_types(arena, &otail->payload.lam.params);
+            bool valid_annotations = true;
+            for (size_t i = 0; i < annotated_types.count; i++) {
+                valid_annotations &= (annotated_types.nodes[i] != NULL);
+            }
+            const Node* inferred_instruction = infer_instruction(ctx, node->payload.let.instruction, wrap_multiple_yield_types(arena, annotated_types));
+            Nodes inferred_yield_types = unwrap_multiple_yield_types(arena, inferred_instruction->type);
+            const Node* inferred_tail = infer_tail(ctx, node->payload.let.tail, inferred_yield_types);
+            return let(arena, false, inferred_instruction, inferred_tail);
+        }
         case Return_TAG: {
             const Node* imported_fn = infer_decl(ctx, node->payload.fn_ret.fn);
             Nodes return_types = imported_fn->payload.lam.return_types;
@@ -464,7 +463,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         case Branch_TAG: {
             switch (node->payload.branch.branch_mode) {
                 case BrJump: {
-                    const Node* ntarget = infer_fn(ctx, node->payload.branch.target);
+                    const Node* ntarget = infer_decl(ctx, node->payload.branch.target);
                     const Type* ntarget_type;
                     bool ntarget_is_uniform;
                     deconstruct_operand_type(ntarget->type, &ntarget_type, &ntarget_is_uniform);
@@ -488,8 +487,8 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                 case BrIfElse: {
                     const Node* ncond = infer_value(ctx, node->payload.branch.branch_condition, bool_type(ctx->rewriter.dst_arena));
 
-                    const Node* t_target = infer_fn(ctx, node->payload.branch.true_target);
-                    const Node* f_target = infer_fn(ctx, node->payload.branch.false_target);
+                    const Node* t_target = infer_decl(ctx, node->payload.branch.true_target);
+                    const Node* f_target = infer_decl(ctx, node->payload.branch.false_target);
 
                     assert(is_operand_uniform(t_target->type));
                     assert(extract_operand_type(t_target->type)->tag == FnType_TAG);
