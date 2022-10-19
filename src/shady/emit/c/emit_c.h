@@ -34,7 +34,7 @@ typedef struct {
 
 String emit_type(Emitter* emitter, const Type* type, const char* identifier);
 String emit_value(Emitter* emitter, const Node* value);
-void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction);
+void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, String outputs[]);
 String emit_body(Emitter* emitter, const Node* body, const Nodes* bbs);
 
 void emit_pack_code(Emitter*, Printer*, const Nodes* src, String dst);

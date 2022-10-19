@@ -131,10 +131,15 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
     switch (is_terminator(terminator)) {
         case NotATerminator: assert(false);
         case Terminator_Join_TAG:
-        case Terminator_Callc_TAG:
-        case Terminator_Control_TAG:
         case Terminator_Branch_TAG: error("this must be lowered away!");
         case Terminator_TailCall_TAG: error("TODO");
+        case Terminator_Let_TAG: {
+            const Node* instruction = terminator->payload.let.instruction;
+            Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
+            LARRAY(String, outputs, yield_types.count);
+            emit_instruction(emitter, p, instruction, outputs);
+            
+        }
         case Terminator_Return_TAG: {
             Nodes args = terminator->payload.fn_ret.values;
             if (args.count == 0) {
@@ -176,21 +181,17 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
     }
 }
 
-static void emit_body_guts(Emitter* emitter, Printer* p, const Node* body) {
-    assert(body && body->tag == Body_TAG);
+static void emit_body_guts(Emitter* emitter, Printer* p, const Node* guts) {
     print(p, "{");
     indent(p);
 
-    for (size_t i = 0; i < body->payload.body.instructions.count; i++)
-        emit_instruction(emitter, p, body->payload.body.instructions.nodes[i]);
-    emit_terminator(emitter, p, body->payload.body.terminator);
+    emit_terminator(emitter, p, guts);
 
     deindent(p);
     print(p, "\n}");
 }
 
 String emit_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
-    assert(body && body->tag == Body_TAG);
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
     emit_body_guts(emitter, p, body);

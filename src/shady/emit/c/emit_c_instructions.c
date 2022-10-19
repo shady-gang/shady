@@ -30,7 +30,7 @@ static void declare_variables_helper(Emitter* emitter, Printer* p, const Nodes* 
     }
 }
 
-static void emit_primop(Emitter* emitter, Printer* p, const PrimOp* prim_op, const Nodes* outputs) {
+static void emit_primop(Emitter* emitter, Printer* p, const PrimOp* prim_op, String outputs[]) {
     enum {
         Infix, Prefix
     } m = Infix;
@@ -147,7 +147,7 @@ static String emit_callee(Emitter* e, const Node* callee) {
         return emit_value(e, callee);
 }
 
-static void emit_call(Emitter* emitter, Printer* p, const Call* call, const Type* result_type, const Nodes* outputs) {
+static void emit_call(Emitter* emitter, Printer* p, const Call* call, const Type* result_type, String outputs[]) {
     Growy* g = new_growy();
     Printer* paramsp = open_growy_as_printer(g);
     for (size_t i = 0; i < call->args.count; i++) {
@@ -173,7 +173,7 @@ static void emit_call(Emitter* emitter, Printer* p, const Call* call, const Type
     free(params);
 }
 
-static void emit_if(Emitter* emitter, Printer* p, const If* if_instr, const Nodes* outputs) {
+static void emit_if(Emitter* emitter, Printer* p, const If* if_instr, String outputs[]) {
     if (outputs->count > 0)
         print(p, "\n/* if yield values */");
     declare_variables_helper(emitter, p, outputs);
@@ -190,7 +190,7 @@ static void emit_if(Emitter* emitter, Printer* p, const If* if_instr, const Node
     free(false_body);
 }
 
-static void emit_match(Emitter* emitter, Printer* p, const Match* match_instr, const Nodes* outputs) {
+static void emit_match(Emitter* emitter, Printer* p, const Match* match_instr, String outputs[]) {
     if (outputs->count > 0)
         print(p, "\n/* match yield values */");
     declare_variables_helper(emitter, p, outputs);
@@ -214,7 +214,7 @@ static void emit_match(Emitter* emitter, Printer* p, const Match* match_instr, c
     print(p, "\n}");
 }
 
-static void emit_loop(Emitter* emitter, Printer* p, const Loop* loop_instr, const Nodes* outputs) {
+static void emit_loop(Emitter* emitter, Printer* p, const Loop* loop_instr, String outputs[]) {
     if (loop_instr->params.count > 0)
         print(p, "\n/* loop parameters */");
     declare_variables_helper(emitter, p, &loop_instr->params);
@@ -231,22 +231,16 @@ static void emit_loop(Emitter* emitter, Printer* p, const Loop* loop_instr, cons
     free(body);
 }
 
-void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction) {
+void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, String outputs[]) {
     assert(is_instruction(instruction));
-    Nodes vars = nodes(emitter->arena, 0, NULL);
-
-    if (instruction->tag == Let_TAG) {
-        vars = instruction->payload.let.variables;
-        instruction = instruction->payload.let.instruction;
-    }
 
     switch (is_instruction(instruction)) {
-        case Instruction_Let_TAG:
         case NotAnInstruction: assert(false);
-        case Instruction_PrimOp_TAG: emit_primop(emitter, p, &instruction->payload.prim_op, &vars);     break;
-        case Instruction_Call_TAG:   emit_call  (emitter, p, &instruction->payload.call_instr, instruction->type, &vars);  break;
-        case Instruction_If_TAG:     emit_if    (emitter, p, &instruction->payload.if_instr, &vars);    break;
-        case Instruction_Match_TAG:  emit_match (emitter, p, &instruction->payload.match_instr, &vars); break;
-        case Instruction_Loop_TAG:   emit_loop  (emitter, p, &instruction->payload.loop_instr, &vars);  break;
+        case Instruction_PrimOp_TAG: emit_primop(emitter, p, &instruction->payload.prim_op,     outputs); break;
+        case Instruction_Call_TAG:   emit_call  (emitter, p, &instruction->payload.call_instr, instruction->type, outputs); break;
+        case Instruction_If_TAG:     emit_if    (emitter, p, &instruction->payload.if_instr,    outputs); break;
+        case Instruction_Match_TAG:  emit_match (emitter, p, &instruction->payload.match_instr, outputs); break;
+        case Instruction_Loop_TAG:   emit_loop  (emitter, p, &instruction->payload.loop_instr,  outputs); break;
+        case Instruction_Control_TAG: error("TODO")
     }
 }
