@@ -13,6 +13,7 @@
 #pragma GCC diagnostic error "-Wswitch"
 
 static String emit_decl(Emitter* emitter, const Node* decl);
+static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator);
 
 String emit_fn_head(Emitter* emitter, const Node* fn) {
     assert(fn->tag == Lambda_TAG);
@@ -127,6 +128,19 @@ String emit_value(Emitter* emitter, const Node* value) {
     return emitted;
 }
 
+static void emit_cf_destination(Emitter* emitter, Printer* p, const Node* destination, size_t num_args, const String args[]) {
+    assert(destination->tag == Lambda_TAG);
+    if (destination->payload.lam.tier == FnTier_BasicBlock) {
+        assert(num_args == 0 && "TODO phis");
+        print(p, "\ngoto %s;", emit_decl(emitter, destination));
+    } else {
+        assert(destination->payload.lam.tier == FnTier_Lambda);
+        for (size_t i = 0; i < num_args; i++)
+            insert_dict(const Node*, String, emitter->emitted, destination->payload.lam.params.nodes[i], args[i]);
+        emit_terminator(emitter, p, destination->payload.lam.body);
+    }
+}
+
 static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator) {
     switch (is_terminator(terminator)) {
         case NotATerminator: assert(false);
@@ -135,10 +149,18 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
         case Terminator_TailCall_TAG: error("TODO");
         case Terminator_Let_TAG: {
             const Node* instruction = terminator->payload.let.instruction;
+            // we declare N local variables in order to store the result of the instruction
             Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
-            LARRAY(String, outputs, yield_types.count);
-            emit_instruction(emitter, p, instruction, outputs);
-            
+            const Nodes tail_params = terminator->payload.let.tail->payload.lam.params;
+            assert(tail_params.count == yield_types.count);
+            LARRAY(String, output_names, yield_types.count);
+            for (size_t i = 0; i < yield_types.count; i++) {
+                output_names[i] = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name, fresh_id(emitter->arena));
+                print(p, "\n%s;", c_emit_type(emitter, yield_types.nodes[i], output_names[i]));
+            }
+            emit_instruction(emitter, p, instruction, strings(emitter->arena, yield_types.count, output_names));
+            emit_cf_destination(emitter, p, terminator->payload.let.tail, yield_types.count, output_names);
+            break;
         }
         case Terminator_Return_TAG: {
             Nodes args = terminator->payload.fn_ret.values;
@@ -155,16 +177,15 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
         }
         case Terminator_MergeConstruct_TAG: {
             Nodes args = terminator->payload.merge_construct.args;
-            const Nodes* phis;
+            Phis phis;
             switch (terminator->payload.merge_construct.construct) {
                 case Selection: phis = emitter->phis.selection; break;
                 case Continue:  phis = emitter->phis.loop_continue; break;
                 case Break:     phis = emitter->phis.loop_break; break;
             }
-            assert(phis && phis->count == args.count);
-            for (size_t i = 0; i < phis->count; i++) {
-                print(p, "\n%s = %s;", emit_value(emitter, phis->nodes[i]), emit_value(emitter, args.nodes[i]));
-            }
+            assert(phis.count == args.count);
+            for (size_t i = 0; i < phis.count; i++)
+                print(p, "\n%s = %s;", phis.strings[i], emit_value(emitter, args.nodes[i]));
 
             switch (terminator->payload.merge_construct.construct) {
                 case Selection: break;

@@ -65,6 +65,7 @@ Nodes append_instruction(BodyBuilder* builder, const Node* instruction) {
         .mut = false,
     };
     append_list(StackEntry, builder->stack, entry);
+    return params;
 }
 
 Nodes declare_local_variable(BodyBuilder* builder, const Node* initial_value, bool mut, Nodes* provided_types, size_t outputs_count, const char* output_names[]) {
@@ -75,11 +76,7 @@ Nodes declare_local_variable(BodyBuilder* builder, const Node* initial_value, bo
         .mut = mut,
     };
     append_list(StackEntry, builder->stack, entry);
-}
-
-void copy_instrs(BodyBuilder* builder, Nodes instructions) {
-    for (size_t i = 0; i < instructions.count; i++)
-        append_instruction(builder, instructions.nodes[i]);
+    return params;
 }
 
 #undef arena
@@ -89,7 +86,7 @@ const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
     for (size_t i = stack_size - 1; i < stack_size; i--) {
         StackEntry entry = read_list(StackEntry, builder->stack)[i];
         entry.tail->payload.lam.body = terminator;
-        terminator = let_internal(builder->arena, entry.mut, entry.instr, entry.tail);
+        terminator = let(builder->arena, entry.mut, entry.instr, entry.tail);
     }
 
     destroy_list(builder->stack);

@@ -15,22 +15,34 @@ void emit_pack_code(Emitter* e, Printer* p, const Nodes* src, String dst) {
     }
 }
 
-void emit_unpack_code(Emitter* e, Printer* p, String src, const Nodes* dst) {
-    for (size_t i = 0; i < dst->count; i++) {
-        print(p, "\n%s = %s->_%d", emit_value(e, dst->nodes[i]), src, i);
+void emit_unpack_code(Emitter* e, Printer* p, String src, Strings dst) {
+    for (size_t i = 0; i < dst.count; i++) {
+        print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
     }
 }
 
-static void declare_variables_helper(Emitter* emitter, Printer* p, const Nodes* vars) {
-    for (size_t i = 0; i < vars->count; i++) {
-        const Variable* var = &vars->nodes[i]->payload.var;
-        String named = format_string(emitter->arena, "%s_%d", var->name, var->id);
-        print(p, "\n%s;", c_emit_type(emitter, var->type, named));
-        insert_dict(const Node*, String, emitter->emitted, vars->nodes[i], named);
+Strings emit_variable_declarations(Emitter* emitter, Printer* p, Nodes vars) {
+    LARRAY(String, names, vars.count);
+    for (size_t i = 0; i < vars.count; i++) {
+        const Variable* var = &vars.nodes[i]->payload.var;
+        names[i] = format_string(emitter->arena, "%s_%d", var->name, var->id);
+        print(p, "\n%s;", c_emit_type(emitter, var->type, names[i]));
+        insert_dict(const Node*, String, emitter->emitted, vars.nodes[i], names[i]);
     }
+    return strings(emitter->arena, vars.count, names);
 }
 
-static void emit_primop(Emitter* emitter, Printer* p, const PrimOp* prim_op, String outputs[]) {
+Strings emit_values(Emitter* emitter, Nodes values) {
+    LARRAY(String, names, values.count);
+    for (size_t i = 0; i < values.count; i++) {
+        names[i] = emit_value(emitter, values.nodes[i]);
+    }
+    return strings(emitter->arena, values.count, names);
+}
+
+static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Strings outputs) {
+    assert(node->tag == PrimOp_TAG);
+    const PrimOp* prim_op = &node->payload.prim_op;
     enum {
         Infix, Prefix
     } m = Infix;
@@ -63,7 +75,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const PrimOp* prim_op, Str
         case load_op: s = "*"; m = Prefix; break;
         case store_op:
             print(p, "\n*%s = %s;", emit_value(emitter, prim_op->operands.nodes[0]), emit_value(emitter, prim_op->operands.nodes[1]));
-            break;
+            return;
         case lea_op: {
             const char* acc = emit_value(emitter, prim_op->operands.nodes[0]);
             assert(acc);
@@ -112,42 +124,33 @@ static void emit_primop(Emitter* emitter, Printer* p, const PrimOp* prim_op, Str
         case PRIMOPS_COUNT: assert(false); break;
     }
 
-    if (outputs == NULL || outputs->count == 0)
-        return;
-
-    LARRAY(const char*, named, outputs->count);
-    for (size_t i = 0; i < outputs->count; i++) {
-        const Variable* var = &outputs->nodes[i]->payload.var;
-        named[i] = format_string(emitter->arena, "%s_%d", var->name, var->id);
-        insert_dict(const Node*, String, emitter->emitted, outputs->nodes[i], named[i]);
-    }
-
-    assert(outputs->count == 1);
-    const Variable* var = &outputs->nodes[0]->payload.var;
-    String decl = emit_type(emitter, outputs->nodes[0]->type, format_string(emitter->arena, "const %s_%d", var->name, var->id));
+    assert(outputs.count == 1);
 
     if (s == NULL) {
         if (rhs)
-            print(p, "\n%s = %s;", decl, rhs);
+            print(p, "\n%s = %s;", outputs.strings[0], rhs);
         else
-            print(p, "\n%s; /* todo: implement %s */", decl, primop_names[prim_op->op]);
+            print(p, "\n%s; /* todo: implement %s */", outputs.strings[0], primop_names[prim_op->op]);
         return;
     }
 
     switch (m) {
-        case Infix: print(p, "\n%s = %s %s %s;", decl, emit_value(emitter, prim_op->operands.nodes[0]), s, emit_value(emitter, prim_op->operands.nodes[1])); break;
-        case Prefix: print(p, "\n%s = %s%s;", decl, s, emit_value(emitter, prim_op->operands.nodes[0])); break;
+        case Infix: print(p, "\n%s = %s %s %s;", outputs.strings[0], emit_value(emitter, prim_op->operands.nodes[0]), s, emit_value(emitter, prim_op->operands.nodes[1])); break;
+        case Prefix: print(p, "\n%s = %s%s;", outputs.strings[0], s, emit_value(emitter, prim_op->operands.nodes[0])); break;
     }
 }
 
 static String emit_callee(Emitter* e, const Node* callee) {
-    if (callee->tag == Lambda_TAG)
+    if (callee->tag == Lambda_TAG) {
+        assert(is_declaration(callee) && "anonymous lambdas are not allowed here");
         return callee->payload.lam.name;
-    else
+    } else
         return emit_value(e, callee);
 }
 
-static void emit_call(Emitter* emitter, Printer* p, const Call* call, const Type* result_type, String outputs[]) {
+static void emit_call(Emitter* emitter, Printer* p, const Node* call_instr, Strings outputs) {
+    assert(call_instr->tag == Call_TAG);
+    const Call* call = &call_instr->payload.call_instr;
     Growy* g = new_growy();
     Printer* paramsp = open_growy_as_printer(g);
     for (size_t i = 0; i < call->args.count; i++) {
@@ -157,56 +160,50 @@ static void emit_call(Emitter* emitter, Printer* p, const Call* call, const Type
     }
     String params = printer_growy_unwrap(paramsp);
 
-    if (outputs->count > 1) {
-        declare_variables_helper(emitter, p, outputs);
+    Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, call_instr->type);
+    assert(yield_types.count == outputs.count);
+    if (yield_types.count > 1) {
         String named = unique_name(emitter->arena, "result");
-        print(p, "\n%s = %s(%s);", emit_type(emitter, result_type, named), emit_callee(emitter, call->callee), params);
+        print(p, "\n%s = %s(%s);", emit_type(emitter, call_instr->type, named), emit_callee(emitter, call->callee), params);
         emit_unpack_code(emitter, p, named, outputs);
-    } else if (outputs->count == 1) {
-        const Variable* var = &outputs->nodes[0]->payload.var;
-        String named = format_string(emitter->arena, "%s_%d", var->name, var->id);
-        print(p, "\n%s = %s(%s);", emit_type(emitter, var->type, named), emit_callee(emitter, call->callee), params);
-        insert_dict(const Node*, String, emitter->emitted, outputs->nodes[0], named);
+    } else if (yield_types.count == 1) {
+        print(p, "\n%s = %s(%s);", emit_type(emitter, call_instr->type, outputs.strings[0]), emit_callee(emitter, call->callee), params);
     } else {
         print(p, "\n%s(%s);", emit_callee(emitter, call->callee), params);
     }
     free(params);
 }
 
-static void emit_if(Emitter* emitter, Printer* p, const If* if_instr, String outputs[]) {
-    if (outputs->count > 0)
-        print(p, "\n/* if yield values */");
-    declare_variables_helper(emitter, p, outputs);
-
+static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Strings outputs) {
+    assert(if_instr->tag == If_TAG);
+    const If* if_ = &if_instr->payload.if_instr;
     Emitter sub_emiter = *emitter;
     sub_emiter.phis.selection = outputs;
 
-    String true_body = emit_body(&sub_emiter, if_instr->if_true, NULL);
-    String false_body = if_instr->if_false ? emit_body(&sub_emiter, if_instr->if_false, NULL) : NULL;
-    print(p, "\nif (%s) %s", emit_value(emitter, if_instr->condition), true_body);
+    String true_body = emit_body(&sub_emiter, if_->if_true, NULL);
+    String false_body = if_->if_false ? emit_body(&sub_emiter, if_->if_false, NULL) : NULL;
+    print(p, "\nif (%s) %s", emit_value(emitter, if_->condition), true_body);
     if (false_body)
         print(p, " else %s", false_body);
     free(true_body);
     free(false_body);
 }
 
-static void emit_match(Emitter* emitter, Printer* p, const Match* match_instr, String outputs[]) {
-    if (outputs->count > 0)
-        print(p, "\n/* match yield values */");
-    declare_variables_helper(emitter, p, outputs);
-
+static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, Strings outputs) {
+    assert(match_instr->tag == Match_TAG);
+    const Match* match = &match_instr->payload.match_instr;
     Emitter sub_emiter = *emitter;
     sub_emiter.phis.selection = outputs;
 
-    print(p, "\nswitch (%s) {", emit_value(emitter, match_instr->inspect));
+    print(p, "\nswitch (%s) {", emit_value(emitter, match->inspect));
     indent(p);
-    for (size_t i = 0; i < match_instr->cases.count; i++) {
-        String case_body = emit_body(&sub_emiter, match_instr->cases.nodes[i], NULL);
-        print(p, "\ncase %s: %s\n", emit_value(emitter, match_instr->literals.nodes[i]), case_body);
+    for (size_t i = 0; i < match->cases.count; i++) {
+        String case_body = emit_body(&sub_emiter, match->cases.nodes[i], NULL);
+        print(p, "\ncase %s: %s\n", emit_value(emitter, match->literals.nodes[i]), case_body);
         free(case_body);
     }
-    if (match_instr->default_case) {
-        String default_case_body = emit_body(&sub_emiter, match_instr->default_case, NULL);
+    if (match->default_case) {
+        String default_case_body = emit_body(&sub_emiter, match->default_case, NULL);
         print(p, "\ndefault: %s\n", default_case_body);
         free(default_case_body);
     }
@@ -214,33 +211,29 @@ static void emit_match(Emitter* emitter, Printer* p, const Match* match_instr, S
     print(p, "\n}");
 }
 
-static void emit_loop(Emitter* emitter, Printer* p, const Loop* loop_instr, String outputs[]) {
-    if (loop_instr->params.count > 0)
-        print(p, "\n/* loop parameters */");
-    declare_variables_helper(emitter, p, &loop_instr->params);
-    if (outputs->count > 0)
-        print(p, "\n/* loop yield values */");
-    declare_variables_helper(emitter, p, outputs);
+static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Strings outputs) {
+    assert(loop_instr->tag == Loop_TAG);
+    const Loop* loop = &loop_instr->payload.loop_instr;
 
     Emitter sub_emiter = *emitter;
-    sub_emiter.phis.loop_continue = &loop_instr->params;
+    sub_emiter.phis.loop_continue = emit_variable_declarations(emitter, p, loop->params);
     sub_emiter.phis.loop_break = outputs;
 
-    String body = emit_body(&sub_emiter, loop_instr->body, NULL);
+    String body = emit_body(&sub_emiter, loop->body, NULL);
     print(p, "\nwhile(true) %s", body);
     free(body);
 }
 
-void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, String outputs[]) {
+void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Strings outputs) {
     assert(is_instruction(instruction));
 
     switch (is_instruction(instruction)) {
         case NotAnInstruction: assert(false);
-        case Instruction_PrimOp_TAG: emit_primop(emitter, p, &instruction->payload.prim_op,     outputs); break;
-        case Instruction_Call_TAG:   emit_call  (emitter, p, &instruction->payload.call_instr, instruction->type, outputs); break;
-        case Instruction_If_TAG:     emit_if    (emitter, p, &instruction->payload.if_instr,    outputs); break;
-        case Instruction_Match_TAG:  emit_match (emitter, p, &instruction->payload.match_instr, outputs); break;
-        case Instruction_Loop_TAG:   emit_loop  (emitter, p, &instruction->payload.loop_instr,  outputs); break;
+        case Instruction_PrimOp_TAG: emit_primop(emitter, p, instruction, outputs); break;
+        case Instruction_Call_TAG:   emit_call  (emitter, p, instruction, outputs); break;
+        case Instruction_If_TAG:     emit_if    (emitter, p, instruction, outputs); break;
+        case Instruction_Match_TAG:  emit_match (emitter, p, instruction, outputs); break;
+        case Instruction_Loop_TAG:   emit_loop  (emitter, p, instruction, outputs); break;
         case Instruction_Control_TAG: error("TODO")
     }
 }
