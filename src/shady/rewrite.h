@@ -45,5 +45,6 @@ const Node* search_processed(const Rewriter*, const Node*);
 /// Same as search_processed but asserts if it fails to find a mapping
 const Node* find_processed(const Rewriter*, const Node*);
 void register_processed(Rewriter*, const Node*, const Node*);
+void register_processed_list(Rewriter*, Nodes, Nodes);
 
 #endif

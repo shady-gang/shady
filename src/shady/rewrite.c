@@ -76,6 +76,8 @@ const Node* find_processed(const Rewriter* ctx, const Node* old) {
 }
 
 void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
+    assert(old->arena == ctx->src_arena);
+    assert(new->arena == ctx->dst_arena);
 #ifndef NDEBUG
     const Node* found = search_processed(ctx, old);
     if (found) {
@@ -92,6 +94,12 @@ void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
     assert(ctx->processed && "this rewriter has no processed cache");
     bool r = insert_dict_and_get_result(const Node*, const Node*, ctx->processed, old, new);
     assert(r);
+}
+
+void register_processed_list(Rewriter* rewriter, Nodes old, Nodes new) {
+    assert(old.count == new.count);
+    for (size_t i = 0; i < old.count; i++)
+        register_processed(rewriter, old.nodes[i], new.nodes[i]);
 }
 
 const Node* recreate_variable(Rewriter* rewriter, const Node* old) {
@@ -128,8 +136,7 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
                     break;
             }
             assert(new && new->tag == Lambda_TAG);
-            for (size_t i = 0; i < new->payload.lam.params.count; i++)
-                register_processed(rewriter, old->payload.lam.params.nodes[i], new->payload.lam.params.nodes[i]);
+            register_processed_list(rewriter, old->payload.lam.params, new->payload.lam.params);
             break;
         }
         default: error("not a decl");

@@ -61,6 +61,7 @@ ExecutionModel execution_model_from_string(const char*);
 
 #define TYPE_NODES(N) \
 N(1, 0, 0, MaskType, mask_type) \
+N(1, 0, 1, JoinPointType, join_point_type) \
 N(1, 0, 0, NoRet, noret_type) \
 N(1, 0, 0, Unit, unit_type) \
 N(1, 0, 1, Int, int_type) \
@@ -173,6 +174,10 @@ typedef struct RecordType_ {
         DecorateBlock
     } special;
 } RecordType;
+
+typedef struct JoinPointType_ {
+    Nodes yield_types;
+} JoinPointType;
 
 typedef enum {
     /// Lambda: binds an argument, can be used as a direct operand in structured constructs
