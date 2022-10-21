@@ -5,10 +5,6 @@
 #include "../type.h"
 #include "../rewrite.h"
 
-#include "list.h"
-
-#include "dict.h"
-
 #include <assert.h>
 
 typedef struct {
@@ -28,80 +24,80 @@ static const Node* process_node(Context* ctx, const Node* node);
 
 static const Node* process_let(Context* ctx, const Node* node) {
     assert(node->tag == Let_TAG);
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    IrArena* arena = ctx->rewriter.dst_arena;
 
-    const Node* instr = node->payload.let.instruction;
-    const Node* ninstr = NULL;
+    const Node* old_instruction = node->payload.let.instruction;
+    const Node* new_instruction = NULL;
     const Node* old_tail = node->payload.let.tail;
     const Node* new_tail = NULL;
 
-    switch (instr->tag) {
+    switch (old_instruction->tag) {
         case If_TAG: {
-            bool has_false_branch = instr->payload.if_instr.if_false;
-            Nodes yield_types = rewrite_nodes(&ctx->rewriter, instr->payload.if_instr.yield_types);
+            bool has_false_branch = old_instruction->payload.if_instr.if_false;
+            Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.if_instr.yield_types);
 
-            const Node* join_point = var(dst_arena, join_point_type(dst_arena, (JoinPointType) { .yield_types = yield_types }), "if_join");
+            const Node* join_point = var(arena, join_point_type(arena, (JoinPointType) { .yield_types = yield_types }), "if_join");
             Context join_context = *ctx;
             join_context.join_points.join_point_selection_merge = join_point;
 
-            Node* true_block = basic_block(dst_arena, nodes(dst_arena, 0, NULL), unique_name(dst_arena, "if_true"));
-            true_block->payload.lam.body = rewrite_node(&join_context.rewriter,  instr->payload.if_instr.if_true);
+            Node* true_block = basic_block(arena, nodes(arena, 0, NULL), unique_name(arena, "if_true"));
+            true_block->payload.lam.body = rewrite_node(&join_context.rewriter,  old_instruction->payload.if_instr.if_true);
 
-            Node* flse_block = basic_block(dst_arena, nodes(dst_arena, 0, NULL), unique_name(dst_arena, "if_false"));
+            Node* flse_block = basic_block(arena, nodes(arena, 0, NULL), unique_name(arena, "if_false"));
             if (has_false_branch)
-                flse_block->payload.lam.body = rewrite_node(&join_context.rewriter,  instr->payload.if_instr.if_false);
+                flse_block->payload.lam.body = rewrite_node(&join_context.rewriter,  old_instruction->payload.if_instr.if_false);
             else {
                 assert(yield_types.count == 0);
-                flse_block->payload.lam.body = join(dst_arena, (Join) { .join_point = join_point, .args = nodes(dst_arena, 0, NULL) });
+                flse_block->payload.lam.body = join(arena, (Join) { .join_point = join_point, .args = nodes(arena, 0, NULL) });
             }
 
-            const Node* branch_t = branch(dst_arena, (Branch) {
+            const Node* branch_t = branch(arena, (Branch) {
                 .branch_mode = BrIfElse,
-                .branch_condition = rewrite_node(&ctx->rewriter, instr->payload.if_instr.condition),
+                .branch_condition = rewrite_node(&ctx->rewriter, old_instruction->payload.if_instr.condition),
                 .true_target = true_block,
                 .false_target = flse_block,
-                .args = nodes(dst_arena, 0, NULL),
+                .args = nodes(arena, 0, NULL),
             });
 
-            Node* if_body = lambda(dst_arena, nodes(dst_arena, 1, (const Node*[]) { join_point }));
+            Node* if_body = lambda(arena, nodes(arena, 1, (const Node*[]) { join_point }));
             if_body->payload.lam.body = branch_t;
-            ninstr = control(dst_arena, (Control) { .yield_types = yield_types, .inside = if_body });
+            new_instruction = control(arena, (Control) { .yield_types = yield_types, .inside = if_body });
             break;
         }
         case Loop_TAG: {
-            const Node* old_loop_body = instr->payload.loop_instr.body;
+            const Node* old_loop_body = old_instruction->payload.loop_instr.body;
 
-            Nodes yield_types = rewrite_nodes(&ctx->rewriter, instr->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, extract_variable_types(dst_arena, &instr->payload.lam.params));
+            Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.yield_types);
+            Nodes param_types = rewrite_nodes(&ctx->rewriter, extract_variable_types(arena, &old_instruction->payload.lam.params));
 
-            const Node* break_point = var(dst_arena, join_point_type(dst_arena, (JoinPointType) { .yield_types = yield_types }), "loop_break_point");
-            const Node* continue_point = var(dst_arena, join_point_type(dst_arena, (JoinPointType) { .yield_types = param_types }), "loop_continue_point");
+            const Node* break_point = var(arena, join_point_type(arena, (JoinPointType) { .yield_types = yield_types }), "loop_break_point");
+            const Node* continue_point = var(arena, join_point_type(arena, (JoinPointType) { .yield_types = param_types }), "loop_continue_point");
             Context join_context = *ctx;
             join_context.join_points.join_point_loop_break = break_point;
             join_context.join_points.join_point_loop_continue = continue_point;
 
             Nodes new_params = recreate_variables(&ctx->rewriter, old_loop_body->payload.lam.params);
-            Node* loop_body = basic_block(dst_arena, new_params, unique_name(dst_arena, "loop_body"));
+            Node* loop_body = basic_block(arena, new_params, unique_name(arena, "loop_body"));
             register_processed_list(&join_context.rewriter, old_loop_body->payload.lam.params, loop_body->payload.lam.params);
 
-            Node* actual_body = lambda(dst_arena, nodes(dst_arena, 1, (const Node*[]) { continue_point }));
+            Node* actual_body = lambda(arena, nodes(arena, 1, (const Node*[]) { continue_point }));
             actual_body->payload.lam.body = rewrite_node(&join_context.rewriter, old_loop_body->payload.lam.body);
 
-            const Node* inner_control = control(dst_arena, (Control) {
+            const Node* inner_control = control(arena, (Control) {
                 .yield_types = param_types,
                 .inside = actual_body,
             });
 
-            loop_body->payload.lam.body = let(dst_arena, false, inner_control, loop_body);
+            loop_body->payload.lam.body = let(arena, false, inner_control, loop_body);
 
-            Node* outer_body = lambda(dst_arena, nodes(dst_arena, 1, (const Node*[]) { break_point }));
-            const Node* initial_jump = branch(dst_arena, (Branch) {
+            Node* outer_body = lambda(arena, nodes(arena, 1, (const Node*[]) { break_point }));
+            const Node* initial_jump = branch(arena, (Branch) {
                 .branch_mode = BrJump,
                 .target = loop_body,
-                .args = rewrite_nodes(&ctx->rewriter, instr->payload.loop_instr.initial_args),
+                .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.initial_args),
             });
             outer_body->payload.lam.body = initial_jump;
-            ninstr = control(dst_arena, (Control) { .yield_types = yield_types, .inside = outer_body });
+            new_instruction = control(arena, (Control) { .yield_types = yield_types, .inside = outer_body });
         }
         default: break;
     }
@@ -109,8 +105,8 @@ static const Node* process_let(Context* ctx, const Node* node) {
     if (!new_tail)
         new_tail = rewrite_node(&ctx->rewriter, old_tail);
 
-    assert(ninstr && new_tail);
-    return let(dst_arena, false, ninstr, new_tail);
+    assert(new_instruction && new_tail);
+    return let(arena, false, new_instruction, new_tail);
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -157,13 +153,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
 const Node* lower_cf_instrs(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     Context ctx = {
         .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process_node),
-        .disable_lowering = false,
     };
-
-    assert(src_program->tag == Root_TAG);
-
     const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
-
     destroy_rewriter(&ctx.rewriter);
     return rewritten;
 }
