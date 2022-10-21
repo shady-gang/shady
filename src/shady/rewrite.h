@@ -18,10 +18,14 @@ Strings     import_strings(IrArena*, Strings);
 struct Rewriter_ {
     IrArena* src_arena;
     IrArena* dst_arena;
-
     RewriteFn rewrite_fn;
     struct Dict* processed;
 };
+
+Rewriter create_rewriter(IrArena* src, IrArena* dst, RewriteFn fn);
+Rewriter create_importer(IrArena* src, IrArena* dst);
+Rewriter create_substituter(IrArena* arena);
+void destroy_rewriter(Rewriter*);
 
 const Node* rewrite_node(Rewriter*, const Node*);
 

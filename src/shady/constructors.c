@@ -205,6 +205,14 @@ Type* nominal_type(IrArena* arena, String name) {
     return create_node_helper(arena, node);
 }
 
+const Node* quote(IrArena* arena, const Node* value) {
+     assert(is_value(value));
+     return prim_op(arena, (PrimOp) {
+         .op = quote_op,
+         .operands = nodes(arena, 1, (const Node*[]){ value })
+     });
+ }
+
 const Type* int8_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy8 }); }
 const Type* int16_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy16 }); }
 const Type* int32_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy32 }); }

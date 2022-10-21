@@ -333,6 +333,10 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     }
 
     switch (prim_op.op) {
+        case quote_op: {
+            assert(prim_op.operands.count == 1);
+            return prim_op.operands.nodes[0]->type;
+        }
         case neg_op: {
             assert(prim_op.operands.count == 1);
             return prim_op.operands.nodes[0]->type;

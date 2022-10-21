@@ -363,6 +363,7 @@ InstructionTag is_instruction(const Node*);
 // PRIMOP(has_side_effects, name)
 
 #define PRIMOPS(P)              \
+P(0, quote)                     \
 P(0, add)                       \
 P(0, sub)                       \
 P(0, mul)                       \
@@ -645,6 +646,10 @@ const Type* uint8_literal(IrArena* arena,  uint8_t i);
 const Type* uint16_literal(IrArena* arena, uint16_t i);
 const Type* uint32_literal(IrArena* arena, uint32_t i);
 const Type* uint64_literal(IrArena* arena, uint64_t i);
+
+/// Turns a value into an 'instruction' (the enclosing let will be folded away later)
+/// Useful for local rewrites
+const Node* quote(IrArena* arena, const Node* value);
 
 //////////////////////////////// IR management ////////////////////////////////
 

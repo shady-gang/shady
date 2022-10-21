@@ -1,6 +1,7 @@
 #include "fold.h"
 #include "type.h"
 #include "portability.h"
+#include "rewrite.h"
 
 #include <assert.h>
 
@@ -24,7 +25,7 @@ const Node* resolve_known_vars(const Node* node, bool stop_at_values) {
     return node;
 }
 
-bool is_zero(const Node* node) {
+static bool is_zero(const Node* node) {
     node = resolve_known_vars(node, false);
     if (node->tag == IntLiteral_TAG) {
         if (extract_int_literal_value(node, false) == 0)
@@ -32,7 +33,8 @@ bool is_zero(const Node* node) {
     }
     return false;
 }
-bool is_one(const Node* node) {
+
+static bool is_one(const Node* node) {
     node = resolve_known_vars(node, false);
     if (node->tag == IntLiteral_TAG) {
         if (extract_int_literal_value(node, false) == 1)
@@ -41,24 +43,57 @@ bool is_one(const Node* node) {
     return false;
 }
 
-const Node* fold_prim_op(SHADY_UNUSED IrArena* arena, const Node* node) {
+/// Substitutes the parameters for the arguments in the function body
+static const Node* reduce_beta(IrArena* arena, const Node* fn, Nodes args) {
+    assert(fn->tag == Lambda_TAG);
+    assert(fn->payload.lam.params.count == args.count);
+    Rewriter r = create_substituter(arena);
+    for (size_t i = 0; i < args.count; i++)
+        register_processed(&r, fn->payload.lam.params.nodes[i], args.nodes[i]);
+    const Node* specialized = rewrite_node(&r, fn->payload.lam.body);
+    destroy_rewriter(&r);
+    return specialized;
+}
+
+static const Node* fold_let(IrArena* arena, const Node* node) {
+    assert(node->tag == Let_TAG);
+    assert(!node->payload.let.is_mutable);
+    const Node* instruction = node->payload.let.instruction;
+    const Node* tail = node->payload.let.tail;
+    switch (instruction->tag) {
+        case PrimOp_TAG: {
+            if (instruction->payload.prim_op.op == quote_op) {
+                const Node* value = instruction->payload.prim_op.operands.nodes[0];
+                if (is_anonymous_lambda(tail)) {
+                    return reduce_beta(arena, tail, nodes(arena, 1, (const Node*[]) { value }));
+                }
+            }
+            break;
+        }
+        default: break;
+    }
+
+    return node;
+}
+
+static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     PrimOp prim_op = node->payload.prim_op;
     switch (prim_op.op) {
         case add_op: {
             // If either operand is zero, destroy the add
             for (size_t i = 0; i < 2; i++)
                 if (is_zero(prim_op.operands.nodes[i]))
-                    return prim_op.operands.nodes[1 - i];
+                    return quote(arena, prim_op.operands.nodes[1 - i]);
             break;
         }
         case mul_op: {
             for (size_t i = 0; i < 2; i++)
                 if (is_zero(prim_op.operands.nodes[i]))
-                    return prim_op.operands.nodes[i]; // return zero !
+                    return quote(arena, prim_op.operands.nodes[i]); // return zero !
 
             for (size_t i = 0; i < 2; i++)
                 if (is_one(prim_op.operands.nodes[i]))
-                    return prim_op.operands.nodes[1 - i];
+                    return quote(arena, prim_op.operands.nodes[1 - i]);
 
             break;
         }
@@ -66,16 +101,25 @@ const Node* fold_prim_op(SHADY_UNUSED IrArena* arena, const Node* node) {
         case convert_op:
             // get rid of identity casts
             if (is_subtype(prim_op.operands.nodes[0], extract_operand_type(prim_op.operands.nodes[1]->type)))
-                return prim_op.operands.nodes[1];
+                return quote(arena, prim_op.operands.nodes[1]);
             break;
         default: break;
     }
     return node;
 }
 
-const Node* fold_node(IrArena* arena, const Node* instruction) {
-    switch (instruction->tag) {
-        case PrimOp_TAG: return fold_prim_op(arena, instruction);
-        default: return instruction;
+const Node* fold_node(IrArena* arena, const Node* node) {
+    const Node* folded = node;
+    switch (node->tag) {
+        case Let_TAG: folded = fold_let(arena, node); break;
+        case PrimOp_TAG: folded = fold_prim_op(arena, node); break;
+        default: break;
     }
+
+    // catch bad folding rules that mess things up
+    if (is_value(node)) assert(is_value(folded));
+    if (is_instruction(node)) assert(is_instruction(folded));
+    if (is_terminator(node)) assert(is_terminator(folded));
+
+    return folded;
 }
