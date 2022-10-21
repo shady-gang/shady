@@ -36,10 +36,10 @@ static const Node* ensure_is_value(Context* ctx, const Node* node) {
             LARRAY(const Node*, ops, og_ops.count);
             for (size_t i = 0; i < og_ops.count; i++)
                 ops[i] = ensure_is_value(ctx, og_ops.nodes[i]);
-            let_bound = let(dst_arena, prim_op(dst_arena, (PrimOp) {
+            let_bound = prim_op(dst_arena, (PrimOp) {
                 .op = node->payload.prim_op.op,
                 .operands = nodes(dst_arena, og_ops.count, ops)
-            }), 1, NULL);
+            });
             break;
         }
         case Call_TAG: {
@@ -48,34 +48,17 @@ static const Node* ensure_is_value(Context* ctx, const Node* node) {
             for (size_t i = 0; i < oargs.count; i++)
                 nargs[i] = ensure_is_value(ctx, oargs.nodes[i]);
             const Node* ncallee = node->payload.call_instr.is_indirect ? ensure_is_value(ctx, node->payload.call_instr.callee) : process_node(ctx, node->payload.call_instr.callee);
-            let_bound = let(dst_arena, call_instr(dst_arena, (Call) {
+            let_bound = call_instr(dst_arena, (Call) {
                 .is_indirect = node->payload.call_instr.is_indirect,
                 .callee = ncallee,
                 .args = nodes(dst_arena, oargs.count, nargs)
-            }), 1, NULL);
+            });
             break;
         }
-        default: {
-            return process_node(ctx, node);
-        }
+        default: return process_node(ctx, node);
     }
 
-    append_body(ctx->bb, let_bound);
-    //register_processed(&ctx->rewriter, node, let_bound->payload.let.variables.nodes[0]);
-    return let_bound->payload.let.variables.nodes[0];
-}
-
-static const Node* process_body(Context* ctx, const Node* old_body) {
-    BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
-    Context in_bb_ctx = *ctx;
-    in_bb_ctx.rewriter.rewrite_fn = (RewriteFn) ensure_is_value;
-    in_bb_ctx.bb = bb;
-
-    Nodes old_instructions = old_body->payload.body.instructions;
-    for (size_t i = 0; i < old_instructions.count; i++)
-        append_body(bb, recreate_node_identity(&in_bb_ctx.rewriter, old_instructions.nodes[i]));
-
-    return finish_body(bb, recreate_node_identity(&in_bb_ctx.rewriter, old_body->payload.body.terminator));
+    return declare_local_variable(ctx->bb, let_bound, false, NULL, 0, NULL).nodes[0];
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -85,8 +68,20 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (already_done)
         return already_done;
 
+    assert(!is_terminator(node));
+
     switch (node->tag) {
-        case Body_TAG: return process_body(ctx, node);
+        case Lambda_TAG: {
+            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
+
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
+            Context in_bb_ctx = *ctx;
+            in_bb_ctx.rewriter.rewrite_fn = (RewriteFn) ensure_is_value;
+            in_bb_ctx.bb = bb;
+
+            new->payload.lam.body = finish_body(bb, recreate_node_identity(&in_bb_ctx.rewriter, node->payload.lam.body));
+            return new;
+        }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }

@@ -31,6 +31,4 @@ VarId fresh_id(IrArena*);
 struct List;
 Nodes list_to_nodes(IrArena*, struct List*);
 
-//Node* let_internal(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail);
-
 #endif

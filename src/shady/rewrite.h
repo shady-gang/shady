@@ -6,7 +6,6 @@
 typedef struct Rewriter_ Rewriter;
 
 typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
-typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
 
 /// Applies the rewriter to all nodes in the collection
 Nodes rewrite_nodes(Rewriter*, Nodes);
