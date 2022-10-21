@@ -315,35 +315,6 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             }
         }
         case Let_TAG: return bind_let(ctx, node);
-        case Loop_TAG: {
-            Context loop_body_ctx = *ctx;
-            Nodes old_params = node->payload.loop_instr.params;
-            LARRAY(const Node*, new_params, old_params.count);
-            for (size_t i = 0; i < old_params.count; i++) {
-                const Variable* old_param = &old_params.nodes[i]->payload.var;
-                const Node* new_param = var(dst_arena, bind_node(ctx, old_param->type), old_param->name);
-                new_params[i] = new_param;
-
-                NamedBindEntry* entry = arena_alloc(ctx->src_arena->arena, sizeof(NamedBindEntry));
-                *entry = (NamedBindEntry) {
-                    .name = string(dst_arena, old_param->name),
-                    .is_var = false,
-                    .node = (Node*) new_param,
-                    .next = NULL
-                };
-                add_binding(&loop_body_ctx, entry);
-                debug_print("Bound loop param %s\n", entry->name);
-            }
-
-            const Node* new_body = bind_node(&loop_body_ctx, node->payload.loop_instr.body);
-
-            return loop_instr(dst_arena, (Loop) {
-                .yield_types = import_nodes(dst_arena, node->payload.loop_instr.yield_types),
-                .initial_args = bind_nodes(ctx, node->payload.loop_instr.initial_args),
-                .body = new_body,
-                .params = nodes(dst_arena, old_params.count, new_params)
-            });
-        }
         case Return_TAG: {
             assert(ctx->current_function);
             return fn_ret(dst_arena, (Return) {
