@@ -7,9 +7,6 @@
 
 #include "../transform/ir_gen_helpers.h"
 
-#include "list.h"
-#include "dict.h"
-
 #include <assert.h>
 
 typedef uint32_t FnPtr;
@@ -17,10 +14,6 @@ typedef uint32_t FnPtr;
 typedef struct Context_ {
     Rewriter rewriter;
     bool disable_lowering;
-    struct Dict* assigned_fn_ptrs;
-    FnPtr next_fn_ptr;
-
-    struct List* new_decls;
 } Context;
 
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
@@ -32,114 +25,67 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         case Lambda_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
             Context ctx2 = *ctx;
-            if (fun->payload.lam.tier == FnTier_Function) {
+            if (fun->payload.lam.tier == FnTier_Function)
                 ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
-                fun->payload.lam.body = lower_callf_process(&ctx2, old->payload.lam.body);
-            }
+            fun->payload.lam.body = lower_callf_process(&ctx2, old->payload.lam.body);
             return fun;
+        }
+        case Return_TAG: {
+            Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.values);
+            BodyBuilder* bb = begin_body(dst_arena);
+            // Pop the convergence token, and join on that
+            const Node* return_convtok = gen_pop_value_stack(bb, "return_convtok", join_point_type(dst_arena, (JoinPointType) { .yield_types = extract_types(dst_arena, nargs) }));
+            // This effectively asserts uniformity
+            return_convtok = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) { return_convtok });
+            // Join up at the return address
+            return finish_body(bb, join(dst_arena, (Join) {
+                .join_point = return_convtok,
+                .args = nargs,
+            }));
         }
         case Let_TAG: {
             if (ctx->disable_lowering)
                 return recreate_node_identity(&ctx->rewriter, old);
 
             const Node* old_instruction = old->payload.let.instruction;
-            if (old_instruction->tag == Call_TAG) {
+            const Node* new_instruction = NULL;
+            const Node* old_tail = old->payload.let.tail;
+            // we convert calls to tail-calls within a control
+            // let(call(...), ret_fn) to let(control(jp => save(jp); tailcall(...)), ret_fn)
+            if (old_instruction->tag == Call_TAG && old_instruction->payload.call_instr.is_indirect) {
+                assert(old_tail->payload.lam.tier == FnTier_Function);
 
+                Nodes returned_types = rewrite_nodes(&ctx->rewriter, extract_variable_types(dst_arena, &old_tail->payload.lam.params));
+                const Type* jpt = join_point_type(dst_arena, (JoinPointType) { .yield_types = returned_types });
+                const Node* jp = var(dst_arena, jpt, "fn_return_point");
+                Node* control_insides = lambda(dst_arena, nodes(dst_arena, 1, (const Node*[]) { jp }));
+                BodyBuilder* instructions = begin_body(dst_arena);
+                // yeet the join point on the stack
+                gen_push_value_stack(instructions, jp);
+                // tail-call to the target immediately afterwards
+                control_insides->payload.lam.body = finish_body(instructions, tail_call(dst_arena, (TailCall) {
+                    .target = rewrite_node(&ctx->rewriter, old_instruction->payload.call_instr.callee),
+                    .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.call_instr.args),
+                }));
+
+                new_instruction = control(dst_arena, (Control) { .yield_types = returned_types, .inside = control_insides });
             }
 
-            // this may miss call instructions...
-            BodyBuilder* instructions = begin_body(dst_arena);
-            for (size_t i = 0; i < old->payload.body.instructions.count; i++)
-                append_body(instructions, rewrite_node(&ctx->rewriter, old->payload.body.instructions.nodes[i]));
+            if (!new_instruction)
+                new_instruction = rewrite_node(&ctx->rewriter, old_instruction);
 
-            const Node* terminator = old->payload.body.terminator;
-
-            switch (terminator->tag) {
-                case Return_TAG: {
-                    Nodes nargs = rewrite_nodes(&ctx->rewriter, terminator->payload.fn_ret.values);
-                    const Type* return_type = fn_type(dst_arena, (FnType) {
-                        .tier = FnTier_Function,
-                        .param_types = extract_types(dst_arena, nargs),
-                        .return_types = nodes(dst_arena, 0, NULL)
-                    });
-                    const Type* return_address_type = ptr_type(dst_arena, (PtrType) {
-                        .address_space = AsProgramCode,
-                        .pointed_type = return_type
-                    });
-
-                    // Pop the return address and the convergence token, and join on that
-                    const Node* return_address = gen_pop_value_stack(instructions, "return_addr", return_address_type);
-                    const Node* return_convtok = gen_pop_value_stack(instructions, "return_convtok", mask_type(dst_arena));
-
-                    // This effectively asserts those things to be uniform...
-                    return_address = gen_primop_ce(instructions, subgroup_broadcast_first_op, 1, (const Node* []) { return_address });
-                    return_convtok = gen_primop_ce(instructions, subgroup_broadcast_first_op, 1, (const Node* []) { return_convtok });
-
-                    // Join up at the return address
-                    /*terminator = join(dst_arena, (Join) {
-                        .is_indirect = true,
-                        .join_at = return_address,
-                        .args = nargs,
-                        .desired_mask = return_convtok,
-                    });*/
-                    error("TODO");
-                    break;
-                }
-                case Callc_TAG: {
-                    assert(terminator->payload.callc.is_return_indirect && "make sure lower_callc runs first !");
-                    // put the return address and a convergence token in the stack
-                    const Node* conv_token = gen_primop_ce(instructions, subgroup_active_mask_op, 0, NULL);
-                    gen_push_value_stack(instructions, conv_token);
-                    gen_push_value_stack(instructions, rewrite_node(&ctx->rewriter, terminator->payload.callc.join_at));
-                    // Branch to the callee
-                    terminator = tail_call(dst_arena, (TailCall) {
-                        .target = rewrite_node(&ctx->rewriter, terminator->payload.callc.callee),
-                        .args = rewrite_nodes(&ctx->rewriter, terminator->payload.callc.args),
-                    });
-                    break;
-                }
-                default: terminator = lower_callf_process(ctx, terminator); break;
-            }
-            return finish_body(instructions, terminator);
+            return let(dst_arena, false, new_instruction, rewrite_node(&ctx->rewriter, old_tail));
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
     }
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 const Node* lower_callf(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
-    struct List* new_decls_list = new_list(const Node*);
-    struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
-    struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
-
     Context ctx = {
-        .rewriter = {
-            .dst_arena = dst_arena,
-            .src_arena = src_arena,
-            .rewrite_fn = (RewriteFn) lower_callf_process,
-            .processed = done,
-        },
+        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) lower_callf_process),
         .disable_lowering = false,
-        .assigned_fn_ptrs = ptrs,
-        .next_fn_ptr = 1,
-
-        .new_decls = new_decls_list,
     };
-
     const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
-    Nodes new_decls = rewritten->payload.root.declarations;
-    for (size_t i = 0; i < entries_count_list(new_decls_list); i++) {
-        new_decls = append_nodes(dst_arena, new_decls, read_list(const Node*, new_decls_list)[i]);
-    }
-    rewritten = root(dst_arena, (Root) {
-        .declarations = new_decls
-    });
-
-    destroy_list(new_decls_list);
-
-    destroy_dict(done);
-    destroy_dict(ptrs);
+    destroy_rewriter(&ctx.rewriter);
     return rewritten;
 }

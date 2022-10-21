@@ -106,7 +106,7 @@ static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const No
 
 static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     CFLocation const location = node->location;
-    const Node* terminator = &location.head->payload.lam.body;
+    const Node* terminator = location.head->payload.lam.body;
     switch (terminator->tag) {
         case Branch_TAG: {
             switch (terminator->payload.branch.branch_mode) {
