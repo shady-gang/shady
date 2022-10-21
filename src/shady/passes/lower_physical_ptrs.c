@@ -9,9 +9,7 @@
 #include "portability.h"
 
 #include "list.h"
-#include "dict.h"
 
-#include <string.h>
 #include <assert.h>
 
 typedef struct Context_ {
@@ -94,108 +92,95 @@ static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const Prim
     return faked_pointer;
 }
 
-static const Node* process_body(Context* ctx, const Node* node) {
-    assert(node->tag == Body_TAG);
+static const Node* process_let(Context* ctx, const Node* node) {
+    assert(node->tag == Let_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    BodyBuilder* instructions = begin_body(dst_arena);
-    Nodes oinstructions = node->payload.body.instructions;
+    const Node* tail = rewrite_node(&ctx->rewriter, node->payload.let.tail);
 
-    for (size_t i = 0; i < oinstructions.count; i++) {
-        const Node* oinstruction = oinstructions.nodes[i];
-        const Node* olet = NULL;
-        if (oinstruction->tag == Let_TAG) {
-            olet = oinstruction;
-            oinstruction = olet->payload.let.instruction;
-        }
+    const Node* oinstruction = node->payload.let.instruction;
+    if (oinstruction->tag == PrimOp_TAG) {
+        const PrimOp* oprim_op = &oinstruction->payload.prim_op;
+        switch (oprim_op->op) {
+            case alloca_op: error("This has to be the slot variant")
+            case alloca_slot_op: {
+                BodyBuilder* instructions = begin_body(dst_arena);
+                const Type* element_type = oprim_op->operands.nodes[0];
+                TypeMemLayout layout = get_mem_layout(ctx->config, dst_arena, element_type);
 
-        if (oinstruction->tag == PrimOp_TAG) {
-            const PrimOp* oprim_op = &oinstruction->payload.prim_op;
-            switch (oprim_op->op) {
-                case alloca_op: error("This has to be the slot variant")
-                case alloca_slot_op: {
-                    if (!olet) continue;
-                    const Type* element_type = oprim_op->operands.nodes[0];
-                    TypeMemLayout layout = get_mem_layout(ctx->config, dst_arena, element_type);
-
-                    const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->src_program, "stack_ptr");
-                    const Node* stack_size = gen_load(instructions, stack_pointer);
-                    register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], stack_size);
-                    stack_size = gen_primop_ce(instructions, add_op, 2, (const Node* []) { stack_size, int32_literal(dst_arena, bytes_to_i32_cells(layout.size_in_bytes)) });
-                    gen_store(instructions, stack_pointer, stack_size);
-                    continue;
-                }
-                case lea_op: {
-                    const Type* ptr_type = oprim_op->operands.nodes[0]->type;
-                    ptr_type = extract_operand_type(ptr_type);
-                    assert(ptr_type->tag == PtrType_TAG);
-                    if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
-                        goto unchanged;
-                    const Node* new = lower_lea(ctx, instructions, oprim_op);
-                    if (olet)
-                        register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], new);
-                    continue;
-                }
-                case reinterpret_op: {
-                    const Type* source_type = oprim_op->operands.nodes[1]->type;
-                    source_type = extract_operand_type(source_type);
-                    if (source_type->tag != PtrType_TAG || !is_as_emulated(ctx, source_type->payload.ptr_type.address_space))
-                        goto unchanged;
-                    // TODO ensure source is an integer and the bit width is appropriate
-                    if (olet)
-                        register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]));
-                    continue;
-                }
-                case load_op:
-                case store_op: {
-                    const Node* old_ptr = oprim_op->operands.nodes[0];
-                    const Type* ptr_type = old_ptr->type;
-                    ptr_type = extract_operand_type(ptr_type);
-                    assert(ptr_type->tag == PtrType_TAG);
-                    if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
-                        goto unchanged;
-
-                    const Type* element_type = ptr_type->payload.ptr_type.pointed_type;
-
-                    const Node* base = NULL;
-                    bool is_backed_by_block_buffer;
-                    switch (ptr_type->payload.ptr_type.address_space) {
-                        case AsPrivatePhysical:
-                            base = ctx->thread_private_memory;
-                            is_backed_by_block_buffer = ctx->tpm_is_block_buffer;
-                            break;
-                        case AsSubgroupPhysical:
-                            base = ctx->subgroup_shared_memory;
-                            is_backed_by_block_buffer = ctx->ssm_is_block_buffer;
-                            break;
-                        default: error("Emulation of this AS is not supported");
-                    }
-
-                    // some address spaces need to put the data in a special 'Block'-based record, so we need an extra lea to match
-                    if (is_backed_by_block_buffer)
-                        base = gen_lea(instructions, base, NULL, nodes(dst_arena, 1, (const Node* []) { int32_literal(dst_arena, 0) }));
-
-                    const Node* fake_ptr = rewrite_node(&ctx->rewriter, old_ptr);
-
-                    if (oprim_op->op == load_op) {
-                        const Node* result = gen_deserialisation(instructions, element_type, base, fake_ptr);
-                        if (olet)
-                            register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], result);
-                    } else {
-                        const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
-                        gen_serialisation(instructions, element_type, base, fake_ptr, value);
-                    }
-                    continue;
-                }
-                default: goto unchanged;
+                const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->src_program, "stack_ptr");
+                const Node* stack_size = gen_load(instructions, stack_pointer);
+                stack_size = gen_primop_ce(instructions, add_op, 2, (const Node* []) { stack_size, int32_literal(dst_arena, bytes_to_i32_cells(layout.size_in_bytes)) });
+                gen_store(instructions, stack_pointer, stack_size);
+                return finish_body(instructions, let(dst_arena, false, quote(dst_arena, stack_size), tail));
             }
-        }
+            case lea_op: {
+                BodyBuilder* instructions = begin_body(dst_arena);
+                const Type* ptr_type = oprim_op->operands.nodes[0]->type;
+                ptr_type = extract_operand_type(ptr_type);
+                assert(ptr_type->tag == PtrType_TAG);
+                if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
+                    break;
+                const Node* new = lower_lea(ctx, instructions, oprim_op);
+                return finish_body(instructions, let(dst_arena, false, quote(dst_arena, new), tail));
+            }
+            case reinterpret_op: {
+                BodyBuilder* instructions = begin_body(dst_arena);
+                const Type* source_type = oprim_op->operands.nodes[1]->type;
+                source_type = extract_operand_type(source_type);
+                if (source_type->tag != PtrType_TAG || !is_as_emulated(ctx, source_type->payload.ptr_type.address_space))
+                    break;
+                // emulated physical pointers do not care about pointers, they're just ints :frog:
+                const Node* imported = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
+                return finish_body(instructions, let(dst_arena, false, quote(dst_arena, imported), tail));
+            }
+            // lowering for either kind of memory accesses is similar
+            case load_op:
+            case store_op: {
+                BodyBuilder* instructions = begin_body(dst_arena);
+                const Node* old_ptr = oprim_op->operands.nodes[0];
+                const Type* ptr_type = old_ptr->type;
+                ptr_type = extract_operand_type(ptr_type);
+                assert(ptr_type->tag == PtrType_TAG);
+                if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
+                    break;
 
-        unchanged:
-        append_body(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
+                const Type* element_type = ptr_type->payload.ptr_type.pointed_type;
+
+                const Node* base = NULL;
+                bool is_backed_by_block_buffer;
+                switch (ptr_type->payload.ptr_type.address_space) {
+                    case AsPrivatePhysical:
+                        base = ctx->thread_private_memory;
+                        is_backed_by_block_buffer = ctx->tpm_is_block_buffer;
+                        break;
+                    case AsSubgroupPhysical:
+                        base = ctx->subgroup_shared_memory;
+                        is_backed_by_block_buffer = ctx->ssm_is_block_buffer;
+                        break;
+                    default: error("Emulation of this AS is not supported");
+                }
+
+                // some address spaces need to put the data in a special 'Block'-based record, so we need an extra lea to match
+                if (is_backed_by_block_buffer)
+                    base = gen_lea(instructions, base, NULL, nodes(dst_arena, 1, (const Node* []) { int32_literal(dst_arena, 0) }));
+
+                const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
+                if (oprim_op->op == load_op) {
+                    const Node* result = gen_deserialisation(instructions, element_type, base, pointer_as_offset);
+                    return finish_body(instructions, let(dst_arena, false, quote(dst_arena, result), tail));
+                } else {
+                    const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
+                    gen_serialisation(instructions, element_type, base, pointer_as_offset, value);
+                    return finish_body(instructions, tail);
+                }
+                SHADY_UNREACHABLE;
+            }
+            default: break;
+        }
     }
 
-    return finish_body(instructions, recreate_node_identity(&ctx->rewriter, node->payload.body.terminator));
+    return let(dst_arena, false, rewrite_node(&ctx->rewriter, oinstruction), tail);
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {
@@ -203,7 +188,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
     if (found) return found;
 
     switch (old->tag) {
-        case Body_TAG: return process_body(ctx, old);
+        case Let_TAG: return process_let(ctx, old);
         case PtrType_TAG: {
             if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
                 return int32_type(ctx->rewriter.dst_arena);
@@ -238,7 +223,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
     }
 }
 
-void update_base_stack_ptrs(Context* ctx) {
+static void update_base_stack_ptrs(Context* ctx) {
     Node* per_thread_stack_ptr = (Node*) find_or_process_decl(&ctx->rewriter, ctx->src_program, "stack_ptr");
     assert(per_thread_stack_ptr && per_thread_stack_ptr->tag == GlobalVariable_TAG);
     per_thread_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_private_memory);
@@ -247,12 +232,8 @@ void update_base_stack_ptrs(Context* ctx) {
     subgroup_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_subgroup_memory);
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* new_decls_list = new_list(const Node*);
-    struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
 
     const Type* stack_base_element = int32_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
@@ -282,12 +263,7 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
     append_list(const Node*, new_decls_list, subgroup_shared_memory);
 
     Context ctx = {
-        .rewriter = {
-            .dst_arena = dst_arena,
-            .src_arena = src_arena,
-            .rewrite_fn = (RewriteFn) process_node,
-            .processed = done,
-        },
+        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process_node),
 
         .config = config,
         .src_program = src_program,
@@ -317,7 +293,6 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
     update_base_stack_ptrs(&ctx);
 
     destroy_list(new_decls_list);
-
-    destroy_dict(done);
+    destroy_rewriter(&ctx.rewriter);
     return rewritten;
 }

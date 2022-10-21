@@ -10,19 +10,17 @@
 #include <string.h>
 #include <assert.h>
 
-Nodes gen_primop(BodyBuilder* instructions, Op op, Nodes operands) {
-    const Node* instruction = prim_op(instructions->arena, (PrimOp) { .op = op, .operands = operands });
-    Nodes output_types = unwrap_multiple_yield_types(instructions->arena, instruction->type);
+#define let $NO$
+
+Nodes gen_primop(BodyBuilder* bb, Op op, Nodes operands) {
+    const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = op, .operands = operands });
+    Nodes output_types = unwrap_multiple_yield_types(bb->arena, instruction->type);
 
     LARRAY(const char*, names, output_types.count);
     for (size_t i = 0; i < output_types.count; i++)
-        names[i] = format_string(instructions->arena, "%s_out", primop_names[op]);
+        names[i] = format_string(bb->arena, "%s_out", primop_names[op]);
 
-    if (output_types.count > 0)
-        instruction = let(instructions->arena,  instruction, output_types.count, names);
-    append_body(instructions, instruction);
-
-    return output_types.count > 0 ? instruction->payload.let.variables : nodes(instructions->arena, 0, NULL);
+    return declare_local_variable(bb, instruction, false, NULL, 0, NULL);
 }
 
 Nodes gen_primop_c(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
@@ -42,7 +40,7 @@ const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes nodes) {
 }
 
 void gen_push_value_stack(BodyBuilder* instructions, const Node* value) {
-    append_body(instructions, prim_op(instructions->arena, (PrimOp) {
+    append_instruction(instructions, prim_op(instructions->arena, (PrimOp) {
         .op = push_stack_op,
         .operands = nodes(instructions->arena, 2, (const Node*[]) { extract_operand_type(value->type), value })
     }));
