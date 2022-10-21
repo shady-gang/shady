@@ -186,6 +186,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Float_TAG:         return float_type(rewriter->dst_arena);
         case Unit_TAG:          return unit_type(rewriter->dst_arena);
         case MaskType_TAG:      return mask_type(rewriter->dst_arena);
+        case JoinPointType_TAG: return join_point_type(rewriter->dst_arena, (JoinPointType) { .yield_types = rewrite_nodes(rewriter, node->payload.join_point_type.yield_types )});
         case RecordType_TAG:    return record_type(rewriter->dst_arena, (RecordType) {
                                     .members = rewrite_nodes(rewriter, node->payload.record_type.members),
                                     .names = import_strings(rewriter->dst_arena, node->payload.record_type.names),

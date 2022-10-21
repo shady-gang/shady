@@ -35,11 +35,13 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         case Lambda_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
             Context ctx2 = *ctx;
-            ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
-            fun->payload.lam.body = lower_callf_process(&ctx2, old->payload.lam.body);
+            if (fun->payload.lam.tier == FnTier_Function) {
+                ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
+                fun->payload.lam.body = lower_callf_process(&ctx2, old->payload.lam.body);
+            }
             return fun;
         }
-        case Body_TAG: {
+        case Let_TAG: {
             if (ctx->disable_lowering)
                 return recreate_node_identity(&ctx->rewriter, old);
 

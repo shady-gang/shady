@@ -347,11 +347,7 @@ const Node* bind_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena
     size_t decls_count = 0;
 
     Context ctx = {
-        .rewriter = {
-            .src_arena = src_arena,
-            .dst_arena = dst_arena,
-            .rewrite_fn = (RewriteFn) bind_node,
-        },
+        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) bind_node),
         .src_arena = src_arena,
         .dst_arena = dst_arena,
         .old_root = source,
@@ -363,6 +359,8 @@ const Node* bind_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena
 
     for (size_t i = 0; i < decls.count; i++)
         resolve_using_name(&ctx, get_decl_name(decls.nodes[i]));
+
+    destroy_rewriter(&ctx.rewriter);
 
     assert(decls_count == decls.count);
     return root(dst_arena, (Root) {

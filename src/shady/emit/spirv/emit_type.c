@@ -48,14 +48,9 @@ static const Node* rewrite_normalize(Rewriter* rewriter, const Node* node) {
 }
 
 const Type* normalize_type(Emitter* emitter, const Type* type) {
-    Rewriter rewriter = {
-        .src_arena = emitter->arena,
-        .dst_arena = emitter->arena,
-        .processed = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
-        .rewrite_fn = rewrite_normalize,
-    };
+    Rewriter rewriter = create_rewriter(emitter->arena, emitter->arena, rewrite_normalize);
     const Node* rewritten = rewrite_node(&rewriter, type);
-    destroy_dict(rewriter.processed);
+    destroy_rewriter(&rewriter);
     return rewritten;
 }
 
