@@ -12,12 +12,12 @@ typedef struct {
 } Context;
 
 /// Removes most instructions that deal with masks and lower them to bitwise operations on integers
-const Node* process_let(Context* ctx, const Node* old_let) {
+const Node* process_let(Context* ctx, const Node* node) {
     IrArena* arena = ctx->rewriter.dst_arena;
 
-    const Node* old_instruction = old_let->payload.let.instruction;
+    const Node* old_instruction = node->payload.let.instruction;
     const Node* instruction = NULL;
-    const Node* tail = rewrite_node(&ctx->rewriter, old_let->payload.let.tail);
+    const Node* tail = rewrite_node(&ctx->rewriter, node->payload.let.tail);
 
     if (old_instruction->tag == PrimOp_TAG) {
         Op op = old_instruction->payload.prim_op.op;

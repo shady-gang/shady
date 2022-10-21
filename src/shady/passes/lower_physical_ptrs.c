@@ -94,50 +94,50 @@ static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const Prim
 
 static const Node* process_let(Context* ctx, const Node* node) {
     assert(node->tag == Let_TAG);
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    IrArena* arena = ctx->rewriter.dst_arena;
 
     const Node* tail = rewrite_node(&ctx->rewriter, node->payload.let.tail);
+    const Node* old_instruction = node->payload.let.instruction;
 
-    const Node* oinstruction = node->payload.let.instruction;
-    if (oinstruction->tag == PrimOp_TAG) {
-        const PrimOp* oprim_op = &oinstruction->payload.prim_op;
+    if (old_instruction->tag == PrimOp_TAG) {
+        const PrimOp* oprim_op = &old_instruction->payload.prim_op;
         switch (oprim_op->op) {
             case alloca_op: error("This has to be the slot variant")
             case alloca_slot_op: {
-                BodyBuilder* instructions = begin_body(dst_arena);
+                BodyBuilder* bb = begin_body(arena);
                 const Type* element_type = oprim_op->operands.nodes[0];
-                TypeMemLayout layout = get_mem_layout(ctx->config, dst_arena, element_type);
+                TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
 
                 const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->src_program, "stack_ptr");
-                const Node* stack_size = gen_load(instructions, stack_pointer);
-                stack_size = gen_primop_ce(instructions, add_op, 2, (const Node* []) { stack_size, int32_literal(dst_arena, bytes_to_i32_cells(layout.size_in_bytes)) });
-                gen_store(instructions, stack_pointer, stack_size);
-                return finish_body(instructions, let(dst_arena, false, quote(dst_arena, stack_size), tail));
+                const Node* stack_size = gen_load(bb, stack_pointer);
+                stack_size = gen_primop_ce(bb, add_op, 2, (const Node* []) { stack_size, int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes)) });
+                gen_store(bb, stack_pointer, stack_size);
+                return finish_body(bb, let(arena, false, quote(arena, stack_size), tail));
             }
             case lea_op: {
-                BodyBuilder* instructions = begin_body(dst_arena);
+                BodyBuilder* bb = begin_body(arena);
                 const Type* ptr_type = oprim_op->operands.nodes[0]->type;
                 ptr_type = extract_operand_type(ptr_type);
                 assert(ptr_type->tag == PtrType_TAG);
                 if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                     break;
-                const Node* new = lower_lea(ctx, instructions, oprim_op);
-                return finish_body(instructions, let(dst_arena, false, quote(dst_arena, new), tail));
+                const Node* new = lower_lea(ctx, bb, oprim_op);
+                return finish_body(bb, let(arena, false, quote(arena, new), tail));
             }
             case reinterpret_op: {
-                BodyBuilder* instructions = begin_body(dst_arena);
+                BodyBuilder* bb = begin_body(arena);
                 const Type* source_type = oprim_op->operands.nodes[1]->type;
                 source_type = extract_operand_type(source_type);
                 if (source_type->tag != PtrType_TAG || !is_as_emulated(ctx, source_type->payload.ptr_type.address_space))
                     break;
                 // emulated physical pointers do not care about pointers, they're just ints :frog:
                 const Node* imported = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
-                return finish_body(instructions, let(dst_arena, false, quote(dst_arena, imported), tail));
+                return finish_body(bb, let(arena, false, quote(arena, imported), tail));
             }
             // lowering for either kind of memory accesses is similar
             case load_op:
             case store_op: {
-                BodyBuilder* instructions = begin_body(dst_arena);
+                BodyBuilder* bb = begin_body(arena);
                 const Node* old_ptr = oprim_op->operands.nodes[0];
                 const Type* ptr_type = old_ptr->type;
                 ptr_type = extract_operand_type(ptr_type);
@@ -163,16 +163,16 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
                 // some address spaces need to put the data in a special 'Block'-based record, so we need an extra lea to match
                 if (is_backed_by_block_buffer)
-                    base = gen_lea(instructions, base, NULL, nodes(dst_arena, 1, (const Node* []) { int32_literal(dst_arena, 0) }));
+                    base = gen_lea(bb, base, NULL, nodes(arena, 1, (const Node* []) { int32_literal(arena, 0) }));
 
                 const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
                 if (oprim_op->op == load_op) {
-                    const Node* result = gen_deserialisation(instructions, element_type, base, pointer_as_offset);
-                    return finish_body(instructions, let(dst_arena, false, quote(dst_arena, result), tail));
+                    const Node* result = gen_deserialisation(bb, element_type, base, pointer_as_offset);
+                    return finish_body(bb, let(arena, false, quote(arena, result), tail));
                 } else {
                     const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
-                    gen_serialisation(instructions, element_type, base, pointer_as_offset, value);
-                    return finish_body(instructions, tail);
+                    gen_serialisation(bb, element_type, base, pointer_as_offset, value);
+                    return finish_body(bb, tail);
                 }
                 SHADY_UNREACHABLE;
             }
@@ -180,7 +180,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
         }
     }
 
-    return let(dst_arena, false, rewrite_node(&ctx->rewriter, oinstruction), tail);
+    return let(arena, false, rewrite_node(&ctx->rewriter, old_instruction), tail);
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {

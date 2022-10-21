@@ -3,7 +3,6 @@
 #include "log.h"
 #include "portability.h"
 #include "list.h"
-#include "dict.h"
 
 #include "../transform/memory_layout.h"
 #include "../transform/ir_gen_helpers.h"
@@ -27,97 +26,89 @@ typedef struct Context_ {
     struct List* new_decls;
 } Context;
 
-static const Node* process_body(Context* ctx, const Node* node) {
-    assert(node->tag == Body_TAG);
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+static const Node* process_let(Context* ctx, const Node* node) {
+    assert(node->tag == Let_TAG);
+    IrArena* arena = ctx->rewriter.dst_arena;
 
-    BodyBuilder* instructions = begin_body(dst_arena);
-    Nodes oinstructions = node->payload.body.instructions;
+    const Node* old_instruction = node->payload.let.instruction;
+    const Node* tail = rewrite_node(&ctx->rewriter, node->payload.let.tail);
 
-    for (size_t i = 0; i < oinstructions.count; i++) {
-        const Node* oinstruction = oinstructions.nodes[i];
-        const Node* olet = NULL;
-        if (oinstruction->tag == Let_TAG) {
-            olet = oinstruction;
-            oinstruction = olet->payload.let.instruction;
-        }
-
-        if (oinstruction->tag == PrimOp_TAG) {
-            const PrimOp* oprim_op = &oinstruction->payload.prim_op;
-            switch (oprim_op->op) {
-                case get_stack_pointer_op:
-                case get_stack_pointer_uniform_op: {
-                    bool uniform = oprim_op->op == get_stack_pointer_uniform_op;
-                    const Node* sp = gen_load(instructions, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer);
-                    register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], sp);
-                    continue;
-                }
-                case set_stack_pointer_op:
-                case set_stack_pointer_uniform_op: {
-                    bool uniform = oprim_op->op == set_stack_pointer_uniform_op;
-                    const Node* val = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
-                    gen_store(instructions, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer, val);
-                    continue;
-                }
-
-                case push_stack_op:
-                case push_stack_uniform_op:
-                case pop_stack_op:
-                case pop_stack_uniform_op: {
-                    const Type* element_type = oprim_op->operands.nodes[0];
-                    TypeMemLayout layout = get_mem_layout(ctx->config, dst_arena, element_type);
-                    const Node* element_size = int32_literal(dst_arena, bytes_to_i32_cells(layout.size_in_bytes));
-
-                    bool push = oprim_op->op == push_stack_op || oprim_op->op == push_stack_uniform_op;
-                    bool uniform = oprim_op->op == push_stack_uniform_op || oprim_op->op == pop_stack_uniform_op;
-
-                    // TODO somehow annotate the uniform guys as uniform
-                    const Node* stack_pointer = uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer;
-                    const Node* stack = uniform ? ctx->uniform_stack : ctx->stack;
-
-                    const Node* stack_size = gen_load(instructions, stack_pointer);
-
-                    if (!push) // for pop, we decrease the stack size first
-                        stack_size = gen_primop_ce(instructions, sub_op, 2, (const Node* []) { stack_size, element_size});
-
-                    const Node* addr = gen_lea(instructions, stack, stack_size, nodes(dst_arena, 1, (const Node* []) { int32_literal(dst_arena, 0) }));
-                    assert(extract_operand_type(addr->type)->tag == PtrType_TAG);
-                    AddressSpace addr_space = extract_operand_type(addr->type)->payload.ptr_type.address_space;
-
-                    addr = gen_primop_ce(instructions, reinterpret_op, 2, (const Node* []) { ptr_type(dst_arena, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr });
-
-                    if (uniform) {
-                        assert(is_operand_uniform(stack_pointer->type));
-                        assert(is_operand_uniform(stack_size->type));
-                        assert(is_operand_uniform(stack->type));
-                        assert(is_operand_uniform(addr->type));
-                    }
-
-                    if (push) {
-                        const Node* new_value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
-                        gen_store(instructions, addr, new_value);
-                    } else {
-                        const Node* popped = gen_primop_ce(instructions, load_op, 1, (const Node* []) {addr});
-                        register_processed(&ctx->rewriter, olet->payload.let.variables.nodes[0], popped);
-                    }
-
-                    if (push)
-                        stack_size = gen_primop_ce(instructions, add_op, 2, (const Node* []) { stack_size, element_size});
-
-                    // store updated stack size
-                    gen_store(instructions, stack_pointer, stack_size);
-
-                    continue;
-                }
-                default: goto unchanged;
+    if (old_instruction->tag == PrimOp_TAG) {
+        const PrimOp* oprim_op = &old_instruction->payload.prim_op;
+        switch (oprim_op->op) {
+            case get_stack_pointer_op:
+            case get_stack_pointer_uniform_op: {
+                BodyBuilder* bb = begin_body(arena);
+                bool uniform = oprim_op->op == get_stack_pointer_uniform_op;
+                const Node* sp = gen_load(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer);
+                return finish_body(bb, let(arena, false, quote(arena, sp), tail));
             }
-        }
+            case set_stack_pointer_op:
+            case set_stack_pointer_uniform_op: {
+                BodyBuilder* bb = begin_body(arena);
+                bool uniform = oprim_op->op == set_stack_pointer_uniform_op;
+                const Node* val = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
+                gen_store(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer, val);
+                return finish_body(bb, tail);
+            }
 
-        unchanged:
-        append_body(instructions, recreate_node_identity(&ctx->rewriter, oinstructions.nodes[i]));
+            case push_stack_op:
+            case push_stack_uniform_op:
+            case pop_stack_op:
+            case pop_stack_uniform_op: {
+                BodyBuilder* bb = begin_body(arena);
+                const Type* element_type = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
+                TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
+                const Node* element_size = int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes));
+
+                bool push = oprim_op->op == push_stack_op || oprim_op->op == push_stack_uniform_op;
+                bool uniform = oprim_op->op == push_stack_uniform_op || oprim_op->op == pop_stack_uniform_op;
+
+                // TODO somehow annotate the uniform guys as uniform
+                const Node* stack_pointer = uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer;
+                const Node* stack = uniform ? ctx->uniform_stack : ctx->stack;
+
+                const Node* stack_size = gen_load(bb, stack_pointer);
+
+                if (!push) // for pop, we decrease the stack size first
+                    stack_size = gen_primop_ce(bb, sub_op, 2, (const Node* []) { stack_size, element_size});
+
+                const Node* addr = gen_lea(bb, stack, stack_size, nodes(arena, 1, (const Node* []) { int32_literal(arena, 0) }));
+                assert(extract_operand_type(addr->type)->tag == PtrType_TAG);
+                AddressSpace addr_space = extract_operand_type(addr->type)->payload.ptr_type.address_space;
+
+                addr = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []) { ptr_type(arena, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr });
+
+                if (uniform) {
+                    assert(is_operand_uniform(stack_pointer->type));
+                    assert(is_operand_uniform(stack_size->type));
+                    assert(is_operand_uniform(stack->type));
+                    assert(is_operand_uniform(addr->type));
+                }
+
+                const Node* popped_value = NULL;
+                if (push)
+                    gen_store(bb, addr, rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]));
+                else
+                    popped_value = gen_primop_ce(bb, load_op, 1, (const Node* []) { addr });
+
+                if (push) // for push, we increase the stack size after the store
+                    stack_size = gen_primop_ce(bb, add_op, 2, (const Node* []) { stack_size, element_size});
+
+                // store updated stack size
+                gen_store(bb, stack_pointer, stack_size);
+
+                if (push)
+                    return finish_body(bb, tail);
+
+                assert(popped_value);
+                return finish_body(bb, let(arena, false, quote(arena, popped_value), tail));
+            }
+            default: break;
+        }
     }
 
-    return finish_body(instructions, recreate_node_identity(&ctx->rewriter, node->payload.body.terminator));
+    return let(arena, false, rewrite_node(&ctx->rewriter, old_instruction), tail);
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {
@@ -125,17 +116,13 @@ static const Node* process_node(Context* ctx, const Node* old) {
     if (found) return found;
 
     switch (old->tag) {
-        case Body_TAG: return process_body(ctx, old);
+        case Let_TAG: return process_let(ctx, old);
         default: return recreate_node_identity(&ctx->rewriter, old);
     }
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* new_decls_list = new_list(const Node*);
-    struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
 
     const Type* stack_base_element = int32_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
@@ -167,12 +154,7 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
     append_list(const Node*, new_decls_list, uniform_stack_ptr_decl);
 
     Context ctx = {
-        .rewriter = {
-            .dst_arena = dst_arena,
-            .src_arena = src_arena,
-            .rewrite_fn = (RewriteFn) process_node,
-            .processed = done,
-        },
+        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process_node),
 
         .config = config,
 
@@ -185,7 +167,6 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
     };
 
     const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
-
     Nodes new_decls = rewritten->payload.root.declarations;
     for (size_t i = 0; i < entries_count_list(new_decls_list); i++) {
         new_decls = append_nodes(dst_arena, new_decls, read_list(const Node*, new_decls_list)[i]);
@@ -195,7 +176,6 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
     });
 
     destroy_list(new_decls_list);
-
-    destroy_dict(done);
+    destroy_rewriter(&ctx.rewriter);
     return rewritten;
 }
