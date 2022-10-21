@@ -46,72 +46,6 @@ static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
     return fn_ptr_as_value(ctx->rewriter.dst_arena, ptr);
 }
 
-static void push_args_stack(SHADY_UNUSED Context* ctx, Nodes args, BodyBuilder* builder) {
-    for (unsigned i = args.count - 1; i < args.count; i--) {
-        gen_push_value_stack(builder, args.nodes[i]);
-    }
-}
-
-static const Node* process_body(Context* ctx, const Node* old_body, BodyBuilder* builder) {
-    IrArena* arena = ctx->rewriter.dst_arena;
-    Nodes old_instructions = old_body->payload.body.instructions;
-    for (size_t i = 0; i < old_instructions.count; i++) {
-        const Node* rewritten = rewrite_node(&ctx->rewriter, old_instructions.nodes[i]);
-        append_body(builder, rewritten);
-    }
-
-    const Node* old_terminator = old_body->payload.body.terminator;
-    const Node* new_terminator = NULL;
-
-    switch (old_terminator->tag) {
-        case TailCall_TAG: {
-            push_args_stack(ctx, rewrite_nodes(&ctx->rewriter, old_terminator->payload.tail_call.args), builder);
-            const Node* target = rewrite_node(&ctx->rewriter, old_terminator->payload.tail_call.target);
-
-            const Node* call = call_instr(arena, (Call) {
-                .is_indirect = false,
-                .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_branch"),
-                .args = nodes(arena, 1, (const Node*[]) { target })
-            });
-
-            append_body(builder, call);
-
-            new_terminator = fn_ret(arena, (Return) { .fn = NULL, .values = nodes(arena, 0, NULL) });
-            break;
-        }
-        case Join_TAG: {
-            //assert(old_terminator->payload.join.is_dynamic);
-            push_args_stack(ctx, rewrite_nodes(&ctx->rewriter, old_terminator->payload.join.args), builder);
-
-            /*const Node* target = rewrite_node(&ctx->rewriter, old_terminator->payload.join.join_at);
-            const Node* mask = rewrite_node(&ctx->rewriter, old_terminator->payload.join.desired_mask);
-
-            const Node* call = call_instr(arena, (Call) {
-                .is_indirect = false,
-                .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_join"),
-                .args = nodes(arena, 2, (const Node*[]) { target, mask })
-            });
-
-            append_body(builder, call);*/
-            error("TODO");
-
-            new_terminator = fn_ret(arena, (Return) { .fn = NULL, .values = nodes(arena, 0, NULL) });
-            break;
-        }
-
-        case Callc_TAG:
-        case Return_TAG: error("We expect that stuff to be already lowered here !")
-
-        case Unreachable_TAG:
-        case MergeConstruct_TAG: new_terminator = rewrite_node(&ctx->rewriter, old_terminator); break;
-        default: error("Unknown terminator");
-    }
-
-    assert(new_terminator);
-
-    return finish_body(builder, new_terminator);
-}
-
 /// Turn a function into a top-level entry point, calling into the top dispatch function.
 static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
@@ -133,7 +67,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     const Node* entry_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
     gen_store(builder, access_decl(&ctx->rewriter, ctx->src_program, "next_mask"), entry_mask);
 
-    append_body(builder, call_instr(dst_arena, (Call) {
+    append_instruction(builder, call_instr(dst_arena, (Call) {
         .is_indirect = false,
         .callee = ctx->god_fn,
         .args = nodes(dst_arena, 0, NULL)
@@ -195,17 +129,63 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Node* popped = gen_pop_value_stack(builder, format_string(dst_arena, "arg%d", i), rewrite_node(&ctx->rewriter, extract_operand_type(old_param->type)));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
-            fun->payload.lam.body = process_body(&ctx2, old->payload.lam.body, builder);
+            fun->payload.lam.body = rewrite_node(&ctx2.rewriter, old->payload.lam.body);
 
             return fun;
 
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
-        case Body_TAG: {
+        case Let_TAG: {
             if (ctx->disable_lowering)
                 return recreate_node_identity(&ctx->rewriter, old);
-            BodyBuilder* builder = begin_body(ctx->rewriter.dst_arena);
-            return process_body(ctx, old, builder);
+
+            const Node* old_instruction = old->payload.let.instruction;
+            if (old_instruction->tag == Control_TAG) {
+                BodyBuilder* bb = begin_body(dst_arena);
+                const Node* target = rewrite_node(&ctx->rewriter, old->payload.let.tail);
+
+                const Node* jp = append_instruction(bb, call_instr(dst_arena, (Call) {
+                    .is_indirect = false,
+                    .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_fork"),
+                    .args = nodes(dst_arena, 1, (const Node*[]) { target })
+                })).nodes[0];
+                gen_push_value_stack(bb, jp);
+                return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .values = nodes(dst_arena, 0, NULL) }));
+            }
+
+            return recreate_node_identity(&ctx->rewriter, old);
+        }
+        case TailCall_TAG: {
+            if (ctx->disable_lowering)
+                return recreate_node_identity(&ctx->rewriter, old);
+            BodyBuilder* bb = begin_body(dst_arena);
+            gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.tail_call.args));
+            const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
+
+            const Node* call = call_instr(dst_arena, (Call) {
+                .is_indirect = false,
+                .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_fork"),
+                .args = nodes(dst_arena, 1, (const Node*[]) { target })
+            });
+            append_instruction(bb, call);
+            return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .values = nodes(dst_arena, 0, NULL) }));
+        }
+        case Join_TAG: {
+            if (ctx->disable_lowering)
+                return recreate_node_identity(&ctx->rewriter, old);
+
+            BodyBuilder* bb = begin_body(dst_arena);
+            gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
+
+            const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
+
+            const Node* call = call_instr(dst_arena, (Call) {
+                .is_indirect = false,
+                .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_join"),
+                .args = nodes(dst_arena, 1, (const Node*[]) { jp })
+            });
+            append_instruction(bb, call);
+            return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .values = nodes(dst_arena, 0, NULL) }));
         }
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
@@ -249,7 +229,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
             BodyBuilder* case_builder = begin_body(dst_arena);
 
             // TODO wrap in if(mask)
-            append_body(case_builder, call_instr(dst_arena, (Call) {
+            append_instruction(case_builder, call_instr(dst_arena, (Call) {
                 .is_indirect = false,
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, 0, NULL)
@@ -265,7 +245,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
         }
     }
 
-    append_body(loop_body_builder, match_instr(dst_arena, (Match) {
+    append_instruction(loop_body_builder, match_instr(dst_arena, (Match) {
         .yield_types = nodes(dst_arena, 0, NULL),
         .inspect = next_function,
         .literals = nodes(dst_arena, entries_count_list(literals), read_list(const Node*, literals)),
@@ -276,16 +256,17 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
     destroy_list(literals);
     destroy_list(cases);
 
-    const Node* loop_body = finish_body(loop_body_builder, unreachable(dst_arena));
+    Node* loop_inside = lambda(dst_arena, nodes(dst_arena, 0, NULL));
+    loop_inside->payload.lam.body = finish_body(loop_body_builder, unreachable(dst_arena));
+
     const Node* the_loop = loop_instr(dst_arena, (Loop) {
         .yield_types = nodes(dst_arena, 0, NULL),
-        .params = nodes(dst_arena, 0, NULL),
         .initial_args = nodes(dst_arena, 0, NULL),
-        .body = loop_body
+        .body = loop_inside
     });
 
     BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_arena);
-    append_body(dispatcher_body_builder, the_loop);
+    append_instruction(dispatcher_body_builder, the_loop);
 
     dispatcher_fn->payload.lam.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
         .values = nodes(dst_arena, 0, NULL),
