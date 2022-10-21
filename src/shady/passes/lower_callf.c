@@ -23,9 +23,6 @@ typedef struct Context_ {
     struct List* new_decls;
 } Context;
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
@@ -44,6 +41,11 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         case Let_TAG: {
             if (ctx->disable_lowering)
                 return recreate_node_identity(&ctx->rewriter, old);
+
+            const Node* old_instruction = old->payload.let.instruction;
+            if (old_instruction->tag == Call_TAG) {
+
+            }
 
             // this may miss call instructions...
             BodyBuilder* instructions = begin_body(dst_arena);
@@ -103,6 +105,9 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         default: return recreate_node_identity(&ctx->rewriter, old);
     }
 }
+
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
 
 const Node* lower_callf(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* new_decls_list = new_list(const Node*);
