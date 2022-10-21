@@ -27,7 +27,6 @@ Strings emit_variable_declarations(Emitter* emitter, Printer* p, Nodes vars) {
         const Variable* var = &vars.nodes[i]->payload.var;
         names[i] = format_string(emitter->arena, "%s_%d", var->name, var->id);
         print(p, "\n%s;", c_emit_type(emitter, var->type, names[i]));
-        insert_dict(const Node*, String, emitter->emitted, vars.nodes[i], names[i]);
     }
     return strings(emitter->arena, vars.count, names);
 }
@@ -174,19 +173,32 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call_instr, Stri
     free(params);
 }
 
+static const Node* get_anonymous_lambda_body(const Node* lambda) {
+    assert(is_anonymous_lambda(lambda));
+    return lambda->payload.lam.body;
+}
+
+static Nodes get_anonymous_lambda_params(const Node* lambda) {
+    assert(is_anonymous_lambda(lambda));
+    return lambda->payload.lam.params;
+}
+
 static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Strings outputs) {
     assert(if_instr->tag == If_TAG);
     const If* if_ = &if_instr->payload.if_instr;
     Emitter sub_emiter = *emitter;
     sub_emiter.phis.selection = outputs;
 
-    String true_body = emit_body(&sub_emiter, if_->if_true, NULL);
-    String false_body = if_->if_false ? emit_body(&sub_emiter, if_->if_false, NULL) : NULL;
+    assert(get_anonymous_lambda_params(if_->if_true).count == 0);
+    String true_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(if_->if_true), NULL);
     print(p, "\nif (%s) %s", emit_value(emitter, if_->condition), true_body);
-    if (false_body)
-        print(p, " else %s", false_body);
     free(true_body);
-    free(false_body);
+    if (if_->if_false) {
+        assert(get_anonymous_lambda_params(if_->if_false).count == 0);
+        String false_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(if_->if_false), NULL);
+        print(p, " else %s", false_body);
+        free(false_body);
+    }
 }
 
 static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, Strings outputs) {
@@ -198,12 +210,12 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, St
     print(p, "\nswitch (%s) {", emit_value(emitter, match->inspect));
     indent(p);
     for (size_t i = 0; i < match->cases.count; i++) {
-        String case_body = emit_body(&sub_emiter, match->cases.nodes[i], NULL);
+        String case_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(match->cases.nodes[i]), NULL);
         print(p, "\ncase %s: %s\n", emit_value(emitter, match->literals.nodes[i]), case_body);
         free(case_body);
     }
     if (match->default_case) {
-        String default_case_body = emit_body(&sub_emiter, match->default_case, NULL);
+        String default_case_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(match->default_case), NULL);
         print(p, "\ndefault: %s\n", default_case_body);
         free(default_case_body);
     }
@@ -215,11 +227,15 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Stri
     assert(loop_instr->tag == Loop_TAG);
     const Loop* loop = &loop_instr->payload.loop_instr;
 
-    Emitter sub_emiter = *emitter;
-    sub_emiter.phis.loop_continue = emit_variable_declarations(emitter, p, loop->params);
-    sub_emiter.phis.loop_break = outputs;
+    Nodes params = get_anonymous_lambda_params(loop->body);
+    Strings eparams = emit_variable_declarations(emitter, p, params);
 
-    String body = emit_body(&sub_emiter, loop->body, NULL);
+    Emitter sub_emiter = *emitter;
+    sub_emiter.phis.loop_continue = eparams;
+    sub_emiter.phis.loop_break = outputs;
+    register_emitted_list(&sub_emiter, params, eparams);
+
+    String body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(loop->body), NULL);
     print(p, "\nwhile(true) %s", body);
     free(body);
 }

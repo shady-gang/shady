@@ -202,25 +202,27 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
     }
 }
 
-static void emit_body_guts(Emitter* emitter, Printer* p, const Node* guts) {
+void emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, const Nodes* bbs) {
+    assert(is_terminator(body));
     print(p, "{");
     indent(p);
 
-    emit_terminator(emitter, p, guts);
+    emit_terminator(emitter, p, body);
+
+    if (bbs && bbs->count > 0) {
+        assert(emitter->config.dialect != GLSL);
+        error("TODO");
+    }
 
     deindent(p);
     print(p, "\n}");
 }
 
-String emit_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
+String emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
-    emit_body_guts(emitter, p, body);
+    emit_lambda_body_at(emitter, p, body, bbs);
     growy_append_bytes(g, 1, (char[]) { 0 });
-    if (bbs && bbs->count > 0) {
-        assert(emitter->config.dialect != GLSL);
-        error("TODO");
-    }
     return printer_growy_unwrap(p);
 }
 
@@ -241,22 +243,22 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
             decl_type = decl->payload.global_variable.type;
             // users of the global variable are actually using its address
             emit_as = format_string(emitter->arena, "(&%s)", name);
-            insert_dict(const Node*, String, emitter->emitted, decl, emit_as);
+            register_emitted(emitter, decl, emit_as);
             if (decl->payload.global_variable.init)
                 print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), emit_value(emitter, decl->payload.global_variable.init));
             break;
         }
         case Lambda_TAG: {
             emit_as = name;
-            insert_dict(const Node*, String, emitter->emitted, decl, emit_as);
+            register_emitted(emitter, decl, emit_as);
             const Node* body = decl->payload.lam.body;
             if (body) {
                 for (size_t i = 0; i < decl->payload.lam.params.count; i++) {
                     const char* param_name = format_string(emitter->arena, "%s_%d", decl->payload.lam.params.nodes[i]->payload.var.name, decl->payload.lam.params.nodes[i]->payload.var.id);
-                    insert_dict(const Node*, String, emitter->emitted, decl->payload.lam.params.nodes[i], param_name);
+                    register_emitted(emitter, decl->payload.lam.params.nodes[i], param_name);
                 }
 
-                String fn_body = emit_body(emitter, body, NULL);
+                String fn_body = emit_lambda_body(emitter, body, NULL);
                 print(emitter->fn_defs, "\n%s %s", emit_fn_head(emitter, decl), fn_body);
                 free(fn_body);
             }
@@ -264,7 +266,7 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
         }
         case Constant_TAG: {
             emit_as = name;
-            insert_dict(const Node*, String, emitter->emitted, decl, emit_as);
+            register_emitted(emitter, decl, emit_as);
             decl_center = format_string(emitter->arena, "const %s", decl_center);
             print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl->type, decl_center), emit_value(emitter, decl->payload.constant.value));
             break;
@@ -275,6 +277,16 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
     String declaration = emit_type(emitter, decl_type, decl_center);
     print(emitter->fn_decls, "\n%s;", declaration);
     return emit_as;
+}
+
+void register_emitted(Emitter* emitter, const Node* node, String as) {
+    insert_dict(const Node*, String, emitter->emitted, node, as);
+}
+
+void register_emitted_list(Emitter* emitter, Nodes nodes, Strings as) {
+    assert(nodes.count == as.count);
+    for (size_t i = 0; i < nodes.count; i++)
+        register_emitted(emitter, nodes.nodes[i], as.strings[i]);
 }
 
 KeyHash hash_node(Node**);

@@ -179,6 +179,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
 }
 
 static void print_lambda_body(PrinterCtx* ctx, const Node* body) {
+    assert(is_terminator(body));
     printf("{");
     indent(ctx->printer);
     print_node(body);
