@@ -9,7 +9,6 @@
 #include "../transform/ir_gen_helpers.h"
 
 #include "list.h"
-#include "dict.h"
 
 #include <assert.h>
 
@@ -29,121 +28,81 @@ typedef struct {
     BodyBuilder* builder;
 } VContext;
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 static void collect_allocas(VContext* vctx, const Node* node) {
-    if (is_instruction(node)) {
-        const Node* actual_old_instr = node;
-        if (actual_old_instr->tag == Let_TAG)
-            actual_old_instr = actual_old_instr->payload.let.instruction;
-        if (actual_old_instr->tag == PrimOp_TAG && actual_old_instr->payload.prim_op.op == alloca_op) {
-            // Ignore non-let bound allocas
-            if (actual_old_instr == node)
-                goto no_op;
-
-            // Lower to a slot
-            const Type* elem_type = rewrite_node(&vctx->context->rewriter, actual_old_instr->payload.prim_op.operands.nodes[0]);
-            const Node* slot = gen_primop_ce(vctx->builder, alloca_slot_op, 2, (const Node* []) { elem_type, vctx->context->entry_sp_val });
-            debug_node(node);
-            debug_print("%zu \n", node);
-            register_processed(&vctx->context->rewriter, node->payload.let.variables.nodes[0], slot);
-            return;
-        }
+    if (node->tag == PrimOp_TAG && node->payload.prim_op.op == alloca_op) {
+        // Lower to a slot
+        const Type* elem_type = rewrite_node(&vctx->context->rewriter, node->payload.prim_op.operands.nodes[0]);
+        const Node* slot = gen_primop_ce(vctx->builder, alloca_slot_op, 2, (const Node* []) { elem_type, vctx->context->entry_sp_val });
+        debug_node(node);
+        debug_print("%zu \n", node);
+        // make it so that we will rewrite the `alloca` to the slot
+        register_processed(&vctx->context->rewriter, node, quote(vctx->context->rewriter.dst_arena, slot));
+        return;
     }
 
-    no_op:
     visit_children(&vctx->visitor, node);
 }
 
-static const Node* process(Context* ctx, const Node* old) {
-    const Node* found = search_processed(&ctx->rewriter, old);
+static const Node* process(Context* ctx, const Node* node) {
+    const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
-    switch (old->tag) {
+    IrArena* arena = ctx->rewriter.dst_arena;
+    switch (node->tag) {
         case Lambda_TAG: {
-            Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
+            Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
             Context ctx2 = *ctx;
-            ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "setup_stack_frames");
-            ctx2.old_entry_body = old->payload.lam.body;
-            ctx2.entry_sp_val = NULL;
-            fun->payload.lam.body = process(&ctx2, old->payload.lam.body);
+            if (node->payload.lam.tier == FnTier_Function) {
+                ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
+                ctx2.old_entry_body = node->payload.lam.body;
+                ctx2.entry_sp_val = NULL;
+                fun->payload.lam.body = process(&ctx2, node->payload.lam.body);
+            }
             return fun;
         }
-        case Body_TAG: {
+        case Let_TAG: {
             if (ctx->disable_lowering)
-                return recreate_node_identity(&ctx->rewriter, old);
+                return recreate_node_identity(&ctx->rewriter, node);
 
-            // this may miss call instructions...
-            BodyBuilder* instructions = begin_body(dst_arena);
-
-            // We are the entry block for a FN !
-            if (old == ctx->old_entry_body) {
+            // If we are the entry block to a function, we need to visit the entire thing
+            // and handle all the allocas inside it
+            if (node == ctx->old_entry_body) {
+                BodyBuilder* bb = begin_body(arena);
                 assert(!ctx->entry_sp_val);
-                ctx->entry_sp_val = gen_primop_ce(instructions, get_stack_pointer_op, 0, NULL);
-            }
-            assert(ctx->entry_sp_val);
+                ctx->entry_sp_val = gen_primop_ce(bb, get_stack_pointer_op, 0, NULL);
 
-            if (old == ctx->old_entry_body) {
                 VContext vctx = {
                     .visitor = {
                         .visit_fn = (VisitFn) collect_allocas,
                         .visit_fn_scope_rpo = true,
                     },
                     .context = ctx,
-                    .builder = instructions,
+                    .builder = bb,
                 };
 
-                visit_children(&vctx.visitor, old);
+                visit_children(&vctx.visitor, node);
+                return finish_body(bb, recreate_node_identity(&ctx->rewriter, node));
             }
-
-            for (size_t i = 0; i < old->payload.body.instructions.count; i++) {
-                const Node* old_instr = old->payload.body.instructions.nodes[i];
-
-                const Node* actual_old_instr = old_instr;
-                if (actual_old_instr->tag == Let_TAG)
-                    actual_old_instr = actual_old_instr->payload.let.instruction;
-                if (actual_old_instr->tag == PrimOp_TAG && actual_old_instr->payload.prim_op.op == alloca_op) {
-                    // Ignore non-let bound allocas
-                    if (actual_old_instr == old_instr)
-                        continue;
-
-                    // Check it was lowered properly before
-                    assert(find_processed(&ctx->rewriter, old_instr->payload.let.variables.nodes[0]));
-                    continue;
-                }
-                append_body(instructions, rewrite_node(&ctx->rewriter, old_instr));
-            }
-
-            const Node* terminator = old->payload.body.terminator;
-            switch (terminator->tag) {
-                case Return_TAG: {
-                    // Restore SP before calling exit
-                    gen_primop_c(instructions, set_stack_pointer_op, 1, (const Node* []) { ctx->entry_sp_val });
-                    SHADY_FALLTHROUGH
-                }
-                default: terminator = process(ctx, terminator); break;
-            }
-            return finish_body(instructions, terminator);
+            assert(ctx->entry_sp_val);
+            return recreate_node_identity(&ctx->rewriter, node);
         }
-        default: return recreate_node_identity(&ctx->rewriter, old);
+        case Return_TAG: {
+            // Restore SP before calling exit
+            const Node* restore_sp = prim_op(arena, (PrimOp) {
+                .op = set_stack_pointer_op,
+                .operands = nodes(arena, 1, (const Node* []) { ctx->entry_sp_val })
+            });
+            return let(arena, false, restore_sp, recreate_node_identity(&ctx->rewriter, node));
+        }
+        default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }
 
 const Node* setup_stack_frames(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
     struct List* new_decls_list = new_list(const Node*);
-    struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
 
     Context ctx = {
-        .rewriter = {
-            .dst_arena = dst_arena,
-            .src_arena = src_arena,
-            .rewrite_fn = (RewriteFn) process,
-            .processed = done,
-        },
-        .disable_lowering = false,
-
+        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process),
         .new_decls = new_decls_list,
     };
 
@@ -157,7 +116,6 @@ const Node* setup_stack_frames(SHADY_UNUSED CompilerConfig* config, IrArena* src
     });
 
     destroy_list(new_decls_list);
-
-    destroy_dict(done);
+    destroy_rewriter(&ctx.rewriter);
     return rewritten;
 }
