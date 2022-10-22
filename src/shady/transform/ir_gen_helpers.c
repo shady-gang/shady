@@ -55,12 +55,11 @@ void gen_push_values_stack(BodyBuilder* instructions, Nodes values) {
 
 const Node* gen_pop_value_stack(BodyBuilder* instructions, String var_name, const Type* type) {
     const char* names[] = { var_name };
-    const Node* let_i = let(instructions->arena, prim_op(instructions->arena, (PrimOp) {
-            .op = pop_stack_op,
-            .operands = nodes(instructions->arena, 1, (const Node*[]) { type })
-    }), 1, names);
-    append_body(instructions, let_i);
-    return let_i->payload.let.variables.nodes[0];
+    const Node* op = prim_op(instructions->arena, (PrimOp) {
+        .op = pop_stack_op,
+        .operands = nodes(instructions->arena, 1, (const Node*[]) { type })
+    });
+    return declare_local_variable(instructions, op, false, NULL, 1, names).nodes[0];
 }
 
 Nodes gen_pop_values_stack(BodyBuilder* instructions, String var_name, const Nodes types) {

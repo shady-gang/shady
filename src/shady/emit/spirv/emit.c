@@ -577,7 +577,7 @@ static void add_branch_phis(Emitter* emitter, FnBuilder fn_builder, SpvId src_id
 }
 
 void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* terminator) {
-    switch (is_terminator(terminator->tag)) {
+    switch (is_terminator(terminator)) {
         case Return_TAG: {
             const Nodes* ret_values = &terminator->payload.fn_ret.values;
             switch (ret_values->count) {

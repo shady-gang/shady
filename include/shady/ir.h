@@ -487,7 +487,7 @@ TerminatorTag is_terminator(const Node*);
 typedef struct Let_ {
     const Node* instruction;
     bool is_mutable;
-    Node* tail;
+    const Node* tail;
 } Let;
 
 /// A branch. Branches can cause divergence, but they can never cause re-convergence.

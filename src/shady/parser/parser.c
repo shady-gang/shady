@@ -421,10 +421,11 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect_parameters(ctx, &parameters, &default_values);
             // by default loops continue forever
             const Node* default_loop_end_behaviour = config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Continue, .args = nodes(arena, 0, NULL) }) : NULL;
-            const Node* body = expect_body(ctx, fn, default_loop_end_behaviour);
+            Node* body = lambda(arena, parameters);
+            body->payload.lam.body = expect_body(ctx, fn, default_loop_end_behaviour);
+
             return loop_instr(arena, (Loop) {
                 .initial_args = default_values,
-                .params = parameters,
                 .yield_types = yield_types,
                 .body = body
             });

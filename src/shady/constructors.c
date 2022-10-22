@@ -81,7 +81,7 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
     return create_node_helper(arena, node);
 }
 
-Node* let_internal(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail) {
+const Node* let(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail) {
     Let payload = {
         .is_mutable = is_mutable,
         .instruction = instruction,
