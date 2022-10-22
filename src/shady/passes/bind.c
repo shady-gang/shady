@@ -210,7 +210,7 @@ static const Node* bind_let(Context* ctx, const Node* node) {
 
         BodyBuilder* bb = begin_body(dst_arena);
 
-        Nodes initial_values = declare_local_variable(bb, ninstruction, false, NULL, old_lam->payload.lam.params.count, NULL);
+        Nodes initial_values = bind_instruction_extra(bb, ninstruction, old_lam->payload.lam.params.count, NULL, NULL);
         Nodes old_params = old_lam->payload.lam.params;
         for (size_t i = 0; i < old_params.count; i++) {
             const Node* oparam = old_params.nodes[i];
@@ -220,12 +220,12 @@ static const Node* bind_let(Context* ctx, const Node* node) {
                 .op = alloca_op,
                 .operands = nodes(dst_arena, 1, (const Node* []){ bind_node(ctx, type_annotation) })
             });
-            const Node* ptr = declare_local_variable(bb, alloca, false, NULL, 1, &oparam->payload.var.name).nodes[0];
+            const Node* ptr = bind_instruction_extra(bb, alloca, 1, NULL, &oparam->payload.var.name).nodes[0];
             const Node* store = prim_op(dst_arena, (PrimOp) {
                 .op = store_op,
                 .operands = nodes(dst_arena, 2, (const Node* []) { ptr, initial_values.nodes[0] })
             });
-            declare_local_variable(bb, store, false, NULL, 0, NULL);
+            bind_instruction_extra(bb, store, 0, NULL, NULL);
 
             NamedBindEntry* entry = arena_alloc(ctx->dst_arena->arena, sizeof(NamedBindEntry));
             *entry = (NamedBindEntry) {

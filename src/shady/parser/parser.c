@@ -578,16 +578,16 @@ static bool accept_instruction_maybe_with_let_too(ctxparams, BodyBuilder* bb, No
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok));
         const Node* instruction = accept_instruction(ctx, fn);
-        declare_local_variable(bb, instruction, false, NULL, ids.count, ids.strings);
+        bind_instruction_extra(bb, instruction, ids.count, NULL, ids.strings);
     } else if (accept_token(ctx, var_tok)) {
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok));
         const Node* instruction = accept_instruction(ctx, fn);
-        declare_local_variable(bb, instruction, true, &types, ids.count, ids.strings);
+        bind_instruction_extra_mutable(bb, instruction, ids.count, &types, ids.strings);
     } else {
         const Node* instr = accept_instruction(ctx, fn);
         if (!instr) return false;
-        declare_local_variable(bb, instr, false, NULL, 0, NULL);
+        bind_instruction_extra(bb, instr, 0, NULL, NULL);
     }
     return true;
 }

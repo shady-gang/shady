@@ -633,11 +633,12 @@ BodyBuilder* begin_body(IrArena*);
 
 /// Appends an instruction to the builder, may apply optimisations.
 /// If the arena is typed, returns a list of variables bound to the values yielded by that instruction
-Nodes append_instruction(BodyBuilder*, const Node* instruction);
+Nodes bind_instruction(BodyBuilder*, const Node* instruction);
 
 /// Like append instruction, but you explicitly give it information about any yielded values
 /// ! In untyped arenas, you need to call this because we can't guess how many things are returned without typing info !
-Nodes declare_local_variable(BodyBuilder*, const Node* initial_value, bool mut, Nodes* provided_types, size_t outputs_count, const char* output_names[]);
+Nodes bind_instruction_extra_mutable(BodyBuilder*, const Node* initial_value, size_t outputs_count, Nodes* provided_types, const char* output_names[]);
+Nodes bind_instruction_extra(BodyBuilder*, const Node* initial_value, size_t outputs_count, Nodes* provided_types, const char* output_names[]);
 
 void copy_instrs(BodyBuilder*, Nodes);
 const Node* finish_body(BodyBuilder* builder, const Node* terminator);

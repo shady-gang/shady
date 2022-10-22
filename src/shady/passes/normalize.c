@@ -58,7 +58,7 @@ static const Node* ensure_is_value(Context* ctx, const Node* node) {
         default: return process_node(ctx, node);
     }
 
-    return declare_local_variable(ctx->bb, let_bound, false, NULL, 1, NULL).nodes[0];
+    return bind_instruction_extra(ctx->bb, let_bound, 1, NULL, NULL).nodes[0];
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {

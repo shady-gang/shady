@@ -46,7 +46,7 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
             .op = push_stack_op,
             .operands = nodes(arena, 2, args)
         });
-        append_instruction(builder, save_instruction);
+        bind_instruction(builder, save_instruction);
     }
 }
 
@@ -171,7 +171,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                     // Put the spilling code inside a selection construct
                     const Node* ncondition = rewrite_node(&ctx->rewriter, node->payload.branch.branch_condition);
-                    append_instruction(bb, if_instr(arena, (If) { .condition = ncondition, .if_true = cases[0], .if_false = cases[1], .yield_types = nodes(arena, 0, NULL) }));
+                    bind_instruction(bb, if_instr(arena, (If) { .condition = ncondition, .if_true = cases[0], .if_false = cases[1], .yield_types = nodes(arena, 0, NULL) }));
 
                     // Make the callee selection a select
                     ncallee = gen_primop_ce(bb, select_op, 3, (const Node* []) { ncondition, fn_addr(arena, (FnAddr) { .fn = ntargets[0] }), fn_addr(arena, (FnAddr) { .fn = ntargets[1] }) });

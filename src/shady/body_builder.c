@@ -62,7 +62,7 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
     return nodes(arena, outputs_count, (const Node**) vars);
 }
 
-Nodes declare_local_variable(BodyBuilder* builder, const Node* instruction, bool mut, Nodes* provided_types, size_t outputs_count, const char* output_names[]) {
+static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool mut, size_t outputs_count, Nodes* provided_types, const char* output_names[]) {
     if (is_value(instruction))
         instruction = quote(builder->arena, instruction);
     Nodes params = create_output_variables(builder->arena, instruction, outputs_count, provided_types, output_names);
@@ -75,9 +75,17 @@ Nodes declare_local_variable(BodyBuilder* builder, const Node* instruction, bool
     return params;
 }
 
-Nodes append_instruction(BodyBuilder* builder, const Node* instruction) {
+Nodes bind_instruction_extra(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, const char* output_names[]) {
+    return bind_internal(builder, instruction, false, outputs_count, provided_types, output_names);
+}
+
+Nodes bind_instruction_extra_mutable(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, const char* output_names[]) {
+    return bind_internal(builder, instruction, true, outputs_count, provided_types, output_names);
+}
+
+Nodes bind_instruction(BodyBuilder* builder, const Node* instruction) {
     assert(builder->arena->config.check_types);
-    return declare_local_variable(builder, instruction, false, NULL, SIZE_MAX, NULL);
+    return bind_internal(builder, instruction, false, SIZE_MAX, NULL, NULL);
 }
 
 #undef arena

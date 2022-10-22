@@ -21,7 +21,7 @@ Nodes gen_primop(BodyBuilder* bb, Op op, Nodes operands) {
     for (size_t i = 0; i < output_types.count; i++)
         names[i] = format_string(bb->arena, "%s_out", primop_names[op]);
 
-    return append_instruction(bb, instruction);
+    return bind_instruction(bb, instruction);
 }
 
 Nodes gen_primop_c(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
