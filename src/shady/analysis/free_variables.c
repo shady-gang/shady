@@ -34,7 +34,7 @@ static void visit_fv(Context* visitor, const Node* node) {
 }
 
 static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
-    const Lambda* fun = &cfnode->location.head->payload.lam;
+    const Lambda* fun = &cfnode->node->payload.lam;
 
     for (int i = 0; i < depth; i++)
         debug_print(" ");

@@ -17,11 +17,10 @@ void visit_nodes(Visitor* visitor, Nodes nodes) {
 void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
     assert(function->tag == Lambda_TAG);
     assert(function->payload.lam.tier == FnTier_Function);
-    Scope scope = build_scope_from_basic_block(function);
-    assert(scope.rpo[0]->location.head == function);
-    //assert(scope.rpo[0]->location.head == function);
+    Scope scope = build_scope(function);
+    assert(scope.rpo[0]->node == function);
     for (size_t i = 1; i < scope.size; i++) {
-        visit(scope.rpo[i]->location.head);
+        visit(scope.rpo[i]->node);
     }
     dispose_scope(&scope);
 }

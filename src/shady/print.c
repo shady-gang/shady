@@ -162,7 +162,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
 
     if (node->type != NULL && node->payload.lam.body) {
         bool section_space = false;
-        Scope scope = build_scope_from_basic_block(node);
+        Scope scope = build_scope(node);
         for (size_t i = 1; i < scope.size; i++) {
             if (!section_space) {
                 printf("\n");
@@ -170,9 +170,9 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
             }
 
             const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
-            printf("\ncont %s = ", cfnode->location.head->payload.lam.name);
-            print_param_list(ctx, cfnode->location.head->payload.lam.params, NULL);
-            print_node(cfnode->location.head->payload.lam.body);
+            printf("\ncont %s = ", cfnode->node->payload.lam.name);
+            print_param_list(ctx, cfnode->node->payload.lam.params, NULL);
+            print_node(cfnode->node->payload.lam.body);
         }
         dispose_scope(&scope);
     }

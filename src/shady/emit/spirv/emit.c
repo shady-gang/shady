@@ -669,8 +669,8 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
 }
 
 static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNode* node, bool is_entry) {
-    assert(node->location.head->tag == Lambda_TAG);
-    const Node* bb_node = node->location.head;
+    assert(node->node->tag == Lambda_TAG);
+    const Node* bb_node = node->node;
     // Find the preassigned ID to this
     BBBuilder bb_builder = find_basic_block_builder(emitter, fn_builder, bb_node);
     SpvId bb_id = get_block_builder_id(bb_builder);
@@ -705,12 +705,12 @@ static void emit_function(Emitter* emitter, const Node* node) {
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
     }
 
-    Scope scope = build_scope_from_basic_block(node);
+    Scope scope = build_scope(node);
     // reserve a bunch of identifiers for the basic blocks in the scope
     for (size_t i = 0; i < scope.size; i++) {
         CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
         assert(cfnode);
-        const Node* bb = cfnode->location.head;
+        const Node* bb = cfnode->node;
         assert(is_basic_block(bb) || bb == node);
         SpvId bb_id = i == spvb_fresh_id(emitter->file_builder);
         BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, bb_id);

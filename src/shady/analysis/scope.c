@@ -14,7 +14,7 @@ struct List* build_scopes(const Node* root) {
     for (size_t i = 0; i < root->payload.root.declarations.count; i++) {
         const Node* decl = root->payload.root.declarations.nodes[i];
         if (decl->tag != Lambda_TAG) continue;
-        Scope scope = build_scope_from_basic_block(decl);
+        Scope scope = build_scope(decl);
         append_list(Scope, scopes, scope);
     }
 
@@ -24,17 +24,6 @@ struct List* build_scopes(const Node* root) {
 KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
-KeyHash hash_location(const CFLocation** ploc) {
-    const Node* head = (*ploc)->head;
-    return hash_node(&head);
-}
-
-bool compare_location(const CFLocation** a, const CFLocation** b) {
-    const Node* ahead = (*a)->head;
-    const Node* bhead = (*b)->head;
-    return compare_node(&ahead, &bhead);
-}
-
 typedef struct {
     Arena* arena;
     struct Dict* nodes;
@@ -42,28 +31,28 @@ typedef struct {
     struct List* contents;
 } ScopeBuildContext;
 
-static CFNode* get_or_enqueue(ScopeBuildContext* ctx, CFLocation location) {
-    assert(location.head->tag == Lambda_TAG);
-    CFNode** found = find_value_dict(const Node*, CFNode*, ctx->nodes, location);
+static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* lam) {
+    assert(lam->tag == Lambda_TAG);
+    CFNode** found = find_value_dict(const Node*, CFNode*, ctx->nodes, lam);
     if (found) return *found;
 
     CFNode* new = arena_alloc(ctx->arena, sizeof(CFNode));
     *new = (CFNode) {
-        .location = location,
+        .node = lam,
         .succ_edges = new_list(CFEdge),
         .pred_edges = new_list(CFEdge),
         .rpo_index = SIZE_MAX,
         .idom = NULL,
         .dominates = NULL,
     };
-    insert_dict(const Node*, CFNode*, ctx->nodes, location, new);
+    insert_dict(const Node*, CFNode*, ctx->nodes, lam, new);
     append_list(Node*, ctx->queue, new);
     append_list(Node*, ctx->contents, new);
     return new;
 }
 
-/// Adds an edge to somewhere inside a basic block (see CFLocation)
-static void add_edge(ScopeBuildContext* ctx, CFLocation src, CFLocation dst, CFEdgeType type) {
+/// Adds an edge to somewhere inside a basic block
+static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type) {
     CFNode* src_node = get_or_enqueue(ctx, src);
     CFNode* dst_node = get_or_enqueue(ctx, dst);
     CFEdge edge = {
@@ -73,15 +62,6 @@ static void add_edge(ScopeBuildContext* ctx, CFLocation src, CFLocation dst, CFE
     };
     append_list(CFNode*, src_node->succ_edges, edge);
     append_list(CFNode*, dst_node->pred_edges, edge);
-}
-
-/// Adds an edge to the start of a basic block
-static void add_edge_to_bb(ScopeBuildContext* ctx, CFLocation src, const Node* dest_bb, CFEdgeType type) {
-    assert(dest_bb->tag == Lambda_TAG && dest_bb->payload.lam.tier != FnTier_Function);
-    CFLocation dst = {
-        .head = dest_bb,
-    };
-    add_edge(ctx, src, dst, type);
 }
 
 static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction) {
@@ -105,21 +85,22 @@ static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const No
 }
 
 static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
-    CFLocation const location = node->location;
-    const Node* terminator = location.head->payload.lam.body;
+    const Node* const lambda = node->node;
+    assert(lambda->tag == Lambda_TAG);
+    const Node* terminator = lambda->payload.lam.body;
     switch (terminator->tag) {
         case Branch_TAG: {
             switch (terminator->payload.branch.branch_mode) {
                 case BrJump: {
                     const Node* target = terminator->payload.branch.target;
-                    add_edge_to_bb(ctx, location, target, ForwardEdge);
+                    add_edge(ctx, lambda, target, ForwardEdge);
                     break;
                 }
                 case BrIfElse: {
                     const Node* true_target = terminator->payload.branch.true_target;
                     const Node* false_target = terminator->payload.branch.false_target;
-                    add_edge_to_bb(ctx, location, true_target, ForwardEdge);
-                    add_edge_to_bb(ctx, location, false_target, ForwardEdge);
+                    add_edge(ctx, lambda, true_target, ForwardEdge);
+                    add_edge(ctx, lambda, false_target, ForwardEdge);
                     break;
                 }
                 case BrSwitch: error("TODO")
@@ -129,7 +110,7 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
         case Let_TAG: {
             process_instruction(ctx, node, terminator->payload.let.instruction);
             const Node* target = terminator->payload.let.tail;
-            add_edge_to_bb(ctx, location, target, LetTailEdge);
+            add_edge(ctx, lambda, target, LetTailEdge);
         }
         case Join_TAG: {
             break;
@@ -145,26 +126,18 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     }
 }
 
-Scope build_scope_from_basic_block(const Node* bb) {
-    assert(bb->tag == Lambda_TAG);
-    CFLocation entry_location = {
-        .head = bb,
-    };
-    return build_scope(entry_location);
-}
-
-Scope build_scope(CFLocation entry_location) {
-    assert(entry_location.head->tag == Lambda_TAG);
+Scope build_scope(const Node* entry) {
+    assert(entry->tag == Lambda_TAG);
     Arena* arena = new_arena();
 
     ScopeBuildContext context = {
         .arena = arena,
-        .nodes = new_dict(CFLocation, CFNode*, (HashFn) hash_location, (CmpFn) compare_location),
+        .nodes = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
         .queue = new_list(CFNode*),
         .contents = new_list(CFNode*),
     };
 
-    CFNode* entry_node = get_or_enqueue(&context, entry_location);
+    CFNode* entry_node = get_or_enqueue(&context, entry);
 
     while (entries_count_list(context.queue) > 0) {
         CFNode* this = pop_last_list(CFNode*, context.queue);
@@ -209,7 +182,7 @@ void compute_rpo(Scope* scope) {
 
     debug_print("RPO: ");
     for (size_t i = 0; i < scope->size; i++) {
-        debug_print("%, ", scope->rpo[i]->location.head->payload.lam.name);
+        debug_print("%, ", scope->rpo[i]->node->payload.lam.name);
     }
     debug_print("\n");
 }
@@ -234,7 +207,7 @@ void compute_domtree(Scope* scope) {
                 goto outer_loop;
             }
         }
-        error("no idom found for %s", n->location.head->payload.lam.name);
+        error("no idom found for %s", n->node->payload.lam.name);
         outer_loop:;
     }
 
@@ -285,21 +258,21 @@ static int extra_uniqueness = 0;
 static void dump_cfg_scope(FILE* output, Scope* scope) {
     extra_uniqueness++;
 
-    const Lambda* entry = &scope->entry->location.head->payload.lam;
+    const Lambda* entry = &scope->entry->node->payload.lam;
     fprintf(output, "subgraph cluster_%s {\n", entry->name);
     fprintf(output, "label = \"%s\";\n", entry->name);
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const Lambda* bb = &read_list(const CFNode*, scope->contents)[i]->location.head->payload.lam;
+        const Lambda* bb = &read_list(const CFNode*, scope->contents)[i]->node->payload.lam;
         fprintf(output, "%s_%d;\n", bb->name, extra_uniqueness);
     }
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
-        const Lambda* bb = &bb_node->location.head->payload.lam;
+        const Lambda* bb = &bb_node->node->payload.lam;
 
         for (size_t j = 0; j < entries_count_list(bb_node->succ_edges); j++) {
             CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
             const CFNode* target_node = edge.dst;
-            const Lambda* target_bb = &target_node->location.head->payload.lam;
+            const Lambda* target_bb = &target_node->node->payload.lam;
             fprintf(output, "%s_%d -> %s_%d;\n", bb->name, extra_uniqueness, target_bb->name, extra_uniqueness);
         }
     }

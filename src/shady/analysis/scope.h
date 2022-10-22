@@ -22,13 +22,8 @@ typedef struct {
     CFNode* dst;
 } CFEdge;
 
-typedef struct {
-    /// The head (function node)
-    const Node* head;
-} CFLocation;
-
 struct CFNode_ {
-    CFLocation location;
+    const Node* node;
     /// Edges where this node is the source
     struct List* succ_edges;
     /// Edges where this node is the destination
@@ -51,8 +46,7 @@ typedef struct Scope_ {
 } Scope;
 
 struct List* build_scopes(const Node* root);
-Scope build_scope(CFLocation entry_location);
-Scope build_scope_from_basic_block(const Node*);
+Scope build_scope(const Node*);
 
 void compute_rpo(Scope* scope);
 void compute_domtree(Scope* scope);

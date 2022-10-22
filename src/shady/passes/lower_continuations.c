@@ -55,7 +55,7 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     // Compute the live stuff we'll need
-    Scope scope = build_scope_from_basic_block(cont);
+    Scope scope = build_scope(cont);
     struct List* recover_context = compute_free_variables(&scope);
     size_t recover_context_size = entries_count_list(recover_context);
 
