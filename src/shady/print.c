@@ -112,6 +112,16 @@ static void print_param_list(PrinterCtx* ctx, Nodes vars, const Nodes* defaults)
     printf(")");
 }
 
+static void print_param_types(PrinterCtx* ctx, Nodes param_types) {
+    printf("(");
+    for (size_t i = 0; i < param_types.count; i++) {
+        print_node(param_types.nodes[i]);
+        if (i < param_types.count - 1)
+            printf(", ");
+    }
+    printf(")");
+}
+
 static void print_args_list(PrinterCtx* ctx, Nodes args) {
     printf("(");
     for (size_t i = 0; i < args.count; i++) {
@@ -124,17 +134,15 @@ static void print_args_list(PrinterCtx* ctx, Nodes args) {
 }
 
 static void print_yield_types(PrinterCtx* ctx, Nodes types) {
-    bool space = false;
+    bool initial_space = false;
     for (size_t i = 0; i < types.count; i++) {
-        if (!space) {
+        if (!initial_space) {
             printf(" ");
-            space = true;
+            initial_space = true;
         }
         print_node(types.nodes[i]);
         if (i < types.count - 1)
             printf(" ");
-        //else
-        //    printf("");
     }
 }
 
@@ -204,7 +212,6 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
         case Float_TAG: printf("float"); break;
         case MaskType_TAG: printf("mask"); break;
         case QualifiedType_TAG:
-            printf(CYAN);
             printf(node->payload.qualified_type.is_uniform ? "uniform" : "varying");
             printf(" ");
             printf(RESET);
@@ -232,28 +239,21 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             }
             printf("}");
             break;
+        case JoinPointType_TAG:
+            printf("join_token");
+            printf(RESET);
+            print_param_types(ctx, node->payload.join_point_type.yield_types);
+            break;
         case FnType_TAG: {
             if (node->payload.fn_type.tier != FnTier_Function) {
                 printf(node->payload.fn_type.tier == FnTier_Lambda ? "lambda" : "cont");
                 printf(RESET);
             } else {
-                printf("fn ");
+                printf("fn");
                 printf(RESET);
-                const Nodes* returns = &node->payload.fn_type.return_types;
-                for (size_t i = 0; i < returns->count; i++) {
-                    print_node(returns->nodes[i]);
-                    //if (i < returns->count - 1)
-                    //    printf(", ");
-                }
+                print_yield_types(ctx, node->payload.fn_type.return_types);
             }
-            printf("(");
-            const Nodes* params = &node->payload.fn_type.param_types;
-            for (size_t i = 0; i < params->count; i++) {
-                print_node(params->nodes[i]);
-                if (i < params->count - 1)
-                    printf(", ");
-            }
-            printf(")");
+            print_param_types(ctx, node->payload.fn_type.param_types);
             break;
         }
         case PtrType_TAG: {

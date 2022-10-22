@@ -41,6 +41,10 @@ void visit_children(Visitor* visitor, const Node* node) {
         case Int_TAG:
         case Float_TAG:
         case Bool_TAG: break;
+        case JoinPointType_TAG: {
+            visit_nodes(visitor, node->payload.join_point_type.yield_types);
+            break;
+        }
         case RecordType_TAG: {
             visit_nodes(visitor, node->payload.record_type.members);
             break;

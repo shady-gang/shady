@@ -25,6 +25,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
     switch (is_type(type)) {
         case NotAType: assert(false); break;
         case MaskType_TAG: error("should be lowered away");
+        case Type_JoinPointType_TAG: error("TODO")
         case Type_NoRet_TAG:
         case Type_Unit_TAG: emitted = "void"; break;
         case Bool_TAG: emitted = "bool"; break;

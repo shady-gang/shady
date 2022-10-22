@@ -48,6 +48,16 @@ bool is_subtype(const Type* supertype, const Type* type) {
             }
             return true;
         }
+        case JoinPointType_TAG: {
+            const Nodes* superparams = &supertype->payload.join_point_type.yield_types;
+            const Nodes* params = &type->payload.join_point_type.yield_types;
+            if (params->count != superparams->count) return false;
+            for (size_t i = 0; i < params->count; i++) {
+                if (!is_subtype(params->nodes[i], superparams->nodes[i]))
+                    return false;
+            }
+            return true;
+        }
         case FnType_TAG:
             if (supertype->payload.fn_type.tier != type->payload.fn_type.tier)
                 return false;
@@ -816,24 +826,32 @@ const Type* check_type_join(IrArena* arena, Join join) {
         assert(is_value(argument));
     }
 
-    /*const Type* join_target_type = join.join_at->type;
+    const Type* join_target_type = join.join_point->type;
 
-    if (join.is_indirect) {
-        bool join_target_uniform;
-        deconstruct_operand_type(join_target_type, &join_target_type, &join_target_uniform);
-        assert(join_target_uniform);
-        assert(join_target_type->tag == PtrType_TAG);
-        join_target_type = join_target_type->payload.ptr_type.pointed_type;
-    }
+    bool join_target_uniform;
+    deconstruct_operand_type(join_target_type, &join_target_type, &join_target_uniform);
+    assert(join_target_uniform);
+    assert(join_target_type->tag == JoinPointType_TAG);
 
-    check_callsite_helper(join_target_type, extract_types(arena, join.args));*/
-    error("TODO")
+    check_arguments_types_against_parameters_helper(join_target_type->payload.join_point_type.yield_types, extract_types(arena, join.args));
 
-    return NULL;
+    return noret_type(arena);
 }
 
 const Type* check_type_control(IrArena* arena, Control control) {
-    error("TODO")
+    // TODO check it then !
+    assert(is_anonymous_lambda(control.inside));
+    const Node* join_point = control.inside->payload.lam.params.nodes[0];
+
+    const Type* join_target_type = join_point->type;
+    bool join_target_uniform;
+    deconstruct_operand_type(join_target_type, &join_target_type, &join_target_uniform);
+    assert(join_target_uniform);
+    assert(join_target_type->tag == JoinPointType_TAG);
+
+    assert(is_subtype(wrap_multiple_yield_types(arena, join_target_type->payload.join_point_type.yield_types), wrap_multiple_yield_types(arena, control.yield_types)));
+
+    return wrap_multiple_yield_types(arena, join_target_type->payload.join_point_type.yield_types);
 }
 
 const Type* check_type_fn_ret(IrArena* arena, Return ret) {
