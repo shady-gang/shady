@@ -156,7 +156,9 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     printf(" {");
     indent(ctx->printer);
 
+    printf("\n");
     print_node(node->payload.lam.body);
+    printf(";");
 
     if (node->type != NULL && node->payload.lam.body) {
         bool section_space = false;
@@ -190,7 +192,9 @@ static void print_lambda_body(PrinterCtx* ctx, const Node* body) {
     assert(is_terminator(body));
     printf("{");
     indent(ctx->printer);
+    printf("\n");
     print_node(body);
+    printf(";");
     deindent(ctx->printer);
     printf("\n}");
 }
@@ -489,11 +493,11 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                         printf("~%d", params.nodes[i]->payload.var.id);
                         printf(RESET);
                     }
+                    printf(" = ");
                 }
-                printf(" = ");
                 print_node(node->payload.let.instruction);
                 printf(";\n");
-                print_node(node->payload.let.tail);
+                print_node(node->payload.let.tail->payload.lam.body);
             } else {
                 printf(GREEN);
                 if (node->payload.let.is_mutable)
@@ -582,12 +586,9 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             break;
         case MergeConstruct_TAG:
             printf(BGREEN);
-            printf("%s ", merge_what_string[node->payload.merge_construct.construct]);
+            printf("%s", merge_what_string[node->payload.merge_construct.construct]);
             printf(RESET);
-            for (size_t i = 0; i < node->payload.merge_construct.args.count; i++) {
-                print_node(node->payload.merge_construct.args.nodes[i]);
-                printf(" ");
-            }
+            print_args_list(ctx, node->payload.merge_construct.args);
             break;
     }
 }
@@ -659,9 +660,18 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         print_instruction(ctx, node);
     else if (is_terminator(node))
         print_terminator(ctx, node);
-    else if (node->tag == Lambda_TAG && node->payload.lam.tier)
-        error("use print_cf_target")
-    else if (is_declaration(node)) {
+    else if (node->tag == Lambda_TAG && node->payload.lam.tier) {
+        printf(BYELLOW);
+        printf("lambda ");
+        printf(RESET);
+        print_param_list(ctx, node->payload.lam.params, NULL);
+        indent(ctx->printer);
+        printf(" {\n");
+        print_node(node->payload.lam.body);
+        printf(";");
+        deindent(ctx->printer);
+        printf("\n}");
+    } else if (is_declaration(node)) {
         printf(BYELLOW);
         printf("%s", get_decl_name(node));
         printf(RESET);

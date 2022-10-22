@@ -120,12 +120,23 @@ static Node* lambda_internal(IrArena* arena, FnTier tier, Nodes params, const ch
         .tier = tier,
         .params = params,
         .body = NULL,
-
-        .name = string(arena, name),
-
-        .annotations = annotations,
-        .return_types = return_types,
+        .name = NULL,
+        .annotations = nodes(arena, 0, NULL),
+        .return_types = nodes(arena, 0, NULL),
     };
+
+    if (tier >= FnTier_BasicBlock)
+        lam.name = string(arena, name);
+    else
+        assert(name == NULL);
+
+    if (tier >= FnTier_Function) {
+        lam.annotations = annotations;
+        lam.return_types = return_types;
+    } else {
+        assert(annotations.count == 0);
+        assert(return_types.count == 0);
+    }
 
     Node node;
     memset((void*) &node, 0, sizeof(Node));

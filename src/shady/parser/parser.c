@@ -574,7 +574,7 @@ static bool accept_instruction_maybe_with_let_too(ctxparams, BodyBuilder* bb, No
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok));
         const Node* instruction = accept_instruction(ctx, fn);
-        declare_local_variable(bb, instruction, false, &types, ids.count, ids.strings);
+        declare_local_variable(bb, instruction, false, NULL, ids.count, ids.strings);
     } else if (accept_token(ctx, var_tok)) {
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok));
