@@ -68,9 +68,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (already_done)
         return already_done;
 
-    assert(!is_terminator(node));
-
-    if (is_instruction(node)) {
+    if (is_instruction(node) || (is_terminator(node) && node->tag != Let_TAG)) {
         Context must_be_values_ctx = *ctx;
         must_be_values_ctx.rewriter.rewrite_fn = (RewriteFn) ensure_is_value;
         return recreate_node_identity(&must_be_values_ctx.rewriter, node);
@@ -85,7 +83,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             in_bb_ctx.bb = bb;
             in_bb_ctx.rewriter.rewrite_fn = (RewriteFn) process_node;
 
-            new->payload.lam.body = finish_body(bb, recreate_node_identity(&in_bb_ctx.rewriter, node->payload.lam.body));
+            new->payload.lam.body = finish_body(bb, rewrite_node(&in_bb_ctx.rewriter, node->payload.lam.body));
             return new;
         }
         default: return recreate_node_identity(&ctx->rewriter, node);

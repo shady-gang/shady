@@ -225,7 +225,7 @@ static const Node* bind_let(Context* ctx, const Node* node) {
                 .op = store_op,
                 .operands = nodes(dst_arena, 2, (const Node* []) { ptr, initial_values.nodes[0] })
             });
-            append_instruction(bb, store);
+            declare_local_variable(bb, store, false, NULL, 0, NULL);
 
             NamedBindEntry* entry = arena_alloc(ctx->dst_arena->arena, sizeof(NamedBindEntry));
             *entry = (NamedBindEntry) {

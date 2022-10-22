@@ -170,9 +170,11 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
             }
 
             const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
-            printf("\ncont %s = ", cfnode->node->payload.lam.name);
-            print_param_list(ctx, cfnode->node->payload.lam.params, NULL);
-            print_node(cfnode->node->payload.lam.body);
+            if (is_basic_block(cfnode->node)) {
+                printf("\ncont %s = ", cfnode->node->payload.lam.name);
+                print_param_list(ctx, cfnode->node->payload.lam.params, NULL);
+                print_node(cfnode->node->payload.lam.body);
+            }
         }
         dispose_scope(&scope);
     }

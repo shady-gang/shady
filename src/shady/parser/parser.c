@@ -587,7 +587,7 @@ static bool accept_instruction_maybe_with_let_too(ctxparams, BodyBuilder* bb, No
     } else {
         const Node* instr = accept_instruction(ctx, fn);
         if (!instr) return false;
-        append_instruction(bb, instr);
+        declare_local_variable(bb, instr, false, NULL, 0, NULL);
     }
     return true;
 }

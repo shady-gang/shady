@@ -208,18 +208,19 @@ static const Node* infer_tail(Context* ctx, const Node* tail, Nodes inferred_arg
             const Variable* old_param = &tail->payload.lam.params.nodes[i]->payload.var;
             // for the param type: use the inferred one if none is already provided
             // if one is provided, check the inferred argument type is a subtype of the param type
-            const Type* param_type = old_param->type;
+            const Type* param_type = import_node(ctx->rewriter.dst_arena, old_param->type);
             param_type = param_type ? param_type : inferred_arg_type.nodes[i];
             assert(is_subtype(param_type, inferred_arg_type.nodes[i]));
             nparams[i] = var(body_context.rewriter.dst_arena, param_type, old_param->name);
             register_processed(&body_context.rewriter, tail->payload.lam.params.nodes[i], nparams[i]);
         }
 
-        Node* fun = lambda(arena, nodes(arena, tail->payload.lam.params.count, nparams));
-        assert(fun);
-        register_processed(&ctx->rewriter, tail, fun);
+        Node* lam = lambda(arena, nodes(arena, tail->payload.lam.params.count, nparams));
+        assert(lam);
+        register_processed(&ctx->rewriter, tail, lam);
 
-        fun->payload.lam.body = infer_terminator(&body_context, tail->payload.lam.body);
+        lam->payload.lam.body = infer_terminator(&body_context, tail->payload.lam.body);
+        return lam;
     } else return infer_decl(ctx, tail);
 }
 
@@ -374,7 +375,7 @@ static const Node* infer_if(Context* ctx, const Node* node) {
     const Node* true_body = infer_tail(&joinable_ctx, node->payload.if_instr.if_true, nodes(ctx->rewriter.dst_arena, 0, NULL));
     // don't allow seeing the variables made available in the true branch
     joinable_ctx.rewriter = ctx->rewriter;
-    const Node* false_body = infer_tail(&joinable_ctx, node->payload.if_instr.if_false, nodes(ctx->rewriter.dst_arena, 0, NULL));
+    const Node* false_body = node->payload.if_instr.if_false ? infer_tail(&joinable_ctx, node->payload.if_instr.if_false, nodes(ctx->rewriter.dst_arena, 0, NULL)) : NULL;
 
     return if_instr(ctx->rewriter.dst_arena, (If) {
         .yield_types = join_types,

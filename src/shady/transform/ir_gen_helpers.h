@@ -5,10 +5,7 @@
 
 void gen_push_value_stack(BodyBuilder* instructions, const Node* value);
 void gen_push_values_stack(BodyBuilder* instructions, Nodes values);
-void gen_push_fn_stack(BodyBuilder* instructions, const Node* fn_ptr);
-const Node* gen_pop_fn_stack(BodyBuilder* instructions, String var_name);
-const Node* gen_pop_value_stack(BodyBuilder* instructions, String var_name, const Type* type);
-Nodes gen_pop_values_stack(BodyBuilder* instructions, String var_name, const Nodes types);
+const Node* gen_pop_value_stack(BodyBuilder* instructions, const Type* type);
 
 Nodes gen_primop(BodyBuilder*, Op, Nodes);
 Nodes gen_primop_c(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]);

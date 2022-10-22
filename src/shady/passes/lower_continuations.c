@@ -94,12 +94,11 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
         assert(ovar->tag == Variable_TAG);
-        const char* output_names[] = { ovar->payload.var.name };
 
         const Type* type = rewrite_node(&ctx->rewriter, extract_operand_type(ovar->payload.var.type));
 
         const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
-        const Node* recovered_value = gen_pop_value_stack(builder, output_names, type);
+        const Node* recovered_value = gen_pop_value_stack(builder, type);
 
         // this dict overrides the 'processed' region
         // insert_dict(const Node*, const Node*, spilled_ctx.spilled, ovar, let_load->payload.let.variables.nodes[0]);

@@ -13,6 +13,7 @@
 #define let $NO$
 
 Nodes gen_primop(BodyBuilder* bb, Op op, Nodes operands) {
+    assert(bb->arena->config.check_types);
     const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = op, .operands = operands });
     Nodes output_types = unwrap_multiple_yield_types(bb->arena, instruction->type);
 
@@ -20,7 +21,7 @@ Nodes gen_primop(BodyBuilder* bb, Op op, Nodes operands) {
     for (size_t i = 0; i < output_types.count; i++)
         names[i] = format_string(bb->arena, "%s_out", primop_names[op]);
 
-    return declare_local_variable(bb, instruction, false, NULL, 0, NULL);
+    return append_instruction(bb, instruction);
 }
 
 Nodes gen_primop_c(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
@@ -40,10 +41,7 @@ const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes nodes) {
 }
 
 void gen_push_value_stack(BodyBuilder* instructions, const Node* value) {
-    append_instruction(instructions, prim_op(instructions->arena, (PrimOp) {
-        .op = push_stack_op,
-        .operands = nodes(instructions->arena, 2, (const Node*[]) { extract_operand_type(value->type), value })
-    }));
+    gen_primop_c(instructions, push_stack_op, 2, (const Node*[]) { extract_operand_type(value->type), value });
 }
 
 void gen_push_values_stack(BodyBuilder* instructions, Nodes values) {
@@ -53,21 +51,8 @@ void gen_push_values_stack(BodyBuilder* instructions, Nodes values) {
     }
 }
 
-const Node* gen_pop_value_stack(BodyBuilder* instructions, String var_name, const Type* type) {
-    const char* names[] = { var_name };
-    const Node* op = prim_op(instructions->arena, (PrimOp) {
-        .op = pop_stack_op,
-        .operands = nodes(instructions->arena, 1, (const Node*[]) { type })
-    });
-    return declare_local_variable(instructions, op, false, NULL, 1, names).nodes[0];
-}
-
-Nodes gen_pop_values_stack(BodyBuilder* instructions, String var_name, const Nodes types) {
-    LARRAY(const Node*, tmp, types.count);
-    for (size_t i = 0; i < types.count; i++) {
-        tmp[i] = gen_pop_value_stack(instructions, format_string(instructions->arena, "%s_%d", var_name, (int) i), types.nodes[i]);
-    }
-    return nodes(instructions->arena, types.count, tmp);
+const Node* gen_pop_value_stack(BodyBuilder* instructions, const Type* type) {
+    return gen_primop_ce(instructions, pop_stack_op, 1, (const Node*[]) { type });
 }
 
 const Node* gen_merge_i32s_i64(BodyBuilder* bb, const Node* lo, const Node* hi) {

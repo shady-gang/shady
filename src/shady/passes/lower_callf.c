@@ -34,7 +34,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.values);
             BodyBuilder* bb = begin_body(dst_arena);
             // Pop the convergence token, and join on that
-            const Node* return_convtok = gen_pop_value_stack(bb, "return_convtok", join_point_type(dst_arena, (JoinPointType) { .yield_types = extract_types(dst_arena, nargs) }));
+            const Node* return_convtok = gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = extract_types(dst_arena, nargs) }));
             // This effectively asserts uniformity
             return_convtok = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) { return_convtok });
             // Join up at the return address

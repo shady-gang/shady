@@ -28,33 +28,38 @@ BodyBuilder* begin_body(IrArena* arena) {
 }
 
 static Nodes create_output_variables(IrArena* arena, const Node* value, size_t outputs_count, Nodes* provided_types, const char* output_names[]) {
-    LARRAY(Node*, vars, outputs_count);
-
+    Nodes types;
     if (arena->config.check_types) {
-        Nodes types = unwrap_multiple_yield_types(arena, value->type);
-        if (outputs_count == 0 && types.count > 0)
-            outputs_count = types.count;
-        assert(types.count == outputs_count);
+        types = unwrap_multiple_yield_types(arena, value->type);
         if (provided_types) {
-            assert(provided_types->count == outputs_count);
+            assert(provided_types->count == types.count);
             // Check that the types we got are subtypes of what we care about
-            for (size_t i = 0; i < outputs_count; i++)
+            for (size_t i = 0; i < types.count; i++)
                 assert(is_subtype(provided_types->nodes[i], types.nodes[i]));
             types = *provided_types;
         }
-
-        for (size_t i = 0; i < outputs_count; i++)
-            vars[i] = (Node*) var(arena, types.nodes[i], output_names ? output_names[i] : node_tags[value->tag]);
+        outputs_count = types.count;
     } else {
-        for (size_t i = 0; i < outputs_count; i++)
-            vars[i] = (Node*) var(arena, provided_types ? provided_types->nodes[i] : NULL, output_names ? output_names[i] : node_tags[value->tag]);
+         if (provided_types) {
+            assert(provided_types->count == outputs_count);
+            types = *provided_types;
+        } else {
+            LARRAY(const Type*, nulls, outputs_count);
+            for (size_t i = 0; i < outputs_count; i++)
+                nulls[i] = NULL;
+            types = nodes(arena, outputs_count, nulls);
+        }
     }
+
+    LARRAY(Node*, vars, types.count);
+    for (size_t i = 0; i < types.count; i++)
+        vars[i] = (Node*) var(arena, types.nodes[i], output_names ? output_names[i] : node_tags[value->tag]);
 
     for (size_t i = 0; i < outputs_count; i++) {
         vars[i]->payload.var.instruction = value;
         vars[i]->payload.var.output = i;
     }
-    return nodes(arena, outputs_count, vars);
+    return nodes(arena, outputs_count, (const Node**) vars);
 }
 
 Nodes declare_local_variable(BodyBuilder* builder, const Node* instruction, bool mut, Nodes* provided_types, size_t outputs_count, const char* output_names[]) {
@@ -71,7 +76,8 @@ Nodes declare_local_variable(BodyBuilder* builder, const Node* instruction, bool
 }
 
 Nodes append_instruction(BodyBuilder* builder, const Node* instruction) {
-    return declare_local_variable(builder, instruction, false, NULL, 0, NULL);
+    assert(builder->arena->config.check_types);
+    return declare_local_variable(builder, instruction, false, NULL, SIZE_MAX, NULL);
 }
 
 #undef arena
