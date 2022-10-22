@@ -83,11 +83,14 @@ void spvb_set_version(struct SpvFileBuilder* file_builder, uint8_t major, uint8_
 void spvb_finish(struct SpvFileBuilder*, SpvSectionBuilder output);
 
 struct SpvFnBuilder* spvb_begin_fn(struct SpvFileBuilder*, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type);
-struct SpvBasicBlockBuilder* spvb_begin_bb(struct SpvFileBuilder*, SpvId label);
+struct SpvBasicBlockBuilder* spvb_begin_bb(struct SpvFnBuilder*, SpvId label);
+/// Actually adds the basic block to the function
+/// This is a separate action from begin_bb because the ordering in which the basic blocks are written matters...
 void spvb_add_bb(struct SpvFnBuilder*, struct SpvBasicBlockBuilder*);
 
 struct Phi* spvb_add_phi(struct SpvBasicBlockBuilder*, SpvId type, SpvId id);
 void spvb_add_phi_source(struct Phi*, SpvId source_block, SpvId value);
+struct List* spbv_get_phis(struct SpvBasicBlockBuilder*);
 
 SpvId get_block_builder_id(struct SpvBasicBlockBuilder*);
 

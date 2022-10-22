@@ -16,6 +16,7 @@ typedef struct Emitter_ {
     FileBuilder file_builder;
     SpvId void_t;
     struct Dict* node_ids;
+    struct Dict* bb_builders;
     SpvId emitted_builtins[VulkanBuiltinsCount];
     size_t num_entry_pts;
 

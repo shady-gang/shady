@@ -16,6 +16,8 @@
 
 #include "spirv/unified1/NonSemanticDebugPrintf.h"
 
+#pragma GCC diagnostic error "-Wswitch"
+
 typedef struct Phi** Phis;
 
 typedef struct {
@@ -23,7 +25,7 @@ typedef struct {
     Phis continue_phis, break_phis, join_phis;
 } MergeTargets;
 
-static void emit_body(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* node);
+// static void emit_body(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* node);
 
 static void register_result(Emitter* emitter, const Node* variable, SpvId id) {
     spvb_name(emitter->file_builder, id, variable->payload.var.name);
@@ -166,7 +168,7 @@ const struct IselTableEntry {
     [PRIMOPS_COUNT] = { .i_sel_mechanism = Custom }
 };
 
-static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* instr, Nodes variables) {
+static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* instr, size_t results_count, SpvId results[]) {
     PrimOp prim_op = instr->payload.prim_op;
     Nodes args = prim_op.operands;
 
@@ -330,7 +332,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
     SHADY_UNREACHABLE;
 }
 
-static void emit_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, Call call, Nodes variables) {
+static void emit_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, Call call, size_t results_count, SpvId results[]) {
     const Type* callee_type = call.callee->type;
     if (call.is_indirect) {
         callee_type = extract_operand_type(call.callee->type);
@@ -361,7 +363,7 @@ static void emit_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBui
     }
 }
 
-static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, If if_instr, Nodes variables) {
+static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, If if_instr, size_t results_count, SpvId results[]) {
     SpvId join_bb_id = spvb_fresh_id(emitter->file_builder);
 
     SpvId true_id = spvb_fresh_id(emitter->file_builder);
@@ -372,7 +374,7 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
     spvb_branch_conditional(*bb_builder, condition, true_id, false_id);
 
     // When 'join' is codegen'd, these will be filled with the values given to it
-    BBBuilder join_bb = spvb_begin_bb(emitter->file_builder, join_bb_id);
+    BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
     LARRAY(struct Phi*, join_phis, variables.count);
     for (size_t i = 0; i < variables.count; i++) {
         assert(if_instr.if_false && "Ifs with yield types need false branches !");
@@ -387,11 +389,11 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
     merge_targets_branches.join_target = join_bb_id;
     merge_targets_branches.join_phis = join_phis;
 
-    BBBuilder true_bb = spvb_begin_bb(emitter->file_builder, true_id);
+    BBBuilder true_bb = spvb_begin_bb(fn_builder, true_id);
     spvb_add_bb(fn_builder, true_bb);
     emit_body(emitter, fn_builder, true_bb, merge_targets_branches, if_instr.if_true);
     if (if_instr.if_false) {
-        BBBuilder false_bb = spvb_begin_bb(emitter->file_builder, false_id);
+        BBBuilder false_bb = spvb_begin_bb(fn_builder, false_id);
         spvb_add_bb(fn_builder, false_bb);
         emit_body(emitter, fn_builder, false_bb, merge_targets_branches, if_instr.if_false);
     }
@@ -400,7 +402,7 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
     *bb_builder = join_bb;
 }
 
-static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match, Nodes variables) {
+static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match, size_t results_count, SpvId results[]) {
     assert(match.yield_types.count == 0 && "TODO use phis");
 
     SpvId next_id = spvb_fresh_id(emitter->file_builder);
@@ -422,39 +424,39 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
     merge_targets_branches.join_target = next_id;
 
     for (size_t i = 0; i < match.cases.count; i++) {
-        BBBuilder case_bb = spvb_begin_bb(emitter->file_builder, literals_and_cases[i * 2 + 1]);
+        BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * 2 + 1]);
         emit_body(emitter, fn_builder, case_bb, merge_targets_branches, match.cases.nodes[i]);
         spvb_add_bb(fn_builder, case_bb);
     }
-    BBBuilder default_bb = spvb_begin_bb(emitter->file_builder, default_id);
+    BBBuilder default_bb = spvb_begin_bb(fn_builder, default_id);
     emit_body(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case);
     spvb_add_bb(fn_builder, default_bb);
 
     assert(variables.count == 0 && "TODO implement variables using phi nodes");
 
-    BBBuilder next = spvb_begin_bb(emitter->file_builder, next_id);
+    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
     spvb_add_bb(fn_builder, next);
     *bb_builder = next;
 }
 
-static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Loop loop_instr, Nodes variables) {
+static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Loop loop_instr, size_t results_count, SpvId results[]) {
     assert(loop_instr.yield_types.count == variables.count);
 
     // First we create all the basic blocks we'll need
     SpvId header_id = spvb_fresh_id(emitter->file_builder);
-    BBBuilder header_builder = spvb_begin_bb(emitter->file_builder, header_id);
+    BBBuilder header_builder = spvb_begin_bb(fn_builder, header_id);
     spvb_name(emitter->file_builder, header_id, "loop_header");
 
     SpvId body_id = spvb_fresh_id(emitter->file_builder);
-    BBBuilder body_builder = spvb_begin_bb(emitter->file_builder, body_id);
+    BBBuilder body_builder = spvb_begin_bb(fn_builder, body_id);
     spvb_name(emitter->file_builder, body_id, "loop_body");
 
     SpvId continue_id = spvb_fresh_id(emitter->file_builder);
-    BBBuilder continue_builder = spvb_begin_bb(emitter->file_builder, continue_id);
+    BBBuilder continue_builder = spvb_begin_bb(fn_builder, continue_id);
     spvb_name(emitter->file_builder, continue_id, "loop_continue");
 
     SpvId next_id = spvb_fresh_id(emitter->file_builder);
-    BBBuilder next = spvb_begin_bb(emitter->file_builder, next_id);
+    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
     spvb_name(emitter->file_builder, next_id, "loop_next");
 
     // Wire up the phi nodes for loop exit
@@ -513,22 +515,15 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     *bb_builder = next;
 }
 
-static void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, const Node* instruction) {
+static void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, const Node* instruction, size_t results_count, SpvId results[]) {
     assert(is_instruction(instruction));
-    Nodes variables = nodes(emitter->arena, 0, NULL);
-
-    if (instruction->tag == Let_TAG) {
-        variables = instruction->payload.let.variables;
-        instruction = instruction->payload.let.instruction;
-        assert(is_instruction(instruction) && instruction->tag != Let_TAG);
-    }
 
     switch (instruction->tag) {
-        case PrimOp_TAG: emit_primop(emitter, fn_builder, *bb_builder, instruction, variables);                                    break;
-        case Call_TAG:     emit_call(emitter, fn_builder, *bb_builder, instruction->payload.call_instr, variables);                break;
-        case If_TAG:         emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, variables);    break;
-        case Match_TAG:   emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, variables); break;
-        case Loop_TAG:     emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, variables);  break;
+        case PrimOp_TAG: emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
+        case Call_TAG:     emit_call(emitter, fn_builder, *bb_builder, instruction->payload.call_instr, results_count, results);                break;
+        case If_TAG:         emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, results_count, results);    break;
+        case Match_TAG:   emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
+        case Loop_TAG:     emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
         default: error("Unrecognised instruction %s", node_tags[instruction->tag]);
     }
 }
@@ -539,8 +534,25 @@ static SpvId find_reserved_id(Emitter* emitter, const Node* node) {
     return *found;
 }
 
+static BBBuilder find_basic_block_builder(Emitter* emitter, FnBuilder fn_builder, const Node* bb) {
+    assert(is_basic_block(bb));
+    BBBuilder* found = find_value_dict(const Node*, BBBuilder, emitter->bb_builders, bb);
+    assert(found);
+    return *found;
+}
+
+static void add_branch_phis(Emitter* emitter, FnBuilder fn_builder, SpvId src_id, const Node* dst, size_t count, SpvId args[]) {
+    BBBuilder dst_builder = find_basic_block_builder(emitter, fn_builder, dst);
+    struct List* phis = spbv_get_phis(dst_builder);
+    assert(entries_count_list(phis) == count);
+    for (size_t i = 0; i < count; i++) {
+        struct Phi* phi = read_list(struct Phi*, phis)[i];
+        spvb_add_phi_source(phi, src_id, args[i]);
+    }
+}
+
 void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* terminator) {
-    switch (terminator->tag) {
+    switch (is_terminator(terminator->tag)) {
         case Return_TAG: {
             const Nodes* ret_values = &terminator->payload.fn_ret.values;
             switch (ret_values->count) {
@@ -556,22 +568,47 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
                 }
             }
         }
+        case Let_TAG: {
+            const Node* tail = terminator->payload.let.tail;
+            assert(tail->tag == Lambda_TAG);
+            Nodes params = tail->payload.lam.params;
+            LARRAY(SpvId, results, params.count);
+            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, terminator->payload.let.instruction, params.count, results);
+            if (tail->payload.lam.tier == Lambda_TAG) {
+                for (size_t i = 0; i < params.count; i++)
+                    register_result(emitter, params.nodes[i], results[i]);
+                emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, tail->payload.lam.body);
+            } else {
+                spvb_branch(basic_block_builder, find_reserved_id(emitter, tail));
+                add_branch_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), tail, params.count, results);
+            }
+            return;
+        }
         case Branch_TAG: {
-            assert(terminator->payload.branch.args.count == 0 && "TODO: implement bb params");
+            Nodes args = terminator->payload.branch.args;
+            LARRAY(SpvId, emitted_args, args.count);
+            for (size_t i = 0; i < args.count; i++)
+                emitted_args[i] = emit_value(emitter, args.nodes[i]);
+
             switch (terminator->payload.branch.branch_mode) {
                 case BrJump: {
                     spvb_branch(basic_block_builder, find_reserved_id(emitter, terminator->payload.branch.target));
+                    add_branch_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), terminator->payload.branch.target, args.count, emitted_args);
                     return;
                 }
                 case BrIfElse: {
                     SpvId condition = emit_value(emitter, terminator->payload.branch.branch_condition);
                     spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_target), find_reserved_id(emitter, terminator->payload.branch.false_target));
+                    
+                    add_branch_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), terminator->payload.branch.true_target, args.count, emitted_args);
+                    add_branch_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), terminator->payload.branch.false_target, args.count, emitted_args);
                     return;
                 }
                 case BrSwitch: error("TODO");
                 default: SHADY_UNREACHABLE;
             }
         }
+        case TailCall_TAG:
         case Join_TAG: error("Lower me");
         case MergeConstruct_TAG: {
             Nodes args = terminator->payload.merge_construct.args;
@@ -601,27 +638,18 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             spvb_unreachable(basic_block_builder);
             return;
         }
-        default: error("TODO: emit terminator %s", node_tags[terminator->tag]);
+        case NotATerminator: error("TODO: emit terminator %s", node_tags[terminator->tag]);
     }
     SHADY_UNREACHABLE;
 }
 
-static void emit_body(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* node) {
-    assert(node->tag == Body_TAG);
-    const Body* body = &node->payload.body;
-    for (size_t i = 0; i < body->instructions.count; i++)
-        emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, body->instructions.nodes[i]);
-    emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, body->terminator);
-}
-
 static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNode* node, bool is_entry) {
     assert(node->location.head->tag == Lambda_TAG);
-    assert(node->location.offset == 0);
     const Node* bb_node = node->location.head;
     // Find the preassigned ID to this
-    SpvId bb_id = is_entry ? spvb_fresh_id(emitter->file_builder) : find_reserved_id(emitter, bb_node);
-    BBBuilder basic_block_builder = spvb_begin_bb(emitter->file_builder, bb_id);
-    spvb_add_bb(fn_builder, basic_block_builder);
+    BBBuilder bb_builder = find_basic_block_builder(emitter, fn_builder, bb_node);
+    SpvId bb_id = get_block_builder_id(bb_builder);
+    spvb_add_bb(fn_builder, bb_builder);
     spvb_name(emitter->file_builder, bb_id, bb_node->payload.lam.name);
 
     MergeTargets merge_targets = {
@@ -629,9 +657,10 @@ static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNod
         .break_target = 0,
         .join_target = 0
     };
-    emit_body(emitter, fn_builder, basic_block_builder, merge_targets, bb_node->payload.lam.body);
 
-    // Emit the child nodes for real
+    emit_terminator(emitter, fn_builder, bb_builder, merge_targets, bb_node->payload.lam.body);
+
+    // Emit the child nodes
     size_t dom_count = entries_count_list(node->dominates);
     for (size_t i = 0; i < dom_count; i++) {
         CFNode* child_node = read_list(CFNode*, node->dominates)[i];
@@ -652,6 +681,28 @@ static void emit_function(Emitter* emitter, const Node* node) {
     }
 
     Scope scope = build_scope_from_basic_block(node);
+    // reserve a bunch of identifiers for the basic blocks in the scope
+    for (size_t i = 0; i < scope.size; i++) {
+        CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
+        assert(cfnode);
+        const Node* bb = cfnode->location.head;
+        assert(is_basic_block(bb) || bb == node);
+        SpvId bb_id = i == spvb_fresh_id(emitter->file_builder);
+        BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, bb_id);
+        insert_dict(const Node*, BBBuilder, emitter->bb_builders, bb, basic_block_builder);
+        // add phis for every non-entry basic block
+        if (i > 0) {
+            assert(is_basic_block(bb) && bb != node);
+            Nodes bb_params = bb->payload.lam.params;
+            for (size_t j = 0; j < bb_params.count; j++) {
+                const Node* bb_param = bb_params.nodes[j];
+                spvb_add_phi(basic_block_builder, emit_type(emitter, bb_param->type), spvb_fresh_id(emitter->file_builder));
+            }
+            // also make sure to register the label for basic blocks
+            register_result(emitter, bb, bb_id);
+        }
+    }
+    // emit the blocks using the dominator tree
     emit_basic_block(emitter, fn_builder, scope.entry, true);
     dispose_scope(&scope);
 
@@ -690,6 +741,7 @@ static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
 
             break;
         } case Lambda_TAG: {
+            assert(is_function(decl));
             emit_function(emitter, decl);
             spvb_name(emitter->file_builder, given_id, decl->payload.lam.name);
             break;
@@ -803,6 +855,7 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, s
         .arena = arena,
         .file_builder = file_builder,
         .node_ids = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
+        .bb_builders = new_dict(Node*, BBBuilder, (HashFn) hash_node, (CmpFn) compare_node),
         .num_entry_pts = 0,
     };
 
@@ -832,6 +885,7 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, s
 
     // cleanup the emitter
     destroy_dict(emitter.node_ids);
+    destroy_dict(emitter.bb_builders);
 
     *output_size = words->elements_count * sizeof(uint32_t);
     *output = malloc(*output_size);
