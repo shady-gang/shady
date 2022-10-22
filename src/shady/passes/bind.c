@@ -204,7 +204,7 @@ static const Node* bind_let(Context* ctx, const Node* node) {
     IrArena* dst_arena = ctx->dst_arena;
     Context body_infer_ctx = *ctx;
     const Node* ninstruction = bind_node(ctx, node->payload.let.instruction);
-    if (node->payload.let.instruction) {
+    if (node->payload.let.is_mutable) {
         const Node* old_lam = node->payload.let.tail;
         assert(old_lam && old_lam->tag == Lambda_TAG && old_lam->payload.lam.tier == FnTier_Lambda);
 
@@ -214,10 +214,11 @@ static const Node* bind_let(Context* ctx, const Node* node) {
         Nodes old_params = old_lam->payload.lam.params;
         for (size_t i = 0; i < old_params.count; i++) {
             const Node* oparam = old_params.nodes[i];
-            assert(oparam->type);
+            const Type* type_annotation = oparam->payload.var.type;
+            assert(type_annotation);
             const Node* alloca = prim_op(dst_arena, (PrimOp) {
                 .op = alloca_op,
-                .operands = nodes(dst_arena, 1, (const Node* []){ bind_node(ctx, oparam->type) })
+                .operands = nodes(dst_arena, 1, (const Node* []){ bind_node(ctx, type_annotation) })
             });
             const Node* ptr = declare_local_variable(bb, alloca, false, NULL, 1, &oparam->payload.var.name).nodes[0];
             const Node* store = prim_op(dst_arena, (PrimOp) {
@@ -298,6 +299,11 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case Lambda_TAG:
         case Constant_TAG:
         case GlobalVariable_TAG: {
+            if (is_anonymous_lambda(node)) {
+                Node* bound = rewrite_lambda_head(ctx, node);
+                rewrite_lambda_body(ctx, node, bound);
+                return bound;
+            }
             assert(false);
             break;
         }

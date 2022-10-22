@@ -660,7 +660,7 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         print_instruction(ctx, node);
     else if (is_terminator(node))
         print_terminator(ctx, node);
-    else if (node->tag == Lambda_TAG && node->payload.lam.tier) {
+    else if (node->tag == Lambda_TAG && node->payload.lam.tier == FnTier_Lambda) {
         printf(BYELLOW);
         printf("lambda ");
         printf(RESET);
