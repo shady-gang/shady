@@ -5,15 +5,12 @@
 typedef struct CFNode_ CFNode;
 
 typedef enum {
-    UncoloredEdge,
     ForwardEdge,
     LetTailEdge,
-    CallcReturnEdge,
-    SelectionMergeTargetEdge,
-    LoopBreakEdge,
-    LoopContinueEdge,
-    ControlJoinTargetEdge,
-    BackEdge,
+    ControlBodyEdge,
+    IfBodyEdge,
+    MatchBodyEdge,
+    LoopBodyEdge,
 } CFEdgeType;
 
 typedef struct {

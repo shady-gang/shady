@@ -57,26 +57,21 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
     return nodes(arena, outputs_count, vars);
 }
 
-Nodes append_instruction(BodyBuilder* builder, const Node* instruction) {
-    Nodes params = create_output_variables(builder->arena, instruction, 0, NULL, NULL);
+Nodes declare_local_variable(BodyBuilder* builder, const Node* instruction, bool mut, Nodes* provided_types, size_t outputs_count, const char* output_names[]) {
+    if (is_value(instruction))
+        instruction = quote(builder->arena, instruction);
+    Nodes params = create_output_variables(builder->arena, instruction, outputs_count, provided_types, output_names);
     StackEntry entry = {
         .instr = instruction,
-        .tail = lambda(builder->arena, params),
-        .mut = false,
-    };
-    append_list(StackEntry, builder->stack, entry);
-    return params;
-}
-
-Nodes declare_local_variable(BodyBuilder* builder, const Node* initial_value, bool mut, Nodes* provided_types, size_t outputs_count, const char* output_names[]) {
-    Nodes params = create_output_variables(builder->arena, initial_value, outputs_count, provided_types, output_names);
-    StackEntry entry = {
-        .instr = initial_value,
         .tail = lambda(builder->arena, params),
         .mut = mut,
     };
     append_list(StackEntry, builder->stack, entry);
     return params;
+}
+
+Nodes append_instruction(BodyBuilder* builder, const Node* instruction) {
+    return declare_local_variable(builder, instruction, false, NULL, 0, NULL);
 }
 
 #undef arena

@@ -399,12 +399,16 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect(condition);
             expect(accept_token(ctx, rpar_tok));
             const Node* merge = config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Selection }) : NULL;
-            const Node* if_true = expect_body(ctx, fn, merge);
+
+            Node* if_true = lambda(arena, nodes(arena, 0, NULL));
+            if_true->payload.lam.body = expect_body(ctx, fn, merge);
+
+            // else defaults to an empty body
             bool has_else = accept_token(ctx, else_tok);
-            // default to an empty body
-            const Node* if_false = NULL;
+            Node* if_false = NULL;
             if (has_else) {
-                if_false = expect_body(ctx, fn, merge);
+                if_false = lambda(arena, nodes(arena, 0, NULL));
+                if_false->payload.lam.body = expect_body(ctx, fn, merge);
             }
             return if_instr(arena, (If) {
                 .yield_types = yield_types,

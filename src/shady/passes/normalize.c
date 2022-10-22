@@ -58,7 +58,7 @@ static const Node* ensure_is_value(Context* ctx, const Node* node) {
         default: return process_node(ctx, node);
     }
 
-    return declare_local_variable(ctx->bb, let_bound, false, NULL, 0, NULL).nodes[0];
+    return declare_local_variable(ctx->bb, let_bound, false, NULL, 1, NULL).nodes[0];
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -70,14 +70,20 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     assert(!is_terminator(node));
 
+    if (is_instruction(node)) {
+        Context must_be_values_ctx = *ctx;
+        must_be_values_ctx.rewriter.rewrite_fn = (RewriteFn) ensure_is_value;
+        return recreate_node_identity(&must_be_values_ctx.rewriter, node);
+    }
+
     switch (node->tag) {
         case Lambda_TAG: {
             Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
 
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
             Context in_bb_ctx = *ctx;
-            in_bb_ctx.rewriter.rewrite_fn = (RewriteFn) ensure_is_value;
             in_bb_ctx.bb = bb;
+            in_bb_ctx.rewriter.rewrite_fn = (RewriteFn) process_node;
 
             new->payload.lam.body = finish_body(bb, recreate_node_identity(&in_bb_ctx.rewriter, node->payload.lam.body));
             return new;

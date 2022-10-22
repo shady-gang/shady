@@ -82,6 +82,7 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
 }
 
 const Node* let(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail) {
+    assert(is_instruction(instruction));
     Let payload = {
         .is_mutable = is_mutable,
         .instruction = instruction,

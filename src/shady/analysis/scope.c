@@ -70,16 +70,20 @@ static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const No
         case Instruction_Call_TAG:
         case Instruction_PrimOp_TAG: break;
         case Instruction_If_TAG:
-            error("TODO")
+            add_edge(ctx, parent->node, instruction->payload.if_instr.if_true, IfBodyEdge);
+            if(instruction->payload.if_instr.if_false)
+                add_edge(ctx, parent->node, instruction->payload.if_instr.if_false, IfBodyEdge);
             break;
         case Instruction_Match_TAG:
-        error("TODO")
+            for (size_t i = 0; i < instruction->payload.match_instr.cases.count; i++)
+                add_edge(ctx, parent->node, instruction->payload.match_instr.cases.nodes[i], MatchBodyEdge);
+            add_edge(ctx, parent->node, instruction->payload.match_instr.default_case, MatchBodyEdge);
             break;
         case Instruction_Loop_TAG:
-        error("TODO")
+            add_edge(ctx, parent->node, instruction->payload.loop_instr.body, LoopBodyEdge);
             break;
         case Instruction_Control_TAG:
-        error("TODO")
+            add_edge(ctx, parent->node, instruction->payload.control.inside, ControlBodyEdge);
             break;
     }
 }
@@ -116,7 +120,7 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
             break;
         }
         case MergeConstruct_TAG: {
-            error("TODO: only allow this if we have traversed structured constructs...")
+            // error("TODO: only allow this if we have traversed structured constructs...")
             break;
         }
         case TailCall_TAG:
@@ -182,7 +186,7 @@ void compute_rpo(Scope* scope) {
 
     debug_print("RPO: ");
     for (size_t i = 0; i < scope->size; i++) {
-        debug_print("%, ", scope->rpo[i]->node->payload.lam.name);
+        debug_print("%s, ", scope->rpo[i]->node->payload.lam.name);
     }
     debug_print("\n");
 }

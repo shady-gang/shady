@@ -189,11 +189,11 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
 }
 
 static void print_lambda_body(PrinterCtx* ctx, const Node* body) {
-    assert(is_terminator(body));
+    assert(is_anonymous_lambda(body));
     printf("{");
     indent(ctx->printer);
     printf("\n");
-    print_node(body);
+    print_node(body->payload.lam.body);
     printf(";");
     deindent(ctx->printer);
     printf("\n}");
@@ -426,7 +426,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             const Node* body = node->payload.loop_instr.body;
             assert(body->tag == Lambda_TAG && body->payload.lam.tier == FnTier_Lambda);
             print_param_list(ctx, body->payload.lam.params, &node->payload.loop_instr.initial_args);
-            print_lambda_body(ctx, body->payload.lam.body);
+            print_lambda_body(ctx, body);
             break;
         case Match_TAG:
             printf(GREEN);
@@ -446,7 +446,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
                 printf(" ");
                 print_node(node->payload.match_instr.literals.nodes[i]);
                 printf(": ");
-                print_node(node->payload.match_instr.cases.nodes[i]);
+                print_lambda_body(ctx, node->payload.match_instr.cases.nodes[i]);
             }
 
             printf("\n");
@@ -454,7 +454,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("default");
             printf(RESET);
             printf(": ");
-            print_node(node->payload.match_instr.default_case);
+            print_lambda_body(ctx, node->payload.match_instr.default_case);
 
             deindent(ctx->printer);
             printf("\n}");
@@ -466,6 +466,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             print_yield_types(ctx, node->payload.control.yield_types);
             printf("(");
             printf(")");
+            print_lambda_body(ctx, node->payload.control.inside);
             break;
     }
 }
