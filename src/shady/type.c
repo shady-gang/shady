@@ -192,14 +192,15 @@ static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type
     return true;
 }
 
+/// Does the same point value refer to the same memory, across the invocations in a subgroup ?
 bool is_addr_space_uniform(AddressSpace as) {
     switch (as) {
         case AsPrivateLogical:
         case AsPrivatePhysical:
         case AsInput:
-            return true;
-        default:
             return false;
+        default:
+            return true;
     }
 }
 

@@ -14,6 +14,7 @@ typedef uint32_t FnPtr;
 typedef struct Context_ {
     Rewriter rewriter;
     bool disable_lowering;
+    const Node* return_tok;
 } Context;
 
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
@@ -24,9 +25,17 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
     if (old->tag == Lambda_TAG) {
         Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
         Context ctx2 = *ctx;
-        if (fun->payload.lam.tier == FnTier_Function)
+        if (fun->payload.lam.tier == FnTier_Function) {
             ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
-        fun->payload.lam.body = lower_callf_process(&ctx2, old->payload.lam.body);
+            BodyBuilder* bb = begin_body(dst_arena);
+            // Pop the convergence token
+            ctx2.return_tok = bind_instruction(bb, gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = fun->payload.lam.return_types }))).nodes[0];
+            // This effectively asserts uniformity
+            ctx2.return_tok = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) { ctx2.return_tok });
+            fun->payload.lam.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.lam.body));
+            return fun;
+        }
+        fun->payload.lam.body = rewrite_node(&ctx2.rewriter, old->payload.lam.body);
         return fun;
     }
 
@@ -36,16 +45,11 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case Return_TAG: {
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.values);
-            BodyBuilder* bb = begin_body(dst_arena);
-            // Pop the convergence token, and join on that
-            const Node* return_convtok = gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = extract_types(dst_arena, nargs) }));
-            // This effectively asserts uniformity
-            return_convtok = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) { return_convtok });
-            // Join up at the return address
-            return finish_body(bb, join(dst_arena, (Join) {
-                .join_point = return_convtok,
+            // Join up at the return address instead of returning
+            return join(dst_arena, (Join) {
+                .join_point = ctx->return_tok,
                 .args = nargs,
-            }));
+            });
         }
         case Let_TAG: {
             const Node* old_instruction = old->payload.let.instruction;

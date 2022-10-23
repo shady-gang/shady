@@ -122,14 +122,14 @@ static const Node* process(Context* ctx, const Node* old) {
             if (entry_point_annotation)
                 lift_entry_point(ctx, old, fun);
 
-            BodyBuilder* builder = begin_body(dst_arena);
+            BodyBuilder* bb = begin_body(dst_arena);
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.lam.params.count; i++) {
                 const Node* old_param = old->payload.lam.params.nodes[i];
-                const Node* popped = gen_pop_value_stack(builder, rewrite_node(&ctx->rewriter, extract_operand_type(old_param->type)));
+                const Node* popped = gen_pop_value_stack(bb, rewrite_node(&ctx->rewriter, extract_operand_type(old_param->type)));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
-            fun->payload.lam.body = rewrite_node(&ctx2.rewriter, old->payload.lam.body);
+            fun->payload.lam.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.lam.body));
             return fun;
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
