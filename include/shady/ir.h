@@ -572,6 +572,8 @@ struct Node_ {
 
 inline static bool is_nominal(const Node* node) {
     NodeTag tag = node->tag;
+    if (node->tag == PrimOp_TAG && has_primop_got_side_effects(node->payload.prim_op.op))
+        return true;
     return tag == Lambda_TAG || tag == Root_TAG || tag == Constant_TAG || tag == Variable_TAG || tag == GlobalVariable_TAG;
 }
 

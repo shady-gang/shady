@@ -16,7 +16,6 @@ typedef struct Context_ {
     Rewriter rewriter;
     bool disable_lowering;
 
-    const Node* old_entry_body;
     const Node* entry_sp_val;
 
     struct List* new_decls;
@@ -54,23 +53,9 @@ static const Node* process(Context* ctx, const Node* node) {
             Context ctx2 = *ctx;
             if (node->payload.lam.tier == FnTier_Function) {
                 ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
-                ctx2.old_entry_body = node->payload.lam.body;
-                ctx2.entry_sp_val = NULL;
-                fun->payload.lam.body = process(&ctx2, node->payload.lam.body);
-            }
-            return fun;
-        }
-        case Let_TAG: {
-            if (ctx->disable_lowering)
-                return recreate_node_identity(&ctx->rewriter, node);
 
-            // If we are the entry block to a function, we need to visit the entire thing
-            // and handle all the allocas inside it
-            if (node == ctx->old_entry_body) {
                 BodyBuilder* bb = begin_body(arena);
-                assert(!ctx->entry_sp_val);
                 ctx->entry_sp_val = gen_primop_ce(bb, get_stack_pointer_op, 0, NULL);
-
                 VContext vctx = {
                     .visitor = {
                         .visit_fn = (VisitFn) collect_allocas,
@@ -79,20 +64,22 @@ static const Node* process(Context* ctx, const Node* node) {
                     .context = ctx,
                     .builder = bb,
                 };
+                visit_children(&vctx.visitor, node->payload.lam.body);
 
-                visit_children(&vctx.visitor, node);
-                return finish_body(bb, recreate_node_identity(&ctx->rewriter, node));
-            }
-            assert(ctx->entry_sp_val);
-            return recreate_node_identity(&ctx->rewriter, node);
+                fun->payload.lam.body = finish_body(bb, rewrite_node(&ctx->rewriter, node->payload.lam.body));
+            } else
+                fun->payload.lam.body = process(&ctx2, node->payload.lam.body);
+            return fun;
         }
         case Return_TAG: {
+            assert(ctx->entry_sp_val);
+            BodyBuilder* bb = begin_body(arena);
             // Restore SP before calling exit
-            const Node* restore_sp = prim_op(arena, (PrimOp) {
+            bind_instruction(bb, prim_op(arena, (PrimOp) {
                 .op = set_stack_pointer_op,
                 .operands = nodes(arena, 1, (const Node* []) { ctx->entry_sp_val })
-            });
-            return let(arena, false, restore_sp, recreate_node_identity(&ctx->rewriter, node));
+            }));
+            return finish_body(bb, recreate_node_identity(&ctx->rewriter, node));
         }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
