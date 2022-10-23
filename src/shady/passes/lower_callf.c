@@ -19,17 +19,21 @@ typedef struct Context_ {
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
-
     IrArena* dst_arena = ctx->rewriter.dst_arena;
+
+    if (old->tag == Lambda_TAG) {
+        Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
+        Context ctx2 = *ctx;
+        if (fun->payload.lam.tier == FnTier_Function)
+            ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
+        fun->payload.lam.body = lower_callf_process(&ctx2, old->payload.lam.body);
+        return fun;
+    }
+
+    if (ctx->disable_lowering)
+        return recreate_node_identity(&ctx->rewriter, old);
+
     switch (old->tag) {
-        case Lambda_TAG: {
-            Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
-            Context ctx2 = *ctx;
-            if (fun->payload.lam.tier == FnTier_Function)
-                ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
-            fun->payload.lam.body = lower_callf_process(&ctx2, old->payload.lam.body);
-            return fun;
-        }
         case Return_TAG: {
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.values);
             BodyBuilder* bb = begin_body(dst_arena);
@@ -44,9 +48,6 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             }));
         }
         case Let_TAG: {
-            if (ctx->disable_lowering)
-                return recreate_node_identity(&ctx->rewriter, old);
-
             const Node* old_instruction = old->payload.let.instruction;
             const Node* new_instruction = NULL;
             const Node* old_tail = old->payload.let.tail;

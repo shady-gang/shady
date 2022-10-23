@@ -130,9 +130,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 register_processed(&ctx->rewriter, old_param, popped);
             }
             fun->payload.lam.body = rewrite_node(&ctx2.rewriter, old->payload.lam.body);
-
             return fun;
-
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
         case Let_TAG: {
@@ -144,12 +142,12 @@ static const Node* process(Context* ctx, const Node* old) {
                 BodyBuilder* bb = begin_body(dst_arena);
                 const Node* target = rewrite_node(&ctx->rewriter, old->payload.let.tail);
 
-                const Node* jp = bind_instruction(bb, call_instr(dst_arena, (Call) {
+                /*const Node* jp = bind_instruction(bb, call_instr(dst_arena, (Call) {
                     .is_indirect = false,
                     .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_fork"),
                     .args = nodes(dst_arena, 1, (const Node*[]) { target })
                 })).nodes[0];
-                gen_push_value_stack(bb, jp);
+                gen_push_value_stack(bb, jp);*/
                 return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .values = nodes(dst_arena, 0, NULL) }));
             }
 
@@ -162,12 +160,12 @@ static const Node* process(Context* ctx, const Node* old) {
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.tail_call.args));
             const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
 
-            const Node* call = call_instr(dst_arena, (Call) {
+            /*const Node* call = call_instr(dst_arena, (Call) {
                 .is_indirect = false,
                 .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_fork"),
                 .args = nodes(dst_arena, 1, (const Node*[]) { target })
             });
-            bind_instruction(bb, call);
+            bind_instruction(bb, call);*/
             return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .values = nodes(dst_arena, 0, NULL) }));
         }
         case Join_TAG: {
@@ -179,12 +177,12 @@ static const Node* process(Context* ctx, const Node* old) {
 
             const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
 
-            const Node* call = call_instr(dst_arena, (Call) {
+            /*const Node* call = call_instr(dst_arena, (Call) {
                 .is_indirect = false,
                 .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_join"),
                 .args = nodes(dst_arena, 1, (const Node*[]) { jp })
             });
-            bind_instruction(bb, call);
+            bind_instruction(bb, call);*/
             return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .values = nodes(dst_arena, 0, NULL) }));
         }
         case PtrType_TAG: {
@@ -200,6 +198,7 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* dispatcher_fn) {
+    assert(dispatcher_fn->tag == Lambda_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     BodyBuilder* loop_body_builder = begin_body(dst_arena);
@@ -210,7 +209,8 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
     struct List* cases = new_list(const Node*);
 
     const Node* zero_lit = int32_literal(dst_arena, 0);
-    const Node* zero_case = finish_body(begin_body(ctx->rewriter.dst_arena), merge_construct(dst_arena, (MergeConstruct) {
+    Node* zero_case = lambda(dst_arena, nodes(dst_arena, 0, NULL));
+    zero_case->payload.lam.body = finish_body(begin_body(ctx->rewriter.dst_arena), merge_construct(dst_arena, (MergeConstruct) {
         .args = nodes(dst_arena, 0, NULL),
         .construct = Break
     }));
@@ -235,7 +235,8 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
                 .args = nodes(dst_arena, 0, NULL)
             }));
 
-            const Node* fn_case = finish_body(case_builder, merge_construct(dst_arena, (MergeConstruct) {
+            Node* fn_case = lambda(dst_arena, nodes(dst_arena, 0, NULL));
+            fn_case->payload.lam.body = finish_body(case_builder, merge_construct(dst_arena, (MergeConstruct) {
                 .args = nodes(dst_arena, 0, NULL),
                 .construct = Continue
             }));
@@ -245,12 +246,15 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
         }
     }
 
+    Node* default_case = lambda(dst_arena, nodes(dst_arena, 0, NULL));
+    default_case->payload.lam.body = unreachable(dst_arena);
+
     bind_instruction(loop_body_builder, match_instr(dst_arena, (Match) {
         .yield_types = nodes(dst_arena, 0, NULL),
         .inspect = next_function,
         .literals = nodes(dst_arena, entries_count_list(literals), read_list(const Node*, literals)),
         .cases = nodes(dst_arena, entries_count_list(cases), read_list(const Node*, cases)),
-        .default_case = finish_body(begin_body(ctx->rewriter.dst_arena), unreachable(dst_arena)),
+        .default_case = default_case,
     }));
 
     destroy_list(literals);

@@ -14,6 +14,8 @@ typedef void (*PrintFn)(PrinterCtx* ctx, char* format, ...);
 
 struct PrinterCtx_ {
     Printer* printer;
+    const Node* fn;
+    Scope* scope;
     bool print_ptrs;
     bool color;
 };
@@ -146,8 +148,50 @@ static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     }
 }
 
+static void print_block_body(PrinterCtx* ctx, const Node* block) {
+    assert(is_function(ctx->fn));
+    assert(block->tag == Lambda_TAG);
+
+    print_node(block->payload.lam.body);
+    printf(";");
+
+    if (block->type != NULL && block->payload.lam.body) {
+        const CFNode* dominator = scope_lookup(ctx->scope, block);
+        assert(dominator);
+        for (size_t i = 0; i < dominator->dominates->elements_count; i++) {
+            const CFNode* cfnode = read_list(const CFNode*, dominator->dominates)[i];
+
+            if (is_basic_block(cfnode->node)) {
+                printf(GREEN);
+                printf("\n\ncont");
+                printf(BYELLOW);
+                printf(" %s", cfnode->node->payload.lam.name);
+                printf(RESET);
+                print_param_list(ctx, cfnode->node->payload.lam.params, NULL);
+
+                printf(" {");
+                indent(ctx->printer);
+                printf("\n");
+                print_block_body(ctx, cfnode->node);
+                deindent(ctx->printer);
+                printf("\n}");
+            }
+        }
+    }
+}
+
+static void print_lambda_body(PrinterCtx* ctx, const Node* lam) {
+    assert(is_anonymous_lambda(lam));
+    printf(" {");
+    indent(ctx->printer);
+    printf("\n");
+    print_block_body(ctx, lam);
+    deindent(ctx->printer);
+    printf("\n}");
+}
+
 static void print_function(PrinterCtx* ctx, const Node* node) {
-    assert(node->tag == Lambda_TAG && node->payload.lam.tier == FnTier_Function);
+    assert(is_function(node));
     print_yield_types(ctx, node->payload.lam.return_types);
     print_param_list(ctx, node->payload.lam.params, NULL);
     if (!node->payload.lam.body)
@@ -155,29 +199,13 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
 
     printf(" {");
     indent(ctx->printer);
-
     printf("\n");
-    print_node(node->payload.lam.body);
-    printf(";");
 
-    if (node->type != NULL && node->payload.lam.body) {
-        bool section_space = false;
-        Scope scope = build_scope(node);
-        for (size_t i = 1; i < scope.size; i++) {
-            if (!section_space) {
-                printf("\n");
-                section_space = true;
-            }
-
-            const CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
-            if (is_basic_block(cfnode->node)) {
-                printf("\ncont %s = ", cfnode->node->payload.lam.name);
-                print_param_list(ctx, cfnode->node->payload.lam.params, NULL);
-                print_node(cfnode->node->payload.lam.body);
-            }
-        }
-        dispose_scope(&scope);
-    }
+    Scope scope = build_scope(node);
+    ctx->scope = &scope;
+    ctx->fn = node;
+    print_block_body(ctx, node);
+    dispose_scope(&scope);
 
     if (node->payload.lam.children_continuations.count > 0)
         printf("\n");
@@ -186,17 +214,6 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
         print_node_impl(ctx, node->payload.lam.children_continuations.nodes[i]);
     }
 
-    deindent(ctx->printer);
-    printf("\n}");
-}
-
-static void print_lambda_body(PrinterCtx* ctx, const Node* body) {
-    assert(is_anonymous_lambda(body));
-    printf("{");
-    indent(ctx->printer);
-    printf("\n");
-    print_node(body->payload.lam.body);
-    printf(";");
     deindent(ctx->printer);
     printf("\n}");
 }
@@ -466,8 +483,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("control");
             printf(RESET);
             print_yield_types(ctx, node->payload.control.yield_types);
-            printf("(");
-            printf(")");
+            print_param_list(ctx, node->payload.control.inside->payload.lam.params, NULL);
             print_lambda_body(ctx, node->payload.control.inside);
             break;
     }
@@ -503,10 +519,8 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 print_node(node->payload.let.tail->payload.lam.body);
             } else {
                 printf(GREEN);
-                if (node->payload.let.is_mutable)
-                    printf("let mut");
-                else
-                    printf("let");
+                assert(!node->payload.let.is_mutable);
+                printf("let ");
                 printf(RESET);
                 print_node(node->payload.let.instruction);
                 printf(GREEN);
@@ -584,12 +598,12 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             break;
         case Unreachable_TAG:
             printf(BGREEN);
-            printf("unreachable ");
+            printf("unreachable");
             printf(RESET);
             break;
         case MergeConstruct_TAG:
             printf(BGREEN);
-            printf("%s", merge_what_string[node->payload.merge_construct.construct]);
+            printf("merge %s", merge_what_string[node->payload.merge_construct.construct]);
             printf(RESET);
             print_args_list(ctx, node->payload.merge_construct.args);
             break;

@@ -131,22 +131,26 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    switch (node->tag) {
-        case Lambda_TAG: {
-            Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
-            Context sub_ctx = *ctx;
-            if (node->payload.lam.tier == FnTier_Function) {
-                sub_ctx.disable_lowering = lookup_annotation_with_string_payload(fun, "DisablePass", "lower_cf_instrs");
-                sub_ctx.join_points = (JoinPoints) {
-                    .join_point_selection_merge = NULL,
-                    .join_point_switch_merge = NULL,
-                    .join_point_loop_break = NULL,
-                    .join_point_loop_continue = NULL,
-                };
-            }
-            fun->payload.lam.body = rewrite_node(&sub_ctx.rewriter, node->payload.lam.body);
-            return fun;
+    if (node->tag == Lambda_TAG) {
+        Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
+        Context sub_ctx = *ctx;
+        if (node->payload.lam.tier == FnTier_Function) {
+            sub_ctx.disable_lowering = lookup_annotation_with_string_payload(fun, "DisablePass", "lower_cf_instrs");
+            sub_ctx.join_points = (JoinPoints) {
+                .join_point_selection_merge = NULL,
+                .join_point_switch_merge = NULL,
+                .join_point_loop_break = NULL,
+                .join_point_loop_continue = NULL,
+            };
         }
+        fun->payload.lam.body = rewrite_node(&sub_ctx.rewriter, node->payload.lam.body);
+        return fun;
+    }
+
+    if (ctx->disable_lowering)
+        return recreate_node_identity(&ctx->rewriter, node);
+
+    switch (node->tag) {
         case Let_TAG: return process_let(ctx, node);
         case MergeConstruct_TAG: {
             const Node* jp = NULL;

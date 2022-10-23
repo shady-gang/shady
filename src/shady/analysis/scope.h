@@ -37,6 +37,7 @@ typedef struct Scope_ {
     Arena* arena;
     size_t size;
     struct List* contents;
+    struct Dict* map;
     CFNode* entry;
     // set by compute_rpo
     CFNode** rpo;
@@ -45,6 +46,7 @@ typedef struct Scope_ {
 struct List* build_scopes(const Node* root);
 Scope build_scope(const Node*);
 
+CFNode* scope_lookup(Scope* scope, const Node* block);
 void compute_rpo(Scope* scope);
 void compute_domtree(Scope* scope);
 

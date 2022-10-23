@@ -120,7 +120,7 @@ const char* extract_string_literal(const Node* node) {
     return node->payload.string_lit.string;
 }
 
-String merge_what_string[] = { "join", "continue", "break" };
+String merge_what_string[] = { "selection", "continue", "break" };
 
 KeyHash hash_murmur(const void* data, size_t size) {
     int32_t out[4];

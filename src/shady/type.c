@@ -784,7 +784,7 @@ const Type* check_type_let(IrArena* arena, Let let) {
     assert(!let.is_mutable && "this is a front-end only thing, we ban it in the IR");
     Nodes produce_types = unwrap_multiple_yield_types(arena, let.instruction->type);
     const Type* applied_tail_result = check_callsite_helper(arena, let.tail->type, produce_types);
-    assert(applied_tail_result == noret_type(arena) && "the tail of lets must be noret");
+    assert(applied_tail_result == noret_type(arena) || is_function(let.tail));
     return noret_type(arena);
 }
 

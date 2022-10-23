@@ -31,6 +31,12 @@ typedef struct {
     struct List* contents;
 } ScopeBuildContext;
 
+CFNode* scope_lookup(Scope* scope, const Node* block) {
+    CFNode** found = find_value_dict(const Node*, CFNode*, scope->map, block);
+    if (found) return *found;
+    assert(false);
+}
+
 static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* lam) {
     assert(lam->tag == Lambda_TAG);
     CFNode** found = find_value_dict(const Node*, CFNode*, ctx->nodes, lam);
@@ -149,7 +155,6 @@ Scope build_scope(const Node* entry) {
         process_cf_node(&context, this);
     }
 
-    destroy_dict(context.nodes);
     destroy_list(context.queue);
 
     Scope scope = {
@@ -157,6 +162,7 @@ Scope build_scope(const Node* entry) {
         .entry = entry_node,
         .size = entries_count_list(context.contents),
         .contents = context.contents,
+        .map = context.nodes,
         .rpo = NULL
     };
 
@@ -164,6 +170,20 @@ Scope build_scope(const Node* entry) {
     compute_domtree(&scope);
 
     return scope;
+}
+
+void dispose_scope(Scope* scope) {
+    for (size_t i = 0; i < scope->size; i++) {
+        CFNode* node = read_list(CFNode*, scope->contents)[i];
+        destroy_list(node->pred_edges);
+        destroy_list(node->succ_edges);
+        if (node->dominates)
+            destroy_list(node->dominates);
+    }
+    destroy_dict(scope->map);
+    destroy_arena(scope->arena);
+    free(scope->rpo);
+    destroy_list(scope->contents);
 }
 
 static size_t post_order_visit(Scope* scope, CFNode* n, size_t i) {
@@ -185,11 +205,11 @@ void compute_rpo(Scope* scope) {
     size_t index = post_order_visit(scope,  scope->entry, scope->size);
     assert(index == 0);
 
-    debug_print("RPO: ");
-    for (size_t i = 0; i < scope->size; i++) {
-        debug_print("%s, ", scope->rpo[i]->node->payload.lam.name);
-    }
-    debug_print("\n");
+    // debug_print("RPO: ");
+    // for (size_t i = 0; i < scope->size; i++) {
+    //     debug_print("%s, ", scope->rpo[i]->node->payload.lam.name);
+    // }
+    // debug_print("\n");
 }
 
 CFNode* least_common_ancestor(CFNode* i, CFNode* j) {
@@ -243,19 +263,6 @@ void compute_domtree(Scope* scope) {
         CFNode* n = read_list(CFNode*, scope->contents)[i];
         append_list(CFNode*, n->idom->dominates, n);
     }
-}
-
-void dispose_scope(Scope* scope) {
-    for (size_t i = 0; i < scope->size; i++) {
-        CFNode* node = read_list(CFNode*, scope->contents)[i];
-        destroy_list(node->pred_edges);
-        destroy_list(node->succ_edges);
-        if (node->dominates)
-            destroy_list(node->dominates);
-    }
-    destroy_arena(scope->arena);
-    free(scope->rpo);
-    destroy_list(scope->contents);
 }
 
 static int extra_uniqueness = 0;

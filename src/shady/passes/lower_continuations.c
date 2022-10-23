@@ -20,9 +20,9 @@ bool compare_node(Node**, Node**);
 
 typedef struct Context_ {
     Rewriter rewriter;
-//    struct Dict* spilled;
     struct Dict* lifted;
     struct List* new_fns;
+    bool disable_lowering;
 } Context;
 
 typedef struct {
@@ -39,11 +39,11 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
     size_t recover_context_size = entries_count_list(spilled_vars);
     for (size_t i = 0; i < recover_context_size; i++) {
         const Node* ovar = read_list(const Node*, spilled_vars)[i];
-        const Node* var = rewrite_node(&ctx->rewriter, ovar);
+        const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
 
-        const Node* args[] = { extract_operand_type(var->payload.var.type), var };
+        const Node* args[] = { extract_operand_type(nvar->type), nvar };
         const Node* save_instruction = prim_op(arena, (PrimOp) {
-            .op = push_stack_op,
+            .op = is_operand_uniform(nvar->type) ? push_stack_uniform_op : push_stack_op,
             .operands = nodes(arena, 2, args)
         });
         bind_instruction(builder, save_instruction);
@@ -52,7 +52,11 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
 
 static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
     assert(cont->tag == Lambda_TAG);
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, cont);
+    if (found)
+        return (*found)->lifted_fn;
+
+    IrArena* arena = ctx->rewriter.dst_arena;
 
     // Compute the live stuff we'll need
     Scope scope = build_scope(cont);
@@ -73,7 +77,7 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
 
     // Keep annotations the same
     Nodes annotations = rewrite_nodes(&ctx->rewriter, cont->payload.lam.annotations);
-    Node* new_fn = function(dst_arena, new_params, cont->payload.lam.name, annotations, nodes(dst_arena, 0, NULL));
+    Node* new_fn = function(arena, new_params, cont->payload.lam.name, annotations, nodes(arena, 0, NULL));
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = cont;
@@ -82,59 +86,58 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
     insert_dict(const Node*, LiftedCont*, ctx->lifted, cont, lifted_cont);
 
     Context spilled_ctx = *ctx;
-    // spilled_ctx.spilled = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
 
     // Rewrite the body once in the new arena with the new params
     const Node* pre_substitution = rewrite_node(&spilled_ctx.rewriter, cont->payload.lam.body);
 
-    Rewriter substituter = create_substituter(dst_arena);
+    Rewriter substituter = create_substituter(arena);
 
     // Recover that stuff inside the new body
-    BodyBuilder* builder = begin_body(dst_arena);
+    BodyBuilder* builder = begin_body(arena);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
         assert(ovar->tag == Variable_TAG);
 
-        const Type* type = rewrite_node(&ctx->rewriter, extract_operand_type(ovar->payload.var.type));
-
         const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
-        const Node* recovered_value = gen_pop_value_stack(builder, type);
+        const Node* recovered_value = bind_instruction(builder, prim_op(arena, (PrimOp) {
+            .op = is_operand_uniform(nvar->type) ? pop_stack_uniform_op : pop_stack_op,
+            .operands = nodes(arena, 1, (const Node* []) { extract_operand_type(nvar->type) })
+        })).nodes[0];
 
         // this dict overrides the 'processed' region
-        // insert_dict(const Node*, const Node*, spilled_ctx.spilled, ovar, let_load->payload.let.variables.nodes[0]);
         register_processed(&substituter, nvar, recovered_value);
     }
 
     // Rewrite the body a second time in the new arena,
     // this time substituting the captured free variables with the recovered context
     const Node* substituted = rewrite_node(&substituter, pre_substitution);
-    // destroy_dict(spilled_ctx.spilled);
 
-    new_fn->payload.lam.body = substituted;
+    assert(is_terminator(substituted));
+    new_fn->payload.lam.body = finish_body(builder, substituted);
     append_list(const Node*, ctx->new_fns, new_fn);
 
     return new_fn;
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
-    // if (ctx->spilled) {
-    //     const Node** spilled = find_value_dict(const Node*, const Node*, ctx->spilled, node);
-    //     if (spilled) return *spilled;
-    // }
-
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
     IrArena* arena = ctx->rewriter.dst_arena;
 
+    // we lift all basic blocks into functions
+    if (node->tag == Lambda_TAG) {
+        Context ctx2 = *ctx;
+        if (node->payload.lam.tier == FnTier_BasicBlock)
+            return lift_lambda_into_function(ctx, node);
+        // leave other declarations alone
+        return recreate_node_identity(&ctx->rewriter, node);
+    }
+
+    if (ctx->disable_lowering)
+         return recreate_node_identity(&ctx->rewriter, node);
+
     switch (node->tag) {
-        // we lift all basic blocks into functions
-        case Lambda_TAG: {
-            if (node->payload.lam.tier == FnTier_BasicBlock)
-                return lift_lambda_into_function(ctx, node);
-            // leave other declarations alone
-            return recreate_node_identity(&ctx->rewriter, node);
-        }
         // everywhere we might call a basic block, we insert appropriate spilling context
         case Branch_TAG: {
             BodyBuilder* bb = begin_body(arena);
@@ -155,7 +158,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 case BrIfElse: {
                     const Node* otargets[] = { node->payload.branch.true_target, node->payload.branch.false_target };
                     const Node* ntargets[2];
-                    const Node* cases[2];
+                    Node* cases[2];
                     for (size_t i = 0; i < 2; i++) {
                         const Node* otarget = otargets[i];
                         const Node* ntarget = rewrite_node(&ctx->rewriter, otarget);
@@ -166,7 +169,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                         BodyBuilder* case_builder = begin_body(arena);
                         add_spill_instrs(ctx, case_builder, lifted->save_values);
-                        cases[i] = finish_body(case_builder, merge_construct(arena, (MergeConstruct) { .args = nodes(arena, 0, NULL), .construct = Selection }));
+                        cases[i] = lambda(arena, nodes(arena, 0, NULL));
+                        cases[i]->payload.lam.body = finish_body(case_builder, merge_construct(arena, (MergeConstruct) { .args = nodes(arena, 0, NULL), .construct = Selection }));
                     }
 
                     // Put the spilling code inside a selection construct
@@ -195,8 +199,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* ntail = rewrite_node(&ctx->rewriter, otail);
             LiftedCont* lifted = *find_value_dict(const Node*, LiftedCont*, ctx->lifted, otail);
             assert(lifted->lifted_fn == ntail);
-            add_spill_instrs(ctx, bb, lifted->save_values);
-            return finish_body(bb, let(arena, false, rewrite_node(&ctx->rewriter, node->payload.let.instruction), ntail));
+            Context ctx2 = *ctx;
+            add_spill_instrs(&ctx2, bb, lifted->save_values);
+            return finish_body(bb, let(arena, false, rewrite_node(&ctx2.rewriter, node->payload.let.instruction), ntail));
         }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
@@ -207,7 +212,6 @@ const Node* lower_continuations(SHADY_UNUSED CompilerConfig* config, IrArena* sr
         .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process_node),
         .new_fns = new_list(const Node*),
         .lifted = new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
-        // .spilled = NULL,
     };
 
     assert(src_program->tag == Root_TAG);
