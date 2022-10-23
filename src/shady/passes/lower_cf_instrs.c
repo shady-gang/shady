@@ -36,16 +36,20 @@ static const Node* process_let(Context* ctx, const Node* node) {
             bool has_false_branch = old_instruction->payload.if_instr.if_false;
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.if_instr.yield_types);
 
-            const Node* join_point = var(arena, join_point_type(arena, (JoinPointType) { .yield_types = yield_types }), "if_join");
+            const Type* jp_type = qualified_type(arena, (QualifiedType) {
+                .type = join_point_type(arena, (JoinPointType) { .yield_types = yield_types }),
+                .is_uniform = true,
+            });
+            const Node* join_point = var(arena, jp_type, "if_join");
             Context join_context = *ctx;
             join_context.join_points.join_point_selection_merge = join_point;
 
             Node* true_block = basic_block(arena, nodes(arena, 0, NULL), unique_name(arena, "if_true"));
-            true_block->payload.lam.body = rewrite_node(&join_context.rewriter,  old_instruction->payload.if_instr.if_true);
+            true_block->payload.lam.body = rewrite_node(&join_context.rewriter,  old_instruction->payload.if_instr.if_true->payload.lam.body);
 
             Node* flse_block = basic_block(arena, nodes(arena, 0, NULL), unique_name(arena, "if_false"));
             if (has_false_branch)
-                flse_block->payload.lam.body = rewrite_node(&join_context.rewriter,  old_instruction->payload.if_instr.if_false);
+                flse_block->payload.lam.body = rewrite_node(&join_context.rewriter,  old_instruction->payload.if_instr.if_false->payload.lam.body);
             else {
                 assert(yield_types.count == 0);
                 flse_block->payload.lam.body = join(arena, (Join) { .join_point = join_point, .args = nodes(arena, 0, NULL) });
@@ -68,10 +72,18 @@ static const Node* process_let(Context* ctx, const Node* node) {
             const Node* old_loop_body = old_instruction->payload.loop_instr.body;
 
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, extract_variable_types(arena, &old_instruction->payload.lam.params));
+            Nodes param_types = rewrite_nodes(&ctx->rewriter, extract_variable_types(arena, &old_loop_body->payload.lam.params));
 
-            const Node* break_point = var(arena, join_point_type(arena, (JoinPointType) { .yield_types = yield_types }), "loop_break_point");
-            const Node* continue_point = var(arena, join_point_type(arena, (JoinPointType) { .yield_types = param_types }), "loop_continue_point");
+            const Type* break_jp_type = qualified_type(arena, (QualifiedType) {
+                .type = join_point_type(arena, (JoinPointType) { .yield_types = yield_types }),
+                .is_uniform = true,
+            });
+            const Type* continue_jp_type = qualified_type(arena, (QualifiedType) {
+                .type = join_point_type(arena, (JoinPointType) { .yield_types = param_types }),
+                .is_uniform = true,
+            });
+            const Node* break_point = var(arena, break_jp_type, "loop_break_point");
+            const Node* continue_point = var(arena, continue_jp_type, "loop_continue_point");
             Context join_context = *ctx;
             join_context.join_points.join_point_loop_break = break_point;
             join_context.join_points.join_point_loop_continue = continue_point;
@@ -98,8 +110,11 @@ static const Node* process_let(Context* ctx, const Node* node) {
             });
             outer_body->payload.lam.body = initial_jump;
             new_instruction = control(arena, (Control) { .yield_types = yield_types, .inside = outer_body });
+            break;
         }
-        default: break;
+        default:
+            new_instruction = rewrite_node(&ctx->rewriter, old_instruction);
+            break;
     }
 
     if (!new_tail)

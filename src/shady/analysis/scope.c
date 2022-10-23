@@ -92,6 +92,7 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     const Node* const lambda = node->node;
     assert(lambda->tag == Lambda_TAG);
     const Node* terminator = lambda->payload.lam.body;
+    assert(is_terminator(terminator));
     switch (terminator->tag) {
         case Branch_TAG: {
             switch (terminator->payload.branch.branch_mode) {

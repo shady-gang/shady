@@ -810,12 +810,8 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
 
     switch (branch.branch_mode) {
         case BrJump: {
-            const Type* target_type;
-            bool target_uniform;
-            deconstruct_operand_type(branch.target->type, &target_type, &target_uniform);
-            assert(target_uniform && "Non-uniform jump targets are not allowed");
-            check_callsite_helper(arena, target_type, extract_types(arena, branch.args));
-            return NULL;
+            check_callsite_helper(arena, branch.target->type, extract_types(arena, branch.args));
+            break;
         }
         case BrIfElse: {
             const Type* condition_type;
@@ -826,8 +822,7 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
             const Node* branches[2] = { branch.true_target, branch.false_target };
             for (size_t i = 0; i < 2; i++)
                 check_callsite_helper(arena, branches[i]->type, extract_types(arena, branch.args));
-
-            return NULL;
+            break;
         }
         case BrSwitch: error("TODO")
     }
