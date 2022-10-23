@@ -101,9 +101,9 @@ N(0, 1, 1, Let, let) \
 N(1, 1, 1, TailCall, tail_call) \
 N(1, 1, 1, Branch, branch) \
 N(1, 1, 1, Join, join) \
-N(1, 0, 1, MergeConstruct, merge_construct) \
+N(1, 1, 1, MergeConstruct, merge_construct) \
 N(1, 1, 1, Return, fn_ret) \
-N(1, 0, 0, Unreachable, unreachable) \
+N(1, 1, 0, Unreachable, unreachable) \
 
 #define NODES(N) \
 N(0, 0, 0, InvalidNode, invalid_node) \

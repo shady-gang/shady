@@ -327,14 +327,6 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
     return t;
 }
 
-const Type* check_type_let(IrArena* arena, Let let) {
-    assert(!let.is_mutable && "this is a front-end only thing, we ban it in the IR");
-    Nodes produce_types = unwrap_multiple_yield_types(arena, let.instruction->type);
-    const Type* applied_tail_result = check_callsite_helper(arena, let.tail->type, produce_types);
-    assert(applied_tail_result == noret_type(arena) && "the tail of lets must be noret");
-    return noret_type(arena);
-}
-
 /// Checks the operands to a Primop and returns the produced types
 const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     for (size_t i = 0; i < prim_op.operands.count; i++) {
@@ -772,6 +764,30 @@ const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
     return wrap_multiple_yield_types(arena, match_instr.yield_types);
 }
 
+const Type* check_type_control(IrArena* arena, Control control) {
+    // TODO check it then !
+    assert(is_anonymous_lambda(control.inside));
+    const Node* join_point = control.inside->payload.lam.params.nodes[0];
+
+    const Type* join_target_type = join_point->type;
+    bool join_target_uniform;
+    deconstruct_operand_type(join_target_type, &join_target_type, &join_target_uniform);
+    assert(join_target_uniform);
+    assert(join_target_type->tag == JoinPointType_TAG);
+
+    assert(is_subtype(wrap_multiple_yield_types(arena, join_target_type->payload.join_point_type.yield_types), wrap_multiple_yield_types(arena, control.yield_types)));
+
+    return wrap_multiple_yield_types(arena, join_target_type->payload.join_point_type.yield_types);
+}
+
+const Type* check_type_let(IrArena* arena, Let let) {
+    assert(!let.is_mutable && "this is a front-end only thing, we ban it in the IR");
+    Nodes produce_types = unwrap_multiple_yield_types(arena, let.instruction->type);
+    const Type* applied_tail_result = check_callsite_helper(arena, let.tail->type, produce_types);
+    assert(applied_tail_result == noret_type(arena) && "the tail of lets must be noret");
+    return noret_type(arena);
+}
+
 const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
     const Type* callee_type;
     bool callee_uniform;
@@ -817,7 +833,7 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
     }
 
     // TODO check arguments and that both branches match
-    return NULL;
+    return noret_type(arena);
 }
 
 const Type* check_type_join(IrArena* arena, Join join) {
@@ -838,25 +854,18 @@ const Type* check_type_join(IrArena* arena, Join join) {
     return noret_type(arena);
 }
 
-const Type* check_type_control(IrArena* arena, Control control) {
-    // TODO check it then !
-    assert(is_anonymous_lambda(control.inside));
-    const Node* join_point = control.inside->payload.lam.params.nodes[0];
+const Type* check_type_unreachable(IrArena* arena) {
+    return noret_type(arena);
+}
 
-    const Type* join_target_type = join_point->type;
-    bool join_target_uniform;
-    deconstruct_operand_type(join_target_type, &join_target_type, &join_target_uniform);
-    assert(join_target_uniform);
-    assert(join_target_type->tag == JoinPointType_TAG);
-
-    assert(is_subtype(wrap_multiple_yield_types(arena, join_target_type->payload.join_point_type.yield_types), wrap_multiple_yield_types(arena, control.yield_types)));
-
-    return wrap_multiple_yield_types(arena, join_target_type->payload.join_point_type.yield_types);
+const Type* check_type_merge_construct(IrArena* arena, MergeConstruct mc) {
+    // TODO check it
+    return noret_type(arena);
 }
 
 const Type* check_type_fn_ret(IrArena* arena, Return ret) {
     // TODO check it then !
-    return NULL;
+    return noret_type(arena);
 }
 
 const Type* check_type_lam(IrArena* arena, Lambda lam) {
