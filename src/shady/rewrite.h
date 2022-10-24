@@ -10,10 +10,7 @@ typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
 /// Applies the rewriter to all nodes in the collection
 Nodes rewrite_nodes(Rewriter*, Nodes);
 
-/// bring in a node unmodified into a new arena
-const Node* import_node   (IrArena*, const Node*);
-Nodes       import_nodes  (IrArena*, Nodes);
-Strings     import_strings(IrArena*, Strings);
+Strings import_strings(IrArena*, Strings);
 
 struct Rewriter_ {
     IrArena* src_arena;

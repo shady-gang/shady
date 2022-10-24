@@ -271,9 +271,13 @@ const Type* check_type_true_lit(IrArena* arena) { return qualified_type(arena, (
 const Type* check_type_false_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
 
 const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
-    return arr_type(arena, (ArrType) {
+    const Type* t = arr_type(arena, (ArrType) {
         .element_type = int8_type(arena),
         .size = int32_literal(arena, strlen(str_lit.string))
+    });
+    return qualified_type(arena, (QualifiedType) {
+        .type = t,
+        .is_uniform = true,
     });
 }
 
@@ -325,7 +329,11 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
         case Constant_TAG: break;
         default: error("You can only use RefDecl on a global or a constant. See FnAddr for taking addresses of functions.")
     }
-    return t;
+    assert(!contains_qualified_type(t));
+    return qualified_type(arena, (QualifiedType) {
+        .type = t,
+        .is_uniform = true,
+    });
 }
 
 /// Checks the operands to a Primop and returns the produced types

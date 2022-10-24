@@ -19,7 +19,6 @@ set(SHADY_SOURCES
     analysis/verify.c
     analysis/callgraph.c
 
-    transform/import.c
     transform/memory_layout.c
     transform/ir_gen_helpers.c
     transform/internal_constants.c

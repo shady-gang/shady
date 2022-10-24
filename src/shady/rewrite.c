@@ -63,6 +63,14 @@ Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
     return nodes(rewriter->dst_arena, count, arr);
 }
 
+Strings import_strings(IrArena* dst_arena, Strings old_strings) {
+    size_t count = old_strings.count;
+    LARRAY(String, arr, count);
+    for (size_t i = 0; i < count; i++)
+        arr[i] = string(dst_arena, old_strings.strings[i]);
+    return strings(dst_arena, count, arr);
+}
+
 const Node* search_processed(const Rewriter* ctx, const Node* old) {
     assert(ctx->processed && "this rewriter has no processed cache");
     const Node** found = find_value_dict(const Node*, const Node*, ctx->processed, old);
