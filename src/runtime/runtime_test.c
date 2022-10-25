@@ -1,6 +1,7 @@
 #include "shady/runtime.h"
 
 #include "log.h"
+#include "portability.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,7 +13,7 @@ static const char* shader =
 "    return;\n"
 "}";
 
-int main(int argc, const char* argv[]) {
+int main(SHADY_UNUSED int argc, SHADY_UNUSED const char* argv[]) {
     set_log_level(DEBUG);
     info_print("Shady runtime test starting...\n");
 

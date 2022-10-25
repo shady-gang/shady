@@ -250,7 +250,7 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
 
     // divide memory up between subgroups in a workgroup
     // TODO decide between shared/global memory for this purpose
-    const Type* wrapped_type = record_type(dst_arena, (RecordType) {
+    SHADY_UNUSED const Type* wrapped_type = record_type(dst_arena, (RecordType) {
         .members = nodes(dst_arena, 1, (const Node* []) { stack_arr_type }),
         .special = DecorateBlock,
         .names = strings(dst_arena, 0, NULL)

@@ -435,10 +435,6 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             const Node* otail = node->payload.let.tail;
             assert(otail->tag == Lambda_TAG);
             Nodes annotated_types = extract_variable_types(arena, &otail->payload.lam.params);
-            bool valid_annotations = true;
-            for (size_t i = 0; i < annotated_types.count; i++) {
-                valid_annotations &= (annotated_types.nodes[i] != NULL);
-            }
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(arena, annotated_types));
             Nodes inferred_yield_types = unwrap_multiple_yield_types(arena, inferred_instruction->type);
             const Node* inferred_tail = infer(ctx, node->payload.let.tail, wrap_multiple_yield_types(arena, inferred_yield_types));
@@ -599,6 +595,7 @@ static const Node* process(Context* src_ctx, const Node* node) {
         assert(expect != NULL);
         return _infer_anonymous_lambda(&ctx, node, expect);
     }
+    assert(false);
 }
 
 #include "dict.h"

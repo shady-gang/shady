@@ -33,7 +33,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn) {
     growy_append_bytes(paramg, 1, (char[]) { 0 });
     const char* parameters = printer_growy_unwrap(paramp);
     String center = format_string(emitter->arena, "%s(%s)", fn->payload.lam.name, parameters);
-    free(parameters);
+    free_tmp_str(parameters);
 
     return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
 }
@@ -45,17 +45,15 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
     Nodes c = array->payload.arr_lit.contents;
     if (t->tag == Int_TAG && t->payload.int_type.width == 8) {
         uint8_t* tmp = malloc(sizeof(uint8_t) * c.count);
-        bool ends_zero = false, has_zero = false;
+        bool ends_zero = false;
         for (size_t i = 0; i < c.count; i++) {
             tmp[i] = extract_int_literal_value(c.nodes[i], false);
             if (tmp[i] == 0) {
                 if (i == c.count - 1)
                     ends_zero = true;
-                else
-                    has_zero = true;
             }
         }
-        bool is_stringy = ends_zero /*&& !has_zero*/;
+        bool is_stringy = ends_zero;
         for (size_t i = 0; i < c.count; i++) {
             // ignore the last char in a string
             if (is_stringy && i == c.count - 1)
@@ -170,7 +168,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
                 print(p, "\nreturn %s;", emit_value(emitter, args.nodes[0]));
             } else {
                 String packed = unique_name(emitter->arena, "pack_return");
-                emit_pack_code(emitter, p, &args, packed);
+                emit_pack_code(p, emit_values(emitter, args), packed);
                 print(p, "\nreturn %s;", packed);
             }
             break;
@@ -260,7 +258,7 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
 
                 String fn_body = emit_lambda_body(emitter, body, NULL);
                 print(emitter->fn_defs, "\n%s %s", emit_fn_head(emitter, decl), fn_body);
-                free(fn_body);
+                free_tmp_str(fn_body);
             }
             break;
         }

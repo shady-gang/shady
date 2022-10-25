@@ -420,7 +420,7 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
     *bb_builder = join_bb;
 }
 
-static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match, size_t results_count, SpvId results[]) {
+static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match, size_t results_count, SHADY_UNUSED SpvId results[]) {
     assert(match.yield_types.count == 0 && "TODO use phis");
     assert(results_count == match.yield_types.count);
 
@@ -559,7 +559,7 @@ static SpvId find_reserved_id(Emitter* emitter, const Node* node) {
     return *found;
 }
 
-static BBBuilder find_basic_block_builder(Emitter* emitter, FnBuilder fn_builder, const Node* bb) {
+static BBBuilder find_basic_block_builder(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, const Node* bb) {
     assert(is_basic_block(bb));
     BBBuilder* found = find_value_dict(const Node*, BBBuilder, emitter->bb_builders, bb);
     assert(found);
@@ -668,7 +668,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
     SHADY_UNREACHABLE;
 }
 
-static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNode* node, bool is_entry) {
+static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNode* node) {
     assert(node->node->tag == Lambda_TAG);
     const Node* bb_node = node->node;
     // Find the preassigned ID to this
@@ -689,7 +689,7 @@ static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFNod
     size_t dom_count = entries_count_list(node->dominates);
     for (size_t i = 0; i < dom_count; i++) {
         CFNode* child_node = read_list(CFNode*, node->dominates)[i];
-        emit_basic_block(emitter, fn_builder, child_node, false);
+        emit_basic_block(emitter, fn_builder, child_node);
     }
 }
 
@@ -728,7 +728,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
         }
     }
     // emit the blocks using the dominator tree
-    emit_basic_block(emitter, fn_builder, scope.entry, true);
+    emit_basic_block(emitter, fn_builder, scope.entry);
     dispose_scope(&scope);
 
     spvb_define_function(emitter->file_builder, fn_builder);

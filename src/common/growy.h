@@ -1,5 +1,5 @@
 #ifndef SHADY_GROWY_H
-#define SHADY_GROWY
+#define SHADY_GROWY_H
 
 #include <stddef.h>
 
@@ -8,7 +8,7 @@
 typedef struct Growy_ Growy;
 
 Growy* new_growy();
-void growy_append_bytes(Growy*, size_t, char*);
+void growy_append_bytes(Growy*, size_t, const char*);
 #define growy_append(a, v) growy_append_bytes(a, sizeof(v), (char*) &v)
 size_t growy_size(const Growy*);
 char* growy_data(const Growy*);

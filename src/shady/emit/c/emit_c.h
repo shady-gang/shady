@@ -45,7 +45,9 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Str
 String emit_lambda_body   (Emitter*,           const Node*, const Nodes* nested_basic_blocks);
 void   emit_lambda_body_at(Emitter*, Printer*, const Node*, const Nodes* nested_basic_blocks);
 
-void emit_pack_code(Emitter*, Printer*, const Nodes* src, String dst);
-void emit_unpack_code(Emitter*, Printer*, String src, Strings dst);
+void emit_pack_code(Printer*, Strings, String dst);
+void emit_unpack_code(Printer*, String src, Strings dst);
+
+#define free_tmp_str(s) free((char*) (s))
 
 #endif

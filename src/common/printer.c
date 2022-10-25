@@ -85,7 +85,7 @@ Printer* print(Printer* p, const char* f, ...) {
 
     // points to either the contents of buf, or alloc, depending on bufsize
     char* tmp;
-    int written;
+    size_t written;
 
     while(true) {
         if (bufsize <= LOCAL_BUFFER_SIZE) {
@@ -128,21 +128,6 @@ Printer* print(Printer* p, const char* f, ...) {
 
     free(alloc);
     return p;
-}
-
-void print_size_suffix(Printer* p, size_t s, int extra) {
-    const char* suffixes[] = { "B", "KiB", "MiB", "GiB", "PiB" };
-    int max_suffix = sizeof(suffixes) / sizeof(const char*);
-
-    int i = 0;
-    while (s >= (1024 << (extra))) {
-        s /= 1024;
-        i++;
-        if (i + 1 == max_suffix)
-            break;
-    }
-
-    print(p, "%llu%s", s, suffixes[i]);
 }
 
 const char* printer_growy_unwrap(Printer* p) {

@@ -27,7 +27,7 @@ BodyBuilder* begin_body(IrArena* arena) {
     return builder;
 }
 
-static Nodes create_output_variables(IrArena* arena, const Node* value, size_t outputs_count, Nodes* provided_types, const char* output_names[]) {
+static Nodes create_output_variables(IrArena* arena, const Node* value, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
     Nodes types;
     if (arena->config.check_types) {
         types = unwrap_multiple_yield_types(arena, value->type);
@@ -62,7 +62,7 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
     return nodes(arena, outputs_count, (const Node**) vars);
 }
 
-static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool mut, size_t outputs_count, Nodes* provided_types, const char* output_names[]) {
+static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool mut, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
     if (is_value(instruction))
         instruction = quote(builder->arena, instruction);
     Nodes params = create_output_variables(builder->arena, instruction, outputs_count, provided_types, output_names);
@@ -75,11 +75,11 @@ static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool m
     return params;
 }
 
-Nodes bind_instruction_extra(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, const char* output_names[]) {
+Nodes bind_instruction_extra(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
     return bind_internal(builder, instruction, false, outputs_count, provided_types, output_names);
 }
 
-Nodes bind_instruction_extra_mutable(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, const char* output_names[]) {
+Nodes bind_instruction_extra_mutable(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
     return bind_internal(builder, instruction, true, outputs_count, provided_types, output_names);
 }
 

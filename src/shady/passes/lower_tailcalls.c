@@ -140,9 +140,9 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* old_instruction = old->payload.let.instruction;
             if (old_instruction->tag == Control_TAG) {
                 BodyBuilder* bb = begin_body(dst_arena);
-                const Node* target = rewrite_node(&ctx->rewriter, old->payload.let.tail);
+                /*const Node* target = rewrite_node(&ctx->rewriter, old->payload.let.tail);
 
-                /*const Node* jp = bind_instruction(bb, call_instr(dst_arena, (Call) {
+                const Node* jp = bind_instruction(bb, call_instr(dst_arena, (Call) {
                     .is_indirect = false,
                     .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_fork"),
                     .args = nodes(dst_arena, 1, (const Node*[]) { target })
@@ -158,9 +158,9 @@ static const Node* process(Context* ctx, const Node* old) {
                 return recreate_node_identity(&ctx->rewriter, old);
             BodyBuilder* bb = begin_body(dst_arena);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.tail_call.args));
-            const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
+            /*const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
 
-            /*const Node* call = call_instr(dst_arena, (Call) {
+            const Node* call = call_instr(dst_arena, (Call) {
                 .is_indirect = false,
                 .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_fork"),
                 .args = nodes(dst_arena, 1, (const Node*[]) { target })
@@ -175,9 +175,9 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* bb = begin_body(dst_arena);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
 
-            const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
+            /*const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
 
-            /*const Node* call = call_instr(dst_arena, (Call) {
+            const Node* call = call_instr(dst_arena, (Call) {
                 .is_indirect = false,
                 .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_join"),
                 .args = nodes(dst_arena, 1, (const Node*[]) { jp })

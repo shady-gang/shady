@@ -9,13 +9,13 @@
 #include <assert.h>
 #include <stdlib.h>
 
-void emit_pack_code(Emitter* e, Printer* p, const Nodes* src, String dst) {
-    for (size_t i = 0; i < src->count; i++) {
-        print(p, "\n%s->_%d = %s", dst, emit_value(e, src->nodes[i]), i);
+void emit_pack_code(Printer* p, Strings src, String dst) {
+    for (size_t i = 0; i < src.count; i++) {
+        print(p, "\n%s->_%d = %s", dst, src.strings[i], i);
     }
 }
 
-void emit_unpack_code(Emitter* e, Printer* p, String src, Strings dst) {
+void emit_unpack_code(Printer* p, String src, Strings dst) {
     for (size_t i = 0; i < dst.count; i++) {
         print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
     }
@@ -47,6 +47,10 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Strings 
     } m = Infix;
     String s = NULL, rhs = NULL;
     switch (prim_op->op) {
+        case quote_op: {
+            rhs = emit_value(emitter, prim_op->operands.nodes[0]);
+            break;
+        }
         case add_op: s = "+";  break;
         case sub_op: s = "-";  break;
         case mul_op: s = "*";  break;
@@ -164,13 +168,13 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call_instr, Stri
     if (yield_types.count > 1) {
         String named = unique_name(emitter->arena, "result");
         print(p, "\n%s = %s(%s);", emit_type(emitter, call_instr->type, named), emit_callee(emitter, call->callee), params);
-        emit_unpack_code(emitter, p, named, outputs);
+        emit_unpack_code(p, named, outputs);
     } else if (yield_types.count == 1) {
         print(p, "\n%s = %s(%s);", emit_type(emitter, call_instr->type, outputs.strings[0]), emit_callee(emitter, call->callee), params);
     } else {
         print(p, "\n%s(%s);", emit_callee(emitter, call->callee), params);
     }
-    free(params);
+    free_tmp_str(params);
 }
 
 static const Node* get_anonymous_lambda_body(const Node* lambda) {
@@ -192,12 +196,12 @@ static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Strings 
     assert(get_anonymous_lambda_params(if_->if_true).count == 0);
     String true_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(if_->if_true), NULL);
     print(p, "\nif (%s) %s", emit_value(emitter, if_->condition), true_body);
-    free(true_body);
+    free_tmp_str(true_body);
     if (if_->if_false) {
         assert(get_anonymous_lambda_params(if_->if_false).count == 0);
         String false_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(if_->if_false), NULL);
         print(p, " else %s", false_body);
-        free(false_body);
+        free_tmp_str(false_body);
     }
 }
 
@@ -212,12 +216,12 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, St
     for (size_t i = 0; i < match->cases.count; i++) {
         String case_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(match->cases.nodes[i]), NULL);
         print(p, "\ncase %s: %s\n", emit_value(emitter, match->literals.nodes[i]), case_body);
-        free(case_body);
+        free_tmp_str(case_body);
     }
     if (match->default_case) {
         String default_case_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(match->default_case), NULL);
         print(p, "\ndefault: %s\n", default_case_body);
-        free(default_case_body);
+        free_tmp_str(default_case_body);
     }
     deindent(p);
     print(p, "\n}");
@@ -237,7 +241,7 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Stri
 
     String body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(loop->body), NULL);
     print(p, "\nwhile(true) %s", body);
-    free(body);
+    free_tmp_str(body);
 }
 
 void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Strings outputs) {

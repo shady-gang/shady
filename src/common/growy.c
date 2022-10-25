@@ -20,7 +20,7 @@ Growy* new_growy() {
     return g;
 }
 
-void growy_append_bytes(Growy* g, size_t s, char* bytes) {
+void growy_append_bytes(Growy* g, size_t s, const char* bytes) {
     size_t old_used = g->used;
     g->used += s;
     while (g->used >= g->size) {

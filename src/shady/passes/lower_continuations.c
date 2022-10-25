@@ -127,7 +127,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     // we lift all basic blocks into functions
     if (node->tag == Lambda_TAG) {
-        Context ctx2 = *ctx;
         if (node->payload.lam.tier == FnTier_BasicBlock)
             return lift_lambda_into_function(ctx, node);
         // leave other declarations alone

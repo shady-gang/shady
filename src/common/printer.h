@@ -16,9 +16,6 @@ void indent(Printer* p);
 void deindent(Printer* p);
 void flush(Printer*);
 
-/// Prints a size using appropriate KiB/MiB/GiB suffixes
-void print_size_suffix(Printer*, size_t, int extra);
-
 const char* printer_growy_unwrap(Printer* p);
 Growy* new_growy();
 #define helper_format_string(f, ...) printer_growy_unwrap(cunk_print(cunk_open_growy_as_printer(cunk_new_growy()), (f), __VA_ARGS__))

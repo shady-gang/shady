@@ -10,8 +10,6 @@
 #include <string.h>
 #include <assert.h>
 
-#define let $NO$
-
 Nodes gen_primop(BodyBuilder* bb, Op op, Nodes operands) {
     assert(bb->arena->config.check_types);
     const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = op, .operands = operands });

@@ -95,7 +95,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             growy_append_bytes(paramg, 1, (char[]) { 0 });
             const char* parameters = printer_growy_unwrap(paramp);
             center = format_string(emitter->arena, "(%s)(%s)", center, parameters);
-            free(parameters);
+            free_tmp_str(parameters);
 
             return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
         }
@@ -119,7 +119,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
 
             String subdecl = printer_growy_unwrap(p);
             print(emitter->type_decls, subdecl);
-            free(subdecl);
+            free_tmp_str(subdecl);
             break;
         }
         case Type_PackType_TAG: {
