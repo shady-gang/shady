@@ -201,7 +201,8 @@ static const Node* bind_let(Context* ctx, const Node* node) {
             assert(type_annotation);
             const Node* alloca = prim_op(dst_arena, (PrimOp) {
                 .op = alloca_op,
-                .operands = nodes(dst_arena, 1, (const Node* []){ rewrite_node(&ctx->rewriter, type_annotation) })
+                .type_arguments = nodes(dst_arena, 1, (const Node* []){ rewrite_node(&ctx->rewriter, type_annotation) }),
+                .operands = nodes(dst_arena, 0, NULL)
             });
             const Node* ptr = bind_instruction_extra(bb, alloca, 1, NULL, &oparam->payload.var.name).nodes[0];
             const Node* store = prim_op(dst_arena, (PrimOp) {

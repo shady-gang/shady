@@ -135,6 +135,17 @@ static void print_args_list(PrinterCtx* ctx, Nodes args) {
     printf(")");
 }
 
+static void print_ty_args_list(PrinterCtx* ctx, Nodes args) {
+    printf("[");
+    for (size_t i = 0; i < args.count; i++) {
+        if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)args.nodes[i]);
+        print_node(args.nodes[i]);
+        if (i < args.count - 1)
+            printf(", ");
+    }
+    printf("]");
+}
+
 static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     bool initial_space = false;
     for (size_t i = 0; i < types.count; i++) {
@@ -399,13 +410,10 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(GREEN);
             printf("%s", primop_names[node->payload.prim_op.op]);
             printf(RESET);
-            printf("(");
-            for (size_t i = 0; i < node->payload.prim_op.operands.count; i++) {
-                print_node(node->payload.prim_op.operands.nodes[i]);
-                if (i + 1 < node->payload.prim_op.operands.count)
-                    printf(", ");
-            }
-            printf(")");
+            Nodes ty_args = node->payload.prim_op.type_arguments;
+            if (ty_args.count > 0)
+                print_ty_args_list(ctx, node->payload.prim_op.type_arguments);
+            print_args_list(ctx, node->payload.prim_op.operands);
             break;
         case Call_TAG:
             printf(GREEN);

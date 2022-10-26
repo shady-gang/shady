@@ -442,50 +442,6 @@ PRIMOPS(TRANSLATE_PRIMOP_CASE)
 static const Node* accept_primop(ctxparams) {
     Op op = not_op;
     switch (curr_token(tokenizer).tag) {
-        case load_tok: {
-            next_token(tokenizer);
-            expect(accept_token(ctx, lpar_tok));
-            const Type* element_type = accept_unqualified_type(ctx);
-            assert(!element_type && "we haven't enabled that syntax yet");
-            if (element_type)
-                expect(accept_token(ctx, comma_tok));
-            const Node* ptr = accept_operand(ctx);
-            expect(ptr);
-            const Node* ops[] = {ptr};
-            expect(accept_token(ctx, rpar_tok));
-            return prim_op(arena, (PrimOp) {
-                .op = load_op,
-                .operands = nodes(arena, 1, ops)
-            });
-        }
-        case store_tok: {
-            next_token(tokenizer);
-            expect(accept_token(ctx, lpar_tok));
-            const Node* ptr = accept_operand(ctx);
-            expect(ptr);
-            expect(accept_token(ctx, comma_tok));
-            const Node* data = accept_operand(ctx);
-            expect(data);
-            const Node* ops[] = {ptr, data};
-            expect(accept_token(ctx, rpar_tok));
-            return prim_op(arena, (PrimOp) {
-                .op = store_op,
-                .operands = nodes(arena, 2, ops)
-            });
-        }
-        case alloca_tok: {
-            next_token(tokenizer);
-            expect(accept_token(ctx, lpar_tok));
-            const Type* element_type = accept_unqualified_type(ctx);
-            expect(element_type);
-            const Node* ops[] = {element_type};
-            expect(accept_token(ctx, rpar_tok));
-            return prim_op(arena, (PrimOp) {
-                .op = alloca_op,
-                .type_arguments = nodes(arena, 1, ops),
-                .operands = nodes(arena, 0, NULL),
-            });
-        }
         /// Only used for IR parsing
         /// Otherwise accept_expression handles this
         case call_tok: {
@@ -504,8 +460,23 @@ static const Node* accept_primop(ctxparams) {
         default: if (translate_token_to_primop(curr_token(tokenizer).tag, &op)) break; else return NULL;
     }
     next_token(tokenizer);
+
+    Nodes ty_args = nodes(arena, 0, NULL);
+    if (accept_token(ctx, rsbracket_tok)) {
+        while (true) {
+            const Type* t = accept_unqualified_type(ctx);
+            expect(t);
+            ty_args = append_nodes(arena, ty_args, t);
+            if (accept_token(ctx, comma_tok))
+                continue;
+            if (accept_token(ctx, lsbracket_tok))
+                break;
+        }
+    }
+
     return prim_op(arena, (PrimOp) {
         .op = op,
+        .type_arguments = ty_args,
         .operands = expect_operands(ctx)
     });
 }
