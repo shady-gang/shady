@@ -491,7 +491,8 @@ static const Node* accept_primop(ctxparams) {
             expect(accept_token(ctx, rpar_tok));
             return prim_op(arena, (PrimOp) {
                 .op = alloca_op,
-                .operands = nodes(arena, 1, ops)
+                .type_arguments = nodes(arena, 1, ops),
+                .operands = nodes(arena, 0, NULL),
             });
         }
         /// Only used for IR parsing

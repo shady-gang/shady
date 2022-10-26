@@ -103,7 +103,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Strings 
         case select_op:break;
         case convert_op:break;
         case reinterpret_op: {
-            rhs = format_string(emitter->arena, "(%s) %s", emit_type(emitter, prim_op->operands.nodes[0], NULL), emit_value(emitter, prim_op->operands.nodes[1]));
+            rhs = format_string(emitter->arena, "(%s) %s", emit_type(emitter, prim_op->type_arguments.nodes[0], NULL), emit_value(emitter, prim_op->operands.nodes[0]));
             break;
         }
         case extract_op:break;

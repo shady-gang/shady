@@ -93,11 +93,10 @@ enum ResultKind {
     Same, Bool, TyOperand
 };
 
-static enum OperandKind classify_primop_arg(const Node* arg) {
-    const Type* operand_type = is_type(arg) ? arg : extract_operand_type(arg->type);
-    assert(!contains_qualified_type(operand_type));
+static enum OperandKind classify_operand_type(const Type* type) {
+    assert(is_type(type) && !contains_qualified_type(type));
 
-    switch (operand_type->tag) {
+    switch (type->tag) {
         case Int_TAG:     return Signed;
         case Bool_TAG:    return Logical;
         case PtrType_TAG: return Ptr;
@@ -171,6 +170,7 @@ const struct IselTableEntry {
 static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* instr, size_t results_count, SpvId results[]) {
     PrimOp prim_op = instr->payload.prim_op;
     Nodes args = prim_op.operands;
+    Nodes tys = prim_op.type_arguments;
 
     struct IselTableEntry entry = isel_table[prim_op.op];
     if (entry.i_sel_mechanism != Custom) {
@@ -185,20 +185,17 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         }
 
         SpvOp opcode;
-        int first_op = 0;
+        enum OperandKind op_class = classify_operand_type(extract_operand_type(args.nodes[0]->type));
         if (entry.i_sel_mechanism == FirstOp) {
-            enum OperandKind op_class = classify_primop_arg(args.nodes[0]);
             opcode = entry.fo[op_class];
         } else if (entry.i_sel_mechanism == FirstAndResult) {
-            enum OperandKind return_t_class = classify_primop_arg(args.nodes[0]);
-            enum OperandKind op_class = classify_primop_arg(args.nodes[1]);
+            enum OperandKind return_t_class = classify_operand_type(tys.nodes[0]);
             opcode = entry.foar[op_class][return_t_class];
-            first_op = 1;
         } else SHADY_UNREACHABLE;
 
         if (opcode == SpvOpNop) {
             assert(results_count == 1);
-            results[0] = arr[first_op];
+            results[0] = arr[0];
             return;
         } else if (opcode == SpvOpMax) {
             goto custom_path;
@@ -213,8 +210,8 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         }
 
         assert(results_count == 1);
-        if (args.count == 1 || first_op == 1)
-            results[0] = spvb_unop(bb_builder, opcode, emit_type(emitter, result_t), arr[first_op]);
+        if (args.count == 1)
+            results[0] = spvb_unop(bb_builder, opcode, emit_type(emitter, result_t), arr[0]);
         else if (args.count == 2)
             results[1] = spvb_binop(bb_builder, opcode, emit_type(emitter, result_t), arr[0], arr[1]);
         else

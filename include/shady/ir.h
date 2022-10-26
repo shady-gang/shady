@@ -435,6 +435,7 @@ bool has_primop_got_side_effects(Op op);
 
 typedef struct PrimOp_ {
     Op op;
+    Nodes type_arguments;
     Nodes operands;
 } PrimOp;
 

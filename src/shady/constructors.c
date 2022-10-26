@@ -232,6 +232,7 @@ const Node* quote(IrArena* arena, const Node* value) {
      assert(is_value(value));
      return prim_op(arena, (PrimOp) {
          .op = quote_op,
+         .type_arguments = nodes(arena, 0, NULL),
          .operands = nodes(arena, 1, (const Node*[]){ value })
      });
  }

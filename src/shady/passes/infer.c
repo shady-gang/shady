@@ -223,9 +223,16 @@ static const Node* _infer_anonymous_lambda(Context* ctx, const Node* node, const
 static const Node* _infer_primop(Context* ctx, const Node* node, const Type* expected_type) {
     assert(node->tag == PrimOp_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
-    Nodes old_inputs = node->payload.prim_op.operands;
 
-    LARRAY(const Node*, new_inputs_scratch, old_inputs.count);
+    for (size_t i = 0; i < node->payload.prim_op.type_arguments.count; i++)
+        assert(node->payload.prim_op.type_arguments.nodes[i] && is_type(node->payload.prim_op.type_arguments.nodes[i]));
+    for (size_t i = 0; i < node->payload.prim_op.operands.count; i++)
+        assert(node->payload.prim_op.operands.nodes[i] && is_value(node->payload.prim_op.operands.nodes[i]));
+
+    Nodes type_args = infer_nodes(ctx, node->payload.prim_op.type_arguments);
+    Nodes old_operands = node->payload.prim_op.operands;
+
+    LARRAY(const Node*, new_inputs_scratch, old_operands.count);
     Nodes input_types;
     switch (node->payload.prim_op.op) {
         case neg_op:
@@ -247,48 +254,48 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             input_types = nodes(dst_arena, 2, (const Type*[]){ int32_type(dst_arena), int32_type(dst_arena) }); break;
         case push_stack_op:
         case push_stack_uniform_op: {
-            assert(old_inputs.count == 2);
-            const Type* element_type = infer(ctx, old_inputs.nodes[0], NULL);
+            assert(old_operands.count == 1);
+            assert(type_args.count == 1);
+            const Type* element_type = type_args.nodes[0];
             assert(!contains_qualified_type(element_type));
-            new_inputs_scratch[0] = element_type;
-            new_inputs_scratch[1] = infer(ctx, old_inputs.nodes[1], element_type);
+            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], element_type);
             goto skip_input_types;
         }
         case pop_stack_op:
         case pop_stack_uniform_op: {
-            assert(old_inputs.count == 1);
-            const Type* element_type = infer(ctx, old_inputs.nodes[0], NULL);
+            assert(old_operands.count == 0);
+            assert(type_args.count == 1);
+            const Type* element_type = type_args.nodes[0];
             assert(!contains_qualified_type(element_type));
             new_inputs_scratch[0] = element_type;
             goto skip_input_types;
         }
         case load_op: {
-            assert(old_inputs.count == 1);
-            new_inputs_scratch[0] = infer(ctx, old_inputs.nodes[0], NULL);
+            assert(old_operands.count == 1);
+            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
             goto skip_input_types;
         }
         case store_op: {
-            assert(old_inputs.count == 2);
-            new_inputs_scratch[0] = infer(ctx, old_inputs.nodes[0], NULL);
-            const Type* op0_type = extract_operand_type(new_inputs_scratch[0]->type);
-            assert(op0_type->tag == PtrType_TAG);
-            const PtrType* ptr_type = &op0_type->payload.ptr_type;
-            new_inputs_scratch[1] = infer(ctx, old_inputs.nodes[1], ptr_type->pointed_type);
+            assert(old_operands.count == 2);
+            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
+            const Type* ptr_type = extract_operand_type(new_inputs_scratch[0]->type);
+            assert(ptr_type->tag == PtrType_TAG);
+            new_inputs_scratch[1] = infer(ctx, old_operands.nodes[1], (&ptr_type->payload.ptr_type)->pointed_type);
             goto skip_input_types;
         }
         case alloca_op: {
-            assert(old_inputs.count == 1);
-            new_inputs_scratch[0] = infer(ctx, old_inputs.nodes[0], NULL);
-            const Type* element_type = new_inputs_scratch[0];
-            assert(is_type(new_inputs_scratch[0]));
+            assert(type_args.count == 1);
+            assert(old_operands.count == 0);
+            const Type* element_type = type_args.nodes[0];
+            assert(is_type(element_type));
             assert(!contains_qualified_type(element_type));
             goto skip_input_types;
         }
         case lea_op: {
-            assert(old_inputs.count >= 2);
-            new_inputs_scratch[0] = infer(ctx, old_inputs.nodes[0], NULL);
-            for (size_t i = 1; i < old_inputs.count; i++) {
-                new_inputs_scratch[i] = old_inputs.nodes[i] ? infer(ctx, old_inputs.nodes[i], int32_type(dst_arena)) : NULL;
+            assert(old_operands.count >= 2);
+            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
+            for (size_t i = 1; i < old_operands.count; i++) {
+                new_inputs_scratch[i] = infer(ctx, old_operands.nodes[i], int32_type(dst_arena));
             }
             goto skip_input_types;
         }
@@ -299,7 +306,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             input_types = nodes(dst_arena, 0, NULL);
             break;
         case subgroup_broadcast_first_op:
-            new_inputs_scratch[0] = infer(ctx, old_inputs.nodes[0], NULL);
+            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
             goto skip_input_types;
         case subgroup_ballot_op:
             input_types = nodes(dst_arena, 1, (const Type* []) { bool_type(dst_arena) });
@@ -309,21 +316,22 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             break;
         }
         default: {
-            for (size_t i = 0; i < old_inputs.count; i++) {
-                new_inputs_scratch[i] = old_inputs.nodes[i] ? infer(ctx, old_inputs.nodes[i], int32_type(dst_arena)) : NULL;
+            for (size_t i = 0; i < old_operands.count; i++) {
+                new_inputs_scratch[i] = old_operands.nodes[i] ? infer(ctx, old_operands.nodes[i], int32_type(dst_arena)) : NULL;
             }
             goto skip_input_types;
         }
     }
 
-    assert(input_types.count == old_inputs.count);
+    assert(input_types.count == old_operands.count);
     for (size_t i = 0; i < input_types.count; i++)
-        new_inputs_scratch[i] = infer(ctx, old_inputs.nodes[i], input_types.nodes[i]);
+        new_inputs_scratch[i] = infer(ctx, old_operands.nodes[i], input_types.nodes[i]);
 
     skip_input_types:
     return prim_op(dst_arena, (PrimOp) {
         .op = node->payload.prim_op.op,
-        .operands = nodes(dst_arena, old_inputs.count, new_inputs_scratch)
+        .type_arguments = type_args,
+        .operands = nodes(dst_arena, old_operands.count, new_inputs_scratch)
     });
 }
 
