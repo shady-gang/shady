@@ -336,18 +336,9 @@ static const Node* accept_expr(ctxparams, int outer_precedence) {
                     .op = primop_op,
                     .operands = nodes(arena, 2, (const Node* []) {expr, rhs})
                 });
-            } else {
-                error("TODO");
+            } else switch (infix) {
+                default: error("unknown infix operator")
             }
-            continue;
-        } else if (accept_token(ctx, lsbracket_tok)) {
-            const Node* index = accept_expr(ctx, max_precedence());
-            assert(index);
-            expect(accept_token(ctx, rsbracket_tok));
-            expr = prim_op(arena, (PrimOp) {
-                .op = subscript_op,
-                .operands = nodes(arena, 2, (const Node* []) {expr, index})
-            });
             continue;
         }
         break;

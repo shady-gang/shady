@@ -77,6 +77,7 @@ TOKEN(rbracket, "}") \
 TOKEN(lsbracket, "[") \
 TOKEN(rsbracket, "]") \
 TOKEN(at, "@") \
+TOKEN(dot, ".") \
 TOKEN(semi, ";") \
 TOKEN(colon, ":") \
 TOKEN(comma, ",") \

@@ -15,8 +15,8 @@ fn builtin_branch(varying i32 branch_destination) {
         next_mask = subgroup_active_mask();
 
         // tag those variables as not in use.
-        resume_at[subgroup_local_id()] = -1;
-        resume_with[subgroup_local_id()] = empty_mask();
+        resume_at.(subgroup_local_id()) = -1;
+        resume_with.(subgroup_local_id()) = empty_mask();
         return;
     }
 
@@ -25,8 +25,8 @@ fn builtin_branch(varying i32 branch_destination) {
     loop() {
         let elected = subgroup_broadcast_first(branch_destination);
         if (elected == branch_destination) {
-            resume_at[subgroup_local_id()] = elected;
-            resume_with[subgroup_local_id()] = subgroup_ballot(elected == branch_destination);
+            resume_at.(subgroup_local_id()) = elected;
+            resume_with.(subgroup_local_id()) = subgroup_ballot(elected == branch_destination);
             break;
         }
     }
@@ -34,8 +34,8 @@ fn builtin_branch(varying i32 branch_destination) {
 
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
 fn builtin_yield(uniform i32 resume_target) {
-    resume_at[subgroup_local_id()] = resume_target;
-    resume_with[subgroup_local_id()] = subgroup_active_mask();
+    resume_at.(subgroup_local_id()) = resume_target;
+    resume_with.(subgroup_local_id()) = subgroup_active_mask();
 
     if (subgroup_elect_first()) {
         // only one thread runs that part
@@ -57,7 +57,7 @@ fn builtin_join(uniform i32 join_at, uniform mask join_with) {
             if (false == mask_is_thread_active(join_with, bit)) { continue(bit + 1); }
 
             if (mask_is_thread_active(active_mask, bit)) { continue(bit + 1); }
-            if (resume_at[bit] == join_at) { continue(bit + 1); }
+            if (resume_at.(bit) == join_at) { continue(bit + 1); }
 
             clear = false;
             break;
@@ -76,8 +76,8 @@ fn builtin_join(uniform i32 join_at, uniform mask join_with) {
     }
 
     // We're not clear to enter and we need to pause our threads and do something else
-    resume_at[subgroup_local_id()] = join_at;
-    resume_with[subgroup_local_id()] = join_with;
+    resume_at.(subgroup_local_id()) = join_at;
+    resume_with.(subgroup_local_id()) = join_with;
 
     if (subgroup_elect_first()) {
         // only one thread runs that part
@@ -96,9 +96,9 @@ fn builtin_rotate_active_branch() {
     loop (uniform i32 i = 0) {
         if (i >= MASK_SIZE) { break; }
 
-        let desired_resume_pt = resume_at[scheduler_selector];
-        let desired_mask = resume_with[scheduler_selector];
-        if (resume_at[scheduler_selector] > 0) {
+        let desired_resume_pt = resume_at.(scheduler_selector);
+        let desired_mask = resume_with.(scheduler_selector);
+        if (resume_at.(scheduler_selector) > 0) {
             var bool can_run = true;
 
             // TODO: this is likely slow. Ideally this could run at full subgroup occupancy
@@ -107,7 +107,7 @@ fn builtin_rotate_active_branch() {
                 if (j >= MASK_SIZE) { break; }
 
                 if (mask_is_thread_active(desired_mask, j)) { continue(j + 1); }
-                if (resume_at[j] == desired_resume_pt) { continue(j + 1); }
+                if (resume_at.j == desired_resume_pt) { continue(j + 1); }
                 can_run = false;
                 break;
             }
