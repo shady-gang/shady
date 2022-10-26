@@ -693,14 +693,6 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         printf("%s", get_decl_name(node));
         printf(RESET);
     } else switch (node->tag) {
-        case Root_TAG: {
-            const Root* top_level = &node->payload.root;
-            for (size_t i = 0; i < top_level->declarations.count; i++) {
-                const Node* decl = top_level->declarations.nodes[i];
-                print_decl(ctx, decl);
-            }
-            break;
-        }
         case Annotation_TAG: {
             const Annotation* annotation = &node->payload.annotation;
             printf(RED);
@@ -720,44 +712,61 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
     }
 }
 
+static void print_mod_impl(PrinterCtx* ctx, Module* mod) {
+    Nodes decls = get_module_declarations(mod);
+    for (size_t i = 0; i < decls.count; i++) {
+        const Node* decl = decls.nodes[i];
+        print_decl(ctx, decl);
+    }
+}
+
 #undef print_node
 #undef printf
 
-void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
-    Growy* g = new_growy();
+static void print_helper(Printer* printer, const Node* node, Module* mod, bool dump_ptrs) {
     PrinterCtx ctx = {
-        .printer = open_growy_as_printer(g),
-        .print_ptrs = false,
-        .color = false,
-    };
-    print_node_impl(&ctx, node);
-
-    *size = growy_size(g);
-    *str_ptr = growy_deconstruct(g);
-    destroy_printer(ctx.printer);
-}
-
-static void print_node_in_output(FILE* output, const Node* node, bool dump_ptrs) {
-    PrinterCtx ctx = {
-        .printer = open_file_as_printer(output),
+        .printer = printer,
         .print_ptrs = dump_ptrs,
         .color = true,
     };
-    print_node_impl(&ctx, node);
+    if (node)
+        print_node_impl(&ctx, node);
+    if (mod)
+        print_mod_impl(&ctx, mod);
     flush(ctx.printer);
     destroy_printer(ctx.printer);
 }
 
-void print_node(const Node* node) {
-    print_node_in_output(stdout, node, false);
+void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
+    Growy* g = new_growy();
+    print_helper(open_growy_as_printer(g), node, NULL, false);
+    *size = growy_size(g);
+    *str_ptr = growy_deconstruct(g);
+}
+
+void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
+    Growy* g = new_growy();
+    print_helper(open_growy_as_printer(g), NULL, mod, false);
+    *size = growy_size(g);
+    *str_ptr = growy_deconstruct(g);
+}
+
+void dump_node(const Node* node) {
+    print_helper(open_file_as_printer(stdout), node, NULL, false);
+    printf("\n");
+}
+
+void dump_module(Module* mod) {
+    print_helper(open_file_as_printer(stdout), NULL, mod, false);
+    printf("\n");
 }
 
 void log_node(LogLevel level, const Node* node) {
     if (level >= get_log_level())
-        print_node_in_output(stderr, node, false);
+        print_helper(open_file_as_printer(stderr), node, NULL, false);
 }
 
-void dump_node(const Node* node) {
-    print_node(node);
-    printf("\n");
+void log_module(LogLevel level, Module* mod) {
+    if (level >= get_log_level())
+        print_helper(open_file_as_printer(stderr), NULL, mod, false);
 }

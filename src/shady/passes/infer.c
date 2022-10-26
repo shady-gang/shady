@@ -110,7 +110,7 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
                     break;
                 case FnTier_Function: {
                     Nodes nret_types = annotate_all_types(dst_arena, infer_nodes(ctx, node->payload.lam.return_types), false);
-                    fun = function(dst_arena, nodes(dst_arena, node->payload.lam.params.count, nparams), string(dst_arena, node->payload.lam.name), infer_nodes(ctx, node->payload.lam.annotations), nret_types);
+                    fun = function(ctx->rewriter.dst_module, nodes(dst_arena, node->payload.lam.params.count, nparams), string(dst_arena, node->payload.lam.name), infer_nodes(ctx, node->payload.lam.annotations), nret_types);
                     break;
                 }
             }
@@ -123,7 +123,7 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
         }
         case Constant_TAG: {
             const Constant* oconstant = &node->payload.constant;
-            Node* nconstant = constant(ctx->rewriter.dst_arena, infer_nodes(ctx, oconstant->annotations), oconstant->name);
+            Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), oconstant->name);
             register_processed(&ctx->rewriter, node, nconstant);
 
             const Type* imported_hint = infer(ctx, oconstant->type_hint, NULL);
@@ -139,7 +139,7 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
         case GlobalVariable_TAG: {
              const GlobalVariable* old_gvar = &node->payload.global_variable;
              const Type* imported_ty = infer(ctx, old_gvar->type, NULL);
-             Node* ngvar = global_var(ctx->rewriter.dst_arena, infer_nodes(ctx, old_gvar->annotations), imported_ty, old_gvar->name, old_gvar->address_space);
+             Node* ngvar = global_var(ctx->rewriter.dst_module, infer_nodes(ctx, old_gvar->annotations), imported_ty, old_gvar->name, old_gvar->address_space);
              register_processed(&ctx->rewriter, node, ngvar);
 
              ngvar->payload.global_variable.init = infer(ctx, old_gvar->init, NULL);
@@ -537,28 +537,6 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
     }
 }
 
-static const Node* _infer_root(Context* ctx, const Node* node) {
-    if (node == NULL)
-        return NULL;
-
-    switch (node->tag) {
-        case Root_TAG: {
-            size_t count = node->payload.root.declarations.count;
-            LARRAY(const Node*, new_decls, count);
-
-            for (size_t i = 0; i < count; i++) {
-                const Node* odecl = node->payload.root.declarations.nodes[i];
-                new_decls[i] = infer(ctx, odecl, NULL);
-            }
-
-            return root(ctx->rewriter.dst_arena, (Root) {
-                .declarations = nodes(ctx->rewriter.dst_arena, count, new_decls),
-            });
-        }
-        default: error("not a root node");
-    }
-}
-
 static const Node* process(Context* src_ctx, const Node* node) {
     const Type* expect = src_ctx->expected_type;
     Context ctx = *src_ctx;
@@ -585,9 +563,6 @@ static const Node* process(Context* src_ctx, const Node* node) {
         return _infer_terminator(&ctx, node);
     } else if (is_declaration(node)) {
         return _infer_decl(&ctx, node);
-    } else if (node->tag == Root_TAG) {
-        assert(expect == NULL);
-        return _infer_root(&ctx, node);
     } else if (node->tag == Annotation_TAG) {
         assert(expect == NULL);
         return _infer_annotation(&ctx, node);
@@ -598,24 +573,10 @@ static const Node* process(Context* src_ctx, const Node* node) {
     assert(false);
 }
 
-#include "dict.h"
-
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
-const Node* infer_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
-    struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+void infer_program(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = {
-            .src_arena = src_arena,
-            .dst_arena = dst_arena,
-            .rewrite_fn = (RewriteFn) process,
-            .processed = done,
-        },
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
     };
-
-    const Node* rewritten = infer(&ctx, src_program, NULL);
-
-    destroy_dict(done);
-    return rewritten;
+    rewrite_module(&ctx.rewriter);
+    destroy_rewriter(&ctx.rewriter);
 }

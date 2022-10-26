@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "passes.h"
 
 #include "log.h"
 #include "portability.h"
@@ -169,11 +169,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 }
 
-const Node* lower_cf_instrs(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+void lower_cf_instrs(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
     };
-    const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
+    rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    return rewritten;
 }
+

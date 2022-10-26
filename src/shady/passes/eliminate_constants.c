@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "passes.h"
 
 #include "../rewrite.h"
 #include "portability.h"
@@ -9,22 +9,12 @@ typedef struct {
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
-    IrArena* arena = ctx->rewriter.dst_arena;
     if (!node) return NULL;
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
     switch (node->tag) {
-        case Root_TAG: {
-            Nodes old_decls = node->payload.root.declarations;
-            size_t new_decls_count = 0;
-            LARRAY(const Node*, decls, old_decls.count);
-            for (size_t i = 0; i < old_decls.count; i++) {
-                if (old_decls.nodes[i]->tag == Constant_TAG) continue;
-                decls[new_decls_count++] = process(ctx, old_decls.nodes[i]);
-            }
-            return root(arena, (Root) { .declarations = nodes(arena, new_decls_count, decls) });
-        }
+        case Constant_TAG: return NULL;
         case RefDecl_TAG: {
             const Node* decl = process(ctx, node->payload.ref_decl.decl);
             if (decl->tag == Constant_TAG) {
@@ -36,11 +26,11 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 }
 
-const Node* eliminate_constants(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+void eliminate_constants(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process)
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process)
     };
-    const Node* rewritten = process(&ctx, src_program);
+
+    rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    return rewritten;
 }

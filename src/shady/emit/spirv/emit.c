@@ -782,9 +782,7 @@ static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
     }
 }
 
-static void emit_root(Emitter* emitter, const Node* root) {
-    assert(root->tag == Root_TAG);
-    Nodes declarations = root->payload.root.declarations;
+static void emit_decls(Emitter* emitter, Nodes declarations) {
 
      // First reserve IDs for declarations
     LARRAY(SpvId, ids, declarations.count);
@@ -809,10 +807,7 @@ static SpvExecutionModel emit_exec_model(ExecutionModel model) {
     }
 }
 
-static void emit_entry_points(Emitter* emitter, const Node* root) {
-    assert(root->tag == Root_TAG);
-    Nodes declarations = root->payload.root.declarations;
-
+static void emit_entry_points(Emitter* emitter, Nodes declarations) {
     // First, collect all the global variables, they're needed for the interface section of OpEntryPoint
     // it can be a superset of the ones actually used, so the easiest option is to just grab _all_ global variables and shove them in there
     // my gut feeling says it's unlikely any drivers actually care, but validation needs to be happy so here we go...
@@ -869,7 +864,8 @@ static void emit_entry_points(Emitter* emitter, const Node* root) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, size_t* output_size, char** output) {
+void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output) {
+    IrArena* arena = get_module_arena(mod);
     struct List* words = new_list(uint32_t);
 
     FileBuilder file_builder = spvb_begin();
@@ -894,8 +890,9 @@ void emit_spirv(CompilerConfig* config, IrArena* arena, const Node* root_node, s
     spvb_extension(file_builder, "SPV_KHR_non_semantic_info");
     spvb_extension(file_builder, "SPV_KHR_physical_storage_buffer");
 
-    emit_root(&emitter, root_node);
-    emit_entry_points(&emitter, root_node);
+    Nodes decls = get_module_declarations(mod);
+    emit_decls(&emitter, decls);
+    emit_entry_points(&emitter, decls);
 
     if (emitter.num_entry_pts == 0)
         spvb_capability(file_builder, SpvCapabilityLinkage);

@@ -180,13 +180,13 @@ static void tarjan(struct Dict* verts) {
     destroy_list(stack);
 }
 
-CallGraph* get_callgraph(const Node* root) {
+CallGraph* get_callgraph(Module* mod) {
     CallGraph* graph = calloc(sizeof(CallGraph), 1);
     *graph = (CallGraph) {
         .fn2cgn = new_dict(const Node*, CGNode*, (HashFn) hash_node, (CmpFn) compare_node)
     };
 
-    Nodes decls = root->payload.root.declarations;
+    Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
         if (decls.nodes[i]->tag == Lambda_TAG) {
             process_node(graph, decls.nodes[i]);

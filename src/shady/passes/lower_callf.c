@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "passes.h"
 
 #include "../rewrite.h"
 #include "../type.h"
@@ -85,12 +85,11 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
     }
 }
 
-const Node* lower_callf(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+void lower_callf(SHADY_UNUSED CompilerConfig* config,  Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) lower_callf_process),
+        .rewriter = create_rewriter(src, dst, (RewriteFn) lower_callf_process),
         .disable_lowering = false,
     };
-    const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
+    rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    return rewritten;
 }

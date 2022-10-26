@@ -47,23 +47,6 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
         assert(r);
     }
 
-    /*const Body* entry_body = &fun->body->payload.body;
-    assert(fun->body);
-    for (size_t j = 0; j < entry_body->instructions.count; j++) {
-        const Node* instr = entry_body->instructions.nodes[j];
-        const Node* actual_instr = instr->tag == Let_TAG ? instr->payload.let.instruction : instr;
-        visit_fv(ctx, actual_instr);
-        if (instr->tag == Let_TAG) {
-            // after being computed, outputs are no longer considered free
-            Nodes outputs = instr->payload.let.variables;
-            for (size_t k = 0; k < outputs.count; k++) {
-                const Node* output = outputs.nodes[k];
-                bool r = insert_set_get_result(const Node*, ctx->ignore_set, output);
-                assert(r);
-            }
-        }
-    }*/
-
     visit_fv(ctx, fun->body);
 
     for (size_t i = 0; i < entries_count_list(cfnode->dominates); i++) {

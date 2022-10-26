@@ -24,8 +24,8 @@ static void visit_verify_same_arena(ArenaVerifyVisitor* visitor, const Node* nod
 KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
-static void verify_same_arena(const Node* program) {
-    const IrArena* arena = program->arena;
+static void verify_same_arena(Module* mod) {
+    const IrArena* arena = get_module_arena(mod);
     ArenaVerifyVisitor visitor = {
         .visitor = {
             .visit_fn = (VisitFn) visit_verify_same_arena,
@@ -42,10 +42,10 @@ static void verify_same_arena(const Node* program) {
         .arena = arena,
         .once = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
-    visit_verify_same_arena(&visitor, program);
+    visit_module(&visitor, mod);
     destroy_dict(visitor.once);
 }
 
-void verify_program(const Node* program) {
-    verify_same_arena(program);
+void verify_module(Module* mod) {
+    verify_same_arena(mod);
 }

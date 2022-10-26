@@ -290,7 +290,8 @@ void register_emitted_list(Emitter* emitter, Nodes nodes, Strings as) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-void emit_c(CompilerConfig* config, IrArena* arena, const Node* root_node, size_t* output_size, char** output) {
+void emit_c(CompilerConfig* config, Module* mod, size_t* output_size, char** output) {
+    IrArena* arena = get_module_arena(mod);
     Growy* type_decls_g = new_growy();
     Growy* fn_decls_g = new_growy();
     Growy* fn_defs_g = new_growy();
@@ -307,8 +308,7 @@ void emit_c(CompilerConfig* config, IrArena* arena, const Node* root_node, size_
         .emitted = new_dict(Node*, String, (HashFn) hash_node, (CmpFn) compare_node)
     };
 
-    assert(root_node->tag == Root_TAG);
-    Nodes decls = root_node->payload.root.declarations;
+    Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++)
         emit_decl(&emitter, decls.nodes[i]);
 

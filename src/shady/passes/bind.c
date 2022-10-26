@@ -20,13 +20,6 @@ struct NamedBindEntry_ {
 
 typedef struct {
     Rewriter rewriter;
-    IrArena* src_arena;
-    IrArena* dst_arena;
-    const Node* old_root;
-
-    const Node** new_decls;
-    /// Top level declarations are bound lazily, they may be reordered
-    size_t* new_decls_count;
 
     const Node* current_function;
     NamedBindEntry* local_variables;
@@ -49,8 +42,9 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
         }
     }
 
-    for (size_t i = 0; i < *ctx->new_decls_count; i++) {
-        const Node* decl = ctx->new_decls[i];
+    Nodes new_decls = get_module_declarations(ctx->rewriter.dst_module);
+    for (size_t i = 0; i < new_decls.count; i++) {
+        const Node* decl = new_decls.nodes[i];
         if (strcmp(get_decl_name(decl), name) == 0) {
             return (Resolved) {
                 .is_var = decl->tag == GlobalVariable_TAG,
@@ -59,9 +53,9 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
         }
     }
 
-    Nodes root_decls = ctx->old_root->payload.root.declarations;
-    for (size_t i = 0; i < root_decls.count; i++) {
-        const Node* old_decl = root_decls.nodes[i];
+    Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
+    for (size_t i = 0; i < old_decls.count; i++) {
+        const Node* old_decl = old_decls.nodes[i];
         if (strcmp(get_decl_name(old_decl), name) == 0) {
             Context top_ctx = *ctx;
             top_ctx.current_function = NULL;
@@ -88,11 +82,11 @@ static Nodes bind_nodes(Context* ctx, Nodes old) {
     LARRAY(const Node*, arr, old.count);
     for (size_t i = 0; i < old.count; i++)
         arr[i] = bind_node(ctx, old.nodes[i]);
-    return nodes(ctx->dst_arena, old.count, arr);
+    return nodes(ctx->rewriter.dst_arena, old.count, arr);
 }
 
 static const Node* get_node_address(Context* ctx, const Node* node) {
-    IrArena* dst_arena = ctx->dst_arena;
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Unbound_TAG: {
             Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
@@ -116,7 +110,7 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
 
 static Node* rewrite_lambda_head(Context* ctx, const Node* node) {
     assert(node != NULL && node->tag == Lambda_TAG);
-    IrArena* dst_arena = ctx->dst_arena;
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     // rebuild the parameters and shove them in the list
     size_t params_count = node->payload.lam.params.count;
@@ -134,21 +128,21 @@ static Node* rewrite_lambda_head(Context* ctx, const Node* node) {
         case FnTier_BasicBlock:
             return basic_block(dst_arena, nodes(dst_arena, params_count, nparams), string(dst_arena, node->payload.lam.name));
         case FnTier_Function:
-            return function(dst_arena, nodes(dst_arena, params_count, nparams), string(dst_arena, node->payload.lam.name), bind_nodes(ctx, node->payload.lam.annotations), bind_nodes(ctx, node->payload.lam.return_types));
+            return function(ctx->rewriter.dst_module, nodes(dst_arena, params_count, nparams), string(dst_arena, node->payload.lam.name), bind_nodes(ctx, node->payload.lam.annotations), bind_nodes(ctx, node->payload.lam.return_types));
     }
     SHADY_UNREACHABLE;
 }
 
 static void rewrite_lambda_body(Context* ctx, const Node* node, Node* target) {
     assert(node != NULL && node->tag == Lambda_TAG);
-    IrArena* dst_arena = ctx->dst_arena;
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     Context body_infer_ctx = *ctx;
     // bind the rebuilt parameters for rewriting the body
     for (size_t i = 0; i < node->payload.lam.params.count; i++) {
         const Node* param = target->payload.lam.params.nodes[i];
 
-        NamedBindEntry* entry = arena_alloc(ctx->dst_arena->arena, sizeof(NamedBindEntry));
+        NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
         *entry = (NamedBindEntry) {
             .name = string(dst_arena, param->payload.var.name),
             .is_var = false,
@@ -180,7 +174,7 @@ static void rewrite_lambda_body(Context* ctx, const Node* node, Node* target) {
     for (size_t i = 0; i < inner_conts_count; i++) {
         Node* new_cont = rewrite_lambda_head(ctx, node->payload.lam.children_continuations.nodes[i]);
         new_conts[i] = new_cont;
-        NamedBindEntry* entry = arena_alloc(ctx->src_arena->arena, sizeof(NamedBindEntry));
+        NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
         *entry = (NamedBindEntry) {
             .name = new_cont->payload.lam.name,
             .is_var = false,
@@ -201,7 +195,7 @@ static void rewrite_lambda_body(Context* ctx, const Node* node, Node* target) {
 }
 
 static const Node* bind_let(Context* ctx, const Node* node) {
-    IrArena* dst_arena = ctx->dst_arena;
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
     Context body_infer_ctx = *ctx;
     const Node* ninstruction = bind_node(ctx, node->payload.let.instruction);
     if (node->payload.let.is_mutable) {
@@ -227,7 +221,7 @@ static const Node* bind_let(Context* ctx, const Node* node) {
             });
             bind_instruction_extra(bb, store, 0, NULL, NULL);
 
-            NamedBindEntry* entry = arena_alloc(ctx->dst_arena->arena, sizeof(NamedBindEntry));
+            NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
             *entry = (NamedBindEntry) {
                 .name = string(dst_arena, oparam->payload.var.name),
                 .is_var = true,
@@ -253,18 +247,18 @@ static const Node* bind_let(Context* ctx, const Node* node) {
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {
     assert(is_declaration(decl));
-    IrArena* dst_arena = ctx->dst_arena;
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
     Node* bound = NULL;
 
     switch (decl->tag) {
         case GlobalVariable_TAG: {
             const GlobalVariable* ogvar = &decl->payload.global_variable;
-            bound = global_var(dst_arena, bind_nodes(ctx, ogvar->annotations), bind_node(ctx, ogvar->type), ogvar->name, ogvar->address_space);
+            bound = global_var(ctx->rewriter.dst_module, bind_nodes(ctx, ogvar->annotations), bind_node(ctx, ogvar->type), ogvar->name, ogvar->address_space);
             break;
         }
         case Constant_TAG: {
             const Constant* cnst = &decl->payload.constant;
-            Node* new_constant = constant(dst_arena, bind_nodes(ctx, cnst->annotations), cnst->name);
+            Node* new_constant = constant(ctx->rewriter.dst_module, bind_nodes(ctx, cnst->annotations), cnst->name);
             new_constant->payload.constant.type_hint = bind_node(ctx, decl->payload.constant.type_hint);
             bound = new_constant;
             break;
@@ -276,8 +270,8 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
         default: error("unknown declaration kind");
     }
 
-    ctx->new_decls[(*ctx->new_decls_count)++] = bound;
-    debug_print("Bound declaration %s\n", get_decl_name(bound));
+    //ctx->new_decls[(*ctx->new_decls_count)++] = bound;
+    //debug_print("Bound declaration %s\n", get_decl_name(bound));
 
     // Handle the bodies after registering the heads
     switch (decl->tag) {
@@ -294,7 +288,10 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     if (node == NULL)
         return NULL;
 
-    IrArena* dst_arena = ctx->dst_arena;
+    const Node* found = search_processed(&ctx->rewriter, node);
+    if (found) return found;
+
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Lambda_TAG:
         case Constant_TAG:
@@ -304,10 +301,9 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 rewrite_lambda_body(ctx, node, bound);
                 return bound;
             }
-            assert(false);
-            break;
+            assert(is_declaration(node));
+            return rewrite_decl(ctx, node);
         }
-        case Root_TAG: assert(false);
         case Variable_TAG: error("the binders should be handled such that this node is never reached");
         case Unbound_TAG: {
             Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
@@ -347,29 +343,13 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     }
 }
 
-const Node* bind_program(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* source) {
-    Nodes decls = source->payload.root.declarations;
-    LARRAY(const Node*, new_decls, decls.count);
-    size_t decls_count = 0;
-
+void bind_program(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) bind_node),
-        .src_arena = src_arena,
-        .dst_arena = dst_arena,
-        .old_root = source,
+        .rewriter = create_rewriter(src, dst, (RewriteFn) bind_node),
         .local_variables = NULL,
         .current_function = NULL,
-        .new_decls = new_decls,
-        .new_decls_count = &decls_count,
     };
 
-    for (size_t i = 0; i < decls.count; i++)
-        resolve_using_name(&ctx, get_decl_name(decls.nodes[i]));
-
+    rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-
-    assert(decls_count == decls.count);
-    return root(dst_arena, (Root) {
-        .declarations = nodes(dst_arena, decls.count, new_decls),
-    });
 }

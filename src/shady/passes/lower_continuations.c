@@ -21,7 +21,6 @@ bool compare_node(Node**, Node**);
 typedef struct Context_ {
     Rewriter rewriter;
     struct Dict* lifted;
-    struct List* new_fns;
     bool disable_lowering;
 } Context;
 
@@ -77,7 +76,7 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
 
     // Keep annotations the same
     Nodes annotations = rewrite_nodes(&ctx->rewriter, cont->payload.lam.annotations);
-    Node* new_fn = function(arena, new_params, cont->payload.lam.name, annotations, nodes(arena, 0, NULL));
+    Node* new_fn = function(ctx->rewriter.dst_module, new_params, cont->payload.lam.name, annotations, nodes(arena, 0, NULL));
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = cont;
@@ -90,7 +89,7 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
     // Rewrite the body once in the new arena with the new params
     const Node* pre_substitution = rewrite_node(&spilled_ctx.rewriter, cont->payload.lam.body);
 
-    Rewriter substituter = create_substituter(arena);
+    Rewriter substituter = create_substituter(ctx->rewriter.dst_module);
 
     // Recover that stuff inside the new body
     BodyBuilder* builder = begin_body(arena);
@@ -114,7 +113,6 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
 
     assert(is_terminator(substituted));
     new_fn->payload.lam.body = finish_body(builder, substituted);
-    append_list(const Node*, ctx->new_fns, new_fn);
 
     return new_fn;
 }
@@ -206,34 +204,20 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 }
 
-const Node* lower_continuations(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+void lower_continuations(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process_node),
-        .new_fns = new_list(const Node*),
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
         .lifted = new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
-    assert(src_program->tag == Root_TAG);
+    rewrite_module(&ctx.rewriter);
 
-    const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
-    Nodes new_decls = rewritten->payload.root.declarations;
-    for (size_t i = 0; i < entries_count_list(ctx.new_fns); i++) {
-        new_decls = append_nodes(dst_arena, new_decls, read_list(const Node*, ctx.new_fns)[i]);
+    size_t iter = 0;
+    LiftedCont* lifted_cont;
+    while (dict_iter(ctx.lifted, &iter, NULL, &lifted_cont)) {
+        destroy_list(lifted_cont->save_values);
+        free(lifted_cont);
     }
-    rewritten = root(dst_arena, (Root) {
-        .declarations = new_decls
-    });
-
-    destroy_list(ctx.new_fns);
-    {
-        size_t iter = 0;
-        LiftedCont* lifted_cont;
-        while (dict_iter(ctx.lifted, &iter, NULL, &lifted_cont)) {
-            destroy_list(lifted_cont->save_values);
-            free(lifted_cont);
-        }
-        destroy_dict(ctx.lifted);
-    }
+    destroy_dict(ctx.lifted);
     destroy_rewriter(&ctx.rewriter);
-    return rewritten;
 }

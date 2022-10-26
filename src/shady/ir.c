@@ -139,6 +139,15 @@ const char* string(IrArena* arena, const char* str) {
     return string_impl(arena, strlen(str), str);
 }
 
+// TODO merge with strings()
+Strings import_strings(IrArena* dst_arena, Strings old_strings) {
+    size_t count = old_strings.count;
+    LARRAY(String, arr, count);
+    for (size_t i = 0; i < count; i++)
+        arr[i] = string(dst_arena, old_strings.strings[i]);
+    return strings(dst_arena, count, arr);
+}
+
 String format_string(IrArena* arena, const char* str, ...) {
     char tmp[128];
     va_list args;

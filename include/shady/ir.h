@@ -115,7 +115,6 @@ N(0, 1, 1, Lambda, lam) \
 N(0, 0, 1, Constant, constant) \
 N(0, 1, 1, GlobalVariable, global_variable) \
 N(1, 0, 1, Annotation, annotation) \
-N(1, 0, 1, Root, root) \
 
 typedef enum NodeTag_ {
 #define NODE_GEN_TAG(_, _2, _3, struct_name, short_name) struct_name##_TAG,
@@ -145,6 +144,16 @@ String string_sized(IrArena* arena, size_t size, const char* start);
 String string(IrArena* arena, const char* start);
 String format_string(IrArena* arena, const char* str, ...);
 String unique_name(IrArena* arena, const char* start);
+
+//////////////////////////////// Modules ////////////////////////////////
+
+typedef struct Module_ Module;
+
+Module* new_module(IrArena*, String name);
+
+IrArena* get_module_arena(const Module*);
+String get_module_name(const Module*);
+Nodes get_module_declarations(const Module*);
 
 //////////////////////////////// Types ////////////////////////////////
 
@@ -349,10 +358,6 @@ typedef struct GlobalVariable_ {
     AddressSpace address_space;
     const Node* init;
 } GlobalVariable;
-
-typedef struct Root_ {
-    Nodes declarations;
-} Root;
 
 //////////////////////////////// Instructions ////////////////////////////////
 
@@ -574,7 +579,7 @@ inline static bool is_nominal(const Node* node) {
     NodeTag tag = node->tag;
     if (node->tag == PrimOp_TAG && has_primop_got_side_effects(node->payload.prim_op.op))
         return true;
-    return tag == Lambda_TAG || tag == Root_TAG || tag == Constant_TAG || tag == Variable_TAG || tag == GlobalVariable_TAG;
+    return tag == Lambda_TAG || tag == Constant_TAG || tag == Variable_TAG || tag == GlobalVariable_TAG;
 }
 
 inline static bool is_declaration(const Node* node) {
@@ -620,12 +625,12 @@ const Node* var(IrArena* arena, const Type* type, const char* name);
 
 const Node* tuple(IrArena* arena, Nodes contents);
 
-Node* lambda     (IrArena*, Nodes params);
-Node* basic_block(IrArena*, Nodes params, const char* name);
-Node* function   (IrArena*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
-Node* constant(IrArena*, Nodes annotations, const char* name);
-Node* global_var(IrArena*, Nodes annotations, const Type*, String, AddressSpace);
-Type* nominal_type(IrArena*, String name);
+Node* lambda      (IrArena*, Nodes params);
+Node* basic_block (IrArena*, Nodes params, const char* name);
+Node* function    (Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
+Node* constant    (Module*, Nodes annotations, const char* name);
+Node* global_var  (Module*, Nodes annotations, const Type*, String, AddressSpace);
+Type* nominal_type(Module*, String name);
 
 const Node* let(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail);
 // const Node* seq(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail);
@@ -706,12 +711,14 @@ typedef enum CompilationResult_ {
     CompilationNoError
 } CompilationResult;
 
-CompilationResult parse_files(CompilerConfig*, size_t num_files, const char** files_contents, IrArena*, const Node** program);
-CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program);
-void emit_spirv(CompilerConfig* config, IrArena*, const Node* root, size_t* size, char** output);
-void emit_c(CompilerConfig* config, IrArena* arena, const Node* root_node, size_t* output_size, char** output);
-void dump_cfg(FILE* file, const Node* root);
-void print_node(const Node* node);
-void print_node_into_str(const Node* node, char** str_ptr, size_t*);
+CompilationResult parse_files(CompilerConfig*, size_t num_files, const char** files_contents, Module* module);
+CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
+void emit_spirv(CompilerConfig* config, Module*, size_t* output_size, char** output);
+void emit_c    (CompilerConfig* config, Module*, size_t* output_size, char** output);
+void dump_cfg(FILE* file, Module*);
+
+void dump_module(Module*);
+void print_module_into_str(Module*, char** str_ptr, size_t*);
+void dump_node(const Node* node);
 
 #endif

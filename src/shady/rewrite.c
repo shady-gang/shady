@@ -12,16 +12,18 @@
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-Rewriter create_rewriter(IrArena* src, IrArena* dst, RewriteFn fn) {
+Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn) {
     return (Rewriter) {
-        .src_arena = src,
-        .dst_arena = dst,
+        .src_arena = src->arena,
+        .dst_arena = dst->arena,
+        .src_module = src,
+        .dst_module = dst,
         .rewrite_fn = fn,
         .processed = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
 }
 
-Rewriter create_importer(IrArena* src, IrArena* dst) {
+Rewriter create_importer(Module* src, Module* dst) {
     return create_rewriter(src, dst, recreate_node_identity);
 }
 
@@ -38,8 +40,8 @@ static const Node* recreate_node_substitutions_only(Rewriter* rewriter, const No
     return recreate_node_identity(rewriter, node);
 }
 
-Rewriter create_substituter(IrArena* arena) {
-    return create_rewriter(arena, arena, recreate_node_substitutions_only);
+Rewriter create_substituter(Module* module) {
+    return create_rewriter(module, module, recreate_node_substitutions_only);
 }
 
 void destroy_rewriter(Rewriter* r) {
@@ -61,14 +63,6 @@ Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
     for (size_t i = 0; i < count; i++)
         arr[i] = rewrite_node(rewriter, old_nodes.nodes[i]);
     return nodes(rewriter->dst_arena, count, arr);
-}
-
-Strings import_strings(IrArena* dst_arena, Strings old_strings) {
-    size_t count = old_strings.count;
-    LARRAY(String, arr, count);
-    for (size_t i = 0; i < count; i++)
-        arr[i] = string(dst_arena, old_strings.strings[i]);
-    return strings(dst_arena, count, arr);
 }
 
 const Node* search_processed(const Rewriter* ctx, const Node* old) {
@@ -128,8 +122,8 @@ bool compare_node(Node**, Node**);
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
     switch (old->tag) {
-        case GlobalVariable_TAG: new = global_var(rewriter->dst_arena, rewrite_nodes(rewriter, old->payload.global_variable.annotations), rewrite_node(rewriter, old->payload.global_variable.type), old->payload.global_variable.name, old->payload.global_variable.address_space); break;
-        case Constant_TAG: new = constant(rewriter->dst_arena, rewrite_nodes(rewriter, old->payload.constant.annotations), old->payload.constant.name); break;
+        case GlobalVariable_TAG: new = global_var(rewriter->dst_module, rewrite_nodes(rewriter, old->payload.global_variable.annotations), rewrite_node(rewriter, old->payload.global_variable.type), old->payload.global_variable.name, old->payload.global_variable.address_space); break;
+        case Constant_TAG: new = constant(rewriter->dst_module, rewrite_nodes(rewriter, old->payload.constant.annotations), old->payload.constant.name); break;
         case Lambda_TAG: {
             Nodes new_params = recreate_variables(rewriter, old->payload.lam.params);
             switch (old->payload.lam.tier) {
@@ -140,7 +134,7 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
                     new = basic_block(rewriter->dst_arena, new_params, old->payload.lam.name);
                     break;
                 case FnTier_Function:
-                    new = function(rewriter->dst_arena, new_params, old->payload.lam.name, rewrite_nodes(rewriter, old->payload.lam.annotations), rewrite_nodes(rewriter, old->payload.lam.return_types));
+                    new = function(rewriter->dst_module, new_params, old->payload.lam.name, rewrite_nodes(rewriter, old->payload.lam.annotations), rewrite_nodes(rewriter, old->payload.lam.return_types));
                     break;
             }
             assert(new && new->tag == Lambda_TAG);
@@ -177,6 +171,13 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
 }
 
 #pragma GCC diagnostic error "-Wswitch"
+
+void rewrite_module(Rewriter* rewriter) {
+    Nodes old_decls = get_module_declarations(rewriter->src_module);
+    for (size_t i = 0; i < old_decls.count; i++) {
+        rewrite_node(rewriter, old_decls.nodes[i]);
+    }
+}
 
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
@@ -218,7 +219,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                                     .width = node->payload.pack_type.width
         });
         case NominalType_TAG: {
-            Type* new = nominal_type(rewriter->dst_arena, node->payload.nom_type.name);
+            Type* new = nominal_type(rewriter->dst_module, node->payload.nom_type.name);
                 register_processed(rewriter, node, new);
             new->payload.nom_type.body = rewrite_node(rewriter, node->payload.nom_type.body);
             return new;
@@ -329,13 +330,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             Node* new = recreate_decl_header_identity(rewriter, node);
             recreate_decl_body_identity(rewriter, node, new);
             return new;
-        }
-
-        case Root_TAG: {
-            Nodes decls = rewrite_nodes(rewriter, node->payload.root.declarations);
-            return root(rewriter->dst_arena, (Root) {
-                .declarations = decls,
-            });
         }
         case Annotation_TAG: switch (node->payload.annotation.payload_type) {
             case AnPayloadNone: return annotation(rewriter->dst_arena, (Annotation) {

@@ -22,7 +22,7 @@ typedef struct Callgraph_ {
     struct Dict* fn2cgn;
 } CallGraph;
 
-CallGraph* get_callgraph(const Node* root);
+CallGraph* get_callgraph(Module* mod);
 void dispose_callgraph(CallGraph*);
 
 #endif

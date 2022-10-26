@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "passes.h"
 
 #include "portability.h"
 #include "log.h"
@@ -63,13 +63,12 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 }
 
-const Node* lower_subgroup_ops(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+void lower_subgroup_ops(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     assert(!config->lower.emulate_subgroup_ops && "TODO");
     Context ctx = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process),
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .config = config
     };
-    const Node* rewritten = process(&ctx, src_program);
+    rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    return rewritten;
 }

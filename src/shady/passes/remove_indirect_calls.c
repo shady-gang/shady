@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "passes.h"
 
 #include "dict.h"
 #include "portability.h"
@@ -20,16 +20,6 @@ static const Node* process(Context* ctx, const Node* node) {
     if (found) return found;
 
     switch (node->tag) {
-        case Root_TAG: {
-            Nodes old_decls = node->payload.root.declarations;
-            size_t new_decls_count = 0;
-            LARRAY(const Node*, decls, old_decls.count);
-            for (size_t i = 0; i < old_decls.count; i++) {
-                if (old_decls.nodes[i]->tag == Constant_TAG) continue;
-                decls[new_decls_count++] = process(ctx, old_decls.nodes[i]);
-            }
-            return root(arena, (Root) { .declarations = nodes(arena, new_decls_count, decls) });
-        }
         case Call_TAG: {
             if (!node->payload.call_instr.is_indirect)
                 goto skip;
@@ -59,7 +49,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         .payload_type = AnPayloadNone
                     }));
                 }
-                Node* new = function(arena, recreate_variables(&ctx->rewriter, node->payload.lam.params), node->payload.lam.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.lam.return_types));
+                Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.lam.params), node->payload.lam.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.lam.return_types));
                 for (size_t i = 0; i < new->payload.lam.params.count; i++)
                     register_processed(&ctx->rewriter, node->payload.lam.params.nodes[i], new->payload.lam.params.nodes[i]);
                 register_processed(&ctx->rewriter, node, new);
@@ -74,13 +64,12 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 }
 
-const Node* remove_indirect_calls(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
+void remove_indirect_calls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process),
-        .graph = get_callgraph(src_program)
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .graph = get_callgraph(src)
     };
-    const Node* rewritten = process(&ctx, src_program);
-    destroy_rewriter(&ctx.rewriter);
+    rewrite_module(&ctx.rewriter);
     dispose_callgraph(ctx.graph);
-    return rewritten;
+    destroy_rewriter(&ctx.rewriter);
 }

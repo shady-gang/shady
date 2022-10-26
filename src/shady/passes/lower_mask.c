@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "passes.h"
 
 #include "log.h"
 #include "portability.h"
@@ -81,11 +81,10 @@ const Node* process(Context* ctx, const Node* node) {
     else return recreate_node_identity(&ctx->rewriter, node);
 }
 
-const Node* lower_mask(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
-    Context context = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process),
+void lower_mask(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+    Context ctx = {
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
     };
-    const Node* new = rewrite_node(&context.rewriter, src_program);
-    destroy_rewriter(&context.rewriter);
-    return new;
+    rewrite_module(&ctx.rewriter);
+    destroy_rewriter(&ctx.rewriter);
 }

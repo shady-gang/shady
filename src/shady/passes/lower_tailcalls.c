@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "passes.h"
 
 #include "log.h"
 #include "portability.h"
@@ -22,10 +22,7 @@ typedef struct Context_ {
     struct Dict* assigned_fn_ptrs;
     FnPtr next_fn_ptr;
 
-    const Node* src_program;
-
-    const Node* god_fn;
-    struct List* new_decls;
+    Node* god_fn;
 } Context;
 
 static const Node* process(Context* ctx, const Node* old);
@@ -50,8 +47,7 @@ static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
 static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
-    Node* new_entry_pt = function(dst_arena, old->payload.lam.params, old->payload.lam.name, rewrite_nodes(&ctx->rewriter, old->payload.lam.annotations), nodes(dst_arena, 0, NULL));
-    append_list(const Node*, ctx->new_decls, new_entry_pt);
+    Node* new_entry_pt = function(ctx->rewriter.dst_module, old->payload.lam.params, old->payload.lam.name, rewrite_nodes(&ctx->rewriter, old->payload.lam.annotations), nodes(dst_arena, 0, NULL));
 
     BodyBuilder* builder = begin_body(dst_arena);
 
@@ -63,9 +59,9 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
         gen_push_value_stack(builder, fun->payload.lam.params.nodes[i]);
     }
 
-    gen_store(builder, access_decl(&ctx->rewriter, ctx->src_program, "next_fn"), lower_fn_addr(ctx, fun));
+    gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"), lower_fn_addr(ctx, fun));
     const Node* entry_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
-    gen_store(builder, access_decl(&ctx->rewriter, ctx->src_program, "next_mask"), entry_mask);
+    gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_mask"), entry_mask);
 
     bind_instruction(builder, call_instr(dst_arena, (Call) {
         .is_indirect = false,
@@ -116,7 +112,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 new_annotations_count++;
             }
 
-            Node* fun = function(dst_arena, nodes(dst_arena, 0, NULL), new_name, nodes(dst_arena, new_annotations_count, new_annotations), nodes(dst_arena, 0, NULL));
+            Node* fun = function(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), new_name, nodes(dst_arena, new_annotations_count, new_annotations), nodes(dst_arena, 0, NULL));
             register_processed(&ctx->rewriter, old, fun);
 
             if (entry_point_annotation)
@@ -197,13 +193,13 @@ static const Node* process(Context* ctx, const Node* old) {
     }
 }
 
-void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* dispatcher_fn) {
-    assert(dispatcher_fn->tag == Lambda_TAG);
+void generate_top_level_dispatch_fn(Context* ctx) {
+    assert(ctx->god_fn->tag == Lambda_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     BodyBuilder* loop_body_builder = begin_body(dst_arena);
 
-    const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, ctx->src_program, "next_fn"));
+    const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"));
 
     struct List* literals = new_list(const Node*);
     struct List* cases = new_list(const Node*);
@@ -218,8 +214,9 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
     append_list(const Node*, literals, zero_lit);
     append_list(const Node*, cases, zero_case);
 
-    for (size_t i = 0; i < old_root->payload.root.declarations.count; i++) {
-        const Node* decl = old_root->payload.root.declarations.nodes[i];
+    Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
+    for (size_t i = 0; i < old_decls.count; i++) {
+        const Node* decl = old_decls.nodes[i];
         if (decl->tag == Lambda_TAG) {
             if (lookup_annotation(decl, "Builtin"))
                 continue;
@@ -272,7 +269,7 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
     BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_arena);
     bind_instruction(dispatcher_body_builder, the_loop);
 
-    dispatcher_fn->payload.lam.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
+    ctx->god_fn->payload.lam.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
         .values = nodes(dst_arena, 0, NULL),
         .fn = NULL,
     }));
@@ -281,47 +278,24 @@ void generate_top_level_dispatch_fn(Context* ctx, const Node* old_root, Node* di
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-const Node* lower_tailcalls(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
-    struct List* new_decls_list = new_list(const Node*);
-    struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
+    IrArena* dst_arena = get_module_arena(dst);
 
     Nodes top_dispatcher_annotations = nodes(dst_arena, 0, NULL);
-    Node* dispatcher_fn = function(dst_arena, nodes(dst_arena, 0, NULL), "top_dispatcher", top_dispatcher_annotations, nodes(dst_arena, 0, NULL));
-    append_list(const Node*, new_decls_list, dispatcher_fn);
+    Node* dispatcher_fn = function(dst, nodes(dst_arena, 0, NULL), "top_dispatcher", top_dispatcher_annotations, nodes(dst_arena, 0, NULL));
 
     Context ctx = {
-        .rewriter = {
-            .dst_arena = dst_arena,
-            .src_arena = src_arena,
-            .rewrite_fn = (RewriteFn) process,
-            .processed = done,
-        },
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .disable_lowering = false,
         .assigned_fn_ptrs = ptrs,
         .next_fn_ptr = 1,
 
-        .src_program = src_program,
-
-        .new_decls = new_decls_list,
         .god_fn = dispatcher_fn,
     };
 
-    const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
-
-    generate_top_level_dispatch_fn(&ctx, src_program, dispatcher_fn);
-
-    Nodes new_decls = rewritten->payload.root.declarations;
-    for (size_t i = 0; i < entries_count_list(new_decls_list); i++) {
-        new_decls = append_nodes(dst_arena, new_decls, read_list(const Node*, new_decls_list)[i]);
-    }
-    rewritten = root(dst_arena, (Root) {
-        .declarations = new_decls
-    });
-
-    destroy_list(new_decls_list);
-
-    destroy_dict(done);
+    rewrite_module(&ctx.rewriter);
+    generate_top_level_dispatch_fn(&ctx);
     destroy_dict(ptrs);
-    return rewritten;
+    destroy_rewriter(&ctx.rewriter);
 }

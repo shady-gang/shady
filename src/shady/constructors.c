@@ -158,11 +158,14 @@ Node* basic_block(IrArena* arena, Nodes params, const char* name) {
     return lambda_internal(arena, FnTier_BasicBlock, params, name, nodes(arena, 0, NULL), nodes(arena, 0, NULL));
 }
 
-Node* function   (IrArena* arena, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
-    return lambda_internal(arena, FnTier_Function, params, name, annotations, return_types);
+Node* function   (Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
+    Node* fn = lambda_internal(mod->arena, FnTier_Function, params, name, annotations, return_types);
+    register_decl_module(mod, fn);
+    return fn;
 }
 
-Node* constant(IrArena* arena, Nodes annotations, String name) {
+Node* constant(Module* mod, Nodes annotations, String name) {
+    IrArena* arena = mod->arena;
     Constant cnst = {
         .annotations = annotations,
         .name = string(arena, name),
@@ -177,10 +180,13 @@ Node* constant(IrArena* arena, Nodes annotations, String name) {
         .tag = Constant_TAG,
         .payload.constant = cnst
     };
-    return create_node_helper(arena, node);
+    Node* decl = create_node_helper(arena, node);
+    register_decl_module(mod, decl);
+    return decl;
 }
 
-Node* global_var(IrArena* arena, Nodes annotations, const Type* type, const char* name, AddressSpace as) {
+Node* global_var(Module* mod, Nodes annotations, const Type* type, const char* name, AddressSpace as) {
+    IrArena* arena = mod->arena;
     GlobalVariable gvar = {
         .annotations = annotations,
         .name = string(arena, name),
@@ -197,10 +203,13 @@ Node* global_var(IrArena* arena, Nodes annotations, const Type* type, const char
         .tag = GlobalVariable_TAG,
         .payload.global_variable = gvar
     };
-    return create_node_helper(arena, node);
+    Node* decl = create_node_helper(arena, node);
+    register_decl_module(mod, decl);
+    return decl;
 }
 
-Type* nominal_type(IrArena* arena, String name) {
+Type* nominal_type(Module* mod, String name) {
+    IrArena* arena = mod->arena;
     NominalType payload = {
         .name = string(arena, name),
         .body = NULL,
@@ -214,7 +223,9 @@ Type* nominal_type(IrArena* arena, String name) {
         .tag = NominalType_TAG,
         .payload.nom_type = payload
     };
-    return create_node_helper(arena, node);
+    Node* decl = create_node_helper(arena, node);
+    register_decl_module(mod, decl);
+    return decl;
 }
 
 const Node* quote(IrArena* arena, const Node* value) {

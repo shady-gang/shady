@@ -10,6 +10,7 @@ set(SHADY_SOURCES
     body_builder.c
     compile.c
     annotation.c
+    module.c
 
     parser/parser.c
     parser/token.c

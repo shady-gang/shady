@@ -168,8 +168,8 @@ int main(int argc, const char** argv) {
     destroy_list(args.input_filenames);
 
     // Parse the lot
-    const Node* program = NULL;
-    CompilationResult parse_result = parse_files(&config, num_source_files, read_files, arena, &program);
+    Module* mod = new_module(arena, "my_module");
+    CompilationResult parse_result = parse_files(&config, num_source_files, read_files, mod);
     assert(parse_result == CompilationNoError);
 
     // Free the read files
@@ -177,9 +177,9 @@ int main(int argc, const char** argv) {
         free((void*) read_files[i]);
 
     info_print("Parsed program successfully: \n");
-    print_node(program);
+    dump_module(mod);
 
-    CompilationResult result = run_compiler_passes(&config, &arena, &program);
+    CompilationResult result = run_compiler_passes(&config, &mod);
     if (result != CompilationNoError) {
         error_print("Compilation pipeline failed, errcode=%d\n", (int) result);
         exit(result);
@@ -189,7 +189,7 @@ int main(int argc, const char** argv) {
     if (args.cfg_output_filename) {
         FILE* f = fopen(args.cfg_output_filename, "wb");
         assert(f);
-        dump_cfg(f, program);
+        dump_cfg(f, mod);
         fclose(f);
         info_print("CFG dumped\n");
     }
@@ -199,7 +199,7 @@ int main(int argc, const char** argv) {
         assert(f);
         size_t output_size;
         char* output_buffer;
-        print_node_into_str(program, &output_buffer, &output_size);
+        print_module_into_str(mod, &output_buffer, &output_size);
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);
         fclose(f);
@@ -214,8 +214,8 @@ int main(int argc, const char** argv) {
         char* output_buffer;
         switch (args.target) {
             case TgtAuto: SHADY_UNREACHABLE;
-            case TgtSPV: emit_spirv(&config, arena, program, &output_size, &output_buffer); break;
-            case TgtC: emit_c(&config, arena, program, &output_size, &output_buffer); break;
+            case TgtSPV: emit_spirv(&config, mod, &output_size, &output_buffer); break;
+            case TgtC: emit_c(&config, mod, &output_size, &output_buffer); break;
         }
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);

@@ -21,5 +21,6 @@ struct Visitor_ {
 void visit_children(Visitor*, const Node*);
 void visit_fn_blocks_except_head(Visitor*, const Node*);
 void visit_nodes(Visitor* visitor, Nodes nodes);
+void visit_module(Visitor* visitor, Module*);
 
 #endif

@@ -8,11 +8,12 @@
 #include <stdlib.h>
 #include <assert.h>
 
-struct List* build_scopes(const Node* root) {
+struct List* build_scopes(Module* mod) {
     struct List* scopes = new_list(Scope);
 
-    for (size_t i = 0; i < root->payload.root.declarations.count; i++) {
-        const Node* decl = root->payload.root.declarations.nodes[i];
+    Nodes decls = get_module_declarations(mod);
+    for (size_t i = 0; i < decls.count; i++) {
+        const Node* decl = decls.nodes[i];
         if (decl->tag != Lambda_TAG) continue;
         Scope scope = build_scope(decl);
         append_list(Scope, scopes, scope);
@@ -291,12 +292,12 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
     fprintf(output, "}\n");
 }
 
-void dump_cfg(FILE* output, const Node* root) {
+void dump_cfg(FILE* output, Module* mod) {
     if (output == NULL)
         output = stderr;
 
     fprintf(output, "digraph G {\n");
-    struct List* scopes = build_scopes(root);
+    struct List* scopes = build_scopes(mod);
     for (size_t i = 0; i < entries_count_list(scopes); i++) {
         Scope* scope = &read_list(Scope, scopes)[i];
         dump_cfg_scope(output, scope);

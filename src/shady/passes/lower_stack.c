@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "passes.h"
 
 #include "log.h"
 #include "portability.h"
@@ -22,8 +22,6 @@ typedef struct Context_ {
     const Node* stack_pointer;
     const Node* uniform_stack;
     const Node* uniform_stack_pointer;
-
-    struct List* new_decls;
 } Context;
 
 static const Node* process_let(Context* ctx, const Node* node) {
@@ -121,8 +119,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
     }
 }
 
-const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
-    struct List* new_decls_list = new_list(const Node*);
+void lower_stack(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+    IrArena* dst_arena = get_module_arena(dst);
 
     const Type* stack_base_element = int32_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
@@ -139,22 +137,17 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
     Nodes annotations = nodes(dst_arena, 0, NULL);
 
     // Arrays for the stacks
-    Node* stack_decl = global_var(dst_arena, annotations, stack_arr_type, "stack", AsPrivatePhysical);
-    Node* uniform_stack_decl = global_var(dst_arena, annotations, uniform_stack_arr_type, "uniform_stack", AsSubgroupPhysical);
+    Node* stack_decl = global_var(dst, annotations, stack_arr_type, "stack", AsPrivatePhysical);
+    Node* uniform_stack_decl = global_var(dst, annotations, uniform_stack_arr_type, "uniform_stack", AsSubgroupPhysical);
 
     // Pointers into those arrays
-    Node* stack_ptr_decl = global_var(dst_arena, annotations, stack_counter_t, "stack_ptr", AsPrivateLogical);
+    Node* stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "stack_ptr", AsPrivateLogical);
     stack_ptr_decl->payload.global_variable.init = int32_literal(dst_arena, 0);
-    Node* uniform_stack_ptr_decl = global_var(dst_arena, annotations, stack_counter_t, "uniform_stack_ptr", AsPrivateLogical);
+    Node* uniform_stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "uniform_stack_ptr", AsPrivateLogical);
     uniform_stack_ptr_decl->payload.global_variable.init = int32_literal(dst_arena, 0);
 
-    append_list(const Node*, new_decls_list, stack_decl);
-    append_list(const Node*, new_decls_list, uniform_stack_decl);
-    append_list(const Node*, new_decls_list, stack_ptr_decl);
-    append_list(const Node*, new_decls_list, uniform_stack_ptr_decl);
-
     Context ctx = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
 
         .config = config,
 
@@ -162,20 +155,8 @@ const Node* lower_stack(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena,
         .stack_pointer = ref_decl(dst_arena, (RefDecl) { .decl = stack_ptr_decl }),
         .uniform_stack = ref_decl(dst_arena, (RefDecl) { .decl = uniform_stack_decl }),
         .uniform_stack_pointer = ref_decl(dst_arena, (RefDecl) { .decl = uniform_stack_ptr_decl }),
-
-        .new_decls = new_decls_list,
     };
 
-    const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
-    Nodes new_decls = rewritten->payload.root.declarations;
-    for (size_t i = 0; i < entries_count_list(new_decls_list); i++) {
-        new_decls = append_nodes(dst_arena, new_decls, read_list(const Node*, new_decls_list)[i]);
-    }
-    rewritten = root(dst_arena, (Root) {
-        .declarations = new_decls
-    });
-
-    destroy_list(new_decls_list);
+    rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    return rewritten;
 }

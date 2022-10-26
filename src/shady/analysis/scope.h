@@ -43,7 +43,7 @@ typedef struct Scope_ {
     CFNode** rpo;
 } Scope;
 
-struct List* build_scopes(const Node* root);
+struct List* build_scopes(Module* mod);
 Scope build_scope(const Node*);
 
 CFNode* scope_lookup(Scope* scope, const Node* block);

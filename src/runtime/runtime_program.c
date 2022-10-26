@@ -40,7 +40,8 @@ Program* load_program(Runtime* runtime, const char* program_src) {
     ArenaConfig arena_config = { 0 };
     program->arena = new_ir_arena(arena_config);
     CHECK(program->arena != NULL, return false);
-    CHECK(parse_files(&config, 1, (const char* []){ program_src }, program->arena, &program->generic_program) == CompilationNoError, return false);
+    program->generic_program = new_module(program->arena, "my_module");
+    CHECK(parse_files(&config, 1, (const char* []){ program_src }, program->generic_program) == CompilationNoError, return false);
     // TODO split the compilation pipeline into generic and non-generic parts
 
     program->specialized = new_dict(Device*, SpecProgram*, (HashFn) hash_device, (CmpFn) cmp_devices);
@@ -115,8 +116,8 @@ static CompilerConfig get_compiler_config_for_device(Device* device) {
 static bool compile_specialized_program(SpecProgram* spec) {
     CompilerConfig config = get_compiler_config_for_device(spec->device);
 
-    CHECK(run_compiler_passes(&config, &spec->arena, &spec->final_program) == CompilationNoError, return false);
-    emit_spirv(&config, spec->arena, spec->final_program, &spec->spirv_size, &spec->spirv_bytes);
+    CHECK(run_compiler_passes(&config, &spec->module) == CompilationNoError, return false);
+    emit_spirv(&config, spec->module, &spec->spirv_size, &spec->spirv_bytes);
     if (spec->base->runtime->config.dump_spv) {
         FILE* f = fopen("runtime-dump.spv", "wb");
         fwrite(spec->spirv_bytes, 1, spec->spirv_size, f);
@@ -132,7 +133,7 @@ static SpecProgram* create_specialized_program(Program* program, Device* device)
 
     ArenaConfig arena_config = { 0 };
     spec_program->arena = new_ir_arena(arena_config);
-    spec_program->final_program = program->generic_program;
+    spec_program->module = program->generic_program;
 
     CHECK(compile_specialized_program(spec_program), return NULL);
     CHECK(extract_layout(spec_program),              return NULL);

@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "passes.h"
 
 #include "../transform/memory_layout.h"
 #include "../transform/ir_gen_helpers.h"
@@ -15,7 +15,6 @@
 typedef struct Context_ {
     Rewriter rewriter;
     CompilerConfig* config;
-    const Node* src_program;
 
     /// Bytes used up by static allocations
     uint32_t preallocated_private_memory;
@@ -26,8 +25,6 @@ typedef struct Context_ {
 
     bool tpm_is_block_buffer;
     bool ssm_is_block_buffer;
-
-    struct List* new_decls;
 } Context;
 
 // TODO: make this configuration-dependant
@@ -108,7 +105,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 const Type* element_type = oprim_op->operands.nodes[0];
                 TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
 
-                const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->src_program, "stack_ptr");
+                const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "stack_ptr");
                 const Node* stack_size = gen_load(bb, stack_pointer);
                 stack_size = gen_primop_ce(bb, add_op, 2, (const Node* []) { stack_size, int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes)) });
                 gen_store(bb, stack_pointer, stack_size);
@@ -203,7 +200,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
                 const char* emulated_heap_name = old_gvar->address_space == AsSubgroupPhysical ? "private" : "subgroup";
 
-                Node* cnst = constant(ctx->rewriter.dst_arena, annotations, format_string(ctx->rewriter.dst_arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
+                Node* cnst = constant(ctx->rewriter.dst_module, annotations, format_string(ctx->rewriter.dst_arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
 
                 uint32_t* preallocated = old_gvar->address_space == AsSubgroupPhysical ? &ctx->preallocated_subgroup_memory : &ctx->preallocated_private_memory;
                 const Type* contents_type = rewrite_node(&ctx->rewriter, old_gvar->type);
@@ -224,16 +221,16 @@ static const Node* process_node(Context* ctx, const Node* old) {
 }
 
 static void update_base_stack_ptrs(Context* ctx) {
-    Node* per_thread_stack_ptr = (Node*) find_or_process_decl(&ctx->rewriter, ctx->src_program, "stack_ptr");
+    Node* per_thread_stack_ptr = (Node*) find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "stack_ptr");
     assert(per_thread_stack_ptr && per_thread_stack_ptr->tag == GlobalVariable_TAG);
     per_thread_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_private_memory);
-    Node* subgroup_stack_ptr = (Node*) find_or_process_decl(&ctx->rewriter, ctx->src_program, "uniform_stack_ptr");
+    Node* subgroup_stack_ptr = (Node*) find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "uniform_stack_ptr");
     assert(subgroup_stack_ptr && subgroup_stack_ptr->tag == GlobalVariable_TAG);
     subgroup_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_subgroup_memory);
 }
 
-const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
-    struct List* new_decls_list = new_list(const Node*);
+void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
+    IrArena* dst_arena = get_module_arena(dst);
 
     const Type* stack_base_element = int32_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
@@ -256,17 +253,13 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
         .names = strings(dst_arena, 0, NULL)
     });
 
-    Node* thread_private_memory = global_var(dst_arena, annotations, stack_arr_type, "physical_private_buffer", AsPrivateLogical);
-    Node* subgroup_shared_memory = global_var(dst_arena, annotations, uniform_stack_arr_type, "physical_subgroup_buffer", AsSharedLogical);
-
-    append_list(const Node*, new_decls_list, thread_private_memory);
-    append_list(const Node*, new_decls_list, subgroup_shared_memory);
+    Node* thread_private_memory = global_var(dst, annotations, stack_arr_type, "physical_private_buffer", AsPrivateLogical);
+    Node* subgroup_shared_memory = global_var(dst, annotations, uniform_stack_arr_type, "physical_subgroup_buffer", AsSharedLogical);
 
     Context ctx = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
 
         .config = config,
-        .src_program = src_program,
 
         .preallocated_private_memory = 0,
         .preallocated_subgroup_memory = 0,
@@ -276,23 +269,9 @@ const Node* lower_physical_ptrs(CompilerConfig* config, IrArena* src_arena, IrAr
 
         .thread_private_memory = ref_decl(dst_arena, (RefDecl) { .decl = thread_private_memory }),
         .subgroup_shared_memory = ref_decl(dst_arena, (RefDecl) { .decl = subgroup_shared_memory }),
-
-        .new_decls = new_decls_list,
     };
 
-    const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
-
-    Nodes new_decls = rewritten->payload.root.declarations;
-    for (size_t i = 0; i < entries_count_list(new_decls_list); i++) {
-        new_decls = append_nodes(dst_arena, new_decls, read_list(const Node*, new_decls_list)[i]);
-    }
-    rewritten = root(dst_arena, (Root) {
-        .declarations = new_decls
-    });
-
+    rewrite_module(&ctx.rewriter);
     update_base_stack_ptrs(&ctx);
-
-    destroy_list(new_decls_list);
     destroy_rewriter(&ctx.rewriter);
-    return rewritten;
 }

@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "passes.h"
 
 #include "../rewrite.h"
 #include "../visit.h"
@@ -17,8 +17,6 @@ typedef struct Context_ {
     bool disable_lowering;
 
     const Node* entry_sp_val;
-
-    struct List* new_decls;
 } Context;
 
 typedef struct {
@@ -85,24 +83,10 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 }
 
-const Node* setup_stack_frames(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
-    struct List* new_decls_list = new_list(const Node*);
-
+void  setup_stack_frames(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src_arena, dst_arena, (RewriteFn) process),
-        .new_decls = new_decls_list,
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
     };
-
-    const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
-    Nodes new_decls = rewritten->payload.root.declarations;
-    for (size_t i = 0; i < entries_count_list(new_decls_list); i++) {
-        new_decls = append_nodes(dst_arena, new_decls, read_list(const Node*, new_decls_list)[i]);
-    }
-    rewritten = root(dst_arena, (Root) {
-        .declarations = new_decls
-    });
-
-    destroy_list(new_decls_list);
+    rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    return rewritten;
 }

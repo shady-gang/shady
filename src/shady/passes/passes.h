@@ -2,10 +2,7 @@
 
 #include "shady/ir.h"
 
-#include <stdio.h>
-
-/// Rewrites a whole program, starting at the root
-typedef const Node* (RewritePass)(CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_root);
+typedef void (RewritePass)(CompilerConfig* config, Module* src_module, Module* dst_module);
 
 RewritePass bind_program;
 RewritePass normalize;

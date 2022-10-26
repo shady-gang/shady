@@ -21,6 +21,14 @@ typedef struct IrArena_ {
     struct Dict* strings_set;
 } IrArena_;
 
+struct Module_ {
+    IrArena* arena;
+    String name;
+    struct List* decls;
+};
+
+void register_decl_module(Module*, Node*);
+
 struct BodyBuilder_ {
     IrArena* arena;
     struct List* stack;

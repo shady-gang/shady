@@ -13,16 +13,20 @@ Nodes rewrite_nodes(Rewriter*, Nodes);
 Strings import_strings(IrArena*, Strings);
 
 struct Rewriter_ {
+    RewriteFn rewrite_fn;
     IrArena* src_arena;
     IrArena* dst_arena;
-    RewriteFn rewrite_fn;
+    Module* src_module;
+    Module* dst_module;
     struct Dict* processed;
 };
 
-Rewriter create_rewriter(IrArena* src, IrArena* dst, RewriteFn fn);
-Rewriter create_importer(IrArena* src, IrArena* dst);
-Rewriter create_substituter(IrArena* arena);
+Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn);
+Rewriter create_importer(Module* src, Module* dst);
+Rewriter create_substituter(Module* arena);
 void destroy_rewriter(Rewriter*);
+
+void rewrite_module(Rewriter*);
 
 const Node* rewrite_node(Rewriter*, const Node*);
 

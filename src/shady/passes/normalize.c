@@ -6,10 +6,6 @@
 #include "../type.h"
 #include "../rewrite.h"
 
-#include "list.h"
-
-#include "dict.h"
-
 #include <assert.h>
 
 typedef struct Context_ {
@@ -90,25 +86,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
-const Node* normalize(SHADY_UNUSED CompilerConfig* config, IrArena* src_arena, IrArena* dst_arena, const Node* src_program) {
-    struct Dict* done = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+void normalize(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = {
-            .dst_arena = dst_arena,
-            .src_arena = src_arena,
-            .rewrite_fn = (RewriteFn) process_node,
-            .processed = done,
-        },
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
         .bb = NULL,
     };
 
-    assert(src_program->tag == Root_TAG);
-
-    const Node* rewritten = recreate_node_identity(&ctx.rewriter, src_program);
-
-    destroy_dict(done);
-    return rewritten;
+    rewrite_module(&ctx.rewriter);
+    destroy_rewriter(&ctx.rewriter);
 }

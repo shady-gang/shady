@@ -33,6 +33,6 @@ INFIX_OPERATORS()
     InfixOperatorsCount
 } InfixOperators;
 
-const Node* parse(ParserConfig config, const char* contents, IrArena* arena);
+void parse(ParserConfig config, const char* contents, Module*);
 
 #endif

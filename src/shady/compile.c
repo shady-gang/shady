@@ -23,28 +23,37 @@ CompilerConfig default_compiler_config() {
     };
 }
 
-#define RUN_PASS(pass_name) \
-old_arena = *arena;                                        \
-*arena = new_ir_arena(aconfig);                            \
-*program = pass_name(config, old_arena, *arena, *program); \
-info_print("After "#pass_name" pass: \n");                 \
-info_node(*program);                                       \
-verify_program(*program);                                  \
-destroy_ir_arena(old_arena);
+#define RUN_PASS(pass_name)                             \
+old_mod = mod;                                          \
+old_arena = tmp_arena;                                  \
+tmp_arena = new_ir_arena(aconfig);                      \
+mod = new_module(tmp_arena, get_module_name(old_mod));  \
+pass_name(config, old_mod, mod);                        \
+info_print("After "#pass_name" pass: \n");              \
+info_module(mod);                                       \
+verify_module(mod);                                     \
+if (old_arena) destroy_ir_arena(old_arena);
 
-CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, const Node** program) {
+#define mod (*pmod)
+
+CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     ArenaConfig aconfig = {
         .name_bound = true,
         .allow_fold = false,
         .check_types = false
     };
-    IrArena* old_arena;
+    Module* old_mod;
+
+    IrArena* old_arena = NULL;
+    IrArena* tmp_arena = NULL;
+
+    generate_dummy_constants(config, mod);
 
     RUN_PASS(bind_program)
     RUN_PASS(normalize)
 
     // TODO: do this late
-    patch_constants(config, *arena, (Node*) *program);
+    patch_constants(config, mod);
 
     aconfig.check_types = true;
     RUN_PASS(infer_program)
@@ -73,14 +82,14 @@ CompilationResult run_compiler_passes(CompilerConfig* config, IrArena** arena, c
     return CompilationNoError;
 }
 
+#undef mod
+
 static size_t num_builtin_sources_files = 1;
 static const char* builtin_source_files[] = { builtin_scheduler_txt };
 
-CompilationResult parse_files(CompilerConfig* config, size_t num_files, const char** files_contents, IrArena* arena, const Node** program) {
+CompilationResult parse_files(CompilerConfig* config, size_t num_files, const char** files_contents, Module* mod) {
     size_t num_source_files = num_builtin_sources_files + num_files;
 
-    LARRAY(const Node*, parsed_files, num_source_files);
-    size_t total_decls_count = 0;
     for (size_t i = 0; i < num_source_files; i++) {
         const char* input_file_contents = NULL;
 
@@ -94,29 +103,8 @@ CompilationResult parse_files(CompilerConfig* config, size_t num_files, const ch
         ParserConfig pconfig = {
             .front_end = config->allow_frontend_syntax
         };
-        const Node* parsed_file = parse(pconfig, input_file_contents, arena);
-        parsed_files[i] = parsed_file;
-        assert(parsed_file->tag == Root_TAG);
-        total_decls_count += parsed_file->payload.root.declarations.count;
+        parse(pconfig, input_file_contents, mod);
     }
 
-    Nodes internal_constants = generate_dummy_constants(config, arena);
-    total_decls_count += internal_constants.count;
-
-    // Merge all declarations into a giant program
-    const Node** all_decls = malloc(sizeof(const Node*) * total_decls_count);
-    size_t num_decl = 0;
-    for (size_t i = 0; i < num_source_files; i++) {
-        const Node* parsed_file = parsed_files[i];
-        for (size_t j = 0; j < parsed_file->payload.root.declarations.count; j++)
-            all_decls[num_decl++] = parsed_file->payload.root.declarations.nodes[j];
-    }
-    for (size_t i = 0; i < internal_constants.count; i++)
-        all_decls[num_decl++] = internal_constants.nodes[i];
-
-    *program = root(arena, (Root) {
-        .declarations = nodes(arena, num_decl, all_decls)
-    });
-    free(all_decls);
     return CompilationNoError;
 }

@@ -131,7 +131,7 @@ struct Program_ {
     Runtime* runtime;
 
     IrArena* arena;
-    const Node* generic_program;
+    Module* generic_program;
 
     struct Dict* specialized;
 };
@@ -141,7 +141,7 @@ struct SpecProgram_ {
     Device* device;
 
     IrArena* arena;
-    const Node* final_program;
+    Module* module;
 
     size_t spirv_size;
     char* spirv_bytes;

@@ -43,8 +43,8 @@ INFIX_OPERATORS()
 }
 
 // to avoid some repetition
-#define ctxparams SHADY_UNUSED ParserConfig config, SHADY_UNUSED const char* contents, SHADY_UNUSED IrArena* arena, SHADY_UNUSED Tokenizer* tokenizer
-#define ctx config, contents, arena, tokenizer
+#define ctxparams SHADY_UNUSED ParserConfig config, SHADY_UNUSED const char* contents, SHADY_UNUSED Module* mod, SHADY_UNUSED IrArena* arena, SHADY_UNUSED Tokenizer* tokenizer
+#define ctx config, contents, mod, arena, tokenizer
 
 #define expect(condition) expect_impl(condition, #condition)
 static void expect_impl(bool condition, const char* err) {
@@ -794,7 +794,7 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, semi_tok));
 
-    Node* cnst = constant(arena, annotations, id);
+    Node* cnst = constant(mod, annotations, id);
     cnst->payload.constant.value = definition;
     cnst->payload.constant.type_hint = type;
     return cnst;
@@ -811,7 +811,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     Nodes parameters;
     expect_parameters(ctx, &parameters, NULL);
 
-    Node* fn = function(arena, parameters, name, annotations, types);
+    Node* fn = function(mod, parameters, name, annotations, types);
     fn->payload.lam.body = expect_body(ctx, fn, types.count == 0 ? fn_ret(arena, (Return) { .values = types }) : NULL);
 
     const Node* declaration = fn;
@@ -850,15 +850,14 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, semi_tok));
 
-    Node* gv = global_var(arena, annotations, type, id, as);
+    Node* gv = global_var(mod, annotations, type, id, as);
     gv->payload.global_variable.init = initial_value;
     return gv;
 }
 
-const Node* parse(ParserConfig config, const char* contents, IrArena* arena) {
+void parse(ParserConfig config, const char* contents, Module* mod) {
+    IrArena* arena = get_module_arena(mod);
     Tokenizer* tokenizer = new_tokenizer(contents);
-
-    struct List* declarations = new_list(const Node*);
 
     while (true) {
         Token token = curr_token(tokenizer);
@@ -875,8 +874,6 @@ const Node* parse(ParserConfig config, const char* contents, IrArena* arena) {
             debug_print("decl parsed : ");
             debug_node(decl);
             debug_print("\n");
-
-            append_list(const Node*, declarations, decl);
             continue;
         }
 
@@ -884,14 +881,5 @@ const Node* parse(ParserConfig config, const char* contents, IrArena* arena) {
         exit(-3);
     }
 
-    size_t count = declarations->elements_count;
-
-    const Node* n = root(arena, (Root) {
-        .declarations = nodes(arena, count, read_list(const Node*, declarations)),
-    });
-
-    destroy_list(declarations);
     destroy_tokenizer(tokenizer);
-
-    return n;
 }

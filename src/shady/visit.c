@@ -224,9 +224,10 @@ void visit_children(Visitor* visitor, const Node* node) {
             }
             break;
         }
-        case Root_TAG: {
-            visit_nodes(visitor, node->payload.root.declarations);
-            break;
-        }
     }
+}
+
+void visit_module(Visitor* visitor, Module* mod) {
+    Nodes decls = get_module_declarations(mod);
+    visit_nodes(visitor, decls);
 }
