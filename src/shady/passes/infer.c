@@ -186,6 +186,8 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
         case False_TAG: return false_lit(dst_arena);
         case StringLiteral_TAG: return string_lit(dst_arena, (StringLiteral) { .string = string(dst_arena, node->payload.string_lit.string )});
         case Lambda_TAG: return fn_addr(dst_arena, (FnAddr) { .fn = infer(ctx, node, NULL) }); // TODO check types match
+        case RefDecl_TAG:
+        case FnAddr_TAG: return recreate_node_identity(&ctx->rewriter, node);
         default: error("not a value");
     }
 }
@@ -218,7 +220,7 @@ static const Node* _infer_anonymous_lambda(Context* ctx, const Node* node, const
     return lam;
 }
 
-static const Node* infer_primop(Context* ctx, const Node* node) {
+static const Node* _infer_primop(Context* ctx, const Node* node, const Type* expected_type) {
     assert(node->tag == PrimOp_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     Nodes old_inputs = node->payload.prim_op.operands;
@@ -325,13 +327,13 @@ static const Node* infer_primop(Context* ctx, const Node* node) {
     });
 }
 
-static const Node* infer_call(Context* ctx, const Node* node) {
+static const Node* _infer_call(Context* ctx, const Node* node, const Type* expected_type) {
     assert(node->tag == Call_TAG);
 
     const Node* new_callee = infer(ctx, node->payload.call_instr.callee, NULL);
     LARRAY(const Node*, new_args, node->payload.call_instr.args.count);
 
-    const Type* callee_type = extract_operand_type(new_callee->type);
+    const Type* callee_type = node->payload.call_instr.is_indirect ? extract_operand_type(new_callee->type) : new_callee->type;
     if (node->payload.call_instr.is_indirect) {
         if (callee_type->tag != PtrType_TAG)
             error("functions are called through function pointers");
@@ -356,7 +358,7 @@ static const Node* infer_call(Context* ctx, const Node* node) {
     });
 }
 
-static const Node* infer_if(Context* ctx, const Node* node) {
+static const Node* _infer_if(Context* ctx, const Node* node, const Type* expected_type) {
     assert(node->tag == If_TAG);
     IrArena* arena = ctx->rewriter.dst_arena;
     const Node* condition = infer(ctx, node->payload.if_instr.condition, bool_type(ctx->rewriter.dst_arena));
@@ -380,7 +382,7 @@ static const Node* infer_if(Context* ctx, const Node* node) {
     });
 }
 
-static const Node* infer_loop(Context* ctx, const Node* node) {
+static const Node* _infer_loop(Context* ctx, const Node* node, const Type* expected_type) {
     assert(node->tag == Loop_TAG);
     IrArena* arena = ctx->rewriter.dst_arena;
     Context loop_body_ctx = *ctx;
@@ -416,10 +418,10 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
 
 static const Node* _infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
     switch (is_instruction(node)) {
-        case PrimOp_TAG:  return infer_primop(ctx, node);
-        case Call_TAG:    return infer_call  (ctx, node);
-        case If_TAG:      return infer_if    (ctx, node);
-        case Loop_TAG:    return infer_loop  (ctx, node);
+        case PrimOp_TAG:  return _infer_primop(ctx, node, expected_type);
+        case Call_TAG:    return _infer_call  (ctx, node, expected_type);
+        case If_TAG:      return _infer_if    (ctx, node, expected_type);
+        case Loop_TAG:    return _infer_loop  (ctx, node, expected_type);
         case Match_TAG:   error("TODO")
         case Control_TAG: error("TODO")
         case NotAnInstruction: error("not an instruction");

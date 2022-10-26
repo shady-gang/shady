@@ -322,10 +322,7 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
     const Type* t = ref_decl.decl->type;
     assert(t && "RefDecl needs to be applied on a decl with a non-null type. Did you forget to set 'type' on a constant ?");
     switch (ref_decl.decl->tag) {
-        case GlobalVariable_TAG: {
-            t = qualified_type(arena, (QualifiedType) { .type = t, .is_uniform = is_addr_space_uniform(ref_decl.decl->payload.global_variable.address_space) });
-            break;
-        }
+        case GlobalVariable_TAG:
         case Constant_TAG: break;
         default: error("You can only use RefDecl on a global or a constant. See FnAddr for taking addresses of functions.")
     }
