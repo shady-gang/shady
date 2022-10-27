@@ -14,7 +14,7 @@ struct List* build_scopes(Module* mod) {
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
-        if (decl->tag != Lambda_TAG) continue;
+        if (decl->tag != Function_TAG) continue;
         Scope scope = build_scope(decl);
         append_list(Scope, scopes, scope);
     }
@@ -38,21 +38,21 @@ CFNode* scope_lookup(Scope* scope, const Node* block) {
     assert(false);
 }
 
-static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* lam) {
-    assert(lam->tag == Lambda_TAG);
-    CFNode** found = find_value_dict(const Node*, CFNode*, ctx->nodes, lam);
+static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
+    assert(is_abstraction(abs));
+    CFNode** found = find_value_dict(const Node*, CFNode*, ctx->nodes, abs);
     if (found) return *found;
 
     CFNode* new = arena_alloc(ctx->arena, sizeof(CFNode));
     *new = (CFNode) {
-        .node = lam,
+        .node = abs,
         .succ_edges = new_list(CFEdge),
         .pred_edges = new_list(CFEdge),
         .rpo_index = SIZE_MAX,
         .idom = NULL,
         .dominates = NULL,
     };
-    insert_dict(const Node*, CFNode*, ctx->nodes, lam, new);
+    insert_dict(const Node*, CFNode*, ctx->nodes, abs, new);
     append_list(Node*, ctx->queue, new);
     append_list(Node*, ctx->contents, new);
     return new;
@@ -96,38 +96,35 @@ static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const No
 }
 
 static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
-    const Node* const lambda = node->node;
-    assert(lambda->tag == Lambda_TAG);
-    const Node* terminator = lambda->payload.lam.body;
+    const Node* const abs = node->node;
+    assert(is_abstraction(abs));
+    const Node* terminator = get_abstraction_body(abs);
     assert(is_terminator(terminator));
     switch (terminator->tag) {
-        case Branch_TAG: {
-            switch (terminator->payload.branch.branch_mode) {
-                case BrJump: {
-                    const Node* target = terminator->payload.branch.target;
-                    add_edge(ctx, lambda, target, ForwardEdge);
-                    break;
-                }
-                case BrIfElse: {
-                    const Node* true_target = terminator->payload.branch.true_target;
-                    const Node* false_target = terminator->payload.branch.false_target;
-                    add_edge(ctx, lambda, true_target, ForwardEdge);
-                    add_edge(ctx, lambda, false_target, ForwardEdge);
-                    break;
-                }
-                case BrSwitch: error("TODO")
-            }
+        case Jump_TAG: {
+            const Node* target = terminator->payload.jump.target;
+            add_edge(ctx, abs, target, ForwardEdge);
             break;
         }
+        case Branch_TAG: {
+            const Node* true_target = terminator->payload.branch.true_target;
+            const Node* false_target = terminator->payload.branch.false_target;
+            add_edge(ctx, abs, true_target, ForwardEdge);
+            add_edge(ctx, abs, false_target, ForwardEdge);
+            break;
+        }
+        case Switch_TAG: error("TODO")
         case Let_TAG: {
             process_instruction(ctx, node, terminator->payload.let.instruction);
             const Node* target = terminator->payload.let.tail;
-            add_edge(ctx, lambda, target, LetTailEdge);
+            add_edge(ctx, abs, target, LetTailEdge);
         }
         case Join_TAG: {
             break;
         }
-        case MergeConstruct_TAG: {
+        case MergeSelection_TAG:
+        case MergeContinue_TAG:
+        case MergeBreak_TAG: {
             // error("TODO: only allow this if we have traversed structured constructs...")
             break;
         }
@@ -139,7 +136,7 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
 }
 
 Scope build_scope(const Node* entry) {
-    assert(entry->tag == Lambda_TAG);
+    assert(is_abstraction(entry));
     Arena* arena = new_arena();
 
     ScopeBuildContext context = {
@@ -233,7 +230,7 @@ void compute_domtree(Scope* scope) {
                 goto outer_loop;
             }
         }
-        error("no idom found for %s", n->node->payload.lam.name);
+        error("no idom found");
         outer_loop:;
     }
 

@@ -28,26 +28,36 @@ static void visit_fv(Context* visitor, const Node* node) {
                 append_list(const Node*, visitor->free_list, node);
             break;
         }
-        case Lambda_TAG: break; // we do not visit the insides of functions/basic blocks, that's what the domtree search is already doing!
+        case AnonLambda_TAG:
+        case BasicBlock_TAG: break; // we do not visit the insides of functions/basic blocks, that's what the domtree search is already doing!
         default: visit_children(&visitor->visitor, node); break;
     }
 }
 
+static String get_abstraction_name(const Node* abs) {
+    switch (abs->tag) {
+        case Function_TAG: return abs->payload.fun.name;
+        case BasicBlock_TAG: return abs->payload.basic_block.name;
+        case AnonLambda_TAG: return "anonymous";
+    }
+}
+
 static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
-    const Lambda* fun = &cfnode->node->payload.lam;
+    const Node* abs = cfnode->node;
 
     for (int i = 0; i < depth; i++)
         debug_print(" ");
-    debug_print("%s\n", fun->name);
+    debug_print("%s\n", get_abstraction_name(abs));
 
     // Bind parameters
-    for (size_t j = 0; j < fun->params.count; j++) {
-        const Node* param = fun->params.nodes[j];
+    Nodes params = get_abstraction_params(abs);
+    for (size_t j = 0; j < params.count; j++) {
+        const Node* param = params.nodes[j];
         bool r = insert_set_get_result(const Node*, ctx->ignore_set, param);
         assert(r);
     }
 
-    visit_fv(ctx, fun->body);
+    visit_fv(ctx, get_abstraction_body(abs));
 
     for (size_t i = 0; i < entries_count_list(cfnode->dominates); i++) {
         CFNode* child = read_list(CFNode*, cfnode->dominates)[i];

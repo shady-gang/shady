@@ -16,7 +16,7 @@ static void visit_verify_same_arena(ArenaVerifyVisitor* visitor, const Node* nod
     assert(visitor->arena == node->arena);
     if (find_key_dict(const Node*, visitor->once, node))
         return;
-    if (node->tag == Lambda_TAG)
+    if (is_nominal(node))
         insert_set_get_result(const Node*, visitor->once, node);
     visit_children(&visitor->visitor, node);
 }
@@ -34,15 +34,13 @@ static void verify_same_arena(Module* mod) {
             // we also need to visit these potentially recursive things
             // not because we might miss nodes in a well-formed program (we shouldn't)
             // but rather because we might in a program that isn't.
-            .visit_fn_addr = true,
             .visit_referenced_decls = true,
             .visit_continuations = true,
-            .visit_return_fn_annotation = true,
         },
         .arena = arena,
         .once = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
-    visit_module(&visitor, mod);
+    visit_module(&visitor.visitor, mod);
     destroy_dict(visitor.once);
 }
 

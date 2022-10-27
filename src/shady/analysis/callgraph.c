@@ -41,7 +41,7 @@ static const Node* ignore_immediate_fn_addr(const Node* node) {
 
 static void visit_node(CGVisitor* visitor, const Node* node) {
     switch (node->tag) {
-        case Lambda_TAG: {
+        case Function_TAG: {
             CGNode* target = process_node(visitor->graph, node);
             // Immediate recursion
             if (target == visitor->node)
@@ -73,7 +73,7 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
 }
 
 static CGNode* process_node(CallGraph* graph, const Node* fn) {
-    assert(fn && fn->tag == Lambda_TAG);
+    assert(fn && fn->tag == Function_TAG);
     CGNode** found = fn ? find_value_dict(const Node*, CGNode*, graph->fn2cgn, fn) : NULL;
     if (found)
         return *found;
@@ -113,7 +113,7 @@ static int min(int a, int b) { return a < b ? a : b; }
 
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 static void strongconnect(CGNode* v, int* index, struct List* stack) {
-    debug_print("strongconnect(%s) \n", v->fn->payload.lam.name);
+    debug_print("strongconnect(%s) \n", v->fn->payload.fun.name);
 
     v->tarjan.index = *index;
     v->tarjan.lowlink = *index;
@@ -127,7 +127,7 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
         CGNode* w;
         debug_print(" has %d successors\n", entries_count_dict(v->callees));
         while (dict_iter(v->callees, &iter, &w, NULL)) {
-            debug_print("  %s\n", w->fn->payload.lam.name);
+            debug_print("  %s\n", w->fn->payload.fun.name);
             if (w->tarjan.index == -1) {
                 // Successor w has not yet been visited; recurse on it
                 strongconnect(w, index, stack);
@@ -159,7 +159,7 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
         if (scc_size > 1) {
             for (size_t i = 0; i < scc_size; i++) {
                 CGNode* w = scc[i];
-                debug_print("Function %s is part of a recursive call chain \n", w->fn->payload.lam.name);
+                debug_print("Function %s is part of a recursive call chain \n", w->fn->payload.fun.name);
                 w->is_recursive = true;
             }
         }
@@ -188,7 +188,7 @@ CallGraph* get_callgraph(Module* mod) {
 
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
-        if (decls.nodes[i]->tag == Lambda_TAG) {
+        if (decls.nodes[i]->tag == Function_TAG) {
             process_node(graph, decls.nodes[i]);
         }
     }
@@ -204,7 +204,7 @@ void dispose_callgraph(CallGraph* graph) {
     size_t i = 0;
     CGNode* node;
     while (dict_iter(graph->fn2cgn, &i, NULL, &node)) {
-        debug_print("Freeing CG node: %s\n", node->fn->payload.lam.name);
+        debug_print("Freeing CG node: %s\n", node->fn->payload.fun.name);
         destroy_dict(node->callees);
         free(node);
     }
