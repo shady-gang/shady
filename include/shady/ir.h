@@ -98,25 +98,36 @@ N(1, 1, 1, Control, control) \
 
 #define TERMINATOR_NODES(N) \
 N(0, 1, 1, Let, let) \
+N(0, 1, 1, LetMut, let_mut) \
+N(0, 1, 1, LetIndirect, let_indirect) \
 N(1, 1, 1, TailCall, tail_call) \
+N(1, 1, 1, Jump, jump) \
 N(1, 1, 1, Branch, branch) \
+N(1, 1, 1, Switch, br_switch) \
 N(1, 1, 1, Join, join) \
-N(1, 1, 1, MergeConstruct, merge_construct) \
+N(1, 1, 1, MergeSelection, merge_selection) \
+N(1, 1, 1, MergeContinue, merge_continue) \
+N(1, 1, 1, MergeBreak, merge_break) \
 N(1, 1, 1, Return, fn_ret) \
 N(1, 1, 0, Unreachable, unreachable) \
 
+#define DECL_NODES(N) \
+N(0, 1, 1, Function, fun) \
+N(0, 0, 1, Constant, constant) \
+N(0, 1, 1, GlobalVariable, global_variable) \
+
 #define NODES(N) \
-N(0, 0, 0, InvalidNode, invalid_node) \
 TYPE_NODES(N) \
 VALUE_NODES(N) \
 INSTRUCTION_NODES(N) \
 TERMINATOR_NODES(N) \
-N(0, 1, 1, Lambda, lam) \
-N(0, 0, 1, Constant, constant) \
-N(0, 1, 1, GlobalVariable, global_variable) \
-N(1, 0, 1, Annotation, annotation) \
+DECL_NODES(N) \
+N(0, 1, 1, AnonLambda, anon_lam) \
+N(0, 1, 1, BasicBlock, basic_block) \
+/*N(1, 0, 1, Annotation, annotation) \*/
 
 typedef enum NodeTag_ {
+    InvalidNode_TAG,
 #define NODE_GEN_TAG(_, _2, _3, struct_name, short_name) struct_name##_TAG,
 NODES(NODE_GEN_TAG)
 #undef NODE_GEN_TAG
@@ -166,27 +177,12 @@ TYPE_NODES(X)
 
 TypeTag is_type(const Node*);
 
-typedef struct QualifiedType_ {
-    bool is_uniform;
-    const Type* type;
-} QualifiedType;
-
-typedef struct RecordType_ {
-    Nodes members;
-    /// Can be empty (no names are given) or has to match the number of members
-    Strings names;
-    enum {
-        NotSpecial,
-        /// for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else
-        MultipleReturn,
-        /// Gets the 'Block' SPIR-V annotation, needed for UBO/SSBO variables
-        DecorateBlock
-    } special;
-} RecordType;
-
-typedef struct JoinPointType_ {
-    Nodes yield_types;
-} JoinPointType;
+typedef enum {
+    IntTy8,
+    IntTy16,
+    IntTy32,
+    IntTy64,
+} IntSizes;
 
 typedef enum {
     /// Lambda: binds an argument, can be used as a direct operand in structured constructs
@@ -197,42 +193,13 @@ typedef enum {
     FnTier_Function
 } FnTier;
 
-typedef struct FnType_ {
-    FnTier tier;
-    Nodes param_types;
-    Nodes return_types;
-} FnType;
-
-typedef struct PtrType_ {
-    AddressSpace address_space;
-    const Type* pointed_type;
-} PtrType;
-
-typedef struct ArrType_ {
-    const Type* element_type;
-    const Node* size;
-} ArrType;
-
 typedef enum {
-    IntTy8,
-    IntTy16,
-    IntTy32,
-    IntTy64,
-} IntSizes;
-
-typedef struct Int_ {
-    IntSizes width;
-} Int;
-
-typedef struct PackType_ {
-    const Type* element_type;
-    int width;
-} PackType;
-
-typedef struct NominalType_ {
-    String name;
-    const Type* body;
-} NominalType;
+    NotSpecial,
+    /// for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else
+    MultipleReturn,
+    /// Gets the 'Block' SPIR-V annotation, needed for UBO/SSBO variables
+    DecorateBlock
+} RecordSpecialFlag;
 
 //////////////////////////////// Values ////////////////////////////////
 
@@ -245,82 +212,11 @@ VALUE_NODES(X)
 
 ValueTag is_value(const Node*);
 
-typedef struct Variable_ {
-    const Type* type;
-    VarId id;
-    String name;
-
-    // Set if this is a let-bound node, otherwise it's NULL and this is a parameter
-    const Node* instruction;
-    unsigned output;
-} Variable;
-
-typedef struct Unbound_ {
-    String name;
-} Unbound;
-
-typedef struct UntypedNumber_ {
-    String plaintext;
-} UntypedNumber;
-
-typedef struct IntLiteral_ {
-    IntSizes width;
-    union {
-        int64_t  value_i64;
-        int32_t  value_i32;
-        int16_t  value_i16;
-        int8_t    value_i8;
-        uint64_t value_u64;
-        uint32_t value_u32;
-        uint16_t value_u16;
-        uint8_t   value_u8;
-    };
-} IntLiteral;
-
 int64_t extract_int_literal_value(const Node*, bool sign_extend);
-
-typedef struct StringLiteral_ {
-    const char* string;
-} StringLiteral;
 
 const char* extract_string_literal(const Node*);
 
-typedef struct ArrayLiteral_ {
-    const Type* element_type;
-    Nodes contents;
-} ArrayLiteral;
-
-typedef struct Tuple_ {
-    Nodes contents;
-} Tuple;
-
-/// References either a global (yielding a pointer to it), or a constant (yielding a value of the type itself)
-/// Declarations are not values themselves, this node is required to "convert" them.
-typedef struct RefDecl_ {
-    const Node* decl;
-} RefDecl;
-
-/// Like RefDecl but for functions, it yields a _function pointer_ !
-typedef struct FnAddr_ {
-    const Node* fn;
-} FnAddr;
-
 //////////////////////////////// Other ////////////////////////////////
-
-typedef struct Annotation_ {
-    const char* name;
-    enum {
-        AnPayloadNone,
-        AnPayloadValue,
-        AnPayloadValues,
-        AnPayloadMap,
-    } payload_type;
-    Strings labels;
-    union {
-        const Node* value;
-        Nodes values;
-    };
-} Annotation;
 
 const Node*  lookup_annotation(const Node* decl, const char* name);
 const Node*  extract_annotation_payload(const Node* annotation);
@@ -329,35 +225,6 @@ const Nodes* extract_annotation_payloads(const Node* annotation);
 const char*  extract_annotation_string_payload(const Node* annotation);
 
 bool lookup_annotation_with_string_payload(const Node* decl, const char* annotation_name, const char* expected_payload);
-
-typedef struct Lambda_ {
-    FnTier tier;
-    Nodes params;
-    const Node* body;
-    // only for basic blocks and functions
-    String name;
-    // only for functions
-    Nodes annotations;
-    Nodes return_types;
-    /// Populated by the parser for the bind pass, should be empty at all other times after that
-    /// (use the Scope analysis to figure out the real scope of a function)
-    Nodes children_continuations;
-} Lambda;
-
-typedef struct Constant_ {
-    Nodes annotations;
-    String name;
-    const Node* value;
-    const Node* type_hint;
-} Constant;
-
-typedef struct GlobalVariable_ {
-    Nodes annotations;
-    const Type* type;
-    String name;
-    AddressSpace address_space;
-    const Node* init;
-} GlobalVariable;
 
 //////////////////////////////// Instructions ////////////////////////////////
 
@@ -433,52 +300,6 @@ PRIMOPS(DECLARE_PRIMOP_ENUM)
 extern const char* primop_names[];
 bool has_primop_got_side_effects(Op op);
 
-typedef struct PrimOp_ {
-    Op op;
-    Nodes type_arguments;
-    Nodes operands;
-} PrimOp;
-
-typedef struct Call_ {
-    bool is_indirect;
-    const Node* callee;
-    Nodes args;
-} Call;
-
-// Those things are "meta" instructions, they contain other instructions.
-// they map to SPIR-V structured control flow constructs directly
-// they don't need merge blocks because they are instructions and so that is taken care of by the containing node
-
-/// Structured "if" construct
-typedef struct If_ {
-    Nodes yield_types;
-    const Node* condition;
-    const Node* if_true;
-    const Node* if_false;
-} If;
-
-/// Structured "match" construct
-typedef struct Match_ {
-    Nodes yield_types;
-    const Node* inspect;
-    Nodes literals;
-    Nodes cases;
-    const Node* default_case;
-} Match;
-
-/// Structured "loop" construct
-typedef struct Loop_ {
-    Nodes yield_types;
-    const Node* body;
-    Nodes initial_args;
-} Loop;
-
-/// Structured "control" construct
-typedef struct Control_ {
-    Nodes yield_types;
-    const Node* inside;
-} Control;
-
 //////////////////////////////// Terminators ////////////////////////////////
 
 typedef enum {
@@ -490,70 +311,11 @@ TERMINATOR_NODES(X)
 
 TerminatorTag is_terminator(const Node*);
 
-typedef struct Let_ {
-    const Node* instruction;
-    bool is_mutable;
-    const Node* tail;
-} Let;
-
-/// A branch. Branches can cause divergence, but they can never cause re-convergence.
-/// @n @p BrJump is guaranteed to not cause divergence, but all the other forms may cause it.
-typedef struct Branch_ {
-    enum {
-        /// Uses the @p target field, it must point directly to a function, not a function pointer.
-        BrJump,
-        /// Uses the @p branch_condition and true/false targets, like for @p BrJump, the targets have to point directly to functions
-        BrIfElse,
-        /// Uses the @p switch_value and default_target, cases_values, case_targets, like for @p BrJump, the targets have to point directly to functions
-        /// @todo This is unimplemented at this stage
-        BrSwitch
-    } branch_mode;
-    union {
-        const Node* target;
-        struct {
-            const Node* branch_condition;
-            const Node* true_target;
-            const Node* false_target;
-        };
-        struct {
-            const Node* switch_value;
-            const Node* default_target;
-            Nodes case_values;
-            Nodes case_targets;
-        };
-    };
-    Nodes args;
-} Branch;
-
-/// Join nodes are used to undo the divergence caused by branches. At join nodes, an explicit mask is used to force a number of divergent execution paths to resume.
-/// If @p is_indirect is set, the target must be a function pointer. Otherwise, the target must be a function directly.
-/// @p join_at _must_ be uniform.
-typedef struct Join_ {
-    const Node* join_point;
-    Nodes args;
-} Join;
-
-typedef struct Return_ {
-    // set to NULL after typing
-    const Node* fn;
-    Nodes values;
-} Return;
-
-typedef struct TailCall_ {
-    const Node* target;
-    Nodes args;
-} TailCall;
-
 extern String merge_what_string[];
 
-/// These terminators are used in conjunction with structured constructs, they are used inside their bodies to yield a value
-/// Using those terminators outside of an appropriate structured construct is undefined behaviour, and should probably be validated against
-typedef struct MergeConstruct_ {
-    enum { Selection, Continue, Break } construct;
-    Nodes args;
-} MergeConstruct;
-
 //////////////////////////////// Nodes util ////////////////////////////////
+
+#include "grammar.h"
 
 extern const char* node_tags[];
 extern const bool node_type_has_payload[];
@@ -580,28 +342,17 @@ inline static bool is_nominal(const Node* node) {
     NodeTag tag = node->tag;
     if (node->tag == PrimOp_TAG && has_primop_got_side_effects(node->payload.prim_op.op))
         return true;
-    return tag == Lambda_TAG || tag == Constant_TAG || tag == Variable_TAG || tag == GlobalVariable_TAG;
+    return tag == Function_TAG || tag == Constant_TAG || tag == Variable_TAG || tag == GlobalVariable_TAG;
 }
 
 inline static bool is_declaration(const Node* node) {
     NodeTag tag = node->tag;
-    return (tag == Lambda_TAG && node->payload.lam.tier != FnTier_Lambda) || tag == GlobalVariable_TAG || tag == Constant_TAG;
+    return (tag == Function_TAG) || tag == GlobalVariable_TAG || tag == Constant_TAG;
 }
 
-inline static bool is_anonymous_lambda(const Node* node) {
-    NodeTag tag = node->tag;
-    return (tag == Lambda_TAG && node->payload.lam.tier == FnTier_Lambda);
-}
-
-inline static bool is_basic_block(const Node* node) {
-    NodeTag tag = node->tag;
-    return (tag == Lambda_TAG && node->payload.lam.tier == FnTier_BasicBlock);
-}
-
-inline static bool is_function(const Node* node) {
-    NodeTag tag = node->tag;
-    return (tag == Lambda_TAG && node->payload.lam.tier == FnTier_Function);
-}
+inline static bool is_anonymous_lambda(const Node* node) { return node->tag == AnonLambda_TAG; }
+inline static bool is_basic_block(const Node* node) { return node->tag == BasicBlock_TAG; }
+inline static bool is_function(const Node* node) { return node->tag == Function_TAG; }
 
 // autogenerated node ctors
 #define NODE_CTOR_DECL_1(struct_name, short_name) const Node* short_name(IrArena*, struct_name);
@@ -618,23 +369,18 @@ NODES(NODE_CTOR)
 
 const Node* var(IrArena* arena, const Type* type, const char* name);
 
-/// Wraps an instruction and binds the outputs to variables we can use
-/// Should not be used if the instruction have no outputs !
-//const Node* let(IrArena* arena, const Node* instruction, size_t variables_count, const char* variable_names[]);
-/// Not meant to be valid IR, useful for the builtin frontend desugaring
-//const Node* let_mut(IrArena* arena, const Node* instruction, Nodes types, size_t variables_count, const char* variable_names[]);
-
 const Node* tuple(IrArena* arena, Nodes contents);
 
 Node* lambda      (IrArena*, Nodes params);
-Node* basic_block (IrArena*, Nodes params, const char* name);
+Node* basic_block (IrArena*, Node* function, Nodes params, const char* name);
 Node* function    (Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
 Node* constant    (Module*, Nodes annotations, const char* name);
 Node* global_var  (Module*, Nodes annotations, const Type*, String, AddressSpace);
 Type* nominal_type(Module*, String name);
 
-const Node* let(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail);
-// const Node* seq(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail);
+const Node* let(IrArena* arena, const Node* instruction, const Node* tail);
+const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail);
+const Node* let_indirect(IrArena* arena, const Node* instruction, const Node* tail);
 
 typedef struct BodyBuilder_ BodyBuilder;
 BodyBuilder* begin_body(IrArena*);

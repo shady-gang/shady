@@ -104,6 +104,30 @@ void register_processed_list(Rewriter* rewriter, Nodes old, Nodes new) {
         register_processed(rewriter, old.nodes[i], new.nodes[i]);
 }
 
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
+
+#pragma GCC diagnostic error "-Wswitch"
+
+#define rewrite_type(n) rewrite_node(rewriter, n)
+#define rewrite_types(ns) rewrite_nodes(rewriter, ns)
+#define rewrite_value(n) rewrite_node(rewriter, n)
+#define rewrite_values(ns) rewrite_nodes(rewriter, ns)
+#define rewrite_instruction(n) rewrite_node(rewriter, n)
+#define rewrite_terminator(n) rewrite_node(rewriter, n)
+#define rewrite_decl(n) rewrite_node(rewriter, n)
+#define rewrite_anon_lambda(n) rewrite_node(rewriter, n)
+#define rewrite_anon_lambdas(ns) rewrite_nodes(rewriter, ns)
+#define rewrite_basic_block(n) rewrite_node(rewriter, n)
+#define rewrite_basic_blocks(ns) rewrite_nodes(rewriter, ns)
+
+void rewrite_module(Rewriter* rewriter) {
+    Nodes old_decls = get_module_declarations(rewriter->src_module);
+    for (size_t i = 0; i < old_decls.count; i++) {
+        rewrite_decl(old_decls.nodes[i]);
+    }
+}
+
 const Node* recreate_variable(Rewriter* rewriter, const Node* old) {
     assert(old->tag == Variable_TAG);
     return var(rewriter->dst_arena, rewrite_node(rewriter, old->payload.var.type), old->payload.var.name);
