@@ -40,7 +40,7 @@ const Node* process_let(Context* ctx, const Node* node) {
                 acc = gen_primop_ce(bb, and_op, 2, (const Node* []) { acc, int64_literal(arena, 1) });
                 // acc == 1
                 acc = gen_primop_ce(bb, eq_op, 2, (const Node* []) { acc, int64_literal(arena, 1) });
-                return finish_body(bb, let(arena, false, quote(arena, acc), tail));
+                return finish_body(bb, let(arena, quote(arena, acc), tail));
             }
             case subgroup_active_mask_op:
                 // this is just ballot(true), lower it to that
@@ -58,7 +58,7 @@ const Node* process_let(Context* ctx, const Node* node) {
                     const Node* hi = gen_primop_ce(bb, extract_op, 2, (const Node* []) {result, int32_literal(arena, 1) });
                     result = gen_merge_i32s_i64(bb, lo, hi);
                 }
-                return finish_body(bb, let(arena, false, quote(arena, result), tail));
+                return finish_body(bb, let(arena, quote(arena, result), tail));
             }
             default: break;
         }
@@ -67,7 +67,7 @@ const Node* process_let(Context* ctx, const Node* node) {
     if (!instruction)
         instruction = rewrite_node(&ctx->rewriter, old_instruction);
 
-    return let(arena, false, instruction, tail);
+    return let(arena, instruction, tail);
 }
 
 const Node* process(Context* ctx, const Node* node) {

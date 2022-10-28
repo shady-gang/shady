@@ -140,29 +140,16 @@ Nodes recreate_variables(Rewriter* rewriter, Nodes old) {
     return nodes(rewriter->dst_arena, old.count, nvars);
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
     switch (old->tag) {
         case GlobalVariable_TAG: new = global_var(rewriter->dst_module, rewrite_nodes(rewriter, old->payload.global_variable.annotations), rewrite_node(rewriter, old->payload.global_variable.type), old->payload.global_variable.name, old->payload.global_variable.address_space); break;
         case Constant_TAG: new = constant(rewriter->dst_module, rewrite_nodes(rewriter, old->payload.constant.annotations), old->payload.constant.name); break;
-        case Lambda_TAG: {
-            Nodes new_params = recreate_variables(rewriter, old->payload.lam.params);
-            switch (old->payload.lam.tier) {
-                case FnTier_Lambda:
-                    new = lambda(rewriter->dst_arena, new_params);
-                    break;
-                case FnTier_BasicBlock:
-                    new = basic_block(rewriter->dst_arena, new_params, old->payload.lam.name);
-                    break;
-                case FnTier_Function:
-                    new = function(rewriter->dst_module, new_params, old->payload.lam.name, rewrite_nodes(rewriter, old->payload.lam.annotations), rewrite_nodes(rewriter, old->payload.lam.return_types));
-                    break;
-            }
-            assert(new && new->tag == Lambda_TAG);
-            register_processed_list(rewriter, old->payload.lam.params, new->payload.lam.params);
+        case Function_TAG: {
+            Nodes new_params = recreate_variables(rewriter, old->payload.fun.params);
+            new = function(rewriter->dst_module, new_params, old->payload.fun.name, rewrite_nodes(rewriter, old->payload.fun.annotations), rewrite_nodes(rewriter, old->payload.fun.return_types));
+            assert(new && new->tag == Function_TAG);
+            register_processed_list(rewriter, old->payload.fun.params, new->payload.fun.params);
             break;
         }
         default: error("not a decl");
@@ -173,7 +160,7 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
 }
 
 void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new) {
-    // assert(is_declaration(new) && is_declaration(old));
+    assert(is_declaration(new) && is_declaration(old));
     switch (old->tag) {
         case GlobalVariable_TAG: {
             new->payload.global_variable.init = rewrite_node(rewriter, old->payload.global_variable.init);
@@ -185,23 +172,29 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             new->type                       = rewrite_node(rewriter, new->payload.constant.value->type);
             break;
         }
-        case Lambda_TAG: {
-            assert(new->payload.lam.body == NULL);
-            new->payload.lam.body = rewrite_node(rewriter, old->payload.lam.body);
+        case Function_TAG: {
+            assert(new->payload.fun.body == NULL);
+            new->payload.fun.body = rewrite_node(rewriter, old->payload.fun.body);
             break;
         }
         default: error("not a decl");
     }
 }
 
-#pragma GCC diagnostic error "-Wswitch"
-
-void rewrite_module(Rewriter* rewriter) {
-    Nodes old_decls = get_module_declarations(rewriter->src_module);
-    for (size_t i = 0; i < old_decls.count; i++) {
-        rewrite_node(rewriter, old_decls.nodes[i]);
-    }
-}
+#define REWRITE_FIELD_POD(t, n) .n = old_payload.n,
+#define REWRITE_FIELD_TYPE(t, n) .n = rewrite_type(old_payload.n),
+#define REWRITE_FIELD_TYPES(t, n) .n = rewrite_types(old_payload.n),
+#define REWRITE_FIELD_VALUE(t, n) .n = rewrite_value(old_payload.n),
+#define REWRITE_FIELD_VALUES(t, n) .n = rewrite_values(old_payload.n),
+#define REWRITE_FIELD_INSTRUCTION(t, n) .n = rewrite_instruction(old_payload.n),
+#define REWRITE_FIELD_TERMINATOR(t, n) .n = rewrite_terminator(old_payload.n),
+#define REWRITE_FIELD_DECL(t, n) .n = rewrite_decl(old_payload.n),
+#define REWRITE_FIELD_ANON_LAMBDA(t, n) .n = rewrite_anon_lambda(old_payload.n),
+#define REWRITE_FIELD_ANON_LAMBDAS(t, n) .n = rewrite_anon_lambdas(old_payload.n),
+#define REWRITE_FIELD_BASIC_BLOCK(t, n) .n = rewrite_basic_block(old_payload.n),
+#define REWRITE_FIELD_BASIC_BLOCKS(t, n) .n = rewrite_basic_blocks(old_payload.n),
+#define REWRITE_FIELD_STRING(t, n) .n = string(arena, old_payload.n),
+#define REWRITE_FIELD_STRINGS(t, n) .n = import_strings(arena, old_payload.n),
 
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
@@ -211,174 +204,51 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (already_done_before)
         return already_done_before;
 
+    IrArena* arena = rewriter->dst_arena;
+
     switch (node->tag) {
         case InvalidNode_TAG:   assert(false);
-        case NoRet_TAG:         return noret_type(rewriter->dst_arena);
-        case Int_TAG:           return int_type(rewriter->dst_arena, node->payload.int_type);
-        case Bool_TAG:          return bool_type(rewriter->dst_arena);
-        case Float_TAG:         return float_type(rewriter->dst_arena);
-        case Unit_TAG:          return unit_type(rewriter->dst_arena);
-        case MaskType_TAG:      return mask_type(rewriter->dst_arena);
-        case JoinPointType_TAG: return join_point_type(rewriter->dst_arena, (JoinPointType) { .yield_types = rewrite_nodes(rewriter, node->payload.join_point_type.yield_types )});
-        case RecordType_TAG:    return record_type(rewriter->dst_arena, (RecordType) {
-                                    .members = rewrite_nodes(rewriter, node->payload.record_type.members),
-                                    .names = import_strings(rewriter->dst_arena, node->payload.record_type.names),
-                                    .special = node->payload.record_type.special});
-        case FnType_TAG:        return fn_type(rewriter->dst_arena, (FnType) {
-                                    .tier = node->payload.fn_type.tier,
-                                    .param_types = rewrite_nodes(rewriter, node->payload.fn_type.param_types),
-                                    .return_types = rewrite_nodes(rewriter, node->payload.fn_type.return_types)});
-        case PtrType_TAG:       return ptr_type(rewriter->dst_arena, (PtrType) {
-                                    .address_space = node->payload.ptr_type.address_space,
-                                    .pointed_type = rewrite_node(rewriter, node->payload.ptr_type.pointed_type)});
-        case QualifiedType_TAG: return qualified_type(rewriter->dst_arena, (QualifiedType) {
-                                    .is_uniform = node->payload.qualified_type.is_uniform,
-                                    .type = rewrite_node(rewriter, node->payload.qualified_type.type)});
-        case ArrType_TAG:       return arr_type(rewriter->dst_arena, (ArrType) {
-                                    .element_type = rewrite_node(rewriter, node->payload.arr_type.element_type),
-                                    .size = rewrite_node(rewriter, node->payload.arr_type.size),
-        });
-        case PackType_TAG:      return pack_type(rewriter->dst_arena, (PackType) {
-                                    .element_type = rewrite_node(rewriter, node->payload.pack_type.element_type),
-                                    .width = node->payload.pack_type.width
-        });
-        case NominalType_TAG: {
-            Type* new = nominal_type(rewriter->dst_module, node->payload.nom_type.name);
-                register_processed(rewriter, node, new);
-            new->payload.nom_type.body = rewrite_node(rewriter, node->payload.nom_type.body);
-            return new;
-        }
-
-        case Variable_TAG:      error("We expect variables to be available for us in the `processed` set");
-        case Unbound_TAG:       return unbound(rewriter->dst_arena, (Unbound) { .name = string(rewriter->dst_arena, node->payload.unbound.name) });
-        case UntypedNumber_TAG: return untyped_number(rewriter->dst_arena, (UntypedNumber) { .plaintext = string(rewriter->dst_arena, node->payload.untyped_number.plaintext) });
-        case IntLiteral_TAG:    return int_literal(rewriter->dst_arena, node->payload.int_literal);
-        case True_TAG:          return true_lit(rewriter->dst_arena);
-        case False_TAG:         return false_lit(rewriter->dst_arena);
-        case StringLiteral_TAG: return string_lit(rewriter->dst_arena, (StringLiteral) { .string = string(rewriter->dst_arena, node->payload.string_lit.string )});
-        case ArrayLiteral_TAG:  return arr_lit(rewriter->dst_arena, (ArrayLiteral) {
-            .element_type = rewrite_node(rewriter, node->payload.arr_lit.element_type),
-            .contents = rewrite_nodes(rewriter, node->payload.arr_lit.contents)
-        });
-        case Tuple_TAG:         return tuple(rewriter->dst_arena, rewrite_nodes(rewriter, node->payload.tuple.contents));
-        case FnAddr_TAG:        return fn_addr(rewriter->dst_arena, (FnAddr) { .fn = rewrite_node(rewriter, node->payload.fn_addr.fn) });
-        case RefDecl_TAG:       return ref_decl(rewriter->dst_arena, (RefDecl) { .decl = rewrite_node(rewriter, node->payload.ref_decl.decl) });
-
-        case Let_TAG: {
-            assert(!node->payload.let.is_mutable);
-            const Node* ninstruction = rewrite_node(rewriter, node->payload.let.instruction);
-            const Node* tail = rewrite_node(rewriter, node->payload.let.tail);
-            return let(rewriter->dst_arena, false, ninstruction, tail);
-        }
-        case PrimOp_TAG:        return prim_op(rewriter->dst_arena, (PrimOp) {
-            .op = node->payload.prim_op.op,
-            .operands = rewrite_nodes(rewriter, node->payload.prim_op.operands),
-            .type_arguments = rewrite_nodes(rewriter, node->payload.prim_op.type_arguments),
-        });
-        case Call_TAG:          return call_instr(rewriter->dst_arena, (Call) {
-            .is_indirect = node->payload.call_instr.is_indirect,
-            .callee = rewrite_node(rewriter, node->payload.call_instr.callee),
-            .args = rewrite_nodes(rewriter, node->payload.call_instr.args)
-        });
-        case If_TAG:            return if_instr(rewriter->dst_arena, (If) {
-            .yield_types = rewrite_nodes(rewriter, node->payload.if_instr.yield_types),
-            .condition = rewrite_node(rewriter, node->payload.if_instr.condition),
-            .if_true = rewrite_node(rewriter, node->payload.if_instr.if_true),
-            .if_false = rewrite_node(rewriter, node->payload.if_instr.if_false),
-        });
-        case Loop_TAG: {
-            const Node* nbody = rewrite_node(rewriter, node->payload.loop_instr.body);
-
-            return loop_instr(rewriter->dst_arena, (Loop) {
-                .yield_types = rewrite_nodes(rewriter, node->payload.loop_instr.yield_types),
-                .initial_args = rewrite_nodes(rewriter, node->payload.loop_instr.initial_args),
-                .body = nbody,
-            });
-        }
-        case Match_TAG:         return match_instr(rewriter->dst_arena, (Match) {
-            .yield_types = rewrite_nodes(rewriter, node->payload.match_instr.yield_types),
-            .inspect = rewrite_node(rewriter, node->payload.match_instr.inspect),
-            .literals = rewrite_nodes(rewriter, node->payload.match_instr.literals),
-            .cases = rewrite_nodes(rewriter, node->payload.match_instr.cases),
-            .default_case = rewrite_node(rewriter, node->payload.match_instr.default_case),
-        });
-        case TailCall_TAG: return tail_call(rewriter->dst_arena, (TailCall) {
-            .target = rewrite_node(rewriter, node->payload.tail_call.target),
-            .args = rewrite_nodes(rewriter, node->payload.tail_call.args),
-        });
-        case Branch_TAG: switch (node->payload.branch.branch_mode) {
-            case BrJump: return branch(rewriter->dst_arena, (Branch) {
-                .branch_mode = node->payload.branch.branch_mode,
-
-                .target = rewrite_node(rewriter, node->payload.branch.target),
-                .args = rewrite_nodes(rewriter, node->payload.branch.args)
-            });
-            case BrIfElse: return branch(rewriter->dst_arena, (Branch) {
-                .branch_mode = node->payload.branch.branch_mode,
-
-                .branch_condition = rewrite_node(rewriter, node->payload.branch.branch_condition),
-                .true_target = rewrite_node(rewriter, node->payload.branch.true_target),
-                .false_target = rewrite_node(rewriter, node->payload.branch.false_target),
-                .args = rewrite_nodes(rewriter, node->payload.branch.args)
-            });
-            case BrSwitch: return branch(rewriter->dst_arena, (Branch) {
-                .branch_mode = node->payload.branch.branch_mode,
-
-                .switch_value = rewrite_node(rewriter, node->payload.branch.switch_value),
-                .default_target = rewrite_node(rewriter, node->payload.branch.default_target),
-                .case_values = rewrite_nodes(rewriter, node->payload.branch.case_values),
-                .case_targets = rewrite_nodes(rewriter, node->payload.branch.case_targets)
-            });
-            default: SHADY_UNREACHABLE;
-        }
-        case Control_TAG:     return control(rewriter->dst_arena, (Control) {
-            .yield_types = rewrite_nodes(rewriter, node->payload.control.yield_types),
-            .inside = rewrite_node(rewriter, node->payload.control.inside),
-        });
-        case Join_TAG:        return join(rewriter->dst_arena, (Join) {
-            .join_point = rewrite_node(rewriter, node->payload.join.join_point),
-            .args = rewrite_nodes(rewriter, node->payload.join.args)
-        });
-        case Return_TAG:        return fn_ret(rewriter->dst_arena, (Return) {
-            .fn = rewrite_node(rewriter, node->payload.fn_ret.fn),
-            .values = rewrite_nodes(rewriter, node->payload.fn_ret.values)
-        });
-        case Unreachable_TAG:   return unreachable(rewriter->dst_arena);
-        case MergeConstruct_TAG: return merge_construct(rewriter->dst_arena, (MergeConstruct) {
-            .construct = node->payload.merge_construct.construct,
-            .args = rewrite_nodes(rewriter, node->payload.merge_construct.args)
-        });
-
-        case GlobalVariable_TAG:
+        #define REWRITE_FIELD(hash, ft, t, n) REWRITE_FIELD_##ft(t, n)
+        #define REWRITE_NODE_0_0(StructName, short_name)
+        #define REWRITE_NODE_0_1(StructName, short_name) case StructName##_TAG: return short_name(arena);
+        #define REWRITE_NODE_1_0(StructName, short_name)
+        #define REWRITE_NODE_1_1(StructName, short_name) case StructName##_TAG: { StructName old_payload = node->payload.short_name; return short_name(arena, (StructName) { StructName##_Fields(REWRITE_FIELD) }); }
+        #define REWRITE_NODE(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name) REWRITE_NODE_##has_payload##_##autogen_ctor(StructName, short_name)
+        NODES(REWRITE_NODE)
+        case Function_TAG:
         case Constant_TAG:
-        case Lambda_TAG: {
+        case GlobalVariable_TAG: {
             Node* new = recreate_decl_header_identity(rewriter, node);
             recreate_decl_body_identity(rewriter, node, new);
             return new;
         }
-        case Annotation_TAG: switch (node->payload.annotation.payload_type) {
-            case AnPayloadNone: return annotation(rewriter->dst_arena, (Annotation) {
-                                    .payload_type = node->payload.annotation.payload_type,
-                                    .name = string(rewriter->dst_arena, node->payload.annotation.name),
-                                });
-            case AnPayloadValue: return annotation(rewriter->dst_arena, (Annotation) {
-                                    .payload_type = node->payload.annotation.payload_type,
-                                    .name = string(rewriter->dst_arena, node->payload.annotation.name),
-                                    .value = rewrite_node(rewriter, node->payload.annotation.value)
-                                });
-            case AnPayloadValues: return annotation(rewriter->dst_arena, (Annotation) {
-                                    .payload_type = node->payload.annotation.payload_type,
-                                    .name = string(rewriter->dst_arena, node->payload.annotation.name),
-                                    .values = rewrite_nodes(rewriter, node->payload.annotation.values)
-                                });
-            case AnPayloadMap: return annotation(rewriter->dst_arena, (Annotation) {
-                                    .payload_type = node->payload.annotation.payload_type,
-                                    .name = string(rewriter->dst_arena, node->payload.annotation.name),
-                                    .labels = import_strings(rewriter->dst_arena, node->payload.annotation.labels),
-                                    .values = rewrite_nodes(rewriter, node->payload.annotation.values)
-                                });
-            default: error("Unknown annotation payload type");
+        case NominalType_TAG: error("TODO")
+        case Variable_TAG: return var(arena, rewrite_type(node->payload.var.type), node->payload.var.name);
+        case Tuple_TAG: return tuple(arena, rewrite_values(node->payload.tuple.contents));
+        case Let_TAG: {
+            const Node* instruction = rewrite_instruction(node->payload.let.instruction);
+            const Node* tail = rewrite_anon_lambda(node->payload.let.tail);
+            return let(arena, instruction, tail);
+        }
+        case LetMut_TAG: error("De-sugar this by hand")
+        case LetIndirect_TAG: {
+            const Node* instruction = rewrite_instruction(node->payload.let.instruction);
+            const Node* tail = rewrite_value(node->payload.let.tail);
+            return let(arena, instruction, tail);
+        }
+        case AnonLambda_TAG: {
+            Nodes params = rewrite_values(node->payload.anon_lam.params);
+            Node* lam = lambda(arena, params);
+            lam->payload.anon_lam.body = rewrite_terminator(node->payload.anon_lam.body);
+            return lam;
+        }
+        case BasicBlock_TAG: {
+            Nodes params = rewrite_values(node->payload.basic_block.params);
+            const Node* fn = rewrite_decl(node->payload.basic_block.fn);
+            Node* lam = basic_block(arena, fn, params, node->payload.basic_block.name);
+            lam->payload.anon_lam.body = rewrite_terminator(node->payload.basic_block.body);
+            return lam;
         }
     }
-    SHADY_UNREACHABLE;
+    assert(false);
 }

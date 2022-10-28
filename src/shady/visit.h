@@ -12,9 +12,7 @@ struct Visitor_ {
    bool visit_fn_scope_rpo;
    // Enabling this will make visit_children visit continuation targets (inside terminators), be wary this could cause infinite loops
    bool visit_continuations;
-
-   bool visit_return_fn_annotation;
-   bool visit_fn_addr;
+   // Enabling this will make visit_children visit references to other declarations (visit_module will still visit those at the top)
    bool visit_referenced_decls;
 };
 

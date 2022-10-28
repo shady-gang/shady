@@ -39,7 +39,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 BodyBuilder* bb = begin_body(arena);
                 bool uniform = oprim_op->op == get_stack_pointer_uniform_op;
                 const Node* sp = gen_load(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer);
-                return finish_body(bb, let(arena, false, quote(arena, sp), tail));
+                return finish_body(bb, let(arena, quote(arena, sp), tail));
             }
             case set_stack_pointer_op:
             case set_stack_pointer_uniform_op: {
@@ -100,13 +100,13 @@ static const Node* process_let(Context* ctx, const Node* node) {
                     return finish_body(bb, tail);
 
                 assert(popped_value);
-                return finish_body(bb, let(arena, false, quote(arena, popped_value), tail));
+                return finish_body(bb, let(arena, quote(arena, popped_value), tail));
             }
             default: break;
         }
     }
 
-    return let(arena, false, rewrite_node(&ctx->rewriter, old_instruction), tail);
+    return let(arena, rewrite_node(&ctx->rewriter, old_instruction), tail);
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {

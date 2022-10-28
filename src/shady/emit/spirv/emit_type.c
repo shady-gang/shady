@@ -10,6 +10,8 @@
 
 #include "assert.h"
 
+#pragma GCC diagnostic error "-Wswitch"
+
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
@@ -106,7 +108,8 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         return *existing;
 
     SpvId new;
-    switch (type->tag) {
+    switch (is_type(type)) {
+        case NotAType: error("Not a type");
         case Unit_TAG: {
             new = emitter->void_t;
             break;
@@ -122,18 +125,23 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             }
             new = spvb_int_type(emitter->file_builder, width, false);
             break;
-        } case Bool_TAG:
+        } case Bool_TAG: {
             new = spvb_bool_type(emitter->file_builder);
             break;
-        case PtrType_TAG: {
+        } case Float_TAG: {
+            new = spvb_float_type(emitter->file_builder, 32);
+            break;
+        } case PtrType_TAG: {
             SpvId pointee = emit_type(emitter, type->payload.ptr_type.pointed_type);
             SpvStorageClass sc = emit_addr_space(type->payload.ptr_type.address_space);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
             break;
         }
+        case NoRet_TAG:
+        case LamType_TAG:
+        case BBType_TAG: error("we can't emit arrow types that aren't those of first-class functions")
         case FnType_TAG: {
             const FnType* fnt = &type->payload.fn_type;
-            assert(fnt->tier == FnTier_Function && "we can't emit arrow types that aren't those of first-class functions");
             LARRAY(SpvId, params, fnt->param_types.count);
             for (size_t i = 0; i < fnt->param_types.count; i++)
                 params[i] = emit_type(emitter, fnt->param_types.nodes[i]);
@@ -174,7 +182,8 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             emit_nominal_type_body(emitter, type, new);
             return new;
         }
-        default: error("Don't know how to emit type")
+        case Type_MaskType_TAG:
+        case Type_JoinPointType_TAG: error("These must be lowered beforehand")
     }
 
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);

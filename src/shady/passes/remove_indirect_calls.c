@@ -39,25 +39,22 @@ static const Node* process(Context* ctx, const Node* node) {
                 .args = nargs
             });
         }
-        case Lambda_TAG: {
-            if (node->payload.lam.tier == FnTier_Function) {
-                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
-                Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.lam.annotations);
-                if (fn_node->is_address_captured || fn_node->is_recursive) {
-                    annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) {
-                        .name = "IndirectlyCalled",
-                        .payload_type = AnPayloadNone
-                    }));
-                }
-                Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.lam.params), node->payload.lam.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.lam.return_types));
-                for (size_t i = 0; i < new->payload.lam.params.count; i++)
-                    register_processed(&ctx->rewriter, node->payload.lam.params.nodes[i], new->payload.lam.params.nodes[i]);
-                register_processed(&ctx->rewriter, node, new);
-
-                recreate_decl_body_identity(&ctx->rewriter, node, new);
-                return new;
+        case Function_TAG: {
+            CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
+            Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.lam.annotations);
+            if (fn_node->is_address_captured || fn_node->is_recursive) {
+                annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) {
+                    .name = "IndirectlyCalled",
+                    .payload_type = AnPayloadNone
+                }));
             }
-            return recreate_node_identity(&ctx->rewriter, node);
+            Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.lam.params), node->payload.lam.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.lam.return_types));
+            for (size_t i = 0; i < new->payload.lam.params.count; i++)
+                register_processed(&ctx->rewriter, node->payload.lam.params.nodes[i], new->payload.lam.params.nodes[i]);
+            register_processed(&ctx->rewriter, node, new);
+
+            recreate_decl_body_identity(&ctx->rewriter, node, new);
+            return new;
         }
         skip:
         default: return recreate_node_identity(&ctx->rewriter, node);

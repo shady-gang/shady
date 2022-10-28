@@ -1,6 +1,4 @@
 #include "ir_private.h"
-#include "rewrite.h"
-#include "fold.h"
 #include "log.h"
 #include "portability.h"
 
@@ -94,8 +92,8 @@ const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
     size_t stack_size = entries_count_list(builder->stack);
     for (size_t i = stack_size - 1; i < stack_size; i--) {
         StackEntry entry = read_list(StackEntry, builder->stack)[i];
-        entry.tail->payload.lam.body = terminator;
-        terminator = let(builder->arena, entry.mut, entry.instr, entry.tail);
+        entry.tail->payload.anon_lam.body = terminator;
+        terminator = (entry.mut ? let_mut : let)(builder->arena, entry.instr, entry.tail);
     }
 
     destroy_list(builder->stack);

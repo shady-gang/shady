@@ -6,224 +6,79 @@
 
 #include <assert.h>
 
-#define visit(t) if (t && visitor->visit_fn) visitor->visit_fn(visitor, t);
+static void visit_node(Visitor* visitor, const Node* node) {
+    if (node && visitor->visit_fn)
+        visitor->visit_fn(visitor, node);
+}
 
 void visit_nodes(Visitor* visitor, Nodes nodes) {
     for (size_t i = 0; i < nodes.count; i++) {
-         visit(nodes.nodes[i]);
+         visit_node(visitor, nodes.nodes[i]);
     }
 }
 
 void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
-    assert(function->tag == Lambda_TAG);
-    assert(function->payload.lam.tier == FnTier_Function);
+    assert(function->tag == Function_TAG);
     Scope scope = build_scope(function);
     assert(scope.rpo[0]->node == function);
     for (size_t i = 1; i < scope.size; i++) {
-        visit(scope.rpo[i]->node);
+        visit_node(visitor, scope.rpo[i]->node);
     }
     dispose_scope(&scope);
 }
 
 #pragma GCC diagnostic error "-Wswitch"
 
+#define visit_type(n) visit_node(visitor, n)
+#define visit_types(ns) visit_nodes(visitor, ns)
+#define visit_value(n) visit_node(visitor, n)
+#define visit_values(ns) visit_nodes(visitor, ns)
+#define visit_instruction(n) visit_node(visitor, n)
+#define visit_terminator(n) visit_node(visitor, n)
+#define visit_decl(n) visit_node(visitor, n)
+#define visit_anon_lambda(n) visit_node(visitor, n)
+#define visit_anon_lambdas(ns) visit_nodes(visitor, ns)
+#define visit_basic_block(n) visit_node(visitor, n)
+#define visit_basic_blocks(ns) visit_nodes(visitor, ns)
+
+#define VISIT_FIELD_POD(t, n)
+#define VISIT_FIELD_STRING(t, n)
+#define VISIT_FIELD_STRINGS(t, n)
+#define VISIT_FIELD_ANNOTATIONS(t, n)
+#define VISIT_FIELD_TYPE(t, n) visit_type(payload.n);
+#define VISIT_FIELD_TYPES(t, n) visit_types(payload.n);
+#define VISIT_FIELD_VALUE(t, n) visit_value(payload.n);
+#define VISIT_FIELD_VALUES(t, n) visit_values(payload.n);
+#define VISIT_FIELD_VARIABLES(t, n) visit_values(payload.n);
+#define VISIT_FIELD_INSTRUCTION(t, n) visit_instruction(payload.n);
+#define VISIT_FIELD_TERMINATOR(t, n) visit_terminator(payload.n);
+#define VISIT_FIELD_ANON_LAMBDA(t, n) visit_anon_lambda(payload.n);
+#define VISIT_FIELD_ANON_LAMBDAS(t, n) visit_anon_lambdas(payload.n);
+
+#define VISIT_FIELD_DECL(t, n) if (visitor->visit_referenced_decls) visit_decl(payload.n);
+
+#define VISIT_FIELD_BASIC_BLOCK(t, n) if (visitor->visit_continuations) visit_basic_block(payload.n);
+#define VISIT_FIELD_BASIC_BLOCKS(t, n) if (visitor->visit_continuations) visit_basic_blocks(payload.n);
+
 void visit_children(Visitor* visitor, const Node* node) {
     if (!node_type_has_payload[node->tag])
         return;
 
+    if (node->tag == Function_TAG) {
+        visit_nodes(visitor, node->payload.fun.params);
+        visit_nodes(visitor, node->payload.fun.return_types);
+        visit_node(visitor, node->payload.fun.body);
+        if (visitor->visit_fn_scope_rpo)
+            visit_fn_blocks_except_head(visitor, node);
+    }
+
     switch(node->tag) {
-        // Types
-        case InvalidNode_TAG:
-        case MaskType_TAG:
-        case NoRet_TAG:
-        case Unit_TAG:
-        case Int_TAG:
-        case Float_TAG:
-        case Bool_TAG: break;
-        case JoinPointType_TAG: {
-            visit_nodes(visitor, node->payload.join_point_type.yield_types);
-            break;
-        }
-        case RecordType_TAG: {
-            visit_nodes(visitor, node->payload.record_type.members);
-            break;
-        }
-        case FnType_TAG: {
-            visit_nodes(visitor, node->payload.fn_type.param_types);
-            visit_nodes(visitor, node->payload.fn_type.return_types);
-            break;
-        }
-        case PtrType_TAG: {
-            visit(node->payload.ptr_type.pointed_type);
-            break;
-        }
-        case QualifiedType_TAG: {
-            visit(node->payload.qualified_type.type);
-            break;
-        }
-        case ArrType_TAG: {
-            visit(node->payload.arr_type.element_type);
-            visit(node->payload.arr_type.size);
-            break;
-        }
-        case PackType_TAG: {
-            visit(node->payload.pack_type.element_type);
-            break;
-        }
-        case NominalType_TAG: {
-            visit(node->payload.nom_type.body);
-            break;
-        }
-        // Values
-        case Variable_TAG: {
-            visit(node->payload.var.type);
-            break;
-        }
-        case Unbound_TAG:
-        case IntLiteral_TAG:
-        case UntypedNumber_TAG:
-        case True_TAG:
-        case False_TAG:
-        case StringLiteral_TAG: break;
-        case Tuple_TAG: {
-            visit_nodes(visitor, node->payload.tuple.contents);
-            break;
-        }
-        case ArrayLiteral_TAG: {
-            visit(node->payload.arr_lit.element_type);
-            visit_nodes(visitor, node->payload.arr_lit.contents);
-            break;
-        }
-        case RefDecl_TAG: {
-            if (visitor->visit_referenced_decls)
-                visit(node->payload.ref_decl.decl);
-        }
-        case FnAddr_TAG: {
-            if (visitor->visit_fn_addr)
-                visit(node->payload.fn_addr.fn);
-            break;
-        }
-        // Instructions
-        case Let_TAG: {
-            visit(node->payload.let.instruction);
-            visit(node->payload.let.tail);
-            break;
-        }
-        case PrimOp_TAG: {
-            visit_nodes(visitor, node->payload.prim_op.operands);
-            break;
-        }
-        case Call_TAG: {
-            if (visitor->visit_continuations || node->payload.call_instr.is_indirect)
-                visit(node->payload.call_instr.callee);
-            visit_nodes(visitor, node->payload.call_instr.args);
-            break;
-        }
-        case If_TAG: {
-            visit_nodes(visitor, node->payload.if_instr.yield_types);
-            visit(node->payload.if_instr.condition);
-            visit(node->payload.if_instr.if_true);
-            visit(node->payload.if_instr.if_false);
-            break;
-        }
-        case Match_TAG: {
-            visit_nodes(visitor, node->payload.match_instr.yield_types);
-            visit(node->payload.match_instr.inspect);
-            visit_nodes(visitor, node->payload.match_instr.cases);
-            visit(node->payload.match_instr.default_case);
-            break;
-        }
-        case Loop_TAG: {
-            visit_nodes(visitor, node->payload.loop_instr.yield_types);
-            visit_nodes(visitor, node->payload.loop_instr.initial_args);
-            visit(node->payload.loop_instr.body);
-            break;
-        }
-        case Control_TAG: {
-            visit_nodes(visitor, node->payload.control.yield_types);
-            if (visitor->visit_continuations && node->payload.control.inside->payload.lam.tier == FnTier_BasicBlock) {
-                visit(node->payload.control.inside);
-            }
-            break;
-        }
-        // Terminators
-        case TailCall_TAG: {
-            visit(node->payload.tail_call.target);
-            break;
-        }
-        case Branch_TAG: {
-            switch (node->payload.branch.branch_mode) {
-                case BrJump: {
-                    if (visitor->visit_continuations)
-                        visit(node->payload.branch.target);
-                    break;
-                } case BrIfElse: {
-                    visit(node->payload.branch.branch_condition);
-                    if (visitor->visit_continuations) {
-                        visit(node->payload.branch.true_target);
-                        visit(node->payload.branch.false_target);
-                    }
-                    break;
-                }
-                case BrSwitch: error("TODO");
-            }
-
-            visit_nodes(visitor, node->payload.branch.args);
-            break;
-        }
-        case Join_TAG: {
-            visit(node->payload.join.join_point);
-            visit_nodes(visitor, node->payload.join.args);
-            break;
-        }
-        case Return_TAG: {
-            if (visitor->visit_return_fn_annotation)
-                visit(node->payload.fn_ret.fn);
-            visit_nodes(visitor, node->payload.fn_ret.values);
-            break;
-        }
-        case MergeConstruct_TAG: {
-            visit_nodes(visitor, node->payload.merge_construct.args);
-            break;
-        }
-        case Unreachable_TAG: break;
-        // Decls
-        case Constant_TAG: {
-            visit_nodes(visitor, node->payload.constant.annotations);
-            visit(node->payload.constant.value);
-            visit(node->payload.constant.type_hint);
-            break;
-        }
-        case Lambda_TAG: {
-            visit_nodes(visitor, node->payload.lam.annotations);
-            visit_nodes(visitor, node->payload.lam.params);
-            visit_nodes(visitor, node->payload.lam.return_types);
-            visit(node->payload.lam.body);
-
-            if (visitor->visit_fn_scope_rpo && node->payload.lam.tier == FnTier_Function)
-                visit_fn_blocks_except_head(visitor, node);
-
-            // TODO flag for visiting children_conts ?
-
-            break;
-        }
-        case GlobalVariable_TAG: {
-            visit_nodes(visitor, node->payload.global_variable.annotations);
-            visit(node->payload.global_variable.type);
-            visit(node->payload.global_variable.init);
-            break;
-        }
-        // Misc.
-        case Annotation_TAG: {
-            switch (node->payload.annotation.payload_type) {
-                case AnPayloadNone: break;
-                case AnPayloadValue: visit(node->payload.annotation.value); break;
-                case AnPayloadValues:
-                case AnPayloadMap: visit_nodes(visitor, node->payload.annotation.values); break;
-                default: error("TODO");
-            }
-            break;
-        }
+        case InvalidNode_TAG: error("")
+        #define VISIT_FIELD(hash, ft, t, n) VISIT_FIELD_##ft(t, n)
+        #define VISIT_NODE_0(StructName, short_name) case StructName##_TAG: return;
+        #define VISIT_NODE_1(StructName, short_name) case StructName##_TAG: { StructName payload = node->payload.short_name; StructName##_Fields(VISIT_FIELD) break; }
+        #define VISIT_NODE(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name) VISIT_NODE_##has_payload(StructName, short_name)
+        NODES(VISIT_NODE)
     }
 }
 

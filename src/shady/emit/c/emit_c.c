@@ -16,9 +16,9 @@ static String emit_decl(Emitter* emitter, const Node* decl);
 static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator);
 
 String emit_fn_head(Emitter* emitter, const Node* fn) {
-    assert(fn->tag == Lambda_TAG);
-    Nodes dom = fn->payload.lam.params;
-    Nodes codom = fn->payload.lam.return_types;
+    assert(fn->tag == Function_TAG);
+    Nodes dom = fn->payload.fun.params;
+    Nodes codom = fn->payload.fun.return_types;
 
     Growy* paramg = new_growy();
     Printer* paramp = open_growy_as_printer(paramg);
@@ -32,7 +32,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn) {
     }
     growy_append_bytes(paramg, 1, (char[]) { 0 });
     const char* parameters = printer_growy_unwrap(paramp);
-    String center = format_string(emitter->arena, "%s(%s)", fn->payload.lam.name, parameters);
+    String center = format_string(emitter->arena, "%s(%s)", fn->payload.fun.name, parameters);
     free_tmp_str(parameters);
 
     return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
@@ -88,7 +88,7 @@ String emit_value(Emitter* emitter, const Node* value) {
         case Value_Unbound_TAG:
         case Value_UntypedNumber_TAG: error("lower me");
         case Value_Variable_TAG: error("variables need to be emitted beforehand");
-        case Value_IntLiteral_TAG: emitted = format_string(emitter->arena, "%d", value->payload.int_literal.value_u64); break;
+        case Value_IntLiteral_TAG: emitted = format_string(emitter->arena, "%d", value->payload.int_literal.value.u64); break;
         case Value_True_TAG: return "true";
         case Value_False_TAG: return "false";
         case Value_Tuple_TAG: break;
@@ -126,30 +126,23 @@ String emit_value(Emitter* emitter, const Node* value) {
     return emitted;
 }
 
-static void emit_cf_destination(Emitter* emitter, Printer* p, const Node* destination, size_t num_args, const String args[]) {
-    assert(destination->tag == Lambda_TAG);
-    if (destination->payload.lam.tier == FnTier_BasicBlock) {
-        assert(num_args == 0 && "TODO phis");
-        print(p, "\ngoto %s;", emit_decl(emitter, destination));
-    } else {
-        assert(destination->payload.lam.tier == FnTier_Lambda);
-        for (size_t i = 0; i < num_args; i++)
-            insert_dict(const Node*, String, emitter->emitted, destination->payload.lam.params.nodes[i], args[i]);
-        emit_terminator(emitter, p, destination->payload.lam.body);
-    }
-}
-
 static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator) {
     switch (is_terminator(terminator)) {
         case NotATerminator: assert(false);
-        case Terminator_Join_TAG:
-        case Terminator_Branch_TAG: error("this must be lowered away!");
-        case Terminator_TailCall_TAG: error("TODO");
-        case Terminator_Let_TAG: {
+        case LetMut_TAG:
+        case Join_TAG: error("this must be lowered away!");
+        case Jump_TAG:
+        case Branch_TAG:
+        case Switch_TAG:
+        case TailCall_TAG: error("TODO");
+        case Let_TAG: {
             const Node* instruction = terminator->payload.let.instruction;
+            const Node* tail = terminator->payload.let.tail;
+            assert(is_anonymous_lambda(tail));
+
             // we declare N local variables in order to store the result of the instruction
             Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
-            const Nodes tail_params = terminator->payload.let.tail->payload.lam.params;
+            const Nodes tail_params = tail->payload.anon_lam.params;
             assert(tail_params.count == yield_types.count);
             LARRAY(String, output_names, yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
@@ -157,11 +150,31 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
                 print(p, "\n%s;", c_emit_type(emitter, yield_types.nodes[i], output_names[i]));
             }
             emit_instruction(emitter, p, instruction, strings(emitter->arena, yield_types.count, output_names));
-            emit_cf_destination(emitter, p, terminator->payload.let.tail, yield_types.count, output_names);
+
+            for (size_t i = 0; i < tail_params.count; i++)
+                insert_dict(const Node*, String, emitter->emitted, tail->payload.anon_lam.params.nodes[i], tail_params.nodes[i]);
+            emit_terminator(emitter, p, tail->payload.anon_lam.body);
+            break;
+        }
+        case LetIndirect_TAG: {
+            const Node* instruction = terminator->payload.let_indirect.instruction;
+
+            // we declare N local variables in order to store the result of the instruction
+            Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
+            LARRAY(String, output_names, yield_types.count);
+            for (size_t i = 0; i < yield_types.count; i++) {
+                output_names[i] = format_string(emitter->arena, "%s_%d", "arg", fresh_id(emitter->arena));
+                print(p, "\n%s;", c_emit_type(emitter, yield_types.nodes[i], output_names[i]));
+            }
+            emit_instruction(emitter, p, instruction, strings(emitter->arena, yield_types.count, output_names));
+
+            // TODO support Control ?
+            const Node* tail = terminator->payload.let_indirect.tail;
+            print(p, "\ngoto %s;", emit_decl(emitter, tail));
             break;
         }
         case Terminator_Return_TAG: {
-            Nodes args = terminator->payload.fn_ret.values;
+            Nodes args = terminator->payload.fn_ret.args;
             if (args.count == 0) {
                 print(p, "\nreturn;");
             } else if (args.count == 1) {
@@ -173,23 +186,31 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             }
             break;
         }
-        case Terminator_MergeConstruct_TAG: {
-            Nodes args = terminator->payload.merge_construct.args;
-            Phis phis;
-            switch (terminator->payload.merge_construct.construct) {
-                case Selection: phis = emitter->phis.selection; break;
-                case Continue:  phis = emitter->phis.loop_continue; break;
-                case Break:     phis = emitter->phis.loop_break; break;
-            }
+        case MergeSelection_TAG: {
+            Nodes args = terminator->payload.merge_selection.args;
+            Phis phis = emitter->phis.selection;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
                 print(p, "\n%s = %s;", phis.strings[i], emit_value(emitter, args.nodes[i]));
 
-            switch (terminator->payload.merge_construct.construct) {
-                case Selection: break;
-                case Continue:  print(p, "\ncontinue;"); break;
-                case Break:     print(p, "\nbreak;"); break;
-            }
+            break;
+        }
+        case MergeContinue_TAG: {
+            Nodes args = terminator->payload.merge_continue.args;
+            Phis phis = emitter->phis.loop_continue;
+            assert(phis.count == args.count);
+            for (size_t i = 0; i < phis.count; i++)
+                print(p, "\n%s = %s;", phis.strings[i], emit_value(emitter, args.nodes[i]));
+            print(p, "\ncontinue;");
+            break;
+        }
+        case MergeBreak_TAG: {
+            Nodes args = terminator->payload.merge_break.args;
+            Phis phis = emitter->phis.loop_break;
+            assert(phis.count == args.count);
+            for (size_t i = 0; i < phis.count; i++)
+                print(p, "\n%s = %s;", phis.strings[i], emit_value(emitter, args.nodes[i]));
+            print(p, "\nbreak;");
             break;
         }
         case Terminator_Unreachable_TAG: {
@@ -246,14 +267,14 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
                 print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), emit_value(emitter, decl->payload.global_variable.init));
             break;
         }
-        case Lambda_TAG: {
+        case Function_TAG: {
             emit_as = name;
             register_emitted(emitter, decl, emit_as);
-            const Node* body = decl->payload.lam.body;
+            const Node* body = decl->payload.fun.body;
             if (body) {
-                for (size_t i = 0; i < decl->payload.lam.params.count; i++) {
-                    const char* param_name = format_string(emitter->arena, "%s_%d", decl->payload.lam.params.nodes[i]->payload.var.name, decl->payload.lam.params.nodes[i]->payload.var.id);
-                    register_emitted(emitter, decl->payload.lam.params.nodes[i], param_name);
+                for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
+                    const char* param_name = format_string(emitter->arena, "%s_%d", decl->payload.fun.params.nodes[i]->payload.var.name, decl->payload.fun.params.nodes[i]->payload.var.id);
+                    register_emitted(emitter, decl->payload.fun.params.nodes[i], param_name);
                 }
 
                 String fn_body = emit_lambda_body(emitter, body, NULL);

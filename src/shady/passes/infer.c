@@ -448,7 +448,7 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(arena, annotated_types));
             Nodes inferred_yield_types = unwrap_multiple_yield_types(arena, inferred_instruction->type);
             const Node* inferred_tail = infer(ctx, node->payload.let.tail, wrap_multiple_yield_types(arena, inferred_yield_types));
-            return let(arena, false, inferred_instruction, inferred_tail);
+            return let(arena, inferred_instruction, inferred_tail);
         }
         case Return_TAG: {
             const Node* imported_fn = infer(ctx, node->payload.fn_ret.fn, NULL);

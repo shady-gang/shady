@@ -183,55 +183,51 @@ static void rewrite_lambda_body(Context* ctx, const Node* node, Node* target) {
     }
 }
 
-static const Node* bind_let(Context* ctx, const Node* node) {
+static const Node* desugar_let_mut(Context* ctx, const Node* node) {
+    assert(node->tag == LetMut_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     Context body_infer_ctx = *ctx;
     const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.let.instruction);
-    if (node->payload.let.is_mutable) {
-        const Node* old_lam = node->payload.let.tail;
-        assert(old_lam && old_lam->tag == Lambda_TAG && old_lam->payload.lam.tier == FnTier_Lambda);
 
-        BodyBuilder* bb = begin_body(dst_arena);
+    const Node* old_lam = node->payload.let.tail;
+    assert(old_lam && is_anonymous_lambda(old_lam));
 
-        Nodes initial_values = bind_instruction_extra(bb, ninstruction, old_lam->payload.lam.params.count, NULL, NULL);
-        Nodes old_params = old_lam->payload.lam.params;
-        for (size_t i = 0; i < old_params.count; i++) {
-            const Node* oparam = old_params.nodes[i];
-            const Type* type_annotation = oparam->payload.var.type;
-            assert(type_annotation);
-            const Node* alloca = prim_op(dst_arena, (PrimOp) {
-                .op = alloca_op,
-                .type_arguments = nodes(dst_arena, 1, (const Node* []){ rewrite_node(&ctx->rewriter, type_annotation) }),
-                .operands = nodes(dst_arena, 0, NULL)
-            });
-            const Node* ptr = bind_instruction_extra(bb, alloca, 1, NULL, &oparam->payload.var.name).nodes[0];
-            const Node* store = prim_op(dst_arena, (PrimOp) {
-                .op = store_op,
-                .operands = nodes(dst_arena, 2, (const Node* []) { ptr, initial_values.nodes[0] })
-            });
-            bind_instruction_extra(bb, store, 0, NULL, NULL);
+    BodyBuilder* bb = begin_body(dst_arena);
 
-            NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
-            *entry = (NamedBindEntry) {
-                .name = string(dst_arena, oparam->payload.var.name),
-                .is_var = true,
-                .node = (Node*) ptr,
-                .next = NULL
-            };
+    Nodes initial_values = bind_instruction_extra(bb, ninstruction, old_lam->payload.anon_lam.params.count, NULL, NULL);
+    Nodes old_params = old_lam->payload.anon_lam.params;
+    for (size_t i = 0; i < old_params.count; i++) {
+        const Node* oparam = old_params.nodes[i];
+        const Type* type_annotation = oparam->payload.var.type;
+        assert(type_annotation);
+        const Node* alloca = prim_op(dst_arena, (PrimOp) {
+            .op = alloca_op,
+            .type_arguments = nodes(dst_arena, 1, (const Node* []){ rewrite_node(&ctx->rewriter, type_annotation) }),
+            .operands = nodes(dst_arena, 0, NULL)
+        });
+        const Node* ptr = bind_instruction_extra(bb, alloca, 1, NULL, &oparam->payload.var.name).nodes[0];
+        const Node* store = prim_op(dst_arena, (PrimOp) {
+            .op = store_op,
+            .operands = nodes(dst_arena, 2, (const Node* []) { ptr, initial_values.nodes[0] })
+        });
+        bind_instruction_extra(bb, store, 0, NULL, NULL);
 
-            entry->node = (Node*) ptr;
+        NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
+        *entry = (NamedBindEntry) {
+            .name = string(dst_arena, oparam->payload.var.name),
+            .is_var = true,
+            .node = (Node*) ptr,
+            .next = NULL
+        };
 
-            add_binding(&body_infer_ctx, entry);
-            debug_print("Lowered mutable variable %s\n", entry->name);
-        }
+        entry->node = (Node*) ptr;
 
-        const Node* terminator = rewrite_node(&body_infer_ctx.rewriter, old_lam->payload.lam.body);
-
-        return finish_body(bb, terminator);
-    } else {
-        Node* ntail = rewrite_node(&ctx->rewriter, node->payload.let.tail);
-        return let(dst_arena, false, ninstruction, ntail);
+        add_binding(&body_infer_ctx, entry);
+        debug_print("Lowered mutable variable %s\n", entry->name);
     }
+
+    const Node* terminator = rewrite_node(&body_infer_ctx.rewriter, old_lam->payload.anon_lam.body);
+    return finish_body(bb, terminator);
 }
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {
@@ -253,7 +249,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
             bound->payload.constant.value = rewrite_node(&ctx->rewriter, decl->payload.constant.value);
             break;
         }
-        case Lambda_TAG: {
+        case Function_TAG: {
             bound = rewrite_lambda_head(ctx, decl);
             rewrite_lambda_body(ctx, decl, bound);
             break;
@@ -273,7 +269,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
-        case Lambda_TAG:
+        case Function_TAG:
         case Constant_TAG:
         case GlobalVariable_TAG: {
             if (is_anonymous_lambda(node)) {
@@ -296,12 +292,12 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 return entry.node;
             }
         }
-        case Let_TAG: return bind_let(ctx, node);
+        case LetMut_TAG: return desugar_let_mut(ctx, node);
         case Return_TAG: {
             assert(ctx->current_function);
             return fn_ret(dst_arena, (Return) {
                 .fn = ctx->current_function,
-                .values = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.values)
+                .values = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.args)
             });
         }
         default: {

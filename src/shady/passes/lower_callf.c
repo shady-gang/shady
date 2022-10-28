@@ -79,7 +79,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             if (!new_instruction)
                 new_instruction = rewrite_node(&ctx->rewriter, old_instruction);
 
-            return let(dst_arena, false, new_instruction, rewrite_node(&ctx->rewriter, old_tail));
+            return let(dst_arena, new_instruction, rewrite_node(&ctx->rewriter, old_tail));
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
     }

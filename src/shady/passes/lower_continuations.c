@@ -50,7 +50,7 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
 }
 
 static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
-    assert(cont->tag == Lambda_TAG);
+    assert(is_anonymous_lambda(cont));
     LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, cont);
     if (found)
         return (*found)->lifted_fn;

@@ -109,7 +109,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 const Node* stack_size = gen_load(bb, stack_pointer);
                 stack_size = gen_primop_ce(bb, add_op, 2, (const Node* []) { stack_size, int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes)) });
                 gen_store(bb, stack_pointer, stack_size);
-                return finish_body(bb, let(arena, false, quote(arena, stack_size), tail));
+                return finish_body(bb, let(arena, quote(arena, stack_size), tail));
             }
             case lea_op: {
                 BodyBuilder* bb = begin_body(arena);
@@ -119,7 +119,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                     break;
                 const Node* new = lower_lea(ctx, bb, oprim_op);
-                return finish_body(bb, let(arena, false, quote(arena, new), tail));
+                return finish_body(bb, let(arena, quote(arena, new), tail));
             }
             case reinterpret_op: {
                 BodyBuilder* bb = begin_body(arena);
@@ -129,7 +129,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                     break;
                 // emulated physical pointers do not care about pointers, they're just ints :frog:
                 const Node* imported = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
-                return finish_body(bb, let(arena, false, quote(arena, imported), tail));
+                return finish_body(bb, let(arena, quote(arena, imported), tail));
             }
             // lowering for either kind of memory accesses is similar
             case load_op:
@@ -165,7 +165,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
                 if (oprim_op->op == load_op) {
                     const Node* result = gen_deserialisation(bb, element_type, base, pointer_as_offset);
-                    return finish_body(bb, let(arena, false, quote(arena, result), tail));
+                    return finish_body(bb, let(arena, quote(arena, result), tail));
                 } else {
                     const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
                     gen_serialisation(bb, element_type, base, pointer_as_offset, value);
@@ -177,7 +177,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
         }
     }
 
-    return let(arena, false, rewrite_node(&ctx->rewriter, old_instruction), tail);
+    return let(arena, rewrite_node(&ctx->rewriter, old_instruction), tail);
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {

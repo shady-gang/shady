@@ -81,10 +81,9 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
     return create_node_helper(arena, node);
 }
 
-const Node* let(IrArena* arena, bool is_mutable, const Node* instruction, const Node* tail) {
+const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
     assert(is_instruction(instruction));
     Let payload = {
-        .is_mutable = is_mutable,
         .instruction = instruction,
         .tail = tail,
     };
@@ -96,6 +95,42 @@ const Node* let(IrArena* arena, bool is_mutable, const Node* instruction, const 
         .type = arena->config.check_types ? check_type_let(arena, payload) : NULL,
         .tag = Let_TAG,
         .payload.let = payload
+    };
+    return create_node_helper(arena, node);
+}
+
+const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail) {
+    assert(is_instruction(instruction));
+    LetMut payload = {
+        .instruction = instruction,
+        .tail = tail,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+        .arena = arena,
+        .type = NULL,
+        .tag = LetMut_TAG,
+        .payload.let_mut = payload
+    };
+    return create_node_helper(arena, node);
+}
+
+const Node* let_indirect(IrArena* arena, const Node* instruction, const Node* tail) {
+    assert(is_instruction(instruction));
+    LetIndirect payload = {
+        .instruction = instruction,
+        .tail = tail,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_let_indirect(arena, payload) : NULL,
+        .tag = LetIndirect_TAG,
+        .payload.let_indirect = payload
     };
     return create_node_helper(arena, node);
 }
@@ -150,12 +185,72 @@ static Node* lambda_internal(IrArena* arena, FnTier tier, Nodes params, const ch
     return create_node_helper(arena, node);
 }
 
-Node* lambda(IrArena* arena, Nodes params) {
-    return lambda_internal(arena, FnTier_Lambda, params, NULL, nodes(arena, 0, NULL), nodes(arena, 0, NULL));
+static Node* lambda_internal(IrArena* arena, FnTier tier, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
+    Lambda lam = {
+        .tier = tier,
+        .params = params,
+        .body = NULL,
+        .name = NULL,
+        .annotations = nodes(arena, 0, NULL),
+        .return_types = nodes(arena, 0, NULL),
+    };
+
+    if (tier >= FnTier_BasicBlock)
+        lam.name = string(arena, name);
+    else
+        assert(name == NULL);
+
+    if (tier >= FnTier_Function) {
+        lam.annotations = annotations;
+        lam.return_types = return_types;
+    } else {
+        assert(annotations.count == 0);
+        assert(return_types.count == 0);
+    }
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_lam(arena, lam) : NULL,
+        .tag = Lambda_TAG,
+        .payload.lam = lam
+    };
+    return create_node_helper(arena, node);
 }
 
-Node* basic_block(IrArena* arena, Nodes params, const char* name) {
-    return lambda_internal(arena, FnTier_BasicBlock, params, name, nodes(arena, 0, NULL), nodes(arena, 0, NULL));
+static Node* lambda_internal(IrArena* arena, FnTier tier, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
+    Lambda lam = {
+        .tier = tier,
+        .params = params,
+        .body = NULL,
+        .name = NULL,
+        .annotations = nodes(arena, 0, NULL),
+        .return_types = nodes(arena, 0, NULL),
+    };
+
+    if (tier >= FnTier_BasicBlock)
+        lam.name = string(arena, name);
+    else
+        assert(name == NULL);
+
+    if (tier >= FnTier_Function) {
+        lam.annotations = annotations;
+        lam.return_types = return_types;
+    } else {
+        assert(annotations.count == 0);
+        assert(return_types.count == 0);
+    }
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_lam(arena, lam) : NULL,
+        .tag = Lambda_TAG,
+        .payload.lam = lam
+    };
+    return create_node_helper(arena, node);
 }
 
 Node* function   (Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {

@@ -286,7 +286,7 @@ static const Node* accept_primary_expr(ctxparams) {
             if (expr->tag == IntLiteral_TAG) {
                 return int_literal(arena, (IntLiteral) {
                     // We always treat that value like an signed integer, because it makes no sense to negate an unsigned number !
-                    .value_i64 = -extract_int_literal_value(expr, true)
+                    .value.i64 = -extract_int_literal_value(expr, true)
                 });
             } else {
                 return prim_op(arena, (PrimOp) {
@@ -306,7 +306,6 @@ static const Node* accept_primary_expr(ctxparams) {
             case lpar_tok: {
                 Nodes args = expect_operands(ctx);
                 expr = call_instr(arena, (Call) {
-                    .is_indirect = true,
                     .callee = expr,
                     .args = args
                 });
@@ -389,17 +388,17 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             const Node* condition = accept_operand(ctx);
             expect(condition);
             expect(accept_token(ctx, rpar_tok));
-            const Node* merge = config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Selection }) : NULL;
+            const Node* merge = config.front_end ? merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }) : NULL;
 
             Node* if_true = lambda(arena, nodes(arena, 0, NULL));
-            if_true->payload.lam.body = expect_body(ctx, fn, merge);
+            if_true->payload.anon_lam.body = expect_body(ctx, fn, merge);
 
             // else defaults to an empty body
             bool has_else = accept_token(ctx, else_tok);
             Node* if_false = NULL;
             if (has_else) {
                 if_false = lambda(arena, nodes(arena, 0, NULL));
-                if_false->payload.lam.body = expect_body(ctx, fn, merge);
+                if_false->payload.anon_lam.body = expect_body(ctx, fn, merge);
             }
             return if_instr(arena, (If) {
                 .yield_types = yield_types,
@@ -415,9 +414,9 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             Nodes default_values;
             expect_parameters(ctx, &parameters, &default_values);
             // by default loops continue forever
-            const Node* default_loop_end_behaviour = config.front_end ? merge_construct(arena, (MergeConstruct) { .construct = Continue, .args = nodes(arena, 0, NULL) }) : NULL;
+            const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
             Node* body = lambda(arena, parameters);
-            body->payload.lam.body = expect_body(ctx, fn, default_loop_end_behaviour);
+            body->payload.anon_lam.body = expect_body(ctx, fn, default_loop_end_behaviour);
 
             return loop_instr(arena, (Loop) {
                 .initial_args = default_values,
@@ -452,7 +451,6 @@ static const Node* accept_primop(ctxparams) {
             expect(accept_token(ctx, rpar_tok));
             Nodes args = expect_operands(ctx);
             return call_instr(arena, (Call) {
-                .is_indirect = true,
                 .callee = callee,
                 .args = args,
             });
@@ -564,8 +562,7 @@ static const Node* accept_terminator(ctxparams) {
             expect(accept_token(ctx, rpar_tok));
             expect(target);
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
-            return branch(arena, (Branch) {
-                .branch_mode = BrJump,
+            return jump(arena, (Jump) {
                 .target = target,
                 .args = args
             });
@@ -586,7 +583,6 @@ static const Node* accept_terminator(ctxparams) {
 
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
             return branch(arena, (Branch) {
-                .branch_mode = BrIfElse,
                 .branch_condition = condition,
                 .true_target = true_target,
                 .false_target = false_target,
@@ -598,30 +594,27 @@ static const Node* accept_terminator(ctxparams) {
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
             return fn_ret(arena, (Return) {
                 .fn = NULL,
-                .values = args
+                .args = args
             });
         }
         case merge_tok: {
             next_token(tokenizer);
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
-            return merge_construct(arena, (MergeConstruct) {
-                .construct = Selection,
+            return merge_selection(arena, (MergeSelection) {
                 .args = args
             });
         }
         case continue_tok: {
             next_token(tokenizer);
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
-            return merge_construct(arena, (MergeConstruct) {
-                .construct = Continue,
+            return merge_continue(arena, (MergeContinue) {
                 .args = args
             });
         }
         case break_tok: {
             next_token(tokenizer);
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
-            return merge_construct(arena, (MergeConstruct) {
-                .construct = Break,
+            return merge_break(arena, (MergeBreak) {
                 .args = args
             });
         }
@@ -635,10 +628,10 @@ static const Node* accept_terminator(ctxparams) {
 }
 
 static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminator) {
-    assert(fn->tag == Lambda_TAG && fn->payload.lam.tier == FnTier_Function);
+    assert(fn->tag == Function_TAG);
     expect(accept_token(ctx, lbracket_tok));
     BodyBuilder* bb = begin_body(arena);
-    Nodes* children_conts = &fn->payload.lam.children_continuations;
+    Nodes* children_conts = &fn->payload.fun.children_blocks;
 
     while (true) {
         if (!accept_instruction_maybe_with_let_too(ctx, bb, fn))
@@ -667,8 +660,8 @@ static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminat
 
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL);
-            Node* continuation = basic_block(arena, parameters, name);
-            continuation->payload.lam.body = expect_body(ctx, fn, NULL);
+            Node* continuation = basic_block(arena, fn, parameters, name);
+            continuation->payload.fun.body = expect_body(ctx, fn, NULL);
             append_list(Node*, conts, continuation);
         }
 
@@ -775,7 +768,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     expect_parameters(ctx, &parameters, NULL);
 
     Node* fn = function(mod, parameters, name, annotations, types);
-    fn->payload.lam.body = expect_body(ctx, fn, types.count == 0 ? fn_ret(arena, (Return) { .values = types }) : NULL);
+    fn->payload.fun.body = expect_body(ctx, fn, types.count == 0 ? fn_ret(arena, (Return) { .values = types }) : NULL);
 
     const Node* declaration = fn;
     assert(declaration);

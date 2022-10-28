@@ -143,14 +143,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Strings 
     }
 }
 
-static String emit_callee(Emitter* e, const Node* callee) {
-    if (callee->tag == Lambda_TAG) {
-        assert(is_declaration(callee) && "anonymous lambdas are not allowed here");
-        return callee->payload.lam.name;
-    } else
-        return emit_value(e, callee);
-}
-
 static void emit_call(Emitter* emitter, Printer* p, const Node* call_instr, Strings outputs) {
     assert(call_instr->tag == Call_TAG);
     const Call* call = &call_instr->payload.call_instr;
@@ -161,30 +153,32 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call_instr, Stri
         if (i + 1 < call->args.count)
             print(paramsp, ", ");
     }
+
+    String callee = emit_value(emitter, call->callee);
     String params = printer_growy_unwrap(paramsp);
 
     Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, call_instr->type);
     assert(yield_types.count == outputs.count);
     if (yield_types.count > 1) {
         String named = unique_name(emitter->arena, "result");
-        print(p, "\n%s = %s(%s);", emit_type(emitter, call_instr->type, named), emit_callee(emitter, call->callee), params);
+        print(p, "\n%s = %s(%s);", emit_type(emitter, call_instr->type, named), callee, params);
         emit_unpack_code(p, named, outputs);
     } else if (yield_types.count == 1) {
-        print(p, "\n%s = %s(%s);", emit_type(emitter, call_instr->type, outputs.strings[0]), emit_callee(emitter, call->callee), params);
+        print(p, "\n%s = %s(%s);", emit_type(emitter, call_instr->type, outputs.strings[0]), callee, params);
     } else {
-        print(p, "\n%s(%s);", emit_callee(emitter, call->callee), params);
+        print(p, "\n%s(%s);", callee, params);
     }
     free_tmp_str(params);
 }
 
 static const Node* get_anonymous_lambda_body(const Node* lambda) {
     assert(is_anonymous_lambda(lambda));
-    return lambda->payload.lam.body;
+    return lambda->payload.anon_lam.body;
 }
 
 static Nodes get_anonymous_lambda_params(const Node* lambda) {
     assert(is_anonymous_lambda(lambda));
-    return lambda->payload.lam.params;
+    return lambda->payload.anon_lam.params;
 }
 
 static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Strings outputs) {

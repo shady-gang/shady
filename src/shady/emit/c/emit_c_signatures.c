@@ -24,10 +24,12 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
 
     switch (is_type(type)) {
         case NotAType: assert(false); break;
+        case LamType_TAG:
+        case BBType_TAG: error("these types do not exist in C");
         case MaskType_TAG: error("should be lowered away");
-        case Type_JoinPointType_TAG: error("TODO")
-        case Type_NoRet_TAG:
-        case Type_Unit_TAG: emitted = "void"; break;
+        case JoinPointType_TAG: error("TODO")
+        case NoRet_TAG:
+        case Unit_TAG: emitted = "void"; break;
         case Bool_TAG: emitted = "bool"; break;
         case Int_TAG: {
             if (emitter->config.explicitly_sized_types) {
@@ -78,7 +80,6 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             return emit_type(emitter, type->payload.ptr_type.pointed_type, format_string(emitter->arena, "*%s", center));
         }
         case Type_FnType_TAG: {
-            assert(type->payload.fn_type.tier == FnTier_Function && "we can't emit arrow types that aren't those of first-class functions");
             Nodes dom = type->payload.fn_type.param_types;
             Nodes codom = type->payload.fn_type.return_types;
 

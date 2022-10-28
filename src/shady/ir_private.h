@@ -39,4 +39,13 @@ VarId fresh_id(IrArena*);
 struct List;
 Nodes list_to_nodes(IrArena*, struct List*);
 
+typedef enum {
+    NotAnEntryPoint,
+    Compute,
+    Fragment,
+    Vertex
+} ExecutionModel;
+
+ExecutionModel execution_model_from_string(const char*);
+
 #endif

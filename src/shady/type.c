@@ -58,9 +58,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
             }
             return true;
         }
-        case FnType_TAG:
-            if (supertype->payload.fn_type.tier != type->payload.fn_type.tier)
-                return false;
+        case FnType_TAG: {
             // check returns
             if (supertype->payload.fn_type.return_types.count != type->payload.fn_type.return_types.count)
                 return false;
@@ -76,7 +74,27 @@ bool is_subtype(const Type* supertype, const Type* type) {
                     return false;
             }
             return true;
-        case PtrType_TAG: {
+        } case BBType_TAG: {
+            // check params
+            const Nodes* superparams = &supertype->payload.bb_type.param_types;
+            const Nodes* params = &type->payload.bb_type.param_types;
+            if (params->count != superparams->count) return false;
+            for (size_t i = 0; i < params->count; i++) {
+                if (!is_subtype(params->nodes[i], superparams->nodes[i]))
+                    return false;
+            }
+            return true;
+        } case LamType_TAG: {
+            // check params
+            const Nodes* superparams = &supertype->payload.lam_type.param_types;
+            const Nodes* params = &type->payload.lam_type.param_types;
+            if (params->count != superparams->count) return false;
+            for (size_t i = 0; i < params->count; i++) {
+                if (!is_subtype(params->nodes[i], superparams->nodes[i]))
+                    return false;
+            }
+            return true;
+        } case PtrType_TAG: {
             if (supertype->payload.ptr_type.address_space != type->payload.ptr_type.address_space)
                 return false;
             return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
@@ -204,10 +222,6 @@ bool is_addr_space_uniform(AddressSpace as) {
     }
 }
 
-const Type* derive_fn_type(IrArena* arena, const Lambda* fn) {
-    return fn_type(arena, (FnType) { .tier = fn->tier, .param_types = extract_variable_types(arena, &fn->params), .return_types = fn->return_types });
-}
-
 static const Type* remove_ptr_type_layer(const Type* t) {
     assert(t->tag == PtrType_TAG);
     return t->payload.ptr_type.pointed_type;
@@ -228,7 +242,7 @@ static void check_arguments_types_against_parameters_helper(Nodes param_types, N
         check_subtype(param_types.nodes[i], arg_types.nodes[i]);
 }
 
-static const Type* check_callsite_helper(IrArena* arena, const Type* callee_type, Nodes argument_types) {
+/*static const Type* check_callsite_helper(IrArena* arena, const Type* callee_type, Nodes argument_types) {
     assert(!contains_qualified_type(callee_type) && callee_type->tag == FnType_TAG);
     const FnType* fn_type = &callee_type->payload.fn_type;
     check_arguments_types_against_parameters_helper(fn_type->param_types, argument_types);
@@ -236,7 +250,7 @@ static const Type* check_callsite_helper(IrArena* arena, const Type* callee_type
         return wrap_multiple_yield_types(arena, fn_type->return_types);
     else
         return noret_type(arena);
-}
+}*/
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -308,7 +322,7 @@ const Type* check_type_tuple(IrArena* arena, Tuple tuple) {
 
 const Type* check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
     assert(!contains_qualified_type(fn_addr.fn->type));
-    assert(fn_addr.fn->tag == Lambda_TAG);
+    assert(fn_addr.fn->tag == Function_TAG);
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = ptr_type(arena, (PtrType) {
@@ -665,7 +679,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 switch(current_type->tag) {
                     case RecordType_TAG: {
                         assert(!dynamic_index);
-                        size_t index_value = ith_index->payload.int_literal.value_i32;
+                        size_t index_value = ith_index->payload.int_literal.value.i32;
                         assert(index_value < current_type->payload.record_type.members.count);
                         current_type = current_type->payload.record_type.members.nodes[index_value];
                         continue;
@@ -770,11 +784,9 @@ const Type* check_type_call_instr(IrArena* arena, Call call) {
 
     const Type* callee_type = call.callee->type;
     bool callee_uniform;
-    if (call.is_indirect) {
-        deconstruct_operand_type(callee_type, &callee_type, &callee_uniform);
-        assert(callee_uniform);
-        callee_type = remove_ptr_type_layer(callee_type);
-    }
+    deconstruct_operand_type(callee_type, &callee_type, &callee_uniform);
+    assert(callee_uniform);
+    callee_type = remove_ptr_type_layer(callee_type);
     return check_callsite_helper(arena, callee_type, extract_types(arena, call.args));
 }
 
@@ -904,7 +916,7 @@ const Type* check_type_lam(IrArena* arena, Lambda lam) {
     for (size_t i = 0; i < lam.return_types.count; i++) {
         assert(contains_qualified_type(lam.return_types.nodes[i]));
     }
-    return derive_fn_type(arena, &lam);
+    return fn_type(arena, (FnType) { .param_types = extract_variable_types(arena, &(&lam)->params), .return_types = (&lam)->return_types });
 }
 
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
