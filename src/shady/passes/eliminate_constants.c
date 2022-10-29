@@ -16,9 +16,8 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Constant_TAG: return NULL;
         case RefDecl_TAG: {
-            const Node* decl = process(ctx, node->payload.ref_decl.decl);
-            if (decl->tag == Constant_TAG) {
-                return decl->payload.constant.value;
+            if (node->payload.ref_decl.decl->tag == Constant_TAG) {
+                return process(ctx, node->payload.ref_decl.decl->payload.constant.value);
             }
             return recreate_node_identity(&ctx->rewriter, node);
         }

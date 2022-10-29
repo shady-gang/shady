@@ -83,14 +83,13 @@ static const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case Function_TAG: {
             Context ctx2 = *ctx;
-            ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_tailcalls");
+
+            ctx2.disable_lowering = lookup_annotation(old, "Leaf");
             if (ctx2.disable_lowering) {
                 Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
                 fun->payload.fun.body = process(&ctx2, old->payload.fun.body);
                 return fun;
             }
-
-            String new_name = format_string(dst_arena, "%s_leaf", old->payload.fun.name);
 
             const Node* entry_point_annotation = NULL;
             Nodes old_annotations = old->payload.fun.annotations;
@@ -108,8 +107,10 @@ static const Node* process(Context* ctx, const Node* old) {
                 new_annotations_count++;
             }
 
+            String new_name = format_string(dst_arena, "%s_indirect", old->payload.fun.name);
+
             Node* fun = function(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), new_name, nodes(dst_arena, new_annotations_count, new_annotations), nodes(dst_arena, 0, NULL));
-            register_processed(&ctx->rewriter, old, fun);
+            // register_processed(&ctx->rewriter, old, fun);
 
             if (entry_point_annotation)
                 lift_entry_point(ctx, old, fun);
@@ -119,7 +120,7 @@ static const Node* process(Context* ctx, const Node* old) {
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
                 const Node* popped = gen_pop_value_stack(bb, rewrite_node(&ctx->rewriter, extract_operand_type(old_param->type)));
-                register_processed(&ctx->rewriter, old_param, popped);
+                // register_processed(&ctx->rewriter, old_param, popped);
             }
             fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
             return fun;
@@ -177,6 +178,18 @@ static const Node* process(Context* ctx, const Node* old) {
             bind_instruction(bb, call);*/
             return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));
         }
+        case Call_TAG: {
+            // allow function addresses to survive as part of direct calls!
+            const Node* callee = old->payload.call_instr.callee;
+            if (callee->tag == FnAddr_TAG) {
+                const Node* fn = callee->payload.fn_addr.fn;
+                assert(lookup_annotation(fn, "Leaf"));
+                return call_instr(dst_arena, (Call) {
+                    .callee = fn_addr(dst_arena, (FnAddr) { .fn = rewrite_node(&ctx->rewriter, fn) }),
+                    .args = rewrite_nodes(&ctx->rewriter, old->payload.call_instr.args)
+                });
+            } else error("Only leaf calls should survive to this stage!");
+        }
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
             if (pointee->tag == FnType_TAG) {
@@ -213,7 +226,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
         if (decl->tag == Function_TAG) {
-            if (lookup_annotation(decl, "Builtin"))
+            if (lookup_annotation(decl, "Leaf"))
                 continue;
 
             const Node* fn_lit = lower_fn_addr(ctx, find_processed(&ctx->rewriter, decl));

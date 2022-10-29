@@ -43,8 +43,9 @@ void gen_push_values_stack(BodyBuilder* instructions, Nodes values) {
     }
 }
 
-const Node* gen_pop_value_stack(BodyBuilder* instructions, const Type* type) {
-    return gen_primop_ce(instructions, pop_stack_op, 1, (const Node*[]) { type });
+const Node* gen_pop_value_stack(BodyBuilder* bb, const Type* type) {
+    const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = pop_stack_op, .type_arguments = nodes(bb->arena, 1, (const Node*[]) { type }) });
+    return bind_instruction(bb, instruction).nodes[0];
 }
 
 const Node* gen_merge_i32s_i64(BodyBuilder* bb, const Node* lo, const Node* hi) {

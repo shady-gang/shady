@@ -24,7 +24,7 @@ bool compare_cgnode(CGNode** a, CGNode** b) {
     return (*a)->fn == (*b)->fn;
 }
 
-static CGNode* process_node(CallGraph* graph, const Node* fn);
+static CGNode* analyze_fn(CallGraph* graph, const Node* fn);
 
 typedef struct {
     Visitor visitor;
@@ -42,7 +42,7 @@ static const Node* ignore_immediate_fn_addr(const Node* node) {
 static void visit_node(CGVisitor* visitor, const Node* node) {
     switch (node->tag) {
         case Function_TAG: {
-            CGNode* target = process_node(visitor->graph, node);
+            CGNode* target = analyze_fn(visitor->graph, node);
             // Immediate recursion
             if (target == visitor->node)
                 visitor->node->is_recursive = true;
@@ -50,7 +50,7 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             break;
         }
         case FnAddr_TAG: {
-            CGNode* callee_node = process_node(visitor->graph, node->payload.fn_addr.fn);
+            CGNode* callee_node = analyze_fn(visitor->graph, node->payload.fn_addr.fn);
             callee_node->is_address_captured = true;
             visit_node(visitor, node->payload.fn_addr.fn);
             break;
@@ -59,10 +59,14 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             const Node* callee = node->payload.call_instr.callee;
             callee = ignore_immediate_fn_addr(callee);
             visit_node(visitor, callee);
+            if (callee->tag != Function_TAG)
+                visitor->node->has_indirect_call = true;
+            else if (analyze_fn(visitor->graph, callee)->has_indirect_call)
+                visitor->node->has_indirect_call = true;
             visit_nodes(&visitor->visitor, node->payload.call_instr.args);
             break;
         }
-        case Let_TAG: {
+        case LetIndirect_TAG: {
             const Node* callee = node->payload.let.tail;
             callee = ignore_immediate_fn_addr(callee);
             visit_node(visitor, callee);
@@ -72,7 +76,7 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
     }
 }
 
-static CGNode* process_node(CallGraph* graph, const Node* fn) {
+static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
     assert(fn && fn->tag == Function_TAG);
     CGNode** found = fn ? find_value_dict(const Node*, CGNode*, graph->fn2cgn, fn) : NULL;
     if (found)
@@ -189,7 +193,7 @@ CallGraph* get_callgraph(Module* mod) {
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
         if (decls.nodes[i]->tag == Function_TAG) {
-            process_node(graph, decls.nodes[i]);
+            analyze_fn(graph, decls.nodes[i]);
         }
     }
 

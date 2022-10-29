@@ -26,6 +26,7 @@ RewritePass lower_mask;
 
 // Optimisation passes
 
+RewritePass mark_leaf_functions;
 RewritePass opt_simplify_cf;
 RewritePass opt_restructurize;
 
