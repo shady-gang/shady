@@ -53,17 +53,17 @@ const Node* lookup_annotation(const Node* decl, const char* name) {
 }
 
 const Node* extract_annotation_payload(const Node* annotation) {
-    if (!annotation) return NULL;
+    assert(annotation);
     if (annotation->tag != AnnotationValue_TAG)
         error("This annotation does not have a single payload");
     return annotation->payload.annotation_value.value;
 }
 
-const Nodes* extract_annotation_payloads(const Node* annotation) {
-    if (!annotation) return NULL;
+Nodes extract_annotation_payloads(const Node* annotation) {
+    assert(annotation);
     if (annotation->tag != AnnotationsList_TAG)
         error("This annotation does not have multiple payloads");
-    return &annotation->payload.annotations_list.values;
+    return annotation->payload.annotations_list.values;
 }
 
 /// Gets the string literal attached to an annotation, if present.

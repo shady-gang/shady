@@ -46,27 +46,23 @@ static const Node* process(Context* ctx, const Node* node) {
 
     IrArena* arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
-        case Lambda_TAG: {
+        case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
             Context ctx2 = *ctx;
-            if (node->payload.lam.tier == FnTier_Function) {
-                ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
+            ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
 
-                BodyBuilder* bb = begin_body(arena);
-                ctx->entry_sp_val = gen_primop_ce(bb, get_stack_pointer_op, 0, NULL);
-                VContext vctx = {
-                    .visitor = {
-                        .visit_fn = (VisitFn) collect_allocas,
-                        .visit_fn_scope_rpo = true,
-                    },
-                    .context = ctx,
-                    .builder = bb,
-                };
-                visit_children(&vctx.visitor, node->payload.lam.body);
-
-                fun->payload.lam.body = finish_body(bb, rewrite_node(&ctx->rewriter, node->payload.lam.body));
-            } else
-                fun->payload.lam.body = process(&ctx2, node->payload.lam.body);
+            BodyBuilder* bb = begin_body(arena);
+            ctx->entry_sp_val = gen_primop_ce(bb, get_stack_pointer_op, 0, NULL);
+            VContext vctx = {
+                .visitor = {
+                    .visit_fn = (VisitFn) collect_allocas,
+                    .visit_fn_scope_rpo = true,
+                },
+                .context = ctx,
+                .builder = bb,
+            };
+            visit_children(&vctx.visitor, node->payload.fun.body);
+            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, node->payload.fun.body));
             return fun;
         }
         case Return_TAG: {

@@ -90,7 +90,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 
     switch (node->tag) {
-        case Lambda_TAG: {
+        case AnonLambda_TAG: {
             Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
 
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
@@ -98,7 +98,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
 
-            new->payload.lam.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.lam.body));
+            new->payload.anon_lam.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.anon_lam.body));
             return new;
         }
         default: return recreate_node_identity(&ctx->rewriter, node);

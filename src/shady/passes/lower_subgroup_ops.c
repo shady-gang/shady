@@ -43,13 +43,13 @@ static const Node* process_let(Context* ctx, const Node* old) {
                     gen_store(builder, logical_addr, partial_result);
                 }
                 const Node* result = gen_deserialisation(builder, operand_type, local_array, int32_literal(arena, 0));
-                return finish_body(builder, let(arena, false, quote(arena, result), tail));
+                return finish_body(builder, let(arena, quote(arena, result), tail));
             }
             default: break;
         }
     }
 
-    return let(arena, false, rewrite_node(&ctx->rewriter, old_instruction), tail);
+    return let(arena, rewrite_node(&ctx->rewriter, old_instruction), tail);
 }
 
 static const Node* process(Context* ctx, const Node* node) {
