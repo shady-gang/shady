@@ -160,13 +160,13 @@ static void print_yield_types(PrinterCtx* ctx, Nodes types) {
 }
 
 static void print_abs_body(PrinterCtx* ctx, const Node* block) {
-    assert(is_function(ctx->fn));
+    assert(!ctx->fn || is_function(ctx->fn));
     assert(is_abstraction(block));
 
     print_node(get_abstraction_body(block));
     printf(";");
 
-    if (block->type != NULL) {
+    if (ctx->scope != NULL) {
         const CFNode* dominator = scope_lookup(ctx->scope, block);
         assert(dominator);
         for (size_t i = 0; i < dominator->dominates->elements_count; i++) {

@@ -26,14 +26,18 @@ typedef struct {
 } VContext;
 
 static void collect_allocas(VContext* vctx, const Node* node) {
+    IrArena* arena = vctx->context->rewriter.dst_arena;
     if (node->tag == PrimOp_TAG && node->payload.prim_op.op == alloca_op) {
         // Lower to a slot
-        const Type* elem_type = rewrite_node(&vctx->context->rewriter, node->payload.prim_op.operands.nodes[0]);
-        const Node* slot = gen_primop_ce(vctx->builder, alloca_slot_op, 2, (const Node* []) { elem_type, vctx->context->entry_sp_val });
+        const Type* elem_type = rewrite_node(&vctx->context->rewriter, node->payload.prim_op.type_arguments.nodes[0]);
+        const Node* slot = bind_instruction(vctx->builder, prim_op(arena, (PrimOp) {
+            .op = alloca_slot_op,
+            .type_arguments = nodes(arena, 1, (const Node* []) { elem_type }),
+            .operands = nodes(arena, 1, (const Node* []) { vctx->context->entry_sp_val }) })).nodes[0];
         debug_node(node);
         debug_print("%zu \n", node);
         // make it so that we will rewrite the `alloca` to the slot
-        register_processed(&vctx->context->rewriter, node, quote(vctx->context->rewriter.dst_arena, slot));
+        register_processed(&vctx->context->rewriter, node, quote(arena, slot));
         return;
     }
 

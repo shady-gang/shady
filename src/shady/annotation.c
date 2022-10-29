@@ -38,7 +38,6 @@ static const Node* search_annotations(const Node* decl, const char* name, size_t
     while (*i < annotations->count) {
         const Node* annotation = annotations->nodes[*i];
         (*i)++;
-        assert(annotation->tag == Annotation_TAG);
         if (strcmp(get_annotation_name(annotation), name) == 0) {
             return annotation;
         }

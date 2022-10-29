@@ -13,12 +13,6 @@
 Nodes gen_primop(BodyBuilder* bb, Op op, Nodes operands) {
     assert(bb->arena->config.check_types);
     const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = op, .operands = operands });
-    Nodes output_types = unwrap_multiple_yield_types(bb->arena, instruction->type);
-
-    LARRAY(const char*, names, output_types.count);
-    for (size_t i = 0; i < output_types.count; i++)
-        names[i] = format_string(bb->arena, "%s_out", primop_names[op]);
-
     return bind_instruction(bb, instruction);
 }
 
