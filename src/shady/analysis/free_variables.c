@@ -34,14 +34,6 @@ static void visit_fv(Context* visitor, const Node* node) {
     }
 }
 
-static String get_abstraction_name(const Node* abs) {
-    switch (abs->tag) {
-        case Function_TAG: return abs->payload.fun.name;
-        case BasicBlock_TAG: return abs->payload.basic_block.name;
-        case AnonLambda_TAG: return "anonymous";
-    }
-}
-
 static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
     const Node* abs = cfnode->node;
 

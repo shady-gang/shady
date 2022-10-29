@@ -49,11 +49,11 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
     }
 }
 
-static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
+static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont) {
     assert(is_anonymous_lambda(cont));
     LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, cont);
     if (found)
-        return (*found)->lifted_fn;
+        return *found;
 
     IrArena* arena = ctx->rewriter.dst_arena;
 
@@ -62,7 +62,7 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
     struct List* recover_context = compute_free_variables(&scope);
     size_t recover_context_size = entries_count_list(recover_context);
 
-    debug_print("free variables at '%s': ", cont->payload.lam.name);
+    debug_print("free variables at '%s': ", cont->payload.basic_block.name);
     for (size_t i = 0; i < recover_context_size; i++) {
         debug_print("%s", read_list(const Node*, recover_context)[i]->payload.var.name);
         if (i + 1 < recover_context_size)
@@ -71,12 +71,12 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
     debug_print("\n");
 
     // Create and register new parameters for the lifted continuation
-    Nodes new_params = recreate_variables(&ctx->rewriter, cont->payload.lam.params);
-    register_processed_list(&ctx->rewriter, cont->payload.lam.params, new_params);
+    Nodes new_params = recreate_variables(&ctx->rewriter, cont->payload.basic_block.params);
+    register_processed_list(&ctx->rewriter, cont->payload.basic_block.params, new_params);
 
     // Keep annotations the same
-    Nodes annotations = rewrite_nodes(&ctx->rewriter, cont->payload.lam.annotations);
-    Node* new_fn = function(ctx->rewriter.dst_module, new_params, cont->payload.lam.name, annotations, nodes(arena, 0, NULL));
+    Nodes annotations = nodes(arena, 0, NULL);
+    Node* new_fn = function(ctx->rewriter.dst_module, new_params, cont->payload.basic_block.name, annotations, nodes(arena, 0, NULL));
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = cont;
@@ -87,7 +87,7 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
     Context spilled_ctx = *ctx;
 
     // Rewrite the body once in the new arena with the new params
-    const Node* pre_substitution = rewrite_node(&spilled_ctx.rewriter, cont->payload.lam.body);
+    const Node* pre_substitution = rewrite_node(&spilled_ctx.rewriter, cont->payload.basic_block.body);
 
     Rewriter substituter = create_substituter(ctx->rewriter.dst_module);
 
@@ -112,9 +112,9 @@ static const Node* lift_lambda_into_function(Context* ctx, const Node* cont) {
     const Node* substituted = rewrite_node(&substituter, pre_substitution);
 
     assert(is_terminator(substituted));
-    new_fn->payload.lam.body = finish_body(builder, substituted);
+    new_fn->payload.fun.body = finish_body(builder, substituted);
 
-    return new_fn;
+    return lifted_cont;
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -123,83 +123,73 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     IrArena* arena = ctx->rewriter.dst_arena;
 
-    // we lift all basic blocks into functions
-    if (node->tag == Lambda_TAG) {
-        if (node->payload.lam.tier == FnTier_BasicBlock)
-            return lift_lambda_into_function(ctx, node);
-        // leave other declarations alone
-        return recreate_node_identity(&ctx->rewriter, node);
-    }
-
     if (ctx->disable_lowering)
          return recreate_node_identity(&ctx->rewriter, node);
 
     switch (node->tag) {
         // everywhere we might call a basic block, we insert appropriate spilling context
+        case Jump_TAG: {
+            BodyBuilder* bb = begin_body(arena);
+            const Node* ncallee = NULL;
+            // make sure the target is rewritten before we lookup the 'lifted' dict
+            const Node* otarget = node->payload.jump.target;
+            const Node* ntarget = rewrite_node(&ctx->rewriter, otarget);
+
+            LiftedCont* lifted = lift_lambda_into_function(ctx, otarget);
+            assert(lifted->lifted_fn == ntarget);
+            add_spill_instrs(ctx, bb, lifted->save_values);
+
+            ncallee = fn_addr(arena, (FnAddr) { .fn = lifted->lifted_fn });
+            assert(ncallee && is_value(ncallee));
+            return finish_body(bb, tail_call(arena, (TailCall) {
+                .target = ncallee,
+                .args = rewrite_nodes(&ctx->rewriter, node->payload.jump.args),
+            }));
+        }
         case Branch_TAG: {
             BodyBuilder* bb = begin_body(arena);
             const Node* ncallee = NULL;
-            switch (node->payload.branch.branch_mode) {
-                case BrJump: {
-                    // make sure the target is rewritten before we lookup the 'lifted' dict
-                    const Node* otarget = node->payload.branch.target;
-                    const Node* ntarget = rewrite_node(&ctx->rewriter, otarget);
 
-                    LiftedCont* lifted = *find_value_dict(const Node*, LiftedCont*, ctx->lifted, otarget);
-                    assert(lifted->lifted_fn == ntarget);
-                    add_spill_instrs(ctx, bb, lifted->save_values);
+            const Node* otargets[] = { node->payload.branch.true_target, node->payload.branch.false_target };
+            const Node* ntargets[2];
+            Node* cases[2];
+            for (size_t i = 0; i < 2; i++) {
+                const Node* otarget = otargets[i];
+                const Node* ntarget = rewrite_node(&ctx->rewriter, otarget);
+                ntargets[i] = ntarget;
 
-                    ncallee = fn_addr(arena, (FnAddr) { .fn = lifted->lifted_fn });
-                    break;
-                }
-                case BrIfElse: {
-                    const Node* otargets[] = { node->payload.branch.true_target, node->payload.branch.false_target };
-                    const Node* ntargets[2];
-                    Node* cases[2];
-                    for (size_t i = 0; i < 2; i++) {
-                        const Node* otarget = otargets[i];
-                        const Node* ntarget = rewrite_node(&ctx->rewriter, otarget);
-                        ntargets[i] = ntarget;
+                LiftedCont* lifted = lift_lambda_into_function(ctx, otarget);
+                assert(lifted->lifted_fn == ntarget);
 
-                        LiftedCont* lifted = *find_value_dict(const Node*, LiftedCont*, ctx->lifted, otarget);
-                        assert(lifted->lifted_fn == ntarget);
-
-                        BodyBuilder* case_builder = begin_body(arena);
-                        add_spill_instrs(ctx, case_builder, lifted->save_values);
-                        cases[i] = lambda(arena, nodes(arena, 0, NULL));
-                        cases[i]->payload.lam.body = finish_body(case_builder, merge_construct(arena, (MergeConstruct) { .args = nodes(arena, 0, NULL), .construct = Selection }));
-                    }
-
-                    // Put the spilling code inside a selection construct
-                    const Node* ncondition = rewrite_node(&ctx->rewriter, node->payload.branch.branch_condition);
-                    bind_instruction(bb, if_instr(arena, (If) { .condition = ncondition, .if_true = cases[0], .if_false = cases[1], .yield_types = nodes(arena, 0, NULL) }));
-
-                    // Make the callee selection a select
-                    ncallee = gen_primop_ce(bb, select_op, 3, (const Node* []) { ncondition, fn_addr(arena, (FnAddr) { .fn = ntargets[0] }), fn_addr(arena, (FnAddr) { .fn = ntargets[1] }) });
-                    break;
-                }
-                case BrSwitch: error("TODO")
+                BodyBuilder* case_builder = begin_body(arena);
+                add_spill_instrs(ctx, case_builder, lifted->save_values);
+                cases[i] = lambda(arena, nodes(arena, 0, NULL));
+                cases[i]->payload.anon_lam.body = finish_body(case_builder, merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }));
             }
+
+            // Put the spilling code inside a selection construct
+            const Node* ncondition = rewrite_node(&ctx->rewriter, node->payload.branch.branch_condition);
+            bind_instruction(bb, if_instr(arena, (If) { .condition = ncondition, .if_true = cases[0], .if_false = cases[1], .yield_types = nodes(arena, 0, NULL) }));
+
+            // Make the callee selection a select
+            ncallee = gen_primop_ce(bb, select_op, 3, (const Node* []) { ncondition, fn_addr(arena, (FnAddr) { .fn = ntargets[0] }), fn_addr(arena, (FnAddr) { .fn = ntargets[1] }) });
+
             assert(ncallee && is_value(ncallee));
             return finish_body(bb, tail_call(arena, (TailCall) {
                 .target = ncallee,
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.branch.args),
             }));
         }
-        case Let_TAG: {
+        /*case LetInBlock_TAG: {
             const Node* otail = node->payload.let.tail;
-            if (otail->payload.lam.tier == FnTier_Lambda)
-                return recreate_node_identity(&ctx->rewriter, node);
             // if tail is a BB, add all the context-saving stuff in front
-            assert(otail->payload.lam.tier == FnTier_BasicBlock);
+            assert(is_basic_block(otail));
             BodyBuilder* bb = begin_body(arena);
-            const Node* ntail = rewrite_node(&ctx->rewriter, otail);
-            LiftedCont* lifted = *find_value_dict(const Node*, LiftedCont*, ctx->lifted, otail);
-            assert(lifted->lifted_fn == ntail);
+            LiftedCont* lifted = lift_lambda_into_function(ctx, otail);
             Context ctx2 = *ctx;
             add_spill_instrs(&ctx2, bb, lifted->save_values);
-            return finish_body(bb, let(arena, false, rewrite_node(&ctx2.rewriter, node->payload.let.instruction), ntail));
-        }
+            return finish_body(bb, let_indirect(arena, rewrite_node(&ctx2.rewriter, node->payload.let.instruction), fn_addr(arena, (FnAddr) { .fn = lifted->lifted_fn })));
+        }*/
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }

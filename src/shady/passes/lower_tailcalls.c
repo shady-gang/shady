@@ -32,7 +32,7 @@ static const Node* fn_ptr_as_value(IrArena* arena, FnPtr ptr) {
 }
 
 static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
-    assert(the_function->tag == Lambda_TAG);
+    assert(the_function->tag == Function_TAG);
 
     FnPtr* found = find_value_dict(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function);
     if (found) return fn_ptr_as_value(ctx->rewriter.dst_arena, *found);
@@ -45,9 +45,10 @@ static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
 
 /// Turn a function into a top-level entry point, calling into the top dispatch function.
 static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
+    assert(old->tag == Function_TAG && fun->tag == Function_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
-    Node* new_entry_pt = function(ctx->rewriter.dst_module, old->payload.lam.params, old->payload.lam.name, rewrite_nodes(&ctx->rewriter, old->payload.lam.annotations), nodes(dst_arena, 0, NULL));
+    Node* new_entry_pt = function(ctx->rewriter.dst_module, old->payload.fun.params, old->payload.fun.name, rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations), nodes(dst_arena, 0, NULL));
 
     BodyBuilder* builder = begin_body(dst_arena);
 
@@ -55,8 +56,8 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     gen_push_value_stack(builder, gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL));
     gen_push_value_stack(builder, int32_literal(dst_arena, 0));
 
-    for (size_t i = fun->payload.lam.params.count - 1; i < fun->payload.lam.params.count; i--) {
-        gen_push_value_stack(builder, fun->payload.lam.params.nodes[i]);
+    for (size_t i = fun->payload.fun.params.count - 1; i < fun->payload.fun.params.count; i--) {
+        gen_push_value_stack(builder, fun->payload.fun.params.nodes[i]);
     }
 
     gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"), lower_fn_addr(ctx, fun));
@@ -64,14 +65,13 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_mask"), entry_mask);
 
     bind_instruction(builder, call_instr(dst_arena, (Call) {
-        .is_indirect = false,
-        .callee = ctx->god_fn,
+        .callee = fn_addr(dst_arena, (FnAddr) { .fn = ctx->god_fn }),
         .args = nodes(dst_arena, 0, NULL)
     }));
 
-    new_entry_pt->payload.lam.body = finish_body(builder, fn_ret(dst_arena, (Return) {
+    new_entry_pt->payload.fun.body = finish_body(builder, fn_ret(dst_arena, (Return) {
         .fn = NULL,
-        .values = nodes(dst_arena, 0, NULL)
+        .args = nodes(dst_arena, 0, NULL)
     }));
 }
 
@@ -81,23 +81,19 @@ static const Node* process(Context* ctx, const Node* old) {
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (old->tag) {
-        case Lambda_TAG: {
-            // Leave basic blocks and lambdas alone
-            if (old->payload.lam.tier != FnTier_Function)
-                return recreate_node_identity(&ctx->rewriter, old);
-
+        case Function_TAG: {
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_tailcalls");
             if (ctx2.disable_lowering) {
                 Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
-                fun->payload.lam.body = process(&ctx2, old->payload.lam.body);
+                fun->payload.fun.body = process(&ctx2, old->payload.fun.body);
                 return fun;
             }
 
-            String new_name = format_string(dst_arena, "%s_leaf", old->payload.lam.name);
+            String new_name = format_string(dst_arena, "%s_leaf", old->payload.fun.name);
 
             const Node* entry_point_annotation = NULL;
-            Nodes old_annotations = old->payload.lam.annotations;
+            Nodes old_annotations = old->payload.fun.annotations;
             LARRAY(const Node*, new_annotations, old_annotations.count);
             size_t new_annotations_count = 0;
             for (size_t i = 0; i < old_annotations.count; i++) {
@@ -120,12 +116,12 @@ static const Node* process(Context* ctx, const Node* old) {
 
             BodyBuilder* bb = begin_body(dst_arena);
             // Params become stack pops !
-            for (size_t i = 0; i < old->payload.lam.params.count; i++) {
-                const Node* old_param = old->payload.lam.params.nodes[i];
+            for (size_t i = 0; i < old->payload.fun.params.count; i++) {
+                const Node* old_param = old->payload.fun.params.nodes[i];
                 const Node* popped = gen_pop_value_stack(bb, rewrite_node(&ctx->rewriter, extract_operand_type(old_param->type)));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
-            fun->payload.lam.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.lam.body));
+            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
             return fun;
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
@@ -144,7 +140,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     .args = nodes(dst_arena, 1, (const Node*[]) { target })
                 })).nodes[0];
                 gen_push_value_stack(bb, jp);*/
-                return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .values = nodes(dst_arena, 0, NULL) }));
+                return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));
             }
 
             return recreate_node_identity(&ctx->rewriter, old);
@@ -162,7 +158,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 .args = nodes(dst_arena, 1, (const Node*[]) { target })
             });
             bind_instruction(bb, call);*/
-            return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .values = nodes(dst_arena, 0, NULL) }));
+            return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));
         }
         case Join_TAG: {
             if (ctx->disable_lowering)
@@ -179,7 +175,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 .args = nodes(dst_arena, 1, (const Node*[]) { jp })
             });
             bind_instruction(bb, call);*/
-            return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .values = nodes(dst_arena, 0, NULL) }));
+            return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));
         }
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
@@ -194,7 +190,7 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 void generate_top_level_dispatch_fn(Context* ctx) {
-    assert(ctx->god_fn->tag == Lambda_TAG);
+    assert(ctx->god_fn->tag == Function_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     BodyBuilder* loop_body_builder = begin_body(dst_arena);
@@ -206,9 +202,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* zero_lit = int32_literal(dst_arena, 0);
     Node* zero_case = lambda(dst_arena, nodes(dst_arena, 0, NULL));
-    zero_case->payload.lam.body = finish_body(begin_body(ctx->rewriter.dst_arena), merge_construct(dst_arena, (MergeConstruct) {
+    zero_case->payload.fun.body = finish_body(begin_body(ctx->rewriter.dst_arena), merge_break(dst_arena, (MergeBreak) {
         .args = nodes(dst_arena, 0, NULL),
-        .construct = Break
     }));
 
     append_list(const Node*, literals, zero_lit);
@@ -217,7 +212,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
-        if (decl->tag == Lambda_TAG) {
+        if (decl->tag == Function_TAG) {
             if (lookup_annotation(decl, "Builtin"))
                 continue;
 
@@ -227,15 +222,13 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             // TODO wrap in if(mask)
             bind_instruction(case_builder, call_instr(dst_arena, (Call) {
-                .is_indirect = false,
-                .callee = find_processed(&ctx->rewriter, decl),
+                .callee = fn_addr(dst_arena, (FnAddr) { .fn = find_processed(&ctx->rewriter, decl) }),
                 .args = nodes(dst_arena, 0, NULL)
             }));
 
             Node* fn_case = lambda(dst_arena, nodes(dst_arena, 0, NULL));
-            fn_case->payload.lam.body = finish_body(case_builder, merge_construct(dst_arena, (MergeConstruct) {
+            fn_case->payload.anon_lam.body = finish_body(case_builder, merge_continue(dst_arena, (MergeContinue) {
                 .args = nodes(dst_arena, 0, NULL),
-                .construct = Continue
             }));
 
             append_list(const Node*, literals, fn_lit);
@@ -244,7 +237,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     }
 
     Node* default_case = lambda(dst_arena, nodes(dst_arena, 0, NULL));
-    default_case->payload.lam.body = unreachable(dst_arena);
+    default_case->payload.anon_lam.body = unreachable(dst_arena);
 
     bind_instruction(loop_body_builder, match_instr(dst_arena, (Match) {
         .yield_types = nodes(dst_arena, 0, NULL),
@@ -258,7 +251,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     destroy_list(cases);
 
     Node* loop_inside = lambda(dst_arena, nodes(dst_arena, 0, NULL));
-    loop_inside->payload.lam.body = finish_body(loop_body_builder, unreachable(dst_arena));
+    loop_inside->payload.anon_lam.body = finish_body(loop_body_builder, unreachable(dst_arena));
 
     const Node* the_loop = loop_instr(dst_arena, (Loop) {
         .yield_types = nodes(dst_arena, 0, NULL),
@@ -269,9 +262,9 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_arena);
     bind_instruction(dispatcher_body_builder, the_loop);
 
-    ctx->god_fn->payload.lam.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
-        .values = nodes(dst_arena, 0, NULL),
-        .fn = NULL,
+    ctx->god_fn->payload.fun.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
+        .args = nodes(dst_arena, 0, NULL),
+        .fn = ctx->god_fn,
     }));
 }
 

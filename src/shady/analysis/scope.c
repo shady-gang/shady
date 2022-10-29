@@ -268,22 +268,22 @@ static int extra_uniqueness = 0;
 static void dump_cfg_scope(FILE* output, Scope* scope) {
     extra_uniqueness++;
 
-    const Lambda* entry = &scope->entry->node->payload.lam;
-    fprintf(output, "subgraph cluster_%s {\n", entry->name);
-    fprintf(output, "label = \"%s\";\n", entry->name);
+    const Node* entry = scope->entry->node;
+    fprintf(output, "subgraph cluster_%s {\n", get_abstraction_name(entry));
+    fprintf(output, "label = \"%s\";\n", get_abstraction_name(entry));
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const Lambda* bb = &read_list(const CFNode*, scope->contents)[i]->node->payload.lam;
-        fprintf(output, "%s_%d;\n", bb->name, extra_uniqueness);
+        const Node* bb = read_list(const CFNode*, scope->contents)[i]->node;
+        fprintf(output, "%s_%d;\n", get_abstraction_name(bb), extra_uniqueness);
     }
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
-        const Lambda* bb = &bb_node->node->payload.lam;
+        const Node* bb = bb_node->node;
 
         for (size_t j = 0; j < entries_count_list(bb_node->succ_edges); j++) {
             CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
             const CFNode* target_node = edge.dst;
-            const Lambda* target_bb = &target_node->node->payload.lam;
-            fprintf(output, "%s_%d -> %s_%d;\n", bb->name, extra_uniqueness, target_bb->name, extra_uniqueness);
+            const Node* target_bb = target_node->node;
+            fprintf(output, "%s_%d -> %s_%d;\n", get_abstraction_name(bb), extra_uniqueness, get_abstraction_name(target_bb), extra_uniqueness);
         }
     }
     fprintf(output, "}\n");

@@ -37,7 +37,6 @@ set(SHADY_SOURCES
     passes/setup_stack_frames.c
     passes/eliminate_constants.c
     passes/lower_subgroup_ops.c
-    passes/remove_indirect_calls.c
 )
 
 add_library(shady ${SHADY_SOURCES})

@@ -152,7 +152,7 @@ const Node* tuple(IrArena* arena, Nodes contents) {
 }
 
 Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
-    IrArena* arena;
+    IrArena* arena = mod->arena;
     Function payload = {
         .module = mod,
         .params = params,

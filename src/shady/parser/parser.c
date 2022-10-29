@@ -703,16 +703,15 @@ static Nodes accept_annotations(ctxparams) {
                             continue;
                         else break;
                     }
-                    annot = annotation(arena, (Annotation) {
+                    /*annot = annotation_values(arena, (Annotation) {
                         .name = id,
                         .payload_type = AnPayloadValues,
                         .values = nodes(arena, entries_count_list(values), read_list(const Node*, values))
                     });
-                    destroy_list(values);
+                    destroy_list(values);*/
                 } else {
-                    annot = annotation(arena, (Annotation) {
+                    annot = annotation_value(arena, (AnnotationValue) {
                         .name = id,
-                        .payload_type = AnPayloadValue,
                         .value = first_value
                     });
                 }
@@ -722,7 +721,6 @@ static Nodes accept_annotations(ctxparams) {
                 no_params:
                 annot = annotation(arena, (Annotation) {
                     .name = id,
-                    .payload_type = AnPayloadNone
                 });
             }
             assert(annot);

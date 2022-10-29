@@ -947,7 +947,7 @@ const Type* check_type_fn_ret(IrArena* arena, Return ret) {
     return noret_type(arena);
 }
 
-const Type* check_type_function(IrArena* arena, Function fn) {
+const Type* check_type_fun(IrArena* arena, Function fn) {
     for (size_t i = 0; i < fn.return_types.count; i++) {
         assert(contains_qualified_type(fn.return_types.nodes[i]));
     }

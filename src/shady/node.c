@@ -117,6 +117,36 @@ const char* extract_string_literal(const Node* node) {
     return node->payload.string_lit.string;
 }
 
+String get_abstraction_name(const Node* abs) {
+    assert(is_abstraction(abs));
+    switch (abs->tag) {
+        case Function_TAG: return abs->payload.fun.name;
+        case BasicBlock_TAG: return abs->payload.basic_block.name;
+        case AnonLambda_TAG: return "anonymous";
+        default: assert(false);
+    }
+}
+
+const Node* get_abstraction_body(const Node* abs) {
+    assert(is_abstraction(abs));
+    switch (abs->tag) {
+        case Function_TAG: return abs->payload.fun.body;
+        case BasicBlock_TAG: return abs->payload.basic_block.body;
+        case AnonLambda_TAG: return abs->payload.anon_lam.body;
+        default: assert(false);
+    }
+}
+
+Nodes get_abstraction_params(const Node* abs) {
+    assert(is_abstraction(abs));
+    switch (abs->tag) {
+        case Function_TAG: return abs->payload.fun.params;
+        case BasicBlock_TAG: return abs->payload.basic_block.params;
+        case AnonLambda_TAG: return abs->payload.anon_lam.params;
+        default: assert(false);
+    }
+}
+
 KeyHash hash_murmur(const void* data, size_t size) {
     int32_t out[4];
     MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);
