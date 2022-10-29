@@ -9,7 +9,41 @@
 #include <string.h>
 #include <assert.h>
 
+Strings import_strings(IrArena*, Strings);
+
+#define VISIT_FIELD_POD(t, n)
+#define VISIT_FIELD_STRING(t, n) payload->n = string(arena, payload->n);
+#define VISIT_FIELD_STRINGS(t, n) payload->n = import_strings(arena, payload->n);
+#define VISIT_FIELD_ANNOTATIONS(t, n)
+#define VISIT_FIELD_TYPE(t, n)
+#define VISIT_FIELD_TYPES(t, n)
+#define VISIT_FIELD_VALUE(t, n)
+#define VISIT_FIELD_VALUES(t, n)
+#define VISIT_FIELD_VARIABLES(t, n)
+#define VISIT_FIELD_INSTRUCTION(t, n)
+#define VISIT_FIELD_TERMINATOR(t, n)
+#define VISIT_FIELD_ANON_LAMBDA(t, n)
+#define VISIT_FIELD_ANON_LAMBDAS(t, n)
+
+#define VISIT_FIELD_DECL(t, n)
+
+#define VISIT_FIELD_BASIC_BLOCK(t, n)
+#define VISIT_FIELD_BASIC_BLOCKS(t, n)
+
+static void intern_strings(IrArena* arena, Node* node) {
+    switch (node->tag) {
+        case InvalidNode_TAG: SHADY_UNREACHABLE;
+        #define VISIT_FIELD(hash, ft, t, n) VISIT_FIELD_##ft(t, n)
+        #define VISIT_NODE_0(StructName, short_name) case StructName##_TAG: break;
+        #define VISIT_NODE_1(StructName, short_name) case StructName##_TAG: { SHADY_UNUSED StructName* payload = &node->payload.short_name; StructName##_Fields(VISIT_FIELD) break; }
+        #define VISIT_NODE(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name) VISIT_NODE_##has_payload(StructName, short_name)
+        NODES(VISIT_NODE)
+    }
+}
+
 static Node* create_node_helper(IrArena* arena, Node node) {
+    intern_strings(arena, &node);
+
     Node* ptr = &node;
     Node** found = find_key_dict(Node*, arena->node_set, ptr);
     // sanity check nominal nodes to be unique, check for duplicates in structural nodes
@@ -179,6 +213,7 @@ Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
     BasicBlock payload = {
         .params = params,
         .body = NULL,
+        .fn = fn,
         .name = name,
     };
 
