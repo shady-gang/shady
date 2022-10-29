@@ -154,9 +154,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
         }
         case Constant_TAG: {
             const Constant* cnst = &decl->payload.constant;
-            Node* new_constant = constant(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, cnst->annotations), cnst->name);
-            new_constant->payload.constant.type_hint = rewrite_node(&ctx->rewriter, decl->payload.constant.type_hint);
-            bound = new_constant;
+            bound = constant(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, cnst->annotations), rewrite_node(&ctx->rewriter, decl->payload.constant.type_hint), cnst->name);
             bound->payload.constant.value = rewrite_node(&ctx->rewriter, decl->payload.constant.value);
             break;
         }

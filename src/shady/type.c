@@ -969,4 +969,9 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
     });
 }
 
+const Type* check_type_constant(IrArena* arena, Constant cnst) {
+    assert(!contains_qualified_type(cnst.type_hint));
+    return cnst.type_hint;
+}
+
 #pragma GCC diagnostic pop

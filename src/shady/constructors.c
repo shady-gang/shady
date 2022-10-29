@@ -210,19 +210,19 @@ Node* lambda(IrArena* arena, Nodes params) {
     return create_node_helper(arena, node);
 }
 
-Node* constant(Module* mod, Nodes annotations, String name) {
+Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
     IrArena* arena = mod->arena;
     Constant cnst = {
         .annotations = annotations,
         .name = string(arena, name),
+        .type_hint = hint,
         .value = NULL,
-        .type_hint = NULL,
     };
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = NULL,
+        .type = arena->config.check_types ? check_type_constant(arena, cnst) : NULL,
         .tag = Constant_TAG,
         .payload.constant = cnst
     };

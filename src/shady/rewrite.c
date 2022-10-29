@@ -151,6 +151,7 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
         case Constant_TAG: {
             new = constant(rewriter->dst_module,
                            rewrite_nodes_generic(rewriter, rewrite_annotation, old->payload.constant.annotations),
+                           rewrite_type(rewriter, old->payload.constant.type_hint),
                            old->payload.constant.name);
             break;
         }
@@ -176,9 +177,8 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             break;
         }
         case Constant_TAG: {
-            new->payload.constant.type_hint = rewrite_type(rewriter, old->payload.constant.type_hint);
             new->payload.constant.value     = rewrite_value(rewriter, old->payload.constant.value);
-            new->type                       = new->payload.constant.value->type;
+            // TODO check type now ?
             break;
         }
         case Function_TAG: {

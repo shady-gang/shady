@@ -120,7 +120,7 @@ const Node* tuple(IrArena* arena, Nodes contents);
 Node* lambda      (IrArena*, Nodes params);
 Node* basic_block (IrArena*, Node* function, Nodes params, const char* name);
 Node* function    (Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
-Node* constant    (Module*, Nodes annotations, const char* name);
+Node* constant    (Module*, Nodes annotations, const Type*, const char* name);
 Node* global_var  (Module*, Nodes annotations, const Type*, String, AddressSpace);
 Type* nominal_type(Module*, String name);
 

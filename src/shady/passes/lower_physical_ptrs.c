@@ -200,7 +200,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
                 const char* emulated_heap_name = old_gvar->address_space == AsSubgroupPhysical ? "private" : "subgroup";
 
-                Node* cnst = constant(ctx->rewriter.dst_module, annotations, format_string(ctx->rewriter.dst_arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
+                Node* cnst = constant(ctx->rewriter.dst_module, annotations, int32_type(ctx->rewriter.dst_arena), format_string(ctx->rewriter.dst_arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
 
                 uint32_t* preallocated = old_gvar->address_space == AsSubgroupPhysical ? &ctx->preallocated_subgroup_memory : &ctx->preallocated_private_memory;
                 const Type* contents_type = rewrite_node(&ctx->rewriter, old_gvar->type);
@@ -208,7 +208,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
                 uint32_t required_space = bytes_to_i32_cells(get_mem_layout(ctx->config, ctx->rewriter.dst_arena, contents_type).size_in_bytes);
 
                 cnst->payload.constant.value = uint32_literal(ctx->rewriter.dst_arena, *preallocated);
-                cnst->type = cnst->payload.constant.value->type;
                 *preallocated += required_space;
 
                 register_processed(&ctx->rewriter, old, cnst);

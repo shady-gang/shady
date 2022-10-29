@@ -64,7 +64,7 @@ N(1, 1, 0, Unreachable, unreachable) \
 
 #define DECL_NODES(N) \
 N(0, 1, 1, Function, fun) \
-N(0, 0, 1, Constant, constant) \
+N(0, 1, 1, Constant, constant) \
 N(0, 1, 1, GlobalVariable, global_variable) \
 
 #define ANNOTATION_NODES(N) \

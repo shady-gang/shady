@@ -748,9 +748,8 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, semi_tok));
 
-    Node* cnst = constant(mod, annotations, id);
+    Node* cnst = constant(mod, annotations, type, id);
     cnst->payload.constant.value = definition;
-    cnst->payload.constant.type_hint = type;
     return cnst;
 }
 
