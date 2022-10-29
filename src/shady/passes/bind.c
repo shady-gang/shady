@@ -69,7 +69,14 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
     error("could not resolve node %s", name)
 }
 
-static void add_binding(Context* ctx, NamedBindEntry* entry) {
+static void add_binding(Context* ctx, bool is_var, String name, const Node* node) {
+    NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
+    *entry = (NamedBindEntry) {
+        .name = string(ctx->rewriter.dst_arena, name),
+        .is_var = is_var,
+        .node = (Node*) node,
+        .next = NULL
+    };
     entry->next = ctx->local_variables;
     ctx->local_variables = entry;
 }
@@ -97,7 +104,7 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
     error("This doesn't really look like a place expression...")
 }
 
-static Node* rewrite_lambda_head(Context* ctx, const Node* node) {
+/*static Node* rewrite_lambda_head(Context* ctx, const Node* node) {
     assert(node != NULL && node->tag == Lambda_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
@@ -145,43 +152,9 @@ static void rewrite_lambda_body(Context* ctx, const Node* node, Node* target) {
         debug_print("Bound param %s\n", entry->name);
     }
 
-    // ensure we bind basic blocks inside functions
-    if (node->payload.lam.tier != FnTier_Function) {
-        assert(body_infer_ctx.current_function && "basic blocks should be nested inside functions");
-    } else {
-        // and we don't bind functions inside functions
-        assert(ctx->current_function == NULL);
-        body_infer_ctx.current_function = target;
-    }
 
-    // handle basic blocks if we are a function
-    size_t inner_conts_count = node->payload.lam.children_continuations.count;
-    LARRAY(Node*, new_conts, inner_conts_count);
-    assert(node->payload.lam.tier == FnTier_Function || inner_conts_count == 0);
-
-    // First create stubs and inline that crap
-    for (size_t i = 0; i < inner_conts_count; i++) {
-        Node* new_cont = rewrite_lambda_head(ctx, node->payload.lam.children_continuations.nodes[i]);
-        new_conts[i] = new_cont;
-        NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
-        *entry = (NamedBindEntry) {
-            .name = new_cont->payload.lam.name,
-            .is_var = false,
-            .node = new_cont,
-            .next = NULL
-        };
-        add_binding(&body_infer_ctx, entry);
-        debug_print("Bound (stub) basic block %s\n", entry->name);
-    }
-
-    target->payload.lam.body = rewrite_node(&body_infer_ctx.rewriter, node->payload.lam.body);
-
-    // Rebuild the basic blocks now
-    for (size_t i = 0; i < inner_conts_count; i++) {
-        rewrite_lambda_body(&body_infer_ctx, node->payload.lam.children_continuations.nodes[i], new_conts[i]);
-        debug_print("Finished binding basic block %s\n", new_conts[i]->payload.lam.name);
-    }
 }
+*/
 
 static const Node* desugar_let_mut(Context* ctx, const Node* node) {
     assert(node->tag == LetMut_TAG);
@@ -212,18 +185,8 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
         });
         bind_instruction_extra(bb, store, 0, NULL, NULL);
 
-        NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
-        *entry = (NamedBindEntry) {
-            .name = string(dst_arena, oparam->payload.var.name),
-            .is_var = true,
-            .node = (Node*) ptr,
-            .next = NULL
-        };
-
-        entry->node = (Node*) ptr;
-
-        add_binding(&body_infer_ctx, entry);
-        debug_print("Lowered mutable variable %s\n", entry->name);
+        add_binding(&body_infer_ctx, true, oparam->payload.var.name, ptr);
+        debug_print("Lowered mutable variable %s\n", oparam->payload.var.name);
     }
 
     const Node* terminator = rewrite_node(&body_infer_ctx.rewriter, old_lam->payload.anon_lam.body);
@@ -250,8 +213,41 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
             break;
         }
         case Function_TAG: {
-            bound = rewrite_lambda_head(ctx, decl);
-            rewrite_lambda_body(ctx, decl, bound);
+            Nodes new_fn_params = recreate_variables(&ctx->rewriter, decl->payload.fun.params);
+            bound = function(ctx->rewriter.dst_module, new_fn_params, decl->payload.fun.name, rewrite_nodes(&ctx->rewriter, decl->payload.fun.annotations), rewrite_nodes(&ctx->rewriter, decl->payload.fun.return_types));
+            Context fn_ctx = *ctx;
+            for (size_t i = 0; i < new_fn_params.count; i++)
+                add_binding(&fn_ctx, false, decl->payload.fun.params.nodes[i]->payload.var.name, new_fn_params.nodes[i]);
+
+            fn_ctx.current_function = bound;
+
+            // handle basic blocks if we are a function
+            Nodes unbound_blocks = decl->payload.fun.children_blocks;
+            LARRAY(Node*, new_bbs, unbound_blocks.count);
+
+            // First create stubs and inline that crap
+            for (size_t i = 0; i < unbound_blocks.count; i++) {
+                const Node* old_bb = unbound_blocks.nodes[i];
+                assert(is_basic_block(old_bb));
+                Nodes new_bb_params = recreate_variables(&ctx->rewriter, old_bb->payload.basic_block.params);
+                Node* new_bb = basic_block(ctx->rewriter.dst_arena, bound, new_bb_params, old_bb->payload.basic_block.name);
+                new_bbs[i] = new_bb;
+                add_binding(&fn_ctx, false, old_bb->payload.basic_block.name, new_bb);
+                debug_print("Bound (stub) basic block %s\n", old_bb->payload.basic_block.name);
+
+                for (size_t j = 0; j < new_bb_params.count; j++)
+                    add_binding(&fn_ctx, false, decl->payload.fun.params.nodes[j]->payload.var.name, new_fn_params.nodes[j]);
+            }
+
+            bound->payload.fun.body = rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body);
+
+            // Rebuild the basic blocks now
+            for (size_t i = 0; i < unbound_blocks.count; i++) {
+                const Node* old_bb = unbound_blocks.nodes[i];
+                Node* new_bb = new_bbs[i];
+                new_bb->payload.basic_block.body = rewrite_node(&fn_ctx.rewriter, old_bb->payload.basic_block.body);
+                debug_print("Bound basic block %s\n", new_bb->payload.basic_block.name);
+            }
             break;
         }
         default: error("unknown declaration kind");
@@ -272,11 +268,6 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case Function_TAG:
         case Constant_TAG:
         case GlobalVariable_TAG: {
-            if (is_anonymous_lambda(node)) {
-                Node* bound = rewrite_lambda_head(ctx, node);
-                rewrite_lambda_body(ctx, node, bound);
-                return bound;
-            }
             assert(is_declaration(node));
             return rewrite_decl(ctx, node);
         }
@@ -291,6 +282,17 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             } else {
                 return entry.node;
             }
+        }
+        case BasicBlock_TAG: error("rewrite_decl should handle this")
+        case AnonLambda_TAG: {
+            Nodes old_params = node->payload.anon_lam.params;
+            Nodes new_params = recreate_variables(&ctx->rewriter, old_params);
+            Node* new_lam = lambda(dst_arena, new_params);
+            Context lambda_ctx = *ctx;
+            for (size_t i = 0; i < new_params.count; i++)
+                add_binding(&lambda_ctx, false, old_params.nodes[i]->payload.var.name, new_params.nodes[i]);
+            new_lam->payload.anon_lam.body = rewrite_node(&lambda_ctx.rewriter, node->payload.anon_lam.body);
+            return new_lam;
         }
         case LetMut_TAG: return desugar_let_mut(ctx, node);
         case Return_TAG: {
