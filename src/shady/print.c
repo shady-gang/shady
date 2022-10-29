@@ -687,14 +687,14 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         print_instruction(ctx, node);
     else if (is_terminator(node))
         print_terminator(ctx, node);
-    else if (node->tag == Lambda_TAG && node->payload.lam.tier == FnTier_Lambda) {
+    else if (node->tag == AnonLambda_TAG) {
         printf(BYELLOW);
         printf("lambda ");
         printf(RESET);
-        print_param_list(ctx, node->payload.lam.params, NULL);
+        print_param_list(ctx, node->payload.anon_lam.params, NULL);
         indent(ctx->printer);
         printf(" {\n");
-        print_node(node->payload.lam.body);
+        print_node(node->payload.anon_lam.body);
         printf(";");
         deindent(ctx->printer);
         printf("\n}");
@@ -708,14 +708,16 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
             printf(RED);
             printf("@%s", annotation->name);
             printf(RESET);
-            switch (annotation->payload_type) {
-                case AnPayloadValue:
-                    printf("(");
-                    print_node(annotation->value);
-                    printf(")");
-                    break;
-                default: break;
-            }
+            break;
+        }
+        case AnnotationValue_TAG: {
+            const AnnotationValue* annotation = &node->payload.annotation_value;
+            printf(RED);
+            printf("@%s", annotation->name);
+            printf(RESET);
+            printf("(");
+            print_node(annotation->value);
+            printf(")");
             break;
         }
         default: error("dunno how to print %s", node_tags[node->tag]);

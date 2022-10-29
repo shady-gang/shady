@@ -235,23 +235,6 @@ static const Type* get_actual_mask_type(IrArena* arena) {
     }
 }
 
-static void check_arguments_types_against_parameters_helper(Nodes param_types, Nodes arg_types) {
-    if (param_types.count != arg_types.count)
-        error("Mismatched number of arguments/parameters");
-    for (size_t i = 0; i < param_types.count; i++)
-        check_subtype(param_types.nodes[i], arg_types.nodes[i]);
-}
-
-/*static const Type* check_callsite_helper(IrArena* arena, const Type* callee_type, Nodes argument_types) {
-    assert(!contains_qualified_type(callee_type) && callee_type->tag == FnType_TAG);
-    const FnType* fn_type = &callee_type->payload.fn_type;
-    check_arguments_types_against_parameters_helper(fn_type->param_types, argument_types);
-    if (fn_type->tier == FnTier_Function)
-        return wrap_multiple_yield_types(arena, fn_type->return_types);
-    else
-        return noret_type(arena);
-}*/
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
@@ -776,18 +759,39 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     }
 }
 
-const Type* check_type_call_instr(IrArena* arena, Call call) {
-    for (size_t i = 0; i < call.args.count; i++) {
-        const Node* argument = call.args.nodes[i];
-        assert(is_value(argument));
-    }
+static void check_arguments_types_against_parameters_helper(Nodes param_types, Nodes arg_types) {
+    if (param_types.count != arg_types.count)
+        error("Mismatched number of arguments/parameters");
+    for (size_t i = 0; i < param_types.count; i++)
+        check_subtype(param_types.nodes[i], arg_types.nodes[i]);
+}
 
-    const Type* callee_type = call.callee->type;
+/// Shared logic between Call, TailCall and LetIndirect
+static Nodes check_value_call(const Node* callee, Nodes argument_types) {
+    assert(is_value(callee));
+
+    const Type* callee_type = callee->type;
+
     bool callee_uniform;
     deconstruct_operand_type(callee_type, &callee_type, &callee_uniform);
     assert(callee_uniform);
     callee_type = remove_ptr_type_layer(callee_type);
-    return check_callsite_helper(arena, callee_type, extract_types(arena, call.args));
+
+    assert(callee_type->tag == FnType_TAG);
+
+    const FnType* fn_type = &callee_type->payload.fn_type;
+    check_arguments_types_against_parameters_helper(fn_type->param_types, argument_types);
+    return fn_type->return_types;
+}
+
+const Type* check_type_call_instr(IrArena* arena, Call call) {
+    Nodes args = call.args;
+    for (size_t i = 0; i < args.count; i++) {
+        const Node* argument = args.nodes[i];
+        assert(is_value(argument));
+    }
+    Nodes argument_types = extract_variable_types(arena, &args);
+    return wrap_multiple_yield_types(arena, check_value_call(call.callee, call.args));
 }
 
 const Type* check_type_if_instr(IrArena* arena, If if_instr) {
@@ -815,7 +819,7 @@ const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
 const Type* check_type_control(IrArena* arena, Control control) {
     // TODO check it then !
     assert(is_anonymous_lambda(control.inside));
-    const Node* join_point = control.inside->payload.lam.params.nodes[0];
+    const Node* join_point = control.inside->payload.anon_lam.params.nodes[0];
 
     const Type* join_target_type = join_point->type;
     bool join_target_uniform;
@@ -829,24 +833,46 @@ const Type* check_type_control(IrArena* arena, Control control) {
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
-    assert(!let.is_mutable && "this is a front-end only thing, we ban it in the IR");
-    Nodes produce_types = unwrap_multiple_yield_types(arena, let.instruction->type);
-    const Type* applied_tail_result = check_callsite_helper(arena, let.tail->type, produce_types);
-    assert(applied_tail_result == noret_type(arena) || is_function(let.tail));
+    assert(is_anonymous_lambda(let.tail));
+    Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
+    Nodes param_types = extract_variable_types(arena, &let.tail->payload.anon_lam.params);
+
+    check_arguments_types_against_parameters_helper(param_types, produced_types);
+    return noret_type(arena);
+}
+
+const Type* check_type_let_indirect(IrArena* arena, LetIndirect let) {
+    assert(is_value(let.tail));
+    Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
+    assert(check_value_call(let.tail, produced_types).nodes == 0);
     return noret_type(arena);
 }
 
 const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
-    const Type* callee_type;
-    bool callee_uniform;
-    deconstruct_operand_type(tail_call.target->type, &callee_type, &callee_uniform);
-    assert(callee_type->tag == PtrType_TAG && "Tail calls are indirect calls, they consume pointers to functions.");
+    Nodes args = tail_call.args;
+    for (size_t i = 0; i < args.count; i++) {
+        const Node* argument = args.nodes[i];
+        assert(is_value(argument));
+    }
+    Nodes argument_types = extract_variable_types(arena, &args);
+    assert(check_value_call(tail_call.target, tail_call.args).count == 0);
+    return noret_type(arena);
+}
 
-    assert(callee_type->payload.ptr_type.address_space == AsProgramCode);
-    callee_type = callee_type->payload.ptr_type.pointed_type;
+static void check_basic_block_call(const Node* block, Nodes argument_types) {
+    assert(is_basic_block(block));
+    assert(block->type->tag == BBType_TAG);
+    BBType bb_type = block->type->payload.bb_type;
+    check_arguments_types_against_parameters_helper(bb_type.param_types, argument_types);
+}
 
-    // TODO say something about uniformity of the target ?
-    check_callsite_helper(arena, callee_type, extract_types(arena, tail_call.args));
+const Type* check_type_jump(IrArena* arena, Jump jump) {
+    for (size_t i = 0; i < jump.args.count; i++) {
+        const Node* argument = jump.args.nodes[i];
+        assert(is_value(argument));
+    }
+
+    check_basic_block_call(jump.target, extract_types(arena, jump.args));
     return noret_type(arena);
 }
 
@@ -856,26 +882,26 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
         assert(is_value(argument));
     }
 
-    switch (branch.branch_mode) {
-        case BrJump: {
-            check_callsite_helper(arena, branch.target->type, extract_types(arena, branch.args));
-            break;
-        }
-        case BrIfElse: {
-            const Type* condition_type;
-            bool uniform;
-            deconstruct_operand_type(branch.branch_condition->type, &condition_type, &uniform);
-            assert(bool_type(arena) == condition_type);
+    const Type* condition_type;
+    bool uniform;
+    deconstruct_operand_type(branch.branch_condition->type, &condition_type, &uniform);
+    assert(bool_type(arena) == condition_type);
 
-            const Node* branches[2] = { branch.true_target, branch.false_target };
-            for (size_t i = 0; i < 2; i++)
-                check_callsite_helper(arena, branches[i]->type, extract_types(arena, branch.args));
-            break;
-        }
-        case BrSwitch: error("TODO")
+    const Node* branches[2] = { branch.true_target, branch.false_target };
+    for (size_t i = 0; i < 2; i++)
+        check_basic_block_call(branches[i], extract_types(arena, branch.args));
+
+    return noret_type(arena);
+}
+
+const Type* check_type_br_switch(IrArena* arena, Switch br_switch) {
+    for (size_t i = 0; i < br_switch.args.count; i++) {
+        const Node* argument = br_switch.args.nodes[i];
+        assert(is_value(argument));
     }
 
-    // TODO check arguments and that both branches match
+    error("TODO")
+
     return noret_type(arena);
 }
 
@@ -901,7 +927,17 @@ const Type* check_type_unreachable(IrArena* arena) {
     return noret_type(arena);
 }
 
-const Type* check_type_merge_construct(IrArena* arena, MergeConstruct mc) {
+const Type* check_type_merge_selection(IrArena* arena, MergeSelection mc) {
+    // TODO check it
+    return noret_type(arena);
+}
+
+const Type* check_type_merge_continue(IrArena* arena, MergeContinue mc) {
+    // TODO check it
+    return noret_type(arena);
+}
+
+const Type* check_type_merge_break(IrArena* arena, MergeBreak mc) {
     // TODO check it
     return noret_type(arena);
 }
@@ -911,12 +947,19 @@ const Type* check_type_fn_ret(IrArena* arena, Return ret) {
     return noret_type(arena);
 }
 
-const Type* check_type_lam(IrArena* arena, Lambda lam) {
-    assert(lam.tier == FnTier_Function || lam.return_types.count == 0);
-    for (size_t i = 0; i < lam.return_types.count; i++) {
-        assert(contains_qualified_type(lam.return_types.nodes[i]));
+const Type* check_type_function(IrArena* arena, Function fn) {
+    for (size_t i = 0; i < fn.return_types.count; i++) {
+        assert(contains_qualified_type(fn.return_types.nodes[i]));
     }
-    return fn_type(arena, (FnType) { .param_types = extract_variable_types(arena, &(&lam)->params), .return_types = (&lam)->return_types });
+    return fn_type(arena, (FnType) { .param_types = extract_variable_types(arena, &(&fn)->params), .return_types = (&fn)->return_types });
+}
+
+const Type* check_type_basic_block(IrArena* arena, BasicBlock bb) {
+    return bb_type(arena, (BBType) { .param_types = extract_variable_types(arena, &(&bb)->params) });
+}
+
+const Type* check_type_anon_lam(IrArena* arena, AnonLambda lam) {
+    return lam_type(arena, (LamType) { .param_types = extract_variable_types(arena, &(&lam)->params) });
 }
 
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {

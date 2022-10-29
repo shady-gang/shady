@@ -67,15 +67,21 @@ N(0, 1, 1, Function, fun) \
 N(0, 0, 1, Constant, constant) \
 N(0, 1, 1, GlobalVariable, global_variable) \
 
+#define ANNOTATION_NODES(N) \
+N(1, 0, 1, Annotation, annotation) \
+N(1, 0, 1, AnnotationValue, annotation_value) \
+N(1, 0, 1, AnnotationsList, annotations_list) \
+N(1, 0, 1, AnnotationsDict, annotations_dict) \
+
 #define NODES(N) \
 TYPE_NODES(N) \
 VALUE_NODES(N) \
 INSTRUCTION_NODES(N) \
 TERMINATOR_NODES(N) \
 DECL_NODES(N) \
+ANNOTATION_NODES(N) \
 N(0, 1, 1, AnonLambda, anon_lam) \
 N(0, 1, 1, BasicBlock, basic_block) \
-/*N(1, 0, 1, Annotation, annotation) \*/
 
 /// We declare the payloads of our nodes using this special
 /// X-macro pattern in order to be able to 'reflect' them
@@ -370,6 +376,7 @@ typedef struct Function_ Function;
 #define Function_Fields(MkField) \
 MkField(1, VARIABLES, Nodes, params) \
 MkField(1, TERMINATOR, const Node*, body) \
+MkField(0, POD, Module*, module) \
 MkField(1, STRING, String, name) \
 MkField(1, TYPES, Nodes, return_types) \
 MkField(1, ANNOTATIONS, Nodes, annotations) \
@@ -378,6 +385,7 @@ MkField(1, BASIC_BLOCKS, ChildrenBlocks, children_blocks) \
 typedef struct Constant_ Constant;
 #define Constant_Fields(MkField) \
 MkField(1, ANNOTATIONS, Nodes, annotations) \
+MkField(0, POD, Module*, module) \
 MkField(1, STRING, String, name) \
 MkField(1, TYPE, const Type*, type_hint) \
 MkField(0, VALUE, const Node*, value)
@@ -386,6 +394,7 @@ typedef struct GlobalVariable_ GlobalVariable;
 #define GlobalVariable_Fields(MkField) \
 MkField(1, ANNOTATIONS, Nodes, annotations) \
 MkField(1, TYPE, const Type*, type) \
+MkField(0, POD, Module*, module) \
 MkField(1, STRING, String, name) \
 MkField(1, POD, AddressSpace, address_space) \
 MkField(0, VALUE, const Node*, init)
@@ -404,22 +413,25 @@ MkField(1, TERMINATOR, const Node*, body) \
 MkField(1, DECL, const Node*, fn) \
 MkField(1, STRING, String, name)
 
-typedef enum {
-    AnPayloadNone,
-    AnPayloadValue,
-    AnPayloadValues,
-    AnPayloadMap,
-} AnPayloadType;
+typedef struct Annotation_ Annotation;
+#define Annotation_Fields(MkField) \
+MkField(1, STRING, String, name) \
 
-typedef struct Annotation_ {
-    const char* name;
-    AnPayloadType payload_type;
-    Strings labels;
-    union {
-        const Node* value;
-        Nodes values;
-    };
-} Annotation;
+typedef struct AnnotationValue_ AnnotationValue;
+#define AnnotationValue_Fields(MkField) \
+MkField(1, STRING, String, name) \
+MkField(1, VALUE, const Node*, value)
+
+typedef struct AnnotationsList_ AnnotationsList;
+#define AnnotationsList_Fields(MkField) \
+MkField(1, STRING, String, name) \
+MkField(1, ANNOTATIONS, Nodes, values)
+
+typedef struct AnnotationsDict_ AnnotationsDict;
+#define AnnotationsDict_Fields(MkField) \
+MkField(1, STRING, String, name) \
+MkField(1, STRINGS, Strings, labels) \
+MkField(1, ANNOTATIONS, Nodes, entries)
 
 // This macro is used to define what the 'field types' column in the _Fields macros before mean.
 // These 'field types' are relevant for working with the grammar, they help distinguish values,
@@ -463,7 +475,7 @@ NODES(CREATE_PAYLOAD)
 
 /// Node sum-type
 struct Node_ {
-    const IrArena* arena;
+    IrArena* arena;
     const Type* type;
     NodeTag tag;
     union NodesUnion {

@@ -151,112 +151,63 @@ const Node* tuple(IrArena* arena, Nodes contents) {
     return create_node_helper(arena, node);
 }
 
-static Node* lambda_internal(IrArena* arena, FnTier tier, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
-    Lambda lam = {
-        .tier = tier,
+Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
+    IrArena* arena;
+    Function payload = {
+        .module = mod,
         .params = params,
         .body = NULL,
-        .name = NULL,
-        .annotations = nodes(arena, 0, NULL),
-        .return_types = nodes(arena, 0, NULL),
+        .name = name,
+        .annotations = annotations,
+        .return_types = return_types,
     };
-
-    if (tier >= FnTier_BasicBlock)
-        lam.name = string(arena, name);
-    else
-        assert(name == NULL);
-
-    if (tier >= FnTier_Function) {
-        lam.annotations = annotations;
-        lam.return_types = return_types;
-    } else {
-        assert(annotations.count == 0);
-        assert(return_types.count == 0);
-    }
 
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_lam(arena, lam) : NULL,
-        .tag = Lambda_TAG,
-        .payload.lam = lam
+        .type = arena->config.check_types ? check_type_fun(arena, payload) : NULL,
+        .tag = Function_TAG,
+        .payload.fun = payload
     };
-    return create_node_helper(arena, node);
-}
-
-static Node* lambda_internal(IrArena* arena, FnTier tier, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
-    Lambda lam = {
-        .tier = tier,
-        .params = params,
-        .body = NULL,
-        .name = NULL,
-        .annotations = nodes(arena, 0, NULL),
-        .return_types = nodes(arena, 0, NULL),
-    };
-
-    if (tier >= FnTier_BasicBlock)
-        lam.name = string(arena, name);
-    else
-        assert(name == NULL);
-
-    if (tier >= FnTier_Function) {
-        lam.annotations = annotations;
-        lam.return_types = return_types;
-    } else {
-        assert(annotations.count == 0);
-        assert(return_types.count == 0);
-    }
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = arena,
-        .type = arena->config.check_types ? check_type_lam(arena, lam) : NULL,
-        .tag = Lambda_TAG,
-        .payload.lam = lam
-    };
-    return create_node_helper(arena, node);
-}
-
-static Node* lambda_internal(IrArena* arena, FnTier tier, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
-    Lambda lam = {
-        .tier = tier,
-        .params = params,
-        .body = NULL,
-        .name = NULL,
-        .annotations = nodes(arena, 0, NULL),
-        .return_types = nodes(arena, 0, NULL),
-    };
-
-    if (tier >= FnTier_BasicBlock)
-        lam.name = string(arena, name);
-    else
-        assert(name == NULL);
-
-    if (tier >= FnTier_Function) {
-        lam.annotations = annotations;
-        lam.return_types = return_types;
-    } else {
-        assert(annotations.count == 0);
-        assert(return_types.count == 0);
-    }
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = arena,
-        .type = arena->config.check_types ? check_type_lam(arena, lam) : NULL,
-        .tag = Lambda_TAG,
-        .payload.lam = lam
-    };
-    return create_node_helper(arena, node);
-}
-
-Node* function   (Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
-    Node* fn = lambda_internal(mod->arena, FnTier_Function, params, name, annotations, return_types);
+    Node* fn = create_node_helper(arena, node);
     register_decl_module(mod, fn);
     return fn;
+}
+
+Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
+    BasicBlock payload = {
+        .params = params,
+        .body = NULL,
+        .name = name,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_basic_block(arena, payload) : NULL,
+        .tag = BasicBlock_TAG,
+        .payload.basic_block = payload
+    };
+    return create_node_helper(arena, node);
+}
+
+Node* lambda(IrArena* arena, Nodes params) {
+    AnonLambda payload = {
+        .params = params,
+        .body = NULL,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_anon_lam(arena, payload) : NULL,
+        .tag = AnonLambda_TAG,
+        .payload.anon_lam = payload
+    };
+    return create_node_helper(arena, node);
 }
 
 Node* constant(Module* mod, Nodes annotations, String name) {
@@ -337,12 +288,12 @@ const Type* int16_type(IrArena* arena) { return int_type(arena, (Int) { .width =
 const Type* int32_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy32 }); }
 const Type* int64_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy64 }); }
 
-const Type* int8_literal(IrArena* arena, int8_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy8,    .value_i64 = i }); }
-const Type* int16_literal(IrArena* arena, int16_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy16, .value_i64 = i }); }
-const Type* int32_literal(IrArena* arena, int32_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy32, .value_i64 = i }); }
-const Type* int64_literal(IrArena* arena, int64_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy64, .value_i64 = i }); }
+const Type* int8_literal(IrArena* arena, int8_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy8,    .value.i64 = i }); }
+const Type* int16_literal(IrArena* arena, int16_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy16, .value.i64 = i }); }
+const Type* int32_literal(IrArena* arena, int32_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy32, .value.i64 = i }); }
+const Type* int64_literal(IrArena* arena, int64_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy64, .value.i64 = i }); }
 
-const Type* uint8_literal(IrArena* arena, uint8_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy8,    .value_u64 = i }); }
-const Type* uint16_literal(IrArena* arena, uint16_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy16, .value_u64 = i }); }
-const Type* uint32_literal(IrArena* arena, uint32_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy32, .value_u64 = i }); }
-const Type* uint64_literal(IrArena* arena, uint64_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy64, .value_u64 = i }); }
+const Type* uint8_literal(IrArena* arena, uint8_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy8,    .value.u64 = i }); }
+const Type* uint16_literal(IrArena* arena, uint16_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy16, .value.u64 = i }); }
+const Type* uint32_literal(IrArena* arena, uint32_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy32, .value.u64 = i }); }
+const Type* uint64_literal(IrArena* arena, uint64_t i) { return int_literal(arena, (IntLiteral) { .width = IntTy64, .value.u64 = i }); }

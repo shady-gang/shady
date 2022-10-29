@@ -1,18 +1,35 @@
-#include "shady/ir.h"
+#include "ir_private.h"
 #include "log.h"
 
 #include <assert.h>
 #include <string.h>
 
+bool is_annotation(const Node* node) {
+    switch (node->tag) {
+        case Annotation_TAG:
+        case AnnotationValue_TAG:
+        case AnnotationsList_TAG:
+        case AnnotationsDict_TAG: return true;
+        default: return false;
+    }
+}
+
+String get_annotation_name(const Node* node) {
+    assert(is_annotation(node));
+    switch (node->tag) {
+        case Annotation_TAG:      return node->payload.annotation.name;
+        case AnnotationValue_TAG: return node->payload.annotation_value.name;
+        case AnnotationsList_TAG: return node->payload.annotations_list.name;
+        case AnnotationsDict_TAG: return node->payload.annotations_dict.name;
+        default: return false;
+    }
+}
+
 static const Node* search_annotations(const Node* decl, const char* name, size_t* i) {
     assert(decl);
     const Nodes* annotations = NULL;
     switch (decl->tag) {
-        case Lambda_TAG:
-            if (decl->payload.lam.tier != FnTier_Function)
-                error("Only proper functions have annotations");
-            annotations = &decl->payload.lam.annotations;
-            break;
+        case Function_TAG:annotations = &decl->payload.fun.annotations; break;
         case GlobalVariable_TAG: annotations = &decl->payload.global_variable.annotations; break;
         case Constant_TAG: annotations = &decl->payload.constant.annotations; break;
         default: error("Not a declaration")
@@ -22,7 +39,7 @@ static const Node* search_annotations(const Node* decl, const char* name, size_t
         const Node* annotation = annotations->nodes[*i];
         (*i)++;
         assert(annotation->tag == Annotation_TAG);
-        if (strcmp(annotation->payload.annotation.name, name) == 0) {
+        if (strcmp(get_annotation_name(annotation), name) == 0) {
             return annotation;
         }
     }
@@ -37,16 +54,16 @@ const Node* lookup_annotation(const Node* decl, const char* name) {
 
 const Node* extract_annotation_payload(const Node* annotation) {
     if (!annotation) return NULL;
-    if (annotation->payload.annotation.payload_type != AnPayloadValue)
+    if (annotation->tag != AnnotationValue_TAG)
         error("This annotation does not have a single payload");
-    return annotation->payload.annotation.value;
+    return annotation->payload.annotation_value.value;
 }
 
 const Nodes* extract_annotation_payloads(const Node* annotation) {
     if (!annotation) return NULL;
-    if (annotation->payload.annotation.payload_type != AnPayloadValues)
+    if (annotation->tag != AnnotationsList_TAG)
         error("This annotation does not have multiple payloads");
-    return &annotation->payload.annotation.values;
+    return &annotation->payload.annotations_list.values;
 }
 
 /// Gets the string literal attached to an annotation, if present.

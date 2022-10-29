@@ -297,7 +297,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             assert(ctx->current_function);
             return fn_ret(dst_arena, (Return) {
                 .fn = ctx->current_function,
-                .values = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.args)
+                .args = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.args)
             });
         }
         default: {

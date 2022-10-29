@@ -196,6 +196,8 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
 #define REWRITE_FIELD_STRING(t, n) .n = string(arena, old_payload.n),
 #define REWRITE_FIELD_STRINGS(t, n) .n = import_strings(arena, old_payload.n),
 
+#define REWRITE_FIELD_ANNOTATIONS(t, n) .n = rewrite_nodes(rewriter, old_payload.n),
+
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;
