@@ -14,6 +14,16 @@ Strings import_strings(IrArena*, Strings);
 
 struct Rewriter_ {
     RewriteFn rewrite_fn;
+    struct {
+        RewriteFn rewrite_type;
+        RewriteFn rewrite_value;
+        RewriteFn rewrite_instruction;
+        RewriteFn rewrite_terminator;
+        RewriteFn rewrite_decl;
+        RewriteFn rewrite_anon_lambda;
+        RewriteFn rewrite_basic_block;
+        RewriteFn rewrite_annotation;
+    } rewrite_field_type;
     IrArena* src_arena;
     IrArena* dst_arena;
     Module* src_module;

@@ -75,13 +75,6 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
     return bind_instruction_extra(ctx->bb, let_bound, 1, NULL, NULL).nodes[0];
 }
 
-static RewriteFn rv = (RewriteFn) rewrite_value;
-
-#include "../rewrite_default.h"
-
-#undef rewrite_value
-#define rewrite_value (rv)
-
 static const Node* process_node(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
 
@@ -125,9 +118,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         default: break;
     }
 
-    Rewriter* rewriter = &ctx->rewriter;
-    IrArena* arena = rewriter->dst_arena;
-    #include "../rewrite_cases.h"
+    return recreate_node_identity(&ctx->rewriter, node);
 }
 
 void normalize(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
@@ -135,6 +126,8 @@ void normalize(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
         .bb = NULL,
     };
+
+    ctx.rewriter.rewrite_field_type.rewrite_value = (RewriteFn) rewrite_value;
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
