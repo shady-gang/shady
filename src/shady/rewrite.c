@@ -127,7 +127,7 @@ void rewrite_module(Rewriter* rewriter) {
 
 const Node* recreate_variable(Rewriter* rewriter, const Node* old) {
     assert(old->tag == Variable_TAG);
-    return var(rewriter->dst_arena, rewrite_node(rewriter, old->payload.var.type), old->payload.var.name);
+    return var(rewriter->dst_arena, rewrite_type(rewriter, old->payload.var.type), old->payload.var.name);
 }
 
 Nodes recreate_variables(Rewriter* rewriter, Nodes old) {

@@ -99,15 +99,14 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
         case Constant_TAG: {
             const Constant* oconstant = &node->payload.constant;
             const Type* imported_hint = infer(ctx, oconstant->type_hint, NULL);
-            Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
-            register_processed(&ctx->rewriter, node, nconstant);
 
             const Node* typed_value = infer(ctx, oconstant->value, imported_hint);
-            nconstant->payload.constant.type_hint = NULL;
-            if (is_declaration(typed_value))
-                typed_value = ref_decl(dst_arena, (RefDecl) { .decl = typed_value });
+            assert(is_value(typed_value));
+            imported_hint = extract_operand_type(typed_value->type);
+
+            Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
+            register_processed(&ctx->rewriter, node, nconstant);
             nconstant->payload.constant.value = typed_value;
-            nconstant->type = extract_operand_type(typed_value->type);
 
             return nconstant;
         }
