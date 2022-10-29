@@ -95,7 +95,7 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
                 const Node* index = rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]);
                 return prim_op(dst_arena, (PrimOp) {
                     .op = lea_op,
-                    .operands = nodes(dst_arena, 3, (const Node* []) { src_ptr, NULL, index })
+                    .operands = nodes(dst_arena, 3, (const Node* []) { src_ptr, int32_literal(dst_arena, 0), index })
                 });
             }
         }
@@ -103,58 +103,6 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
     }
     error("This doesn't really look like a place expression...")
 }
-
-/*static Node* rewrite_lambda_head(Context* ctx, const Node* node) {
-    assert(node != NULL && node->tag == Lambda_TAG);
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
-
-    // rebuild the parameters and shove them in the list
-    size_t params_count = node->payload.lam.params.count;
-    LARRAY(const Node*, nparams, params_count);
-    for (size_t i = 0; i < params_count; i++) {
-        const Variable* old_param = &node->payload.lam.params.nodes[i]->payload.var;
-        const Node* new_param = var(dst_arena, rewrite_node(&ctx->rewriter, old_param->type), string(dst_arena, old_param->name));
-
-        nparams[i] = new_param;
-    }
-
-    switch (node->payload.lam.tier) {
-        case FnTier_Lambda:
-            return lambda(dst_arena, nodes(dst_arena, params_count, nparams));
-        case FnTier_BasicBlock:
-            return basic_block(dst_arena, nodes(dst_arena, params_count, nparams), string(dst_arena, node->payload.lam.name));
-        case FnTier_Function:
-            return function(ctx->rewriter.dst_module, nodes(dst_arena, params_count, nparams), string(dst_arena, node->payload.lam.name), rewrite_nodes(&ctx->rewriter, node->payload.lam.annotations), rewrite_nodes(&ctx->rewriter, node->payload.lam.return_types));
-    }
-    SHADY_UNREACHABLE;
-}
-
-static void rewrite_lambda_body(Context* ctx, const Node* node, Node* target) {
-    assert(node != NULL && node->tag == Lambda_TAG);
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
-
-    Context body_infer_ctx = *ctx;
-    // bind the rebuilt parameters for rewriting the body
-    for (size_t i = 0; i < node->payload.lam.params.count; i++) {
-        const Node* param = target->payload.lam.params.nodes[i];
-
-        NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
-        *entry = (NamedBindEntry) {
-            .name = string(dst_arena, param->payload.var.name),
-            .is_var = false,
-            .node = (Node*) param,
-            .next = NULL
-        };
-
-        entry->node = (Node*) param;
-
-        add_binding(&body_infer_ctx, entry);
-        debug_print("Bound param %s\n", entry->name);
-    }
-
-
-}
-*/
 
 static const Node* desugar_let_mut(Context* ctx, const Node* node) {
     assert(node->tag == LetMut_TAG);

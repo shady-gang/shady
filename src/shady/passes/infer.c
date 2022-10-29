@@ -48,7 +48,7 @@ static Nodes infer_nodes(Context* ctx, Nodes nodes) {
 #define rewrite_nodes rewrite_node
 
 static const Node* _infer_annotation(Context* ctx, const Node* node) {
-    assert(node->tag == Annotation_TAG);
+    assert(is_annotation(node));
     switch (node->tag) {
         case Annotation_TAG: return annotation(ctx->rewriter.dst_arena, (Annotation) { .name = node->payload.annotation.name });
         case AnnotationValue_TAG: return annotation_value(ctx->rewriter.dst_arena, (AnnotationValue) { .name = node->payload.annotation_value.name, .value = infer(ctx, node->payload.annotation_value.value, NULL) });
@@ -385,7 +385,7 @@ static const Node* _infer_loop(Context* ctx, const Node* node, const Type* expec
     loop_body_ctx.break_types = &loop_yield_types;
     loop_body_ctx.continue_types = &new_params_types;
 
-    const Node* nbody = infer(&loop_body_ctx, old_body, NULL);
+    const Node* nbody = infer(&loop_body_ctx, old_body, wrap_multiple_yield_types(arena, new_params_types));
     // TODO check new body params match continue types
 
     return loop_instr(ctx->rewriter.dst_arena, (Loop) {

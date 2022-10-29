@@ -47,7 +47,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
             assert(ctx->bb);
             let_bound = prim_op(dst_arena, (PrimOp) {
                 .op = node->payload.prim_op.op,
-                .operands = rewrite_nodes_generic(&ctx->rewriter, (RewriteFn) rewrite_value, node->payload.prim_op.type_arguments),
+                .operands = rewrite_nodes_generic(&ctx->rewriter, (RewriteFn) rewrite_value, node->payload.prim_op.operands),
                 .type_arguments = rewrite_nodes_generic(&ctx->rewriter, (RewriteFn) rewrite_something, node->payload.prim_op.type_arguments),
             });
             break;
@@ -66,7 +66,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
         }
         default: {
             assert(is_value(node));
-            const Node* value_or_type = recreate_node_identity(&ctx->rewriter, node);
+            const Node* value_or_type = rewrite_something(ctx, node);
             assert(is_value(value_or_type));
             return value_or_type;
         }
@@ -103,6 +103,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case BasicBlock_TAG: {
             Node* new = basic_block(ctx->rewriter.dst_arena, (Node*) rewrite_node(&ctx->rewriter, node->payload.basic_block.fn), recreate_variables(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
+            register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new->payload.basic_block.params);
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
@@ -112,6 +113,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case AnonLambda_TAG: {
             Node* new = lambda(ctx->rewriter.dst_arena, recreate_variables(&ctx->rewriter, node->payload.anon_lam.params));
+            register_processed_list(&ctx->rewriter, node->payload.anon_lam.params, new->payload.anon_lam.params);
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
