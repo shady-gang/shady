@@ -28,6 +28,8 @@ void destroy_rewriter(Rewriter*);
 
 void rewrite_module(Rewriter*);
 
+Nodes rewrite_nodes_generic(Rewriter* rewriter, RewriteFn fn, Nodes values);
+
 const Node* rewrite_node(Rewriter*, const Node*);
 
 /// Rewrites a node using the rewriter to provide the node and type operands

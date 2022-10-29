@@ -114,10 +114,12 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
             break;
         }
         case Switch_TAG: error("TODO")
+        case LetMut_TAG:
         case Let_TAG: {
             process_instruction(ctx, node, terminator->payload.let.instruction);
             const Node* target = terminator->payload.let.tail;
             add_edge(ctx, abs, target, LetTailEdge);
+            break;
         }
         case Join_TAG: {
             break;
