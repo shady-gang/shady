@@ -12,6 +12,7 @@ Nodes gen_primop_c(BodyBuilder* bb, Op op, size_t operands_count, const Node* op
 const Node* gen_primop_ce(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]);
 const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes);
 
+const Node* gen_reinterpret_cast(BodyBuilder* bb, const Type* dst, const Node* src);
 const Node* gen_merge_i32s_i64(BodyBuilder*, const Node* lo, const Node* hi);
 
 const Node* gen_load(BodyBuilder*, const Node* ptr);

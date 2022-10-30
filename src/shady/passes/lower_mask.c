@@ -32,7 +32,7 @@ const Node* process_let(Context* ctx, const Node* node) {
                 BodyBuilder* bb = begin_body(arena);
                 const Node* mask = rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
                 const Node* index = rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
-                index = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []) { int64_type(arena), index });
+                index = gen_reinterpret_cast(bb, int64_type(arena), index);
                 const Node* acc = mask;
                 // acc >>= index
                 acc = gen_primop_ce(bb, rshift_logical_op, 2, (const Node* []) { acc, index });

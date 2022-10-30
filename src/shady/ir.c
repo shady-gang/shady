@@ -92,6 +92,17 @@ Strings strings(IrArena* arena, size_t count, const char* in_strs[])  {
     return strings;
 }
 
+Nodes singleton(const Type* type) {
+    IrArena* arena = type->arena;
+    const Type* arr[] = { type };
+    return nodes(arena, 1, arr);
+}
+
+const Node* first(Nodes nodes) {
+    assert(nodes.count > 0);
+    return nodes.nodes[0];
+}
+
 Nodes append_nodes(IrArena* arena, Nodes old, const Node* new) {
     LARRAY(const Node*, tmp, old.count + 1);
     for (size_t i = 0; i < old.count; i++)

@@ -123,12 +123,12 @@ static const Node* process_let(Context* ctx, const Node* node) {
             }
             case reinterpret_op: {
                 BodyBuilder* bb = begin_body(arena);
-                const Type* source_type = oprim_op->operands.nodes[1]->type;
+                const Type* source_type = first(oprim_op->type_arguments);
                 source_type = extract_operand_type(source_type);
                 if (source_type->tag != PtrType_TAG || !is_as_emulated(ctx, source_type->payload.ptr_type.address_space))
                     break;
                 // emulated physical pointers do not care about pointers, they're just ints :frog:
-                const Node* imported = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
+                const Node* imported = rewrite_node(&ctx->rewriter, first(oprim_op->operands));
                 return finish_body(bb, let(arena, quote(arena, imported), tail));
             }
             // lowering for either kind of memory accesses is similar

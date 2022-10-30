@@ -27,6 +27,12 @@ typedef struct Strings_ {
 Nodes     nodes(IrArena*, size_t count, const Node*[]);
 Strings strings(IrArena*, size_t count, const char*[]);
 
+#define empty(arena) nodes(arena, 0, NULL)
+Nodes singleton(const Node* type);
+#define mk_nodes(arena, ...) nodes(arena, sizeof((const Node*[]) { __VA_ARGS__ }) / sizeof(const Node*), (const Node*[]) { __VA_ARGS__ })
+
+const Node* first(Nodes nodes);
+
 Nodes append_nodes(IrArena*, Nodes, const Node*);
 Nodes concat_nodes(IrArena*, Nodes, Nodes);
 

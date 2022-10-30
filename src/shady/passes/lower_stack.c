@@ -55,7 +55,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             case pop_stack_op:
             case pop_stack_uniform_op: {
                 BodyBuilder* bb = begin_body(arena);
-                const Type* element_type = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
+                const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
                 TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
                 const Node* element_size = int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes));
 
@@ -75,7 +75,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 assert(extract_operand_type(addr->type)->tag == PtrType_TAG);
                 AddressSpace addr_space = extract_operand_type(addr->type)->payload.ptr_type.address_space;
 
-                addr = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []) { ptr_type(arena, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr });
+                addr = gen_reinterpret_cast(bb, ptr_type(arena, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr);
 
                 if (uniform) {
                     assert(is_operand_uniform(stack_pointer->type));

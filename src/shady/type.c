@@ -11,13 +11,6 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-#define empty() nodes(arena, 0, NULL)
-#define singleton(t) singleton_impl(arena, t)
-Nodes singleton_impl(IrArena* arena, const Type* type) {
-    const Type* arr[] = { type };
-    return nodes(arena, 1, arr);
-}
-
 bool are_types_identical(size_t num_types, const Type* types[]) {
     for (size_t i = 0; i < num_types; i++) {
         assert(types[i]);

@@ -45,13 +45,18 @@ void gen_push_values_stack(BodyBuilder* instructions, Nodes values) {
 
 const Node* gen_pop_value_stack(BodyBuilder* bb, const Type* type) {
     const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = pop_stack_op, .type_arguments = nodes(bb->arena, 1, (const Node*[]) { type }) });
-    return bind_instruction(bb, instruction).nodes[0];
+    return first(bind_instruction(bb, instruction));
+}
+
+const Node* gen_reinterpret_cast(BodyBuilder* bb, const Type* dst, const Node* src) {
+    assert(is_type(dst));
+    return first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = reinterpret_op, .operands = singleton(src), .type_arguments = singleton(dst)})));
 }
 
 const Node* gen_merge_i32s_i64(BodyBuilder* bb, const Node* lo, const Node* hi) {
     // widen them
-    lo = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []) {int64_type(bb->arena), lo});
-    hi = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []) {int64_type(bb->arena), hi});
+    lo = gen_reinterpret_cast(bb, int64_type(bb->arena), lo);
+    hi = gen_reinterpret_cast(bb, int64_type(bb->arena), hi);
     // shift hi by 32
     hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []) { hi, int64_literal(bb->arena, 32) });
     // Merge the two
