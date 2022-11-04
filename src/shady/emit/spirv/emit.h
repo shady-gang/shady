@@ -27,6 +27,8 @@ typedef struct Emitter_ {
 
 SpvStorageClass emit_addr_space(AddressSpace address_space);
 
+void emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id);
+
 SpvId emit_type(Emitter* emitter, const Type* type);
 SpvId emit_value(Emitter* emitter, const Node* node);
 SpvId emit_builtin(Emitter* emitter, VulkanBuiltins builtin);

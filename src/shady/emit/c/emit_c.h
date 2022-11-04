@@ -33,10 +33,12 @@ typedef struct {
 #define emit_value c_emit_value
 #define emit_instruction c_emit_instruction
 #define emit_lambda_body c_emit_lambda_body
+#define emit_decl c_emit_decl
 
 void register_emitted(Emitter*, const Node*, String);
 void register_emitted_list(Emitter*, Nodes, Strings);
 
+String emit_decl(Emitter* emitter, const Node* decl);
 String emit_type(Emitter* emitter, const Type* type, const char* identifier);
 String emit_value(Emitter* emitter, const Node* value);
 Strings emit_values(Emitter* emitter, Nodes);

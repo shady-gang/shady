@@ -101,8 +101,8 @@ bool is_subtype(const Type* supertype, const Type* type) {
             return supertype->payload.pack_type.width == type->payload.pack_type.width
             && is_subtype(supertype->payload.pack_type.element_type, type->payload.pack_type.element_type);
         }
-        case NominalType_TAG: {
-            return supertype == type;
+        case Type_TypeDeclRef_TAG: {
+            return supertype->payload.type_decl_ref.decl == type->payload.type_decl_ref.decl;
         }
         case Unit_TAG:
         case NoRet_TAG:

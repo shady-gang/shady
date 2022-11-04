@@ -318,8 +318,8 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             printf(")");
             break;
         }
-        case NominalType_TAG: {
-            printf("%s", node->payload.nom_type.name);
+        case TypeDeclRef_TAG: {
+            printf("%s", get_decl_name(node->payload.type_decl_ref.decl));
         }
     }
     printf(RESET);
@@ -664,6 +664,20 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(" %s", fun->name);
             printf(RESET);
             print_function(ctx, node);
+            printf(";\n\n");
+            break;
+        }
+        case NominalType_TAG: {
+            const NominalType* nom = &node->payload.nom_type;
+            print_annotations(ctx, nom->annotations);
+            printf(BLUE);
+            printf("type");
+            printf(RESET);
+            printf(BYELLOW);
+            printf(" %s", nom->name);
+            printf(RESET);
+            printf(" = ");
+            print_type(ctx, nom->body);
             printf(";\n\n");
             break;
         }

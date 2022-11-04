@@ -128,10 +128,8 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             emitted = format_string(emitter->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", type->payload.pack_type.width, emitted, emitted);
             break;
         }
-        case Type_NominalType_TAG: {
-            emitted = type->payload.nom_type.name;
-            insert_dict(const Node*, String, emitter->emitted, type, emitted);
-            print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, type->payload.nom_type.body, emitted));
+        case Type_TypeDeclRef_TAG: {
+            emitted = emit_decl(emitter, type->payload.type_decl_ref.decl);
             goto type_goes_on_left;
         }
     }

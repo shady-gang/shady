@@ -289,10 +289,12 @@ Node* global_var(Module* mod, Nodes annotations, const Type* type, const char* n
     return decl;
 }
 
-Type* nominal_type(Module* mod, String name) {
+Type* nominal_type(Module* mod, Nodes annotations, String name) {
     IrArena* arena = mod->arena;
     NominalType payload = {
         .name = string(arena, name),
+        .module = mod,
+        .annotations = annotations,
         .body = NULL,
     };
 

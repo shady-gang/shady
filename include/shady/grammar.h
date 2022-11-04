@@ -24,7 +24,7 @@ N(1, 0, 1, PtrType, ptr_type) \
 N(1, 1, 1, QualifiedType, qualified_type) \
 N(1, 0, 1, ArrType, arr_type) \
 N(1, 1, 1, PackType, pack_type) \
-N(0, 0, 1, NominalType, nom_type) \
+N(1, 0, 1, TypeDeclRef, type_decl_ref) \
 
 #define VALUE_NODES(N) \
 N(0, 1, 1, Variable, var) \
@@ -66,6 +66,7 @@ N(1, 1, 0, Unreachable, unreachable) \
 N(0, 1, 1, Function, fun) \
 N(0, 1, 1, Constant, constant) \
 N(0, 1, 1, GlobalVariable, global_variable) \
+N(0, 0, 1, NominalType, nom_type) \
 
 #define ANNOTATION_NODES(N) \
 N(1, 0, 1, Annotation, annotation) \
@@ -183,10 +184,9 @@ typedef struct PackType_ PackType;
 MkField(1, TYPE, const Type*, element_type) \
 MkField(1, POD, int, width)
 
-typedef struct NominalType_ NominalType;
-#define NominalType_Fields(MkField) \
-MkField(1, STRING, String, name) \
-MkField(1, TYPE, const Type*, body)
+typedef struct TypeDeclRef_ TypeDeclRef;
+#define TypeDeclRef_Fields(MkField) \
+MkField(1, DECL, const Node*,  decl)
 
 //////////////////////////////// Values ////////////////////////////////
 
@@ -398,6 +398,13 @@ MkField(0, POD, Module*, module) \
 MkField(1, STRING, String, name) \
 MkField(1, POD, AddressSpace, address_space) \
 MkField(0, VALUE, const Node*, init)
+
+typedef struct NominalType_ NominalType;
+#define NominalType_Fields(MkField) \
+MkField(1, ANNOTATIONS, Nodes, annotations) \
+MkField(0, POD, Module*, module) \
+MkField(1, STRING, String, name) \
+MkField(1, TYPE, const Type*, body)
 
 //////////////////////////////// Misc ////////////////////////////////
 

@@ -77,6 +77,7 @@ String get_decl_name(const Node* node) {
         case Constant_TAG: return node->payload.constant.name;
         case Function_TAG: return node->payload.fun.name;
         case GlobalVariable_TAG: return node->payload.global_variable.name;
+        case NominalType_TAG: return node->payload.nom_type.name;
         default: error("Not a decl !");
     }
 }

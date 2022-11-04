@@ -72,7 +72,7 @@ inline static size_t round_up(size_t a, size_t b) {
     return divided * b;
 }
 
-static void emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
+void emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
     switch (type->tag) {
         case RecordType_TAG: {
             Nodes member_types = type->payload.record_type.members;
@@ -176,11 +176,11 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             emit_nominal_type_body(emitter, type, new);
             break;
         }
-        case NominalType_TAG: {
-            new = spvb_fresh_id(emitter->file_builder);
-            insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
-            emit_nominal_type_body(emitter, type, new);
-            return new;
+        case Type_TypeDeclRef_TAG: {
+            SpvId* found = find_value_dict(const Node*, SpvId, emitter->node_ids, type->payload.type_decl_ref.decl);
+            assert(found);
+            new = *found;
+            break;
         }
         case Type_MaskType_TAG:
         case Type_JoinPointType_TAG: error("These must be lowered beforehand")

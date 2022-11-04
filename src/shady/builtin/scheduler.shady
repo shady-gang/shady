@@ -1,6 +1,16 @@
 subgroup i32 next_fn;
 subgroup mask next_mask;
 
+type TreeNode = struct {
+    mask threads;
+    i32 depth;
+};
+
+type JoinPoint = struct {
+    TreeNode node;
+    i32 destination;
+};
+
 subgroup [i32; MASK_SIZE] resume_at;
 subgroup [mask; MASK_SIZE] resume_with;
 

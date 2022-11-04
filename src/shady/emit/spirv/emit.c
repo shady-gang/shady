@@ -785,13 +785,16 @@ static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
             // but we also desire to cache reused values instead of emitting them multiple times. This means we can't really "force" an ID for a given value.
             // The ideal fix would be if SPIR-V offered a way to "alias" an ID under a new one. This would allow applying new debug information to the decl ID, separate from the other instances of that value.
             break;
+        } case NominalType_TAG: {
+            emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
+            spvb_name(emitter->file_builder, given_id, decl->payload.nom_type.name);
+            break;
         }
         default: error("unhandled declaration kind")
     }
 }
 
 static void emit_decls(Emitter* emitter, Nodes declarations) {
-
      // First reserve IDs for declarations
     LARRAY(SpvId, ids, declarations.count);
     for (size_t i = 0; i < declarations.count; i++) {

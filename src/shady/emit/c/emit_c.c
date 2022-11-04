@@ -12,7 +12,6 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static String emit_decl(Emitter* emitter, const Node* decl);
 static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator);
 
 String emit_fn_head(Emitter* emitter, const Node* fn) {
@@ -245,7 +244,7 @@ String emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
     return printer_growy_unwrap(p);
 }
 
-static String emit_decl(Emitter* emitter, const Node* decl) {
+String emit_decl(Emitter* emitter, const Node* decl) {
     assert(is_declaration(decl));
 
     String* found = find_value_dict(const Node*, String, emitter->emitted, decl);
@@ -289,6 +288,12 @@ static String emit_decl(Emitter* emitter, const Node* decl) {
             decl_center = format_string(emitter->arena, "const %s", decl_center);
             print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl->type, decl_center), emit_value(emitter, decl->payload.constant.value));
             break;
+        }
+        case NominalType_TAG: {
+            String emitted = decl->payload.nom_type.name;
+            register_emitted(emitter, decl, emitted);
+            print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted));
+            return emitted;
         }
         default: error("not a decl");
     }
