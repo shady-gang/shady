@@ -28,6 +28,7 @@ TEXT_TOKEN(var) \
 TEXT_TOKEN(let) \
 TEXT_TOKEN(ptr) \
 TEXT_TOKEN(fn) \
+TEXT_TOKEN(type) \
 TEXT_TOKEN(cont) \
 TEXT_TOKEN(i8) \
 TEXT_TOKEN(i16) \

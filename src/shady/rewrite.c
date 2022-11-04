@@ -9,6 +9,8 @@
 
 #include <assert.h>
 
+#pragma GCC diagnostic error "-Wswitch-enum"
+
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
@@ -156,7 +158,7 @@ Nodes recreate_variables(Rewriter* rewriter, Nodes old) {
 
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
-    switch (old->tag) {
+    switch (is_declaration(old)) {
         case GlobalVariable_TAG: {
             new = global_var(rewriter->dst_module,
                              rewrite_nodes_generic(rewriter, rewrite_annotation, old->payload.global_variable.annotations),
@@ -179,7 +181,11 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
             register_processed_list(rewriter, old->payload.fun.params, new->payload.fun.params);
             break;
         }
-        default: error("not a decl");
+        case NominalType_TAG: {
+            new = nominal_type(rewriter->dst_module, rewrite_nodes_generic(rewriter, rewrite_annotation, old->payload.nom_type.annotations), old->payload.nom_type.name);
+            break;
+        }
+        case NotADecl: error("not a decl");
     }
     assert(new);
     register_processed(rewriter, old, new);
@@ -187,8 +193,8 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
 }
 
 void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new) {
-    assert(is_declaration(new) && is_declaration(old));
-    switch (old->tag) {
+    assert(is_declaration(new));
+    switch (is_declaration(old)) {
         case GlobalVariable_TAG: {
             new->payload.global_variable.init = rewrite_value(rewriter, old->payload.global_variable.init);
             break;
@@ -203,7 +209,11 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             new->payload.fun.body = rewrite_terminator(rewriter, old->payload.fun.body);
             break;
         }
-        default: error("not a decl");
+        case NominalType_TAG: {
+            new->payload.nom_type.body = rewrite_type(rewriter, old->payload.nom_type.body);
+            break;
+        }
+        case NotADecl: error("not a decl");
     }
 }
 
@@ -243,12 +253,12 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         NODES(REWRITE_NODE)
         case Function_TAG:
         case Constant_TAG:
-        case GlobalVariable_TAG: {
+        case GlobalVariable_TAG:
+        case NominalType_TAG: {
             Node* new = recreate_decl_header_identity(rewriter, node);
             recreate_decl_body_identity(rewriter, node, new);
             return new;
         }
-        case NominalType_TAG: error("TODO")
         case Variable_TAG: return var(arena, rewrite_type(rewriter, node->payload.var.type), node->payload.var.name);
         case Tuple_TAG: return tuple(arena, rewrite_nodes_generic(rewriter, rewrite_value, node->payload.tuple.contents));
         case Let_TAG: {

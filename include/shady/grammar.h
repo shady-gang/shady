@@ -535,16 +535,20 @@ INSTRUCTION_NODES(X)
 
 InstructionTag is_instruction(const Node*);
 
+typedef enum {
+    NotADecl = 0,
+#define X(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) Decl_##struct_name##_TAG = struct_name##_TAG,
+DECL_NODES(X)
+#undef X
+} DeclTag;
+
+DeclTag is_declaration(const Node*);
+
 inline static bool is_nominal(const Node* node) {
     NodeTag tag = node->tag;
     if (node->tag == PrimOp_TAG && has_primop_got_side_effects(node->payload.prim_op.op))
         return true;
     return tag == Function_TAG || tag == AnonLambda_TAG || tag == BasicBlock_TAG || tag == Constant_TAG || tag == Variable_TAG || tag == GlobalVariable_TAG;
-}
-
-inline static bool is_declaration(const Node* node) {
-    NodeTag tag = node->tag;
-    return tag == Function_TAG || tag == GlobalVariable_TAG || tag == Constant_TAG;
 }
 
 inline static bool is_arrow_type(const Node* node) {

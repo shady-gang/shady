@@ -155,7 +155,34 @@ static const Type* accept_unqualified_type(ctxparams) {
             .element_type = elem_type,
             .size = expr
         });
+    } else if (accept_token(ctx, struct_tok)) {
+        expect(accept_token(ctx, lbracket_tok));
+        struct List* names = new_list(String);
+        struct List* types = new_list(const Type*);
+        while (true) {
+            if (accept_token(ctx, rbracket_tok))
+                break;
+            const Type* elem = accept_unqualified_type(ctx);
+            expect(elem);
+            String id = accept_identifier(ctx);
+            expect(id);
+            append_list(String, names, id);
+            append_list(const Type*, types, elem);
+            expect(accept_token(ctx, semi_tok));
+        }
+        Nodes elem_types = nodes(arena, entries_count_list(types), read_list(const Type*, types));
+        Strings names2 = strings(arena, entries_count_list(names), read_list(String, names));
+        destroy_list(names);
+        destroy_list(types);
+        return record_type(arena, (RecordType) {
+            .names = names2,
+            .members = elem_types,
+            .special = NotSpecial,
+        });
     } else {
+        String id = accept_identifier(ctx);
+        if (id)
+            return unbound(arena, (Unbound) { .name = id });
 
         return NULL;
     }
@@ -808,6 +835,23 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     return gv;
 }
 
+static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
+    if (!accept_token(ctx, type_tok))
+        return NULL;
+
+    const char* id = accept_identifier(ctx);
+    expect(id);
+
+    expect(accept_token(ctx, equal_tok));
+
+    Node* nom = nominal_type(mod, annotations, id);
+    nom->payload.nom_type.body = accept_unqualified_type(ctx);
+    assert(nom->payload.nom_type.body);
+
+    expect(accept_token(ctx, semi_tok));
+    return nom;
+}
+
 void parse(ParserConfig config, const char* contents, Module* mod) {
     IrArena* arena = get_module_arena(mod);
     Tokenizer* tokenizer = new_tokenizer(contents);
@@ -822,7 +866,8 @@ void parse(ParserConfig config, const char* contents, Module* mod) {
         const Node* decl = accept_const(ctx, annotations);
         if (!decl)  decl = accept_fn_decl(ctx, annotations);
         if (!decl)  decl = accept_global_var_decl(ctx, annotations);
-        
+        if (!decl)  decl = accept_nominal_type_decl(ctx, annotations);
+
         if (decl) {
             debug_print("decl parsed : ");
             debug_node(decl);
