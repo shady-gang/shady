@@ -15,10 +15,17 @@ typedef struct Context_ {
 
 static const Node* process_node(Context* ctx, const Node* node);
 static const Node* force_to_be_value(Context* ctx, const Node* node);
+static const Node* force_to_be_type(Context* ctx, const Node* node);
 
 static const Node* rewrite_value(Context* ctx, const Node* node) {
     Context ctx2 = *ctx;
     ctx2.rewriter.rewrite_fn = (RewriteFn) force_to_be_value;
+    return rewrite_node(&ctx2.rewriter, node);
+}
+
+static const Node* rewrite_type(Context* ctx, const Node* node) {
+    Context ctx2 = *ctx;
+    ctx2.rewriter.rewrite_fn = (RewriteFn) force_to_be_type;
     return rewrite_node(&ctx2.rewriter, node);
 }
 
@@ -66,13 +73,29 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
         }
         default: {
             assert(is_value(node));
-            const Node* value_or_type = rewrite_something(ctx, node);
-            assert(is_value(value_or_type));
-            return value_or_type;
+            const Node* value = rewrite_something(ctx, node);
+            assert(is_value(value));
+            return value;
         }
     }
 
     return bind_instruction_extra(ctx->bb, let_bound, 1, NULL, NULL).nodes[0];
+}
+
+static const Node* force_to_be_type(Context* ctx, const Node* node) {
+    switch (node->tag) {
+        case NominalType_TAG: {
+            return type_decl_ref(ctx->rewriter.dst_arena, (TypeDeclRef) {
+                .decl = rewrite_something(ctx, node),
+            });
+        }
+        default: {
+            assert(is_type(node));
+            const Node* type = rewrite_something(ctx, node);
+            assert(is_type(type));
+            return type;
+        }
+    }
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -128,6 +151,7 @@ void normalize(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     };
 
     ctx.rewriter.rewrite_field_type.rewrite_value = (RewriteFn) rewrite_value;
+    ctx.rewriter.rewrite_field_type.rewrite_type = (RewriteFn) rewrite_type;
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
