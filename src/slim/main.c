@@ -224,5 +224,6 @@ int main(int argc, const char** argv) {
     info_print("Done\n");
 
     destroy_ir_arena(arena);
+    destroy_ir_arena(get_module_arena(mod));
     return NoError;
 }

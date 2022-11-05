@@ -10,6 +10,7 @@ Module* new_module(IrArena* arena, String name) {
         .name = string(arena, name),
         .decls = new_list(Node*),
     };
+    append_list(Module*, arena->modules, m);
     return m;
 }
 
@@ -30,4 +31,8 @@ Nodes get_module_declarations(const Module* m) {
 void register_decl_module(Module* mod, Node* node) {
     assert(is_declaration(node));
     append_list(Node*, mod->decls, node);
+}
+
+void destroy_module(Module* m) {
+    destroy_list(m->decls);
 }

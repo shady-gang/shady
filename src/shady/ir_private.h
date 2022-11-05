@@ -13,6 +13,7 @@ typedef struct IrArena_ {
     ArenaConfig config;
 
     VarId next_free_id;
+    struct List* modules;
 
     struct Dict* node_set;
     struct Dict* string_set;
@@ -28,6 +29,7 @@ struct Module_ {
 };
 
 void register_decl_module(Module*, Node*);
+void destroy_module(Module* m);
 
 struct BodyBuilder_ {
     IrArena* arena;

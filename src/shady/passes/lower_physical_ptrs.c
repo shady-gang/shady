@@ -134,13 +134,13 @@ static const Node* process_let(Context* ctx, const Node* node) {
             // lowering for either kind of memory accesses is similar
             case load_op:
             case store_op: {
-                BodyBuilder* bb = begin_body(arena);
                 const Node* old_ptr = oprim_op->operands.nodes[0];
                 const Type* ptr_type = old_ptr->type;
                 ptr_type = extract_operand_type(ptr_type);
                 assert(ptr_type->tag == PtrType_TAG);
                 if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                     break;
+                BodyBuilder* bb = begin_body(arena);
 
                 const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
 

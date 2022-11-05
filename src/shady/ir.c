@@ -32,6 +32,8 @@ IrArena* new_ir_arena(ArenaConfig config) {
 
         .next_free_id = 0,
 
+        .modules = new_list(Module*),
+
         .node_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .string_set = new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
 
@@ -42,6 +44,11 @@ IrArena* new_ir_arena(ArenaConfig config) {
 }
 
 void destroy_ir_arena(IrArena* arena) {
+    for (size_t i = 0; i < entries_count_list(arena->modules); i++) {
+        destroy_module(read_list(Module*, arena->modules)[i]);
+    }
+
+    destroy_list(arena->modules);
     destroy_dict(arena->strings_set);
     destroy_dict(arena->string_set);
     destroy_dict(arena->nodes_set);
