@@ -126,9 +126,12 @@ static const Node* process(Context* ctx, const Node* old) {
             return fun;
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
+        case JoinPointType_TAG: return type_decl_ref(dst_arena, (TypeDeclRef) {
+            .decl = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "JoinPoint"),
+        });
         case Let_TAG: {
-            if (ctx->disable_lowering)
-                return recreate_node_identity(&ctx->rewriter, old);
+            //if (ctx->disable_lowering)
+            //    return recreate_node_identity(&ctx->rewriter, old);
 
             const Node* old_instruction = old->payload.let.instruction;
             if (old_instruction->tag == Control_TAG) {
@@ -147,8 +150,8 @@ static const Node* process(Context* ctx, const Node* old) {
             return recreate_node_identity(&ctx->rewriter, old);
         }
         case TailCall_TAG: {
-            if (ctx->disable_lowering)
-                return recreate_node_identity(&ctx->rewriter, old);
+            //if (ctx->disable_lowering)
+            //    return recreate_node_identity(&ctx->rewriter, old);
             BodyBuilder* bb = begin_body(dst_arena);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.tail_call.args));
             /*const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
@@ -162,8 +165,8 @@ static const Node* process(Context* ctx, const Node* old) {
             return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));
         }
         case Join_TAG: {
-            if (ctx->disable_lowering)
-                return recreate_node_identity(&ctx->rewriter, old);
+            //if (ctx->disable_lowering)
+            //    return recreate_node_identity(&ctx->rewriter, old);
 
             BodyBuilder* bb = begin_body(dst_arena);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
