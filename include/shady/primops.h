@@ -37,6 +37,7 @@ P(0, lea)                       \
 P(0, select)                    \
 P(0, convert)                   \
 P(0, reinterpret)               \
+P(0, make)                      \
 P(0, extract)                   \
 P(0, extract_dynamic)           \
 P(1, push_stack)                \

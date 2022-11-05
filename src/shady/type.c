@@ -584,6 +584,20 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = curr_ptr_type
             });
         }
+        case make_op: {
+            assert(prim_op.type_arguments.count == 1);
+            assert(prim_op.operands.count == 1);
+            const Type* dst_type = first(prim_op.type_arguments);
+            const Node* src = first(prim_op.operands);
+            assert(!contains_qualified_type(dst_type));
+            assert(dst_type->tag == TypeDeclRef_TAG);
+            const Node* nom_type = dst_type->payload.type_decl_ref.decl;
+            assert(is_subtype(nom_type->payload.nom_type.body, src));
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = is_operand_uniform(src->type),
+                .type = dst_type,
+            });
+        }
         case reinterpret_op: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);
@@ -664,6 +678,12 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                         assert(!dynamic_index);
                         current_type = current_type->payload.arr_type.element_type;
                         continue;
+                    }
+                    case TypeDeclRef_TAG: {
+                        assert(!dynamic_index);
+                        const Node* nom_decl = current_type->payload.type_decl_ref.decl;
+                        assert(nom_decl->tag == NominalType_TAG);
+                        current_type = nom_decl->payload.nom_type.body;
                     }
                     case PackType_TAG: {
                         current_type = current_type->payload.pack_type.element_type;

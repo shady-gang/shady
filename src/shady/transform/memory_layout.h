@@ -14,7 +14,7 @@ static inline size_t bytes_to_i32_cells(size_t size_in_bytes) {
     return (size_in_bytes + 3) / 4;
 }
 
-const Node* gen_deserialisation(BodyBuilder*, const Type* element_type, const Node* arr, const Node* base_offset);
-void gen_serialisation(BodyBuilder*, const Type* element_type, const Node* arr, const Node* base_offset, const Node* value);
+const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder*, const Type* element_type, const Node* arr, const Node* base_offset);
+       void   gen_serialisation(const CompilerConfig* config, BodyBuilder*, const Type* element_type, const Node* arr, const Node* base_offset, const Node* value);
 
 #endif

@@ -164,11 +164,11 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
                 const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
                 if (oprim_op->op == load_op) {
-                    const Node* result = gen_deserialisation(bb, element_type, base, pointer_as_offset);
+                    const Node* result = gen_deserialisation(ctx->config, bb, element_type, base, pointer_as_offset);
                     return finish_body(bb, let(arena, quote(arena, result), tail));
                 } else {
                     const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
-                    gen_serialisation(bb, element_type, base, pointer_as_offset, value);
+                    gen_serialisation(ctx->config, bb, element_type, base, pointer_as_offset, value);
                     return finish_body(bb, tail);
                 }
                 SHADY_UNREACHABLE;

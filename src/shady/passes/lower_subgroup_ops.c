@@ -34,7 +34,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
 
                 const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = int32_literal(arena, 2) });
                 const Node* local_array = gen_primop_ce(builder, alloca_logical_op, 1, (const Node* []) { local_arr_ty });
-                gen_serialisation(builder, operand_type, local_array, int32_literal(arena, 0), operand);
+                gen_serialisation(ctx->config, builder, operand_type, local_array, int32_literal(arena, 0), operand);
 
                 for (int32_t j = 0; j < 2; j++) {
                     const Node* logical_addr = gen_lea(builder, local_array, NULL, nodes(arena, 1, (const Node* []) { int32_literal(arena, j) }));
@@ -42,7 +42,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
                     const Node* partial_result = gen_primop_ce(builder, subgroup_broadcast_first_op, 1, (const Node* []) { input });
                     gen_store(builder, logical_addr, partial_result);
                 }
-                const Node* result = gen_deserialisation(builder, operand_type, local_array, int32_literal(arena, 0));
+                const Node* result = gen_deserialisation(ctx->config, builder, operand_type, local_array, int32_literal(arena, 0));
                 return finish_body(builder, let(arena, quote(arena, result), tail));
             }
             default: break;
