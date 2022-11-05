@@ -167,6 +167,8 @@ const Type* uint64_literal(IrArena* arena, uint64_t i);
 /// Turns a value into an 'instruction' (the enclosing let will be folded away later)
 /// Useful for local rewrites
 const Node* quote(IrArena* arena, const Node* value);
+/// Produces a nothing value, same use as quote
+const Node* unit(IrArena* arena);
 
 //////////////////////////////// Compilation ////////////////////////////////
 

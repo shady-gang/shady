@@ -47,7 +47,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 bool uniform = oprim_op->op == set_stack_pointer_uniform_op;
                 const Node* val = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
                 gen_store(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer, val);
-                return finish_body(bb, tail);
+                return finish_body(bb, let(arena, unit(arena), tail));
             }
 
             case push_stack_op:
@@ -97,7 +97,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 gen_store(bb, stack_pointer, stack_size);
 
                 if (push)
-                    return finish_body(bb, tail);
+                    return finish_body(bb, let(arena, unit(arena), tail));
 
                 assert(popped_value);
                 return finish_body(bb, let(arena, quote(arena, popped_value), tail));

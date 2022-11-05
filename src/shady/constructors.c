@@ -318,7 +318,15 @@ const Node* quote(IrArena* arena, const Node* value) {
          .type_arguments = nodes(arena, 0, NULL),
          .operands = nodes(arena, 1, (const Node*[]){ value })
      });
- }
+}
+
+const Node* unit(IrArena* arena) {
+     return prim_op(arena, (PrimOp) {
+         .op = unit_op,
+         .type_arguments = empty(arena),
+         .operands = empty(arena),
+     });
+}
 
 const Type* int8_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy8 }); }
 const Type* int16_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy16 }); }

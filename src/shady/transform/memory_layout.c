@@ -57,11 +57,11 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
 }
 
 const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset) {
+    const Node* zero = int32_literal(bb->arena, 0);
     switch (element_type->tag) {
         case Bool_TAG: {
-            const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset });
+            const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
             const Node* value = gen_load(bb, logical_ptr);
-            const Node* zero = int32_literal(bb->arena, 0);
             return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, zero});
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
@@ -71,18 +71,18 @@ const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder* bb, c
         case Int_TAG: ser_int: {
             if (element_type->payload.int_type.width != IntTy64) {
                 // One load suffices
-                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset });
+                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
                 const Node* value = gen_load(bb, logical_ptr);
                 // cast into the appropriate width and throw other bits away
                 // note: folding gets rid of identity casts
-                value = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []){ element_type, value});
+                value = gen_primop_e(bb, reinterpret_op, singleton(element_type), singleton(value));
                 return value;
             } else {
                 // We need to decompose this into two loads, then we use the merge routine
-                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset });
+                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
                 const Node* lo = gen_load(bb, logical_ptr);
                 const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
-                            logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, hi_destination_offset });
+                            logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset });
                 const Node* hi = gen_load(bb, logical_ptr);
                 return gen_merge_i32s_i64(bb, lo, hi);
             }
@@ -102,17 +102,17 @@ const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder* bb, c
             const Node* nom = element_type->payload.type_decl_ref.decl;
             assert(nom && nom->tag == NominalType_TAG);
             const Node* body = gen_deserialisation(config, bb, nom->payload.nom_type.body, arr, base_offset);
-            return first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = make_op, .type_arguments = singleton(nom), .operands = singleton(body) })));
+            return first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = make_op, .type_arguments = singleton(element_type), .operands = singleton(body) })));
         }
         default: error("TODO");
     }
 }
 
 void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset, const Node* value) {
+    const Node* zero = int32_literal(bb->arena, 0);
     switch (element_type->tag) {
         case Bool_TAG: {
-            const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset });
-            const Node* zero = int32_literal(bb->arena, 0);
+            const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
             const Node* one = int32_literal(bb->arena, 1);
             const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one, zero });
             gen_store(bb, logical_ptr, int_value);
@@ -125,18 +125,18 @@ void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, const Type
         case Int_TAG: des_int: {
             // Same story as for deser
             if (element_type->payload.int_type.width != IntTy64) {
-                value = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []){ int32_type(bb->arena), value });
-                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset});
+                value = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(value));
+                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
                 gen_store(bb, logical_ptr, value);
             } else {
-                const Node* lo = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []){ int32_type(bb->arena), value });
+                const Node* lo = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(value));
                 const Node* hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []){ value, int64_literal(bb->arena, 32) });
-                hi = gen_primop_ce(bb, reinterpret_op, 2, (const Node* []){ int32_type(bb->arena), hi });
+                hi = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(hi));
                 // TODO: make this dependant on the emulation array type
-                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, base_offset});
+                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
                 gen_store(bb, logical_ptr, lo);
                 const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
-                            logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, NULL, hi_destination_offset});
+                            logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset});
                 gen_store(bb, logical_ptr, hi);
             }
             return;

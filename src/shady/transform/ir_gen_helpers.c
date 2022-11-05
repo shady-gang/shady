@@ -10,14 +10,14 @@
 #include <string.h>
 #include <assert.h>
 
-Nodes gen_primop(BodyBuilder* bb, Op op, Nodes operands) {
+Nodes gen_primop(BodyBuilder* bb, Op op, Nodes type_args, Nodes operands) {
     assert(bb->arena->config.check_types);
-    const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = op, .operands = operands });
+    const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = op, .type_arguments = type_args, .operands = operands });
     return bind_instruction(bb, instruction);
 }
 
 Nodes gen_primop_c(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
-    return gen_primop(bb, op, nodes(bb->arena, operands_count, operands));
+    return gen_primop(bb, op, empty(bb->arena), nodes(bb->arena, operands_count, operands));
 }
 
 const Node* gen_primop_ce(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
@@ -26,10 +26,9 @@ const Node* gen_primop_ce(BodyBuilder* bb, Op op, size_t operands_count, const N
     return result.nodes[0];
 }
 
-const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes nodes) {
-    Nodes result = gen_primop(bb, op, nodes);
-    assert(result.count == 1);
-    return result.nodes[0];
+const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes ty, Nodes nodes) {
+    Nodes result = gen_primop(bb, op, ty, nodes);
+    return first(result);
 }
 
 void gen_push_value_stack(BodyBuilder* instructions, const Node* value) {

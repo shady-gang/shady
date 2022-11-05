@@ -102,7 +102,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             case alloca_op: error("This has to be the slot variant")
             case alloca_slot_op: {
                 BodyBuilder* bb = begin_body(arena);
-                const Type* element_type = oprim_op->operands.nodes[0];
+                const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
                 TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
 
                 const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "stack_ptr");
@@ -124,7 +124,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             case reinterpret_op: {
                 BodyBuilder* bb = begin_body(arena);
                 const Type* source_type = first(oprim_op->type_arguments);
-                source_type = extract_operand_type(source_type);
+                assert(!contains_qualified_type(source_type));
                 if (source_type->tag != PtrType_TAG || !is_as_emulated(ctx, source_type->payload.ptr_type.address_space))
                     break;
                 // emulated physical pointers do not care about pointers, they're just ints :frog:
@@ -142,7 +142,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                     break;
 
-                const Type* element_type = ptr_type->payload.ptr_type.pointed_type;
+                const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
 
                 const Node* base = NULL;
                 bool is_backed_by_block_buffer;
@@ -169,7 +169,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 } else {
                     const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
                     gen_serialisation(ctx->config, bb, element_type, base, pointer_as_offset, value);
-                    return finish_body(bb, tail);
+                    return finish_body(bb, let(arena, unit(arena), tail));
                 }
                 SHADY_UNREACHABLE;
             }

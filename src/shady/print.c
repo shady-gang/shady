@@ -386,7 +386,17 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf("}");
             printf(RESET);
             break;
-        case Value_Tuple_TAG: error("TODO")
+        case Value_Tuple_TAG: {
+            printf("(");
+            Nodes nodes = node->payload.tuple.contents;
+            for (size_t i = 0; i < nodes.count; i++) {
+                print_node(nodes.nodes[i]);
+                if (i + 1 < nodes.count)
+                    printf(", ");
+            }
+            printf(")");
+            break;
+        }
         case Value_RefDecl_TAG: {
             printf(BYELLOW);
             printf((char*) get_decl_name(node->payload.ref_decl.decl));

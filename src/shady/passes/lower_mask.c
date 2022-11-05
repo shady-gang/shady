@@ -48,7 +48,7 @@ const Node* process_let(Context* ctx, const Node* node) {
                 SHADY_FALLTHROUGH;
             case subgroup_ballot_op: {
                 BodyBuilder* bb = begin_body(arena);
-                const Node* packed_result = gen_primop_e(bb, subgroup_ballot_op, rewrite_nodes(&ctx->rewriter, old_nodes));
+                const Node* packed_result = gen_primop_e(bb, subgroup_ballot_op, empty(arena), rewrite_nodes(&ctx->rewriter, old_nodes));
 
                 const Node* result = packed_result;
                 // we need to extract the packed result ...

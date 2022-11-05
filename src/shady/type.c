@@ -289,10 +289,20 @@ const Type* check_type_arr_lit(IrArena* arena, ArrayLiteral arr_lit) {
 }
 
 const Type* check_type_tuple(IrArena* arena, Tuple tuple) {
-    return record_type(arena, (RecordType) {
-        .members = extract_types(arena, tuple.contents),
-        .special = NotSpecial,
-        .names = strings(arena, 0, NULL)
+    Nodes member_types = extract_types(arena, tuple.contents);
+    LARRAY(const Type*, cleaned, member_types.count);
+    bool is_uniform = true;
+    for (size_t i = 0; i < member_types.count; i++) {
+        cleaned[i] = extract_operand_type(member_types.nodes[i]);
+        is_uniform &= is_operand_uniform(member_types.nodes[i]);
+    }
+    return qualified_type(arena, (QualifiedType) {
+        .is_uniform = is_uniform,
+        .type = record_type(arena, (RecordType) {
+            .members = nodes(arena, member_types.count, cleaned),
+            .special = NotSpecial,
+            .names = strings(arena, 0, NULL)
+        })
     });
 }
 
@@ -335,6 +345,11 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     }
 
     switch (prim_op.op) {
+        case unit_op: {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 0);
+            return unit_type(arena);
+        }
         case quote_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
@@ -592,7 +607,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(!contains_qualified_type(dst_type));
             assert(dst_type->tag == TypeDeclRef_TAG);
             const Node* nom_type = dst_type->payload.type_decl_ref.decl;
-            assert(is_subtype(nom_type->payload.nom_type.body, src));
+            assert(is_subtype(nom_type->payload.nom_type.body, extract_operand_type(src->type)));
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = is_operand_uniform(src->type),
                 .type = dst_type,
