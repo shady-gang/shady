@@ -196,6 +196,11 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
             }
             break;
         }
+        case NominalType_TAG: {
+            bound = nominal_type(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, decl->payload.nom_type.annotations), decl->payload.nom_type.name);
+            bound->payload.nom_type.body = rewrite_node(&ctx->rewriter, decl->payload.nom_type.body);
+            break;
+        }
         default: error("unknown declaration kind");
     }
 
@@ -213,7 +218,8 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG:
         case Constant_TAG:
-        case GlobalVariable_TAG: {
+        case GlobalVariable_TAG:
+        case NominalType_TAG: {
             assert(is_declaration(node));
             return rewrite_decl(ctx, node);
         }

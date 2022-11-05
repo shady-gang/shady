@@ -78,7 +78,7 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
         return already_done;
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
-    switch (node->tag) {
+    switch (is_declaration(node)) {
         case Function_TAG: {
             Context body_context = *ctx;
 
@@ -119,7 +119,14 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
              ngvar->payload.global_variable.init = infer(ctx, old_gvar->init, NULL);
              return ngvar;
         }
-        default: SHADY_UNREACHABLE;
+        case Decl_NominalType_TAG: {
+            const NominalType* onom_type = &node->payload.nom_type;
+            Node* nnominal_type = nominal_type(ctx->rewriter.dst_module, infer_nodes(ctx, onom_type->annotations), onom_type->name);
+            register_processed(&ctx->rewriter, node, nnominal_type);
+            nnominal_type->payload.nom_type.body = infer(ctx, onom_type->body, NULL);
+            return nnominal_type;
+        }
+        case NotADecl: error("not a decl");
     }
 }
 
