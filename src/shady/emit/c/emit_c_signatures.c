@@ -72,6 +72,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
 
             print(emitter->type_decls, growy_data(g));
             growy_destroy(g);
+            destroy_printer(p);
             break;
         }
         case Type_QualifiedType_TAG:

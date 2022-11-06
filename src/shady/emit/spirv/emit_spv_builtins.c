@@ -1,5 +1,5 @@
-#include "emit.h"
-#include "emit_builtins.h"
+#include "emit_spv.h"
+#include "emit_spv_builtins.h"
 
 #include "log.h"
 #include "portability.h"
