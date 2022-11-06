@@ -151,7 +151,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             emit_instruction(emitter, p, instruction, strings(emitter->arena, yield_types.count, output_names));
 
             for (size_t i = 0; i < tail_params.count; i++)
-                insert_dict(const Node*, String, emitter->emitted, tail->payload.anon_lam.params.nodes[i], tail_params.nodes[i]);
+                insert_dict(const Node*, String, emitter->emitted, tail_params.nodes[i], output_names[i]);
             emit_terminator(emitter, p, tail->payload.anon_lam.body);
             break;
         }

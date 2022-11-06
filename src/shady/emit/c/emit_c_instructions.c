@@ -9,6 +9,8 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#pragma GCC diagnostic error "-Wswitch"
+
 void emit_pack_code(Printer* p, Strings src, String dst) {
     for (size_t i = 0; i < src.count; i++) {
         print(p, "\n%s->_%d = %s", dst, src.strings[i], i);
@@ -47,6 +49,8 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Strings 
     } m = Infix;
     String s = NULL, rhs = NULL;
     switch (prim_op->op) {
+        case unit_op:
+            return;
         case quote_op: {
             rhs = emit_value(emitter, prim_op->operands.nodes[0]);
             break;
@@ -100,6 +104,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Strings 
             rhs = acc;
             break;
         }
+        case make_op: break;
         case select_op:break;
         case convert_op:break;
         case reinterpret_op: {
