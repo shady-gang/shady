@@ -26,7 +26,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
         Context ctx2 = *ctx;
         ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
-        BodyBuilder* bb = begin_body(dst_arena);
+        BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
         // Pop the convergence token
         ctx2.return_tok = bind_instruction(bb, gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = fun->payload.fun.return_types }))).nodes[0];
         // This effectively asserts uniformity
@@ -61,7 +61,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 const Type* jpt = join_point_type(dst_arena, (JoinPointType) { .yield_types = returned_types });
                 const Node* jp = var(dst_arena, jpt, "fn_return_point");
                 Node* control_insides = lambda(dst_arena, nodes(dst_arena, 1, (const Node*[]) { jp }));
-                BodyBuilder* instructions = begin_body(dst_arena);
+                BodyBuilder* instructions = begin_body(ctx->rewriter.dst_module);
                 // yeet the join point on the stack
                 gen_push_value_stack(instructions, jp);
                 // tail-call to the target immediately afterwards

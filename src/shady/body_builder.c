@@ -16,10 +16,11 @@ typedef struct {
     bool mut;
 } StackEntry;
 
-BodyBuilder* begin_body(IrArena* arena) {
+BodyBuilder* begin_body(Module* mod) {
     BodyBuilder* builder = malloc(sizeof(BodyBuilder));
     *builder = (BodyBuilder) {
-        .arena = arena,
+        .module = mod,
+        .arena = get_module_arena(mod),
         .stack = new_list(StackEntry),
     };
     return builder;

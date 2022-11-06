@@ -55,7 +55,7 @@ static const Node* process(Context* ctx, const Node* node) {
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
 
-            BodyBuilder* bb = begin_body(arena);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             ctx2.entry_sp_val = gen_primop_ce(bb, get_stack_pointer_op, 0, NULL);
             VContext vctx = {
                 .visitor = {
@@ -71,7 +71,7 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case Return_TAG: {
             assert(ctx->entry_sp_val);
-            BodyBuilder* bb = begin_body(arena);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             // Restore SP before calling exit
             bind_instruction(bb, prim_op(arena, (PrimOp) {
                 .op = set_stack_pointer_op,

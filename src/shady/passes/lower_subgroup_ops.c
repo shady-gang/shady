@@ -23,7 +23,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
         PrimOp payload = old_instruction->payload.prim_op;
         switch (payload.op) {
             case subgroup_broadcast_first_op: {
-                BodyBuilder* builder = begin_body(arena);
+                BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
                 const Node* operand = rewrite_node(&ctx->rewriter, payload.operands.nodes[0]);
                 const Type* operand_type = extract_operand_type(operand->type);
 

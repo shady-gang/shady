@@ -101,7 +101,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
         switch (oprim_op->op) {
             case alloca_op: error("This has to be the slot variant")
             case alloca_slot_op: {
-                BodyBuilder* bb = begin_body(arena);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
                 TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
 
@@ -112,7 +112,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 return finish_body(bb, let(arena, quote(arena, stack_size), tail));
             }
             case lea_op: {
-                BodyBuilder* bb = begin_body(arena);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 const Type* ptr_type = oprim_op->operands.nodes[0]->type;
                 ptr_type = extract_operand_type(ptr_type);
                 assert(ptr_type->tag == PtrType_TAG);
@@ -122,7 +122,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 return finish_body(bb, let(arena, quote(arena, new), tail));
             }
             case reinterpret_op: {
-                BodyBuilder* bb = begin_body(arena);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 const Type* source_type = first(oprim_op->type_arguments);
                 assert(!contains_qualified_type(source_type));
                 if (source_type->tag != PtrType_TAG || !is_as_emulated(ctx, source_type->payload.ptr_type.address_space))
@@ -140,7 +140,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 assert(ptr_type->tag == PtrType_TAG);
                 if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                     break;
-                BodyBuilder* bb = begin_body(arena);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
 
                 const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
 

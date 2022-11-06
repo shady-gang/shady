@@ -36,14 +36,14 @@ static const Node* process_let(Context* ctx, const Node* node) {
         switch (oprim_op->op) {
             case get_stack_pointer_op:
             case get_stack_pointer_uniform_op: {
-                BodyBuilder* bb = begin_body(arena);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 bool uniform = oprim_op->op == get_stack_pointer_uniform_op;
                 const Node* sp = gen_load(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer);
                 return finish_body(bb, let(arena, quote(arena, sp), tail));
             }
             case set_stack_pointer_op:
             case set_stack_pointer_uniform_op: {
-                BodyBuilder* bb = begin_body(arena);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 bool uniform = oprim_op->op == set_stack_pointer_uniform_op;
                 const Node* val = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
                 gen_store(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer, val);
@@ -54,7 +54,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             case push_stack_uniform_op:
             case pop_stack_op:
             case pop_stack_uniform_op: {
-                BodyBuilder* bb = begin_body(arena);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
                 TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
                 const Node* element_size = int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes));

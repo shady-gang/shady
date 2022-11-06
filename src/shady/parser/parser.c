@@ -657,7 +657,7 @@ static const Node* accept_terminator(ctxparams) {
 static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminator) {
     assert(fn->tag == Function_TAG);
     expect(accept_token(ctx, lbracket_tok));
-    BodyBuilder* bb = begin_body(arena);
+    BodyBuilder* bb = begin_body(mod);
     Nodes* children_conts = &fn->payload.fun.children_blocks;
 
     while (true) {

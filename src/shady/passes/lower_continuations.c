@@ -92,7 +92,7 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont) {
     Rewriter substituter = create_substituter(ctx->rewriter.dst_module);
 
     // Recover that stuff inside the new body
-    BodyBuilder* builder = begin_body(arena);
+    BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
         assert(ovar->tag == Variable_TAG);
@@ -129,7 +129,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         // everywhere we might call a basic block, we insert appropriate spilling context
         case Jump_TAG: {
-            BodyBuilder* bb = begin_body(arena);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             const Node* ncallee = NULL;
             // make sure the target is rewritten before we lookup the 'lifted' dict
             const Node* otarget = node->payload.jump.target;
@@ -147,7 +147,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }));
         }
         case Branch_TAG: {
-            BodyBuilder* bb = begin_body(arena);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             const Node* ncallee = NULL;
 
             const Node* otargets[] = { node->payload.branch.true_target, node->payload.branch.false_target };
@@ -161,7 +161,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 LiftedCont* lifted = lift_lambda_into_function(ctx, otarget);
                 assert(lifted->lifted_fn == ntarget);
 
-                BodyBuilder* case_builder = begin_body(arena);
+                BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
                 add_spill_instrs(ctx, case_builder, lifted->save_values);
                 cases[i] = lambda(arena, nodes(arena, 0, NULL));
                 cases[i]->payload.anon_lam.body = finish_body(case_builder, merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }));
@@ -184,7 +184,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* otail = node->payload.let.tail;
             // if tail is a BB, add all the context-saving stuff in front
             assert(is_basic_block(otail));
-            BodyBuilder* bb = begin_body(arena);
+            BodyBuilder* bb = begin_body(ctx.rewriter.dst_module);
             LiftedCont* lifted = lift_lambda_into_function(ctx, otail);
             Context ctx2 = *ctx;
             add_spill_instrs(&ctx2, bb, lifted->save_values);

@@ -50,7 +50,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     // For the lifted entry point, we keep _all_ annotations
     Node* new_entry_pt = function(ctx->rewriter.dst_module, old->payload.fun.params, old->payload.fun.name, rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations), nodes(dst_arena, 0, NULL));
 
-    BodyBuilder* builder = begin_body(dst_arena);
+    BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
 
     // Put a special zero marker at the bottom of the stack so the program ends after the entry point is done
     gen_push_value_stack(builder, gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL));
@@ -115,7 +115,7 @@ static const Node* process(Context* ctx, const Node* old) {
             if (entry_point_annotation)
                 lift_entry_point(ctx, old, fun);
 
-            BodyBuilder* bb = begin_body(dst_arena);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
@@ -135,7 +135,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
             const Node* old_instruction = old->payload.let.instruction;
             if (old_instruction->tag == Control_TAG) {
-                BodyBuilder* bb = begin_body(dst_arena);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 /*const Node* target = rewrite_node(&ctx->rewriter, old->payload.let.tail);
 
                 const Node* jp = bind_instruction(bb, call_instr(dst_arena, (Call) {
@@ -152,7 +152,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case TailCall_TAG: {
             //if (ctx->disable_lowering)
             //    return recreate_node_identity(&ctx->rewriter, old);
-            BodyBuilder* bb = begin_body(dst_arena);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.tail_call.args));
             /*const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
 
@@ -168,7 +168,7 @@ static const Node* process(Context* ctx, const Node* old) {
             //if (ctx->disable_lowering)
             //    return recreate_node_identity(&ctx->rewriter, old);
 
-            BodyBuilder* bb = begin_body(dst_arena);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
 
             /*const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
@@ -209,7 +209,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     assert(ctx->god_fn->tag == Function_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    BodyBuilder* loop_body_builder = begin_body(dst_arena);
+    BodyBuilder* loop_body_builder = begin_body(ctx->rewriter.dst_module);
 
     const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"));
 
@@ -218,7 +218,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* zero_lit = int32_literal(dst_arena, 0);
     Node* zero_case = lambda(dst_arena, nodes(dst_arena, 0, NULL));
-    zero_case->payload.fun.body = finish_body(begin_body(ctx->rewriter.dst_arena), merge_break(dst_arena, (MergeBreak) {
+    zero_case->payload.fun.body = finish_body(begin_body(ctx->rewriter.dst_module), merge_break(dst_arena, (MergeBreak) {
         .args = nodes(dst_arena, 0, NULL),
     }));
 
@@ -234,7 +234,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             const Node* fn_lit = lower_fn_addr(ctx, find_processed(&ctx->rewriter, decl));
 
-            BodyBuilder* case_builder = begin_body(dst_arena);
+            BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
 
             // TODO wrap in if(mask)
             bind_instruction(case_builder, call_instr(dst_arena, (Call) {
@@ -275,7 +275,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         .body = loop_inside
     });
 
-    BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_arena);
+    BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_module);
     bind_instruction(dispatcher_body_builder, the_loop);
 
     ctx->god_fn->payload.fun.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {

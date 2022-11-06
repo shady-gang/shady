@@ -136,7 +136,7 @@ const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail);
 const Node* let_indirect(IrArena* arena, const Node* instruction, const Node* tail);
 
 typedef struct BodyBuilder_ BodyBuilder;
-BodyBuilder* begin_body(IrArena*);
+BodyBuilder* begin_body(Module*);
 
 /// Appends an instruction to the builder, may apply optimisations.
 /// If the arena is typed, returns a list of variables bound to the values yielded by that instruction

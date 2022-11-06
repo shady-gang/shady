@@ -29,7 +29,7 @@ const Node* process_let(Context* ctx, const Node* node) {
                 break;
             }
             case mask_is_thread_active_op: {
-                BodyBuilder* bb = begin_body(arena);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 const Node* mask = rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
                 const Node* index = rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
                 index = gen_reinterpret_cast(bb, int64_type(arena), index);
@@ -47,7 +47,7 @@ const Node* process_let(Context* ctx, const Node* node) {
                 old_nodes = nodes(ctx->rewriter.src_arena, 1, (const Node* []) { true_lit(ctx->rewriter.src_arena) });
                 SHADY_FALLTHROUGH;
             case subgroup_ballot_op: {
-                BodyBuilder* bb = begin_body(arena);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 const Node* packed_result = gen_primop_e(bb, subgroup_ballot_op, empty(arena), rewrite_nodes(&ctx->rewriter, old_nodes));
 
                 const Node* result = packed_result;
