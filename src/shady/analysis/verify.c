@@ -1,8 +1,12 @@
 #include "verify.h"
+#include "free_variables.h"
+#include "scope.h"
+#include "log.h"
 
 #include "../visit.h"
 
 #include "dict.h"
+#include "list.h"
 
 #include <assert.h>
 
@@ -44,6 +48,23 @@ static void verify_same_arena(Module* mod) {
     destroy_dict(visitor.once);
 }
 
+static void verify_scoping(Module* mod) {
+    struct List* scopes = build_scopes(mod);
+    for (size_t i = 0; i < entries_count_list(scopes); i++) {
+        Scope* scope = &read_list(Scope, scopes)[i];
+        struct List* leaking = compute_free_variables(scope);
+        for (size_t j = 0; j < entries_count_list(leaking); j++) {
+            error_node(read_list(const Node*, leaking)[j]);
+            error_print("\n");
+        }
+        assert(entries_count_list(leaking) == 0);
+        destroy_list(leaking);
+        dispose_scope(scope);
+    }
+    destroy_list(scopes);
+}
+
 void verify_module(Module* mod) {
     verify_same_arena(mod);
+    verify_scoping(mod);
 }
