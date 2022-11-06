@@ -54,6 +54,7 @@ DeclTag is_declaration(const Node* node) {
 }
 
 const char* node_tags[] = {
+    "invalid",
 #define NODE_NAME(_, _2, _3, _4, str) #str,
 NODES(NODE_NAME)
 #undef NODE_NAME
@@ -76,6 +77,7 @@ bool has_primop_got_side_effects(Op op) {
 }
 
 const bool node_type_has_payload[] = {
+    false,
 #define NODE_HAS_PAYLOAD(_, _2, has_payload, _4, _5) has_payload,
 NODES(NODE_HAS_PAYLOAD)
 #undef NODE_HAS_PAYLOAD
