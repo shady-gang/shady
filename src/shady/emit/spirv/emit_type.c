@@ -50,7 +50,7 @@ static const Node* rewrite_normalize(Rewriter* rewriter, const Node* node) {
 }
 
 const Type* normalize_type(Emitter* emitter, const Type* type) {
-    Rewriter rewriter = create_rewriter(emitter->arena, emitter->arena, rewrite_normalize);
+    Rewriter rewriter = create_rewriter(emitter->module, emitter->module, rewrite_normalize);
     const Node* rewritten = rewrite_node(&rewriter, type);
     destroy_rewriter(&rewriter);
     return rewritten;

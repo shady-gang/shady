@@ -11,6 +11,7 @@ typedef struct SpvFnBuilder* FnBuilder;
 typedef struct SpvBasicBlockBuilder* BBBuilder;
 
 typedef struct Emitter_ {
+    Module* module;
     IrArena* arena;
     CompilerConfig* configuration;
     FileBuilder file_builder;

@@ -556,7 +556,7 @@ static SpvId find_reserved_id(Emitter* emitter, const Node* node) {
 }
 
 static BBBuilder find_basic_block_builder(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, const Node* bb) {
-    assert(is_basic_block(bb));
+    // assert(is_basic_block(bb));
     BBBuilder* found = find_value_dict(const Node*, BBBuilder, emitter->bb_builders, bb);
     assert(found);
     return *found;
@@ -720,6 +720,8 @@ static void emit_function(Emitter* emitter, const Node* node) {
         CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
         assert(cfnode);
         const Node* bb = cfnode->node;
+        if (is_anonymous_lambda(bb))
+            continue;
         assert(is_basic_block(bb) || bb == node);
         SpvId bb_id = i == spvb_fresh_id(emitter->file_builder);
         BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, bb_id);
@@ -881,8 +883,9 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
     spvb_set_version(file_builder, config->target_spirv_version.major, config->target_spirv_version.minor);
 
     Emitter emitter = {
-        .configuration = config,
+        .module = mod,
         .arena = arena,
+        .configuration = config,
         .file_builder = file_builder,
         .node_ids = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
         .bb_builders = new_dict(Node*, BBBuilder, (HashFn) hash_node, (CmpFn) compare_node),
