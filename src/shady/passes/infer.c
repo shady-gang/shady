@@ -193,7 +193,7 @@ static const Node* _infer_anonymous_lambda(Context* ctx, const Node* node, const
         register_processed(&body_context.rewriter, node->payload.anon_lam.params.nodes[i], nparams[i]);
     }
 
-    Node* lam = lambda(arena, nodes(arena, node->payload.anon_lam.params.count, nparams));
+    Node* lam = lambda(ctx->rewriter.dst_module, nodes(arena, node->payload.anon_lam.params.count, nparams));
     assert(lam);
     register_processed(&ctx->rewriter, node, lam);
 

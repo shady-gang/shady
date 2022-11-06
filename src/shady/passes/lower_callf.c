@@ -60,7 +60,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
                 const Type* jpt = join_point_type(dst_arena, (JoinPointType) { .yield_types = returned_types });
                 const Node* jp = var(dst_arena, jpt, "fn_return_point");
-                Node* control_insides = lambda(dst_arena, nodes(dst_arena, 1, (const Node*[]) { jp }));
+                Node* control_insides = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 1, (const Node*[]) { jp }));
                 BodyBuilder* instructions = begin_body(ctx->rewriter.dst_module);
                 // yeet the join point on the stack
                 gen_push_value_stack(instructions, jp);

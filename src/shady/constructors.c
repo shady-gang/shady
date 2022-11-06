@@ -228,11 +228,14 @@ Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
     return create_node_helper(arena, node);
 }
 
-Node* lambda(IrArena* arena, Nodes params) {
+Node* lambda(Module* module, Nodes params) {
     AnonLambda payload = {
+        .module = module,
         .params = params,
         .body = NULL,
     };
+
+    IrArena* arena = get_module_arena(module);
 
     Node node;
     memset((void*) &node, 0, sizeof(Node));

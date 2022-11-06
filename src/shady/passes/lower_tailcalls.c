@@ -217,8 +217,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     struct List* cases = new_list(const Node*);
 
     const Node* zero_lit = int32_literal(dst_arena, 0);
-    Node* zero_case = lambda(dst_arena, nodes(dst_arena, 0, NULL));
-    zero_case->payload.fun.body = finish_body(begin_body(ctx->rewriter.dst_module), merge_break(dst_arena, (MergeBreak) {
+    Node* zero_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
+    zero_case->payload.anon_lam.body = finish_body(begin_body(ctx->rewriter.dst_module), merge_break(dst_arena, (MergeBreak) {
         .args = nodes(dst_arena, 0, NULL),
     }));
 
@@ -242,7 +242,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .args = nodes(dst_arena, 0, NULL)
             }));
 
-            Node* fn_case = lambda(dst_arena, nodes(dst_arena, 0, NULL));
+            Node* fn_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
             fn_case->payload.anon_lam.body = finish_body(case_builder, merge_continue(dst_arena, (MergeContinue) {
                 .args = nodes(dst_arena, 0, NULL),
             }));
@@ -252,7 +252,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         }
     }
 
-    Node* default_case = lambda(dst_arena, nodes(dst_arena, 0, NULL));
+    Node* default_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
     default_case->payload.anon_lam.body = unreachable(dst_arena);
 
     bind_instruction(loop_body_builder, match_instr(dst_arena, (Match) {
@@ -266,7 +266,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     destroy_list(literals);
     destroy_list(cases);
 
-    Node* loop_inside = lambda(dst_arena, nodes(dst_arena, 0, NULL));
+    Node* loop_inside = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
     loop_inside->payload.anon_lam.body = finish_body(loop_body_builder, unreachable(dst_arena));
 
     const Node* the_loop = loop_instr(dst_arena, (Loop) {

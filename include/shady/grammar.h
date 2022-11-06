@@ -410,6 +410,7 @@ MkField(1, TYPE, const Type*, body)
 
 typedef struct AnonLambda_ AnonLambda;
 #define AnonLambda_Fields(MkField) \
+MkField(0, POD, Module*, module) \
 MkField(1, VARIABLES, Nodes, params) \
 MkField(1, TERMINATOR, const Node*, body)
 

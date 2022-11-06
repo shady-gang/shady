@@ -239,7 +239,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case AnonLambda_TAG: {
             Nodes old_params = node->payload.anon_lam.params;
             Nodes new_params = recreate_variables(&ctx->rewriter, old_params);
-            Node* new_lam = lambda(dst_arena, new_params);
+            Node* new_lam = lambda(ctx->rewriter.dst_module, new_params);
             Context lambda_ctx = *ctx;
             for (size_t i = 0; i < new_params.count; i++)
                 add_binding(&lambda_ctx, false, old_params.nodes[i]->payload.var.name, new_params.nodes[i]);

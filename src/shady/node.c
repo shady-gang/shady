@@ -157,6 +157,16 @@ Nodes get_abstraction_params(const Node* abs) {
     }
 }
 
+Module* get_abstraction_module(const Node* abs) {
+    assert(is_abstraction(abs));
+    switch (abs->tag) {
+        case Function_TAG: return abs->payload.fun.module;
+        case BasicBlock_TAG: return abs->payload.basic_block.fn->payload.fun.module;
+        case AnonLambda_TAG: return abs->payload.anon_lam.module;
+        default: assert(false);
+    }
+}
+
 KeyHash hash_murmur(const void* data, size_t size) {
     int32_t out[4];
     MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);

@@ -67,7 +67,7 @@ static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool m
     Nodes params = create_output_variables(builder->arena, instruction, outputs_count, provided_types, output_names);
     StackEntry entry = {
         .instr = instruction,
-        .tail = lambda(builder->arena, params),
+        .tail = lambda(builder->module, params),
         .mut = mut,
     };
     append_list(StackEntry, builder->stack, entry);

@@ -114,7 +114,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
 
-            new->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.anon_lam.body));
+            new->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
             return new;
         }
         case BasicBlock_TAG: {
@@ -124,11 +124,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Context ctx2 = *ctx;
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
-            new->payload.basic_block.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.anon_lam.body));
+            new->payload.basic_block.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.basic_block.body));
             return new;
         }
         case AnonLambda_TAG: {
-            Node* new = lambda(ctx->rewriter.dst_arena, recreate_variables(&ctx->rewriter, node->payload.anon_lam.params));
+            Node* new = lambda(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.anon_lam.params));
             register_processed_list(&ctx->rewriter, node->payload.anon_lam.params, new->payload.anon_lam.params);
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             Context ctx2 = *ctx;

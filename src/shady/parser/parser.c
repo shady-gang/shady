@@ -417,14 +417,14 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect(accept_token(ctx, rpar_tok));
             const Node* merge = config.front_end ? merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }) : NULL;
 
-            Node* if_true = lambda(arena, nodes(arena, 0, NULL));
+            Node* if_true = lambda(mod, nodes(arena, 0, NULL));
             if_true->payload.anon_lam.body = expect_body(ctx, fn, merge);
 
             // else defaults to an empty body
             bool has_else = accept_token(ctx, else_tok);
             Node* if_false = NULL;
             if (has_else) {
-                if_false = lambda(arena, nodes(arena, 0, NULL));
+                if_false = lambda(mod, nodes(arena, 0, NULL));
                 if_false->payload.anon_lam.body = expect_body(ctx, fn, merge);
             }
             return if_instr(arena, (If) {
@@ -442,7 +442,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect_parameters(ctx, &parameters, &default_values);
             // by default loops continue forever
             const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
-            Node* body = lambda(arena, parameters);
+            Node* body = lambda(mod, parameters);
             body->payload.anon_lam.body = expect_body(ctx, fn, default_loop_end_behaviour);
 
             return loop_instr(arena, (Loop) {

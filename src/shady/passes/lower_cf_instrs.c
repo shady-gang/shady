@@ -63,7 +63,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 .args = nodes(arena, 0, NULL),
             });
 
-            Node* control_body = lambda(arena, nodes(arena, 1, (const Node*[]) { join_point }));
+            Node* control_body = lambda(ctx->rewriter.dst_module, nodes(arena, 1, (const Node*[]) { join_point }));
             control_body->payload.anon_lam.body = branch_t;
             new_instruction = control(arena, (Control) { .yield_types = yield_types, .inside = control_body });
             break;
@@ -93,7 +93,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             Node* loop_body = basic_block(arena, ctx->current_fn, new_params, unique_name(arena, "loop_body"));
             register_processed_list(&join_context.rewriter, old_loop_body->payload.anon_lam.params, loop_body->payload.basic_block.params);
 
-            Node* actual_body = lambda(arena, nodes(arena, 1, (const Node*[]) { continue_point }));
+            Node* actual_body = lambda(ctx->rewriter.dst_module, nodes(arena, 1, (const Node*[]) { continue_point }));
             actual_body->payload.anon_lam.body = rewrite_node(&join_context.rewriter, old_loop_body->payload.anon_lam.body);
 
             const Node* inner_control = control(arena, (Control) {
@@ -104,7 +104,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             // TODO let_in_block or use a Jump !
             loop_body->payload.basic_block.body = let(arena, inner_control, loop_body);
 
-            Node* outer_body = lambda(arena, nodes(arena, 1, (const Node*[]) { break_point }));
+            Node* outer_body = lambda(ctx->rewriter.dst_module, nodes(arena, 1, (const Node*[]) { break_point }));
             const Node* initial_jump = jump(arena, (Jump) {
                 .target = loop_body,
                 .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.initial_args),

@@ -275,7 +275,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case AnonLambda_TAG: {
             Nodes params = recreate_variables(rewriter, node->payload.anon_lam.params);
             register_processed_list(rewriter, node->payload.anon_lam.params, params);
-            Node* lam = lambda(arena, params);
+            Node* lam = lambda(rewriter->dst_module, params);
             lam->payload.anon_lam.body = rewrite_terminator(rewriter, node->payload.anon_lam.body);
             return lam;
         }
