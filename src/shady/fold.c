@@ -44,19 +44,19 @@ static bool is_one(const Node* node) {
 }
 
 /// Substitutes the parameters for the arguments in the function body
-/*static const Node* reduce_beta(IrArena* arena, const Node* fn, Nodes args) {
+static const Node* reduce_beta(IrArena* arena, const Node* fn, Nodes args) {
     assert(is_abstraction(fn));
     Nodes params = get_abstraction_params(fn);
     const Node* body = get_abstraction_body(fn);
 
     assert(params.count == args.count);
-    Rewriter r = create_substituter(error("TODO") arena);
+    Rewriter r = create_substituter(get_abstraction_module(fn));
     for (size_t i = 0; i < args.count; i++)
         register_processed(&r, params.nodes[i], args.nodes[i]);
     const Node* specialized = rewrite_node(&r, body);
     destroy_rewriter(&r);
     return specialized;
-}*/
+}
 
 static const Node* fold_let(IrArena* arena, const Node* node) {
     assert(node->tag == Let_TAG);
@@ -64,12 +64,17 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
     const Node* tail = node->payload.let.tail;
     switch (instruction->tag) {
         case PrimOp_TAG: {
-            /*if (instruction->payload.prim_op.op == quote_op) {
+            if (instruction->payload.prim_op.op == quote_op) {
                 const Node* value = instruction->payload.prim_op.operands.nodes[0];
                 if (is_anonymous_lambda(tail)) {
                     return reduce_beta(arena, tail, nodes(arena, 1, (const Node*[]) { value }));
                 }
-            }*/
+            }
+            else if (instruction->payload.prim_op.op == unit_op) {
+                if (is_anonymous_lambda(tail)) {
+                    return tail->payload.anon_lam.body;
+                }
+            }
             break;
         }
         default: break;
