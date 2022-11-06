@@ -56,17 +56,17 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
 
             BodyBuilder* bb = begin_body(arena);
-            ctx->entry_sp_val = gen_primop_ce(bb, get_stack_pointer_op, 0, NULL);
+            ctx2.entry_sp_val = gen_primop_ce(bb, get_stack_pointer_op, 0, NULL);
             VContext vctx = {
                 .visitor = {
                     .visit_fn = (VisitFn) collect_allocas,
                     .visit_fn_scope_rpo = true,
                 },
-                .context = ctx,
+                .context = &ctx2,
                 .builder = bb,
             };
             visit_children(&vctx.visitor, node->payload.fun.body);
-            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, node->payload.fun.body));
+            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
             return fun;
         }
         case Return_TAG: {

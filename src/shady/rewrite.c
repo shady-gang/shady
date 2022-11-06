@@ -259,7 +259,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             recreate_decl_body_identity(rewriter, node, new);
             return new;
         }
-        case Variable_TAG: return var(arena, rewrite_type(rewriter, node->payload.var.type), node->payload.var.name);
+        case Variable_TAG: error("variables should be recreated as part of decl handling");
         case Tuple_TAG: return tuple(arena, rewrite_nodes_generic(rewriter, rewrite_value, node->payload.tuple.contents));
         case Let_TAG: {
             const Node* instruction = rewrite_instruction(rewriter, node->payload.let.instruction);
@@ -273,13 +273,15 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             return let(arena, instruction, tail);
         }
         case AnonLambda_TAG: {
-            Nodes params = rewrite_nodes_generic(rewriter, rewrite_value, node->payload.anon_lam.params);
+            Nodes params = recreate_variables(rewriter, node->payload.anon_lam.params);
+            register_processed_list(rewriter, node->payload.anon_lam.params, params);
             Node* lam = lambda(arena, params);
             lam->payload.anon_lam.body = rewrite_terminator(rewriter, node->payload.anon_lam.body);
             return lam;
         }
         case BasicBlock_TAG: {
-            Nodes params = rewrite_nodes_generic(rewriter, rewrite_value, node->payload.basic_block.params);
+            Nodes params = recreate_variables(rewriter, node->payload.basic_block.params);
+            register_processed_list(rewriter, node->payload.basic_block.params, params);
             const Node* fn = rewrite_decl(rewriter, node->payload.basic_block.fn);
             Node* lam = basic_block(arena, fn, params, node->payload.basic_block.name);
             lam->payload.anon_lam.body = rewrite_terminator(rewriter, node->payload.basic_block.body);
