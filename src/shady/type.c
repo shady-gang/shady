@@ -460,16 +460,16 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         }
         case push_stack_uniform_op:
         case push_stack_op: {
-            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);
-            /*const Type* element_type = prim_op.operands.nodes[0];
+            const Type* element_type = first(prim_op.type_arguments);
             assert(!contains_qualified_type(element_type) && "annotations do not go here");
             const Type* qual_element_type = qualified_type(arena, (QualifiedType) {
                 .is_uniform = prim_op.op == push_stack_uniform_op,
                 .type = element_type
             });
             // the operand has to be a subtype of the annotated type
-            assert(is_subtype(qual_element_type, prim_op.operands.nodes[1]->type));*/
+            assert(is_subtype(qual_element_type, first(prim_op.operands)->type));
             return unit_type(arena);
         }
         case pop_stack_op:

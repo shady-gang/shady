@@ -31,14 +31,14 @@ const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes ty, Nodes nodes) {
     return first(result);
 }
 
-void gen_push_value_stack(BodyBuilder* instructions, const Node* value) {
-    gen_primop_c(instructions, push_stack_op, 2, (const Node*[]) { extract_operand_type(value->type), value });
+void gen_push_value_stack(BodyBuilder* bb, const Node* value) {
+    gen_primop(bb, push_stack_op, singleton(extract_operand_type(value->type)), singleton(value));
 }
 
-void gen_push_values_stack(BodyBuilder* instructions, Nodes values) {
+void gen_push_values_stack(BodyBuilder* bb, Nodes values) {
     for (size_t i = values.count - 1; i < values.count; i--) {
         const Node* value = values.nodes[i];
-        gen_push_value_stack(instructions, value);
+        gen_push_value_stack(bb, value);
     }
 }
 

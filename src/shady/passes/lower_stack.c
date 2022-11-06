@@ -86,7 +86,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
                 const Node* popped_value = NULL;
                 if (push)
-                    gen_store(bb, addr, rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]));
+                    gen_store(bb, addr, rewrite_node(&ctx->rewriter, first(oprim_op->operands)));
                 else
                     popped_value = gen_primop_ce(bb, load_op, 1, (const Node* []) { addr });
 

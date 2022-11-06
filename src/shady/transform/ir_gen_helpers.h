@@ -3,8 +3,8 @@
 
 #include "shady/ir.h"
 
-void gen_push_value_stack(BodyBuilder* instructions, const Node* value);
-void gen_push_values_stack(BodyBuilder* instructions, Nodes values);
+void gen_push_value_stack(BodyBuilder* bb, const Node* value);
+void gen_push_values_stack(BodyBuilder* bb, Nodes values);
 const Node* gen_pop_value_stack(BodyBuilder* instructions, const Type* type);
 
 Nodes gen_primop(BodyBuilder*, Op, Nodes, Nodes);
