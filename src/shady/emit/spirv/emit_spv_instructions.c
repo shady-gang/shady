@@ -230,13 +230,14 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             for (size_t i = 2; i < args.count; i++)
                 indices[i - 2] = args.nodes[i] ? emit_value(emitter, args.nodes[i]) : 0;
 
-            if (args.nodes[1]) {
-                error("TODO: OpPtrAccessChain")
-            } else {
+            const IntLiteral* known_offset = resolve_to_literal(args.nodes[1]);
+            if (known_offset && known_offset->value.i64 == 0) {
                 const Type* target_type = instr->type;
                 SpvId result = spvb_access_chain(bb_builder, emit_type(emitter, target_type), base, args.count - 2, indices);
                 assert(results_count == 1);
                 results[0] = result;
+            } else {
+                error("TODO: OpPtrAccessChain")
             }
             return;
         }
