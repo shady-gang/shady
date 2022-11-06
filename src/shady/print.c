@@ -759,11 +759,11 @@ static void print_mod_impl(PrinterCtx* ctx, Module* mod) {
 #undef print_node
 #undef printf
 
-static void print_helper(Printer* printer, const Node* node, Module* mod, bool dump_ptrs) {
+static void print_helper(Printer* printer, const Node* node, Module* mod, bool dump_ptrs, bool color) {
     PrinterCtx ctx = {
         .printer = printer,
         .print_ptrs = dump_ptrs,
-        .color = true,
+        .color = color,
     };
     if (node)
         print_node_impl(&ctx, node);
@@ -775,34 +775,34 @@ static void print_helper(Printer* printer, const Node* node, Module* mod, bool d
 
 void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
-    print_helper(open_growy_as_printer(g), node, NULL, false);
+    print_helper(open_growy_as_printer(g), node, NULL, false, false);
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
 }
 
 void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
-    print_helper(open_growy_as_printer(g), NULL, mod, false);
+    print_helper(open_growy_as_printer(g), NULL, mod, false, false);
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
 }
 
 void dump_node(const Node* node) {
-    print_helper(open_file_as_printer(stdout), node, NULL, false);
+    print_helper(open_file_as_printer(stdout), node, NULL, false, true);
     printf("\n");
 }
 
 void dump_module(Module* mod) {
-    print_helper(open_file_as_printer(stdout), NULL, mod, false);
+    print_helper(open_file_as_printer(stdout), NULL, mod, false, true);
     printf("\n");
 }
 
 void log_node(LogLevel level, const Node* node) {
     if (level >= get_log_level())
-        print_helper(open_file_as_printer(stderr), node, NULL, false);
+        print_helper(open_file_as_printer(stderr), node, NULL, false, true);
 }
 
 void log_module(LogLevel level, Module* mod) {
     if (level >= get_log_level())
-        print_helper(open_file_as_printer(stderr), NULL, mod, false);
+        print_helper(open_file_as_printer(stderr), NULL, mod, false, true);
 }
