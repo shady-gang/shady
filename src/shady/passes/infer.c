@@ -316,12 +316,12 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
     });
 }
 
-static const Node* _infer_call(Context* ctx, const Node* node, const Type* expected_type) {
-    assert(node->tag == Call_TAG);
+static const Node* _infer_indirect_call(Context* ctx, const Node* node, const Type* expected_type) {
+    assert(node->tag == IndirectCall_TAG);
 
-    const Node* new_callee = infer(ctx, node->payload.call_instr.callee, NULL);
+    const Node* new_callee = infer(ctx, node->payload.indirect_call.callee, NULL);
     assert(is_value(new_callee));
-    LARRAY(const Node*, new_args, node->payload.call_instr.args.count);
+    LARRAY(const Node*, new_args, node->payload.indirect_call.args.count);
 
     const Type* callee_type = extract_operand_type(new_callee->type);
     if (callee_type->tag != PtrType_TAG)
@@ -330,18 +330,18 @@ static const Node* _infer_call(Context* ctx, const Node* node, const Type* expec
 
     if (callee_type->tag != FnType_TAG)
         error("Callees must have a function type");
-    if (callee_type->payload.fn_type.param_types.count != node->payload.call_instr.args.count)
+    if (callee_type->payload.fn_type.param_types.count != node->payload.indirect_call.args.count)
         error("Mismatched argument counts");
-    for (size_t i = 0; i < node->payload.call_instr.args.count; i++) {
-        const Node* arg = node->payload.call_instr.args.nodes[i];
+    for (size_t i = 0; i < node->payload.indirect_call.args.count; i++) {
+        const Node* arg = node->payload.indirect_call.args.nodes[i];
         assert(arg);
-        new_args[i] = infer(ctx, node->payload.call_instr.args.nodes[i], callee_type->payload.fn_type.param_types.nodes[i]);
+        new_args[i] = infer(ctx, node->payload.indirect_call.args.nodes[i], callee_type->payload.fn_type.param_types.nodes[i]);
         assert(new_args[i]->type);
     }
 
-    return call_instr(ctx->rewriter.dst_arena, (Call) {
+    return indirect_call(ctx->rewriter.dst_arena, (IndirectCall) {
         .callee = new_callee,
-        .args = nodes(ctx->rewriter.dst_arena, node->payload.call_instr.args.count, new_args)
+        .args = nodes(ctx->rewriter.dst_arena, node->payload.indirect_call.args.count, new_args)
     });
 }
 
@@ -403,12 +403,12 @@ static const Node* _infer_loop(Context* ctx, const Node* node, const Type* expec
 
 static const Node* _infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
     switch (is_instruction(node)) {
-        case PrimOp_TAG:  return _infer_primop(ctx, node, expected_type);
-        case Call_TAG:    return _infer_call  (ctx, node, expected_type);
-        case If_TAG:      return _infer_if    (ctx, node, expected_type);
-        case Loop_TAG:    return _infer_loop  (ctx, node, expected_type);
-        case Match_TAG:   error("TODO")
-        case Control_TAG: error("TODO")
+        case PrimOp_TAG:       return _infer_primop(ctx, node, expected_type);
+        case IndirectCall_TAG: return _infer_indirect_call  (ctx, node, expected_type);
+        case If_TAG:           return _infer_if    (ctx, node, expected_type);
+        case Loop_TAG:         return _infer_loop  (ctx, node, expected_type);
+        case Match_TAG:        error("TODO")
+        case Control_TAG:      error("TODO")
         case NotAnInstruction: error("not an instruction");
     }
     SHADY_UNREACHABLE;

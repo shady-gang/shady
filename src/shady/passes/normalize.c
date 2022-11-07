@@ -59,13 +59,13 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
             });
             break;
         }
-        case Call_TAG: {
+        case IndirectCall_TAG: {
             assert(ctx->bb);
-            Nodes oargs = node->payload.call_instr.args;
+            Nodes oargs = node->payload.indirect_call.args;
 
-            const Node* ncallee = rewrite_value(ctx, node->payload.call_instr.callee);
+            const Node* ncallee = rewrite_value(ctx, node->payload.indirect_call.callee);
 
-            let_bound = call_instr(dst_arena, (Call) {
+            let_bound = indirect_call(dst_arena, (IndirectCall) {
                 .callee = ncallee,
                 .args = rewrite_nodes_generic(&ctx->rewriter, (RewriteFn) rewrite_value, oargs),
             });

@@ -332,7 +332,7 @@ static const Node* accept_primary_expr(ctxparams) {
         switch (curr_token(tokenizer).tag) {
             case lpar_tok: {
                 Nodes args = expect_operands(ctx);
-                expr = call_instr(arena, (Call) {
+                expr = indirect_call(arena, (IndirectCall) {
                     .callee = expr,
                     .args = args
                 });
@@ -477,7 +477,7 @@ static const Node* accept_primop(ctxparams) {
             assert(callee);
             expect(accept_token(ctx, rpar_tok));
             Nodes args = expect_operands(ctx);
-            return call_instr(arena, (Call) {
+            return indirect_call(arena, (IndirectCall) {
                 .callee = callee,
                 .args = args,
             });

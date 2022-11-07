@@ -74,7 +74,7 @@ static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, C
 static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction) {
     switch (is_instruction(instruction)) {
         case NotAnInstruction: error("");
-        case Instruction_Call_TAG:
+        case Instruction_IndirectCall_TAG:
         case Instruction_PrimOp_TAG: break;
         case Instruction_If_TAG:
             add_edge(ctx, parent->node, instruction->payload.if_instr.if_true, IfBodyEdge);

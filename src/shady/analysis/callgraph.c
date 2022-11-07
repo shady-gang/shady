@@ -55,15 +55,15 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             visit_node(visitor, node->payload.fn_addr.fn);
             break;
         }
-        case Call_TAG: {
-            const Node* callee = node->payload.call_instr.callee;
+        case IndirectCall_TAG: {
+            const Node* callee = node->payload.indirect_call.callee;
             callee = ignore_immediate_fn_addr(callee);
             visit_node(visitor, callee);
             if (callee->tag != Function_TAG)
                 visitor->node->has_indirect_call = true;
             else if (analyze_fn(visitor->graph, callee)->has_indirect_call)
                 visitor->node->has_indirect_call = true;
-            visit_nodes(&visitor->visitor, node->payload.call_instr.args);
+            visit_nodes(&visitor->visitor, node->payload.indirect_call.args);
             break;
         }
         case LetIndirect_TAG: {

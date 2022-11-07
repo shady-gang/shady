@@ -279,7 +279,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
     error("unreachable");
 }
 
-static void emit_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, Call call, size_t results_count, SpvId results[]) {
+static void emit_indirect_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, IndirectCall call, size_t results_count, SpvId results[]) {
     assert(call.callee->tag == FnAddr_TAG && "Only direct calls are allowed !");
     const Node* fn = call.callee->payload.fn_addr.fn;
     SpvId callee = spv_find_reserved_id(emitter, fn);
@@ -480,11 +480,11 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     assert(is_instruction(instruction));
 
     switch (instruction->tag) {
-        case PrimOp_TAG: emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
-        case Call_TAG:     emit_call(emitter, fn_builder, *bb_builder, instruction->payload.call_instr, results_count, results);                break;
-        case If_TAG:         emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, results_count, results);    break;
-        case Match_TAG:   emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
-        case Loop_TAG:     emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
+        case PrimOp_TAG:              emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
+        case IndirectCall_TAG: emit_indirect_call(emitter, fn_builder, *bb_builder, instruction->payload.indirect_call, results_count, results);             break;
+        case If_TAG:                      emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, results_count, results);    break;
+        case Match_TAG:                emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
+        case Loop_TAG:                  emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
         default: error("Unrecognised instruction %s", node_tags[instruction->tag]);
     }
 }

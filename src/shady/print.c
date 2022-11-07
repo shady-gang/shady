@@ -424,16 +424,16 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
                 print_ty_args_list(ctx, node->payload.prim_op.type_arguments);
             print_args_list(ctx, node->payload.prim_op.operands);
             break;
-        case Call_TAG:
+        case IndirectCall_TAG:
             printf(GREEN);
-            printf("call ");
+            printf("indirect_call ");
             printf(RESET);
-            const Node* callee = node->payload.call_instr.callee;
+            const Node* callee = node->payload.indirect_call.callee;
             print_node(callee);
             printf("(");
-            for (size_t i = 0; i < node->payload.call_instr.args.count; i++) {
-                print_node(node->payload.call_instr.args.nodes[i]);
-                if (i + 1 < node->payload.call_instr.args.count)
+            for (size_t i = 0; i < node->payload.indirect_call.args.count; i++) {
+                print_node(node->payload.indirect_call.args.nodes[i]);
+                if (i + 1 < node->payload.indirect_call.args.count)
                     printf(", ");
             }
             printf(")");

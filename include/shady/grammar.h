@@ -40,7 +40,7 @@ N(1, 1, 1, FnAddr, fn_addr) \
 N(1, 1, 1, RefDecl, ref_decl) \
 
 #define INSTRUCTION_NODES(N) \
-N(1, 1, 1, Call, call_instr)  \
+N(1, 1, 1, IndirectCall, indirect_call)  \
 N(1, 1, 1, PrimOp, prim_op)  \
 N(1, 1, 1, If, if_instr) \
 N(1, 1, 1, Match, match_instr) \
@@ -256,8 +256,8 @@ MkField(1, POD, Op, op) \
 MkField(1, TYPES, Nodes, type_arguments) \
 MkField(1, VALUES, Nodes, operands)
 
-typedef struct Call_ Call;
-#define Call_Fields(MkField) \
+typedef struct IndirectCall_ IndirectCall;
+#define IndirectCall_Fields(MkField) \
 MkField(1, VALUE, const Node*, callee) \
 MkField(1, VALUES, Nodes, args)
 

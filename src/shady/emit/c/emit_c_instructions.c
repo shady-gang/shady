@@ -148,9 +148,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Strings 
     }
 }
 
-static void emit_call(Emitter* emitter, Printer* p, const Node* call_instr, Strings outputs) {
-    assert(call_instr->tag == Call_TAG);
-    const Call* call = &call_instr->payload.call_instr;
+static void emit_indirect_call(Emitter* emitter, Printer* p, const Node* call_instr, Strings outputs) {
+    assert(call_instr->tag == IndirectCall_TAG);
+    const IndirectCall* call = &call_instr->payload.indirect_call;
     Growy* g = new_growy();
     Printer* paramsp = open_growy_as_printer(g);
     for (size_t i = 0; i < call->args.count; i++) {
@@ -248,11 +248,11 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Str
 
     switch (is_instruction(instruction)) {
         case NotAnInstruction: assert(false);
-        case Instruction_PrimOp_TAG: emit_primop(emitter, p, instruction, outputs); break;
-        case Instruction_Call_TAG:   emit_call  (emitter, p, instruction, outputs); break;
-        case Instruction_If_TAG:     emit_if    (emitter, p, instruction, outputs); break;
-        case Instruction_Match_TAG:  emit_match (emitter, p, instruction, outputs); break;
-        case Instruction_Loop_TAG:   emit_loop  (emitter, p, instruction, outputs); break;
+        case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs);        break;
+        case Instruction_IndirectCall_TAG: emit_indirect_call(emitter, p, instruction, outputs); break;
+        case Instruction_If_TAG:           emit_if    (emitter, p, instruction, outputs);        break;
+        case Instruction_Match_TAG:        emit_match (emitter, p, instruction, outputs);        break;
+        case Instruction_Loop_TAG:         emit_loop  (emitter, p, instruction, outputs);        break;
         case Instruction_Control_TAG: error("TODO")
     }
 }

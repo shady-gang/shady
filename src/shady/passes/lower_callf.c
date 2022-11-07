@@ -52,8 +52,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             const Node* new_instruction = NULL;
             const Node* old_tail = old->payload.let.tail;
             // we convert calls to tail-calls within a control
-            // let_indirect(call(...), ret_fn) to let_indirect(control(jp => save(jp); tailcall(...)), ret_fn)
-            if (old_instruction->tag == Call_TAG) {
+            // let_indirect(call_indirect(...), ret_fn) to let_indirect(control(jp => save(jp); tailcall(...)), ret_fn)
+            if (old_instruction->tag == IndirectCall_TAG) {
                 const Node* tail_type = extract_operand_type(old_tail->type);
                 assert(tail_type->tag == FnType_TAG);
                 Nodes returned_types = rewrite_nodes(&ctx->rewriter, tail_type->payload.fn_type.return_types);
@@ -66,8 +66,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 gen_push_value_stack(instructions, jp);
                 // tail-call to the target immediately afterwards
                 control_insides->payload.anon_lam.body = finish_body(instructions, tail_call(dst_arena, (TailCall) {
-                    .target = rewrite_node(&ctx->rewriter, old_instruction->payload.call_instr.callee),
-                    .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.call_instr.args),
+                    .target = rewrite_node(&ctx->rewriter, old_instruction->payload.indirect_call.callee),
+                    .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.indirect_call.args),
                 }));
 
                 new_instruction = control(dst_arena, (Control) { .yield_types = returned_types, .inside = control_insides });
