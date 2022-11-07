@@ -13,6 +13,19 @@ typedef struct {
     CallGraph* graph;
 } Context;
 
+static bool is_leaf_fn(CGNode* fn_node) {
+    if (fn_node->is_address_captured)
+        return false;
+
+    if (fn_node->is_recursive)
+        return false;
+
+    if (fn_node->calls_something_indirectly)
+        return false;
+
+    return true;
+}
+
 static const Node* process(Context* ctx, const Node* node) {
     IrArena* arena = ctx->rewriter.dst_arena;
     if (!node) return NULL;
@@ -23,7 +36,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Function_TAG: {
             CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-            if (!fn_node->is_address_captured && !fn_node->is_recursive && !fn_node->has_indirect_call) {
+            if (is_leaf_fn(fn_node)) {
                 annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) {
                     .name = "Leaf",
                 }));
@@ -35,6 +48,20 @@ static const Node* process(Context* ctx, const Node* node) {
 
             recreate_decl_body_identity(&ctx->rewriter, node, new);
             return new;
+        }
+        case IndirectCall_TAG: {
+            const Node* callee = node->payload.indirect_call.callee;
+            if (callee->tag == FnAddr_TAG) {
+                const Node* fn = callee->payload.fn_addr.fn;
+                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, fn);
+                if (is_leaf_fn(fn_node)) {
+                    return leaf_call(arena, (LeafCall) {
+                        .callee = rewrite_node(&ctx->rewriter, fn),
+                        .args = rewrite_nodes(&ctx->rewriter, node->payload.indirect_call.args)
+                    });
+                }
+            }
+            SHADY_FALLTHROUGH
         }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }

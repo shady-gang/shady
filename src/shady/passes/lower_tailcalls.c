@@ -69,8 +69,8 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     const Node* entry_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
     gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_mask"), entry_mask);
 
-    bind_instruction(builder, indirect_call(dst_arena, (IndirectCall) {
-        .callee = fn_addr(dst_arena, (FnAddr) { .fn = ctx->god_fn }),
+    bind_instruction(builder, leaf_call(dst_arena, (LeafCall) {
+        .callee = ctx->god_fn,
         .args = nodes(dst_arena, 0, NULL)
     }));
 
@@ -188,18 +188,7 @@ static const Node* process(Context* ctx, const Node* old) {
             bind_instruction(bb, call);*/
             return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));
         }
-        case IndirectCall_TAG: {
-            // allow function addresses to survive as part of direct calls!
-            const Node* callee = old->payload.indirect_call.callee;
-            if (callee->tag == FnAddr_TAG) {
-                const Node* fn = callee->payload.fn_addr.fn;
-                assert(lookup_annotation(fn, "Leaf"));
-                return indirect_call(dst_arena, (IndirectCall) {
-                    .callee = fn_addr(dst_arena, (FnAddr) { .fn = rewrite_node(&ctx->rewriter, fn) }),
-                    .args = rewrite_nodes(&ctx->rewriter, old->payload.indirect_call.args)
-                });
-            } else error("Only leaf calls should survive to this stage!");
-        }
+        case IndirectCall_TAG: error("Only leaf calls should survive to this stage!");
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
             if (pointee->tag == FnType_TAG) {
@@ -244,8 +233,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
             BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
 
             // TODO wrap in if(mask)
-            bind_instruction(case_builder, indirect_call(dst_arena, (IndirectCall) {
-                .callee = fn_addr(dst_arena, (FnAddr) { .fn = find_processed(&ctx->rewriter, decl) }),
+            bind_instruction(case_builder, leaf_call(dst_arena, (LeafCall) {
+                .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, 0, NULL)
             }));
 

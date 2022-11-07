@@ -415,7 +415,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
 static void print_instruction(PrinterCtx* ctx, const Node* node) {
     switch (is_instruction(node)) {
         case NotAnInstruction: assert(false); break;
-        case PrimOp_TAG:
+        case PrimOp_TAG: {
             printf(GREEN);
             printf("%s", primop_names[node->payload.prim_op.op]);
             printf(RESET);
@@ -424,7 +424,22 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
                 print_ty_args_list(ctx, node->payload.prim_op.type_arguments);
             print_args_list(ctx, node->payload.prim_op.operands);
             break;
-        case IndirectCall_TAG:
+        } case LeafCall_TAG: {
+            printf(GREEN);
+            printf("leaf_call ");
+            printf(RESET);
+            const Node* callee = node->payload.leaf_call.callee;
+            print_node(callee);
+            printf("(");
+            for (size_t i = 0; i < node->payload.leaf_call.args.count; i++) {
+                print_node(node->payload.leaf_call.args.nodes[i]);
+                if (i + 1 < node->payload.leaf_call.args.count)
+                    printf(", ");
+            }
+            printf(")");
+            break;
+        } case IndirectCall_TAG: {
+
             printf(GREEN);
             printf("indirect_call ");
             printf(RESET);
@@ -438,7 +453,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             }
             printf(")");
             break;
-        case If_TAG:
+        } case If_TAG: {
             printf(GREEN);
             printf("if");
             printf(RESET);
@@ -454,7 +469,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
                 print_lambda_body(ctx, node->payload.if_instr.if_false);
             }
             break;
-        case Loop_TAG:
+        } case Loop_TAG: {
             printf(GREEN);
             printf("loop");
             printf(RESET);
@@ -464,7 +479,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             print_param_list(ctx, body->payload.anon_lam.params, &node->payload.loop_instr.initial_args);
             print_lambda_body(ctx, body);
             break;
-        case Match_TAG:
+        } case Match_TAG: {
             printf(GREEN);
             printf("match");
             printf(RESET);
@@ -495,7 +510,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             deindent(ctx->printer);
             printf("\n}");
             break;
-        case Control_TAG:
+        } case Control_TAG: {
             printf(BGREEN);
             printf("control");
             printf(RESET);
@@ -503,6 +518,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             print_param_list(ctx, node->payload.control.inside->payload.anon_lam.params, NULL);
             print_lambda_body(ctx, node->payload.control.inside);
             break;
+        }
     }
 }
 

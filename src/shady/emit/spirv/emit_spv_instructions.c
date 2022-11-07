@@ -279,15 +279,11 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
     error("unreachable");
 }
 
-static void emit_indirect_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, IndirectCall call, size_t results_count, SpvId results[]) {
-    assert(call.callee->tag == FnAddr_TAG && "Only direct calls are allowed !");
-    const Node* fn = call.callee->payload.fn_addr.fn;
+static void emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, LeafCall call, size_t results_count, SpvId results[]) {
+    const Node* fn = call.callee;
     SpvId callee = spv_find_reserved_id(emitter, fn);
 
     const Type* callee_type = call.callee->type;
-    callee_type = extract_operand_type(call.callee->type);
-    assert(callee_type->tag == PtrType_TAG);
-    callee_type = callee_type->payload.ptr_type.pointed_type;
     assert(callee_type->tag == FnType_TAG);
     Nodes return_types = callee_type->payload.fn_type.return_types;
     SpvId return_type = nodes_to_codom(emitter, return_types);
@@ -480,11 +476,12 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     assert(is_instruction(instruction));
 
     switch (instruction->tag) {
-        case PrimOp_TAG:              emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
-        case IndirectCall_TAG: emit_indirect_call(emitter, fn_builder, *bb_builder, instruction->payload.indirect_call, results_count, results);             break;
-        case If_TAG:                      emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, results_count, results);    break;
-        case Match_TAG:                emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
-        case Loop_TAG:                  emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
+        case IndirectCall_TAG: error("SPIR-V does not support indirect function calls. Such instructions need to be lowered away.");
+        case LeafCall_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.leaf_call, results_count, results);                 break;
+        case PrimOp_TAG:      emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
+        case If_TAG:              emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, results_count, results);    break;
+        case Match_TAG:        emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
+        case Loop_TAG:          emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
         default: error("Unrecognised instruction %s", node_tags[instruction->tag]);
     }
 }

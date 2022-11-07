@@ -148,28 +148,34 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Strings 
     }
 }
 
-static void emit_indirect_call(Emitter* emitter, Printer* p, const Node* call_instr, Strings outputs) {
-    assert(call_instr->tag == IndirectCall_TAG);
-    const IndirectCall* call = &call_instr->payload.indirect_call;
+static void emit_call(Emitter* emitter, Printer* p, const Node* call, Strings outputs) {
+    Nodes args;
+    if (call->tag == LeafCall_TAG)
+        args = call->payload.leaf_call.args;
+    else if (call->tag == IndirectCall_TAG)
+        args = call->payload.indirect_call.args;
+    else
+        assert(false);
+
     Growy* g = new_growy();
     Printer* paramsp = open_growy_as_printer(g);
-    for (size_t i = 0; i < call->args.count; i++) {
-        print(paramsp, emit_value(emitter, call->args.nodes[i]));
-        if (i + 1 < call->args.count)
+    for (size_t i = 0; i < args.count; i++) {
+        print(paramsp, emit_value(emitter, args.nodes[i]));
+        if (i + 1 < args.count)
             print(paramsp, ", ");
     }
 
-    String callee = emit_value(emitter, call->callee);
+    String callee = call->tag == LeafCall_TAG ? emit_decl(emitter, call->payload.leaf_call.callee) : emit_value(emitter, call->payload.indirect_call.callee);
     String params = printer_growy_unwrap(paramsp);
 
-    Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, call_instr->type);
+    Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, call->type);
     assert(yield_types.count == outputs.count);
     if (yield_types.count > 1) {
         String named = unique_name(emitter->arena, "result");
-        print(p, "\n%s = %s(%s);", emit_type(emitter, call_instr->type, named), callee, params);
+        print(p, "\n%s = %s(%s);", emit_type(emitter, call->type, named), callee, params);
         emit_unpack_code(p, named, outputs);
     } else if (yield_types.count == 1) {
-        print(p, "\n%s = %s(%s);", emit_type(emitter, call_instr->type, outputs.strings[0]), callee, params);
+        print(p, "\n%s = %s(%s);", emit_type(emitter, call->type, outputs.strings[0]), callee, params);
     } else {
         print(p, "\n%s(%s);", callee, params);
     }
@@ -248,11 +254,12 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Str
 
     switch (is_instruction(instruction)) {
         case NotAnInstruction: assert(false);
-        case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs);        break;
-        case Instruction_IndirectCall_TAG: emit_indirect_call(emitter, p, instruction, outputs); break;
-        case Instruction_If_TAG:           emit_if    (emitter, p, instruction, outputs);        break;
-        case Instruction_Match_TAG:        emit_match (emitter, p, instruction, outputs);        break;
-        case Instruction_Loop_TAG:         emit_loop  (emitter, p, instruction, outputs);        break;
+        case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
+        case Instruction_LeafCall_TAG:
+        case Instruction_IndirectCall_TAG: emit_call  (emitter, p, instruction, outputs); break;
+        case Instruction_If_TAG:           emit_if    (emitter, p, instruction, outputs); break;
+        case Instruction_Match_TAG:        emit_match (emitter, p, instruction, outputs); break;
+        case Instruction_Loop_TAG:         emit_loop  (emitter, p, instruction, outputs); break;
         case Instruction_Control_TAG: error("TODO")
     }
 }
