@@ -292,16 +292,22 @@ static void emit_function(Emitter* emitter, const Node* node) {
     spvb_define_function(emitter->file_builder, fn_builder);
 }
 
-static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
-    switch (decl->tag) {
+SpvId emit_decl(Emitter* emitter, const Node* decl) {
+    SpvId* existing = find_value_dict(const Node*, SpvId, emitter->node_ids, decl);
+    if (existing)
+        return *existing;
+
+    switch (is_declaration(decl)) {
         case GlobalVariable_TAG: {
             const GlobalVariable* gvar = &decl->payload.global_variable;
+            SpvId given_id = spvb_fresh_id(emitter->file_builder);
+            register_result(emitter, decl, given_id);
+            spvb_name(emitter->file_builder, given_id, gvar->name);
             SpvId init = 0;
             if (gvar->init)
                 init = emit_value(emitter, NULL, gvar->init);
             SpvStorageClass storage_class = emit_addr_space(gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), storage_class, false, init);
-            spvb_name(emitter->file_builder, given_id, gvar->name);
 
             switch (storage_class) {
                 case SpvStorageClassPushConstant: {
@@ -322,40 +328,30 @@ static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
                 default: break;
             }
 
-            break;
+            return given_id;
         } case Function_TAG: {
-            emit_function(emitter, decl);
+            SpvId given_id = spvb_fresh_id(emitter->file_builder);
+            register_result(emitter, decl, given_id);
             spvb_name(emitter->file_builder, given_id, decl->payload.fun.name);
-            break;
+            emit_function(emitter, decl);
+            return given_id;
         } case Constant_TAG: {
             // We don't emit constants at all !
             // With RefDecl, we directly grab the underlying value and emit that there and then.
             // Emitting constants as their own IDs would be nicer, but it's painful to do because decls need their ID to be reserved in advance,
             // but we also desire to cache reused values instead of emitting them multiple times. This means we can't really "force" an ID for a given value.
             // The ideal fix would be if SPIR-V offered a way to "alias" an ID under a new one. This would allow applying new debug information to the decl ID, separate from the other instances of that value.
-            break;
+            return 0;
         } case NominalType_TAG: {
-            emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
+            SpvId given_id = spvb_fresh_id(emitter->file_builder);
+            register_result(emitter, decl, given_id);
             spvb_name(emitter->file_builder, given_id, decl->payload.nom_type.name);
-            break;
+            emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
+            return given_id;
         }
-        default: error("unhandled declaration kind")
+        case NotADecl: error("");
     }
-}
-
-static void emit_decls(Emitter* emitter, Nodes declarations) {
-     // First reserve IDs for declarations
-    LARRAY(SpvId, ids, declarations.count);
-    for (size_t i = 0; i < declarations.count; i++) {
-        const Node* decl = declarations.nodes[i];
-        ids[i] = spvb_fresh_id(emitter->file_builder);
-        insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, decl, ids[i]);
-    }
-
-    for (size_t i = 0; i < declarations.count; i++) {
-        const Node* decl = declarations.nodes[i];
-        emit_decl(emitter, decl, ids[i]);
-    }
+    error("unreachable");
 }
 
 static SpvExecutionModel emit_exec_model(ExecutionModel model) {
@@ -421,6 +417,13 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
 
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
+
+static void emit_decls(Emitter* emitter, Nodes declarations) {
+    for (size_t i = 0; i < declarations.count; i++) {
+        const Node* decl = declarations.nodes[i];
+        emit_decl(emitter, decl);
+    }
+}
 
 void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output) {
     IrArena* arena = get_module_arena(mod);

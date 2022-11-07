@@ -177,9 +177,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             break;
         }
         case Type_TypeDeclRef_TAG: {
-            SpvId* found = find_value_dict(const Node*, SpvId, emitter->node_ids, type->payload.type_decl_ref.decl);
-            assert(found);
-            new = *found;
+            new = emit_decl(emitter, type->payload.type_decl_ref.decl);
             break;
         }
         case Type_MaskType_TAG:

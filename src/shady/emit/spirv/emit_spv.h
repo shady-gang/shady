@@ -33,12 +33,14 @@ typedef struct {
     Phis continue_phis, break_phis, join_phis;
 } MergeTargets;
 
-#define emit_type emit_spv_type
-#define emit_value emit_spv_value
-#define emit_instruction emit_spv_instruction
-#define emit_terminator emit_spv_terminator
+#define emit_decl spv_emit_decl
+#define emit_type spv_emit_type
+#define emit_value spv_emit_value
+#define emit_instruction spv_emit_instruction
+#define emit_terminator spv_emit_terminator
 #define find_reserved_id spv_find_reserved_id
 
+SpvId emit_decl(Emitter*, const Node*);
 SpvId emit_type(Emitter*, const Type*);
 SpvId emit_value(Emitter*, BBBuilder, const Node*);
 SpvId emit_builtin(Emitter*, VulkanBuiltins builtin);

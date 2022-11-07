@@ -281,7 +281,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
 
 static void emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, LeafCall call, size_t results_count, SpvId results[]) {
     const Node* fn = call.callee;
-    SpvId callee = spv_find_reserved_id(emitter, fn);
+    SpvId callee = emit_decl(emitter, fn);
 
     const Type* callee_type = call.callee->type;
     assert(callee_type->tag == FnType_TAG);
