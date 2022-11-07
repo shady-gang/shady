@@ -20,7 +20,7 @@ void register_result(Emitter* emitter, const Node* variable, SpvId id) {
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variable, id);
 }
 
-SpvId emit_value(Emitter* emitter, const Node* node) {
+SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
     SpvId* existing = find_value_dict(const Node*, SpvId, emitter->node_ids, node);
     if (existing)
         return *existing;
@@ -51,6 +51,20 @@ SpvId emit_value(Emitter* emitter, const Node* node) {
             spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), false);
             break;
         }
+        case Tuple_TAG: {
+            Nodes components = node->payload.tuple.contents;
+            LARRAY(SpvId, ids, components.count);
+            for (size_t i = 0; i < components.count; i++) {
+                ids[i] = emit_value(emitter, bb_builder, components.nodes[i]);
+            }
+            if (bb_builder) {
+                new = spvb_composite(bb_builder, emit_type(emitter, node->type), components.count, ids);
+                return new;
+            } else {
+                new = spvb_constant_composite(emitter->file_builder, emit_type(emitter, node->type), components.count, ids);
+                break;
+            }
+        }
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
             switch (decl->tag) {
@@ -59,7 +73,7 @@ SpvId emit_value(Emitter* emitter, const Node* node) {
                     break;
                 }
                 case Constant_TAG: {
-                    new = emit_value(emitter, decl->payload.constant.value);
+                    new = emit_value(emitter, NULL, decl->payload.constant.value);
                     break;
                 }
                 default: error("RefDecl must reference a constant or global");
@@ -73,7 +87,7 @@ SpvId emit_value(Emitter* emitter, const Node* node) {
     return new;
 }
 
-static SpvId find_reserved_id(Emitter* emitter, const Node* node) {
+SpvId spv_find_reserved_id(Emitter* emitter, const Node* node) {
     SpvId* found = find_value_dict(const Node*, SpvId, emitter->node_ids, node);
     assert(found);
     return *found;
@@ -106,11 +120,11 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             const Nodes* ret_values = &terminator->payload.fn_ret.args;
             switch (ret_values->count) {
                 case 0: spvb_return_void(basic_block_builder); return;
-                case 1: spvb_return_value(basic_block_builder, emit_value(emitter, ret_values->nodes[0])); return;
+                case 1: spvb_return_value(basic_block_builder, emit_value(emitter, basic_block_builder, ret_values->nodes[0])); return;
                 default: {
                     LARRAY(SpvId, arr, ret_values->count);
                     for (size_t i = 0; i < ret_values->count; i++)
-                        arr[i] = emit_value(emitter, ret_values->nodes[i]);
+                        arr[i] = emit_value(emitter, basic_block_builder, ret_values->nodes[i]);
                     SpvId return_that = spvb_composite(basic_block_builder, fn_ret_type_id(fn_builder), ret_values->count, arr);
                     spvb_return_value(basic_block_builder, return_that);
                     return;
@@ -138,7 +152,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             Nodes args = terminator->payload.jump.args;
             LARRAY(SpvId, emitted_args, args.count);
             for (size_t i = 0; i < args.count; i++)
-                emitted_args[i] = emit_value(emitter, args.nodes[i]);
+                emitted_args[i] = emit_value(emitter, basic_block_builder, args.nodes[i]);
 
             spvb_branch(basic_block_builder, find_reserved_id(emitter, terminator->payload.jump.target));
             add_branch_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), terminator->payload.jump.target, args.count, emitted_args);
@@ -147,9 +161,9 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             Nodes args = terminator->payload.branch.args;
             LARRAY(SpvId, emitted_args, args.count);
             for (size_t i = 0; i < args.count; i++)
-                emitted_args[i] = emit_value(emitter, args.nodes[i]);
+                emitted_args[i] = emit_value(emitter, basic_block_builder, args.nodes[i]);
 
-            SpvId condition = emit_value(emitter, terminator->payload.branch.branch_condition);
+            SpvId condition = emit_value(emitter, basic_block_builder, terminator->payload.branch.branch_condition);
             spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_target), find_reserved_id(emitter, terminator->payload.branch.false_target));
 
             add_branch_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), terminator->payload.branch.true_target, args.count, emitted_args);
@@ -159,7 +173,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             Nodes args = terminator->payload.br_switch.args;
             LARRAY(SpvId, emitted_args, args.count);
             for (size_t i = 0; i < args.count; i++)
-                emitted_args[i] = emit_value(emitter, args.nodes[i]);
+                emitted_args[i] = emit_value(emitter, basic_block_builder, args.nodes[i]);
 
             error("TODO")
         }
@@ -169,21 +183,21 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         case MergeSelection_TAG: {
             Nodes args = terminator->payload.merge_selection.args;
             for (size_t i = 0; i < args.count; i++)
-                spvb_add_phi_source(merge_targets.join_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, args.nodes[i]));
+                spvb_add_phi_source(merge_targets.join_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, basic_block_builder, args.nodes[i]));
             spvb_branch(basic_block_builder, merge_targets.join_target);
             return;
         }
         case MergeContinue_TAG: {
             Nodes args = terminator->payload.merge_continue.args;
             for (size_t i = 0; i < args.count; i++)
-                spvb_add_phi_source(merge_targets.continue_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, args.nodes[i]));
+                spvb_add_phi_source(merge_targets.continue_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, basic_block_builder, args.nodes[i]));
             spvb_branch(basic_block_builder, merge_targets.continue_target);
             return;
         }
         case MergeBreak_TAG: {
             Nodes args = terminator->payload.merge_break.args;
             for (size_t i = 0; i < args.count; i++)
-                spvb_add_phi_source(merge_targets.break_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, args.nodes[i]));
+                spvb_add_phi_source(merge_targets.break_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, basic_block_builder, args.nodes[i]));
             spvb_branch(basic_block_builder, merge_targets.break_target);
             return;
         }
@@ -219,11 +233,11 @@ static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const Scope
     emit_terminator(emitter, fn_builder, bb_builder, merge_targets, body);
 
     // Emit the child nodes
-    size_t dom_count = entries_count_list(cf_node->dominates);
+    /*size_t dom_count = entries_count_list(cf_node->dominates);
     for (size_t i = 0; i < dom_count; i++) {
         CFNode* child_node = read_list(CFNode*, cf_node->dominates)[i];
         emit_basic_block(emitter, fn_builder, scope, child_node);
-    }
+    }*/
 }
 
 static void emit_function(Emitter* emitter, const Node* node) {
@@ -247,7 +261,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
         if (is_anonymous_lambda(bb))
             continue;
         assert(is_basic_block(bb) || bb == node);
-        SpvId bb_id = i == spvb_fresh_id(emitter->file_builder);
+        SpvId bb_id = spvb_fresh_id(emitter->file_builder);
         BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, bb_id);
         insert_dict(const Node*, BBBuilder, emitter->bb_builders, bb, basic_block_builder);
         // add phis for every non-entry basic block
@@ -263,7 +277,16 @@ static void emit_function(Emitter* emitter, const Node* node) {
         }
     }
     // emit the blocks using the dominator tree
-    emit_basic_block(emitter, fn_builder, &scope, scope.entry);
+    //emit_basic_block(emitter, fn_builder, &scope, scope.entry);
+    for (size_t i = 0; i < scope.size; i++) {
+        CFNode* cfnode = scope.rpo[i];
+        if (i == 0)
+            assert(cfnode == scope.entry);
+        if (is_anonymous_lambda(cfnode->node))
+            continue;
+        emit_basic_block(emitter, fn_builder, &scope, cfnode);
+    }
+
     dispose_scope(&scope);
 
     spvb_define_function(emitter->file_builder, fn_builder);
@@ -275,7 +298,7 @@ static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
             const GlobalVariable* gvar = &decl->payload.global_variable;
             SpvId init = 0;
             if (gvar->init)
-                init = emit_value(emitter, gvar->init);
+                init = emit_value(emitter, NULL, gvar->init);
             SpvStorageClass storage_class = emit_addr_space(gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), storage_class, false, init);
             spvb_name(emitter->file_builder, given_id, gvar->name);

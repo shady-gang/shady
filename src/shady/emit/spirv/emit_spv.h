@@ -37,13 +37,15 @@ typedef struct {
 #define emit_value emit_spv_value
 #define emit_instruction emit_spv_instruction
 #define emit_terminator emit_spv_terminator
+#define find_reserved_id spv_find_reserved_id
 
 SpvId emit_type(Emitter*, const Type*);
-SpvId emit_value(Emitter*, const Node*);
+SpvId emit_value(Emitter*, BBBuilder, const Node*);
 SpvId emit_builtin(Emitter*, VulkanBuiltins builtin);
 void emit_instruction(Emitter*, FnBuilder, BBBuilder*, MergeTargets*, const Node* instruction, size_t results_count, SpvId results[]);
 void emit_terminator(Emitter*, FnBuilder, BBBuilder, MergeTargets, const Node* terminator);
 
+SpvId find_reserved_id(Emitter* emitter, const Node* node);
 void register_result(Emitter*, const Node*, SpvId id);
 
 SpvStorageClass emit_addr_space(AddressSpace address_space);

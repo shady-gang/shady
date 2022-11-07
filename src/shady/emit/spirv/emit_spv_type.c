@@ -157,7 +157,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         case ArrType_TAG: {
             SpvId element_type = emit_type(emitter, type->payload.arr_type.element_type);
             if (type->payload.arr_type.size) {
-                new = spvb_array_type(emitter->file_builder, element_type, emit_value(emitter, type->payload.arr_type.size));
+                new = spvb_array_type(emitter->file_builder, element_type, emit_value(emitter, NULL, type->payload.arr_type.size));
             } else {
                 new = spvb_runtime_array_type(emitter->file_builder, element_type);
             }
