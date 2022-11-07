@@ -760,6 +760,22 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
             printf(")");
             break;
         }
+        case AnnotationValues_TAG: {
+            const AnnotationValues* annotation = &node->payload.annotation_values;
+            printf(RED);
+            printf("@%s", annotation->name);
+            printf(RESET);
+            print_args_list(ctx, annotation->values);
+            break;
+        }
+        case AnnotationCompound_TAG: {
+            const AnnotationValues* annotation = &node->payload.annotation_values;
+            printf(RED);
+            printf("@%s", annotation->name);
+            printf(RESET);
+            print_args_list(ctx, annotation->values);
+            break;
+        }
         default: error("dunno how to print %s", node_tags[node->tag]);
     }
 }

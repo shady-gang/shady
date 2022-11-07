@@ -72,8 +72,8 @@ N(0, 0, 1, NominalType, nom_type) \
 #define ANNOTATION_NODES(N) \
 N(1, 0, 1, Annotation, annotation) \
 N(1, 0, 1, AnnotationValue, annotation_value) \
-N(1, 0, 1, AnnotationsList, annotations_list) \
-N(1, 0, 1, AnnotationsDict, annotations_dict) \
+N(1, 0, 1, AnnotationValues, annotation_values) \
+N(1, 0, 1, AnnotationCompound, annotations_compound) \
 
 #define NODES(N) \
 TYPE_NODES(N) \
@@ -436,15 +436,14 @@ typedef struct AnnotationValue_ AnnotationValue;
 MkField(1, STRING, String, name) \
 MkField(1, VALUE, const Node*, value)
 
-typedef struct AnnotationsList_ AnnotationsList;
-#define AnnotationsList_Fields(MkField) \
+typedef struct AnnotationValues_ AnnotationValues;
+#define AnnotationValues_Fields(MkField) \
 MkField(1, STRING, String, name) \
-MkField(1, ANNOTATIONS, Nodes, values)
+MkField(1, VALUES, Nodes, values)
 
-typedef struct AnnotationsDict_ AnnotationsDict;
-#define AnnotationsDict_Fields(MkField) \
+typedef struct AnnotationCompound_ AnnotationCompound;
+#define AnnotationCompound_Fields(MkField) \
 MkField(1, STRING, String, name) \
-MkField(1, STRINGS, Strings, labels) \
 MkField(1, ANNOTATIONS, Nodes, entries)
 
 // This macro is used to define what the 'field types' column in the _Fields macros before mean.

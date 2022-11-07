@@ -52,8 +52,8 @@ static const Node* _infer_annotation(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Annotation_TAG: return annotation(ctx->rewriter.dst_arena, (Annotation) { .name = node->payload.annotation.name });
         case AnnotationValue_TAG: return annotation_value(ctx->rewriter.dst_arena, (AnnotationValue) { .name = node->payload.annotation_value.name, .value = infer(ctx, node->payload.annotation_value.value, NULL) });
-        case AnnotationsList_TAG: return annotations_list(ctx->rewriter.dst_arena, (AnnotationsList) { .name = node->payload.annotations_list.name, .values = infer_nodes(ctx, node->payload.annotations_list.values) });
-        case AnnotationsDict_TAG: return annotations_dict(ctx->rewriter.dst_arena, (AnnotationsDict) { .name = node->payload.annotations_dict.name, .labels = node->payload.annotations_dict.labels, .entries = infer_nodes(ctx, node->payload.annotations_dict.entries) });
+        case AnnotationValues_TAG: return annotation_values(ctx->rewriter.dst_arena, (AnnotationValues) { .name = node->payload.annotation_values.name, .values = infer_nodes(ctx, node->payload.annotation_values.values) });
+        case AnnotationCompound_TAG: return annotations_compound(ctx->rewriter.dst_arena, (AnnotationCompound) { .name = node->payload.annotations_compound.name, .entries = infer_nodes(ctx, node->payload.annotations_compound.entries) });
         default: error("TODO");
     }
 }

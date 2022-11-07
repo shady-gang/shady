@@ -92,8 +92,8 @@ static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalLogica
 bool is_addr_space_uniform(AddressSpace);
 
 const Node* lookup_annotation(const Node* decl, const char* name);
-const Node* extract_annotation_payload(const Node* annotation);
-Nodes extract_annotation_payloads(const Node* annotation);
+const Node* extract_annotation_value(const Node* annotation);
+Nodes extract_annotation_values(const Node* annotation);
 /// Gets the string literal attached to an annotation, if present.
 const char* extract_annotation_string_payload(const Node* annotation);
 bool lookup_annotation_with_string_payload(const Node* decl, const char* annotation_name, const char* expected_payload);

@@ -8,8 +8,8 @@ bool is_annotation(const Node* node) {
     switch (node->tag) {
         case Annotation_TAG:
         case AnnotationValue_TAG:
-        case AnnotationsList_TAG:
-        case AnnotationsDict_TAG: return true;
+        case AnnotationValues_TAG:
+        case AnnotationCompound_TAG: return true;
         default: return false;
     }
 }
@@ -19,8 +19,8 @@ String get_annotation_name(const Node* node) {
     switch (node->tag) {
         case Annotation_TAG:      return node->payload.annotation.name;
         case AnnotationValue_TAG: return node->payload.annotation_value.name;
-        case AnnotationsList_TAG: return node->payload.annotations_list.name;
-        case AnnotationsDict_TAG: return node->payload.annotations_dict.name;
+        case AnnotationValues_TAG: return node->payload.annotation_values.name;
+        case AnnotationCompound_TAG: return node->payload.annotations_compound.name;
         default: return false;
     }
 }
@@ -51,23 +51,23 @@ const Node* lookup_annotation(const Node* decl, const char* name) {
     return search_annotations(decl, name, &i);
 }
 
-const Node* extract_annotation_payload(const Node* annotation) {
+const Node* extract_annotation_value(const Node* annotation) {
     assert(annotation);
     if (annotation->tag != AnnotationValue_TAG)
         error("This annotation does not have a single payload");
     return annotation->payload.annotation_value.value;
 }
 
-Nodes extract_annotation_payloads(const Node* annotation) {
+Nodes extract_annotation_values(const Node* annotation) {
     assert(annotation);
-    if (annotation->tag != AnnotationsList_TAG)
+    if (annotation->tag != AnnotationValues_TAG)
         error("This annotation does not have multiple payloads");
-    return annotation->payload.annotations_list.values;
+    return annotation->payload.annotation_values.values;
 }
 
 /// Gets the string literal attached to an annotation, if present.
 const char*  extract_annotation_string_payload(const Node* annotation) {
-    const Node* payload = extract_annotation_payload(annotation);
+    const Node* payload = extract_annotation_value(annotation);
     if (!payload) return NULL;
     if (payload->tag != StringLiteral_TAG)
         error("Wrong annotation payload tag, expected a string literal")

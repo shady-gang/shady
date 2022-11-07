@@ -313,8 +313,8 @@ static void emit_decl(Emitter* emitter, const Node* decl, SpvId given_id) {
                     const Node* descriptor_set = lookup_annotation(decl, "DescriptorSet");
                     const Node* descriptor_binding = lookup_annotation(decl, "DescriptorBinding");
                     assert(descriptor_set && descriptor_binding && "DescriptorSet and/or DescriptorBinding annotations are missing");
-                    size_t set     = extract_int_literal_value(extract_annotation_payload(descriptor_set),     false);
-                    size_t binding = extract_int_literal_value(extract_annotation_payload(descriptor_binding), false);
+                    size_t set     = extract_int_literal_value(extract_annotation_value(descriptor_set),     false);
+                    size_t binding = extract_int_literal_value(extract_annotation_value(descriptor_binding), false);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationDescriptorSet, 1, (uint32_t []) { set });
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBinding, 1, (uint32_t []) { binding });
                     break;
@@ -397,7 +397,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
 
         const Node* entry_point = lookup_annotation(decl, "EntryPoint");
         if (entry_point) {
-            const char* execution_model_name = extract_string_literal(extract_annotation_payload(entry_point));
+            const char* execution_model_name = extract_string_literal(extract_annotation_value(entry_point));
             SpvExecutionModel execution_model = emit_exec_model(execution_model_from_string(execution_model_name));
 
             spvb_entry_point(emitter->file_builder, execution_model, fn_id, decl->payload.fun.name, interface_size, interface_arr);
@@ -407,7 +407,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
             if (execution_model == SpvExecutionModelGLCompute)
                 assert(workgroup_size);
             if (workgroup_size) {
-                Nodes values = extract_annotation_payloads(workgroup_size);
+                Nodes values = extract_annotation_values(workgroup_size);
                 assert(values.count == 3);
                 uint32_t wg_x_dim = (uint32_t) extract_int_literal_value(values.nodes[0], false);
                 uint32_t wg_y_dim = (uint32_t) extract_int_literal_value(values.nodes[1], false);
