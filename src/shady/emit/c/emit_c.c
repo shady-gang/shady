@@ -105,7 +105,21 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
         case Value_IntLiteral_TAG: emitted = format_string(emitter->arena, "%d", value->payload.int_literal.value.u64); break;
         case Value_True_TAG: return term_from_cvalue("true");
         case Value_False_TAG: return term_from_cvalue("false");
-        case Value_Tuple_TAG: break;
+        case Value_Tuple_TAG: {
+            Growy* g = new_growy();
+            Printer* p = open_growy_as_printer(g);
+
+            Nodes elements = value->payload.tuple.contents;
+            for (size_t i = 0; i < elements.count; i++) {
+                print(p, "%s, ", to_cvalue(emitter, emit_value(emitter, elements.nodes[i])));
+            }
+
+            emitted = format_string(emitter->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), growy_data(g));
+
+            growy_destroy(g);
+            destroy_printer(p);
+            break;
+        }
         case Value_StringLiteral_TAG: break;
         case Value_ArrayLiteral_TAG: {
             Growy* g = new_growy();

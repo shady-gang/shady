@@ -167,10 +167,11 @@ Strings import_strings(IrArena* dst_arena, Strings old_strings) {
 }
 
 String format_string(IrArena* arena, const char* str, ...) {
-    char tmp[128];
+    // TODO make this unlimited already!
+    char tmp[256];
     va_list args;
     va_start(args, str);
-    int len = vsnprintf(tmp, 128, str, args);
+    int len = vsnprintf(tmp, 256, str, args);
     const char* interned = string_impl(arena, len, tmp);
     va_end(args);
     return interned;

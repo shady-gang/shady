@@ -50,7 +50,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case unit_op:
             return;
         case quote_op: {
-            rhs = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[0]));
+            assert(outputs.count == 1);
+            outputs.results[0] = emit_value(emitter, prim_op->operands.nodes[0]);
+            outputs.needs_binding[0] = false;
             break;
         }
         case add_op: s = "+";  break;
@@ -69,13 +71,20 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case or_op:  s = "|";  break;
         case xor_op: s = "^";  break;
         case not_op: s = "!"; m = Prefix; break;
-        case rshift_logical_op:break;
-        case rshift_arithm_op:break;
-        case lshift_op:break;
-        case assign_op:break;
-        case subscript_op:break;
+        // TODO achieve desired right shift semantics through unsigned/signed casts
+        case rshift_logical_op:
+            s = ">>";
+            break;
+        case rshift_arithm_op:
+            s = ">>";
+            break;
+        case lshift_op:
+            s = "<<";
+            break;
+        case assign_op:
+        case subscript_op:
+        case alloca_slot_op: error("desugar those")
         case alloca_op:break;
-        case alloca_slot_op:break;
         case alloca_logical_op:break;
         case load_op: {
             CAddr dereferenced = deref_term(emitter, emit_value(emitter, first(prim_op->operands)));
@@ -120,7 +129,35 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             outputs.needs_binding[0] = false;
             return;
         }
-        case make_op: break;
+        case make_op: {
+            CType t = emit_type(emitter, node->type, NULL);
+            CValue src = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+
+            const Type* inside_type = extract_operand_type(first(prim_op->operands)->type);
+            switch (inside_type->tag) {
+                case RecordType_TAG: {
+                    Growy* g = new_growy();
+                    Printer* p2 = open_growy_as_printer(g);
+
+                    Nodes field_types = inside_type->payload.record_type.members;
+                    Strings field_names = inside_type->payload.record_type.names;
+                    for (size_t i = 0; i < field_types.count; i++) {
+                        if (field_names.count == field_types.count)
+                            print(p2, "%s.%s, ", src, field_names.strings[i]);
+                        else
+                            print(p2, "%s._%d, ", src, i);
+                    }
+
+                    rhs = format_string(emitter->arena, "(%s) { %s }", t, growy_data(g));
+
+                    growy_destroy(g);
+                    destroy_printer(p2);
+                    break;
+                }
+                default: error("")
+            }
+            break;
+        }
         case select_op:break;
         case convert_op:break;
         case reinterpret_op: {
@@ -137,8 +174,34 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             }
             return;
         }
-        case extract_op:break;
-        case extract_dynamic_op:break;
+        case extract_dynamic_op:
+        case extract_op: {
+            CValue acc = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+
+            const Type* t = extract_operand_type(first(prim_op->operands)->type);
+            for (size_t i = 1; i < prim_op->operands.count; i++) {
+                const Node* index = prim_op->operands.nodes[i];
+                const IntLiteral* static_index = resolve_to_literal(index);
+
+                switch (is_type(t)) {
+                    case Type_RecordType_TAG: {
+                        assert(static_index);
+                        acc = format_string(emitter->arena, "(%s._%d)", acc, static_index->value.u64);
+                        break;
+                    }
+                    case Type_ArrType_TAG:
+                    case Type_PackType_TAG: {
+                        acc = format_string(emitter->arena, "(%s[%s])", acc, to_cvalue(emitter, emit_value(emitter, index)));
+                        break;
+                    }
+                    default:
+                    case NotAType: error("Must be a type");
+                }
+            }
+
+            rhs = acc;
+            break;
+        }
         case push_stack_op:break;
         case pop_stack_op:break;
         case push_stack_uniform_op:break;
@@ -148,10 +211,16 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case set_stack_pointer_op:break;
         case set_stack_pointer_uniform_op:break;
         case subgroup_elect_first_op:break;
-        case subgroup_broadcast_first_op:break;
+        case subgroup_broadcast_first_op: {
+            rhs = format_string(emitter->arena, "%s /* TODO */", to_cvalue(emitter, emit_value(emitter, first(prim_op->operands))));
+            break;
+        }
         case subgroup_active_mask_op:break;
         case subgroup_ballot_op:break;
-        case subgroup_local_id_op:break;
+        case subgroup_local_id_op: {
+            rhs = "0 /* TODO */";
+            break;
+        }
         case empty_mask_op:break;
         case mask_is_thread_active_op:break;
         case debug_printf_op:break;
