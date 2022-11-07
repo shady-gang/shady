@@ -376,7 +376,7 @@ static const Node* _infer_loop(Context* ctx, const Node* node, const Type* expec
     const Node* old_body = node->payload.loop_instr.body;
 
     Nodes old_params = get_abstraction_params(old_body);
-    Nodes old_params_types = extract_variable_types(arena, &old_params);
+    Nodes old_params_types = extract_variable_types(arena, old_params);
     Nodes new_params_types = infer_nodes(ctx, old_params_types);
 
     Nodes old_initial_args = node->payload.loop_instr.initial_args;
@@ -419,7 +419,7 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Let_TAG: {
             const Node* otail = node->payload.let.tail;
-            Nodes annotated_types = extract_variable_types(arena, &otail->payload.anon_lam.params);
+            Nodes annotated_types = extract_variable_types(arena, otail->payload.anon_lam.params);
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(arena, annotated_types));
             Nodes inferred_yield_types = unwrap_multiple_yield_types(arena, inferred_instruction->type);
             const Node* inferred_tail = infer(ctx, node->payload.let.tail, wrap_multiple_yield_types(arena, inferred_yield_types));

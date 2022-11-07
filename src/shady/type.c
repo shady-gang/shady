@@ -158,11 +158,11 @@ bool contains_qualified_type(const Type* type) {
     }
 }
 
-Nodes extract_variable_types(IrArena* arena, const Nodes* variables) {
-    LARRAY(const Type*, arr, variables->count);
-    for (size_t i = 0; i < variables->count; i++)
-        arr[i] = variables->nodes[i]->payload.var.type;
-    return nodes(arena, variables->count, arr);
+Nodes extract_variable_types(IrArena* arena, Nodes variables) {
+    LARRAY(const Type*, arr, variables.count);
+    for (size_t i = 0; i < variables.count; i++)
+        arr[i] = variables.nodes[i]->payload.var.type;
+    return nodes(arena, variables.count, arr);
 }
 
 Nodes extract_types(IrArena* arena, Nodes values) {
@@ -170,6 +170,13 @@ Nodes extract_types(IrArena* arena, Nodes values) {
     for (size_t i = 0; i < values.count; i++)
         arr[i] = values.nodes[i]->type;
     return nodes(arena, values.count, arr);
+}
+
+Nodes strip_qualifiers(IrArena* arena, Nodes tys) {
+    LARRAY(const Type*, arr, tys.count);
+    for (size_t i = 0; i < tys.count; i++)
+        arr[i] = extract_operand_type(tys.nodes[i]);
+    return nodes(arena, tys.count, arr);
 }
 
 const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types) {
@@ -818,7 +825,7 @@ const Type* check_type_call_instr(IrArena* arena, Call call) {
         const Node* argument = args.nodes[i];
         assert(is_value(argument));
     }
-    Nodes argument_types = extract_variable_types(arena, &args);
+    Nodes argument_types = extract_variable_types(arena, args);
     return wrap_multiple_yield_types(arena, check_value_call(call.callee, call.args));
 }
 
@@ -863,7 +870,7 @@ const Type* check_type_control(IrArena* arena, Control control) {
 const Type* check_type_let(IrArena* arena, Let let) {
     assert(is_anonymous_lambda(let.tail));
     Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
-    Nodes param_types = extract_variable_types(arena, &let.tail->payload.anon_lam.params);
+    Nodes param_types = extract_variable_types(arena, let.tail->payload.anon_lam.params);
 
     check_arguments_types_against_parameters_helper(param_types, produced_types);
     return noret_type(arena);
@@ -882,7 +889,7 @@ const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
         const Node* argument = args.nodes[i];
         assert(is_value(argument));
     }
-    Nodes argument_types = extract_variable_types(arena, &args);
+    Nodes argument_types = extract_variable_types(arena, args);
     assert(check_value_call(tail_call.target, tail_call.args).count == 0);
     return noret_type(arena);
 }
@@ -979,15 +986,15 @@ const Type* check_type_fun(IrArena* arena, Function fn) {
     for (size_t i = 0; i < fn.return_types.count; i++) {
         assert(contains_qualified_type(fn.return_types.nodes[i]));
     }
-    return fn_type(arena, (FnType) { .param_types = extract_variable_types(arena, &(&fn)->params), .return_types = (&fn)->return_types });
+    return fn_type(arena, (FnType) { .param_types = extract_variable_types(arena, (&fn)->params), .return_types = (&fn)->return_types });
 }
 
 const Type* check_type_basic_block(IrArena* arena, BasicBlock bb) {
-    return bb_type(arena, (BBType) { .param_types = extract_variable_types(arena, &(&bb)->params) });
+    return bb_type(arena, (BBType) { .param_types = extract_variable_types(arena, (&bb)->params) });
 }
 
 const Type* check_type_anon_lam(IrArena* arena, AnonLambda lam) {
-    return lam_type(arena, (LamType) { .param_types = extract_variable_types(arena, &(&lam)->params) });
+    return lam_type(arena, (LamType) { .param_types = extract_variable_types(arena, (&lam)->params) });
 }
 
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {

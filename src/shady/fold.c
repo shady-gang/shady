@@ -44,7 +44,7 @@ static bool is_one(const Node* node) {
 }
 
 /// Substitutes the parameters for the arguments in the function body
-static const Node* reduce_beta(IrArena* arena, const Node* fn, Nodes args) {
+static const Node* reduce_beta(const Node* fn, Nodes args) {
     assert(is_abstraction(fn));
     Nodes params = get_abstraction_params(fn);
     const Node* body = get_abstraction_body(fn);
@@ -67,7 +67,7 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
             if (instruction->payload.prim_op.op == quote_op) {
                 const Node* value = instruction->payload.prim_op.operands.nodes[0];
                 if (is_anonymous_lambda(tail)) {
-                    return reduce_beta(arena, tail, nodes(arena, 1, (const Node*[]) { value }));
+                    return reduce_beta(tail, nodes(arena, 1, (const Node*[]) { value }));
                 }
             }
             else if (instruction->payload.prim_op.op == unit_op) {

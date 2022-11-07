@@ -24,8 +24,9 @@ NODES(DEFINE_NODE_CHECK_FN)
 const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types);
 Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 
-Nodes extract_variable_types(IrArena*, const Nodes*);
+Nodes extract_variable_types(IrArena*, Nodes);
 Nodes extract_types(IrArena*, Nodes);
+Nodes strip_qualifiers(IrArena*, Nodes);
 
 /// Ensures an operand has divergence-annotated type and extracts it
 const Type* extract_operand_type(const Type*);
