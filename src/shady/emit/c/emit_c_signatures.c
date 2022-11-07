@@ -16,7 +16,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         center = "";
 
     String emitted = NULL;
-    String* found = find_value_dict(const Node*, String, emitter->emitted, type);
+    CType* found = lookup_existing_type(emitter, type);
     if (found) {
         emitted = *found;
         goto type_goes_on_left;
@@ -130,12 +130,13 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             break;
         }
         case Type_TypeDeclRef_TAG: {
-            emitted = emit_decl(emitter, type->payload.type_decl_ref.decl);
+            emit_decl(emitter, type->payload.type_decl_ref.decl);
+            emitted = *lookup_existing_type(emitter, type->payload.type_decl_ref.decl);
             goto type_goes_on_left;
         }
     }
     assert(emitted != NULL);
-    insert_dict(const Node*, String, emitter->emitted, type, emitted);
+    register_emitted_type(emitter, type, emitted);
 
     type_goes_on_left:
     assert(emitted != NULL);

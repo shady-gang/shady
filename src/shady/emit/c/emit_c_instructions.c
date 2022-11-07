@@ -38,26 +38,19 @@ static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String g
     return strings(emitter->arena, types.count, names);
 }
 
-Strings emit_values(Emitter* emitter, Nodes values) {
-    LARRAY(String, names, values.count);
-    for (size_t i = 0; i < values.count; i++) {
-        names[i] = emit_value(emitter, values.nodes[i]);
-    }
-    return strings(emitter->arena, values.count, names);
-}
-
 static void emit_primop(Emitter* emitter, Printer* p, const Node* node, InstructionOutputs outputs) {
     assert(node->tag == PrimOp_TAG);
     const PrimOp* prim_op = &node->payload.prim_op;
     enum {
         Infix, Prefix
     } m = Infix;
-    String s = NULL, rhs = NULL;
+    String s = NULL;
+    CValue rhs = NULL;
     switch (prim_op->op) {
         case unit_op:
             return;
         case quote_op: {
-            rhs = emit_value(emitter, prim_op->operands.nodes[0]);
+            rhs = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[0]));
             break;
         }
         case add_op: s = "+";  break;
@@ -84,22 +77,34 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case alloca_op:break;
         case alloca_slot_op:break;
         case alloca_logical_op:break;
-        case load_op: s = "*"; m = Prefix; break;
-        case store_op:
-            print(p, "\n*%s = %s;", emit_value(emitter, prim_op->operands.nodes[0]), emit_value(emitter, prim_op->operands.nodes[1]));
+        case load_op: {
+            CAddr dereferenced = deref_term(emitter, emit_value(emitter, first(prim_op->operands)));
+            outputs.results[0] = term_from_cvalue(dereferenced);
+            outputs.needs_binding[0] = true;
             return;
-        case lea_op: {
-            const char* acc = emit_value(emitter, prim_op->operands.nodes[0]);
-            assert(acc);
-            if (prim_op->operands.nodes[1])
-                acc = format_string(emitter->arena, "&(%s[%s])", acc, emit_value(emitter, prim_op->operands.nodes[1]));
+        }
+        case store_op: {
+            CAddr dereferenced = deref_term(emitter, emit_value(emitter, first(prim_op->operands)));
+            CValue cvalue = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[1]));
+            print(p, "\n%s = %s;", dereferenced, cvalue);
+            return;
+        } case lea_op: {
+            CTerm acc = emit_value(emitter, prim_op->operands.nodes[0]);
+
+            const IntLiteral* offset_static_value = resolve_to_literal(prim_op->operands.nodes[1]);
+            if (!offset_static_value || offset_static_value->value.i64 != 0) {
+                CTerm offset = emit_value(emitter, prim_op->operands.nodes[1]);
+                acc = term_from_cvar(format_string(emitter->arena, "(%s[%s])", deref_term(emitter, acc), to_cvalue(emitter, offset)));
+            }
+
             const Type* t = extract_operand_type(prim_op->operands.nodes[0]->type);
             assert(t->tag == PtrType_TAG);
             t = t->payload.ptr_type.pointed_type;
             for (size_t i = 2; i < prim_op->operands.count; i++) {
                 switch (is_type(t)) {
                     case ArrType_TAG: {
-                        acc = format_string(emitter->arena, "&(%s[%s])", acc, emit_value(emitter, prim_op->operands.nodes[i]));
+                        CTerm index = emit_value(emitter, prim_op->operands.nodes[i]);
+                        acc = term_from_cvar(format_string(emitter->arena, "(%s[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
                         break;
                     }
                     case RecordType_TAG: error("TODO");
@@ -115,8 +120,18 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case select_op:break;
         case convert_op:break;
         case reinterpret_op: {
-            rhs = format_string(emitter->arena, "(%s) %s", emit_type(emitter, prim_op->type_arguments.nodes[0], NULL), emit_value(emitter, prim_op->operands.nodes[0]));
-            break;
+            assert(outputs.count == 1);
+            CTerm src = emit_value(emitter, first(prim_op->operands));
+            const Type* src_type = extract_operand_type(first(prim_op->operands)->type);
+            const Type* dst_type = first(prim_op->type_arguments);
+            if (src_type->tag == PtrType_TAG && dst_type->tag == PtrType_TAG || true) {
+                CType t = emit_type(emitter, prim_op->type_arguments.nodes[0], NULL);
+                outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "(%s) %s", t, to_cvalue(emitter, src)));
+                outputs.needs_binding[0] = false;
+            } else {
+                assert(false);
+            }
+            return;
         }
         case extract_op:break;
         case extract_dynamic_op:break;
@@ -143,20 +158,25 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     outputs.needs_binding[0] = true;
     if (s == NULL) {
         if (rhs)
-            outputs.results[0] = rhs;
+            outputs.results[0] = term_from_cvalue(rhs);
         else
-            outputs.results[0] = format_string(emitter->arena, "/* todo: implement %s */", primop_names[prim_op->op]);
+            outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "/* todo: implement %s */", primop_names[prim_op->op]));
         return;
     }
 
     switch (m) {
-        case Infix:
-            outputs.results[0] = format_string(emitter->arena, "%s %s %s", emit_value(emitter, prim_op->operands.nodes[0]), s, emit_value(emitter, prim_op->operands.nodes[1]));
+        case Infix: {
+            CTerm a = emit_value(emitter, prim_op->operands.nodes[0]);
+            CTerm b = emit_value(emitter, prim_op->operands.nodes[1]);
+            outputs.results[0] = term_from_cvalue(
+                    format_string(emitter->arena, "%s %s %s", to_cvalue(emitter, a), s, to_cvalue(emitter, b)));
             break;
-        case Prefix:
-            outputs.results[0] = format_string(emitter->arena, "%s%s", s, emit_value(emitter, prim_op->operands.nodes[0]));
+        }
+        case Prefix: {
+            CTerm operand = emit_value(emitter, prim_op->operands.nodes[0]);
+            outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s%s", s, to_cvalue(emitter, operand)));
             break;
-        default: assert(false);
+        } default: assert(false);
     }
 }
 
@@ -172,12 +192,18 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
     Growy* g = new_growy();
     Printer* paramsp = open_growy_as_printer(g);
     for (size_t i = 0; i < args.count; i++) {
-        print(paramsp, emit_value(emitter, args.nodes[i]));
+        print(paramsp, to_cvalue(emitter, emit_value(emitter, args.nodes[i])));
         if (i + 1 < args.count)
             print(paramsp, ", ");
     }
 
-    String callee = call->tag == LeafCall_TAG ? emit_decl(emitter, call->payload.leaf_call.callee) : emit_value(emitter, call->payload.indirect_call.callee);
+    CValue callee;
+    if (call->tag == LeafCall_TAG) {
+        emit_decl(emitter, call->payload.leaf_call.callee);
+        callee = to_cvalue(emitter, *lookup_existing_term(emitter, call->payload.leaf_call.callee));
+    } else
+        callee = to_cvalue(emitter, emit_value(emitter, call->payload.indirect_call.callee));
+
     String params = printer_growy_unwrap(paramsp);
 
     Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, call->type);
@@ -186,11 +212,11 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
         String named = unique_name(emitter->arena, "result");
         print(p, "\n%s = %s(%s);", emit_type(emitter, call->type, named), callee, params);
         for (size_t i = 0; i < yield_types.count; i++) {
-            outputs.results[i] = format_string(emitter->arena, "%s->_%d", named, i);
+            outputs.results[i] = term_from_cvalue(format_string(emitter->arena, "%s->_%d", named, i));
             outputs.needs_binding[i] = false;
         }
     } else if (yield_types.count == 1) {
-        outputs.results[0] = format_string(emitter->arena, "%s(%s)", callee, params);
+        outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s(%s)", callee, params));
         outputs.needs_binding[0] = true;
     } else {
         print(p, "\n%s(%s);", callee, params);
@@ -217,7 +243,8 @@ static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Instruct
 
     assert(get_anonymous_lambda_params(if_->if_true).count == 0);
     String true_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(if_->if_true), NULL);
-    print(p, "\nif (%s) %s", emit_value(emitter, if_->condition), true_body);
+    CValue condition = to_cvalue(emitter, emit_value(emitter, if_->condition));
+    print(p, "\nif (%s) %s", condition, true_body);
     free_tmp_str(true_body);
     if (if_->if_false) {
         assert(get_anonymous_lambda_params(if_->if_false).count == 0);
@@ -228,7 +255,7 @@ static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Instruct
 
     assert(outputs.count == ephis.count);
     for (size_t i = 0; i < outputs.count; i++) {
-        outputs.results[i] = ephis.strings[i];
+        outputs.results[i] = term_from_cvalue(ephis.strings[i]);
         outputs.needs_binding[i] = false;
     }
 }
@@ -240,11 +267,13 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, In
     Strings ephis = emit_variable_declarations(emitter, p, "loop_break_phi", NULL, match->yield_types);
     sub_emiter.phis.selection = ephis;
 
-    print(p, "\nswitch (%s) {", emit_value(emitter, match->inspect));
+    CValue inspectee = to_cvalue(emitter, emit_value(emitter, match->inspect));
+    print(p, "\nswitch (%s) {", inspectee);
     indent(p);
     for (size_t i = 0; i < match->cases.count; i++) {
         String case_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(match->cases.nodes[i]), NULL);
-        print(p, "\ncase %s: %s\n", emit_value(emitter, match->literals.nodes[i]), case_body);
+        CValue literal = to_cvalue(emitter, emit_value(emitter, match->literals.nodes[i]));
+        print(p, "\ncase %s: %s\n", literal, case_body);
         free_tmp_str(case_body);
     }
     if (match->default_case) {
@@ -257,7 +286,7 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, In
 
     assert(outputs.count == ephis.count);
     for (size_t i = 0; i < outputs.count; i++) {
-        outputs.results[i] = ephis.strings[i];
+        outputs.results[i] = term_from_cvalue(ephis.strings[i]);
         outputs.needs_binding[i] = false;
     }
 }
@@ -270,7 +299,8 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Inst
     Nodes params = get_anonymous_lambda_params(loop->body);
     Strings param_names = extract_variable_names(emitter->arena, params);
     Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, extract_variable_types(emitter->arena, params));
-    register_emitted_list(&sub_emiter, params, eparams);
+    for (size_t i = 0; i < params.count; i++)
+        register_emitted(&sub_emiter, params.nodes[i], term_from_cvalue(eparams.strings[i]));
 
     sub_emiter.phis.loop_continue = eparams;
     Strings ephis = emit_variable_declarations(emitter, p, "loop_break_phi", NULL, loop->yield_types);
@@ -282,7 +312,7 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Inst
 
     assert(outputs.count == ephis.count);
     for (size_t i = 0; i < outputs.count; i++) {
-        outputs.results[i] = ephis.strings[i];
+        outputs.results[i] = term_from_cvalue(ephis.strings[i]);
         outputs.needs_binding[i] = false;
     }
 }

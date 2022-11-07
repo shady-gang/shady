@@ -17,6 +17,27 @@ typedef struct {
     bool explicitly_sized_types;
 } EmitterConfig;
 
+#define emit_type c_emit_type
+#define emit_value c_emit_value
+#define emit_instruction c_emit_instruction
+#define emit_lambda_body c_emit_lambda_body
+#define emit_decl c_emit_decl
+
+/// SSA-like things, you can read them
+typedef String CValue;
+/// non-SSA like things, they represent addresses
+typedef String CAddr;
+
+typedef String CType;
+
+typedef struct {
+    CValue value;
+    CAddr var;
+} CTerm;
+
+#define term_from_cvalue(t) (CTerm) { .value = t }
+#define term_from_cvar(t) (CTerm) { .var = t }
+
 typedef Strings Phis;
 
 typedef struct {
@@ -26,26 +47,27 @@ typedef struct {
     struct {
         Phis selection, loop_continue, loop_break;
     } phis;
-    struct Dict* emitted;
+
+    struct Dict* emitted_terms;
+    struct Dict* emitted_types;
 } Emitter;
 
-#define emit_type c_emit_type
-#define emit_value c_emit_value
-#define emit_instruction c_emit_instruction
-#define emit_lambda_body c_emit_lambda_body
-#define emit_decl c_emit_decl
+void register_emitted(Emitter*, const Node*, CTerm);
+void register_emitted_type(Emitter*, const Type*, String);
 
-void register_emitted(Emitter*, const Node*, String);
-void register_emitted_list(Emitter*, Nodes, Strings);
+CTerm* lookup_existing_term(Emitter* emitter, const Node*);
+CType* lookup_existing_type(Emitter* emitter, const Type*);
 
-String emit_decl(Emitter* emitter, const Node* decl);
-String emit_type(Emitter* emitter, const Type* type, const char* identifier);
-String emit_value(Emitter* emitter, const Node* value);
-Strings emit_values(Emitter* emitter, Nodes);
+CValue to_cvalue(Emitter*, CTerm);
+CAddr deref_term(Emitter*, CTerm);
+
+void emit_decl(Emitter* emitter, const Node* decl);
+CType emit_type(Emitter* emitter, const Type*, const char* identifier);
+CTerm emit_value(Emitter* emitter, const Node* value);
 
 typedef struct {
     size_t count;
-    String* results;
+    CTerm* results;
     bool* needs_binding;
 } InstructionOutputs;
 

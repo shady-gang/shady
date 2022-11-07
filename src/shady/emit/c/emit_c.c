@@ -14,6 +14,22 @@
 
 static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator);
 
+CValue to_cvalue(SHADY_UNUSED Emitter* e, CTerm term) {
+    if (term.value)
+        return term.value;
+    if (term.var)
+        return format_string(e->arena, "(&%s)", term.var);
+    assert(false);
+}
+
+CAddr deref_term(Emitter* e, CTerm term) {
+    if (term.value)
+        return format_string(e->arena, "(*%s)", term.value);
+    if (term.var)
+        return term.var;
+    assert(false);
+}
+
 String emit_fn_head(Emitter* emitter, const Node* fn) {
     assert(fn->tag == Function_TAG);
     Nodes dom = fn->payload.fun.params;
@@ -66,7 +82,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
         return is_stringy ? StringLit : CharsLit;
     } else {
         for (size_t i = 0; i < c.count; i++) {
-            print(p, emit_value(e, c.nodes[i]));
+            print(p, to_cvalue(e, emit_value(e, c.nodes[i])));
             if (i + 1 < c.count)
                 print(p, ", ");
         }
@@ -75,10 +91,9 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
     }
 }
 
-String emit_value(Emitter* emitter, const Node* value) {
-    String* found = find_value_dict(const Node*, String, emitter->emitted, value);
-    if (found)
-        return *found;
+CTerm emit_value(Emitter* emitter, const Node* value) {
+    CTerm* found = lookup_existing_term(emitter, value);
+    if (found) return *found;
 
     String emitted = NULL;
 
@@ -88,8 +103,8 @@ String emit_value(Emitter* emitter, const Node* value) {
         case Value_UntypedNumber_TAG: error("lower me");
         case Value_Variable_TAG: error("variables need to be emitted beforehand");
         case Value_IntLiteral_TAG: emitted = format_string(emitter->arena, "%d", value->payload.int_literal.value.u64); break;
-        case Value_True_TAG: return "true";
-        case Value_False_TAG: return "false";
+        case Value_True_TAG: return term_from_cvalue("true");
+        case Value_False_TAG: return term_from_cvalue("false");
         case Value_Tuple_TAG: break;
         case Value_StringLiteral_TAG: break;
         case Value_ArrayLiteral_TAG: {
@@ -116,13 +131,13 @@ String emit_value(Emitter* emitter, const Node* value) {
             break;
         }
         case Value_RefDecl_TAG: {
-            emitted = emit_decl(emitter, value->payload.ref_decl.decl);
-            break;
+            emit_decl(emitter, value->payload.ref_decl.decl);
+            return *lookup_existing_term(emitter, value->payload.ref_decl.decl);
         }
     }
 
     assert(emitted);
-    return emitted;
+    return term_from_cvalue(emitted);
 }
 
 static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator) {
@@ -144,7 +159,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             const Nodes tail_params = tail->payload.anon_lam.params;
             assert(tail_params.count == yield_types.count);
 
-            LARRAY(String, results, yield_types.count);
+            LARRAY(CTerm, results, yield_types.count);
             LARRAY(bool, need_binding, yield_types.count);
             InstructionOutputs ioutputs = {
                 .count = yield_types.count,
@@ -155,12 +170,12 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
 
             for (size_t i = 0; i < yield_types.count; i++) {
                 if (!need_binding[i]) {
-                    insert_dict(const Node*, String, emitter->emitted, tail_params.nodes[i], results[i]);
+                    register_emitted(emitter, tail_params.nodes[i], results[i]);
                     continue;
                 }
                 String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name, fresh_id(emitter->arena));
                 print(p, "\n%s = %s;", c_emit_type(emitter, yield_types.nodes[i], bind_to), results[i]);
-                insert_dict(const Node*, String, emitter->emitted, tail_params.nodes[i], bind_to);
+                register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
             }
             emit_terminator(emitter, p, tail->payload.anon_lam.body);
             break;
@@ -169,28 +184,10 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             const Node* instruction = terminator->payload.let_indirect.instruction;
             Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
 
-            LARRAY(String, results, yield_types.count);
-            LARRAY(bool, need_binding, yield_types.count);
-            InstructionOutputs ioutputs = {
-                    .count = yield_types.count,
-                    .results = results,
-                    .needs_binding = need_binding,
-            };
-            emit_instruction(emitter, p, instruction, ioutputs);
-
-            /*for (size_t i = 0; i < yield_types.count; i++) {
-                if (!need_binding[i]) {
-                    insert_dict(const Node*, String, emitter->emitted, tail_params.nodes[i], results[i]);
-                    continue;
-                }
-                String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name, fresh_id(emitter->arena));
-                print(p, "\n%s = %s;", c_emit_type(emitter, yield_types.nodes[i], bind_to), results[i]);
-                insert_dict(const Node*, String, emitter->emitted, tail_params.nodes[i], bind_to);
-            }*/
-
+            // TODO implement properly
             // TODO support Control ?
-            const Node* tail = terminator->payload.let_indirect.tail;
-            print(p, "\ngoto %s;", emit_decl(emitter, tail));
+            //const Node* tail = terminator->payload.let_indirect.tail;
+            //print(p, "\ngoto %s;", emit_decl(emitter, tail));
             break;
         }
         case Terminator_Return_TAG: {
@@ -198,10 +195,13 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             if (args.count == 0) {
                 print(p, "\nreturn;");
             } else if (args.count == 1) {
-                print(p, "\nreturn %s;", emit_value(emitter, args.nodes[0]));
+                print(p, "\nreturn %s;", to_cvalue(emitter, emit_value(emitter, args.nodes[0])));
             } else {
                 String packed = unique_name(emitter->arena, "pack_return");
-                emit_pack_code(p, emit_values(emitter, args), packed);
+                LARRAY(CValue, values, args.count);
+                for (size_t i = 0; i < args.count; i++)
+                    values[i] = to_cvalue(emitter, emit_value(emitter, args.nodes[i]));
+                emit_pack_code(p, strings(emitter->arena, args.count, values), packed);
                 print(p, "\nreturn %s;", packed);
             }
             break;
@@ -211,7 +211,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             Phis phis = emitter->phis.selection;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                print(p, "\n%s = %s;", phis.strings[i], emit_value(emitter, args.nodes[i]));
+                print(p, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, args.nodes[i])));
 
             break;
         }
@@ -220,7 +220,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             Phis phis = emitter->phis.loop_continue;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                print(p, "\n%s = %s;", phis.strings[i], emit_value(emitter, args.nodes[i]));
+                print(p, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, args.nodes[i])));
             print(p, "\ncontinue;");
             break;
         }
@@ -229,7 +229,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             Phis phis = emitter->phis.loop_break;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                print(p, "\n%s = %s;", phis.strings[i], emit_value(emitter, args.nodes[i]));
+                print(p, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, args.nodes[i])));
             print(p, "\nbreak;");
             break;
         }
@@ -265,36 +265,39 @@ String emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
     return printer_growy_unwrap(p);
 }
 
-String emit_decl(Emitter* emitter, const Node* decl) {
+void emit_decl(Emitter* emitter, const Node* decl) {
     assert(is_declaration(decl));
 
-    String* found = find_value_dict(const Node*, String, emitter->emitted, decl);
-    if (found)
-        return *found;
+    CTerm* found = lookup_existing_term(emitter, decl);
+    if (found) return;
+
+    CTerm* found2 = lookup_existing_type(emitter, decl);
+    if (found2) return;
 
     const char* name = get_decl_name(decl);
     const Type* decl_type = decl->type;
     const char* decl_center = name;
-    const char* emit_as = NULL;
+    CTerm emit_as;
 
     switch (decl->tag) {
         case GlobalVariable_TAG: {
             decl_type = decl->payload.global_variable.type;
             // users of the global variable are actually using its address
-            emit_as = format_string(emitter->arena, "(&%s)", name);
+            emit_as = term_from_cvar(name);
+
             register_emitted(emitter, decl, emit_as);
             if (decl->payload.global_variable.init)
-                print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), emit_value(emitter, decl->payload.global_variable.init));
+                print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), to_cvalue(emitter, emit_value(emitter, decl->payload.global_variable.init)));
             break;
         }
         case Function_TAG: {
-            emit_as = name;
+            emit_as = term_from_cvalue(name);
             register_emitted(emitter, decl, emit_as);
             const Node* body = decl->payload.fun.body;
             if (body) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     const char* param_name = format_string(emitter->arena, "%s_%d", decl->payload.fun.params.nodes[i]->payload.var.name, decl->payload.fun.params.nodes[i]->payload.var.id);
-                    register_emitted(emitter, decl->payload.fun.params.nodes[i], param_name);
+                    register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 
                 String fn_body = emit_lambda_body(emitter, body, NULL);
@@ -304,34 +307,42 @@ String emit_decl(Emitter* emitter, const Node* decl) {
             break;
         }
         case Constant_TAG: {
-            emit_as = name;
+            emit_as = term_from_cvalue(name);
             register_emitted(emitter, decl, emit_as);
             decl_center = format_string(emitter->arena, "const %s", decl_center);
-            print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl->type, decl_center), emit_value(emitter, decl->payload.constant.value));
+            print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl->type, decl_center), to_cvalue(emitter, emit_value(emitter, decl->payload.constant.value)));
             break;
         }
         case NominalType_TAG: {
-            String emitted = decl->payload.nom_type.name;
-            register_emitted(emitter, decl, emitted);
+            CType emitted = decl->payload.nom_type.name;
+            register_emitted_type(emitter, decl, emitted);
             print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted));
-            return emitted;
+            return;
         }
         default: error("not a decl");
     }
 
     String declaration = emit_type(emitter, decl_type, decl_center);
     print(emitter->fn_decls, "\n%s;", declaration);
-    return emit_as;
 }
 
-void register_emitted(Emitter* emitter, const Node* node, String as) {
-    insert_dict(const Node*, String, emitter->emitted, node, as);
+void register_emitted(Emitter* emitter, const Node* node, CTerm as) {
+    assert(as.value || as.var);
+    insert_dict(const Node*, CTerm, emitter->emitted_terms, node, as);
 }
 
-void register_emitted_list(Emitter* emitter, Nodes nodes, Strings as) {
-    assert(nodes.count == as.count);
-    for (size_t i = 0; i < nodes.count; i++)
-        register_emitted(emitter, nodes.nodes[i], as.strings[i]);
+void register_emitted_type(Emitter* emitter, const Node* node, String as) {
+    insert_dict(const Node*, String, emitter->emitted_types, node, as);
+}
+
+CTerm* lookup_existing_term(Emitter* emitter, const Node* node) {
+    CTerm* found = find_value_dict(const Node*, CTerm, emitter->emitted_terms, node);
+    return found;
+}
+
+CType* lookup_existing_type(Emitter* emitter, const Type* node) {
+    CType* found = find_value_dict(const Node*, CType, emitter->emitted_types, node);
+    return found;
 }
 
 KeyHash hash_node(Node**);
@@ -352,7 +363,8 @@ void emit_c(CompilerConfig* config, Module* mod, size_t* output_size, char** out
         .type_decls = open_growy_as_printer(type_decls_g),
         .fn_decls = open_growy_as_printer(fn_decls_g),
         .fn_defs = open_growy_as_printer(fn_defs_g),
-        .emitted = new_dict(Node*, String, (HashFn) hash_node, (CmpFn) compare_node)
+        .emitted_terms = new_dict(Node*, CTerm, (HashFn) hash_node, (CmpFn) compare_node),
+        .emitted_types = new_dict(Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
     Nodes decls = get_module_declarations(mod);
@@ -389,7 +401,8 @@ void emit_c(CompilerConfig* config, Module* mod, size_t* output_size, char** out
     growy_destroy(fn_decls_g);
     growy_destroy(fn_defs_g);
 
-    destroy_dict(emitter.emitted);
+    destroy_dict(emitter.emitted_types);
+    destroy_dict(emitter.emitted_terms);
 
     *output_size = growy_size(final);
     *output = growy_deconstruct(final);
