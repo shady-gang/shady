@@ -42,8 +42,14 @@ String emit_decl(Emitter* emitter, const Node* decl);
 String emit_type(Emitter* emitter, const Type* type, const char* identifier);
 String emit_value(Emitter* emitter, const Node* value);
 Strings emit_values(Emitter* emitter, Nodes);
-Strings emit_variable_declarations(Emitter* emitter, Printer* p, Nodes vars);
-void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Strings outputs);
+
+typedef struct {
+    size_t count;
+    String* results;
+    bool* needs_binding;
+} InstructionOutputs;
+
+void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, InstructionOutputs);
 String emit_lambda_body   (Emitter*,           const Node*, const Nodes* nested_basic_blocks);
 void   emit_lambda_body_at(Emitter*, Printer*, const Node*, const Nodes* nested_basic_blocks);
 

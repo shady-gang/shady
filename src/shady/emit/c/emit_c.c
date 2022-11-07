@@ -143,29 +143,50 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
             const Nodes tail_params = tail->payload.anon_lam.params;
             assert(tail_params.count == yield_types.count);
-            LARRAY(String, output_names, yield_types.count);
-            for (size_t i = 0; i < yield_types.count; i++) {
-                output_names[i] = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name, fresh_id(emitter->arena));
-                print(p, "\n%s;", c_emit_type(emitter, yield_types.nodes[i], output_names[i]));
-            }
-            emit_instruction(emitter, p, instruction, strings(emitter->arena, yield_types.count, output_names));
 
-            for (size_t i = 0; i < tail_params.count; i++)
-                insert_dict(const Node*, String, emitter->emitted, tail_params.nodes[i], output_names[i]);
+            LARRAY(String, results, yield_types.count);
+            LARRAY(bool, need_binding, yield_types.count);
+            InstructionOutputs ioutputs = {
+                .count = yield_types.count,
+                .results = results,
+                .needs_binding = need_binding,
+            };
+            emit_instruction(emitter, p, instruction, ioutputs);
+
+            for (size_t i = 0; i < yield_types.count; i++) {
+                if (!need_binding[i]) {
+                    insert_dict(const Node*, String, emitter->emitted, tail_params.nodes[i], results[i]);
+                    continue;
+                }
+                String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name, fresh_id(emitter->arena));
+                print(p, "\n%s = %s;", c_emit_type(emitter, yield_types.nodes[i], bind_to), results[i]);
+                insert_dict(const Node*, String, emitter->emitted, tail_params.nodes[i], bind_to);
+            }
             emit_terminator(emitter, p, tail->payload.anon_lam.body);
             break;
         }
         case LetIndirect_TAG: {
             const Node* instruction = terminator->payload.let_indirect.instruction;
-
-            // we declare N local variables in order to store the result of the instruction
             Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
-            LARRAY(String, output_names, yield_types.count);
-            for (size_t i = 0; i < yield_types.count; i++) {
-                output_names[i] = format_string(emitter->arena, "%s_%d", "arg", fresh_id(emitter->arena));
-                print(p, "\n%s;", c_emit_type(emitter, yield_types.nodes[i], output_names[i]));
-            }
-            emit_instruction(emitter, p, instruction, strings(emitter->arena, yield_types.count, output_names));
+
+            LARRAY(String, results, yield_types.count);
+            LARRAY(bool, need_binding, yield_types.count);
+            InstructionOutputs ioutputs = {
+                    .count = yield_types.count,
+                    .results = results,
+                    .needs_binding = need_binding,
+            };
+            emit_instruction(emitter, p, instruction, ioutputs);
+
+            /*for (size_t i = 0; i < yield_types.count; i++) {
+                if (!need_binding[i]) {
+                    insert_dict(const Node*, String, emitter->emitted, tail_params.nodes[i], results[i]);
+                    continue;
+                }
+                String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name, fresh_id(emitter->arena));
+                print(p, "\n%s = %s;", c_emit_type(emitter, yield_types.nodes[i], bind_to), results[i]);
+                insert_dict(const Node*, String, emitter->emitted, tail_params.nodes[i], bind_to);
+            }*/
 
             // TODO support Control ?
             const Node* tail = terminator->payload.let_indirect.tail;

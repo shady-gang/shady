@@ -25,6 +25,8 @@ const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types);
 Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 
 Nodes extract_variable_types(IrArena*, Nodes);
+Strings extract_variable_names(IrArena*, Nodes);
+
 Nodes extract_types(IrArena*, Nodes);
 Nodes strip_qualifiers(IrArena*, Nodes);
 
