@@ -174,7 +174,8 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
                     continue;
                 }
                 String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name, fresh_id(emitter->arena));
-                print(p, "\n%s = %s;", c_emit_type(emitter, yield_types.nodes[i], bind_to), results[i]);
+                String decl = c_emit_type(emitter, yield_types.nodes[i], format_string(emitter->arena, "const %s", bind_to));
+                print(p, "\nregister %s = %s;", decl, to_cvalue(emitter, results[i]));
                 register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
             }
             emit_terminator(emitter, p, tail->payload.anon_lam.body);
@@ -282,7 +283,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
     switch (decl->tag) {
         case GlobalVariable_TAG: {
             decl_type = decl->payload.global_variable.type;
-            // users of the global variable are actually using its address
+            // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
 
             register_emitted(emitter, decl, emit_as);

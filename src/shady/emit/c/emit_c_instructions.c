@@ -91,20 +91,24 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         } case lea_op: {
             CTerm acc = emit_value(emitter, prim_op->operands.nodes[0]);
 
+            const Type* t = extract_operand_type(prim_op->operands.nodes[0]->type);
+            assert(t->tag == PtrType_TAG);
+
             const IntLiteral* offset_static_value = resolve_to_literal(prim_op->operands.nodes[1]);
             if (!offset_static_value || offset_static_value->value.i64 != 0) {
                 CTerm offset = emit_value(emitter, prim_op->operands.nodes[1]);
-                acc = term_from_cvar(format_string(emitter->arena, "(%s[%s])", deref_term(emitter, acc), to_cvalue(emitter, offset)));
+                // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this
+                // this means such code is never going to be legal in GLSL
+                // also the cast is to account for our arrays-in-structs hack
+                acc = term_from_cvalue(format_string(emitter->arena, "(%s) &(%s.arr[%s])", emit_type(emitter, t, NULL), deref_term(emitter, acc), to_cvalue(emitter, offset)));
             }
 
-            const Type* t = extract_operand_type(prim_op->operands.nodes[0]->type);
-            assert(t->tag == PtrType_TAG);
             t = t->payload.ptr_type.pointed_type;
             for (size_t i = 2; i < prim_op->operands.count; i++) {
                 switch (is_type(t)) {
                     case ArrType_TAG: {
                         CTerm index = emit_value(emitter, prim_op->operands.nodes[i]);
-                        acc = term_from_cvar(format_string(emitter->arena, "(%s[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
+                        acc = term_from_cvar(format_string(emitter->arena, "(%s.arr[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
                         break;
                     }
                     case RecordType_TAG: error("TODO");
