@@ -46,20 +46,25 @@ static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
 /// Turn a function into a top-level entry point, calling into the top dispatch function.
 static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     assert(old->tag == Function_TAG && fun->tag == Function_TAG);
+    Context ctx2 = *ctx;
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
-    Node* new_entry_pt = function(ctx->rewriter.dst_module, old->payload.fun.params, old->payload.fun.name, rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations), nodes(dst_arena, 0, NULL));
+    Nodes rewritten_params = recreate_variables(&ctx2.rewriter, old->payload.fun.params);
+    Node* new_entry_pt = function(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), nodes(dst_arena, 0, NULL));
 
-    BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* builder = begin_body(ctx2.rewriter.dst_module);
 
     // Put a special zero marker at the bottom of the stack so the program ends after the entry point is done
+    // TODO change this to be a join pt or something
     gen_push_value_stack(builder, gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL));
     gen_push_value_stack(builder, int32_literal(dst_arena, 0));
 
-    for (size_t i = fun->payload.fun.params.count - 1; i < fun->payload.fun.params.count; i--) {
-        gen_push_value_stack(builder, fun->payload.fun.params.nodes[i]);
+    // shove the arguments on the stack
+    for (size_t i = rewritten_params.count - 1; i < rewritten_params.count; i--) {
+        gen_push_value_stack(builder, rewritten_params.nodes[i]);
     }
 
+    // TODO ditto
     gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"), lower_fn_addr(ctx, fun));
     const Node* entry_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
     gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_mask"), entry_mask);
@@ -84,10 +89,10 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Context ctx2 = *ctx;
 
-            ctx2.disable_lowering = lookup_annotation(old, "Leaf");
+            ctx2.disable_lowering = lookup_annotation(old, "lower_tailcalls");
             if (ctx2.disable_lowering) {
-                Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
-                fun->payload.fun.body = process(&ctx2, old->payload.fun.body);
+                Node* fun = recreate_decl_header_identity(&ctx2.rewriter, old);
+                recreate_decl_body_identity(&ctx2.rewriter, old, fun);
                 return fun;
             }
 
@@ -110,7 +115,7 @@ static const Node* process(Context* ctx, const Node* old) {
             String new_name = format_string(dst_arena, "%s_indirect", old->payload.fun.name);
 
             Node* fun = function(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), new_name, nodes(dst_arena, new_annotations_count, new_annotations), nodes(dst_arena, 0, NULL));
-            // register_processed(&ctx->rewriter, old, fun);
+            register_processed(&ctx->rewriter, old, fun);
 
             if (entry_point_annotation)
                 lift_entry_point(ctx, old, fun);
@@ -120,7 +125,9 @@ static const Node* process(Context* ctx, const Node* old) {
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
                 const Node* popped = gen_pop_value_stack(bb, rewrite_node(&ctx->rewriter, extract_operand_type(old_param->type)));
-                // register_processed(&ctx->rewriter, old_param, popped);
+                if (is_operand_uniform(old_param->type))
+                    popped = first(gen_primop(bb, subgroup_broadcast_first_op, empty(dst_arena), singleton(popped)));
+                register_processed(&ctx->rewriter, old_param, popped);
             }
             fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
             return fun;
@@ -229,7 +236,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
         if (decl->tag == Function_TAG) {
-            if (lookup_annotation(decl, "Leaf"))
+            if (lookup_annotation(decl, "Builtin"))
                 continue;
 
             const Node* fn_lit = lower_fn_addr(ctx, find_processed(&ctx->rewriter, decl));
