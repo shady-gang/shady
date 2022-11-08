@@ -111,10 +111,19 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
 
             Nodes elements = value->payload.tuple.contents;
             for (size_t i = 0; i < elements.count; i++) {
-                print(p, "%s, ", to_cvalue(emitter, emit_value(emitter, elements.nodes[i])));
+                print(p, "%s", to_cvalue(emitter, emit_value(emitter, elements.nodes[i])));
+                if (i + 1 < elements.count)
+                    print(p, ", ");
             }
 
-            emitted = format_string(emitter->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), growy_data(g));
+            switch (emitter->config.dialect) {
+                case C:
+                    emitted = format_string(emitter->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), growy_data(g));
+                    break;
+                case GLSL:
+                    emitted = format_string(emitter->arena, "%s(%s)", emit_type(emitter, value->type, NULL), growy_data(g));
+                    break;
+            }
 
             growy_destroy(g);
             destroy_printer(p);

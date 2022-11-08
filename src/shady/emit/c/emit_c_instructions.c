@@ -146,12 +146,22 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     Strings field_names = inside_type->payload.record_type.names;
                     for (size_t i = 0; i < field_types.count; i++) {
                         if (field_names.count == field_types.count)
-                            print(p2, "%s.%s, ", bind_to, field_names.strings[i]);
+                            print(p2, "%s.%s", bind_to, field_names.strings[i]);
                         else
-                            print(p2, "%s._%d, ", bind_to, i);
+                            print(p2, "%s._%d", bind_to, i);
+
+                        if (i + 1 < field_types.count)
+                            print(p2, ", ");
                     }
 
-                    final_expression = format_string(emitter->arena, "(%s) { %s }", t, growy_data(g));
+                    switch (emitter->config.dialect) {
+                        case C:
+                            final_expression = format_string(emitter->arena, "(%s) { %s }", t, growy_data(g));
+                            break;
+                        case GLSL:
+                            final_expression = format_string(emitter->arena, "%s(%s)", t, growy_data(g));
+                            break;
+                    }
 
                     growy_destroy(g);
                     destroy_printer(p2);
@@ -175,7 +185,15 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             CTerm src = emit_value(emitter, first(prim_op->operands));
             const Type* src_type = extract_operand_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
-            if (src_type->tag == PtrType_TAG && dst_type->tag == PtrType_TAG || true) {
+            if (emitter->config.dialect == GLSL) {
+#define is_scalar(t) (t->tag == Int_TAG || t->tag == Float_TAG)
+                if (is_scalar(src_type) && is_scalar(dst_type)) {
+                    CType t = emit_type(emitter, prim_op->type_arguments.nodes[0], NULL);
+                    outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s(%s)", t, to_cvalue(emitter, src)));
+                    outputs.needs_binding[0] = false;
+                } else
+                    assert(false);
+            } else if (src_type->tag == PtrType_TAG && dst_type->tag == PtrType_TAG || true) {
                 CType t = emit_type(emitter, prim_op->type_arguments.nodes[0], NULL);
                 outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "((%s) %s)", t, to_cvalue(emitter, src)));
                 outputs.needs_binding[0] = false;
