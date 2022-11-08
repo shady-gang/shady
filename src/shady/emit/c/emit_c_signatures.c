@@ -162,8 +162,24 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             break;
         }
         case Type_PackType_TAG: {
-            emitted = emit_type(emitter, type->payload.pack_type.element_type, NULL);
-            emitted = format_string(emitter->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", type->payload.pack_type.width, emitted, emitted);
+            int width = type->payload.pack_type.width;
+            const Type* element_type = type->payload.pack_type.element_type;
+            if (emitter->config.dialect == GLSL) {
+                assert(is_glsl_scalar_type(element_type));
+                assert(width > 1);
+                String base;
+                switch (element_type->tag) {
+                    case Bool_TAG: base = "bvec"; break;
+                    case Int_TAG: base = "uvec";  break; // TODO not every int is 32-bit
+                    case Float_TAG: base = "vec"; break;
+                    default: error("not a valid GLSL vector type");
+                }
+                emitted = format_string(emitter->arena, "%s%d", base, width);
+            } else if (emitter->config.dialect == C) {
+                emitted = emit_type(emitter, element_type, NULL);
+                emitted = format_string(emitter->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width,
+                                        emitted, emitted);
+            } else assert(false);
             break;
         }
         case Type_TypeDeclRef_TAG: {

@@ -186,8 +186,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             const Type* src_type = extract_operand_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
             if (emitter->config.dialect == GLSL) {
-#define is_scalar(t) (t->tag == Int_TAG || t->tag == Float_TAG)
-                if (is_scalar(src_type) && is_scalar(dst_type)) {
+                if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
                     CType t = emit_type(emitter, prim_op->type_arguments.nodes[0], NULL);
                     outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s(%s)", t, to_cvalue(emitter, src)));
                     outputs.needs_binding[0] = false;

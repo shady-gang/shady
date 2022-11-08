@@ -78,4 +78,8 @@ void emit_unpack_code(Printer*, String src, Strings dst);
 
 #define free_tmp_str(s) free((char*) (s))
 
+inline static bool is_glsl_scalar_type(const Type* t) {
+    return t->tag == Bool_TAG || t->tag == Int_TAG || t->tag == Float_TAG;
+}
+
 #endif
