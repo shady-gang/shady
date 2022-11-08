@@ -62,6 +62,7 @@ CType emit_type(Emitter* emitter, const Type*, const char* identifier);
 void emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
 
 CTerm emit_value(Emitter* emitter, const Node* value);
+CValue emit_compound_value(Emitter* emitter, CType type, String contents);
 
 typedef struct {
     size_t count;

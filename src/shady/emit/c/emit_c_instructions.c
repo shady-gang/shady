@@ -154,14 +154,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                             print(p2, ", ");
                     }
 
-                    switch (emitter->config.dialect) {
-                        case C:
-                            final_expression = format_string(emitter->arena, "(%s) { %s }", t, growy_data(g));
-                            break;
-                        case GLSL:
-                            final_expression = format_string(emitter->arena, "%s(%s)", t, growy_data(g));
-                            break;
-                    }
+                    final_expression = emit_compound_value(emitter, t, growy_data(g));
 
                     growy_destroy(g);
                     destroy_printer(p2);
@@ -247,13 +240,13 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         }
         case subgroup_active_mask_op: {
             CType result_type = emit_type(emitter, node->type, NULL);
-            final_expression = format_string(emitter->arena, "(%s) { 1, 0, 0, 0 }", result_type);
+            final_expression = emit_compound_value(emitter, result_type, "1, 0, 0, 0");
             break;
         }
         case subgroup_ballot_op: {
             CType result_type = emit_type(emitter, node->type, NULL);
             CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
-            final_expression = format_string(emitter->arena, "(%s) { %s, 0, 0, 0 }", result_type, value);
+            final_expression = emit_compound_value(emitter, result_type, format_string(emitter->arena, "%s, 0, 0, 0", value));
             break;
         }
         case subgroup_local_id_op: {
@@ -262,12 +255,15 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         }
         case empty_mask_op: {
             CType result_type = emit_type(emitter, node->type, NULL);
-            final_expression = format_string(emitter->arena, "(%s) { 0, 0, 0, 0 }", result_type);
+            final_expression = emit_compound_value(emitter, result_type, "0, 0, 0, 0");
             break;
         }
         case mask_is_thread_active_op: {
             CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
-            final_expression = format_string(emitter->arena, "(%s[0] == 1)", value);
+            switch (emitter->config.dialect) {
+                case C: final_expression = format_string(emitter->arena, "(%s[0] == 1)", value); break;
+                case GLSL: final_expression = format_string(emitter->arena, "(%s.x == 1)", value); break;
+            }
             break;
         }
         case debug_printf_op: {

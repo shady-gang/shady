@@ -91,6 +91,17 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
     }
 }
 
+CValue emit_compound_value(Emitter* emitter, CType type, String contents) {
+    switch (emitter->config.dialect) {
+        case C:
+            return format_string(emitter->arena, "((%s) { %s })", type, contents);
+            break;
+        case GLSL:
+            return format_string(emitter->arena, "%s(%s)", type, contents);
+            break;
+    }
+}
+
 CTerm emit_value(Emitter* emitter, const Node* value) {
     CTerm* found = lookup_existing_term(emitter, value);
     if (found) return *found;
@@ -116,14 +127,7 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
                     print(p, ", ");
             }
 
-            switch (emitter->config.dialect) {
-                case C:
-                    emitted = format_string(emitter->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), growy_data(g));
-                    break;
-                case GLSL:
-                    emitted = format_string(emitter->arena, "%s(%s)", emit_type(emitter, value->type, NULL), growy_data(g));
-                    break;
-            }
+            emitted = emit_compound_value(emitter, emit_type(emitter, value->type, NULL), growy_data(g));
 
             growy_destroy(g);
             destroy_printer(p);
