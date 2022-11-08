@@ -39,6 +39,7 @@ typedef struct {
 #define emit_instruction spv_emit_instruction
 #define emit_terminator spv_emit_terminator
 #define find_reserved_id spv_find_reserved_id
+#define emit_nominal_type_body spv_emit_nominal_type_body
 
 SpvId emit_decl(Emitter*, const Node*);
 SpvId emit_type(Emitter*, const Type*);

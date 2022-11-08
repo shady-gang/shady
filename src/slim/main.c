@@ -23,7 +23,7 @@ enum SlimErrorCodes {
 };
 
 typedef enum {
-    TgtAuto, TgtC, TgtSPV
+    TgtAuto, TgtC, TgtSPV, TgtGLSL,
 } CodegenTarget;
 
 
@@ -42,6 +42,8 @@ static bool string_ends_with(const char* string, const char* suffix) {
 static CodegenTarget guess_target(const char* filename) {
     if (string_ends_with(filename, ".c"))
         return TgtC;
+    else if (string_ends_with(filename, "glsl"))
+        return TgtGLSL;
     else if (string_ends_with(filename, "spirv"))
         return TgtSPV;
     else if (string_ends_with(filename, "spv"))
@@ -215,7 +217,8 @@ int main(int argc, const char** argv) {
         switch (args.target) {
             case TgtAuto: SHADY_UNREACHABLE;
             case TgtSPV: emit_spirv(&config, mod, &output_size, &output_buffer); break;
-            case TgtC: emit_c(&config, mod, &output_size, &output_buffer); break;
+            case TgtC: emit_c(&config, C, mod, &output_size, &output_buffer); break;
+            case TgtGLSL: emit_c(&config, GLSL, mod, &output_size, &output_buffer); break;
         }
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);

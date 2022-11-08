@@ -188,8 +188,21 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
                     continue;
                 }
                 String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name, fresh_id(emitter->arena));
-                String decl = c_emit_type(emitter, yield_types.nodes[i], format_string(emitter->arena, "const %s", bind_to));
-                print(p, "\nregister %s = %s;", decl, to_cvalue(emitter, results[i]));
+
+                String prefix = "";
+                String center = bind_to;
+                switch (emitter->config.dialect) {
+                    case C:
+                        prefix = "register ";
+                        center = format_string(emitter->arena, "const %s", bind_to);
+                        break;
+                    case GLSL:
+                        prefix = "const ";
+                        break;
+                }
+
+                String decl = c_emit_type(emitter, yield_types.nodes[i], center);
+                print(p, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, results[i]));
                 register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
             }
             emit_terminator(emitter, p, tail->payload.anon_lam.body);
@@ -249,8 +262,10 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             break;
         }
         case Terminator_Unreachable_TAG: {
-            assert(emitter->config.dialect == C);
-            print(p, "\n__builtin_unreachable();");
+            if (emitter->config.dialect == C)
+                print(p, "\n__builtin_unreachable();");
+            else
+                print(p, "\n//unreachable");
             break;
         }
     }
@@ -301,8 +316,12 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             emit_as = term_from_cvar(name);
 
             register_emitted(emitter, decl, emit_as);
-            if (decl->payload.global_variable.init)
+            if (decl->payload.global_variable.init) {
                 print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), to_cvalue(emitter, emit_value(emitter, decl->payload.global_variable.init)));
+
+                if (emitter->config.dialect == GLSL)
+                    return; // no global variable forward declarations in GLSL
+            }
             break;
         }
         case Function_TAG: {
@@ -324,14 +343,26 @@ void emit_decl(Emitter* emitter, const Node* decl) {
         case Constant_TAG: {
             emit_as = term_from_cvalue(name);
             register_emitted(emitter, decl, emit_as);
-            decl_center = format_string(emitter->arena, "const %s", decl_center);
-            print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl->type, decl_center), to_cvalue(emitter, emit_value(emitter, decl->payload.constant.value)));
+
+            // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
+            String prefix = "";
+            switch (emitter->config.dialect) {
+                case C: decl_center = format_string(emitter->arena, "const %s", decl_center); break;
+                case GLSL: prefix = "const "; break;
+            }
+
+            print(emitter->fn_defs, "\n%s%s = %s;", prefix, emit_type(emitter, decl->type, decl_center), to_cvalue(emitter, emit_value(emitter, decl->payload.constant.value)));
+            if (emitter->config.dialect == GLSL)
+                return; // no constant forward declarations in GLSL
             break;
         }
         case NominalType_TAG: {
             CType emitted = decl->payload.nom_type.name;
             register_emitted_type(emitter, decl, emitted);
-            print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted));
+            switch (emitter->config.dialect) {
+                case C: print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
+                case GLSL: emit_nominal_type_body(emitter, format_string(emitter->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
+            }
             return;
         }
         default: error("not a decl");
@@ -363,7 +394,7 @@ CType* lookup_existing_type(Emitter* emitter, const Type* node) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-void emit_c(CompilerConfig* config, Module* mod, size_t* output_size, char** output) {
+void emit_c(CompilerConfig* config, CDialect dialect, Module* mod, size_t* output_size, char** output) {
     IrArena* arena = get_module_arena(mod);
     Growy* type_decls_g = new_growy();
     Growy* fn_decls_g = new_growy();
@@ -372,7 +403,7 @@ void emit_c(CompilerConfig* config, Module* mod, size_t* output_size, char** out
     Emitter emitter = {
         .config = {
             .config = config,
-            .dialect = C,
+            .dialect = dialect,
         },
         .arena = arena,
         .type_decls = open_growy_as_printer(type_decls_g),
@@ -393,6 +424,10 @@ void emit_c(CompilerConfig* config, Module* mod, size_t* output_size, char** out
     Growy* final = new_growy();
     Printer* finalp = open_growy_as_printer(final);
 
+    if (emitter.config.dialect == GLSL) {
+        print(finalp, "#version 420\n");
+    }
+
     print(finalp, "/* file generated by shady */\n");
 
     if (emitter.config.dialect == C) {
@@ -400,6 +435,11 @@ void emit_c(CompilerConfig* config, Module* mod, size_t* output_size, char** out
         print(finalp, "\n#include <stdint.h>");
         print(finalp, "\n#include <stddef.h>");
         print(finalp, "\n#include <stdio.h>");
+    } else if (emitter.config.dialect == GLSL) {
+        print(finalp, "#extension GL_ARB_compute_shader: require\n");
+        print(finalp, "#define ubyte uint\n");
+        print(finalp, "#define uchar uint\n");
+        print(finalp, "#define ulong uint\n");
     }
 
     print(finalp, "\n/* types: */\n");

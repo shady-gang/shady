@@ -6,14 +6,9 @@
 #include "arena.h"
 #include "printer.h"
 
-typedef enum {
-    C,
-    GLSL
-} Dialect;
-
 typedef struct {
     CompilerConfig* config;
-    Dialect dialect;
+    CDialect dialect;
     bool explicitly_sized_types;
 } EmitterConfig;
 
@@ -22,6 +17,7 @@ typedef struct {
 #define emit_instruction c_emit_instruction
 #define emit_lambda_body c_emit_lambda_body
 #define emit_decl c_emit_decl
+#define emit_nominal_type_body c_emit_nominal_type_body
 
 /// SSA-like things, you can read them
 typedef String CValue;
@@ -63,6 +59,8 @@ CAddr deref_term(Emitter*, CTerm);
 
 void emit_decl(Emitter* emitter, const Node* decl);
 CType emit_type(Emitter* emitter, const Type*, const char* identifier);
+void emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
+
 CTerm emit_value(Emitter* emitter, const Node* value);
 
 typedef struct {

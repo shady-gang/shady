@@ -177,7 +177,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             const Type* dst_type = first(prim_op->type_arguments);
             if (src_type->tag == PtrType_TAG && dst_type->tag == PtrType_TAG || true) {
                 CType t = emit_type(emitter, prim_op->type_arguments.nodes[0], NULL);
-                outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "(%s) %s", t, to_cvalue(emitter, src)));
+                outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "((%s) %s)", t, to_cvalue(emitter, src)));
                 outputs.needs_binding[0] = false;
             } else {
                 assert(false);

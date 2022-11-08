@@ -11,6 +11,31 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
+void emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
+    assert(type->tag == RecordType_TAG);
+    Growy* g = new_growy();
+    Printer* p = open_growy_as_printer(g);
+
+    print(p, "\n%s {", name);
+    indent(p);
+    for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
+        String member_identifier;
+        if (i >= type->payload.record_type.names.count)
+            member_identifier = format_string(emitter->arena, "_%d", i);
+        else
+            member_identifier = type->payload.record_type.names.strings[i];
+
+        print(p, "\n%s;", emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
+    }
+    deindent(p);
+    print(p, "\n};\n");
+    growy_append_bytes(g, 1, (char[]) { '\0' });
+
+    print(emitter->type_decls, growy_data(g));
+    growy_destroy(g);
+    destroy_printer(p);
+}
+
 String emit_type(Emitter* emitter, const Type* type, const char* center) {
     if (center == NULL)
         center = "";
@@ -39,6 +64,19 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                     case IntTy32: emitted = "unt32_t"; break;
                     case IntTy64: emitted = "unt64_t"; break;
                 }
+            } else if (emitter->config.dialect == GLSL) {
+                switch (type->payload.int_type.width) {
+                    case IntTy8:  warn_print("vanilla GLSL does not support 8-bit integers");
+                        emitted = "ubyte";
+                        break;
+                    case IntTy16: warn_print("vanilla GLSL does not support 16-bit integers");
+                        emitted = "ushort";
+                        break;
+                    case IntTy32: emitted = "uint";   break;
+                    case IntTy64: warn_print("vanilla GLSL does not support 64-bit integers");
+                        emitted = "ulong";
+                        break;
+                }
             } else {
                 switch (type->payload.int_type.width) {
                     case IntTy8:  emitted = "unsigned char";  break;
@@ -51,28 +89,13 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         }
         case Float_TAG: emitted = "float"; break;
         case Type_RecordType_TAG: {
-            emitted = unique_name(emitter->arena, "struct Record");
-            Growy* g = new_growy();
-            Printer* p = open_growy_as_printer(g);
+            emitted = unique_name(emitter->arena, "Record");
+            String prefixed = format_string(emitter->arena, "struct %s", emitted);
+            emit_nominal_type_body(emitter, prefixed, type);
+            // C puts structs in their own namespace so we always need the prefix
+            if (emitter->config.dialect == C)
+                emitted = prefixed;
 
-            print(p, "\n%s {", emitted);
-            indent(p);
-            for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
-                String member_identifier;
-                if (i >= type->payload.record_type.names.count)
-                    member_identifier = format_string(emitter->arena, "_%d", i);
-                else
-                    member_identifier = type->payload.record_type.names.strings[i];
-
-                print(p, "\n%s;", emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
-            }
-            deindent(p);
-            print(p, "\n};\n");
-            growy_append_bytes(g, 1, (char[]) { '\0' });
-
-            print(emitter->type_decls, growy_data(g));
-            growy_destroy(g);
-            destroy_printer(p);
             break;
         }
         case Type_QualifiedType_TAG:
@@ -86,7 +109,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
 
             Growy* paramg = new_growy();
             Printer* paramp = open_growy_as_printer(paramg);
-            if (dom.count == 0)
+            if (dom.count == 0 && emitter->config.dialect == C)
                 print(paramp, "void");
             else for (size_t i = 0; i < dom.count; i++) {
                     print(paramp, emit_type(emitter, dom.nodes[i], NULL));
@@ -96,17 +119,27 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                 }
             growy_append_bytes(paramg, 1, (char[]) { 0 });
             const char* parameters = printer_growy_unwrap(paramp);
-            center = format_string(emitter->arena, "(%s)(%s)", center, parameters);
+            switch (emitter->config.dialect) {
+                case C:
+                    center = format_string(emitter->arena, "(%s)(%s)", center, parameters);
+                    break;
+                case GLSL:
+                    // GLSL does not accept functions declared like void (foo)(int);
+                    // it also does not support higher-order functions and/or function pointers, so we drop the parentheses
+                    center = format_string(emitter->arena, "%s(%s)", center, parameters);
+                    break;
+            }
             free_tmp_str(parameters);
 
             return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
         }
         case Type_ArrType_TAG: {
-            emitted = unique_name(emitter->arena, "struct Array");
+            emitted = unique_name(emitter->arena, "Array");
+            String prefixed = format_string(emitter->arena, "struct %s", emitted);
             Growy* g = new_growy();
             Printer* p = open_growy_as_printer(g);
 
-            print(p, "\n%s {", emitted);
+            print(p, "\n%s {", prefixed);
             indent(p);
             const Node* size = type->payload.arr_type.size;
             String inner_decl_rhs;
@@ -122,6 +155,10 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             String subdecl = printer_growy_unwrap(p);
             print(emitter->type_decls, subdecl);
             free_tmp_str(subdecl);
+
+            // ditto from RecordType
+            if (emitter->config.dialect == C)
+                emitted = prefixed;
             break;
         }
         case Type_PackType_TAG: {
