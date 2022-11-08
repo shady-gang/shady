@@ -44,9 +44,12 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     enum {
         Infix, Prefix
     } m = Infix;
-    String s = NULL;
-    CValue rhs = NULL;
+    String operator_str = NULL;
+    CValue final_expression = NULL;
     switch (prim_op->op) {
+        case assign_op:
+        case subscript_op:
+        case alloca_slot_op: error("desugar those")
         case unit_op:
             return;
         case quote_op: {
@@ -55,35 +58,32 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             outputs.needs_binding[0] = false;
             break;
         }
-        case add_op: s = "+";  break;
-        case sub_op: s = "-";  break;
-        case mul_op: s = "*";  break;
-        case div_op: s = "/";  break;
-        case mod_op: s = "%";  break;
-        case neg_op: s = "-"; m = Prefix; break;
-        case gt_op:  s = ">";  break;
-        case gte_op: s = ">="; break;
-        case lt_op:  s = "<";  break;
-        case lte_op: s = "<="; break;
-        case eq_op:  s = "=="; break;
-        case neq_op: s = "!="; break;
-        case and_op: s = "&";  break;
-        case or_op:  s = "|";  break;
-        case xor_op: s = "^";  break;
-        case not_op: s = "!"; m = Prefix; break;
+        case add_op: operator_str = "+";  break;
+        case sub_op: operator_str = "-";  break;
+        case mul_op: operator_str = "*";  break;
+        case div_op: operator_str = "/";  break;
+        case mod_op: operator_str = "%";  break;
+        case neg_op: operator_str = "-"; m = Prefix; break;
+        case gt_op: operator_str = ">";  break;
+        case gte_op: operator_str = ">="; break;
+        case lt_op: operator_str = "<";  break;
+        case lte_op: operator_str = "<="; break;
+        case eq_op: operator_str = "=="; break;
+        case neq_op: operator_str = "!="; break;
+        case and_op: operator_str = "&";  break;
+        case or_op: operator_str = "|";  break;
+        case xor_op: operator_str = "^";  break;
+        case not_op: operator_str = "!"; m = Prefix; break;
         // TODO achieve desired right shift semantics through unsigned/signed casts
         case rshift_logical_op:
-            s = ">>";
+            operator_str = ">>";
             break;
         case rshift_arithm_op:
-            s = ">>";
+            operator_str = ">>";
             break;
         case lshift_op:
-            s = "<<";
+            operator_str = "<<";
             break;
-        case assign_op:
-        case subscript_op:
-        case alloca_slot_op: error("desugar those")
         case alloca_op:break;
         case alloca_logical_op:break;
         case load_op: {
@@ -133,6 +133,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             CType t = emit_type(emitter, node->type, NULL);
             CValue src = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
 
+            String bind_to = unique_name(emitter->arena, "make_body");
+            print(p, "\n%s = %s;", emit_type(emitter, first(prim_op->operands)->type, bind_to), src);
+
             const Type* inside_type = extract_operand_type(first(prim_op->operands)->type);
             switch (inside_type->tag) {
                 case RecordType_TAG: {
@@ -143,12 +146,12 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     Strings field_names = inside_type->payload.record_type.names;
                     for (size_t i = 0; i < field_types.count; i++) {
                         if (field_names.count == field_types.count)
-                            print(p2, "%s.%s, ", src, field_names.strings[i]);
+                            print(p2, "%s.%s, ", bind_to, field_names.strings[i]);
                         else
-                            print(p2, "%s._%d, ", src, i);
+                            print(p2, "%s._%d, ", bind_to, i);
                     }
 
-                    rhs = format_string(emitter->arena, "(%s) { %s }", t, growy_data(g));
+                    final_expression = format_string(emitter->arena, "(%s) { %s }", t, growy_data(g));
 
                     growy_destroy(g);
                     destroy_printer(p2);
@@ -158,7 +161,14 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             }
             break;
         }
-        case select_op:break;
+        case select_op: {
+            assert(prim_op->operands.count == 3);
+            CValue condition = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[0]));
+            CValue l = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[1]));
+            CValue r = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[2]));
+            final_expression = format_string(emitter->arena, "(%s) ? (%s) : (%s)", condition, l, r);
+            break;
+        }
         case convert_op:break;
         case reinterpret_op: {
             assert(outputs.count == 1);
@@ -199,7 +209,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 }
             }
 
-            rhs = acc;
+            final_expression = acc;
             break;
         }
         case push_stack_op:break;
@@ -210,28 +220,52 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case get_stack_pointer_uniform_op:break;
         case set_stack_pointer_op:break;
         case set_stack_pointer_uniform_op:break;
-        case subgroup_elect_first_op:break;
+        case subgroup_elect_first_op: {
+            final_expression = "true /* subgroup_elect_first */";
+            break;
+        }
         case subgroup_broadcast_first_op: {
-            rhs = format_string(emitter->arena, "%s /* TODO */", to_cvalue(emitter, emit_value(emitter, first(prim_op->operands))));
+            final_expression = format_string(emitter->arena, "%s /* subgroup_broadcast_first */", to_cvalue(emitter, emit_value(emitter, first(prim_op->operands))));
             break;
         }
-        case subgroup_active_mask_op:break;
-        case subgroup_ballot_op:break;
+        case subgroup_active_mask_op: {
+            CType result_type = emit_type(emitter, node->type, NULL);
+            final_expression = format_string(emitter->arena, "(%s) { 1, 0, 0, 0 }", result_type);
+            break;
+        }
+        case subgroup_ballot_op: {
+            CType result_type = emit_type(emitter, node->type, NULL);
+            CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+            final_expression = format_string(emitter->arena, "(%s) { %s, 0, 0, 0 }", result_type, value);
+            break;
+        }
         case subgroup_local_id_op: {
-            rhs = "0 /* TODO */";
+            final_expression = "0 /* subgroup_local_idy */";
             break;
         }
-        case empty_mask_op:break;
-        case mask_is_thread_active_op:break;
-        case debug_printf_op:break;
+        case empty_mask_op: {
+            CType result_type = emit_type(emitter, node->type, NULL);
+            final_expression = format_string(emitter->arena, "(%s) { 0, 0, 0, 0 }", result_type);
+            break;
+        }
+        case mask_is_thread_active_op: {
+            CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+            final_expression = format_string(emitter->arena, "(%s[0] == 1)", value);
+            break;
+        }
+        case debug_printf_op: {
+            CValue str = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+            print(p, "\nprintf(%s);", str);
+            return;
+        }
         case PRIMOPS_COUNT: assert(false); break;
     }
 
     assert(outputs.count == 1);
     outputs.needs_binding[0] = true;
-    if (s == NULL) {
-        if (rhs)
-            outputs.results[0] = term_from_cvalue(rhs);
+    if (operator_str == NULL) {
+        if (final_expression)
+            outputs.results[0] = term_from_cvalue(final_expression);
         else
             outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "/* todo: implement %s */", primop_names[prim_op->op]));
         return;
@@ -242,12 +276,12 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             CTerm a = emit_value(emitter, prim_op->operands.nodes[0]);
             CTerm b = emit_value(emitter, prim_op->operands.nodes[1]);
             outputs.results[0] = term_from_cvalue(
-                    format_string(emitter->arena, "%s %s %s", to_cvalue(emitter, a), s, to_cvalue(emitter, b)));
+                    format_string(emitter->arena, "%s %s %s", to_cvalue(emitter, a), operator_str, to_cvalue(emitter, b)));
             break;
         }
         case Prefix: {
             CTerm operand = emit_value(emitter, prim_op->operands.nodes[0]);
-            outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s%s", s, to_cvalue(emitter, operand)));
+            outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s%s", operator_str, to_cvalue(emitter, operand)));
             break;
         } default: assert(false);
     }

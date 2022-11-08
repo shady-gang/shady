@@ -399,6 +399,7 @@ void emit_c(CompilerConfig* config, Module* mod, size_t* output_size, char** out
         print(finalp, "\n#include <stdbool.h>");
         print(finalp, "\n#include <stdint.h>");
         print(finalp, "\n#include <stddef.h>");
+        print(finalp, "\n#include <stdio.h>");
     }
 
     print(finalp, "\n/* types: */\n");
