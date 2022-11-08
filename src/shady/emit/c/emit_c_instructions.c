@@ -392,22 +392,32 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, In
     Strings ephis = emit_variable_declarations(emitter, p, "loop_break_phi", NULL, match->yield_types);
     sub_emiter.phis.selection = ephis;
 
+    // Of course, the sensible thing to do here would be to emit a switch statement.
+    // ...
+    // Except that doesn't work, because C/GLSL have a baffling design wart: the `break` statement is overloaded,
+    // meaning that if you enter a switch statement, which should be orthogonal to loops, you can't actually break
+    // out of the outer loop anymore. Brilliant. So we do this terrible if-chain instead.
+    //
+    // We could do GOTO for C, but at the cost of arguably even more noise in the output, and two different codepaths.
+    // I don't think it's quite worth it, just like it's not worth doing some data-flow based solution either.
+
     CValue inspectee = to_cvalue(emitter, emit_value(emitter, match->inspect));
-    print(p, "\nswitch (%s) {", inspectee);
-    indent(p);
+    bool first = true;
     for (size_t i = 0; i < match->cases.count; i++) {
         String case_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(match->cases.nodes[i]), NULL);
         CValue literal = to_cvalue(emitter, emit_value(emitter, match->literals.nodes[i]));
-        print(p, "\ncase %s: %s\n", literal, case_body);
+        print(p, "\n");
+        if (!first)
+            print(p, "else ");
+        print(p, "if (%s == %s) %s", inspectee, literal, case_body);
         free_tmp_str(case_body);
+        first = false;
     }
     if (match->default_case) {
         String default_case_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(match->default_case), NULL);
-        print(p, "\ndefault: %s\n", default_case_body);
+        print(p, "\nelse %s", default_case_body);
         free_tmp_str(default_case_body);
     }
-    deindent(p);
-    print(p, "\n}");
 
     assert(outputs.count == ephis.count);
     for (size_t i = 0; i < outputs.count; i++) {
