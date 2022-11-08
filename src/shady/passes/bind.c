@@ -204,6 +204,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
         default: error("unknown declaration kind");
     }
 
+    register_processed(&ctx->rewriter, decl, bound);
     return bound;
 }
 
