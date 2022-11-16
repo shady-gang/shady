@@ -81,17 +81,22 @@ static void add_binding(Context* ctx, bool is_var, String name, const Node* node
     ctx->local_variables = entry;
 }
 
-static const Node* get_node_address(Context* ctx, const Node* node) {
+static const Node* get_node_address(Context* ctx, const Node* node);
+static const Node* get_node_address_safe(Context* ctx, const Node* node) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Unbound_TAG: {
             Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
-            assert(entry.is_var && "Cannot take the address");
+            // can't take the address if it's not a var!
+            if (!entry.is_var)
+                return NULL;
             return entry.node;
         }
         case PrimOp_TAG: {
             if (node->tag == PrimOp_TAG && node->payload.prim_op.op == subscript_op) {
-                const Node* src_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);
+                const Node* src_ptr = get_node_address_safe(ctx, node->payload.prim_op.operands.nodes[0]);
+                if (src_ptr == NULL)
+                    return NULL;
                 const Node* index = rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]);
                 return prim_op(dst_arena, (PrimOp) {
                     .op = lea_op,
@@ -101,7 +106,14 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
         }
         default: break;
     }
-    error("This doesn't really look like a place expression...")
+    return NULL;
+}
+
+static const Node* get_node_address(Context* ctx, const Node* node) {
+    const Node* got = get_node_address_safe(ctx, node);
+    if (!got)
+        error("This doesn't really look like a place expression...")
+    return got;
 }
 
 static const Node* desugar_let_mut(Context* ctx, const Node* node) {
@@ -143,24 +155,25 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {
     assert(is_declaration(decl));
-    Node* bound = NULL;
-
     switch (decl->tag) {
         case GlobalVariable_TAG: {
             const GlobalVariable* ogvar = &decl->payload.global_variable;
-            bound = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, ogvar->annotations), rewrite_node(&ctx->rewriter, ogvar->type), ogvar->name, ogvar->address_space);
+            Node* bound = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, ogvar->annotations), rewrite_node(&ctx->rewriter, ogvar->type), ogvar->name, ogvar->address_space);
+            register_processed(&ctx->rewriter, decl, bound);
             bound->payload.global_variable.init = rewrite_node(&ctx->rewriter, decl->payload.global_variable.init);
-            break;
+            return bound;
         }
         case Constant_TAG: {
             const Constant* cnst = &decl->payload.constant;
-            bound = constant(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, cnst->annotations), rewrite_node(&ctx->rewriter, decl->payload.constant.type_hint), cnst->name);
+            Node* bound = constant(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, cnst->annotations), rewrite_node(&ctx->rewriter, decl->payload.constant.type_hint), cnst->name);
+            register_processed(&ctx->rewriter, decl, bound);
             bound->payload.constant.value = rewrite_node(&ctx->rewriter, decl->payload.constant.value);
-            break;
+            return bound;
         }
         case Function_TAG: {
             Nodes new_fn_params = recreate_variables(&ctx->rewriter, decl->payload.fun.params);
-            bound = function(ctx->rewriter.dst_module, new_fn_params, decl->payload.fun.name, rewrite_nodes(&ctx->rewriter, decl->payload.fun.annotations), rewrite_nodes(&ctx->rewriter, decl->payload.fun.return_types));
+            Node* bound = function(ctx->rewriter.dst_module, new_fn_params, decl->payload.fun.name, rewrite_nodes(&ctx->rewriter, decl->payload.fun.annotations), rewrite_nodes(&ctx->rewriter, decl->payload.fun.return_types));
+            register_processed(&ctx->rewriter, decl, bound);
             Context fn_ctx = *ctx;
             for (size_t i = 0; i < new_fn_params.count; i++)
                 add_binding(&fn_ctx, false, decl->payload.fun.params.nodes[i]->payload.var.name, new_fn_params.nodes[i]);
@@ -194,18 +207,20 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
                 new_bb->payload.basic_block.body = rewrite_node(&fn_ctx.rewriter, old_bb->payload.basic_block.body);
                 debug_print("Bound basic block %s\n", new_bb->payload.basic_block.name);
             }
-            break;
+            return bound;
         }
         case NominalType_TAG: {
-            bound = nominal_type(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, decl->payload.nom_type.annotations), decl->payload.nom_type.name);
+            Node* bound = nominal_type(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, decl->payload.nom_type.annotations), decl->payload.nom_type.name);
+            register_processed(&ctx->rewriter, decl, bound);
             bound->payload.nom_type.body = rewrite_node(&ctx->rewriter, decl->payload.nom_type.body);
-            break;
+            return bound;
         }
         default: error("unknown declaration kind");
     }
 
-    register_processed(&ctx->rewriter, decl, bound);
-    return bound;
+    error("unreachable")
+    //register_processed(&ctx->rewriter, decl, bound);
+    //return bound;
 }
 
 static const Node* bind_node(Context* ctx, const Node* node) {
@@ -258,15 +273,21 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         default: {
             if (node->tag == PrimOp_TAG && node->payload.prim_op.op == assign_op) {
                 const Node* target_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);
+                assert(target_ptr);
                 const Node* value = rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]);
                 return prim_op(dst_arena, (PrimOp) {
                     .op = store_op,
                     .operands = nodes(dst_arena, 2, (const Node* []) { target_ptr, value })
                 });
             } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == subscript_op) {
-                return prim_op(dst_arena, (PrimOp) {
+                const Node* lhs = get_node_address_safe(ctx, node);
+                if (lhs) return prim_op(dst_arena, (PrimOp) {
                     .op = load_op,
-                    .operands = nodes(dst_arena, 1, (const Node* []) { get_node_address(ctx, node) })
+                    .operands = singleton(lhs)
+                });
+                return prim_op(dst_arena, (PrimOp) {
+                    .op = extract_op,
+                    .operands = mk_nodes(dst_arena, rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[0]), rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]))
                 });
             }
             return recreate_node_identity(&ctx->rewriter, node);
