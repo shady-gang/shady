@@ -61,6 +61,9 @@ static Node* create_node_helper(IrArena* arena, Node node) {
         }
     }
 
+    if (arena->config.check_types && node.type)
+        assert(is_type(node.type));
+
     // place the node in the arena and return it
     Node* alloc = (Node*) arena_alloc(arena->arena, sizeof(Node));
     *alloc = node;

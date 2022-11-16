@@ -89,7 +89,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Context ctx2 = *ctx;
 
-            ctx2.disable_lowering = lookup_annotation(old, "lower_tailcalls");
+            ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_tailcalls");
             if (ctx2.disable_lowering) {
                 Node* fun = recreate_decl_header_identity(&ctx2.rewriter, old);
                 recreate_decl_body_identity(&ctx2.rewriter, old, fun);

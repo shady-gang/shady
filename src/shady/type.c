@@ -160,8 +160,10 @@ bool contains_qualified_type(const Type* type) {
 
 Nodes extract_variable_types(IrArena* arena, Nodes variables) {
     LARRAY(const Type*, arr, variables.count);
-    for (size_t i = 0; i < variables.count; i++)
+    for (size_t i = 0; i < variables.count; i++) {
+        assert(variables.nodes[i]->tag == Variable_TAG);
         arr[i] = variables.nodes[i]->payload.var.type;
+    }
     return nodes(arena, variables.count, arr);
 }
 

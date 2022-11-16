@@ -47,7 +47,9 @@ static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const Prim
     assert(pointer_type->tag == PtrType_TAG);
 
     const Node* old_offset = lea->operands.nodes[1];
-    if (old_offset) {
+    const IntLiteral* offset_value = resolve_to_literal(old_offset);
+    bool offset_is_zero = offset_value && offset_value->value.i64 == 0;
+    if (!offset_is_zero) {
         const Type* arr_type = pointer_type->payload.ptr_type.pointed_type;
         assert(arr_type->tag == ArrType_TAG);
         const Type* element_type = arr_type->payload.arr_type.element_type;
