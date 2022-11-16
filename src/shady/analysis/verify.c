@@ -4,6 +4,7 @@
 #include "log.h"
 
 #include "../visit.h"
+#include "../ir_private.h"
 
 #include "dict.h"
 #include "list.h"
@@ -66,5 +67,8 @@ static void verify_scoping(Module* mod) {
 
 void verify_module(Module* mod) {
     verify_same_arena(mod);
-    verify_scoping(mod);
+    // before we normalize the IR, scopes are broken because decls appear where they should not
+    // TODO add a normalized flag to the IR and check grammar is adhered to strictly
+    if (get_module_arena(mod)->config.check_types)
+       verify_scoping(mod);
 }
