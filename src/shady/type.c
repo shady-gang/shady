@@ -427,6 +427,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* arg_type = extract_operand_type(arg->type);
                 assert(arg_type == first_arg_type && "Operands must have the same type");
                 switch (arg_type->tag) {
+                    case MaskType_TAG:
                     case Int_TAG:
                     case Bool_TAG: break;
                     default: error("Logical operations can only be applied on booleans and on integers");
@@ -569,7 +570,10 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             deconstruct_operand_type(offset->type, &offset_type, &offset_uniform);
             assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
             const Type* pointee_type = curr_ptr_type->payload.ptr_type.pointed_type;
-            assert(pointee_type->tag == ArrType_TAG && "if an offset is used, the base pointer must point to an array");
+
+            const IntLiteral* lit = resolve_to_literal(offset);
+            bool offset_is_zero = lit && lit->value.i64 == 0;
+            assert(offset_is_zero || pointee_type->tag == ArrType_TAG && "if an offset is used, the base pointer must point to an array");
             uniform &= offset_uniform;
 
             // enter N levels of pointers
@@ -593,6 +597,13 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                             .address_space = curr_ptr_type->payload.ptr_type.address_space
                         });
                         break;
+                    }
+                    case TypeDeclRef_TAG: {
+                        const Node* decl = pointee_type->payload.type_decl_ref.decl;
+                        assert(decl && decl->tag == NominalType_TAG);
+                        pointee_type = decl->payload.nom_type.body;
+                        assert(pointee_type);
+                        SHADY_FALLTHROUGH
                     }
                     case RecordType_TAG: {
                         assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
@@ -697,6 +708,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 }
 
                 // Go down one level...
+                try_again:
                 switch(current_type->tag) {
                     case RecordType_TAG: {
                         assert(!dynamic_index);
@@ -715,6 +727,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                         const Node* nom_decl = current_type->payload.type_decl_ref.decl;
                         assert(nom_decl->tag == NominalType_TAG);
                         current_type = nom_decl->payload.nom_type.body;
+                        goto try_again;
                     }
                     case PackType_TAG: {
                         current_type = current_type->payload.pack_type.element_type;
@@ -834,7 +847,7 @@ const Type* check_type_leaf_call(IrArena* arena, LeafCall call) {
         const Node* argument = args.nodes[i];
         assert(is_value(argument));
     }
-    Nodes argument_types = extract_variable_types(arena, args);
+    Nodes argument_types = extract_types(arena, args);
     assert(is_function(call.callee));
     assert(call.callee->type->tag == FnType_TAG);
     check_arguments_types_against_parameters_helper(call.callee->type->payload.fn_type.param_types, argument_types);
@@ -847,8 +860,8 @@ const Type* check_type_indirect_call(IrArena* arena, IndirectCall call) {
         const Node* argument = args.nodes[i];
         assert(is_value(argument));
     }
-    Nodes argument_types = extract_variable_types(arena, args);
-    return wrap_multiple_yield_types(arena, check_value_call(call.callee, call.args));
+    Nodes argument_types = extract_types(arena, args);
+    return wrap_multiple_yield_types(arena, check_value_call(call.callee, argument_types));
 }
 
 const Type* check_type_if_instr(IrArena* arena, If if_instr) {

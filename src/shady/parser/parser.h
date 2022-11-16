@@ -10,8 +10,10 @@ typedef struct {
 
 #define INFIX_OPERATORS() \
 INFIX_OPERATOR(Mul, star_tok,                 mul_op,            1) \
-INFIX_OPERATOR(Sub, minus_tok,                sub_op,            1) \
+INFIX_OPERATOR(Sub, minus_tok,                sub_op,            2) \
 INFIX_OPERATOR(Add, plus_tok,                 add_op,            2) \
+INFIX_OPERATOR(Div, fslash_tok,               div_op,            1) \
+INFIX_OPERATOR(Mod, percent_tok,              mod_op,            1) \
 INFIX_OPERATOR(RSL, infix_rshift_logical_tok, rshift_logical_op, 3) \
 INFIX_OPERATOR(RSA, infix_rshift_arithm_tok,  rshift_arithm_op,  3) \
 INFIX_OPERATOR(LS,  infix_lshift_tok,         lshift_op,         3) \

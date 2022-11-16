@@ -35,7 +35,7 @@ TEXT_TOKEN(i16) \
 TEXT_TOKEN(i32) \
 TEXT_TOKEN(i64) \
 TEXT_TOKEN(float) \
-TEXT_TOKEN(mask) \
+TEXT_TOKEN(mask_t) \
 TOKEN(const, "const") \
 TOKEN(bool, "bool") \
 TOKEN(true, "true") \
@@ -71,6 +71,7 @@ TOKEN(plus, "+") \
 TOKEN(minus, "-") \
 TOKEN(star, "*") \
 TOKEN(fslash, "/") \
+TOKEN(percent, "%") \
 TOKEN(lpar, "(") \
 TOKEN(rpar, ")") \
 TOKEN(lbracket, "{") \
