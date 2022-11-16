@@ -27,6 +27,7 @@ bool compare_node(const Node**, const Node**);
 
 typedef struct {
     Arena* arena;
+    const Node* entry;
     struct Dict* nodes;
     struct List* queue;
     struct List* contents;
@@ -40,6 +41,7 @@ CFNode* scope_lookup(Scope* scope, const Node* block) {
 
 static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
     assert(is_abstraction(abs));
+    assert(!is_function(abs) || abs == ctx->entry);
     CFNode** found = find_value_dict(const Node*, CFNode*, ctx->nodes, abs);
     if (found) return *found;
 
@@ -74,6 +76,7 @@ static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, C
 static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction) {
     switch (is_instruction(instruction)) {
         case NotAnInstruction: error("");
+        case Instruction_LeafCall_TAG:
         case Instruction_IndirectCall_TAG:
         case Instruction_PrimOp_TAG: break;
         case Instruction_If_TAG:
@@ -98,6 +101,7 @@ static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const No
 static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     const Node* const abs = node->node;
     assert(is_abstraction(abs));
+    assert(!is_function(abs) || abs == ctx->entry);
     const Node* terminator = get_abstraction_body(abs);
     assert(is_terminator(terminator));
     switch (terminator->tag) {
@@ -143,6 +147,7 @@ Scope build_scope(const Node* entry) {
 
     ScopeBuildContext context = {
         .arena = arena,
+        .entry = entry,
         .nodes = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
         .queue = new_list(CFNode*),
         .contents = new_list(CFNode*),
