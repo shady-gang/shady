@@ -81,8 +81,28 @@ static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const Prim
                 });
                 break;
             }
+            case TypeDeclRef_TAG: {
+                const Node* nom_decl = pointed_type->payload.type_decl_ref.decl;
+                assert(nom_decl && nom_decl->tag == NominalType_TAG);
+                pointed_type = nom_decl->payload.nom_type.body;
+                SHADY_FALLTHROUGH
+            }
             case RecordType_TAG: {
-                error("TODO");
+                Nodes member_types = pointed_type->payload.record_type.members;
+
+                const IntLiteral* selector_value = resolve_to_literal(rewrite_node(&ctx->rewriter, lea->operands.nodes[i]));
+                assert(selector_value && "selector value must be known for LEA into a record");
+                size_t n = selector_value->value.u64;
+                assert(n < member_types.count);
+
+                size_t field_offset = get_record_field_offset_in_bytes(ctx->config, dst_arena, pointed_type, n);
+                faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, int32_literal(dst_arena, field_offset)});
+
+                pointer_type = ptr_type(dst_arena, (PtrType) {
+                    .pointed_type = member_types.nodes[n],
+                    .address_space = pointer_type->payload.ptr_type.address_space
+                });
+                break;
             }
             default: error("cannot index into this")
         }
