@@ -6,6 +6,41 @@
 
 #include <assert.h>
 
+size_t bytes_to_i32_cells(size_t size_in_bytes) {
+    assert(size_in_bytes % 4 == 0);
+    return (size_in_bytes + 3) / 4;
+}
+
+typedef struct {
+    TypeMemLayout mem_layout;
+    size_t offset_in_bytes;
+} FieldLayout;
+
+static size_t get_record_layout(const CompilerConfig* config, IrArena* arena, const Node* record_type, FieldLayout* fields) {
+    assert(record_type->tag == RecordType_TAG);
+    size_t total_size = 0;
+    Nodes member_types = record_type->payload.record_type.members;
+    for (size_t i = 0; i < member_types.count; i++) {
+        TypeMemLayout member_layout = get_mem_layout(config, arena, member_types.nodes[i]);
+        if (fields) {
+            fields[i].mem_layout = member_layout;
+            fields[i].offset_in_bytes = total_size;
+        }
+        // TODO implement alignment rules ?
+        total_size += member_layout.size_in_bytes;
+    }
+    return total_size;
+}
+
+size_t get_record_field_offset_in_bytes(const CompilerConfig* c, IrArena* a, const Type* t, size_t i) {
+    assert(t->tag == RecordType_TAG);
+    Nodes member_types = t->payload.record_type.members;
+    assert(i < member_types.count);
+    LARRAY(FieldLayout, fields, member_types.count);
+    get_record_layout(c, a, t, fields);
+    return fields[i].offset_in_bytes;
+}
+
 TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const Type* type) {
     assert(is_type(type));
     switch (type->tag) {
@@ -40,16 +75,9 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
         case QualifiedType_TAG: return get_mem_layout(config, arena, type->payload.qualified_type.type);
         case TypeDeclRef_TAG: return get_mem_layout(config, arena, type->payload.type_decl_ref.decl->payload.nom_type.body);
         case RecordType_TAG: {
-            size_t total_size = 0;
-            Nodes member_types = type->payload.record_type.members;
-            for (size_t i = 0; i < member_types.count; i++) {
-                TypeMemLayout member_layout = get_mem_layout(config, arena, member_types.nodes[i]);
-                // TODO add alignment crap
-                total_size += member_layout.size_in_bytes;
-            }
             return (TypeMemLayout) {
                 .type = type,
-                .size_in_bytes = total_size,
+                .size_in_bytes = get_record_layout(config, arena, type, NULL),
             };
         }
         default: error("not a known type");
@@ -88,13 +116,14 @@ const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder* bb, c
             }
         }
         case RecordType_TAG: {
-            const Node* offset = base_offset;
             Nodes member_types = element_type->payload.record_type.members;
+            LARRAY(FieldLayout, fields, member_types.count);
+            get_record_layout(config, bb->arena, element_type, fields);
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
-                loaded[i] = gen_deserialisation(config, bb, member_types.nodes[i], arr, offset);
+                const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, int32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
+                loaded[i] = gen_deserialisation(config, bb, member_types.nodes[i], arr, field_offset);
                 TypeMemLayout member_layout = get_mem_layout(config, bb->arena, member_types.nodes[i]);
-                offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { offset, int32_literal(bb->arena, bytes_to_i32_cells(member_layout.size_in_bytes)) });
             }
             return tuple(bb->arena, nodes(bb->arena, member_types.count, loaded));
         }
@@ -142,13 +171,13 @@ void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, const Type
             return;
         }
         case RecordType_TAG: {
-            const Node* offset = base_offset;
             Nodes member_types = element_type->payload.record_type.members;
+            LARRAY(FieldLayout, fields, member_types.count);
+            get_record_layout(config, bb->arena, element_type, fields);
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* extracted_value = first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, value, int32_literal(bb->arena, i)), .type_arguments = empty(bb->arena) })));
-                gen_serialisation(config, bb, member_types.nodes[i], arr, offset, extracted_value);
-                TypeMemLayout member_layout = get_mem_layout(config, bb->arena, member_types.nodes[i]);
-                offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { offset, int32_literal(bb->arena, bytes_to_i32_cells(member_layout.size_in_bytes)) });
+                const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, int32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
+                gen_serialisation(config, bb, member_types.nodes[i], arr, field_offset, extracted_value);
             }
             return;
         }
