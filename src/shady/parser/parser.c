@@ -487,14 +487,14 @@ static const Node* accept_primop(ctxparams) {
     next_token(tokenizer);
 
     Nodes ty_args = nodes(arena, 0, NULL);
-    if (accept_token(ctx, rsbracket_tok)) {
+    if (accept_token(ctx, lsbracket_tok)) {
         while (true) {
             const Type* t = accept_unqualified_type(ctx);
             expect(t);
             ty_args = append_nodes(arena, ty_args, t);
             if (accept_token(ctx, comma_tok))
                 continue;
-            if (accept_token(ctx, lsbracket_tok))
+            if (accept_token(ctx, rsbracket_tok))
                 break;
         }
     }

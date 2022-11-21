@@ -204,9 +204,19 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 const IntLiteral* static_index = resolve_to_literal(index);
 
                 switch (is_type(t)) {
+                    case Type_TypeDeclRef_TAG: {
+                        const Node* decl = t->payload.type_decl_ref.decl;
+                        assert(decl && decl->tag == NominalType_TAG);
+                        t = decl->payload.nom_type.body;
+                        SHADY_FALLTHROUGH
+                    }
                     case Type_RecordType_TAG: {
                         assert(static_index);
-                        acc = format_string(emitter->arena, "(%s._%d)", acc, static_index->value.u64);
+                        Strings names = t->payload.record_type.names;
+                        if (names.count == 0)
+                            acc = format_string(emitter->arena, "(%s._%d)", acc, static_index->value.u64);
+                        else
+                            acc = format_string(emitter->arena, "(%s.%s)", acc, names.strings[static_index->value.u64]);
                         break;
                     }
                     case Type_ArrType_TAG:

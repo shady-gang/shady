@@ -16,6 +16,8 @@ CompilerConfig default_compiler_config() {
         .per_thread_stack_size = 32 KiB,
         .per_subgroup_stack_size = 1 KiB,
 
+        .subgroup_size = 32,
+
         .target_spirv_version = {
             .major = 1,
             .minor = 4

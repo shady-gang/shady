@@ -249,6 +249,7 @@ static const Type* get_actual_mask_type(IrArena* arena) {
 
 const Type* check_type_qualified_type(IrArena* arena, QualifiedType qualified_type) {
     assert(!contains_qualified_type(qualified_type.type));
+    assert(is_type(qualified_type.type));
     return NULL;
 }
 
@@ -1033,6 +1034,7 @@ const Type* check_type_anon_lam(IrArena* arena, AnonLambda lam) {
 }
 
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
+    assert(is_type(global_variable.type));
     return ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space

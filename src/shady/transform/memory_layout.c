@@ -184,8 +184,7 @@ void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, const Type
         case TypeDeclRef_TAG: {
             const Node* nom = element_type->payload.type_decl_ref.decl;
             assert(nom && nom->tag == NominalType_TAG);
-            const Node* extracted_value = first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, value, int32_literal(bb->arena, 0)), .type_arguments = empty(bb->arena) })));
-            gen_serialisation(config, bb, nom->payload.nom_type.body, arr, base_offset, extracted_value);
+            gen_serialisation(config, bb, nom->payload.nom_type.body, arr, base_offset, value);
             return;
         }
         default: error("TODO");

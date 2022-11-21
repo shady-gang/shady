@@ -176,7 +176,7 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
         }
         case Function_TAG: {
             Nodes new_params = recreate_variables(rewriter, old->payload.fun.params);
-            new = function(rewriter->dst_module, new_params, old->payload.fun.name, rewrite_nodes(rewriter, old->payload.fun.annotations), rewrite_nodes(rewriter, old->payload.fun.return_types));
+            new = function(rewriter->dst_module, new_params, old->payload.fun.name, rewrite_nodes_generic(rewriter, rewrite_annotation, old->payload.fun.annotations), rewrite_nodes_generic(rewriter, rewrite_type, old->payload.fun.return_types));
             assert(new && new->tag == Function_TAG);
             register_processed_list(rewriter, old->payload.fun.params, new->payload.fun.params);
             break;

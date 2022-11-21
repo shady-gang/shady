@@ -141,7 +141,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
     if (!node) return NULL;
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
-    switch (node->tag) {
+    switch (is_value(node)) {
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
         case IntLiteral_TAG:
         case UntypedNumber_TAG: {
@@ -166,9 +166,25 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
         case True_TAG: return true_lit(dst_arena);
         case False_TAG: return false_lit(dst_arena);
         case StringLiteral_TAG: return string_lit(dst_arena, (StringLiteral) { .string = string(dst_arena, node->payload.string_lit.string )});
-        case Function_TAG: return fn_addr(dst_arena, (FnAddr) { .fn = infer(ctx, node, NULL) }); // TODO check types match
+        // case Function_TAG: return fn_addr(dst_arena, (FnAddr) { .fn = infer(ctx, node, NULL) }); // TODO check types match
         case RefDecl_TAG:
         case FnAddr_TAG: return recreate_node_identity(&ctx->rewriter, node);
+        case Tuple_TAG: {
+            Nodes omembers = node->payload.tuple.contents;
+            LARRAY(const Node*, inferred, omembers.count);
+            if (expected_type) {
+                bool uniform = is_operand_uniform(expected_type);
+                expected_type = extract_operand_type(expected_type);
+                assert(expected_type->tag == RecordType_TAG);
+                Nodes expected_members = expected_type->payload.record_type.members;
+                for (size_t i = 0; i < omembers.count; i++)
+                    inferred[i] = infer(ctx, omembers.nodes[i], qualified_type(dst_arena, (QualifiedType) { .is_uniform = uniform, .type = expected_members.nodes[i] }));
+            } else {
+                for (size_t i = 0; i < omembers.count; i++)
+                    inferred[i] = infer(ctx, omembers.nodes[i], NULL);
+            }
+            return tuple(dst_arena, nodes(dst_arena, omembers.count, inferred));
+        }
         default: error("not a value");
     }
 }
@@ -298,7 +314,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
         }
         default: {
             for (size_t i = 0; i < old_operands.count; i++) {
-                new_inputs_scratch[i] = old_operands.nodes[i] ? infer(ctx, old_operands.nodes[i], int32_type(dst_arena)) : NULL;
+                new_inputs_scratch[i] = old_operands.nodes[i] ? infer(ctx, old_operands.nodes[i], NULL) : NULL;
             }
             goto skip_input_types;
         }
