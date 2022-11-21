@@ -1,8 +1,5 @@
-subgroup i32 next_fn;
-subgroup mask next_mask;
-
 type TreeNode = struct {
-    mask threads;
+    mask_t threads;
     i32 depth;
 };
 
@@ -11,13 +8,34 @@ type JoinPoint = struct {
     i32 destination;
 };
 
-subgroup [i32; MASK_SIZE] resume_at;
-subgroup [mask; MASK_SIZE] resume_with;
-
 const i32 MASK_SIZE = SUBGROUP_SIZE;
 
+subgroup i32 next_fn;
+subgroup mask_t next_mask;
+
+subgroup i32 scheduler_cursor = 0;
+subgroup [TreeNode; MASK_SIZE] scheduler_vector;
+
+subgroup [i32; MASK_SIZE] resume_at;
+// subgroup [mask_t; MASK_SIZE] resume_with;
+subgroup bool fail = false;
+
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
-fn builtin_branch(varying i32 branch_destination) {
+fn builtin_control JoinPoint(uniform i32 join_destination, uniform i32 control_body) {
+    let curr_mask = subgroup_active_mask();
+    let tree_node = make[TreeNode]((curr_mask, scheduler_vector.(subgroup_local_id()).1));
+    let jp = make[JoinPoint]((tree_node, join_destination));
+
+    // increase the depth of the active leaves
+    scheduler_vector.(subgroup_local_id()).1 = scheduler_vector.(subgroup_local_id()).1 + 1;
+
+    // actually do the jump, too
+    resume_at.(subgroup_local_id()) = control_body;
+    return (jp);
+}
+
+@Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
+fn builtin_fork(varying i32 branch_destination) {
     // First ask the first thread where it thinks we should branch, and all the threads that agree are set to go there
     let first_branch = subgroup_broadcast_first(branch_destination);
     if (first_branch == branch_destination) {
@@ -25,18 +43,22 @@ fn builtin_branch(varying i32 branch_destination) {
         next_mask = subgroup_active_mask();
 
         // tag those variables as not in use.
-        resume_at.(subgroup_local_id()) = -1;
-        resume_with.(subgroup_local_id()) = empty_mask();
+        // resume_at.(subgroup_local_id()) = -1;
+        // resume_with.(subgroup_local_id()) = empty_mask();
         return;
     }
 
     // We're left with the threads we can't schedule right now.
     //while (true) {
     loop() {
+        // update depth counter
+        let old_depth = scheduler_vector.(subgroup_local_id()).1;
+        scheduler_vector.(subgroup_local_id()).1 = old_depth + 1;
+
         let elected = subgroup_broadcast_first(branch_destination);
         if (elected == branch_destination) {
             resume_at.(subgroup_local_id()) = elected;
-            resume_with.(subgroup_local_id()) = subgroup_ballot(elected == branch_destination);
+            scheduler_vector.(subgroup_local_id()).0 = subgroup_ballot(elected == branch_destination);
             break;
         }
     }
@@ -45,95 +67,72 @@ fn builtin_branch(varying i32 branch_destination) {
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
 fn builtin_yield(uniform i32 resume_target) {
     resume_at.(subgroup_local_id()) = resume_target;
-    resume_with.(subgroup_local_id()) = subgroup_active_mask();
+    // resume_with.(subgroup_local_id()) = subgroup_active_mask();
 
+    // only one thread runs that part
     if (subgroup_elect_first()) {
-        // only one thread runs that part
-        // scheduler_selector++;
-        scheduler_selector = scheduler_selector + 1;
-        builtin_rotate_active_branch();
+        // bump the cursor
+        // TODO bump it in a smarter way
+        scheduler_cursor = (scheduler_cursor + 1) % SUBGROUP_SIZE;
+        builtin_find_schedulable_leaf();
     }
 }
 
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
-fn builtin_join(uniform i32 join_at, uniform mask join_with) {
-    let active_mask = subgroup_active_mask();
-    var bool clear = true;
-    if (subgroup_elect_first()) {
-        // for (i32 bit = 0; bit < MASK_SIZE; bit++) {
-        loop (uniform i32 bit = 0) {
-            if (bit >= MASK_SIZE) { break(); }
-            // we aren't trying to join up with that, continue
-            if (false == mask_is_thread_active(join_with, bit)) { continue(bit + 1); }
-
-            if (mask_is_thread_active(active_mask, bit)) { continue(bit + 1); }
-            if (resume_at.(bit) == join_at) { continue(bit + 1); }
-
-            clear = false;
-            break;
-        }
-
-        // We're clear to enter
-        if (clear) {
-            next_fn = join_at;
-            next_mask = join_with;
-        }
-    }
-    // Make sure everyone returns
-    if (subgroup_broadcast_first(clear)) {
-        // TODO: maybe zero-out resume_at/resume_with ?
-        return;
-    }
-
-    // We're not clear to enter and we need to pause our threads and do something else
+fn builtin_join(uniform i32 join_at, uniform TreeNode token) {
     resume_at.(subgroup_local_id()) = join_at;
-    resume_with.(subgroup_local_id()) = join_with;
+    scheduler_vector.(subgroup_local_id()) = token;
 
+    // only one thread runs that part
     if (subgroup_elect_first()) {
-        // only one thread runs that part
-        scheduler_selector = scheduler_selector + 1;
-        builtin_rotate_active_branch();
+        builtin_find_schedulable_leaf();
     }
 }
 
-subgroup i32 scheduler_selector = 0;
-subgroup bool fail = false;
+@Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
+fn is_parent bool(varying TreeNode child, varying TreeNode maybe_parent) {
+  let child_mask = child.0;
+  let parent_mask = maybe_parent.0;
+  if ((child_mask | parent_mask) != parent_mask) { return(false); }
+  let child_depth = child.1;
+  let parent_depth = maybe_parent.1;
+  return (child_depth <= parent_depth);
+}
 
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
-fn builtin_rotate_active_branch() {
-    // Try rotating the next thread N times...
-    // for (i32 i = 0; i < MASK_SIZE; i++) {
-    loop (uniform i32 i = 0) {
+fn forward_distance i32(varying i32 x, varying i32 dst, varying i32 max_mod) {
+  var i32 t = dst - x;
+  if (t < 0) {
+    t = t + max_mod;
+  }
+  return (t);
+}
+
+@Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
+fn reduce2 i32(varying i32 a_index, varying i32 b_index) {
+    let a = scheduler_vector.a_index;
+    let b = scheduler_vector.b_index;
+    
+    if (is_parent(a, b)) { return (a_index); }
+    if (is_parent(b, a)) { return (b_index); }
+    
+    let a_dist = forward_distance(a_index, scheduler_cursor, MASK_SIZE);
+    let b_dist = forward_distance(b_index, scheduler_cursor, MASK_SIZE);
+    
+    if (a_dist < b_dist) { return (a_index); }
+    return (b_index);
+}
+
+@Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
+fn builtin_find_schedulable_leaf() {
+    var i32 reduced = 0;
+    loop (uniform i32 i = 1) {
         if (i >= MASK_SIZE) { break; }
-
-        let desired_resume_pt = resume_at.(scheduler_selector);
-        let desired_mask = resume_with.(scheduler_selector);
-        if (resume_at.(scheduler_selector) > 0) {
-            var bool can_run = true;
-
-            // TODO: this is likely slow. Ideally this could run at full subgroup occupancy
-            //for (i32 j = 0; j < MASK_SIZE; j++) {
-            loop (uniform i32 j = 0) {
-                if (j >= MASK_SIZE) { break; }
-
-                if (mask_is_thread_active(desired_mask, j)) { continue(j + 1); }
-                if (resume_at.j == desired_resume_pt) { continue(j + 1); }
-                can_run = false;
-                break;
-            }
-
-            if (can_run) {
-                next_fn = desired_resume_pt;
-                next_mask = desired_mask;
-                return;
-            }
-        }
-
-        // Couldn't run this one. Try the next one !
-        scheduler_selector = scheduler_selector + 1;
+        reduced = reduce2(reduced, i);
         continue(i + 1);
     }
 
-    // We cycled through all entries. We should give up and kill the shader here.
-    fail = true;
+    next_fn = resume_at.reduced;
+    next_mask = scheduler_vector.reduced.0;
+    return;
 }

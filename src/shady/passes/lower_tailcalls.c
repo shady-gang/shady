@@ -136,21 +136,20 @@ static const Node* process(Context* ctx, const Node* old) {
         case JoinPointType_TAG: return type_decl_ref(dst_arena, (TypeDeclRef) {
             .decl = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "JoinPoint"),
         });
-        case Let_TAG: {
+        case LetIndirect_TAG: {
             //if (ctx->disable_lowering)
             //    return recreate_node_identity(&ctx->rewriter, old);
 
             const Node* old_instruction = old->payload.let.instruction;
             if (old_instruction->tag == Control_TAG) {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-                /*const Node* target = rewrite_node(&ctx->rewriter, old->payload.let.tail);
+                const Node* target = rewrite_node(&ctx->rewriter, old->payload.let.tail);
 
-                const Node* jp = bind_instruction(bb, call_instr(dst_arena, (Call) {
-                    .is_indirect = false,
-                    .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_fork"),
+                const Node* jp = first(bind_instruction(bb, leaf_call(dst_arena, (LeafCall) {
+                    .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_control"),
                     .args = nodes(dst_arena, 1, (const Node*[]) { target })
-                })).nodes[0];
-                gen_push_value_stack(bb, jp);*/
+                })));
+                gen_push_value_stack(bb, jp);
                 return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));
             }
 
@@ -161,14 +160,13 @@ static const Node* process(Context* ctx, const Node* old) {
             //    return recreate_node_identity(&ctx->rewriter, old);
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.tail_call.args));
-            /*const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
+            const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
 
-            const Node* call = call_instr(dst_arena, (Call) {
-                .is_indirect = false,
-                .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_fork"),
+            const Node* call = leaf_call(dst_arena, (LeafCall) {
+                .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_fork"),
                 .args = nodes(dst_arena, 1, (const Node*[]) { target })
             });
-            bind_instruction(bb, call);*/
+            bind_instruction(bb, call);
             return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));
         }
         case Join_TAG: {
@@ -178,14 +176,15 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
 
-            /*const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
+            const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
+            const Node* dst = gen_primop_e(bb, extract_op, empty(dst_arena), mk_nodes(dst_arena, jp, int32_literal(dst_arena, 1)));
+            const Node* tree_node = gen_primop_e(bb, extract_op, empty(dst_arena), mk_nodes(dst_arena, jp, int32_literal(dst_arena, 0)));
 
-            const Node* call = call_instr(dst_arena, (Call) {
-                .is_indirect = false,
-                .callee = find_or_process_decl(&ctx->rewriter, ctx->src_program, "builtin_join"),
-                .args = nodes(dst_arena, 1, (const Node*[]) { jp })
+            const Node* call = leaf_call(dst_arena, (LeafCall) {
+                .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_join"),
+                .args = mk_nodes(dst_arena, dst, tree_node)
             });
-            bind_instruction(bb, call);*/
+            bind_instruction(bb, call);
             return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));
         }
         case IndirectCall_TAG: error("Only leaf calls should survive to this stage!");
