@@ -159,6 +159,8 @@ typedef enum AddressSpace_ {
     AsProgramCode,
 } AddressSpace;
 
+enum { NumAddressSpaces = AsProgramCode + 1 };
+
 typedef struct PtrType_ PtrType;
 #define PtrType_Fields(MkField) \
 MkField(1, POD, AddressSpace, address_space) \

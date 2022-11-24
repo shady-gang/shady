@@ -541,7 +541,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* elem_type = node_ptr_type_->pointed_type;
             return qualified_type(arena, (QualifiedType) {
                 .type = elem_type,
-                .is_uniform = ptr_uniform
+                .is_uniform = ptr_uniform && is_addr_space_uniform(ptr_type->payload.ptr_type.address_space)
             });
         }
         case store_op: {
