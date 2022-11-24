@@ -27,10 +27,14 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         Context ctx2 = *ctx;
         ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
         BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-        // Pop the convergence token
-        ctx2.return_tok = bind_instruction(bb, gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = fun->payload.fun.return_types }))).nodes[0];
-        // This effectively asserts uniformity
-        ctx2.return_tok = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) { ctx2.return_tok });
+        if (!ctx2.disable_lowering) {
+            // Pop the convergence token
+            ctx2.return_tok = bind_instruction(bb, gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = fun->payload.fun.return_types }))).nodes[0];
+            // This effectively asserts uniformity
+            ctx2.return_tok = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) { ctx2.return_tok });
+        } else {
+            ctx2.return_tok = NULL;
+        }
         fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
         return fun;
     }
