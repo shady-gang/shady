@@ -40,6 +40,7 @@ String string_sized(IrArena* arena, size_t size, const char* start);
 String string(IrArena* arena, const char* start);
 String format_string(IrArena* arena, const char* str, ...);
 String unique_name(IrArena* arena, const char* start);
+String name_type_safe(IrArena*, const Type*);
 
 //////////////////////////////// IR Arena ////////////////////////////////
 

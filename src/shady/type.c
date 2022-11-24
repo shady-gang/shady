@@ -244,6 +244,29 @@ static const Type* get_actual_mask_type(IrArena* arena) {
     }
 }
 
+String name_type_safe(IrArena* arena, const Type* t) {
+    switch (is_type(t)) {
+        case NotAType: assert(false);
+        case Type_MaskType_TAG: return "mask_t";
+        case Type_JoinPointType_TAG: return "join_type_t";
+        case Type_NoRet_TAG: return "no_ret";
+        case Type_Unit_TAG: return "unit";
+        case Type_Int_TAG: return format_string(arena, "int_%s", ((String[]){ "8", "16", "32", "64" })[t->payload.int_type.width]);
+        case Type_Float_TAG: return "float";
+        case Type_Bool_TAG: return "bool";
+        case Type_RecordType_TAG: break;
+        case Type_FnType_TAG: break;
+        case Type_BBType_TAG: break;
+        case Type_LamType_TAG: break;
+        case Type_PtrType_TAG: break;
+        case Type_QualifiedType_TAG: break;
+        case Type_ArrType_TAG: break;
+        case Type_PackType_TAG: break;
+        case Type_TypeDeclRef_TAG: return t->payload.type_decl_ref.decl->payload.nom_type.name;
+    }
+    return unique_name(arena, node_tags[t->tag]);
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
