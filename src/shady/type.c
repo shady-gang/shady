@@ -466,6 +466,13 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_pointer_uniform_op, .type = int32_type(arena) });
         }
+        case get_stack_base_op:
+        case get_stack_base_uniform_op: {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 0);
+            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = NULL }), .address_space = prim_op.op == get_stack_base_op ? AsPrivatePhysical : AsSubgroupPhysical});
+            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_base_uniform_op, .type = ptr });
+        }
         case set_stack_pointer_op:
         case set_stack_pointer_uniform_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -537,20 +544,23 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return unit_type(arena);
         }
         case alloca_logical_op:
-        case alloca_slot_op:
         case alloca_op: {
-            bool is_slot = prim_op.op == alloca_slot_op;
-            bool is_logical = prim_op.op == alloca_logical_op;
+            AddressSpace as;
+            switch (prim_op.op) {
+                case alloca_op: as = AsPrivatePhysical; break;
+                case alloca_logical_op: as = AsFunctionLogical; break;
+                default: error("")
+            }
 
             assert(prim_op.type_arguments.count == 1);
-            assert(prim_op.operands.count == (is_slot ? 1 : 0));
+            assert(prim_op.operands.count == 0);
             const Type* elem_type = prim_op.type_arguments.nodes[0];
             assert(is_type(elem_type));
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = true,
+                .is_uniform = false,
                 .type = ptr_type(arena, (PtrType) {
                     .pointed_type = elem_type,
-                    .address_space = is_logical ? AsFunctionLogical : AsPrivatePhysical
+                    .address_space = as,
                 })
             });
         }

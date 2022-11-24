@@ -122,15 +122,11 @@ static const Node* process_let(Context* ctx, const Node* node) {
         const PrimOp* oprim_op = &old_instruction->payload.prim_op;
         switch (oprim_op->op) {
             case alloca_op: error("This has to be the slot variant")
-            case alloca_slot_op: {
+            case get_stack_base_uniform_op:
+            case get_stack_base_op: {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-                const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
-                TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
-
-                const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "stack_ptr");
+                const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, oprim_op->op == get_stack_base_op ? "stack_ptr" : "uniform_stack_ptr");
                 const Node* stack_size = gen_load(bb, stack_pointer);
-                stack_size = gen_primop_ce(bb, add_op, 2, (const Node* []) { stack_size, int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes)) });
-                gen_store(bb, stack_pointer, stack_size);
                 return finish_body(bb, let(arena, quote(arena, stack_size), tail));
             }
             case lea_op: {

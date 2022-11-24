@@ -49,7 +49,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     switch (prim_op->op) {
         case assign_op:
         case subscript_op:
-        case alloca_slot_op: error("desugar those")
         case unit_op:
             return;
         case quote_op: {
@@ -232,14 +231,16 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             final_expression = acc;
             break;
         }
-        case push_stack_op:break;
-        case pop_stack_op:break;
-        case push_stack_uniform_op:break;
-        case pop_stack_uniform_op:break;
-        case get_stack_pointer_op:break;
-        case get_stack_pointer_uniform_op:break;
-        case set_stack_pointer_op:break;
-        case set_stack_pointer_uniform_op:break;
+        case get_stack_base_op:
+        case get_stack_base_uniform_op:
+        case push_stack_op:
+        case pop_stack_op:
+        case push_stack_uniform_op:
+        case pop_stack_uniform_op:
+        case get_stack_pointer_op:
+        case get_stack_pointer_uniform_op:
+        case set_stack_pointer_op:
+        case set_stack_pointer_uniform_op: error("Stack operations need to be lowered.");
         case subgroup_elect_first_op: {
             final_expression = "true /* subgroup_elect_first */";
             break;
