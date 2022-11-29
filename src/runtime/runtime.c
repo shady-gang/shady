@@ -83,7 +83,7 @@ INSTANCE_EXTENSIONS(X)
     if (runtime->instance_exts.portability_enumeration.enabled)
         instance_flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 
-    CHECK_VK(vkCreateInstance(&(VkInstanceCreateInfo) {
+    VkResult err_create_instance = vkCreateInstance(&(VkInstanceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &(VkApplicationInfo) {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -92,7 +92,7 @@ INSTANCE_EXTENSIONS(X)
             .pNext = NULL,
             .engineVersion = 1,
             .applicationVersion = 1,
-            .apiVersion = VK_MAKE_API_VERSION(0, 1, 1, 0)
+            .apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0) /* this will still work on VK 1.1+ devices ! */
         },
         .flags = instance_flags,
         .enabledExtensionCount = enabled_extensions_count,
@@ -100,7 +100,21 @@ INSTANCE_EXTENSIONS(X)
         .enabledLayerCount = enabled_layers_count,
         .ppEnabledLayerNames = enabled_layers,
         .pNext = NULL
-    }, NULL, &runtime->instance), return false)
+    }, NULL, &runtime->instance);
+    switch (err_create_instance) {
+        case VK_SUCCESS: break;
+        case VK_ERROR_INCOMPATIBLE_DRIVER: {
+            // Vulkan 1.0 is not worth supporting. It has many API warts and 1.1 fixes many of them.
+            // the hardware support is basically identical, so you're not cutting off any devices, just stinky old drivers.
+            error_print("vkCreateInstance reported VK_ERROR_INCOMPATIBLE_DRIVER. This most certainly means you're trying to run on a Vulkan 1.0 implementation.\n");
+            error_print("This application is written with Vulkan 1.1 as the baseline, you will need to update your Vulkan loader and/or driver.");
+            return false;
+        }
+        default: {
+            error_print("vkCreateInstanced failed (%u)\n", err_create_instance);
+            return false;
+        }
+    }
 
     obtain_instance_pointers(runtime);
 

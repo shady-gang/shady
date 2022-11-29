@@ -40,11 +40,11 @@ static void figure_out_spirv_version(DeviceProperties* device) {
     assert(device->vk_version.major >= 1);
     device->spirv_version.major = 1;
     if (device->vk_version.major == 1 && device->vk_version.minor <= 1) {
-        // Vulkan 1.1 guarantees ... not a lot
+        // Vulkan 1.1 offers no clear guarantees of supported SPIR-V versions. There is an ext for 1.4 ...
         if (device->supported_extensions[ShadySupportsKHRspirv_1_4]) {
             device->spirv_version.minor = 4;
         } else {
-            // there is no way to signal support for spv <= 1.3, so we just shove 1.3 in there and hope for the best
+            // but there is no way to signal support for spv at or below 1.3, so we just hope 1.3 works out.
             device->spirv_version.minor = 3;
         }
     } else if (device->vk_version.major == 1 && device->vk_version.minor == 2) {
