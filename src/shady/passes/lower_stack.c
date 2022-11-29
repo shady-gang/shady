@@ -187,7 +187,7 @@ void lower_stack(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) 
     // Pointers into those arrays
     Node* stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "stack_ptr", AsPrivateLogical);
     stack_ptr_decl->payload.global_variable.init = int32_literal(dst_arena, 0);
-    Node* uniform_stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "uniform_stack_ptr", AsPrivateLogical);
+    Node* uniform_stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "uniform_stack_ptr", AsSubgroupLogical);
     uniform_stack_ptr_decl->payload.global_variable.init = int32_literal(dst_arena, 0);
 
     Context ctx = {

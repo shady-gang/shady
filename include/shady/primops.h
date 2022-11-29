@@ -31,6 +31,7 @@ P(1, assign)                    \
 P(1, subscript)                 \
 P(1, alloca)                    \
 P(1, alloca_logical)            \
+P(1, alloca_subgroup)           \
 P(0, load)                      \
 P(1, store)                     \
 P(0, lea)                       \

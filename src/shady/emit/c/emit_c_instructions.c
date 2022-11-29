@@ -83,8 +83,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case lshift_op:
             operator_str = "<<";
             break;
-        case alloca_op:break;
-        case alloca_logical_op:break;
+        case alloca_op:
+        case alloca_subgroup_op:
+        case alloca_logical_op: error("Lower me");
         case load_op: {
             CAddr dereferenced = deref_term(emitter, emit_value(emitter, first(prim_op->operands)));
             outputs.results[0] = term_from_cvalue(dereferenced);
@@ -171,7 +172,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             final_expression = format_string(emitter->arena, "(%s) ? (%s) : (%s)", condition, l, r);
             break;
         }
-        case convert_op:break;
+        case convert_op: error("TODO");
         case reinterpret_op: {
             assert(outputs.count == 1);
             CTerm src = emit_value(emitter, first(prim_op->operands));

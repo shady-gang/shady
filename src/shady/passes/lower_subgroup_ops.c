@@ -25,28 +25,30 @@ static const Node* process_let(Context* ctx, const Node* old) {
             case subgroup_broadcast_first_op: {
                 BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
                 const Node* operand = rewrite_node(&ctx->rewriter, payload.operands.nodes[0]);
-                const Type* operand_type = extract_operand_type(operand->type);
+                const Type* element_type = extract_operand_type(operand->type);
 
-                if (operand_type->tag == Int_TAG && operand_type->payload.int_type.width == IntTy32)
+                if (element_type->tag == Int_TAG && element_type->payload.int_type.width == IntTy32)
                     break;
                 else if (!ctx->config->lower.emulate_subgroup_ops_extended_types)
                     break;
 
-                /*const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = int32_literal(arena, 2) });
+                const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = int32_literal(arena, 2) });
                 const Type* ptr_t = ptr_type(arena, (PtrType) { .address_space = AsSubgroupPhysical, .pointed_type = local_arr_ty });
                 const Node* subgroup_arr_top = gen_primop_e(builder, get_stack_base_uniform_op, empty(arena), empty(arena));
 
                 const Node* local_array = gen_reinterpret_cast(builder, ptr_t, subgroup_arr_top);
+                const Type* elem_ptr_t = ptr_type(arena, (PtrType) { .address_space = AsSubgroupPhysical, .pointed_type = element_type });
+                const Node* ptr_elem = gen_reinterpret_cast(builder, elem_ptr_t, subgroup_arr_top);
 
-                gen_serialisation(ctx->config, builder, operand_type, local_array, int32_literal(arena, 0), operand);
+                gen_store(builder, ptr_elem, operand);
                 for (int32_t j = 0; j < 2; j++) {
-                    const Node* logical_addr = gen_lea(builder, local_array, NULL, nodes(arena, 1, (const Node* []) { int32_literal(arena, j) }));
+                    const Node* logical_addr = gen_lea(builder, local_array, int32_literal(arena, 0), nodes(arena, 1, (const Node* []) { int32_literal(arena, j) }));
                     const Node* input = gen_load(builder, logical_addr);
                     const Node* partial_result = gen_primop_ce(builder, subgroup_broadcast_first_op, 1, (const Node* []) { input });
                     gen_store(builder, logical_addr, partial_result);
                 }
-                const Node* result = gen_deserialisation(ctx->config, builder, operand_type, local_array, int32_literal(arena, 0));
-                return finish_body(builder, let(arena, quote(arena, result), tail));*/
+                const Node* result = gen_load(builder, ptr_elem);
+                return finish_body(builder, let(arena, quote(arena, result), tail));
                 error("TODO")
             }
             default: break;

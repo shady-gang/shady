@@ -284,7 +284,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
     if (old_instruction->tag == PrimOp_TAG) {
         const PrimOp* oprim_op = &old_instruction->payload.prim_op;
         switch (oprim_op->op) {
-            case alloca_op: error("This has to be the slot variant")
+            case alloca_op: error("This needs to be lowered (see setup_stack_frames.c)")
             case get_stack_base_uniform_op:
             case get_stack_base_op: {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
@@ -431,7 +431,7 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
     });
 
     Node* thread_private_memory = global_var(dst, annotations, stack_arr_type, "physical_private_buffer", AsPrivateLogical);
-    Node* subgroup_shared_memory = global_var(dst, annotations, uniform_stack_arr_type, "physical_subgroup_buffer", AsSharedLogical);
+    Node* subgroup_shared_memory = global_var(dst, annotations, uniform_stack_arr_type, "physical_subgroup_buffer", AsSubgroupLogical);
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),

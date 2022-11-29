@@ -36,6 +36,7 @@ static void collect_allocas(VContext* vctx, const Node* node) {
     if (node->tag == PrimOp_TAG) {
         switch (node->payload.prim_op.op) {
             case alloca_op: as = AsPrivatePhysical; break;
+            case alloca_subgroup_op: as = AsSubgroupPhysical; break;
             default: goto not_alloca;
         }
 
