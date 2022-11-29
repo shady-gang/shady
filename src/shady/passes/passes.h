@@ -21,6 +21,7 @@ RewritePass lower_physical_ptrs;
 RewritePass setup_stack_frames;
 RewritePass eliminate_constants;
 RewritePass lower_subgroup_ops;
+RewritePass lower_subgroup_vars;
 
 RewritePass lower_mask;
 

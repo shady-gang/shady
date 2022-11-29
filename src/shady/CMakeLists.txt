@@ -37,6 +37,7 @@ set(SHADY_SOURCES
     passes/setup_stack_frames.c
     passes/eliminate_constants.c
     passes/lower_subgroup_ops.c
+    passes/lower_subgroup_vars.c
     passes/mark_leaf_functions.c
 )
 
