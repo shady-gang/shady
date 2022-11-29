@@ -10,6 +10,7 @@
 static const char* shader =
 "// trivial function that returns its argument\n"
 "@EntryPoint(\"compute\") @WorkgroupSize(64, 1, 1) fn main() {\n"
+"    debug_printf(\"hi\");"
 "    return;\n"
 "}";
 

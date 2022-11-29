@@ -13,7 +13,7 @@
 CompilerConfig default_compiler_config() {
     return (CompilerConfig) {
         .allow_frontend_syntax = false,
-        .per_thread_stack_size = 32 KiB,
+        .per_thread_stack_size = 1 KiB,
         .per_subgroup_stack_size = 1 KiB,
 
         .subgroup_size = 32,

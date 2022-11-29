@@ -285,6 +285,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
     if (old_instruction->tag == PrimOp_TAG) {
         const PrimOp* oprim_op = &old_instruction->payload.prim_op;
         switch (oprim_op->op) {
+            case alloca_subgroup_op:
             case alloca_op: error("This needs to be lowered (see setup_stack_frames.c)")
             case get_stack_base_uniform_op:
             case get_stack_base_op: {
@@ -371,6 +372,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
                 Node* cnst = constant(ctx->rewriter.dst_module, annotations, int32_type(ctx->rewriter.dst_arena), format_string(ctx->rewriter.dst_arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
 
                 uint32_t* preallocated = old_gvar->address_space == AsSubgroupPhysical ? &ctx->preallocated_subgroup_memory : &ctx->preallocated_private_memory;
+
                 const Type* contents_type = rewrite_node(&ctx->rewriter, old_gvar->type);
                 assert(!contains_qualified_type(contents_type));
                 uint32_t required_space = bytes_to_i32_cells(get_mem_layout(ctx->config, ctx->rewriter.dst_arena, contents_type).size_in_bytes);
@@ -405,11 +407,11 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
     const Type* stack_base_element = int32_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = stack_base_element,
-        .size = uint32_literal(dst_arena, config->per_thread_stack_size),
+        .size = uint32_literal(dst_arena, config->per_thread_stack_size * 2),
     });
     const Type* uniform_stack_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = stack_base_element,
-        .size = uint32_literal(dst_arena, config->per_subgroup_stack_size),
+        .size = uint32_literal(dst_arena, config->per_subgroup_stack_size * 2),
     });
 
     // TODO add a @Synthetic annotation to tag those
