@@ -99,13 +99,22 @@ static bool get_physical_device_properties(SHADY_UNUSED Runtime* runtime, VkPhys
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = NULL
     };
+
     VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR subgroup_extended_features = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR,
         .pNext = NULL,
-        .shaderSubgroupExtendedTypes = false
     };
     if (out->supported_extensions[ShadySupportsKHRshader_subgroup_extended_types] || dp.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0))
         append_pnext((VkBaseOutStructure*) &df, &subgroup_extended_features);
+
+    VkPhysicalDeviceBufferDeviceAddressFeaturesEXT bda_features = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT,
+        .pNext = NULL,
+    };
+
+    if (out->supported_extensions[ShadySupportsEXTbuffer_device_address] || dp.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0))
+        append_pnext((VkBaseOutStructure*) &df, &bda_features);
+
     vkGetPhysicalDeviceFeatures2(physical_device, &df);
 
     if (!df.features.shaderInt64) {
@@ -114,6 +123,11 @@ static bool get_physical_device_properties(SHADY_UNUSED Runtime* runtime, VkPhys
     }
 
     out->features.subgroup_extended_types = subgroup_extended_features.shaderSubgroupExtendedTypes;
+    if (!bda_features.bufferDeviceAddress) {
+        info_print("Rejecting device '%s' because it does not buffer device addresses\n", dp.properties.deviceName);
+        return false;
+    }
+    out->features.physical_global_ptrs = bda_features.bufferDeviceAddress;
 
     out->subgroup_size = subgroup_properties.subgroupSize;
     info_print("Subgroup size for device '%s' is %d\n", dp.properties.deviceName, out->subgroup_size);
@@ -178,6 +192,14 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     };
     if (device->properties.features.subgroup_extended_types)
         append_pnext((VkBaseOutStructure*) &enabled_features, &subgroup_extended_features);
+
+    VkPhysicalDeviceBufferDeviceAddressFeaturesEXT bda_features = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT,
+        .pNext = NULL,
+        .bufferDeviceAddress = true,
+    };
+    if (device->properties.features.physical_global_ptrs)
+        append_pnext((VkBaseOutStructure*) &enabled_features, &bda_features);
 
     CHECK_VK(vkCreateDevice(physical_device, &(VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
