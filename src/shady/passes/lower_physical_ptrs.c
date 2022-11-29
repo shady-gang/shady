@@ -146,14 +146,15 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool se
         return *found;
 
     IrArena* arena = ctx->rewriter.dst_arena;
-    bool uniform = is_addr_space_uniform(as);
 
-    const Type* qualified_t = qualified_type(arena, (QualifiedType) { .is_uniform = uniform, .type = element_type });
-    const Node* addr_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = uniform, .type = int32_type(arena) }), "ptr");
+    const Node* addr_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = int32_type(arena) }), "ptr");
 
-    const Node* value_param = ser ? var(arena, qualified_t, "value") : NULL;
+    const Type* input_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = element_type });
+    const Node* value_param = ser ? var(arena, input_value_t, "value") : NULL;
     Nodes params = ser ? mk_nodes(arena, addr_param, value_param) : singleton(addr_param);
-    Nodes return_ts = ser ? empty(arena) : singleton(qualified_t);
+
+    const Type* return_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = is_addr_space_uniform(as), .type = element_type });
+    Nodes return_ts = ser ? empty(arena) : singleton(return_value_t);
 
     String name = format_string(arena, "generated_%s_as%d_%s", ser ? "store" : "load", as, name_type_safe(arena, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, empty(arena), return_ts);
@@ -329,19 +330,11 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
                 const Node* fn = gen_serdes_fn(ctx, element_type, oprim_op->op == store_op, ptr_type->payload.ptr_type.address_space);
 
-                // TODO remove this hack !
-                if (is_addr_space_uniform(ptr_type->payload.ptr_type.address_space))
-                    pointer_as_offset = gen_primop_e(bb, subgroup_broadcast_first_op, empty(arena), singleton(pointer_as_offset));
-
                 if (oprim_op->op == load_op) {
                     const Node* result = first(bind_instruction(bb, leaf_call(arena, (LeafCall) { .callee = fn, .args = singleton(pointer_as_offset) })));
                     return finish_body(bb, let(arena, quote(arena, result), tail));
                 } else {
                     const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
-
-                    // TODO remove this hack !
-                    if (is_addr_space_uniform(ptr_type->payload.ptr_type.address_space))
-                        value = gen_primop_e(bb, subgroup_broadcast_first_op, empty(arena), singleton(value));
 
                     bind_instruction(bb, leaf_call(arena, (LeafCall) { .callee = fn, .args = mk_nodes(arena, pointer_as_offset, value) }));
                     return finish_body(bb, let(arena, unit(arena), tail));
