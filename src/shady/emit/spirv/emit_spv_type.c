@@ -38,6 +38,9 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
 }
 
 static const Node* rewrite_normalize(Rewriter* rewriter, const Node* node) {
+    const Node* found = search_processed(rewriter, node);
+    if (found) return found;
+
     if (!is_type(node)) {
         register_processed(rewriter, node, node);
         return node;
