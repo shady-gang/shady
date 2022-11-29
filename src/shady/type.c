@@ -912,6 +912,15 @@ const Type* check_type_let(IrArena* arena, Let let) {
     return noret_type(arena);
 }
 
+const Type* check_type_let_into(IrArena* arena, LetInto let) {
+    assert(is_basic_block(let.tail));
+    Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
+    Nodes param_types = extract_variable_types(arena, let.tail->payload.basic_block.params);
+
+    check_arguments_types_against_parameters_helper(param_types, produced_types);
+    return noret_type(arena);
+}
+
 const Type* check_type_let_indirect(IrArena* arena, LetIndirect let) {
     assert(is_value(let.tail));
     Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);

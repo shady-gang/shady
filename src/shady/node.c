@@ -169,6 +169,25 @@ Module* get_abstraction_module(const Node* abs) {
     }
 }
 
+const Node* get_let_instruction(const Node* let) {
+    switch (let->tag) {
+        case Let_TAG: return let->payload.let.instruction;
+        case LetMut_TAG: return let->payload.let_mut.instruction;
+        case LetInto_TAG: return let->payload.let_into.instruction;
+        case LetIndirect_TAG: return let->payload.let_indirect.instruction;
+        default: assert(false);
+    }
+}
+const Node* get_let_tail(const Node* let) {
+    switch (let->tag) {
+        case Let_TAG: return let->payload.let.tail;
+        case LetMut_TAG: return let->payload.let_mut.tail;
+        case LetInto_TAG: return let->payload.let_into.tail;
+        case LetIndirect_TAG: return let->payload.let_indirect.tail;
+        default: assert(false);
+    }
+}
+
 KeyHash hash_murmur(const void* data, size_t size) {
     int32_t out[4];
     MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);

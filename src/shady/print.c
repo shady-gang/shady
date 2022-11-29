@@ -526,10 +526,12 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
     TerminatorTag tag = is_terminator(node);
     switch (tag) {
         case NotATerminator: assert(false);
+        case Let_TAG:
         case LetMut_TAG:
-        case LetIndirect_TAG:
-        case Let_TAG: {
-            const Node* tail = node->payload.let.tail;
+        case LetInto_TAG:
+        case LetIndirect_TAG: {
+            const Node* instruction = get_let_instruction(node);
+            const Node* tail = get_let_tail(node);
             if (is_anonymous_lambda(tail)) {
                 assert(tag != LetIndirect_TAG);
                 // if the let tail is a lambda, we apply some syntactic sugar
@@ -551,19 +553,19 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                     }
                     printf(" = ");
                 }
-                print_node(node->payload.let.instruction);
+                print_node(instruction);
                 printf(";\n");
-                print_node(node->payload.let.tail->payload.anon_lam.body);
+                print_node(tail->payload.anon_lam.body);
             } else {
                 assert(tag == LetIndirect_TAG);
                 printf(GREEN);
                 printf("let ");
                 printf(RESET);
-                print_node(node->payload.let.instruction);
+                print_node(instruction);
                 printf(GREEN);
                 printf(" in ");
                 printf(RESET);
-                print_node(node->payload.let.tail);
+                print_node(tail);
             }
             break;
         } case Return_TAG:

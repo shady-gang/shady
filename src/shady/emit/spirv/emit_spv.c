@@ -131,17 +131,18 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
                 }
             }
         }
+        case LetInto_TAG:
         case Let_TAG: {
-            const Node* tail = terminator->payload.let.tail;
-            assert(tail->tag == AnonLambda_TAG);
+            const Node* tail = get_let_tail(terminator);
             Nodes params = tail->payload.anon_lam.params;
             LARRAY(SpvId, results, params.count);
-            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, terminator->payload.let.instruction, params.count, results);
+            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, get_let_instruction(terminator), params.count, results);
             if (tail->tag == AnonLambda_TAG) {
                 for (size_t i = 0; i < params.count; i++)
                     register_result(emitter, params.nodes[i], results[i]);
                 emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, tail->payload.anon_lam.body);
             } else {
+                assert(tail->tag == BasicBlock_TAG);
                 spvb_branch(basic_block_builder, find_reserved_id(emitter, tail));
                 add_branch_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), tail, params.count, results);
             }
