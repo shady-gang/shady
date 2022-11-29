@@ -53,6 +53,7 @@ static void print_storage_qualifier_for_global(PrinterCtx* ctx, AddressSpace as)
         case AsGeneric:             printf("generic"); break;
 
         case AsFunctionLogical:  printf("l_function"); break;
+        case AsSubgroupLogical:  printf("l_subgroup"); break;
         case AsPrivateLogical:      printf("private"); break;
         case AsSharedLogical:        printf("shared"); break;
         case AsGlobalLogical:        printf("global"); break;
@@ -76,6 +77,7 @@ static void print_ptr_addr_space(PrinterCtx* ctx, AddressSpace as) {
         case AsGeneric:             printf("generic"); break;
 
         case AsFunctionLogical:  printf("l_function"); break;
+        case AsSubgroupLogical:  printf("l_subgroup"); break;
         case AsPrivateLogical:    printf("l_private"); break;
         case AsSharedLogical:      printf("l_shared"); break;
         case AsGlobalLogical:      printf("l_global"); break;

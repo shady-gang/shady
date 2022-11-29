@@ -139,21 +139,33 @@ MkField(1, TYPES, Nodes, param_types)
 typedef enum AddressSpace_ {
     AsGeneric,
 
-    // used for lowering various nonsense, does not have a known hardware meaning
+    /// Points into thread-private memory (all threads see different contents for the same address)
+    AsPrivatePhysical,
+
+    /// Points into subgroup-private memory (all threads in a subgroup see the same contents for the same
+    /// address, but threads in different subgroups see different data)
+    /// needs to be lowered to something else since targets do not understand this
     AsSubgroupPhysical,
 
-    AsPrivatePhysical,
+    /// Points into workgroup-private memory (you get the idea)
     AsSharedPhysical,
+
+    /// Global memory, all threads see the same data (not necessarily consistent!)
     AsGlobalPhysical,
 
-    AsFunctionLogical,
+    // Local variants of the prior four ASes
+    AsSubgroupLogical,
     AsPrivateLogical,
     AsSharedLogical,
     AsGlobalLogical,
 
-    /// special addressing spaces for only global variables
+    /// Weird nonsense for SPIR-V, this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)
+    AsFunctionLogical,
+
+    /// special addressing spaces for input/output global variables in shader stages
     AsInput,
     AsOutput,
+    /// Ditto for descriptors
     AsExternal,
 
     // "fake" address space for function pointers
