@@ -32,10 +32,13 @@ static const Node* process_let(Context* ctx, const Node* old) {
                 else if (!ctx->config->lower.emulate_subgroup_ops_extended_types)
                     break;
 
-                const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = int32_literal(arena, 2) });
-                const Node* local_array = gen_primop_ce(builder, alloca_logical_op, 1, (const Node* []) { local_arr_ty });
-                gen_serialisation(ctx->config, builder, operand_type, local_array, int32_literal(arena, 0), operand);
+                /*const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = int32_literal(arena, 2) });
+                const Type* ptr_t = ptr_type(arena, (PtrType) { .address_space = AsSubgroupPhysical, .pointed_type = local_arr_ty });
+                const Node* subgroup_arr_top = gen_primop_e(builder, get_stack_base_uniform_op, empty(arena), empty(arena));
 
+                const Node* local_array = gen_reinterpret_cast(builder, ptr_t, subgroup_arr_top);
+
+                gen_serialisation(ctx->config, builder, operand_type, local_array, int32_literal(arena, 0), operand);
                 for (int32_t j = 0; j < 2; j++) {
                     const Node* logical_addr = gen_lea(builder, local_array, NULL, nodes(arena, 1, (const Node* []) { int32_literal(arena, j) }));
                     const Node* input = gen_load(builder, logical_addr);
@@ -43,7 +46,8 @@ static const Node* process_let(Context* ctx, const Node* old) {
                     gen_store(builder, logical_addr, partial_result);
                 }
                 const Node* result = gen_deserialisation(ctx->config, builder, operand_type, local_array, int32_literal(arena, 0));
-                return finish_body(builder, let(arena, quote(arena, result), tail));
+                return finish_body(builder, let(arena, quote(arena, result), tail));*/
+                error("TODO")
             }
             default: break;
         }

@@ -9,12 +9,16 @@
 #include "portability.h"
 
 #include "list.h"
+#include "dict.h"
 
 #include <assert.h>
 
 typedef struct Context_ {
     Rewriter rewriter;
     CompilerConfig* config;
+
+    struct Dict* ser[NumAddressSpaces];
+    struct Dict* des[NumAddressSpaces];
 
     /// Bytes used up by static allocations
     uint32_t preallocated_private_memory;
@@ -27,12 +31,171 @@ typedef struct Context_ {
     bool ssm_is_block_buffer;
 } Context;
 
+static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset) {
+    const Node* zero = int32_literal(bb->arena, 0);
+    switch (element_type->tag) {
+        case Bool_TAG: {
+            const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
+            const Node* value = gen_load(bb, logical_ptr);
+            return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, zero});
+        }
+        case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
+            case AsProgramCode: goto ser_int;
+            default: error("TODO")
+        }
+        case Int_TAG: ser_int: {
+            if (element_type->payload.int_type.width != IntTy64) {
+                // One load suffices
+                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
+                const Node* value = gen_load(bb, logical_ptr);
+                // cast into the appropriate width and throw other bits away
+                // note: folding gets rid of identity casts
+                value = gen_primop_e(bb, reinterpret_op, singleton(element_type), singleton(value));
+                return value;
+            } else {
+                // We need to decompose this into two loads, then we use the merge routine
+                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
+                const Node* lo = gen_load(bb, logical_ptr);
+                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
+                            logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset });
+                const Node* hi = gen_load(bb, logical_ptr);
+                return gen_merge_i32s_i64(bb, lo, hi);
+            }
+        }
+        case RecordType_TAG: {
+            Nodes member_types = element_type->payload.record_type.members;
+            LARRAY(FieldLayout, fields, member_types.count);
+            get_record_layout(config, bb->arena, element_type, fields);
+            LARRAY(const Node*, loaded, member_types.count);
+            for (size_t i = 0; i < member_types.count; i++) {
+                const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, int32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
+                loaded[i] = gen_deserialisation(config, bb, member_types.nodes[i], arr, field_offset);
+                TypeMemLayout member_layout = get_mem_layout(config, bb->arena, member_types.nodes[i]);
+            }
+            return tuple(bb->arena, nodes(bb->arena, member_types.count, loaded));
+        }
+        case TypeDeclRef_TAG: {
+            const Node* nom = element_type->payload.type_decl_ref.decl;
+            assert(nom && nom->tag == NominalType_TAG);
+            const Node* body = gen_deserialisation(config, bb, nom->payload.nom_type.body, arr, base_offset);
+            return first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = make_op, .type_arguments = singleton(element_type), .operands = singleton(body) })));
+        }
+        default: error("TODO");
+    }
+}
+
+static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset, const Node* value) {
+    const Node* zero = int32_literal(bb->arena, 0);
+    switch (element_type->tag) {
+        case Bool_TAG: {
+            const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
+            const Node* one = int32_literal(bb->arena, 1);
+            const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one, zero });
+            gen_store(bb, logical_ptr, int_value);
+            return;
+        }
+        case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
+            case AsProgramCode: goto des_int;
+            default: error("TODO")
+        }
+        case Int_TAG: des_int: {
+            // Same story as for deser
+            if (element_type->payload.int_type.width != IntTy64) {
+                value = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(value));
+                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
+                gen_store(bb, logical_ptr, value);
+            } else {
+                const Node* lo = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(value));
+                const Node* hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []){ value, int64_literal(bb->arena, 32) });
+                hi = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(hi));
+                // TODO: make this dependant on the emulation array type
+                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
+                gen_store(bb, logical_ptr, lo);
+                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
+                            logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset});
+                gen_store(bb, logical_ptr, hi);
+            }
+            return;
+        }
+        case RecordType_TAG: {
+            Nodes member_types = element_type->payload.record_type.members;
+            LARRAY(FieldLayout, fields, member_types.count);
+            get_record_layout(config, bb->arena, element_type, fields);
+            for (size_t i = 0; i < member_types.count; i++) {
+                const Node* extracted_value = first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, value, int32_literal(bb->arena, i)), .type_arguments = empty(bb->arena) })));
+                const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, int32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
+                gen_serialisation(config, bb, member_types.nodes[i], arr, field_offset, extracted_value);
+            }
+            return;
+        }
+        case TypeDeclRef_TAG: {
+            const Node* nom = element_type->payload.type_decl_ref.decl;
+            assert(nom && nom->tag == NominalType_TAG);
+            gen_serialisation(config, bb, nom->payload.nom_type.body, arr, base_offset, value);
+            return;
+        }
+        default: error("TODO");
+    }
+}
+
+static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool ser, AddressSpace as) {
+    struct Dict* cache = ser ? ctx->ser[as] : ctx->des[as];
+
+    const Node** found = find_value_dict(const Node*, const Node*, cache, element_type);
+    if (found)
+        return *found;
+
+    IrArena* arena = ctx->rewriter.dst_arena;
+    bool uniform = is_addr_space_uniform(as);
+
+    const Type* qualified_t = qualified_type(arena, (QualifiedType) { .is_uniform = uniform, .type = element_type });
+    const Node* addr_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = uniform, .type = int32_type(arena) }), "ptr");
+
+    const Node* value_param = ser ? var(arena, qualified_t, "value") : NULL;
+    Nodes params = ser ? mk_nodes(arena, addr_param, value_param) : singleton(addr_param);
+    Nodes return_ts = ser ? empty(arena) : singleton(qualified_t);
+
+    String name = format_string(arena, "generated_%s_as%d_%s", ser ? "store" : "load", as, name_type_safe(arena, element_type));
+    Node* fun = function(ctx->rewriter.dst_module, params, name, empty(arena), return_ts);
+    insert_dict(const Node*, Node*, cache, element_type, fun);
+
+    BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+
+    const Node* base = NULL;
+    bool is_backed_by_block_buffer;
+    switch (as) {
+        case AsPrivatePhysical:
+            base = ctx->thread_private_memory;
+            is_backed_by_block_buffer = ctx->tpm_is_block_buffer;
+            break;
+        case AsSubgroupPhysical:
+            base = ctx->subgroup_shared_memory;
+            is_backed_by_block_buffer = ctx->ssm_is_block_buffer;
+            break;
+        default: error("Emulation of this AS is not supported");
+    }
+
+    // some address spaces need to put the data in a special 'Block'-based record, so we need an extra lea to match
+    if (is_backed_by_block_buffer)
+        base = gen_lea(bb, base, NULL, nodes(arena, 1, (const Node* []) { int32_literal(arena, 0) }));
+
+    if (ser) {
+        gen_serialisation(ctx->config, bb, element_type, base, addr_param, value_param);
+        fun->payload.fun.body = finish_body(bb, fn_ret(arena, (Return) { .fn = fun, .args = empty(arena) }));
+    } else {
+        const Node* loaded_value = gen_deserialisation(ctx->config, bb, element_type, base, addr_param);
+        assert(loaded_value);
+        fun->payload.fun.body = finish_body(bb, fn_ret(arena, (Return) { .fn = fun, .args = singleton(loaded_value) }));
+    }
+    return fun;
+}
+
 // TODO: make this configuration-dependant
 static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
     switch (as) {
         case AsSubgroupPhysical: return true;
         case AsPrivatePhysical:  return true;
-        case AsSharedPhysical: error("TODO");
+        case AsSharedPhysical: return false; // error("TODO");
         case AsGlobalPhysical: return false; // TODO config
         default: return false;
     }
@@ -122,15 +285,11 @@ static const Node* process_let(Context* ctx, const Node* node) {
         const PrimOp* oprim_op = &old_instruction->payload.prim_op;
         switch (oprim_op->op) {
             case alloca_op: error("This has to be the slot variant")
-            case alloca_slot_op: {
+            case get_stack_base_uniform_op:
+            case get_stack_base_op: {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-                const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
-                TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
-
-                const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "stack_ptr");
+                const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, oprim_op->op == get_stack_base_op ? "stack_ptr" : "uniform_stack_ptr");
                 const Node* stack_size = gen_load(bb, stack_pointer);
-                stack_size = gen_primop_ce(bb, add_op, 2, (const Node* []) { stack_size, int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes)) });
-                gen_store(bb, stack_pointer, stack_size);
                 return finish_body(bb, let(arena, quote(arena, stack_size), tail));
             }
             case lea_op: {
@@ -166,31 +325,25 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
                 const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
 
-                const Node* base = NULL;
-                bool is_backed_by_block_buffer;
-                switch (ptr_type->payload.ptr_type.address_space) {
-                    case AsPrivatePhysical:
-                        base = ctx->thread_private_memory;
-                        is_backed_by_block_buffer = ctx->tpm_is_block_buffer;
-                        break;
-                    case AsSubgroupPhysical:
-                        base = ctx->subgroup_shared_memory;
-                        is_backed_by_block_buffer = ctx->ssm_is_block_buffer;
-                        break;
-                    default: error("Emulation of this AS is not supported");
-                }
-
-                // some address spaces need to put the data in a special 'Block'-based record, so we need an extra lea to match
-                if (is_backed_by_block_buffer)
-                    base = gen_lea(bb, base, NULL, nodes(arena, 1, (const Node* []) { int32_literal(arena, 0) }));
-
                 const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
+
+                const Node* fn = gen_serdes_fn(ctx, element_type, oprim_op->op == store_op, ptr_type->payload.ptr_type.address_space);
+
+                // TODO remove this hack !
+                if (is_addr_space_uniform(ptr_type->payload.ptr_type.address_space))
+                    pointer_as_offset = gen_primop_e(bb, subgroup_broadcast_first_op, empty(arena), singleton(pointer_as_offset));
+
                 if (oprim_op->op == load_op) {
-                    const Node* result = gen_deserialisation(ctx->config, bb, element_type, base, pointer_as_offset);
+                    const Node* result = first(bind_instruction(bb, leaf_call(arena, (LeafCall) { .callee = fn, .args = singleton(pointer_as_offset) })));
                     return finish_body(bb, let(arena, quote(arena, result), tail));
                 } else {
                     const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
-                    gen_serialisation(ctx->config, bb, element_type, base, pointer_as_offset, value);
+
+                    // TODO remove this hack !
+                    if (is_addr_space_uniform(ptr_type->payload.ptr_type.address_space))
+                        value = gen_primop_e(bb, subgroup_broadcast_first_op, empty(arena), singleton(value));
+
+                    bind_instruction(bb, leaf_call(arena, (LeafCall) { .callee = fn, .args = mk_nodes(arena, pointer_as_offset, value) }));
                     return finish_body(bb, let(arena, unit(arena), tail));
                 }
                 SHADY_UNREACHABLE;
@@ -250,6 +403,9 @@ static void update_base_stack_ptrs(Context* ctx) {
     subgroup_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_subgroup_memory);
 }
 
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
+
 void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
     IrArena* dst_arena = get_module_arena(dst);
 
@@ -292,7 +448,21 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
         .subgroup_shared_memory = ref_decl(dst_arena, (RefDecl) { .decl = subgroup_shared_memory }),
     };
 
+    for (size_t i = 0; i < NumAddressSpaces; i++) {
+        if (is_as_emulated(&ctx, i)) {
+            ctx.ser[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx.des[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+        }
+    }
+
     rewrite_module(&ctx.rewriter);
     update_base_stack_ptrs(&ctx);
     destroy_rewriter(&ctx.rewriter);
+
+    for (size_t i = 0; i < NumAddressSpaces; i++) {
+        if (is_as_emulated(&ctx, i)) {
+            destroy_dict(ctx.ser[i]);
+            destroy_dict(ctx.des[i]);
+        }
+    }
 }

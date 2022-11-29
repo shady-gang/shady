@@ -30,7 +30,6 @@ P(0, lshift)                    \
 P(1, assign)                    \
 P(1, subscript)                 \
 P(1, alloca)                    \
-P(1, alloca_slot)               \
 P(1, alloca_logical)            \
 P(0, load)                      \
 P(1, store)                     \
@@ -47,6 +46,8 @@ P(1, push_stack_uniform)        \
 P(1, pop_stack_uniform)         \
 P(0, get_stack_pointer)         \
 P(0, get_stack_pointer_uniform) \
+P(0, get_stack_base)            \
+P(0, get_stack_base_uniform)    \
 P(1, set_stack_pointer)         \
 P(1, set_stack_pointer_uniform) \
 P(0, subgroup_elect_first)      \

@@ -244,6 +244,29 @@ static const Type* get_actual_mask_type(IrArena* arena) {
     }
 }
 
+String name_type_safe(IrArena* arena, const Type* t) {
+    switch (is_type(t)) {
+        case NotAType: assert(false);
+        case Type_MaskType_TAG: return "mask_t";
+        case Type_JoinPointType_TAG: return "join_type_t";
+        case Type_NoRet_TAG: return "no_ret";
+        case Type_Unit_TAG: return "unit";
+        case Type_Int_TAG: return format_string(arena, "int_%s", ((String[]){ "8", "16", "32", "64" })[t->payload.int_type.width]);
+        case Type_Float_TAG: return "float";
+        case Type_Bool_TAG: return "bool";
+        case Type_RecordType_TAG: break;
+        case Type_FnType_TAG: break;
+        case Type_BBType_TAG: break;
+        case Type_LamType_TAG: break;
+        case Type_PtrType_TAG: break;
+        case Type_QualifiedType_TAG: break;
+        case Type_ArrType_TAG: break;
+        case Type_PackType_TAG: break;
+        case Type_TypeDeclRef_TAG: return t->payload.type_decl_ref.decl->payload.nom_type.name;
+    }
+    return unique_name(arena, node_tags[t->tag]);
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
@@ -466,6 +489,13 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_pointer_uniform_op, .type = int32_type(arena) });
         }
+        case get_stack_base_op:
+        case get_stack_base_uniform_op: {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 0);
+            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = NULL }), .address_space = prim_op.op == get_stack_base_op ? AsPrivatePhysical : AsSubgroupPhysical});
+            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_base_uniform_op, .type = ptr });
+        }
         case set_stack_pointer_op:
         case set_stack_pointer_uniform_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -511,7 +541,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* elem_type = node_ptr_type_->pointed_type;
             return qualified_type(arena, (QualifiedType) {
                 .type = elem_type,
-                .is_uniform = ptr_uniform
+                .is_uniform = ptr_uniform && is_addr_space_uniform(ptr_type->payload.ptr_type.address_space)
             });
         }
         case store_op: {
@@ -537,20 +567,23 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return unit_type(arena);
         }
         case alloca_logical_op:
-        case alloca_slot_op:
         case alloca_op: {
-            bool is_slot = prim_op.op == alloca_slot_op;
-            bool is_logical = prim_op.op == alloca_logical_op;
+            AddressSpace as;
+            switch (prim_op.op) {
+                case alloca_op: as = AsPrivatePhysical; break;
+                case alloca_logical_op: as = AsFunctionLogical; break;
+                default: error("")
+            }
 
             assert(prim_op.type_arguments.count == 1);
-            assert(prim_op.operands.count == (is_slot ? 1 : 0));
+            assert(prim_op.operands.count == 0);
             const Type* elem_type = prim_op.type_arguments.nodes[0];
             assert(is_type(elem_type));
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = true,
+                .is_uniform = false,
                 .type = ptr_type(arena, (PtrType) {
                     .pointed_type = elem_type,
-                    .address_space = is_logical ? AsFunctionLogical : AsPrivatePhysical
+                    .address_space = as,
                 })
             });
         }
