@@ -55,17 +55,33 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     BodyBuilder* builder = begin_body(ctx2.rewriter.dst_module);
 
-    // Put a special zero marker at the bottom of the stack so the program ends after the entry point is done
-    // TODO change this to be a join pt or something
-    gen_push_value_stack(builder, gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL));
-    gen_push_value_stack(builder, int32_literal(dst_arena, 0));
+    // Create a root tree node value
+    const Type* tn_struct_type = type_decl_ref(dst_arena, (TypeDeclRef) {
+        .decl = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "TreeNode"),
+    });
+    const Node* init_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
+    const Node* init_depth = int32_literal(dst_arena, 0);
+    const Node* init_tn = first(bind_instruction(builder, prim_op(dst_arena, (PrimOp) { .op = make_op, .type_arguments = singleton(tn_struct_type), .operands = singleton(tuple(dst_arena, mk_nodes(dst_arena, init_mask, init_depth))) })));
+
+    // Initialise the scheduler_vector with it
+    const Node* sched_vector = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "scheduler_vector");
+    const Node* local_id = gen_primop_ce(builder, subgroup_local_id_op, 0, NULL);
+    const Node* thread_vector_slot = gen_lea(builder, ref_decl(dst_arena, (RefDecl) { .decl = sched_vector }), int32_literal(dst_arena, 0), singleton(local_id));
+    gen_store(builder, thread_vector_slot, init_tn);
+
+    // Place a special shader-killing join point at the bottom of the stack
+    const Type* jp_struct_type = type_decl_ref(dst_arena, (TypeDeclRef) {
+        .decl = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "JoinPoint"),
+    });
+    const Node* init_jp = first(bind_instruction(builder, prim_op(dst_arena, (PrimOp) { .op = make_op, .type_arguments = singleton(jp_struct_type), .operands = singleton(tuple(dst_arena, mk_nodes(dst_arena, init_tn, int32_literal(dst_arena, 0)))) })));
+    gen_push_value_stack(builder, init_jp);
 
     // shove the arguments on the stack
     for (size_t i = rewritten_params.count - 1; i < rewritten_params.count; i--) {
         gen_push_value_stack(builder, rewritten_params.nodes[i]);
     }
 
-    // TODO ditto
+    // Initialise next_fn/next_mask to something sensible
     gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"), lower_fn_addr(ctx, old));
     const Node* entry_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
     gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_mask"), entry_mask);
