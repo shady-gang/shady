@@ -17,6 +17,7 @@ TEXT_TOKEN(uniform) \
 TEXT_TOKEN(varying) \
 TOKEN(struct, "struct") \
 TOKEN(union, "union") \
+TEXT_TOKEN(array) \
 TOKEN(private, "private") \
 TEXT_TOKEN(shared) \
 TEXT_TOKEN(subgroup) \

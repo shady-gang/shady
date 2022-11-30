@@ -74,6 +74,7 @@ static const char* accept_identifier(ctxparams) {
 
 static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminator);
 static const Node* accept_value(ctxparams);
+static const Type* accept_unqualified_type(ctxparams);
 static const Node* accept_primop(ctxparams);
 static const Node* accept_expr(ctxparams, int);
 static Nodes expect_operands(ctxparams);
@@ -92,6 +93,15 @@ static const Node* accept_literal(ctxparams) {
         case string_lit_tok: next_token(tokenizer); return string_lit(arena, (StringLiteral) {.string = string_sized(arena, (int) size, &contents[tok.start]) });
         case true_tok: next_token(tokenizer); return true_lit(arena);
         case false_tok: next_token(tokenizer); return false_lit(arena);
+        case array_tok: {
+            next_token(tokenizer);
+            expect(accept_token(ctx, lsbracket_tok));
+            const Type* element_type = accept_unqualified_type(ctx);
+            expect(element_type);
+            expect(accept_token(ctx, rsbracket_tok));
+            Nodes elements = expect_operands(ctx);
+            return arr_lit(arena, (ArrayLiteral) { .element_type = element_type, .contents = elements });
+        }
         default: return NULL;
     }
 }
@@ -677,13 +687,12 @@ static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminat
             error("expected terminator: return, jump, branch ...");
     }
 
-    if (curr_token(tokenizer).tag == identifier_tok) {
+    if (curr_token(tokenizer).tag == cont_tok) {
         struct List* conts = new_list(Node*);
         while (true) {
-            const char* name = accept_identifier(ctx);
-            if (!name)
+            if (!accept_token(ctx, cont_tok))
                 break;
-            expect(accept_token(ctx, colon_tok));
+            const char* name = accept_identifier(ctx);
 
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL);

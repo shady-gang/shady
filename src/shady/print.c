@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "ir_private.h"
 #include "analysis/scope.h"
 
 #include "log.h"
@@ -161,35 +161,42 @@ static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     }
 }
 
+static void print_abs_body(PrinterCtx* ctx, const Node* block);
+
+static void print_basic_block(PrinterCtx* ctx, const Node* bb) {
+    printf(GREEN);
+    printf("\n\ncont");
+    printf(BYELLOW);
+    printf(" %s", bb->payload.basic_block.name);
+    printf(RESET);
+    print_param_list(ctx, bb->payload.basic_block.params, NULL);
+
+    printf(" {");
+    indent(ctx->printer);
+    printf("\n");
+    print_abs_body(ctx, bb);
+    deindent(ctx->printer);
+    printf("\n}");
+}
+
+static void print_dominated_bbs(PrinterCtx* ctx, const CFNode* dominator) {
+    assert(dominator);
+    for (size_t i = 0; i < dominator->dominates->elements_count; i++) {
+        const CFNode* cfnode = read_list(const CFNode*, dominator->dominates)[i];
+        if (is_basic_block(cfnode->node))
+            print_basic_block(ctx, cfnode->node);
+    }
+}
+
 static void print_abs_body(PrinterCtx* ctx, const Node* block) {
     assert(!ctx->fn || is_function(ctx->fn));
     assert(is_abstraction(block));
 
     print_node(get_abstraction_body(block));
-    printf(";");
 
     if (ctx->scope != NULL) {
         const CFNode* dominator = scope_lookup(ctx->scope, block);
-        assert(dominator);
-        for (size_t i = 0; i < dominator->dominates->elements_count; i++) {
-            const CFNode* cfnode = read_list(const CFNode*, dominator->dominates)[i];
-
-            if (is_basic_block(cfnode->node)) {
-                printf(GREEN);
-                printf("\n\ncont");
-                printf(BYELLOW);
-                printf(" %s", cfnode->node->payload.basic_block.name);
-                printf(RESET);
-                print_param_list(ctx, cfnode->node->payload.basic_block.params, NULL);
-
-                printf(" {");
-                indent(ctx->printer);
-                printf("\n");
-                print_abs_body(ctx, cfnode->node);
-                deindent(ctx->printer);
-                printf("\n}");
-            }
-        }
+        print_dominated_bbs(ctx, dominator);
     }
 }
 
@@ -214,11 +221,17 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     indent(ctx->printer);
     printf("\n");
 
-    Scope scope = build_scope(node);
-    ctx->scope = &scope;
-    ctx->fn = node;
-    print_abs_body(ctx, node);
-    dispose_scope(&scope);
+    if (node->arena->config.name_bound) {
+        Scope scope = build_scope(node);
+        ctx->scope = &scope;
+        ctx->fn = node;
+        print_abs_body(ctx, node);
+        dispose_scope(&scope);
+    } else {
+        print_abs_body(ctx, node);
+        for (size_t i = 0; i < node->payload.fun.children_blocks.count; i++)
+            print_basic_block(ctx, node->payload.fun.children_blocks.nodes[i]);
+    }
 
     deindent(ctx->printer);
     printf("\n}");
@@ -375,17 +388,17 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf(BBLUE);
             printf("array ");
             printf(RESET);
-            printf("(");
+            printf("[");
             print_node(node->payload.arr_lit.element_type);
-            printf(")");
-            printf(" {");
+            printf("]");
+            printf("(");
             Nodes nodes = node->payload.arr_lit.contents;
             for (size_t i = 0; i < nodes.count; i++) {
                 print_node(nodes.nodes[i]);
                 if (i + 1 < nodes.count)
                     printf(", ");
             }
-            printf("}");
+            printf(")");
             printf(RESET);
             break;
         case Value_Tuple_TAG: {
@@ -557,7 +570,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 }
                 print_node(instruction);
                 printf(";\n");
-                print_node(tail->payload.anon_lam.body);
+                print_abs_body(ctx, tail);
             } else {
                 assert(tag == LetIndirect_TAG);
                 printf(GREEN);
@@ -568,6 +581,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 printf(" in ");
                 printf(RESET);
                 print_node(tail);
+                printf(";");
             }
             break;
         } case Return_TAG:
@@ -578,6 +592,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 printf(" ");
                 print_node(node->payload.fn_ret.args.nodes[i]);
             }
+            printf(";");
             break;
         case Terminator_TailCall_TAG:
             printf(BGREEN);
@@ -585,13 +600,17 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf(RESET);
             print_node(node->payload.tail_call.target);
             print_args_list(ctx, node->payload.tail_call.args);
+            printf(";");
             break;
         case Jump_TAG:
             printf(BGREEN);
-            printf("jump ");
+            printf("jump");
             printf(RESET);
+            printf(" (");
             print_node(node->payload.jump.target);
+            printf(") ");
             print_args_list(ctx, node->payload.jump.args);
+            printf(";");
             break;
         case Branch_TAG:
             printf(BGREEN);
@@ -605,6 +624,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.branch.false_target);
             printf(")");
             print_args_list(ctx, node->payload.branch.args);
+            printf(";");
             break;
         case Switch_TAG:
             printf(BGREEN);
@@ -624,6 +644,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.br_switch.default_target);
             printf(") ");
             print_args_list(ctx, node->payload.br_switch.args);
+            printf(";");
             break;
         case Join_TAG:
             printf(BGREEN);
@@ -633,11 +654,13 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.join.join_point);
             printf(")");
             print_args_list(ctx, node->payload.join.args);
+            printf(";");
             break;
         case Unreachable_TAG:
             printf(BGREEN);
             printf("unreachable");
             printf(RESET);
+            printf(";");
             break;
         case MergeSelection_TAG:
         case MergeContinue_TAG:
@@ -646,6 +669,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf("%s", node_tags[node->tag]);
             printf(RESET);
             print_args_list(ctx, node->payload.merge_selection.args);
+            printf(";");
             break;
     }
 }
@@ -694,7 +718,7 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(" %s", fun->name);
             printf(RESET);
             print_function(ctx, node);
-            printf(";\n\n");
+            printf("\n\n");
             break;
         }
         case NominalType_TAG: {
@@ -778,6 +802,12 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
             printf("@%s", annotation->name);
             printf(RESET);
             print_args_list(ctx, annotation->values);
+            break;
+        }
+        case BasicBlock_TAG: {
+            printf(BYELLOW);
+            printf("%s", node->payload.basic_block.name);
+            printf(RESET);
             break;
         }
         default: error("dunno how to print %s", node_tags[node->tag]);
