@@ -20,7 +20,7 @@ typedef struct Context_ {
     Rewriter rewriter;
     bool disable_lowering;
     struct Dict* assigned_fn_ptrs;
-    FnPtr next_fn_ptr;
+    FnPtr* next_fn_ptr;
 
     Node* god_fn;
 } Context;
@@ -32,12 +32,13 @@ static const Node* fn_ptr_as_value(IrArena* arena, FnPtr ptr) {
 }
 
 static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
+    assert(the_function->arena == ctx->rewriter.src_arena);
     assert(the_function->tag == Function_TAG);
 
     FnPtr* found = find_value_dict(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function);
     if (found) return fn_ptr_as_value(ctx->rewriter.dst_arena, *found);
 
-    FnPtr ptr = ctx->next_fn_ptr++;
+    FnPtr ptr = (*ctx->next_fn_ptr)++;
     bool r = insert_dict_and_get_result(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function, ptr);
     assert(r);
     return fn_ptr_as_value(ctx->rewriter.dst_arena, ptr);
@@ -65,7 +66,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     }
 
     // TODO ditto
-    gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"), lower_fn_addr(ctx, fun));
+    gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"), lower_fn_addr(ctx, old));
     const Node* entry_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
     gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_mask"), entry_mask);
 
@@ -227,7 +228,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
             if (lookup_annotation(decl, "Builtin"))
                 continue;
 
-            const Node* fn_lit = lower_fn_addr(ctx, find_processed(&ctx->rewriter, decl));
+            const Node* fn_lit = lower_fn_addr(ctx, decl);
 
             BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
 
@@ -289,11 +290,13 @@ void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* d
     Nodes top_dispatcher_annotations = nodes(dst_arena, 0, NULL);
     Node* dispatcher_fn = function(dst, nodes(dst_arena, 0, NULL), "top_dispatcher", top_dispatcher_annotations, nodes(dst_arena, 0, NULL));
 
+    FnPtr next_fn_ptr = 1;
+
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .disable_lowering = false,
         .assigned_fn_ptrs = ptrs,
-        .next_fn_ptr = 1,
+        .next_fn_ptr = &next_fn_ptr,
 
         .god_fn = dispatcher_fn,
     };
