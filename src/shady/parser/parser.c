@@ -878,7 +878,7 @@ void parse(ParserConfig config, const char* contents, Module* mod) {
 
         if (decl) {
             debug_print("decl parsed : ");
-            debug_node(decl);
+            log_node(DEBUG, decl);
             debug_print("\n");
             continue;
         }

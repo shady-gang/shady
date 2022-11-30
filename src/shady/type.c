@@ -116,9 +116,9 @@ bool is_subtype(const Type* supertype, const Type* type) {
 
 void check_subtype(const Type* supertype, const Type* type) {
     if (!is_subtype(supertype, type)) {
-        error_node(type);
+        log_node(ERROR, type);
         error_print(" isn't a subtype of ");
-        error_node(supertype);
+        log_node(ERROR, supertype);
         error_print("\n");
         error("failed check_subtype")
     }

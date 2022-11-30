@@ -179,7 +179,7 @@ int main(int argc, const char** argv) {
         free((void*) read_files[i]);
 
     info_print("Parsed program successfully: \n");
-    dump_module(mod);
+    log_module(INFO, mod);
 
     CompilationResult result = run_compiler_passes(&config, &mod);
     if (result != CompilationNoError) {

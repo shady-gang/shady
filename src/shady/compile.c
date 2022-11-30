@@ -32,7 +32,7 @@ tmp_arena = new_ir_arena(aconfig);                      \
 mod = new_module(tmp_arena, get_module_name(old_mod));  \
 pass_name(config, old_mod, mod);                        \
 info_print("After "#pass_name" pass: \n");              \
-info_module(mod);                                       \
+log_module(INFO, mod);                                  \
 verify_module(mod);                                     \
 if (old_arena) destroy_ir_arena(old_arena);
 

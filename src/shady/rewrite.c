@@ -96,11 +96,11 @@ void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
     const Node* found = search_processed(ctx, old);
     if (found) {
         error_print("Trying to replace ");
-        error_node(old);
+        log_node(ERROR, old);
         error_print(" with ");
-        error_node(new);
+        log_node(ERROR, new);
         error_print(" but there was already ");
-        error_node(found);
+        log_node(ERROR, found);
         error_print("\n");
         error("The same node got processed twice !");
     }
