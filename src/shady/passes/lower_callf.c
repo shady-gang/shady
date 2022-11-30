@@ -14,7 +14,6 @@ typedef uint32_t FnPtr;
 typedef struct Context_ {
     Rewriter rewriter;
     bool disable_lowering;
-    const Node* return_tok;
 } Context;
 
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
@@ -26,16 +25,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
         Context ctx2 = *ctx;
         ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
-        BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-        if (!ctx2.disable_lowering) {
-            // Pop the convergence token
-            ctx2.return_tok = bind_instruction(bb, gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = fun->payload.fun.return_types }))).nodes[0];
-            // This effectively asserts uniformity
-            ctx2.return_tok = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) { ctx2.return_tok });
-        } else {
-            ctx2.return_tok = NULL;
-        }
-        fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
+        fun->payload.fun.body = rewrite_node(&ctx2.rewriter, old->payload.fun.body);
         return fun;
     }
 
@@ -45,11 +35,15 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case Return_TAG: {
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.args);
+
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            const Node* return_jp = first(bind_instruction(bb, gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = extract_types(dst_arena, nargs) }))));
+            return_jp = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) { return_jp });
             // Join up at the return address instead of returning
-            return join(dst_arena, (Join) {
-                .join_point = ctx->return_tok,
+            return finish_body(bb, join(dst_arena, (Join) {
+                .join_point = return_jp,
                 .args = nargs,
-            });
+            }));
         }
         case LetIndirect_TAG: {
             const Node* old_instruction = old->payload.let.instruction;
