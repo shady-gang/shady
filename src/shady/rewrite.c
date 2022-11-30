@@ -289,7 +289,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             register_processed_list(rewriter, node->payload.basic_block.params, params);
             const Node* fn = rewrite_decl(rewriter, node->payload.basic_block.fn);
             Node* lam = basic_block(arena, fn, params, node->payload.basic_block.name);
-            lam->payload.anon_lam.body = rewrite_terminator(rewriter, node->payload.basic_block.body);
+            lam->payload.basic_block.body = rewrite_terminator(rewriter, node->payload.basic_block.body);
             return lam;
         }
     }

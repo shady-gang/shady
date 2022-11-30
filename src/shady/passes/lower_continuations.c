@@ -40,17 +40,17 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
         const Node* ovar = read_list(const Node*, spilled_vars)[i];
         const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
 
-        const Node* args[] = { extract_operand_type(nvar->type), nvar };
         const Node* save_instruction = prim_op(arena, (PrimOp) {
             .op = is_operand_uniform(nvar->type) ? push_stack_uniform_op : push_stack_op,
-            .operands = nodes(arena, 2, args)
+            .type_arguments = singleton(extract_operand_type(nvar->type)),
+            .operands = singleton(nvar),
         });
         bind_instruction(builder, save_instruction);
     }
 }
 
 static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont) {
-    assert(is_anonymous_lambda(cont));
+    assert(is_basic_block(cont));
     LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, cont);
     if (found)
         return *found;
@@ -100,7 +100,7 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont) {
         const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
         const Node* recovered_value = bind_instruction(builder, prim_op(arena, (PrimOp) {
             .op = is_operand_uniform(nvar->type) ? pop_stack_uniform_op : pop_stack_op,
-            .operands = nodes(arena, 1, (const Node* []) { extract_operand_type(nvar->type) })
+            .type_arguments = nodes(arena, 1, (const Node* []) { extract_operand_type(nvar->type) })
         })).nodes[0];
 
         // this dict overrides the 'processed' region
@@ -130,16 +130,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
         // everywhere we might call a basic block, we insert appropriate spilling context
         case Jump_TAG: {
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-            const Node* ncallee = NULL;
-            // make sure the target is rewritten before we lookup the 'lifted' dict
             const Node* otarget = node->payload.jump.target;
-            const Node* ntarget = rewrite_node(&ctx->rewriter, otarget);
-
             LiftedCont* lifted = lift_lambda_into_function(ctx, otarget);
-            assert(lifted->lifted_fn == ntarget);
+
             add_spill_instrs(ctx, bb, lifted->save_values);
 
-            ncallee = fn_addr(arena, (FnAddr) { .fn = lifted->lifted_fn });
+            const Node* ncallee = fn_addr(arena, (FnAddr) { .fn = lifted->lifted_fn });
             assert(ncallee && is_value(ncallee));
             return finish_body(bb, tail_call(arena, (TailCall) {
                 .target = ncallee,
@@ -155,11 +151,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* cases[2];
             for (size_t i = 0; i < 2; i++) {
                 const Node* otarget = otargets[i];
-                const Node* ntarget = rewrite_node(&ctx->rewriter, otarget);
-                ntargets[i] = ntarget;
 
                 LiftedCont* lifted = lift_lambda_into_function(ctx, otarget);
-                assert(lifted->lifted_fn == ntarget);
+                ntargets[i] = lifted->lifted_fn;
 
                 BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
                 add_spill_instrs(ctx, case_builder, lifted->save_values);
@@ -180,16 +174,16 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.branch.args),
             }));
         }
-        /*case LetInBlock_TAG: {
+        case LetInto_TAG: {
             const Node* otail = node->payload.let.tail;
-            // if tail is a BB, add all the context-saving stuff in front
             assert(is_basic_block(otail));
-            BodyBuilder* bb = begin_body(ctx.rewriter.dst_module);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             LiftedCont* lifted = lift_lambda_into_function(ctx, otail);
             Context ctx2 = *ctx;
+            // if tail is a BB, add all the context-saving stuff in front
             add_spill_instrs(&ctx2, bb, lifted->save_values);
             return finish_body(bb, let_indirect(arena, rewrite_node(&ctx2.rewriter, node->payload.let.instruction), fn_addr(arena, (FnAddr) { .fn = lifted->lifted_fn })));
-        }*/
+        }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
 }
