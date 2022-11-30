@@ -103,6 +103,8 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     assert(is_abstraction(abs));
     assert(!is_function(abs) || abs == ctx->entry);
     const Node* terminator = get_abstraction_body(abs);
+    if (!terminator)
+        return;
     assert(is_terminator(terminator));
     switch (terminator->tag) {
         case Jump_TAG: {

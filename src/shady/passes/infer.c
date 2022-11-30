@@ -166,7 +166,6 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
         case True_TAG: return true_lit(dst_arena);
         case False_TAG: return false_lit(dst_arena);
         case StringLiteral_TAG: return string_lit(dst_arena, (StringLiteral) { .string = string(dst_arena, node->payload.string_lit.string )});
-        // case Function_TAG: return fn_addr(dst_arena, (FnAddr) { .fn = infer(ctx, node, NULL) }); // TODO check types match
         case RefDecl_TAG:
         case FnAddr_TAG: return recreate_node_identity(&ctx->rewriter, node);
         case Tuple_TAG: {
@@ -184,6 +183,15 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
                     inferred[i] = infer(ctx, omembers.nodes[i], NULL);
             }
             return tuple(dst_arena, nodes(dst_arena, omembers.count, inferred));
+        }
+        case ArrayLiteral_TAG: {
+            const Type* elem_type = infer(ctx, node->payload.arr_lit.element_type, NULL);
+            Nodes old_elems = node->payload.arr_lit.contents;
+            LARRAY(const Node*, elements, old_elems.count);
+            for (size_t i = 0; i < old_elems.count; i++) {
+                elements[i] = infer(ctx, old_elems.nodes[i], elem_type);
+            }
+            return arr_lit(dst_arena, (ArrayLiteral) { .element_type = elem_type, .contents = nodes(dst_arena, old_elems.count, elements) });
         }
         default: error("not a value");
     }
@@ -215,6 +223,31 @@ static const Node* _infer_anonymous_lambda(Context* ctx, const Node* node, const
 
     lam->payload.anon_lam.body = infer(&body_context, node->payload.anon_lam.body, NULL);
     return lam;
+}
+
+static const Node* _infer_basic_block(Context* ctx, const Node* node) {
+    assert(is_basic_block(node));
+    IrArena* arena = ctx->rewriter.dst_arena;
+
+    Context body_context = *ctx;
+    LARRAY(const Node*, nparams, node->payload.basic_block.params.count);
+    for (size_t i = 0; i < node->payload.basic_block.params.count; i++) {
+        const Variable* old_param = &node->payload.basic_block.params.nodes[i]->payload.var;
+        // for the param type: use the inferred one if none is already provided
+        // if one is provided, check the inferred argument type is a subtype of the param type
+        const Type* param_type = infer(ctx, old_param->type, NULL);
+        assert(param_type);
+        nparams[i] = var(body_context.rewriter.dst_arena, param_type, old_param->name);
+        register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
+    }
+
+    Node* fn = (Node*) infer(ctx, node->payload.basic_block.fn, NULL);
+    Node* bb = basic_block(ctx->rewriter.dst_arena, fn, nodes(arena, node->payload.basic_block.params.count, nparams), node->payload.basic_block.name);
+    assert(bb);
+    register_processed(&ctx->rewriter, node, bb);
+
+    bb->payload.basic_block.body = infer(&body_context, node->payload.basic_block.body, NULL);
+    return bb;
 }
 
 static const Node* _infer_primop(Context* ctx, const Node* node, const Type* expected_type) {
@@ -571,7 +604,7 @@ static const Node* process(Context* src_ctx, const Node* node) {
         assert(expect != NULL);
         return _infer_anonymous_lambda(&ctx, node, expect);
     } else if (is_basic_block(node)) {
-        error("TODO")
+        return _infer_basic_block(&ctx, node);
     }
     assert(false);
 }
