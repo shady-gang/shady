@@ -13,6 +13,19 @@ typedef struct {
     CompilerConfig* config;
 } Context;
 
+static bool is_extended_type(SHADY_UNUSED Arena* arena, const Type* t, bool allow_vectors) {
+    switch (t->tag) {
+        case Int_TAG: return true;
+        // TODO allow 16-bit floats specifically !
+        case Float_TAG: return true;
+        case PackType_TAG:
+            if (allow_vectors)
+                return is_extended_type(arena, t->payload.pack_type.element_type, false);
+            return false;
+        default: return false;
+    }
+}
+
 static const Node* process_let(Context* ctx, const Node* old) {
     assert(old->tag == Let_TAG);
     IrArena* arena = ctx->rewriter.dst_arena;
@@ -29,7 +42,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
 
                 if (element_type->tag == Int_TAG && element_type->payload.int_type.width == IntTy32)
                     break;
-                else if (!ctx->config->lower.emulate_subgroup_ops_extended_types)
+                else if (is_extended_type(arena, element_type, true) && !ctx->config->lower.emulate_subgroup_ops_extended_types)
                     break;
 
                 const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = int32_literal(arena, 2) });

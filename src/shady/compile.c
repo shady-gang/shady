@@ -72,9 +72,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(eliminate_constants)
 
-    if (config->lower.emulate_subgroup_ops_extended_types || config->lower.emulate_subgroup_ops) {
-        RUN_PASS(lower_subgroup_ops)
-    }
+    RUN_PASS(lower_subgroup_ops)
 
     aconfig.subgroup_mask_representation = SubgroupMaskSpvKHRBallot;
     RUN_PASS(lower_mask)
