@@ -194,6 +194,10 @@ typedef struct CompilerConfig_ {
         bool emulate_subgroup_ops;
         bool emulate_subgroup_ops_extended_types;
     } lower;
+
+    struct {
+        bool skip_generated, skip_builtin;
+    } logging;
 } CompilerConfig;
 
 CompilerConfig default_compiler_config();

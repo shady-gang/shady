@@ -44,7 +44,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push, boo
     Nodes params = push ? singleton(param) : empty(arena);
     Nodes return_ts = push ? empty(arena) : singleton(qualified_t);
     String name = format_string(arena, "generated_%s_%s_%s", push ? "push" : "pop", uniform ? "uniform" : "private", name_type_safe(arena, element_type));
-    Node* fun = function(ctx->rewriter.dst_module, params, name, empty(arena), return_ts);
+    Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(arena, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);

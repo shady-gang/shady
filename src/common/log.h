@@ -17,7 +17,8 @@ LogLevel get_log_level();
 void set_log_level(LogLevel);
 void log_string(LogLevel level, const char* format, ...);
 void log_node(LogLevel level, const Node* node);
-void log_module(LogLevel level, Module*);
+typedef struct CompilerConfig_ CompilerConfig;
+void log_module(LogLevel level, CompilerConfig*, Module*);
 
 #define debug_print(...) log_string(DEBUG, __VA_ARGS__)
 #define info_print(...)  log_string(INFO, __VA_ARGS__)

@@ -29,9 +29,10 @@ static const Node* search_annotations(const Node* decl, const char* name, size_t
     assert(decl);
     const Nodes* annotations = NULL;
     switch (decl->tag) {
-        case Function_TAG:annotations = &decl->payload.fun.annotations; break;
+        case Function_TAG: annotations = &decl->payload.fun.annotations; break;
         case GlobalVariable_TAG: annotations = &decl->payload.global_variable.annotations; break;
         case Constant_TAG: annotations = &decl->payload.constant.annotations; break;
+        case NominalType_TAG: annotations = &decl->payload.nom_type.annotations; break;
         default: error("Not a declaration")
     }
 

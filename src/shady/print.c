@@ -12,15 +12,21 @@
 typedef struct PrinterCtx_ PrinterCtx;
 typedef void (*PrintFn)(PrinterCtx* ctx, char* format, ...);
 
+typedef struct {
+    bool skip_builtin;
+    bool skip_generated;
+    bool print_ptrs;
+    bool color;
+} PrintConfig;
+
 struct PrinterCtx_ {
     Printer* printer;
     const Node* fn;
     Scope* scope;
-    bool print_ptrs;
-    bool color;
+    PrintConfig config;
 };
 
-#define COLOR(x) (ctx->color ? (x) : "")
+#define COLOR(x) (ctx->config.color ? (x) : "")
 
 #define RESET    COLOR("\033[0m")
 #define RED      COLOR("\033[0;31m")
@@ -100,7 +106,7 @@ static void print_param_list(PrinterCtx* ctx, Nodes vars, const Nodes* defaults)
         assert(defaults->count == vars.count);
     printf("(");
     for (size_t i = 0; i < vars.count; i++) {
-        if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)vars.nodes[i]);
+        if (ctx->config.print_ptrs) printf("%zu::", (size_t)(void*)vars.nodes[i]);
         const Variable* var = &vars.nodes[i]->payload.var;
         print_node(var->type);
         printf(YELLOW);
@@ -129,7 +135,7 @@ static void print_param_types(PrinterCtx* ctx, Nodes param_types) {
 static void print_args_list(PrinterCtx* ctx, Nodes args) {
     printf("(");
     for (size_t i = 0; i < args.count; i++) {
-        if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)args.nodes[i]);
+        if (ctx->config.print_ptrs) printf("%zu::", (size_t)(void*)args.nodes[i]);
         print_node(args.nodes[i]);
         if (i < args.count - 1)
             printf(", ");
@@ -140,7 +146,7 @@ static void print_args_list(PrinterCtx* ctx, Nodes args) {
 static void print_ty_args_list(PrinterCtx* ctx, Nodes args) {
     printf("[");
     for (size_t i = 0; i < args.count; i++) {
-        if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)args.nodes[i]);
+        if (ctx->config.print_ptrs) printf("%zu::", (size_t)(void*)args.nodes[i]);
         print_node(args.nodes[i]);
         if (i < args.count - 1)
             printf(", ");
@@ -676,6 +682,11 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
 
 static void print_decl(PrinterCtx* ctx, const Node* node) {
     assert(is_declaration(node));
+    if (ctx->config.skip_generated && lookup_annotation(node, "Generated"))
+        return;
+    if (ctx->config.skip_builtin && lookup_annotation(node, "Builtin"))
+        return;
+
     switch (node->tag) {
         case GlobalVariable_TAG: {
             const GlobalVariable* gvar = &node->payload.global_variable;
@@ -745,7 +756,7 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         return;
     }
 
-    if (ctx->print_ptrs) printf("%zu::", (size_t)(void*)node);
+    if (ctx->config.print_ptrs) printf("%zu::", (size_t)(void*)node);
 
     if (is_type(node))
         print_type(ctx, node);
@@ -825,11 +836,10 @@ static void print_mod_impl(PrinterCtx* ctx, Module* mod) {
 #undef print_node
 #undef printf
 
-static void print_helper(Printer* printer, const Node* node, Module* mod, bool dump_ptrs, bool color) {
+static void print_helper(Printer* printer, const Node* node, Module* mod, PrintConfig config) {
     PrinterCtx ctx = {
         .printer = printer,
-        .print_ptrs = dump_ptrs,
-        .color = color,
+        .config = config,
     };
     if (node)
         print_node_impl(&ctx, node);
@@ -841,34 +851,39 @@ static void print_helper(Printer* printer, const Node* node, Module* mod, bool d
 
 void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
-    print_helper(open_growy_as_printer(g), node, NULL, false, false);
+    print_helper(open_growy_as_printer(g), node, NULL, (PrintConfig) { });
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
 }
 
 void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
-    print_helper(open_growy_as_printer(g), NULL, mod, false, false);
+    print_helper(open_growy_as_printer(g), NULL, mod, (PrintConfig) { });
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
 }
 
 void dump_node(const Node* node) {
-    print_helper(open_file_as_printer(stdout), node, NULL, false, true);
+    print_helper(open_file_as_printer(stdout), node, NULL, (PrintConfig) { .color = true });
     printf("\n");
 }
 
 void dump_module(Module* mod) {
-    print_helper(open_file_as_printer(stdout), NULL, mod, false, true);
+    print_helper(open_file_as_printer(stdout), NULL, mod, (PrintConfig) { .color = true });
     printf("\n");
 }
 
 void log_node(LogLevel level, const Node* node) {
     if (level >= get_log_level())
-        print_helper(open_file_as_printer(stderr), node, NULL, false, true);
+        print_helper(open_file_as_printer(stderr), node, NULL, (PrintConfig) { .color = true });
 }
 
-void log_module(LogLevel level, Module* mod) {
+void log_module(LogLevel level, CompilerConfig* compiler_cfg, Module* mod) {
+    PrintConfig config = { .color = true };
+    if (compiler_cfg) {
+        config.skip_generated = compiler_cfg->logging.skip_generated;
+        config.skip_builtin = compiler_cfg->logging.skip_builtin;
+    }
     if (level >= get_log_level())
-        print_helper(open_file_as_printer(stderr), NULL, mod, false, true);
+        print_helper(open_file_as_printer(stderr), NULL, mod, config);
 }

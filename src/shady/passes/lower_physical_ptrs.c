@@ -157,7 +157,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool se
     Nodes return_ts = ser ? empty(arena) : singleton(return_value_t);
 
     String name = format_string(arena, "generated_%s_as%d_%s", ser ? "store" : "load", as, name_type_safe(arena, element_type));
-    Node* fun = function(ctx->rewriter.dst_module, params, name, empty(arena), return_ts);
+    Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(arena, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);

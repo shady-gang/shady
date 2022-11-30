@@ -53,14 +53,15 @@ static CodegenTarget guess_target(const char* filename) {
 }
 
 typedef struct {
+    CompilerConfig config;
     CodegenTarget target;
     struct List* input_filenames;
     const char*     output_filename;
     const char* shd_output_filename;
     const char* cfg_output_filename;
-} Args;
+} SlimConfig;
 
-static void process_arguments(int argc, const char** argv, Args* args) {
+static void process_arguments(int argc, const char** argv, SlimConfig* args) {
     bool help = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--log-level") == 0) {
@@ -117,6 +118,12 @@ static void process_arguments(int argc, const char** argv, Args* args) {
             invalid_target:
             error_print("--target must be followed with a valid target (see help for list of targets)");
             exit(InvalidTarget);
+        } else if (strcmp(argv[i], "--print-builtin") == 0) {
+            args->config.logging.skip_builtin = false;
+            i++;
+        } else if (strcmp(argv[i], "--print-generated") == 0) {
+            args->config.logging.skip_generated = false;
+            i++;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             i++;
@@ -133,6 +140,8 @@ static void process_arguments(int argc, const char** argv, Args* args) {
         error_print("  --output <filename>, -o <filename>\n");
         error_print("  --dump-cfg <filename>\n");
         error_print("  --dump-ir <filename>\n");
+        error_print("  --print-builtin\n");
+        error_print("  --print-generated\n");
         exit(help ? 0 : MissingInputArg);
     }
 }
@@ -144,16 +153,20 @@ int main(int argc, const char** argv) {
         .check_types = false
     });
 
-    CompilerConfig config = default_compiler_config();
-    config.allow_frontend_syntax = true;
-
-    Args args = {
+    SlimConfig args = {
+        .config = default_compiler_config(),
         .target = TgtAuto,
         .input_filenames = new_list(const char*),
         .output_filename = NULL,
         .cfg_output_filename = NULL,
         .shd_output_filename = NULL,
     };
+    args.config.allow_frontend_syntax = true;
+
+    // most of the time, we are not interested in seeing generated/builtin code in the debug output
+    args.config.logging.skip_builtin = true;
+    args.config.logging.skip_generated = true;
+
     process_arguments(argc, argv, &args);
 
     // Read the files
@@ -171,7 +184,7 @@ int main(int argc, const char** argv) {
 
     // Parse the lot
     Module* mod = new_module(arena, "my_module");
-    CompilationResult parse_result = parse_files(&config, num_source_files, read_files, mod);
+    CompilationResult parse_result = parse_files(&args.config, num_source_files, read_files, mod);
     assert(parse_result == CompilationNoError);
 
     // Free the read files
@@ -179,9 +192,9 @@ int main(int argc, const char** argv) {
         free((void*) read_files[i]);
 
     info_print("Parsed program successfully: \n");
-    log_module(INFO, mod);
+    log_module(INFO, &args.config, mod);
 
-    CompilationResult result = run_compiler_passes(&config, &mod);
+    CompilationResult result = run_compiler_passes(&args.config, &mod);
     if (result != CompilationNoError) {
         error_print("Compilation pipeline failed, errcode=%d\n", (int) result);
         exit(result);
@@ -216,9 +229,9 @@ int main(int argc, const char** argv) {
         char* output_buffer;
         switch (args.target) {
             case TgtAuto: SHADY_UNREACHABLE;
-            case TgtSPV: emit_spirv(&config, mod, &output_size, &output_buffer); break;
-            case TgtC: emit_c(&config, C, mod, &output_size, &output_buffer); break;
-            case TgtGLSL: emit_c(&config, GLSL, mod, &output_size, &output_buffer); break;
+            case TgtSPV: emit_spirv(&args.config, mod, &output_size, &output_buffer); break;
+            case TgtC: emit_c(&args.config, C, mod, &output_size, &output_buffer); break;
+            case TgtGLSL: emit_c(&args.config, GLSL, mod, &output_size, &output_buffer); break;
         }
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);
