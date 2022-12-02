@@ -55,6 +55,9 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont) {
     if (found)
         return *found;
 
+    String name = get_abstraction_name(cont);
+    Nodes oparams = get_abstraction_params(cont);
+    const Node* obody = get_abstraction_body(cont);
     IrArena* arena = ctx->rewriter.dst_arena;
 
     // Compute the live stuff we'll need
@@ -62,7 +65,7 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont) {
     struct List* recover_context = compute_free_variables(&scope);
     size_t recover_context_size = entries_count_list(recover_context);
 
-    debug_print("free variables at '%s': ", cont->payload.basic_block.name);
+    debug_print("free variables at '%s': ", name);
     for (size_t i = 0; i < recover_context_size; i++) {
         debug_print("%s", read_list(const Node*, recover_context)[i]->payload.var.name);
         if (i + 1 < recover_context_size)
@@ -71,12 +74,12 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont) {
     debug_print("\n");
 
     // Create and register new parameters for the lifted continuation
-    Nodes new_params = recreate_variables(&ctx->rewriter, cont->payload.basic_block.params);
-    register_processed_list(&ctx->rewriter, cont->payload.basic_block.params, new_params);
+    Nodes new_params = recreate_variables(&ctx->rewriter, oparams);
+    register_processed_list(&ctx->rewriter, oparams, new_params);
 
     // Keep annotations the same
     Nodes annotations = nodes(arena, 0, NULL);
-    Node* new_fn = function(ctx->rewriter.dst_module, new_params, cont->payload.basic_block.name, annotations, nodes(arena, 0, NULL));
+    Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, nodes(arena, 0, NULL));
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = cont;
@@ -87,7 +90,7 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont) {
     Context spilled_ctx = *ctx;
 
     // Rewrite the body once in the new arena with the new params
-    const Node* pre_substitution = rewrite_node(&spilled_ctx.rewriter, cont->payload.basic_block.body);
+    const Node* pre_substitution = rewrite_node(&spilled_ctx.rewriter, obody);
 
     Rewriter substituter = create_substituter(ctx->rewriter.dst_module);
 
