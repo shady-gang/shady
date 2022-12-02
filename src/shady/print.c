@@ -578,7 +578,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 printf(";\n");
                 print_abs_body(ctx, tail);
             } else {
-                assert(tag == LetIndirect_TAG);
+                assert(tag == LetIndirect_TAG || tag == LetInto_TAG);
                 printf(GREEN);
                 printf("let ");
                 printf(RESET);

@@ -865,7 +865,7 @@ static Nodes check_value_call(const Node* callee, Nodes argument_types) {
 
     bool callee_uniform;
     deconstruct_operand_type(callee_type, &callee_type, &callee_uniform);
-    assert(callee_uniform);
+    //assert(callee_uniform);
     callee_type = remove_ptr_type_layer(callee_type);
 
     assert(callee_type->tag == FnType_TAG);
