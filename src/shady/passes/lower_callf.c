@@ -22,9 +22,18 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     if (old->tag == Function_TAG) {
-        Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
         Context ctx2 = *ctx;
         ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
+        Node* fun = NULL;
+        if (!ctx2.disable_lowering) {
+            Nodes oparams = get_abstraction_params(old);
+            Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
+            register_processed_list(&ctx->rewriter, oparams, nparams);
+            Nodes nannots = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
+            fun = function(ctx->rewriter.dst_module, nparams, get_abstraction_name(old), nannots, empty(dst_arena));
+            register_processed(&ctx->rewriter, old, fun);
+        } else
+            fun = recreate_decl_header_identity(&ctx->rewriter, old);
         fun->payload.fun.body = rewrite_node(&ctx2.rewriter, old->payload.fun.body);
         return fun;
     }
@@ -45,18 +54,21 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .args = nargs,
             }));
         }
-        case LetIndirect_TAG: {
+        case Let_TAG: {
             const Node* old_instruction = old->payload.let.instruction;
             const Node* new_instruction = NULL;
             const Node* old_tail = old->payload.let.tail;
             // we convert calls to tail-calls within a control
-            // let_indirect(call_indirect(...), ret_fn) to let_indirect(control(jp => save(jp); tailcall(...)), ret_fn)
+            // let(call_indirect(...), ret_fn) to let(control(jp => save(jp); tailcall(...)), ret_fn)
             if (old_instruction->tag == IndirectCall_TAG) {
-                const Node* tail_type = extract_operand_type(old_tail->type);
-                assert(tail_type->tag == FnType_TAG);
-                Nodes returned_types = rewrite_nodes(&ctx->rewriter, tail_type->payload.fn_type.return_types);
+                const Node* tail_type = (old_tail->type);
+                assert(tail_type->tag == LamType_TAG);
+                Nodes returned_types = rewrite_nodes(&ctx->rewriter, tail_type->payload.lam_type.param_types);
 
-                const Type* jpt = join_point_type(dst_arena, (JoinPointType) { .yield_types = returned_types });
+                const Type* jpt = qualified_type(dst_arena, (QualifiedType) {
+                    .type = join_point_type(dst_arena, (JoinPointType) { .yield_types = returned_types }),
+                    .is_uniform = true
+                });
                 const Node* jp = var(dst_arena, jpt, "fn_return_point");
                 Node* control_insides = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 1, (const Node*[]) { jp }));
                 BodyBuilder* instructions = begin_body(ctx->rewriter.dst_module);

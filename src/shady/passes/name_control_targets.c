@@ -30,7 +30,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             break;
     }
 
-    if (new_instruction->tag == Control_TAG) {
+    if (new_instruction->tag == Control_TAG || new_instruction->tag == IndirectCall_TAG) {
         Nodes oparams = get_abstraction_params(old_tail);
         Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
         register_processed_list(&ctx->rewriter, oparams, nparams);

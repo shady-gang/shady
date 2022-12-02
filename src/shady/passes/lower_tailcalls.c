@@ -162,9 +162,11 @@ static const Node* process(Context* ctx, const Node* old) {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 const Node* target = rewrite_node(&ctx->rewriter, old->payload.let.tail);
 
+                const Node* join_destination = rewrite_node(&ctx->rewriter, get_let_tail(old));
+
                 const Node* jp = first(bind_instruction(bb, leaf_call(dst_arena, (LeafCall) {
                     .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_control"),
-                    .args = nodes(dst_arena, 1, (const Node*[]) { target })
+                    .args = mk_nodes(dst_arena, join_destination, target)
                 })));
                 gen_push_value_stack(bb, jp);
                 return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));

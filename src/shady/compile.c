@@ -66,10 +66,11 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(mark_leaf_functions)
 
     RUN_PASS(lower_cf_instrs)
+    RUN_PASS(lower_callf)
     RUN_PASS(name_control_targets)
+
     RUN_PASS(lower_continuations)
 
-    RUN_PASS(lower_callf)
     RUN_PASS(lower_tailcalls)
 
     RUN_PASS(eliminate_constants)
