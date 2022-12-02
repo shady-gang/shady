@@ -85,7 +85,7 @@ String get_decl_name(const Node*);
 const IntLiteral* resolve_to_literal(const Node*);
 
 int64_t extract_int_literal_value(const Node*, bool sign_extend);
-const char* extract_string_literal(const Node*);
+const char* extract_string_literal(IrArena*, const Node*);
 
 static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalLogical; }
 

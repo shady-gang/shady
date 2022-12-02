@@ -394,7 +394,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
 
         const Node* entry_point = lookup_annotation(decl, "EntryPoint");
         if (entry_point) {
-            const char* execution_model_name = extract_string_literal(extract_annotation_value(entry_point));
+            const char* execution_model_name = extract_string_literal(emitter->arena, extract_annotation_value(entry_point));
             SpvExecutionModel execution_model = emit_exec_model(execution_model_from_string(execution_model_name));
 
             spvb_entry_point(emitter->file_builder, execution_model, fn_id, decl->payload.fun.name, interface_size, interface_arr);

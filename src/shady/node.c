@@ -1,6 +1,7 @@
 #include "type.h"
 #include "log.h"
 #include "ir_private.h"
+#include "portability.h"
 
 #include "murmur3.h"
 #include "dict.h"
@@ -124,9 +125,22 @@ const IntLiteral* resolve_to_literal(const Node* node) {
     }
 }
 
-const char* extract_string_literal(const Node* node) {
-    assert(node->tag == StringLiteral_TAG);
-    return node->payload.string_lit.string;
+const char* extract_string_literal(IrArena* arena, const Node* node) {
+    switch (node->tag) {
+        case StringLiteral_TAG: return node->payload.string_lit.string;
+        case ArrayLiteral_TAG: {
+            Nodes contents = node->payload.arr_lit.contents;
+            LARRAY(char, chars, contents.count);
+            for (size_t i = 0; i < contents.count; i++) {
+                const Node* value = contents.nodes[i];
+                assert(value->tag == IntLiteral_TAG && value->payload.int_literal.width == IntTy8);
+                chars[i] = (unsigned char) extract_int_literal_value(value, false);
+            }
+            assert(chars[contents.count - 1] == 0);
+            return string(arena, chars);
+        }
+        default: error("This is not a string literal and it doesn't look like one either");
+    }
 }
 
 String get_abstraction_name(const Node* abs) {
