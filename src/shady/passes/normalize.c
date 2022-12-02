@@ -119,6 +119,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case BasicBlock_TAG: {
             Node* new = basic_block(ctx->rewriter.dst_arena, (Node*) rewrite_node(&ctx->rewriter, node->payload.basic_block.fn), recreate_variables(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
+            register_processed(&ctx->rewriter, node, new);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new->payload.basic_block.params);
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             Context ctx2 = *ctx;

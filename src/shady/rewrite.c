@@ -288,9 +288,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             Nodes params = recreate_variables(rewriter, node->payload.basic_block.params);
             register_processed_list(rewriter, node->payload.basic_block.params, params);
             const Node* fn = rewrite_decl(rewriter, node->payload.basic_block.fn);
-            Node* lam = basic_block(arena, fn, params, node->payload.basic_block.name);
-            lam->payload.basic_block.body = rewrite_terminator(rewriter, node->payload.basic_block.body);
-            return lam;
+            Node* bb = basic_block(arena, (Node*) fn, params, node->payload.basic_block.name);
+            register_processed(rewriter, node, bb);
+            bb->payload.basic_block.body = rewrite_terminator(rewriter, node->payload.basic_block.body);
+            return bb;
         }
     }
     assert(false);
