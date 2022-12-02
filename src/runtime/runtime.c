@@ -133,6 +133,7 @@ Runtime* initialize_runtime(RuntimeConfig config) {
     runtime->programs = new_list(Program*);
 
     CHECK(initialize_vk_instance(runtime), goto init_fail_free)
+    probe_devices(runtime);
     info_print("Shady runtime successfully initialized !\n");
     return runtime;
 

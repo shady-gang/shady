@@ -7,6 +7,7 @@
 typedef struct {
     bool use_validation;
     bool dump_spv;
+    bool allow_no_devices;
 } RuntimeConfig;
 
 typedef struct Runtime_  Runtime;
@@ -18,8 +19,11 @@ typedef struct Buffer_   Buffer;
 Runtime* initialize_runtime(RuntimeConfig config);
 void shutdown_runtime(Runtime*);
 
-// TODO: API for enumerating devices
-Device* initialize_device(Runtime*);
+size_t device_count(Runtime*);
+Device* get_device(Runtime*, size_t i);
+const char* get_device_name(Device*);
+
+Device* get_an_device(Runtime*);
 
 Program* load_program(Runtime*, const char* program_src);
 Dispatch* launch_kernel(Program*, Device*, int dimx, int dimy, int dimz, int extra_args_count, void** extra_args);

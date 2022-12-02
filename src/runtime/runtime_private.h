@@ -87,6 +87,7 @@ struct Runtime_ {
 
 typedef struct DeviceProperties_ {
     VkPhysicalDevice physical_device;
+    char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
     uint32_t compute_queue_family;
     struct {
         unsigned int major;
@@ -126,6 +127,8 @@ struct Device_ {
     #undef X
     } extensions;
 };
+
+bool probe_devices(Runtime* runtime);
 
 struct Program_ {
     Runtime* runtime;

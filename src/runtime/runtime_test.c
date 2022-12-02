@@ -23,7 +23,7 @@ int main(SHADY_UNUSED int argc, SHADY_UNUSED const char* argv[]) {
         .dump_spv = true,
     };
     Runtime* runtime = initialize_runtime(config);
-    Device* device = initialize_device(runtime);
+    Device* device = get_an_device(runtime);
     assert(device);
     Program* program = load_program(runtime, shader);
     wait_completion(launch_kernel(program, device, 1, 1, 1, 0, NULL));

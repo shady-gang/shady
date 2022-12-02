@@ -2,6 +2,7 @@
 
 #include "log.h"
 #include "portability.h"
+#include "list.h"
 
 #include <string.h>
 
@@ -95,6 +96,8 @@ static bool get_physical_device_properties(SHADY_UNUSED Runtime* runtime, VkPhys
     out->implementation.is_moltenvk = true;
 #endif
 
+    memcpy(out->name, dp.properties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE);
+
     VkPhysicalDeviceFeatures2 df = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = NULL
@@ -156,17 +159,6 @@ static bool get_physical_device_properties(SHADY_UNUSED Runtime* runtime, VkPhys
     out->compute_queue_family = compute_queue_family;
 
     return true;
-}
-
-static VkPhysicalDevice pick_device(Runtime* runtime, uint32_t devices_count, VkPhysicalDevice available_devices[]) {
-    for (uint32_t i = 0; i < devices_count; i++) {
-        VkPhysicalDevice physical_device = available_devices[i];
-        DeviceProperties dummy;
-        if (get_physical_device_properties(runtime, physical_device, &dummy))
-            return available_devices[i];
-    }
-
-    return NULL;
 }
 
 static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
@@ -237,28 +229,52 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     return NULL;
 }
 
-Device* initialize_device(Runtime* runtime) {
+bool probe_devices(Runtime* runtime) {
     uint32_t devices_count;
     CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, NULL), return false)
-    LARRAY(VkPhysicalDevice, devices, devices_count);
-    CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, devices), return false)
+    LARRAY(VkPhysicalDevice, available_devices, devices_count);
+    CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, available_devices), return false)
 
-    if (devices_count == 0) {
+    if (devices_count == 0 && !runtime->config.allow_no_devices) {
         error_print("No vulkan devices found!\n");
         error_print("You may be able to diagnose this further using `VK_LOADER_DEBUG=all vulkaninfo`.\n");
         return false;
     }
 
-    VkPhysicalDevice physical_device = pick_device(runtime, devices_count, devices);
-    if (physical_device == NULL) {
+    for (uint32_t i = 0; i < devices_count; i++) {
+        VkPhysicalDevice physical_device = available_devices[i];
+        DeviceProperties dummy;
+        if (get_physical_device_properties(runtime, physical_device, &dummy)) {
+            Device* device = create_device(runtime, physical_device);
+            append_list(Device*, runtime->devices, device);
+        }
+    }
+
+    if (entries_count_list(runtime->devices) == 0 && !runtime->config.allow_no_devices) {
         error_print("No __suitable__ vulkan devices found!\n");
         error_print("This is caused by running on weird hardware configurations. Hardware support might get better in the future.\n");
         return false;
     }
 
-    return create_device(runtime, physical_device);
+    return true;
 }
 
 void shutdown_device(Device* device) {
     free(device);
 }
+
+size_t device_count(Runtime* r) {
+    return entries_count_list(r->devices);
+}
+
+Device* get_device(Runtime* r, size_t i) {
+    assert(i < device_count(r));
+    return read_list(Device*, r->devices)[i];
+}
+
+Device* get_an_device(Runtime* r) {
+    assert(device_count(r) > 0);
+    return get_device(r, 0);
+}
+
+const char* get_device_name(Device* device) { return device->properties.name; }
