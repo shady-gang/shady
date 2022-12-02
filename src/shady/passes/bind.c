@@ -195,7 +195,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
                 debug_print("Bound (stub) basic block %s\n", old_bb->payload.basic_block.name);
 
                 for (size_t j = 0; j < new_bb_params.count; j++)
-                    add_binding(&fn_ctx, false, decl->payload.fun.params.nodes[j]->payload.var.name, new_fn_params.nodes[j]);
+                    add_binding(&fn_ctx, false, new_bb->payload.basic_block.params.nodes[j]->payload.var.name, new_bb_params.nodes[j]);
             }
 
             bound->payload.fun.body = rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body);

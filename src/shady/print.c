@@ -17,6 +17,7 @@ typedef struct {
     bool skip_generated;
     bool print_ptrs;
     bool color;
+    bool reparseable;
 } PrintConfig;
 
 struct PrinterCtx_ {
@@ -110,7 +111,10 @@ static void print_param_list(PrinterCtx* ctx, Nodes vars, const Nodes* defaults)
         const Variable* var = &vars.nodes[i]->payload.var;
         print_node(var->type);
         printf(YELLOW);
-        printf(" %s~%d", var->name, var->id);
+        if (ctx->config.reparseable)
+            printf(" %s_%d", var->name, var->id);
+        else
+            printf(" %s~%d", var->name, var->id);
         printf(RESET);
         if (defaults) {
             printf(" = ");
@@ -351,7 +355,10 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
         case NotAValue: assert(false); break;
         case Variable_TAG:
             printf(YELLOW);
-            printf("%s~%d", node->payload.var.name, node->payload.var.id);
+            if (ctx->config.reparseable)
+                printf("%s_%d", node->payload.var.name, node->payload.var.id);
+            else
+                printf("%s~%d", node->payload.var.name, node->payload.var.id);
             printf(RESET);
             break;
         case Unbound_TAG:
@@ -561,15 +568,20 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                     if (tag == LetMut_TAG)
                         printf("var");
                     else
-                        printf("val");
+                        printf("let");
                     printf(RESET);
                     Nodes params = tail->payload.anon_lam.params;
                     for (size_t i = 0; i < params.count; i++) {
-                        printf(" ");
-                        print_node(params.nodes[i]->payload.var.type);
+                        if (tag == LetMut_TAG || !ctx->config.reparseable) {
+                            printf(" ");
+                            print_node(params.nodes[i]->payload.var.type);
+                        }
                         printf(YELLOW);
                         printf(" %s", params.nodes[i]->payload.var.name);
-                        printf("~%d", params.nodes[i]->payload.var.id);
+                        if (ctx->config.reparseable)
+                            printf("_%d", params.nodes[i]->payload.var.id);
+                        else
+                            printf("~%d", params.nodes[i]->payload.var.id);
                         printf(RESET);
                     }
                     printf(" = ");
@@ -851,14 +863,14 @@ static void print_helper(Printer* printer, const Node* node, Module* mod, PrintC
 
 void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
-    print_helper(open_growy_as_printer(g), node, NULL, (PrintConfig) { });
+    print_helper(open_growy_as_printer(g), node, NULL, (PrintConfig) { .reparseable = true });
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
 }
 
 void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
-    print_helper(open_growy_as_printer(g), NULL, mod, (PrintConfig) { });
+    print_helper(open_growy_as_printer(g), NULL, mod, (PrintConfig) { .reparseable = true, });
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
 }
