@@ -5,6 +5,7 @@ add_library(shady_spirv STATIC
     emit_spv_instructions.c
     spirv_builder.c
 )
+set_property(TARGET shady_spirv PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(shady_spirv PUBLIC "api")
 target_link_libraries(shady_spirv PRIVATE "$<BUILD_INTERFACE:common>")
