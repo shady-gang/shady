@@ -196,6 +196,13 @@ typedef struct CompilerConfig_ {
     } lower;
 
     struct {
+        bool memory_accesses;
+        bool stack_accesses;
+        bool god_function;
+        bool stack_size;
+    } printf_trace;
+
+    struct {
         bool skip_generated, skip_builtin;
     } logging;
 } CompilerConfig;

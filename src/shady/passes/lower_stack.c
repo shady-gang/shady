@@ -85,6 +85,10 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push, boo
 
     // store updated stack size
     gen_store(bb, stack_pointer, stack_size);
+    if (ctx->config->printf_trace.stack_size) {
+        bind_instruction(bb, prim_op(arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = name })) }));
+        bind_instruction(bb, prim_op(arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = "stack size after: %d" }), stack_size) }));
+    }
 
     if (push) {
         fun->payload.fun.body = finish_body(bb, fn_ret(arena, (Return) { .fn = fun, .args = empty(arena) }));

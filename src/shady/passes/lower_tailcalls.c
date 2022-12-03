@@ -18,6 +18,7 @@ typedef uint32_t FnPtr;
 
 typedef struct Context_ {
     Rewriter rewriter;
+    CompilerConfig* config;
     bool disable_lowering;
     struct Dict* assigned_fn_ptrs;
     FnPtr* next_fn_ptr;
@@ -233,6 +234,9 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     const Node* local_id = gen_primop_e(loop_body_builder, subgroup_local_id_op, empty(dst_arena), empty(dst_arena));
     const Node* should_run = gen_primop_e(loop_body_builder, mask_is_thread_active_op, empty(dst_arena), mk_nodes(dst_arena, next_mask, local_id));
 
+    if (ctx->config->printf_trace.god_function)
+        bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, next_fn=%d next_mask=%d\n" }), next_function, next_mask) }));
+
     struct List* literals = new_list(const Node*);
     struct List* cases = new_list(const Node*);
 
@@ -240,8 +244,11 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     Node* zero_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
 
     BodyBuilder* zero_case_builder = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* zero_if_case_builder = begin_body(ctx->rewriter.dst_module);
+    if (ctx->config->printf_trace.god_function)
+        bind_instruction(zero_if_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: kill thread %d\n" }), local_id) }));
     Node* zero_if_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena));
-    zero_if_true_lam->payload.anon_lam.body = merge_break(dst_arena, (MergeBreak) { .args = nodes(dst_arena, 0, NULL) });
+    zero_if_true_lam->payload.anon_lam.body = finish_body(zero_if_case_builder, merge_break(dst_arena, (MergeBreak) { .args = nodes(dst_arena, 0, NULL) }));
     const Node* zero_if_instruction = if_instr(dst_arena, (If) {
         .condition = should_run,
         .if_true = zero_if_true_lam,
@@ -249,6 +256,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         .yield_types = empty(dst_arena),
     });
     bind_instruction(zero_case_builder, zero_if_instruction);
+    if (ctx->config->printf_trace.god_function)
+        bind_instruction(zero_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d escaped death!\n" }), local_id) }));
     zero_case->payload.anon_lam.body = finish_body(zero_case_builder, merge_continue(dst_arena, (MergeContinue) {
         .args = nodes(dst_arena, 0, NULL),
     }));
@@ -317,6 +326,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_module);
     bind_instruction(dispatcher_body_builder, the_loop);
+    if (ctx->config->printf_trace.god_function)
+        bind_instruction(dispatcher_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: end of top for %d\n" }), local_id) }));
 
     ctx->god_fn->payload.fun.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
         .args = nodes(dst_arena, 0, NULL),
@@ -340,6 +351,7 @@ void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* d
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .config = config,
         .disable_lowering = false,
         .assigned_fn_ptrs = ptrs,
         .next_fn_ptr = &next_fn_ptr,
