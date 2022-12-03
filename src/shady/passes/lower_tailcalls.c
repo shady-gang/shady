@@ -60,7 +60,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
         .decl = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "TreeNode"),
     });
     const Node* init_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
-    const Node* init_depth = int32_literal(dst_arena, 0);
+    const Node* init_depth = int32_literal(dst_arena, 1);
     const Node* init_tn = first(bind_instruction(builder, prim_op(dst_arena, (PrimOp) { .op = make_op, .type_arguments = singleton(tn_struct_type), .operands = singleton(tuple(dst_arena, mk_nodes(dst_arena, init_mask, init_depth))) })));
 
     // Initialise the scheduler_vector with it
@@ -235,7 +235,18 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* zero_lit = int32_literal(dst_arena, 0);
     Node* zero_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
-    zero_case->payload.anon_lam.body = finish_body(begin_body(ctx->rewriter.dst_module), merge_break(dst_arena, (MergeBreak) {
+
+    BodyBuilder* zero_case_builder = begin_body(ctx->rewriter.dst_module);
+    Node* zero_if_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena));
+    zero_if_true_lam->payload.anon_lam.body = merge_break(dst_arena, (MergeBreak) { .args = nodes(dst_arena, 0, NULL) });
+    const Node* zero_if_instruction = if_instr(dst_arena, (If) {
+        .condition = should_run,
+        .if_true = zero_if_true_lam,
+        .if_false = NULL,
+        .yield_types = empty(dst_arena),
+    });
+    bind_instruction(zero_case_builder, zero_if_instruction);
+    zero_case->payload.anon_lam.body = finish_body(zero_case_builder, merge_continue(dst_arena, (MergeContinue) {
         .args = nodes(dst_arena, 0, NULL),
     }));
 
