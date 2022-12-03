@@ -106,13 +106,13 @@ static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, con
                 gen_store(bb, logical_ptr, value);
             } else {
                 const Node* lo = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(value));
-                const Node* hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []){ value, int64_literal(bb->arena, 32) });
+                const Node* hi = gen_primop_ce(bb, rshift_logical_op, 2, (const Node* []){ value, int64_literal(bb->arena, 32) });
                 hi = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(hi));
                 // TODO: make this dependant on the emulation array type
                 const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
                 gen_store(bb, logical_ptr, lo);
                 const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
-                            logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset});
+                logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset});
                 gen_store(bb, logical_ptr, hi);
             }
             return;
