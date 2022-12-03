@@ -426,7 +426,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
         }
         case FnAddr_TAG:
             printf(BYELLOW);
-            printf("&");
+            // printf("&");
             printf((char*) get_decl_name(node->payload.fn_addr.fn));
             printf(RESET);
             break;
@@ -447,32 +447,21 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             break;
         } case LeafCall_TAG: {
             printf(GREEN);
-            printf("leaf_call ");
+            printf("leaf_call");
             printf(RESET);
-            const Node* callee = node->payload.leaf_call.callee;
-            print_node(callee);
-            printf("(");
-            for (size_t i = 0; i < node->payload.leaf_call.args.count; i++) {
-                print_node(node->payload.leaf_call.args.nodes[i]);
-                if (i + 1 < node->payload.leaf_call.args.count)
-                    printf(", ");
-            }
+            printf(" (");
+            print_node(node->payload.leaf_call.callee);
             printf(")");
+            print_args_list(ctx, node->payload.leaf_call.args);
             break;
         } case IndirectCall_TAG: {
-
             printf(GREEN);
-            printf("indirect_call ");
+            printf("indirect_call");
             printf(RESET);
-            const Node* callee = node->payload.indirect_call.callee;
-            print_node(callee);
-            printf("(");
-            for (size_t i = 0; i < node->payload.indirect_call.args.count; i++) {
-                print_node(node->payload.indirect_call.args.nodes[i]);
-                if (i + 1 < node->payload.indirect_call.args.count)
-                    printf(", ");
-            }
+            printf(" (");
+            print_node(node->payload.indirect_call.callee);
             printf(")");
+            print_args_list(ctx, node->payload.indirect_call.args);
             break;
         } case If_TAG: {
             printf(GREEN);
@@ -553,7 +542,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
         case LetIndirect_TAG: {
             const Node* instruction = get_let_instruction(node);
             const Node* tail = get_let_tail(node);
-            if (is_anonymous_lambda(tail)) {
+            if (!ctx->config.reparseable && is_anonymous_lambda(tail)) {
                 assert(tag != LetIndirect_TAG);
                 // if the let tail is a lambda, we apply some syntactic sugar
                 if (tail->payload.anon_lam.params.count > 0) {
@@ -561,7 +550,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                     if (tag == LetMut_TAG)
                         printf("var");
                     else
-                        printf("let");
+                        printf("val");
                     printf(RESET);
                     Nodes params = tail->payload.anon_lam.params;
                     for (size_t i = 0; i < params.count; i++) {
@@ -583,10 +572,15 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 printf(";\n");
                 print_abs_body(ctx, tail);
             } else {
-                assert(tag == LetIndirect_TAG || tag == LetInto_TAG);
                 printf(GREEN);
-                printf("let ");
+                if (tag == LetInto_TAG)
+                    printf("let_into");
+                else if (tag == LetIndirect_TAG)
+                    printf("let_indirect");
+                else
+                    printf("let");
                 printf(RESET);
+                printf(" ");
                 print_node(instruction);
                 printf(GREEN);
                 printf(" in ");
@@ -599,10 +593,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf(BGREEN);
             printf("return");
             printf(RESET);
-            for (size_t i = 0; i < node->payload.fn_ret.args.count; i++) {
-                printf(" ");
-                print_node(node->payload.fn_ret.args.nodes[i]);
-            }
+            print_args_list(ctx, node->payload.fn_ret.args);
             printf(";");
             break;
         case Terminator_TailCall_TAG:
@@ -778,8 +769,8 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         print_param_list(ctx, node->payload.anon_lam.params, NULL);
         indent(ctx->printer);
         printf(" {\n");
-        print_node(node->payload.anon_lam.body);
-        printf(";");
+        print_abs_body(ctx, node);
+        // printf(";");
         deindent(ctx->printer);
         printf("\n}");
     } else if (is_declaration(node)) {

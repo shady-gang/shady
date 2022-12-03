@@ -11,7 +11,7 @@ static const char* shader =
 "// trivial function that returns its argument\n"
 "@EntryPoint(\"compute\") @WorkgroupSize(64, 1, 1) fn main() {\n"
 "    debug_printf(\"hi\");"
-"    return;\n"
+"    return ();\n"
 "}";
 
 int main(SHADY_UNUSED int argc, SHADY_UNUSED const char* argv[]) {

@@ -269,7 +269,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case LetMut_TAG: error("De-sugar this by hand")
         case LetInto_TAG: {
             const Node* instruction = rewrite_instruction(rewriter, node->payload.let.instruction);
-            const Node* tail = rewrite_value(rewriter, node->payload.let.tail);
+            const Node* tail = rewrite_basic_block(rewriter, node->payload.let.tail);
             return let_into(arena, instruction, tail);
         }
         case LetIndirect_TAG: {

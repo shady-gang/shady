@@ -480,7 +480,7 @@ static const Node* accept_primop(ctxparams) {
     switch (curr_token(tokenizer).tag) {
         /// Only used for IR parsing
         /// Otherwise accept_expression handles this
-        case call_tok: {
+        case indirect_call_tok: {
             next_token(tokenizer);
             expect(accept_token(ctx, lpar_tok));
             const Node* callee = accept_operand(ctx);
@@ -488,6 +488,18 @@ static const Node* accept_primop(ctxparams) {
             expect(accept_token(ctx, rpar_tok));
             Nodes args = expect_operands(ctx);
             return indirect_call(arena, (IndirectCall) {
+                .callee = callee,
+                .args = args,
+            });
+        }
+        case leaf_call_tok: {
+            next_token(tokenizer);
+            expect(accept_token(ctx, lpar_tok));
+            const Node* callee = accept_operand(ctx);
+            assert(callee);
+            expect(accept_token(ctx, rpar_tok));
+            Nodes args = expect_operands(ctx);
+            return leaf_call(arena, (LeafCall) {
                 .callee = callee,
                 .args = args,
             });
@@ -516,10 +528,10 @@ static const Node* accept_primop(ctxparams) {
     });
 }
 
-static const Node* accept_instruction(ctxparams, Node* fn) {
+static const Node* accept_instruction(ctxparams, Node* fn, bool in_list) {
     const Node* instr = config.front_end ? accept_expr(ctx, max_precedence()) : accept_primop(ctx);
 
-    if (instr)
+    if (in_list && instr)
         expect(accept_token(ctx, semi_tok) && "Non-control flow instructions must be followed by a semicolon");
 
     if (!instr) instr = accept_control_flow_instruction(ctx, fn);
@@ -569,29 +581,68 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
     destroy_list(tlist);
 }
 
-static bool accept_instruction_maybe_with_let_too(ctxparams, BodyBuilder* bb, Node* fn) {
+static bool accept_non_terminator_instr(ctxparams, BodyBuilder* bb, Node* fn) {
     Strings ids;
     Nodes types;
-    if (accept_token(ctx, let_tok)) {
+    if (accept_token(ctx, val_tok)) {
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok));
-        const Node* instruction = accept_instruction(ctx, fn);
+        const Node* instruction = accept_instruction(ctx, fn, true);
         bind_instruction_extra(bb, instruction, ids.count, NULL, ids.strings);
     } else if (accept_token(ctx, var_tok)) {
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok));
-        const Node* instruction = accept_instruction(ctx, fn);
+        const Node* instruction = accept_instruction(ctx, fn, true);
         bind_instruction_extra_mutable(bb, instruction, ids.count, &types, ids.strings);
     } else {
-        const Node* instr = accept_instruction(ctx, fn);
+        const Node* instr = accept_instruction(ctx, fn, true);
         if (!instr) return false;
         bind_instruction_extra(bb, instr, 0, NULL, NULL);
     }
     return true;
 }
 
-static const Node* accept_terminator(ctxparams) {
-    switch (curr_token(tokenizer).tag) {
+static const Node* accept_anonymous_lambda(ctxparams, Node* fn) {
+    if (!accept_token(ctx, lambda_tok))
+        return NULL;
+
+    Nodes params;
+    expect_parameters(ctx, &params, NULL);
+    const Node* body = expect_body(ctx, fn, NULL);
+    Node* lam = lambda(mod, params);
+    lam->payload.anon_lam.body = body;
+    return lam;
+}
+
+static const Node* accept_terminator(ctxparams, Node* fn) {
+    TokenTag tag = curr_token(tokenizer).tag;
+    switch (tag) {
+        case let_tok:
+        case let_into_tok:
+        case let_indirect_tok: {
+            next_token(tokenizer);
+            const Node* instruction = accept_instruction(ctx, fn, false);
+            expect(instruction);
+            expect(accept_token(ctx, in_tok));
+            switch (tag) {
+                case let_tok: {
+                    const Node* lam = accept_anonymous_lambda(ctx, fn);
+                    expect(lam);
+                    return let(arena, instruction, lam);
+                }
+                case let_into_tok: {
+                    const char* id = accept_identifier(ctx);
+                    expect(id);
+                    return let_into(arena, instruction, unbound(arena, (Unbound) { .name = id }));
+                }
+                case let_indirect_tok: {
+                    const Node* tgt = accept_operand(ctx);
+                    expect(tgt);
+                    return let_indirect(arena, instruction, tgt);
+                }
+                default: SHADY_UNREACHABLE;
+            }
+        }
         case jump_tok: {
             next_token(tokenizer);
             expect(accept_token(ctx, lpar_tok));
@@ -628,7 +679,7 @@ static const Node* accept_terminator(ctxparams) {
         }
         case return_tok: {
             next_token(tokenizer);
-            Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
+            Nodes args = expect_operands(ctx);
             return fn_ret(arena, (Return) {
                 .fn = NULL,
                 .args = args
@@ -670,11 +721,11 @@ static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminat
     BodyBuilder* bb = begin_body(mod);
 
     while (true) {
-        if (!accept_instruction_maybe_with_let_too(ctx, bb, fn))
+        if (!accept_non_terminator_instr(ctx, bb, fn))
             break;
     }
 
-    const Node* terminator = accept_terminator(ctx);
+    const Node* terminator = accept_terminator(ctx, fn);
 
     if (terminator)
         expect(accept_token(ctx, semi_tok));

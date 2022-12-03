@@ -471,8 +471,23 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             Nodes annotated_types = extract_variable_types(arena, otail->payload.anon_lam.params);
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(arena, annotated_types));
             Nodes inferred_yield_types = unwrap_multiple_yield_types(arena, inferred_instruction->type);
-            const Node* inferred_tail = infer(ctx, node->payload.let.tail, wrap_multiple_yield_types(arena, inferred_yield_types));
+            const Node* inferred_tail = infer(ctx, otail, wrap_multiple_yield_types(arena, inferred_yield_types));
             return let(arena, inferred_instruction, inferred_tail);
+        }
+        case LetInto_TAG: {
+            const Node* otail = node->payload.let_into.tail;
+            const Node* inferred_tail = infer(ctx, otail, NULL);
+            assert(inferred_tail->tag == BasicBlock_TAG);
+            const Node* inferred_instruction = infer(ctx, node->payload.let_into.instruction, wrap_multiple_yield_types(arena, extract_variable_types(arena, inferred_tail->payload.basic_block.params)));
+            return let_into(arena, inferred_instruction, inferred_tail);
+        }
+        case LetIndirect_TAG: {
+            const Node* otail = node->payload.let_indirect.tail;
+            const Node* inferred_tail = infer(ctx, otail, NULL);
+            const Type* inferred_tail_type = extract_operand_type(inferred_tail->type);
+            assert(inferred_tail_type->tag == FnType_TAG);
+            const Node* inferred_instruction = infer(ctx, node->payload.let_indirect.instruction, wrap_multiple_yield_types(arena, inferred_tail_type->payload.fn_type.param_types));
+            return let_indirect(arena, inferred_instruction, inferred_tail);
         }
         case Return_TAG: {
             const Node* imported_fn = infer(ctx, node->payload.fn_ret.fn, NULL);

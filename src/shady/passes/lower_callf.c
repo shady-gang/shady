@@ -54,16 +54,22 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .args = nargs,
             }));
         }
+        case LetInto_TAG:
         case Let_TAG: {
-            const Node* old_instruction = old->payload.let.instruction;
+            const Node* old_instruction = get_let_instruction(old);
             const Node* new_instruction = NULL;
-            const Node* old_tail = old->payload.let.tail;
+            const Node* old_tail = get_let_tail(old);
             // we convert calls to tail-calls within a control
             // let(call_indirect(...), ret_fn) to let(control(jp => save(jp); tailcall(...)), ret_fn)
             if (old_instruction->tag == IndirectCall_TAG) {
                 const Node* tail_type = (old_tail->type);
-                assert(tail_type->tag == LamType_TAG);
-                Nodes returned_types = rewrite_nodes(&ctx->rewriter, tail_type->payload.lam_type.param_types);
+                Nodes oparam_types;
+                switch (tail_type->tag) {
+                    case LamType_TAG: oparam_types = tail_type->payload.lam_type.param_types; break;
+                    case BBType_TAG: oparam_types = tail_type->payload.bb_type.param_types; break;
+                    default: error("tail must be a bb or lambda");
+                }
+                Nodes returned_types = rewrite_nodes(&ctx->rewriter, oparam_types);
 
                 const Type* jpt = qualified_type(dst_arena, (QualifiedType) {
                     .type = join_point_type(dst_arena, (JoinPointType) { .yield_types = returned_types }),
@@ -86,7 +92,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             if (!new_instruction)
                 new_instruction = rewrite_node(&ctx->rewriter, old_instruction);
 
-            return let(dst_arena, new_instruction, rewrite_node(&ctx->rewriter, old_tail));
+            const Node* new_tail = rewrite_node(&ctx->rewriter, old_tail);
+            return (old->tag == LetInto_TAG ? let_into : let)(dst_arena, new_instruction, new_tail);
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
     }

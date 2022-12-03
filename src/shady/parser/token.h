@@ -26,11 +26,16 @@ TEXT_TOKEN(input) \
 TEXT_TOKEN(output) \
 TOKEN(extern, "extern") \
 TEXT_TOKEN(var) \
+TEXT_TOKEN(val) \
 TEXT_TOKEN(let) \
+TEXT_TOKEN(let_into) \
+TEXT_TOKEN(let_indirect) \
+TEXT_TOKEN(in) \
 TEXT_TOKEN(ptr) \
-TEXT_TOKEN(fn) \
 TEXT_TOKEN(type) \
+TEXT_TOKEN(fn) \
 TEXT_TOKEN(cont) \
+TEXT_TOKEN(lambda) \
 TEXT_TOKEN(i8) \
 TEXT_TOKEN(i16) \
 TEXT_TOKEN(i32) \
@@ -50,9 +55,8 @@ TOKEN(break, "break") \
 TEXT_TOKEN(jump) \
 TEXT_TOKEN(branch) \
 TEXT_TOKEN(join) \
-TEXT_TOKEN(call) \
-TEXT_TOKEN(callf) \
-TEXT_TOKEN(callc) \
+TEXT_TOKEN(leaf_call) \
+TEXT_TOKEN(indirect_call) \
 TOKEN(return, "return") \
 TEXT_TOKEN(unreachable) \
 PRIMOPS(REGISTER_PRIMOP_AS_TOKEN) \

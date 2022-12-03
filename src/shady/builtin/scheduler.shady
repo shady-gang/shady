@@ -22,9 +22,9 @@ subgroup bool fail = false;
 
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
 fn builtin_control JoinPoint(uniform i32 join_destination, uniform i32 control_body) {
-    let curr_mask = subgroup_active_mask();
-    let tree_node = make[TreeNode]((curr_mask, scheduler_vector.(subgroup_local_id()).1));
-    let jp = make[JoinPoint]((tree_node, join_destination));
+    val curr_mask = subgroup_active_mask();
+    val tree_node = make[TreeNode]((curr_mask, scheduler_vector.(subgroup_local_id()).1));
+    val jp = make[JoinPoint]((tree_node, join_destination));
 
     // increase the depth of the active leaves
     scheduler_vector.(subgroup_local_id()).1 = scheduler_vector.(subgroup_local_id()).1 + 1;
@@ -37,7 +37,7 @@ fn builtin_control JoinPoint(uniform i32 join_destination, uniform i32 control_b
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
 fn builtin_fork(varying i32 branch_destination) {
     // First ask the first thread where it thinks we should branch, and all the threads that agree are set to go there
-    let first_branch = subgroup_broadcast_first(branch_destination);
+    val first_branch = subgroup_broadcast_first(branch_destination);
     if (first_branch == branch_destination) {
         next_fn = branch_destination;
         next_mask = subgroup_active_mask();
@@ -45,17 +45,16 @@ fn builtin_fork(varying i32 branch_destination) {
         // tag those variables as not in use.
         // resume_at.(subgroup_local_id()) = -1;
         // resume_with.(subgroup_local_id()) = empty_mask();
-        return;
+        return ();
     }
 
     // We're left with the threads we can't schedule right now.
-    //while (true) {
     loop() {
         // update depth counter
-        let old_depth = scheduler_vector.(subgroup_local_id()).1;
+        val old_depth = scheduler_vector.(subgroup_local_id()).1;
         scheduler_vector.(subgroup_local_id()).1 = old_depth + 1;
 
-        let elected = subgroup_broadcast_first(branch_destination);
+        val elected = subgroup_broadcast_first(branch_destination);
         if (elected == branch_destination) {
             resume_at.(subgroup_local_id()) = elected;
             scheduler_vector.(subgroup_local_id()).0 = subgroup_ballot(elected == branch_destination);
@@ -91,11 +90,11 @@ fn builtin_join(uniform i32 join_at, uniform TreeNode token) {
 
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
 fn is_parent bool(varying TreeNode child, varying TreeNode maybe_parent) {
-  let child_mask = child.0;
-  let parent_mask = maybe_parent.0;
+  val child_mask = child.0;
+  val parent_mask = maybe_parent.0;
   if ((child_mask | parent_mask) != parent_mask) { return(false); }
-  let child_depth = child.1;
-  let parent_depth = maybe_parent.1;
+  val child_depth = child.1;
+  val parent_depth = maybe_parent.1;
   return (child_depth <= parent_depth);
 }
 
@@ -110,14 +109,14 @@ fn forward_distance i32(varying i32 x, varying i32 dst, varying i32 max_mod) {
 
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
 fn reduce2 i32(varying i32 a_index, varying i32 b_index) {
-    let a = scheduler_vector.a_index;
-    let b = scheduler_vector.b_index;
+    val a = scheduler_vector.a_index;
+    val b = scheduler_vector.b_index;
     
     if (is_parent(a, b)) { return (a_index); }
     if (is_parent(b, a)) { return (b_index); }
     
-    let a_dist = forward_distance(a_index, scheduler_cursor, MASK_SIZE);
-    let b_dist = forward_distance(b_index, scheduler_cursor, MASK_SIZE);
+    val a_dist = forward_distance(a_index, scheduler_cursor, MASK_SIZE);
+    val b_dist = forward_distance(b_index, scheduler_cursor, MASK_SIZE);
     
     if (a_dist < b_dist) { return (a_index); }
     return (b_index);
@@ -134,5 +133,5 @@ fn builtin_find_schedulable_leaf() {
 
     next_fn = resume_at.reduced;
     next_mask = scheduler_vector.reduced.0;
-    return;
+    return ();
 }
