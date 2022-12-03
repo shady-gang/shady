@@ -179,34 +179,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
                 add_binding(&fn_ctx, false, decl->payload.fun.params.nodes[i]->payload.var.name, new_fn_params.nodes[i]);
 
             fn_ctx.current_function = bound;
-
-            // handle basic blocks if we are a function
-            Nodes unbound_blocks = decl->payload.fun.children_blocks;
-            LARRAY(Node*, new_bbs, unbound_blocks.count);
-
-            // First create stubs and inline that crap
-            for (size_t i = 0; i < unbound_blocks.count; i++) {
-                const Node* old_bb = unbound_blocks.nodes[i];
-                assert(is_basic_block(old_bb));
-                Nodes new_bb_params = recreate_variables(&ctx->rewriter, old_bb->payload.basic_block.params);
-                Node* new_bb = basic_block(ctx->rewriter.dst_arena, bound, new_bb_params, old_bb->payload.basic_block.name);
-                new_bbs[i] = new_bb;
-                add_binding(&fn_ctx, false, old_bb->payload.basic_block.name, new_bb);
-                debug_print("Bound (stub) basic block %s\n", old_bb->payload.basic_block.name);
-
-                for (size_t j = 0; j < new_bb_params.count; j++)
-                    add_binding(&fn_ctx, false, new_bb->payload.basic_block.params.nodes[j]->payload.var.name, new_bb_params.nodes[j]);
-            }
-
             bound->payload.fun.body = rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body);
-
-            // Rebuild the basic blocks now
-            for (size_t i = 0; i < unbound_blocks.count; i++) {
-                const Node* old_bb = unbound_blocks.nodes[i];
-                Node* new_bb = new_bbs[i];
-                new_bb->payload.basic_block.body = rewrite_node(&fn_ctx.rewriter, old_bb->payload.basic_block.body);
-                debug_print("Bound basic block %s\n", new_bb->payload.basic_block.name);
-            }
             return bound;
         }
         case NominalType_TAG: {
@@ -251,15 +224,46 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 return entry.node;
             }
         }
+        case UnboundBBs_TAG: {
+            Nodes unbound_blocks = node->payload.unbound_bbs.children_blocks;
+            LARRAY(Node*, new_bbs, unbound_blocks.count);
+
+            // First create stubs
+            for (size_t i = 0; i < unbound_blocks.count; i++) {
+                const Node* old_bb = unbound_blocks.nodes[i];
+                assert(is_basic_block(old_bb));
+                Nodes new_bb_params = recreate_variables(&ctx->rewriter, old_bb->payload.basic_block.params);
+                Node* new_bb = basic_block(ctx->rewriter.dst_arena, (Node*) ctx->current_function, new_bb_params, old_bb->payload.basic_block.name);
+                new_bbs[i] = new_bb;
+                add_binding(ctx, false, old_bb->payload.basic_block.name, new_bb);
+                register_processed(&ctx->rewriter, old_bb, new_bb);
+                debug_print("Bound (stub) basic block %s\n", old_bb->payload.basic_block.name);
+
+                for (size_t j = 0; j < new_bb_params.count; j++)
+                    add_binding(ctx, false, new_bb->payload.basic_block.params.nodes[j]->payload.var.name, new_bb_params.nodes[j]);
+            }
+
+            const Node* bound_body = rewrite_node(&ctx->rewriter, node->payload.unbound_bbs.body);
+
+            // Rebuild the basic blocks now
+            for (size_t i = 0; i < unbound_blocks.count; i++) {
+                const Node* old_bb = unbound_blocks.nodes[i];
+                Node* new_bb = new_bbs[i];
+                new_bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, old_bb->payload.basic_block.body);
+                debug_print("Bound basic block %s\n", new_bb->payload.basic_block.name);
+            }
+
+            return bound_body;
+        }
         case BasicBlock_TAG: error("rewrite_decl should handle this")
         case AnonLambda_TAG: {
             Nodes old_params = node->payload.anon_lam.params;
             Nodes new_params = recreate_variables(&ctx->rewriter, old_params);
             Node* new_lam = lambda(ctx->rewriter.dst_module, new_params);
-            Context lambda_ctx = *ctx;
+            //Context lambda_ctx = *ctx;
             for (size_t i = 0; i < new_params.count; i++)
-                add_binding(&lambda_ctx, false, old_params.nodes[i]->payload.var.name, new_params.nodes[i]);
-            new_lam->payload.anon_lam.body = rewrite_node(&lambda_ctx.rewriter, node->payload.anon_lam.body);
+                add_binding(ctx, false, old_params.nodes[i]->payload.var.name, new_params.nodes[i]);
+            new_lam->payload.anon_lam.body = rewrite_node(&ctx->rewriter, node->payload.anon_lam.body);
             return new_lam;
         }
         case LetMut_TAG: return desugar_let_mut(ctx, node);

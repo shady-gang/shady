@@ -28,7 +28,6 @@ N(1, 0, 1, TypeDeclRef, type_decl_ref) \
 
 #define VALUE_NODES(N) \
 N(0, 1, 1, Variable, var) \
-N(1, 0, 1, Unbound, unbound) \
 N(1, 1, 1, UntypedNumber, untyped_number) \
 N(1, 1, 1, IntLiteral, int_literal) \
 N(1, 1, 0, True, true_lit) \
@@ -85,6 +84,8 @@ DECL_NODES(N) \
 ANNOTATION_NODES(N) \
 N(0, 1, 1, AnonLambda, anon_lam) \
 N(0, 1, 1, BasicBlock, basic_block) \
+N(1, 0, 1, Unbound, unbound) \
+N(1, 0, 1, UnboundBBs, unbound_bbs)
 
 /// We declare the payloads of our nodes using this special
 /// X-macro pattern in order to be able to 'reflect' them
@@ -213,10 +214,6 @@ MkField(1, POD, VarId, id) \
 MkField(1, STRING, String, name) \
 MkField(0, INSTRUCTION, const Node*, instruction) \
 MkField(0, POD, unsigned, output)
-
-typedef struct Unbound_ Unbound;
-#define Unbound_Fields(MkField) \
-MkField(1, POD, String, name)
 
 typedef struct UntypedNumber_ UntypedNumber;
 #define UntypedNumber_Fields(MkField) \
@@ -405,8 +402,7 @@ MkField(1, TERMINATOR, const Node*, body) \
 MkField(0, POD, Module*, module) \
 MkField(1, STRING, String, name) \
 MkField(1, TYPES, Nodes, return_types) \
-MkField(1, ANNOTATIONS, Nodes, annotations) \
-MkField(1, BASIC_BLOCKS, ChildrenBlocks, children_blocks) \
+MkField(1, ANNOTATIONS, Nodes, annotations)
 
 typedef struct Constant_ Constant;
 #define Constant_Fields(MkField) \
@@ -434,18 +430,32 @@ MkField(1, TYPE, const Type*, body)
 
 //////////////////////////////// Misc ////////////////////////////////
 
-typedef struct AnonLambda_ AnonLambda;
-#define AnonLambda_Fields(MkField) \
-MkField(0, POD, Module*, module) \
-MkField(1, VARIABLES, Nodes, params) \
-MkField(1, TERMINATOR, const Node*, body)
-
+/// A named abstraction that lives inside a function and can be jumped to
 typedef struct BasicBlock_ BasicBlock;
 #define BasicBlock_Fields(MkField) \
 MkField(1, VARIABLES, Nodes, params) \
 MkField(1, TERMINATOR, const Node*, body) \
 MkField(1, DECL, const Node*, fn) \
 MkField(1, STRING, String, name)
+
+/// An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs
+/// Most notably, the tails of standard `let` nodes
+typedef struct AnonLambda_ AnonLambda;
+#define AnonLambda_Fields(MkField) \
+MkField(0, POD, Module*, module) \
+MkField(1, VARIABLES, Nodes, params) \
+MkField(1, TERMINATOR, const Node*, body)
+
+/// Unbound identifier, obtained by parsing a file
+typedef struct Unbound_ Unbound;
+#define Unbound_Fields(MkField) \
+MkField(1, POD, String, name)
+
+/// A node together with unbound basic blocks it dominates, obtained by parsing a file
+typedef struct UnboundBBs_ UnboundBBs;
+#define UnboundBBs_Fields(MkField) \
+MkField(1, TERMINATOR, const Node*, body) \
+MkField(1, BASIC_BLOCKS, ChildrenBlocks, children_blocks)
 
 typedef struct Annotation_ Annotation;
 #define Annotation_Fields(MkField) \

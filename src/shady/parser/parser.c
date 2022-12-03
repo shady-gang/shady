@@ -668,7 +668,6 @@ static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminat
     assert(fn->tag == Function_TAG);
     expect(accept_token(ctx, lbracket_tok));
     BodyBuilder* bb = begin_body(mod);
-    Nodes* children_conts = &fn->payload.fun.children_blocks;
 
     while (true) {
         if (!accept_instruction_maybe_with_let_too(ctx, bb, fn))
@@ -701,7 +700,7 @@ static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminat
             append_list(Node*, conts, continuation);
         }
 
-        *children_conts = concat_nodes(arena, *children_conts, nodes(arena, entries_count_list(conts), read_list(const Node*, conts)));
+        terminator = unbound_bbs(arena, (UnboundBBs) { .body = terminator, .children_blocks = nodes(arena, entries_count_list(conts), read_list(const Node*, conts)) });
         destroy_list(conts);
     }
 

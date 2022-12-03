@@ -110,7 +110,6 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
 
     switch (is_value(value)) {
         case NotAValue: assert(false);
-        case Value_Unbound_TAG:
         case Value_UntypedNumber_TAG: error("lower me");
         case Value_Variable_TAG: error("variables need to be emitted beforehand");
         case Value_IntLiteral_TAG: emitted = format_string(emitter->arena, "%d", value->payload.int_literal.value.u64); break;

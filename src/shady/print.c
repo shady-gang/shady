@@ -239,8 +239,6 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
         dispose_scope(&scope);
     } else {
         print_abs_body(ctx, node);
-        for (size_t i = 0; i < node->payload.fun.children_blocks.count; i++)
-            print_basic_block(ctx, node->payload.fun.children_blocks.nodes[i]);
     }
 
     deindent(ctx->printer);
@@ -359,11 +357,6 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
                 printf("%s_%d", node->payload.var.name, node->payload.var.id);
             else
                 printf("%s~%d", node->payload.var.name, node->payload.var.id);
-            printf(RESET);
-            break;
-        case Unbound_TAG:
-            printf(YELLOW);
-            printf("`%s`", node->payload.unbound.name);
             printf(RESET);
             break;
         case UntypedNumber_TAG:
@@ -793,6 +786,14 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         printf(BYELLOW);
         printf("%s", get_decl_name(node));
         printf(RESET);
+    } else if (node->tag == Unbound_TAG) {
+        printf(YELLOW);
+        printf("`%s`", node->payload.unbound.name);
+        printf(RESET);
+    } else if (node->tag == UnboundBBs_TAG) {
+        print_node(node->payload.unbound_bbs.body);
+        for (size_t i = 0; i < node->payload.unbound_bbs.children_blocks.count; i++)
+            print_basic_block(ctx, node->payload.unbound_bbs.children_blocks.nodes[i]);
     } else switch (node->tag) {
         case Annotation_TAG: {
             const Annotation* annotation = &node->payload.annotation;
