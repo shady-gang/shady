@@ -378,13 +378,13 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
         BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * 2 + 1]);
         const Node* case_body = match.cases.nodes[i];
         assert(is_anonymous_lambda(case_body));
-        emit_terminator(emitter, fn_builder, case_bb, merge_targets_branches, case_body->payload.anon_lam.body);
         spvb_add_bb(fn_builder, case_bb);
+        emit_terminator(emitter, fn_builder, case_bb, merge_targets_branches, case_body->payload.anon_lam.body);
     }
     BBBuilder default_bb = spvb_begin_bb(fn_builder, default_id);
     assert(is_anonymous_lambda(match.default_case));
-    emit_terminator(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case->payload.anon_lam.body);
     spvb_add_bb(fn_builder, default_bb);
+    emit_terminator(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case->payload.anon_lam.body);
 
     BBBuilder next = spvb_begin_bb(fn_builder, next_id);
     spvb_add_bb(fn_builder, next);
