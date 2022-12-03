@@ -833,11 +833,10 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             });
         }
         case mask_is_thread_active_op: {
-            // TODO assert input is uniform
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = true,
+                .is_uniform = is_operand_uniform(prim_op.operands.nodes[0]->type) && is_operand_uniform(prim_op.operands.nodes[1]->type),
                 .type = bool_type(arena)
             });
         }

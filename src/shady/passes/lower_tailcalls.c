@@ -226,6 +226,9 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     BodyBuilder* loop_body_builder = begin_body(ctx->rewriter.dst_module);
 
     const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"));
+    const Node* next_mask = gen_load(loop_body_builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_mask"));
+    const Node* local_id = gen_primop_e(loop_body_builder, subgroup_local_id_op, empty(dst_arena), empty(dst_arena));
+    const Node* should_run = gen_primop_e(loop_body_builder, mask_is_thread_active_op, empty(dst_arena), mk_nodes(dst_arena, next_mask, local_id));
 
     struct List* literals = new_list(const Node*);
     struct List* cases = new_list(const Node*);
@@ -248,15 +251,24 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             const Node* fn_lit = lower_fn_addr(ctx, decl);
 
-            BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
+            Node* fn_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
 
-            // TODO wrap in if(mask)
-            bind_instruction(case_builder, leaf_call(dst_arena, (LeafCall) {
+            BodyBuilder* if_builder = begin_body(ctx->rewriter.dst_module);
+            bind_instruction(if_builder, leaf_call(dst_arena, (LeafCall) {
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, 0, NULL)
             }));
+            Node* if_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena));
+            if_true_lam->payload.anon_lam.body = finish_body(if_builder, merge_selection(dst_arena, (MergeSelection) { .args = nodes(dst_arena, 0, NULL) }));
+            const Node* if_instruction = if_instr(dst_arena, (If) {
+                .condition = should_run,
+                .if_true = if_true_lam,
+                .if_false = NULL,
+                .yield_types = empty(dst_arena),
+            });
 
-            Node* fn_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
+            BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
+            bind_instruction(case_builder, if_instruction);
             fn_case->payload.anon_lam.body = finish_body(case_builder, merge_continue(dst_arena, (MergeContinue) {
                 .args = nodes(dst_arena, 0, NULL),
             }));
