@@ -110,6 +110,9 @@ static CompilerConfig get_compiler_config_for_device(Device* device) {
     if (device->properties.implementation.is_moltenvk)
         config.lower.emulate_subgroup_ops_extended_types = true;
 
+    config.logging.skip_generated = true;
+    config.logging.skip_builtin = true;
+
     return config;
 }
 
