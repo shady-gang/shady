@@ -15,9 +15,10 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-void register_result(Emitter* emitter, const Node* variable, SpvId id) {
-    spvb_name(emitter->file_builder, id, variable->payload.var.name);
-    insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, variable, id);
+void register_result(Emitter* emitter, const Node* node, SpvId id) {
+    if (node->tag == Variable_TAG)
+        spvb_name(emitter->file_builder, id, node->payload.var.name);
+    insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, id);
 }
 
 SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
