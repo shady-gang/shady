@@ -12,6 +12,7 @@
 #include "dict.h"
 
 #include <assert.h>
+#include <string.h>
 
 typedef struct Context_ {
     Rewriter rewriter;
@@ -326,9 +327,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
 
                 const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
-
                 const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
-
                 const Node* fn = gen_serdes_fn(ctx, element_type, oprim_op->op == store_op, ptr_type->payload.ptr_type.address_space);
 
                 if (oprim_op->op == load_op) {
@@ -353,11 +352,26 @@ static const Node* process_node(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
 
+    IrArena* arena = ctx->rewriter.dst_arena;
+
+    if (old->tag == Function_TAG && strcmp(get_abstraction_name(old), "generated_init") == 0) {
+        Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
+        BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+
+        // Make sure to zero-init the stack pointers
+        const Node* uniform_stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "uniform_stack_ptr");
+        gen_store(bb, uniform_stack_pointer, int32_literal(arena, 0));
+        const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "stack_ptr");
+        gen_store(bb, stack_pointer, int32_literal(arena, 0));
+        new->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body));
+        return new;
+    }
+
     switch (old->tag) {
         case Let_TAG: return process_let(ctx, old);
         case PtrType_TAG: {
             if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
-                return int32_type(ctx->rewriter.dst_arena);
+                return int32_type(arena);
 
             return recreate_node_identity(&ctx->rewriter, old);
         }
@@ -369,15 +383,15 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
                 const char* emulated_heap_name = old_gvar->address_space == AsSubgroupPhysical ? "private" : "subgroup";
 
-                Node* cnst = constant(ctx->rewriter.dst_module, annotations, int32_type(ctx->rewriter.dst_arena), format_string(ctx->rewriter.dst_arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
+                Node* cnst = constant(ctx->rewriter.dst_module, annotations, int32_type(arena), format_string(arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
 
                 uint32_t* preallocated = old_gvar->address_space == AsSubgroupPhysical ? &ctx->preallocated_subgroup_memory : &ctx->preallocated_private_memory;
 
                 const Type* contents_type = rewrite_node(&ctx->rewriter, old_gvar->type);
                 assert(!contains_qualified_type(contents_type));
-                uint32_t required_space = bytes_to_i32_cells(get_mem_layout(ctx->config, ctx->rewriter.dst_arena, contents_type).size_in_bytes);
+                uint32_t required_space = bytes_to_i32_cells(get_mem_layout(ctx->config, arena, contents_type).size_in_bytes);
 
-                cnst->payload.constant.value = uint32_literal(ctx->rewriter.dst_arena, *preallocated);
+                cnst->payload.constant.value = uint32_literal(arena, *preallocated);
                 *preallocated += required_space;
 
                 register_processed(&ctx->rewriter, old, cnst);
@@ -387,15 +401,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
     }
-}
-
-static void update_base_stack_ptrs(Context* ctx) {
-    Node* per_thread_stack_ptr = (Node*) find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "stack_ptr");
-    assert(per_thread_stack_ptr && per_thread_stack_ptr->tag == GlobalVariable_TAG);
-    per_thread_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_private_memory);
-    Node* subgroup_stack_ptr = (Node*) find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "uniform_stack_ptr");
-    assert(subgroup_stack_ptr && subgroup_stack_ptr->tag == GlobalVariable_TAG);
-    subgroup_stack_ptr->payload.global_variable.init = uint32_literal(ctx->rewriter.dst_arena, ctx->preallocated_subgroup_memory);
 }
 
 KeyHash hash_node(Node**);
@@ -451,7 +456,6 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
     }
 
     rewrite_module(&ctx.rewriter);
-    update_base_stack_ptrs(&ctx);
     destroy_rewriter(&ctx.rewriter);
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {

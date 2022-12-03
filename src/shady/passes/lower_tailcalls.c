@@ -23,6 +23,7 @@ typedef struct Context_ {
     FnPtr* next_fn_ptr;
 
     Node* god_fn;
+    Node* init_fn;
 } Context;
 
 static const Node* process(Context* ctx, const Node* old);
@@ -55,12 +56,14 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     BodyBuilder* builder = begin_body(ctx2.rewriter.dst_module);
 
+    bind_instruction(builder, leaf_call(dst_arena, (LeafCall) { .callee = ctx->init_fn, .args = empty(dst_arena) }));
+
     // Create a root tree node value
     const Type* tn_struct_type = type_decl_ref(dst_arena, (TypeDeclRef) {
         .decl = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "TreeNode"),
     });
     const Node* init_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
-    const Node* init_depth = int32_literal(dst_arena, 1);
+    const Node* init_depth = int32_literal(dst_arena, 0);
     const Node* init_tn = first(bind_instruction(builder, prim_op(dst_arena, (PrimOp) { .op = make_op, .type_arguments = singleton(tn_struct_type), .operands = singleton(tuple(dst_arena, mk_nodes(dst_arena, init_mask, init_depth))) })));
 
     // Initialise the scheduler_vector with it
@@ -330,6 +333,8 @@ void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* d
 
     Nodes top_dispatcher_annotations = nodes(dst_arena, 0, NULL);
     Node* dispatcher_fn = function(dst, nodes(dst_arena, 0, NULL), "top_dispatcher", top_dispatcher_annotations, nodes(dst_arena, 0, NULL));
+    Node* init_fn = function(dst, nodes(dst_arena, 0, NULL), "generated_init", top_dispatcher_annotations, nodes(dst_arena, 0, NULL));
+    init_fn->payload.fun.body = fn_ret(dst_arena, (Return) { .fn = init_fn, .args = empty(dst_arena) });
 
     FnPtr next_fn_ptr = 1;
 
@@ -340,6 +345,7 @@ void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* d
         .next_fn_ptr = &next_fn_ptr,
 
         .god_fn = dispatcher_fn,
+        .init_fn = init_fn,
     };
 
     rewrite_module(&ctx.rewriter);
