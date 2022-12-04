@@ -42,7 +42,9 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
         case FnType_TAG:  error("Functions have an opaque memory representation");
         case PtrType_TAG: switch (type->payload.ptr_type.address_space) {
             case AsProgramCode: return get_mem_layout(config, arena, int32_type(arena));
-            default: error("unhandled")
+            case AsPrivatePhysical: return get_mem_layout(config, arena, int32_type(arena));
+            case AsSubgroupPhysical: return get_mem_layout(config, arena, int32_type(arena));
+            default: error_print("as: %d", type->payload.ptr_type.address_space); error("unhandled address space")
         }
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,
