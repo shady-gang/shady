@@ -154,24 +154,6 @@ const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail) {
     return create_node_helper(arena, node);
 }
 
-const Node* let_into(IrArena* arena, const Node* instruction, const Node* tail) {
-    assert(is_instruction(instruction));
-    LetInto payload = {
-        .instruction = instruction,
-        .tail = tail,
-    };
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = arena,
-        .type = arena->config.check_types ? check_type_let_into(arena, payload) : NULL,
-        .tag = LetInto_TAG,
-        .payload.let_into = payload
-    };
-    return create_node_helper(arena, node);
-}
-
 const Node* let_indirect(IrArena* arena, const Node* instruction, const Node* tail) {
     assert(is_instruction(instruction));
     LetIndirect payload = {

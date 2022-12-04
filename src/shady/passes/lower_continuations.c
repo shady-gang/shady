@@ -177,7 +177,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.branch.args),
             }));
         }
-        case LetInto_TAG: error("unused from now on");
         case Let_TAG: {
             const Node* oinstruction = get_let_instruction(node);
             if (oinstruction->tag == Control_TAG) {
@@ -195,8 +194,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 return finish_body(bb, tail_call(arena, (TailCall) { .target = lifted_body_ptr, .args = singleton(jp) }));
             }
 
-            // Nodes bound = bind_instruction(bb, rewrite_node(&ctx->rewriter, oinstruction));
-            // return finish_body(bb, tail_call(arena, (TailCall) { .target = tail_ptr, .args = bound }));
             return recreate_node_identity(&ctx->rewriter, node);
         }
         default: return recreate_node_identity(&ctx->rewriter, node);

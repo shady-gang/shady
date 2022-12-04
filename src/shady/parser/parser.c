@@ -630,11 +630,6 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
                     expect(lam);
                     return let(arena, instruction, lam);
                 }
-                case let_into_tok: {
-                    const char* id = accept_identifier(ctx);
-                    expect(id);
-                    return let_into(arena, instruction, unbound(arena, (Unbound) { .name = id }));
-                }
                 case let_indirect_tok: {
                     const Node* tgt = accept_operand(ctx);
                     expect(tgt);

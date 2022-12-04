@@ -138,7 +138,6 @@ Node* lambda      (Module*, Nodes params);
 
 const Node* let(IrArena* arena, const Node* instruction, const Node* tail);
 const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail);
-const Node* let_into(IrArena* arena, const Node* instruction, const Node* tail);
 const Node* let_indirect(IrArena* arena, const Node* instruction, const Node* tail);
 
 typedef struct BodyBuilder_ BodyBuilder;

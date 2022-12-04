@@ -175,7 +175,6 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
         case Branch_TAG:
         case Switch_TAG:
         case TailCall_TAG: error("TODO");
-        case LetInto_TAG:
         case Let_TAG: {
             const Node* instruction = get_let_instruction(terminator);
 
@@ -192,40 +191,36 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             emit_instruction(emitter, p, instruction, ioutputs);
 
             const Node* tail = get_let_tail(terminator);
-            if (tail->tag == AnonLambda_TAG) {
-                const Nodes tail_params = tail->payload.anon_lam.params;
-                assert(tail_params.count == yield_types.count);
-                for (size_t i = 0; i < yield_types.count; i++) {
-                    if (!need_binding[i]) {
-                        register_emitted(emitter, tail_params.nodes[i], results[i]);
-                        continue;
-                    }
-                    String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name,
-                                                   fresh_id(emitter->arena));
+            assert(tail->tag == AnonLambda_TAG);
 
-                    String prefix = "";
-                    String center = bind_to;
-                    switch (emitter->config.dialect) {
-                        case C:
-                            prefix = "register ";
-                            center = format_string(emitter->arena, "const %s", bind_to);
-                            break;
-                        case GLSL:
-                            prefix = "const ";
-                            break;
-                    }
-
-                    String decl = c_emit_type(emitter, yield_types.nodes[i], center);
-                    print(p, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, results[i]));
-                    register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
+            const Nodes tail_params = tail->payload.anon_lam.params;
+            assert(tail_params.count == yield_types.count);
+            for (size_t i = 0; i < yield_types.count; i++) {
+                if (!need_binding[i]) {
+                    register_emitted(emitter, tail_params.nodes[i], results[i]);
+                    continue;
                 }
-                emit_terminator(emitter, p, tail->payload.anon_lam.body);
-            } else {
-                assert(tail->tag == BasicBlock_TAG);
-                error("TODO")
-                // TODO
-                //print(p, "\ngoto %s;", emit_decl(emitter, tail));
+                String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name,
+                                               fresh_id(emitter->arena));
+
+                String prefix = "";
+                String center = bind_to;
+                switch (emitter->config.dialect) {
+                    case C:
+                        prefix = "register ";
+                        center = format_string(emitter->arena, "const %s", bind_to);
+                        break;
+                    case GLSL:
+                        prefix = "const ";
+                        break;
+                }
+
+                String decl = c_emit_type(emitter, yield_types.nodes[i], center);
+                print(p, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, results[i]));
+                register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
             }
+            emit_terminator(emitter, p, tail->payload.anon_lam.body);
+
             break;
         }
         case LetIndirect_TAG: {

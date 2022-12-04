@@ -39,7 +39,6 @@ set(SHADY_SOURCES
     passes/lower_subgroup_ops.c
     passes/lower_subgroup_vars.c
     passes/mark_leaf_functions.c
-    passes/name_control_targets.c
 )
 
 add_library(shady SHARED ${SHADY_SOURCES})

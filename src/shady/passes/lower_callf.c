@@ -54,7 +54,6 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .args = nargs,
             }));
         }
-        case LetInto_TAG:
         case Let_TAG: {
             const Node* old_instruction = get_let_instruction(old);
             const Node* new_instruction = NULL;
@@ -93,7 +92,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 new_instruction = rewrite_node(&ctx->rewriter, old_instruction);
 
             const Node* new_tail = rewrite_node(&ctx->rewriter, old_tail);
-            return (old->tag == LetInto_TAG ? let_into : let)(dst_arena, new_instruction, new_tail);
+            return let(dst_arena, new_instruction, new_tail);
         }
         default: return recreate_node_identity(&ctx->rewriter, old);
     }

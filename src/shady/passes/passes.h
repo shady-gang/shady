@@ -17,8 +17,6 @@ RewritePass infer_program;
 
 /// Gets rid of structured control flow constructs, and turns them into branches, joins and tailcalls
 RewritePass lower_cf_instrs;
-/// Turns all let(control(...), anon_lam) into let_into(control(...), bb)
-RewritePass name_control_targets;
 
 // Control flow lowering strategies
 

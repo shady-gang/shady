@@ -187,7 +187,6 @@ const Node* get_let_instruction(const Node* let) {
     switch (let->tag) {
         case Let_TAG: return let->payload.let.instruction;
         case LetMut_TAG: return let->payload.let_mut.instruction;
-        case LetInto_TAG: return let->payload.let_into.instruction;
         case LetIndirect_TAG: return let->payload.let_indirect.instruction;
         default: assert(false);
     }
@@ -196,7 +195,6 @@ const Node* get_let_tail(const Node* let) {
     switch (let->tag) {
         case Let_TAG: return let->payload.let.tail;
         case LetMut_TAG: return let->payload.let_mut.tail;
-        case LetInto_TAG: return let->payload.let_into.tail;
         case LetIndirect_TAG: return let->payload.let_indirect.tail;
         default: assert(false);
     }

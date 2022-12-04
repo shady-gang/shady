@@ -121,7 +121,6 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
         }
         case Switch_TAG: error("TODO")
         case LetMut_TAG:
-        case LetInto_TAG:
         case Let_TAG: {
             process_instruction(ctx, node, get_let_instruction(terminator));
             const Node* target = get_let_tail(terminator);

@@ -538,7 +538,6 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
         case NotATerminator: assert(false);
         case Let_TAG:
         case LetMut_TAG:
-        case LetInto_TAG:
         case LetIndirect_TAG: {
             const Node* instruction = get_let_instruction(node);
             const Node* tail = get_let_tail(node);
@@ -573,9 +572,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 print_abs_body(ctx, tail);
             } else {
                 printf(GREEN);
-                if (tag == LetInto_TAG)
-                    printf("let_into");
-                else if (tag == LetIndirect_TAG)
+                if (tag == LetIndirect_TAG)
                     printf("let_indirect");
                 else
                     printf("let");
