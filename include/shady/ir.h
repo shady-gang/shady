@@ -203,6 +203,10 @@ typedef struct CompilerConfig_ {
     } printf_trace;
 
     struct {
+        int max_top_iterations;
+    } shader_diagnostics;
+
+    struct {
         bool skip_generated, skip_builtin;
     } logging;
 } CompilerConfig;

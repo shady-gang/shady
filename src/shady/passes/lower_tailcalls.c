@@ -234,21 +234,51 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     const Node* local_id = gen_primop_e(loop_body_builder, subgroup_local_id_op, empty(dst_arena), empty(dst_arena));
     const Node* should_run = gen_primop_e(loop_body_builder, mask_is_thread_active_op, empty(dst_arena), mk_nodes(dst_arena, next_mask, local_id));
 
-    if (ctx->config->printf_trace.god_function)
-        bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, next_fn=%d next_mask=%d\n" }), next_function, next_mask) }));
+    bool count_iterations = ctx->config->shader_diagnostics.max_top_iterations > 0;
+    const Node* iterations_count_param = NULL;
+    if (count_iterations)
+        iterations_count_param = var(dst_arena, qualified_type(dst_arena, (QualifiedType) { .type = int32_type(dst_arena), .is_uniform = true }), "iterations");
+
+    if (ctx->config->printf_trace.god_function) {
+        if (count_iterations)
+            bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, iteration=%d next_fn=%d next_mask=%d\n" }), iterations_count_param, next_function, next_mask) }));
+        else
+            bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, next_fn=%d next_mask=%d\n" }), next_function, next_mask) }));
+    }
+
+    const Node* iteration_count_plus_one = NULL;
+    if (count_iterations)
+        iteration_count_plus_one = gen_primop_e(loop_body_builder, add_op, empty(dst_arena), mk_nodes(dst_arena, iterations_count_param, int32_literal(dst_arena, 1)));
+
+    const Node* break_terminator = merge_break(dst_arena, (MergeBreak) { .args = nodes(dst_arena, 0, NULL) });
+    const Node* continue_terminator = merge_continue(dst_arena, (MergeContinue) {
+        .args = count_iterations ? singleton(iteration_count_plus_one) : nodes(dst_arena, 0, NULL),
+    });
+
+    if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
+        const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, empty(dst_arena), mk_nodes(dst_arena, iterations_count_param, int32_literal(dst_arena, ctx->config->shader_diagnostics.max_top_iterations)));
+        Node* bail_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena));
+        bail_true_lam->payload.anon_lam.body = break_terminator;
+        const Node* bail_if = if_instr(dst_arena, (If) {
+            .condition = bail_condition,
+            .if_true = bail_true_lam,
+            .if_false = NULL,
+            .yield_types = empty(dst_arena)
+        });
+        bind_instruction(loop_body_builder, bail_if);
+    }
 
     struct List* literals = new_list(const Node*);
     struct List* cases = new_list(const Node*);
 
-    const Node* zero_lit = int32_literal(dst_arena, 0);
+    // Build 'zero' case (exits the program)
     Node* zero_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
-
     BodyBuilder* zero_case_builder = begin_body(ctx->rewriter.dst_module);
     BodyBuilder* zero_if_case_builder = begin_body(ctx->rewriter.dst_module);
     if (ctx->config->printf_trace.god_function)
         bind_instruction(zero_if_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: kill thread %d\n" }), local_id) }));
     Node* zero_if_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena));
-    zero_if_true_lam->payload.anon_lam.body = finish_body(zero_if_case_builder, merge_break(dst_arena, (MergeBreak) { .args = nodes(dst_arena, 0, NULL) }));
+    zero_if_true_lam->payload.anon_lam.body = finish_body(zero_if_case_builder, break_terminator);
     const Node* zero_if_instruction = if_instr(dst_arena, (If) {
         .condition = should_run,
         .if_true = zero_if_true_lam,
@@ -258,10 +288,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     bind_instruction(zero_case_builder, zero_if_instruction);
     if (ctx->config->printf_trace.god_function)
         bind_instruction(zero_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d escaped death!\n" }), local_id) }));
-    zero_case->payload.anon_lam.body = finish_body(zero_case_builder, merge_continue(dst_arena, (MergeContinue) {
-        .args = nodes(dst_arena, 0, NULL),
-    }));
-
+    zero_case->payload.anon_lam.body = finish_body(zero_case_builder, continue_terminator);
+    const Node* zero_lit = int32_literal(dst_arena, 0);
     append_list(const Node*, literals, zero_lit);
     append_list(const Node*, cases, zero_case);
 
@@ -292,9 +320,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
             bind_instruction(case_builder, if_instruction);
-            fn_case->payload.anon_lam.body = finish_body(case_builder, merge_continue(dst_arena, (MergeContinue) {
-                .args = nodes(dst_arena, 0, NULL),
-            }));
+            fn_case->payload.anon_lam.body = finish_body(case_builder, continue_terminator);
 
             append_list(const Node*, literals, fn_lit);
             append_list(const Node*, cases, fn_case);
@@ -315,12 +341,12 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     destroy_list(literals);
     destroy_list(cases);
 
-    Node* loop_inside = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
+    Node* loop_inside = lambda(ctx->rewriter.dst_module, count_iterations ? singleton(iterations_count_param) : nodes(dst_arena, 0, NULL));
     loop_inside->payload.anon_lam.body = finish_body(loop_body_builder, unreachable(dst_arena));
 
     const Node* the_loop = loop_instr(dst_arena, (Loop) {
         .yield_types = nodes(dst_arena, 0, NULL),
-        .initial_args = nodes(dst_arena, 0, NULL),
+        .initial_args = count_iterations ? singleton(int32_literal(dst_arena, 0)) : nodes(dst_arena, 0, NULL),
         .body = loop_inside
     });
 
