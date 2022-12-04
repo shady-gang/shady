@@ -30,11 +30,11 @@ static const Node* process_let(Context* ctx, const Node* node) {
             break;
     }
 
-    if (new_instruction->tag == Control_TAG || new_instruction->tag == IndirectCall_TAG) {
-        Nodes oparams = get_abstraction_params(old_tail);
-        Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
-        register_processed_list(&ctx->rewriter, oparams, nparams);
-        Node* new_tail = basic_block(ctx->rewriter.dst_arena, ctx->current_fn, nparams, unique_name(ctx->rewriter.dst_arena, "control_join"));
+    if (new_instruction->tag == Control_TAG) {
+        Nodes otailparams = get_abstraction_params(old_tail);
+        Nodes ntailparams = recreate_variables(&ctx->rewriter, otailparams);
+        register_processed_list(&ctx->rewriter, otailparams, ntailparams);
+        Node* new_tail = basic_block(ctx->rewriter.dst_arena, ctx->current_fn, ntailparams, unique_name(ctx->rewriter.dst_arena, "control_join"));
         new_tail->payload.basic_block.body = rewrite_node(&ctx->rewriter, get_abstraction_body(old_tail));
         return let_into(arena, new_instruction, new_tail);
     }

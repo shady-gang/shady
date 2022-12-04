@@ -158,25 +158,17 @@ static const Node* process(Context* ctx, const Node* old) {
             .decl = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "JoinPoint"),
         });
         case LetIndirect_TAG: {
-            //if (ctx->disable_lowering)
-            //    return recreate_node_identity(&ctx->rewriter, old);
-
-            const Node* old_instruction = old->payload.let.instruction;
-            if (old_instruction->tag == Control_TAG) {
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-                const Node* target = rewrite_node(&ctx->rewriter, old->payload.let.tail);
-
-                const Node* join_destination = rewrite_node(&ctx->rewriter, get_let_tail(old));
-
-                const Node* jp = first(bind_instruction(bb, leaf_call(dst_arena, (LeafCall) {
-                    .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_control"),
-                    .args = mk_nodes(dst_arena, join_destination, target)
-                })));
-                gen_push_value_stack(bb, jp);
-                return finish_body(bb, fn_ret(dst_arena, (Return) { .fn = NULL, .args = nodes(dst_arena, 0, NULL) }));
-            }
-
+            error("no need :)");
             return recreate_node_identity(&ctx->rewriter, old);
+        }
+        case PrimOp_TAG: {
+            if (old->payload.prim_op.op != create_joint_point_op)
+                return recreate_node_identity(&ctx->rewriter, old);
+            const Node* join_destination = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands));
+            return leaf_call(dst_arena, (LeafCall) {
+                .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_create_control_point"),
+                .args = mk_nodes(dst_arena, join_destination)
+            });
         }
         case TailCall_TAG: {
             //if (ctx->disable_lowering)

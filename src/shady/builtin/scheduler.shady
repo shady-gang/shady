@@ -21,16 +21,15 @@ subgroup [i32; MASK_SIZE] resume_at;
 subgroup bool fail = false;
 
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("lower_tailcalls") @DisablePass("lower_callf")
-fn builtin_control JoinPoint(uniform i32 join_destination, uniform i32 control_body) {
+fn builtin_create_control_point uniform JoinPoint(uniform i32 join_destination) {
     val curr_mask = subgroup_active_mask();
-    val tree_node = make[TreeNode]((curr_mask, scheduler_vector.(subgroup_local_id()).1));
+    val depth = scheduler_vector.(subgroup_local_id()).1;
+    val tree_node = make[TreeNode]((curr_mask, depth));
     val jp = make[JoinPoint]((tree_node, join_destination));
 
     // increase the depth of the active leaves
     scheduler_vector.(subgroup_local_id()).1 = scheduler_vector.(subgroup_local_id()).1 + 1;
 
-    // actually do the jump, too
-    resume_at.(subgroup_local_id()) = control_body;
     return (jp);
 }
 

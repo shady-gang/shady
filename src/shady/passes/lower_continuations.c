@@ -49,13 +49,13 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
     }
 }
 
-static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont) {
-    assert(is_basic_block(cont));
+static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, String given_name) {
+    assert(is_basic_block(cont) || is_anonymous_lambda(cont));
     LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, cont);
     if (found)
         return *found;
 
-    String name = get_abstraction_name(cont);
+    String name = is_basic_block(cont) ? get_abstraction_name(cont) : given_name;
     Nodes oparams = get_abstraction_params(cont);
     const Node* obody = get_abstraction_body(cont);
     IrArena* arena = ctx->rewriter.dst_arena;
@@ -134,7 +134,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Jump_TAG: {
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             const Node* otarget = node->payload.jump.target;
-            LiftedCont* lifted = lift_lambda_into_function(ctx, otarget);
+            LiftedCont* lifted = lift_lambda_into_function(ctx, otarget, NULL);
 
             add_spill_instrs(ctx, bb, lifted->save_values);
 
@@ -155,7 +155,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             for (size_t i = 0; i < 2; i++) {
                 const Node* otarget = otargets[i];
 
-                LiftedCont* lifted = lift_lambda_into_function(ctx, otarget);
+                LiftedCont* lifted = lift_lambda_into_function(ctx, otarget, NULL);
                 ntargets[i] = lifted->lifted_fn;
 
                 BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
@@ -177,15 +177,29 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.branch.args),
             }));
         }
+        // case Let_TAG:
         case LetInto_TAG: {
-            const Node* otail = node->payload.let.tail;
-            assert(is_basic_block(otail));
+            const Node* otail = get_let_tail(node);
+            // assert(is_basic_block(otail));
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-            LiftedCont* lifted = lift_lambda_into_function(ctx, otail);
+            LiftedCont* lifted_tail = lift_lambda_into_function(ctx, otail, unique_name(arena, "let_tail"));
             Context ctx2 = *ctx;
             // if tail is a BB, add all the context-saving stuff in front
-            add_spill_instrs(&ctx2, bb, lifted->save_values);
-            return finish_body(bb, let_indirect(arena, rewrite_node(&ctx2.rewriter, node->payload.let.instruction), fn_addr(arena, (FnAddr) { .fn = lifted->lifted_fn })));
+            add_spill_instrs(&ctx2, bb, lifted_tail->save_values);
+            const Node* tail_ptr = fn_addr(arena, (FnAddr) { .fn = lifted_tail->lifted_fn });
+
+            const Node* oinstruction = get_let_instruction(node);
+            if (oinstruction->tag == Control_TAG) {
+                LiftedCont* lifted_body = lift_lambda_into_function(ctx, oinstruction->payload.control.inside, unique_name(arena, "control_body"));
+                const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx2.rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
+                add_spill_instrs(&ctx2, bb, lifted_body->save_values);
+                const Node* lifted_body_ptr = fn_addr(arena, (FnAddr) { .fn = lifted_body->lifted_fn });
+                return finish_body(bb, tail_call(arena, (TailCall) { .target = lifted_body_ptr, .args = singleton(jp) }));
+            }
+
+            Nodes bound = bind_instruction(bb, rewrite_node(&ctx2.rewriter, oinstruction));
+            return finish_body(bb, tail_call(arena, (TailCall) { .target = tail_ptr, .args = bound }));
+            //return finish_body(bb, let_indirect(arena, rewrite_node(&ctx2.rewriter, oinstruction), tail_ptr));
         }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }

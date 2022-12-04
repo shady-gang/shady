@@ -242,6 +242,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case get_stack_pointer_uniform_op:
         case set_stack_pointer_op:
         case set_stack_pointer_uniform_op: error("Stack operations need to be lowered.");
+        case create_joint_point_op: error("lowered in lower_tailcalls.c");
         case subgroup_elect_first_op: {
             final_expression = "true /* subgroup_elect_first */";
             break;
