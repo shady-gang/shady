@@ -617,9 +617,7 @@ static const Node* accept_anonymous_lambda(ctxparams, Node* fn) {
 static const Node* accept_terminator(ctxparams, Node* fn) {
     TokenTag tag = curr_token(tokenizer).tag;
     switch (tag) {
-        case let_tok:
-        case let_into_tok:
-        case let_indirect_tok: {
+        case let_tok: {
             next_token(tokenizer);
             const Node* instruction = accept_instruction(ctx, fn, false);
             expect(instruction);
@@ -629,11 +627,6 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
                     const Node* lam = accept_anonymous_lambda(ctx, fn);
                     expect(lam);
                     return let(arena, instruction, lam);
-                }
-                case let_indirect_tok: {
-                    const Node* tgt = accept_operand(ctx);
-                    expect(tgt);
-                    return let_indirect(arena, instruction, tgt);
                 }
                 default: SHADY_UNREACHABLE;
             }

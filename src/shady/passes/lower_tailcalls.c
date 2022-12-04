@@ -157,10 +157,6 @@ static const Node* process(Context* ctx, const Node* old) {
         case JoinPointType_TAG: return type_decl_ref(dst_arena, (TypeDeclRef) {
             .decl = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "JoinPoint"),
         });
-        case LetIndirect_TAG: {
-            error("no need :)");
-            return recreate_node_identity(&ctx->rewriter, old);
-        }
         case PrimOp_TAG: {
             if (old->payload.prim_op.op != create_joint_point_op)
                 return recreate_node_identity(&ctx->rewriter, old);

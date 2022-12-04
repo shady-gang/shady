@@ -66,12 +66,6 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             visit_nodes(&visitor->visitor, node->payload.indirect_call.args);
             break;
         }
-        case LetIndirect_TAG: {
-            const Node* callee = node->payload.let.tail;
-            callee = ignore_immediate_fn_addr(callee);
-            visit_node(visitor, callee);
-            visit_node(visitor, node->payload.let.instruction);
-        }
         default: visit_children(&visitor->visitor, node);
     }
 }

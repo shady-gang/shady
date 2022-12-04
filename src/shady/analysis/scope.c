@@ -127,10 +127,6 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
             add_edge(ctx, abs, target, LetTailEdge);
             break;
         }
-        case LetIndirect_TAG: {
-            process_instruction(ctx, node, get_let_instruction(terminator));
-            break;
-        }
         case Join_TAG: {
             break;
         }

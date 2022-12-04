@@ -144,7 +144,6 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, tail->payload.anon_lam.body);
             return;
         }
-        case LetIndirect_TAG: error("TODO")
         case Jump_TAG: {
             Nodes args = terminator->payload.jump.args;
             LARRAY(SpvId, emitted_args, args.count);

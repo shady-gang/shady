@@ -267,11 +267,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             return let(arena, instruction, tail);
         }
         case LetMut_TAG: error("De-sugar this by hand")
-        case LetIndirect_TAG: {
-            const Node* instruction = rewrite_instruction(rewriter, node->payload.let.instruction);
-            const Node* tail = rewrite_basic_block(rewriter, node->payload.let.tail);
-            return let_indirect(arena, instruction, tail);
-        }
         case AnonLambda_TAG: {
             Nodes params = recreate_variables(rewriter, node->payload.anon_lam.params);
             register_processed_list(rewriter, node->payload.anon_lam.params, params);

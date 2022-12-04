@@ -949,13 +949,6 @@ const Type* check_type_let(IrArena* arena, Let let) {
     return noret_type(arena);
 }
 
-const Type* check_type_let_indirect(IrArena* arena, LetIndirect let) {
-    assert(is_value(let.tail));
-    Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
-    assert(check_value_call(let.tail, produced_types).nodes == 0);
-    return noret_type(arena);
-}
-
 const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
     Nodes args = tail_call.args;
     for (size_t i = 0; i < args.count; i++) {

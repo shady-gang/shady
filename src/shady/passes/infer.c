@@ -474,14 +474,6 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             const Node* inferred_tail = infer(ctx, otail, wrap_multiple_yield_types(arena, inferred_yield_types));
             return let(arena, inferred_instruction, inferred_tail);
         }
-        case LetIndirect_TAG: {
-            const Node* otail = node->payload.let_indirect.tail;
-            const Node* inferred_tail = infer(ctx, otail, NULL);
-            const Type* inferred_tail_type = extract_operand_type(inferred_tail->type);
-            assert(inferred_tail_type->tag == FnType_TAG);
-            const Node* inferred_instruction = infer(ctx, node->payload.let_indirect.instruction, wrap_multiple_yield_types(arena, inferred_tail_type->payload.fn_type.param_types));
-            return let_indirect(arena, inferred_instruction, inferred_tail);
-        }
         case Return_TAG: {
             const Node* imported_fn = infer(ctx, node->payload.fn_ret.fn, NULL);
             Nodes return_types = imported_fn->payload.fun.return_types;

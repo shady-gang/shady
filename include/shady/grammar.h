@@ -50,7 +50,6 @@ N(1, 1, 1, Control, control) \
 #define TERMINATOR_NODES(N) \
 N(0, 1, 1, Let, let) \
 N(0, 0, 1, LetMut, let_mut) \
-N(0, 1, 1, LetIndirect, let_indirect) \
 N(1, 1, 1, TailCall, tail_call) \
 N(1, 1, 1, Jump, jump) \
 N(1, 1, 1, Branch, branch) \
@@ -323,11 +322,6 @@ typedef struct LetMut_ LetMut;
 #define LetMut_Fields(MkField) \
 MkField(1, INSTRUCTION, const Node*, instruction) \
 MkField(1, ANON_LAMBDA, const Node*, tail)
-
-typedef struct LetIndirect_ LetIndirect;
-#define LetIndirect_Fields(MkField) \
-MkField(1, INSTRUCTION, const Node*, instruction) \
-MkField(1, VALUE, const Node*, tail)
 
 typedef struct Jump_ Jump;
 #define Jump_Fields(MkField) \

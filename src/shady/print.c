@@ -537,12 +537,10 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
     switch (tag) {
         case NotATerminator: assert(false);
         case Let_TAG:
-        case LetMut_TAG:
-        case LetIndirect_TAG: {
+        case LetMut_TAG: {
             const Node* instruction = get_let_instruction(node);
             const Node* tail = get_let_tail(node);
-            if (!ctx->config.reparseable && is_anonymous_lambda(tail)) {
-                assert(tag != LetIndirect_TAG);
+            if (!ctx->config.reparseable) {
                 // if the let tail is a lambda, we apply some syntactic sugar
                 if (tail->payload.anon_lam.params.count > 0) {
                     printf(GREEN);
@@ -572,10 +570,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 print_abs_body(ctx, tail);
             } else {
                 printf(GREEN);
-                if (tag == LetIndirect_TAG)
-                    printf("let_indirect");
-                else
-                    printf("let");
+                printf("let");
                 printf(RESET);
                 printf(" ");
                 print_node(instruction);

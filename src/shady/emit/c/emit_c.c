@@ -223,16 +223,6 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
 
             break;
         }
-        case LetIndirect_TAG: {
-            const Node* instruction = terminator->payload.let_indirect.instruction;
-            Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
-
-            // TODO implement properly
-            // TODO support Control ?
-            //const Node* tail = terminator->payload.let_indirect.tail;
-            error("TODO")
-            break;
-        }
         case Terminator_Return_TAG: {
             Nodes args = terminator->payload.fn_ret.args;
             if (args.count == 0) {
