@@ -177,29 +177,27 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.branch.args),
             }));
         }
-        // case Let_TAG:
-        case LetInto_TAG: {
-            const Node* otail = get_let_tail(node);
-            // assert(is_basic_block(otail));
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-            LiftedCont* lifted_tail = lift_lambda_into_function(ctx, otail, unique_name(arena, "let_tail"));
-            Context ctx2 = *ctx;
-            // if tail is a BB, add all the context-saving stuff in front
-            add_spill_instrs(&ctx2, bb, lifted_tail->save_values);
-            const Node* tail_ptr = fn_addr(arena, (FnAddr) { .fn = lifted_tail->lifted_fn });
-
+        case LetInto_TAG: error("unused from now on");
+        case Let_TAG: {
             const Node* oinstruction = get_let_instruction(node);
             if (oinstruction->tag == Control_TAG) {
+                const Node* otail = get_let_tail(node);
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                LiftedCont* lifted_tail = lift_lambda_into_function(ctx, otail, unique_name(arena, "let_tail"));
+                // if tail is a BB, add all the context-saving stuff in front
+                add_spill_instrs(ctx, bb, lifted_tail->save_values);
+                const Node* tail_ptr = fn_addr(arena, (FnAddr) { .fn = lifted_tail->lifted_fn });
+
                 LiftedCont* lifted_body = lift_lambda_into_function(ctx, oinstruction->payload.control.inside, unique_name(arena, "control_body"));
-                const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx2.rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
-                add_spill_instrs(&ctx2, bb, lifted_body->save_values);
+                const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
+                add_spill_instrs(ctx, bb, lifted_body->save_values);
                 const Node* lifted_body_ptr = fn_addr(arena, (FnAddr) { .fn = lifted_body->lifted_fn });
                 return finish_body(bb, tail_call(arena, (TailCall) { .target = lifted_body_ptr, .args = singleton(jp) }));
             }
 
-            Nodes bound = bind_instruction(bb, rewrite_node(&ctx2.rewriter, oinstruction));
-            return finish_body(bb, tail_call(arena, (TailCall) { .target = tail_ptr, .args = bound }));
-            //return finish_body(bb, let_indirect(arena, rewrite_node(&ctx2.rewriter, oinstruction), tail_ptr));
+            // Nodes bound = bind_instruction(bb, rewrite_node(&ctx->rewriter, oinstruction));
+            // return finish_body(bb, tail_call(arena, (TailCall) { .target = tail_ptr, .args = bound }));
+            return recreate_node_identity(&ctx->rewriter, node);
         }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
