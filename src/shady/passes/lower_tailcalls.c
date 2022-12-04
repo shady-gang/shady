@@ -327,7 +327,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_module);
     bind_instruction(dispatcher_body_builder, the_loop);
     if (ctx->config->printf_trace.god_function)
-        bind_instruction(dispatcher_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: end of top for %d\n" }), local_id) }));
+        bind_instruction(dispatcher_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: end of top\n" })) }));
 
     ctx->god_fn->payload.fun.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
         .args = nodes(dst_arena, 0, NULL),
