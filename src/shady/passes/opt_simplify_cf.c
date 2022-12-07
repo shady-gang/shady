@@ -8,10 +8,12 @@
 #include "../rewrite.h"
 
 #include "../analysis/scope.h"
+#include "../analysis/callgraph.h"
 
 typedef struct {
     Rewriter rewriter;
     Scope* scope;
+    CallGraph* graph;
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -22,6 +24,10 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Function_TAG: {
+            CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
+            if (entries_count_dict(fn_node->callers) == 1 && !fn_node->is_address_captured)
+                return NULL;
+
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
             Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             for (size_t i = 0; i < new->payload.fun.params.count; i++)
@@ -45,9 +51,10 @@ static const Node* process(Context* ctx, const Node* node) {
                 // turn that BB into a lambda !
                 Nodes oparams = old_tgt->payload.basic_block.params;
                 Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
-                register_processed_list(&ctx->rewriter, oparams, nparams);
                 Node* lam = lambda(ctx->rewriter.dst_module, nparams);
-                lam->payload.anon_lam.body = rewrite_node(&ctx->rewriter, old_tgt->payload.basic_block.body);
+                Context inline_context = *ctx;
+                register_processed_list(&inline_context.rewriter, oparams, nparams);
+                lam->payload.anon_lam.body = rewrite_node(&inline_context.rewriter, old_tgt->payload.basic_block.body);
                 Nodes args = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
                 const Node* wrapped;
                 switch (args.count) {
@@ -57,7 +64,31 @@ static const Node* process(Context* ctx, const Node* node) {
                 }
                 return let(arena, wrapped, lam);
             }
-            SHADY_FALLTHROUGH
+            return recreate_node_identity(&ctx->rewriter, node);
+        }
+        case TailCall_TAG: {
+            const Node* dst = node->payload.tail_call.target;
+            if (dst->tag == FnAddr_TAG) {
+                const Node* dst_fn = dst->payload.fn_addr.fn;
+                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, dst_fn);
+                if (entries_count_dict(fn_node->callers) == 1 && !fn_node->is_address_captured) {
+                    Nodes oparams = dst_fn->payload.fun.params;
+                    Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
+                    Node* lam = lambda(ctx->rewriter.dst_module, nparams);
+                    Context inline_context = *ctx;
+                    register_processed_list(&inline_context.rewriter, oparams, nparams);
+                    lam->payload.anon_lam.body = rewrite_node(&inline_context.rewriter, dst_fn->payload.fun.body);
+                    Nodes args = rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
+                    const Node* wrapped;
+                    switch (args.count) {
+                        case 0: wrapped = unit(arena); break;
+                        case 1: wrapped = quote(arena, first(args)); break;
+                        default: wrapped = quote(arena, tuple(arena, args)); break;
+                    }
+                    return let(arena, wrapped, lam);
+                }
+            }
+            return recreate_node_identity(&ctx->rewriter, node);
         }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
@@ -66,8 +97,10 @@ static const Node* process(Context* ctx, const Node* node) {
 void opt_simplify_cf(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .graph = get_callgraph(src),
         .scope = NULL,
     };
     rewrite_module(&ctx.rewriter);
+    dispose_callgraph(ctx.graph);
     destroy_rewriter(&ctx.rewriter);
 }

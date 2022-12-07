@@ -47,6 +47,7 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             if (target == visitor->node)
                 visitor->node->is_recursive = true;
             insert_set_get_result(CGNode*, visitor->node->callees, target);
+            insert_set_get_result(CGNode*, target->callers, visitor->node);
             break;
         }
         case FnAddr_TAG: {
@@ -66,6 +67,17 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             visit_nodes(&visitor->visitor, node->payload.indirect_call.args);
             break;
         }
+        case TailCall_TAG: {
+            const Node* callee = node->payload.tail_call.target;
+            callee = ignore_immediate_fn_addr(callee);
+            visit_node(visitor, callee);
+            if (callee->tag != Function_TAG)
+                visitor->node->calls_something_indirectly = true;
+            else if (analyze_fn(visitor->graph, callee)->calls_something_indirectly)
+                visitor->node->calls_something_indirectly = true;
+            visit_nodes(&visitor->visitor, node->payload.tail_call.args);
+            break;
+        }
         default: visit_children(&visitor->visitor, node);
     }
 }
@@ -78,6 +90,7 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
     CGNode* new = calloc(1, sizeof(CGNode));
     new->fn = fn;
     new->callees = new_set(CGNode*, (HashFn) hash_cgnode, (CmpFn) compare_cgnode);
+    new->callers = new_set(CGNode*, (HashFn) hash_cgnode, (CmpFn) compare_cgnode);
     new->tarjan.index = -1;
     insert_dict_and_get_key(const Node*, CGNode*, graph->fn2cgn, fn, new);
 
@@ -203,6 +216,7 @@ void dispose_callgraph(CallGraph* graph) {
     CGNode* node;
     while (dict_iter(graph->fn2cgn, &i, NULL, &node)) {
         debug_print("Freeing CG node: %s\n", node->fn->payload.fun.name);
+        destroy_dict(node->callers);
         destroy_dict(node->callees);
         free(node);
     }

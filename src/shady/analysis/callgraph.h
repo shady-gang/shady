@@ -7,6 +7,7 @@ typedef struct CGNode_ CGNode;
 
 struct CGNode_ {
     const Node* fn;
+    struct Dict* callers;
     struct Dict* callees;
     struct {
         int index, lowlink;
