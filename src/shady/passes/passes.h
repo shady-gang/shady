@@ -59,6 +59,7 @@ RewritePass eliminate_constants;
 /// Tags all functions that don't need special handling
 RewritePass mark_leaf_functions;
 RewritePass opt_simplify_cf;
+RewritePass opt_stack;
 RewritePass opt_restructurize;
 
 #define SHADY_PASSES_H
