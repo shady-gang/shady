@@ -17,7 +17,6 @@ struct CGNode_ {
     bool is_recursive;
     /// set to true if the address of this is captured by a FnAddr node that is not immediately consumed by a call
     bool is_address_captured;
-    bool calls_something_indirectly;
 };
 
 typedef struct Callgraph_ {

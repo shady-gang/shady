@@ -60,10 +60,6 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             const Node* callee = node->payload.indirect_call.callee;
             callee = ignore_immediate_fn_addr(callee);
             visit_node(visitor, callee);
-            if (callee->tag != Function_TAG)
-                visitor->node->calls_something_indirectly = true;
-            else if (analyze_fn(visitor->graph, callee)->calls_something_indirectly)
-                visitor->node->calls_something_indirectly = true;
             visit_nodes(&visitor->visitor, node->payload.indirect_call.args);
             break;
         }
@@ -71,10 +67,6 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             const Node* callee = node->payload.tail_call.target;
             callee = ignore_immediate_fn_addr(callee);
             visit_node(visitor, callee);
-            if (callee->tag != Function_TAG)
-                visitor->node->calls_something_indirectly = true;
-            else if (analyze_fn(visitor->graph, callee)->calls_something_indirectly)
-                visitor->node->calls_something_indirectly = true;
             visit_nodes(&visitor->visitor, node->payload.tail_call.args);
             break;
         }
