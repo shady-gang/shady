@@ -71,7 +71,7 @@ static void process_arguments(int argc, const char** argv, Args* args) {
         error_print("  --log-level [debug, info, warn, error]\n");
         error_print("  --print-builtin\n");
         error_print("  --print-generated\n");
-        exit(help ? 0 : MissingInputArg);
+        exit(0);
     }
 }
 

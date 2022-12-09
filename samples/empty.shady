@@ -1,5 +1,5 @@
 // trivial function that does nothing
 @EntryPoint("compute") @WorkgroupSize(64, 1, 1)
 fn main() {
-    return;
+    return ();
 }

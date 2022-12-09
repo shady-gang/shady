@@ -1,7 +1,14 @@
 fn f i32 (varying bool b) {
     jump(bb1)(7);
 
-    bb1: (varying i32 n) {
+    cont bb1(varying i32 n) {
         return(n);
     }
+}
+
+// trivial function that does nothing
+@EntryPoint("compute") @WorkgroupSize(64, 1, 1)
+fn main() {
+    leaf_call (f)(false);
+    return ();
 }
