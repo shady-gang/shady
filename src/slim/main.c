@@ -15,17 +15,16 @@ enum SlimErrorCodes {
     NoError,
     MissingInputArg,
     MissingOutputArg,
-    InputFileDoesNotExist,
-    IncorrectLogLevel,
+    InputFileDoesNotExist = 4,
     MissingDumpCfgArg,
     MissingDumpIrArg,
+    IncorrectLogLevel = 16,
     InvalidTarget,
 };
 
 typedef enum {
     TgtAuto, TgtC, TgtSPV, TgtGLSL,
 } CodegenTarget;
-
 
 static bool string_ends_with(const char* string, const char* suffix) {
     size_t len = strlen(string);
