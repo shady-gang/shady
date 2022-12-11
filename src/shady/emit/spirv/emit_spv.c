@@ -368,6 +368,15 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
     for (size_t i = 0; i < declarations.count; i++) {
         const Node* node = declarations.nodes[i];
         if (node->tag != GlobalVariable_TAG) continue;
+        // Prior to SPIRV 1.4, _only_ input and output variables should be found here.
+        if (emitter->configuration->target_spirv_version.major == 1 &&
+            emitter->configuration->target_spirv_version.minor < 4) {
+            switch (node->payload.global_variable.address_space) {
+                case AsOutput:
+                case AsInput: break;
+                default: continue;
+            }
+        }
         interface_arr[interface_size++] = find_reserved_id(emitter, node);
     }
     // Do the same with builtins ...
