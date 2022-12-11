@@ -43,7 +43,7 @@ set(SHADY_SOURCES
     passes/opt_stack.c
 )
 
-add_library(shady SHARED ${SHADY_SOURCES})
+add_library(shady STATIC ${SHADY_SOURCES})
 set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(builtin)

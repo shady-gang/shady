@@ -1,4 +1,4 @@
-add_library(murmur3 OBJECT ../murmur3/murmur3.c)
+add_library(murmur3 STATIC ../murmur3/murmur3.c)
 target_include_directories(murmur3 INTERFACE ../murmur3)
 
 add_library(api INTERFACE)
