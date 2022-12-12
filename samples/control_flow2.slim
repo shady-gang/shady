@@ -1,14 +1,14 @@
 fn fac varying i32(varying i32 count) {
-  let x = loop i32 (varying i32 i = 1, varying i32 a = 1) {
-    let r = lt(i, count); // if i < count
+  val x = loop i32 (varying i32 i = 1, varying i32 a = 1) {
+    val r = lt(i, count); // if i < count
     if (r) {
-      let i2 = add(i, 1);
-      let a2 = mul(i, a);
+      val i2 = add(i, 1);
+      val a2 = mul(i, a);
       continue(i2, a2);
     } else {
       break(a);
     }
-    unreachable;
+    unreachable ();
   }
   return(x);
 }
