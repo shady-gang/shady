@@ -69,8 +69,8 @@ static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, C
         .src = src_node,
         .dst = dst_node,
     };
-    append_list(CFNode*, src_node->succ_edges, edge);
-    append_list(CFNode*, dst_node->pred_edges, edge);
+    append_list(CFEdge, src_node->succ_edges, edge);
+    append_list(CFEdge, dst_node->pred_edges, edge);
 }
 
 static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction) {
@@ -282,7 +282,22 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
     fprintf(output, "label = \"%s\";\n", get_abstraction_name(entry));
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const Node* bb = read_list(const CFNode*, scope->contents)[i]->node;
-        fprintf(output, "%s_%d;\n", get_abstraction_name(bb), extra_uniqueness);
+        const Node* body = get_abstraction_body(bb);
+        switch (body->tag) {
+            case Let_TAG: body = body->payload.let.instruction; break;
+            default: break;
+        }
+        String label = node_tags[body->tag];
+        if (body->tag == PrimOp_TAG) {
+            label = primop_names[body->payload.prim_op.op];
+        }
+        if (bb->tag == AnonLambda_TAG) {
+
+        } else {
+            // assert(bb->tag == BasicBlock_TAG);
+            label = format_string(entry->arena, "%s\n%s", get_abstraction_name(bb), label);
+        }
+        fprintf(output, "bb_%zu [label=\"%s\"];\n", (size_t) bb, label);
     }
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
@@ -292,7 +307,7 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
             CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
             const CFNode* target_node = edge.dst;
             const Node* target_bb = target_node->node;
-            fprintf(output, "%s_%d -> %s_%d;\n", get_abstraction_name(bb), extra_uniqueness, get_abstraction_name(target_bb), extra_uniqueness);
+            fprintf(output, "bb_%zu -> bb_%zu;\n", (size_t) (bb), (size_t) (target_bb));
         }
     }
     fprintf(output, "}\n");
