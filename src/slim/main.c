@@ -58,6 +58,7 @@ typedef struct {
     const char*     output_filename;
     const char* shd_output_filename;
     const char* cfg_output_filename;
+    const char* loop_tree_output_filename;
 } SlimConfig;
 
 static void process_arguments(int argc, const char** argv, SlimConfig* args) {
@@ -96,6 +97,13 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
                 exit(MissingDumpCfgArg);
             }
             args->cfg_output_filename = argv[i];
+        } else if (strcmp(argv[i], "--dump-loop-tree") == 0) {
+            i++;
+            if (i == argc) {
+                error_print("--dump-loop-tree must be followed with a filename");
+                exit(MissingDumpCfgArg);
+            }
+            args->loop_tree_output_filename = argv[i];
         } else if (strcmp(argv[i], "--dump-ir") == 0) {
             i++;
             if (i == argc) {
@@ -138,12 +146,15 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
         error_print("  --target c spirv\n");
         error_print("  --output <filename>, -o <filename>\n");
         error_print("  --dump-cfg <filename>\n");
+        error_print("  --dump-loop-tree <filename>\n");
         error_print("  --dump-ir <filename>\n");
         error_print("  --print-builtin\n");
         error_print("  --print-generated\n");
         exit(help ? 0 : MissingInputArg);
     }
 }
+
+void dump_loop_trees(FILE* output, Module* mod);
 
 int main(int argc, const char** argv) {
     platform_specific_terminal_init_extras();
@@ -206,6 +217,14 @@ int main(int argc, const char** argv) {
         dump_cfg(f, mod);
         fclose(f);
         info_print("CFG dumped\n");
+    }
+
+    if (args.loop_tree_output_filename) {
+        FILE* f = fopen(args.loop_tree_output_filename, "wb");
+        assert(f);
+        dump_loop_trees(f, mod);
+        fclose(f);
+        info_print("Loop tree dumped\n");
     }
 
     if (args.shd_output_filename) {
