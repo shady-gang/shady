@@ -96,13 +96,15 @@ static const Node* process_let(Context* ctx, const Node* node) {
             Node* actual_body = lambda(ctx->rewriter.dst_module, nodes(arena, 1, (const Node*[]) { continue_point }));
             actual_body->payload.anon_lam.body = rewrite_node(&join_context.rewriter, old_loop_body->payload.anon_lam.body);
 
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             const Node* inner_control = control(arena, (Control) {
                 .yield_types = param_types,
                 .inside = actual_body,
             });
+            Nodes args = bind_instruction(bb, inner_control);
 
             // TODO let_in_block or use a Jump !
-            loop_body->payload.basic_block.body = let(arena, inner_control, loop_body);
+            loop_body->payload.basic_block.body = finish_body(bb, jump(arena, (Jump) { .target = loop_body, .args = args }));
 
             Node* outer_body = lambda(ctx->rewriter.dst_module, nodes(arena, 1, (const Node*[]) { break_point }));
             const Node* initial_jump = jump(arena, (Jump) {
