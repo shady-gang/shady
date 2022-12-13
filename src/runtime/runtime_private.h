@@ -126,6 +126,8 @@ struct Device_ {
     #undef Y
     #undef X
     } extensions;
+
+    struct Dict* specialized_programs;
 };
 
 bool probe_devices(Runtime* runtime);
@@ -135,8 +137,6 @@ struct Program_ {
 
     IrArena* arena;
     Module* generic_program;
-
-    struct Dict* specialized;
 };
 
 struct SpecProgram_ {
@@ -157,6 +157,7 @@ void unload_program(Program*);
 void shutdown_device(Device*);
 
 SpecProgram* get_specialized_program(Program*, Device*);
+void destroy_specialized_program(SpecProgram*);
 
 static inline void append_pnext(VkBaseOutStructure* s, void* n) {
     while (s->pNext != NULL)

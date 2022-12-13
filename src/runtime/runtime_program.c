@@ -7,29 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "murmur3.h"
-
-// TODO: unduplicate
-static KeyHash hash_murmur(const void* data, size_t size) {
-    int32_t out[4];
-    MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);
-
-    uint32_t final = 0;
-    final ^= out[0];
-    final ^= out[1];
-    final ^= out[2];
-    final ^= out[3];
-    return final;
-}
-
-KeyHash hash_device(Device** pdevice) {
-    return hash_murmur(*pdevice, sizeof(Device*));
-}
-
-bool cmp_devices(Device** pldevice, Device** prdevice) {
-    return *pldevice == *prdevice;
-}
-
 Program* load_program(Runtime* runtime, const char* program_src) {
     Program* program = malloc(sizeof(Program));
     memset(program, 0, sizeof(Program));
@@ -43,8 +20,6 @@ Program* load_program(Runtime* runtime, const char* program_src) {
     program->generic_program = new_module(program->arena, "my_module");
     CHECK(parse_files(&config, 1, (const char* []){ program_src }, program->generic_program) == CompilationNoError, return false);
     // TODO split the compilation pipeline into generic and non-generic parts
-
-    program->specialized = new_dict(Device*, SpecProgram*, (HashFn) hash_device, (CmpFn) cmp_devices);
     return program;
 }
 
@@ -145,11 +120,21 @@ static SpecProgram* create_specialized_program(Program* program, Device* device)
 }
 
 SpecProgram* get_specialized_program(Program* program, Device* device) {
-    SpecProgram** found = find_value_dict(Device*, SpecProgram*, program->specialized, device);
+    SpecProgram** found = find_value_dict(Program*, SpecProgram*, device->specialized_programs, program);
     if (found)
         return *found;
     SpecProgram* spec = create_specialized_program(program, device);
     assert(spec);
-    insert_dict(Device*, SpecProgram*, program->specialized, device, spec);
+    insert_dict(Program*, SpecProgram*, device->specialized_programs, program, spec);
     return spec;
+}
+
+void destroy_specialized_program(SpecProgram* spec) {
+    vkDestroyPipeline(spec->device->device, spec->pipeline, NULL);
+    vkDestroyPipelineLayout(spec->device->device, spec->layout, NULL);
+    vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
+    free(spec->spirv_bytes);
+    destroy_ir_arena(spec->arena);
+
+    free(spec);
 }

@@ -157,6 +157,9 @@ void shutdown_runtime(Runtime* runtime) {
     }
     destroy_list(runtime->devices);
 
+    if (runtime->debug_messenger)
+        runtime->instance_exts.debug_utils.vkDestroyDebugUtilsMessengerEXT(runtime->instance, runtime->debug_messenger, NULL);
+
     vkDestroyInstance(runtime->instance, NULL);
     free(runtime);
 }

@@ -3,8 +3,11 @@
 #include "log.h"
 #include "portability.h"
 #include "list.h"
+#include "dict.h"
 
 #include <string.h>
+
+#include "murmur3.h"
 
 static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* count, const char* enabled_extensions[], bool support_vector[]) {
     *count = 0;
@@ -161,6 +164,27 @@ static bool get_physical_device_properties(SHADY_UNUSED Runtime* runtime, VkPhys
     return true;
 }
 
+// TODO: unduplicate
+static KeyHash hash_murmur(const void* data, size_t size) {
+    int32_t out[4];
+    MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);
+
+    uint32_t final = 0;
+    final ^= out[0];
+    final ^= out[1];
+    final ^= out[2];
+    final ^= out[3];
+    return final;
+}
+
+KeyHash hash_program(Program** pdevice) {
+    return hash_murmur(*pdevice, sizeof(Device*));
+}
+
+bool cmp_programs(Device** pldevice, Device** prdevice) {
+    return *pldevice == *prdevice;
+}
+
 static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
     Device* device = calloc(1, sizeof(Device));
     device->runtime = runtime;
@@ -221,6 +245,8 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
     }, NULL, &device->cmd_pool), goto delete_device);
 
+    device->specialized_programs = new_dict(Program*, SpecProgram*, (HashFn) hash_program, (CmpFn) cmp_programs);
+
     vkGetDeviceQueue(device->device, device->properties.compute_queue_family, 0, &device->compute_queue);
     return device;
 
@@ -260,6 +286,15 @@ bool probe_devices(Runtime* runtime) {
 }
 
 void shutdown_device(Device* device) {
+    size_t i = 0;
+    Program* p;
+    SpecProgram* sp;
+    while (dict_iter(device->specialized_programs, &i, &p, &sp)) {
+        destroy_specialized_program(sp);
+    }
+    destroy_dict(device->specialized_programs);
+    vkDestroyCommandPool(device->device, device->cmd_pool, NULL);
+    vkDestroyDevice(device->device, NULL);
     free(device);
 }
 

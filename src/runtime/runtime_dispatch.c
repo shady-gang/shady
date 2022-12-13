@@ -63,7 +63,11 @@ Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, in
 }
 
 bool wait_completion(Dispatch* dispatch) {
-    CHECK_VK(vkWaitForFences(dispatch->src->device->device, 1, (VkFence[]) { dispatch->done_fence }, true, UINT32_MAX), return false);
+    VkDevice device = dispatch->src->device->device;
+    CHECK_VK(vkWaitForFences(device, 1, (VkFence[]) { dispatch->done_fence }, true, UINT32_MAX), return false);
+
+    vkDestroyFence(device, dispatch->done_fence, NULL);
+    vkFreeCommandBuffers(device, dispatch->src->device->cmd_pool, 1, &dispatch->cmd_buf);
 
     free(dispatch);
     return true;
