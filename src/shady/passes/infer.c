@@ -201,23 +201,28 @@ static const Node* _infer_anonymous_lambda(Context* ctx, const Node* node, const
     assert(is_anonymous_lambda(node));
     assert(expected);
     Nodes inferred_arg_type = unwrap_multiple_yield_types(ctx->rewriter.dst_arena, expected);
-    assert(inferred_arg_type.count == node->payload.anon_lam.params.count);
+    assert(inferred_arg_type.count == node->payload.anon_lam.params.count || node->payload.anon_lam.params.count == 0);
     IrArena* arena = ctx->rewriter.dst_arena;
 
     Context body_context = *ctx;
-    LARRAY(const Node*, nparams, node->payload.anon_lam.params.count);
-    for (size_t i = 0; i < node->payload.anon_lam.params.count; i++) {
-        const Variable* old_param = &node->payload.anon_lam.params.nodes[i]->payload.var;
-        // for the param type: use the inferred one if none is already provided
-        // if one is provided, check the inferred argument type is a subtype of the param type
-        const Type* param_type = infer(ctx, old_param->type, NULL);
-        param_type = param_type ? param_type : inferred_arg_type.nodes[i];
-        assert(is_subtype(param_type, inferred_arg_type.nodes[i]));
-        nparams[i] = var(body_context.rewriter.dst_arena, param_type, old_param->name);
-        register_processed(&body_context.rewriter, node->payload.anon_lam.params.nodes[i], nparams[i]);
+    LARRAY(const Node*, nparams, inferred_arg_type.count);
+    for (size_t i = 0; i < inferred_arg_type.count; i++) {
+        if (node->payload.anon_lam.params.count == 0) {
+            // syntax sugar: make up a parameter if there was none
+            nparams[i] = var(body_context.rewriter.dst_arena, inferred_arg_type.nodes[i], unique_name(arena, "_"));
+        } else {
+            const Variable* old_param = &node->payload.anon_lam.params.nodes[i]->payload.var;
+            // for the param type: use the inferred one if none is already provided
+            // if one is provided, check the inferred argument type is a subtype of the param type
+            const Type* param_type = infer(ctx, old_param->type, NULL);
+            param_type = param_type ? param_type : inferred_arg_type.nodes[i];
+            assert(is_subtype(param_type, inferred_arg_type.nodes[i]));
+            nparams[i] = var(body_context.rewriter.dst_arena, param_type, old_param->name);
+            register_processed(&body_context.rewriter, node->payload.anon_lam.params.nodes[i], nparams[i]);
+        }
     }
 
-    Node* lam = lambda(ctx->rewriter.dst_module, nodes(arena, node->payload.anon_lam.params.count, nparams));
+    Node* lam = lambda(ctx->rewriter.dst_module, nodes(arena, inferred_arg_type.count, nparams));
     assert(lam);
     register_processed(&ctx->rewriter, node, lam);
 
@@ -365,6 +370,30 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
     });
 }
 
+static const Node* _infer_leaf_call(Context* ctx, const Node* node, const Type* expected_type) {
+    assert(node->tag == LeafCall_TAG);
+
+    const Node* new_callee = infer(ctx, node->payload.leaf_call.callee, NULL);
+    LARRAY(const Node*, new_args, node->payload.leaf_call.args.count);
+
+    const Type* callee_type = new_callee->type;
+    if (callee_type->tag != FnType_TAG)
+        error("Callees must have a function type");
+    if (callee_type->payload.fn_type.param_types.count != node->payload.leaf_call.args.count)
+        error("Mismatched argument counts");
+    for (size_t i = 0; i < node->payload.leaf_call.args.count; i++) {
+        const Node* arg = node->payload.leaf_call.args.nodes[i];
+        assert(arg);
+        new_args[i] = infer(ctx, node->payload.leaf_call.args.nodes[i], callee_type->payload.fn_type.param_types.nodes[i]);
+        assert(new_args[i]->type);
+    }
+
+    return leaf_call(ctx->rewriter.dst_arena, (LeafCall) {
+        .callee = new_callee,
+        .args = nodes(ctx->rewriter.dst_arena, node->payload.leaf_call.args.count, new_args)
+    });
+}
+
 static const Node* _infer_indirect_call(Context* ctx, const Node* node, const Type* expected_type) {
     assert(node->tag == IndirectCall_TAG);
 
@@ -453,7 +482,8 @@ static const Node* _infer_loop(Context* ctx, const Node* node, const Type* expec
 static const Node* _infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return _infer_primop(ctx, node, expected_type);
-        case IndirectCall_TAG: return _infer_indirect_call  (ctx, node, expected_type);
+        case LeafCall_TAG:     return _infer_leaf_call(ctx, node, expected_type);
+        case IndirectCall_TAG: return _infer_indirect_call(ctx, node, expected_type);
         case If_TAG:           return _infer_if    (ctx, node, expected_type);
         case Loop_TAG:         return _infer_loop  (ctx, node, expected_type);
         case Match_TAG:        error("TODO")
@@ -490,7 +520,7 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
         case Jump_TAG: {
             assert(is_basic_block(node->payload.jump.target));
             const Node* ntarget = infer(ctx, node->payload.jump.target, NULL);
-            Nodes param_types = get_abstraction_params(ntarget);
+            Nodes param_types = extract_variable_types(arena, get_abstraction_params(ntarget));
 
             LARRAY(const Node*, tmp, node->payload.jump.args.count);
             for (size_t i = 0; i < node->payload.jump.args.count; i++)
@@ -511,8 +541,8 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             const Node* t_target = infer(ctx, node->payload.branch.true_target, NULL);
             const Node* f_target = infer(ctx, node->payload.branch.false_target, NULL);
 
-            Nodes t_param_types = get_abstraction_params(t_target);
-            Nodes f_param_types = get_abstraction_params(f_target);
+            Nodes t_param_types = extract_variable_types(arena, get_abstraction_params(t_target));
+            Nodes f_param_types = extract_variable_types(arena, get_abstraction_params(f_target));
 
             // TODO: unify the two target types
 

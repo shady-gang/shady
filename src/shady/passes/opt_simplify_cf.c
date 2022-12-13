@@ -19,6 +19,9 @@ typedef struct {
 static const Node* process(Context* ctx, const Node* node) {
     IrArena* arena = ctx->rewriter.dst_arena;
     if (!node) return NULL;
+    assert(arena != node->arena);
+    assert(node->arena == ctx->rewriter.src_arena);
+
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
@@ -54,7 +57,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 Node* lam = lambda(ctx->rewriter.dst_module, nparams);
                 Context inline_context = *ctx;
                 register_processed_list(&inline_context.rewriter, oparams, nparams);
-                lam->payload.anon_lam.body = rewrite_node(&inline_context.rewriter, old_tgt->payload.basic_block.body);
+                lam->payload.anon_lam.body = rewrite_node(&ctx->rewriter, old_tgt->payload.basic_block.body);
                 Nodes args = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
                 const Node* wrapped;
                 switch (args.count) {

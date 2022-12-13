@@ -225,6 +225,8 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;
 
+    assert(node->arena == rewriter->src_arena);
+
     // TODO redundant ?
     const Node* already_done_before = rewriter->processed ? search_processed(rewriter, node) : NULL;
     if (already_done_before)

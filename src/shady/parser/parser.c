@@ -696,6 +696,8 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
         }
         case unreachable_tok: {
             next_token(tokenizer);
+            expect(accept_token(ctx, lpar_tok));
+            expect(accept_token(ctx, rpar_tok));
             return unreachable(arena);
         }
         default: break;

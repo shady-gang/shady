@@ -179,6 +179,10 @@ static void print_basic_block(PrinterCtx* ctx, const Node* bb) {
     printf(BYELLOW);
     printf(" %s", bb->payload.basic_block.name);
     printf(RESET);
+    if (ctx->config.print_ptrs) {
+        printf(" %zu:: ", (size_t)(void*)bb);
+        printf(" fn=%zu:: ", (size_t)(void*)bb->payload.basic_block.fn);
+    }
     print_param_list(ctx, bb->payload.basic_block.params, NULL);
 
     printf(" {");

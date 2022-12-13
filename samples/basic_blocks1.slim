@@ -1,7 +1,8 @@
-fn f i32 (varying bool b) {
-    jump(bb1)(7);
+@EntryPoint("compute") @WorkgroupSize(64, 1, 1)
+fn main() {
+    jump (bb1)(7);
 
-    bb1: (varying i32 n) {
-        return(n);
+    cont bb1(varying i32 n) {
+        return ();
     }
 }
