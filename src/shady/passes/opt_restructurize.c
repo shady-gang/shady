@@ -47,8 +47,6 @@ typedef struct {
 
 static DFSStackEntry* encountered_before(Context* ctx, const Node* bb, size_t* path_len) {
     DFSStackEntry* entry = ctx->dfs_stack;
-    assert(entry);
-    entry = entry->parent;
     if (path_len) *path_len = 1;
     while (entry != NULL) {
         if (entry->old == bb)
@@ -59,12 +57,10 @@ static DFSStackEntry* encountered_before(Context* ctx, const Node* bb, size_t* p
     return entry;
 }
 
-static const Node* structure(Context* entry_ctx, const Node* abs, const Node* exit_ladder);
+static const Node* structure(Context* ctx, const Node* abs, const Node* exit_ladder);
 
-static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node* dst, Nodes oargs, const Node* exit_ladder) {
+static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node* caller, const Node* dst, Nodes oargs, const Node* exit_ladder) {
     IrArena* arena = ctx->rewriter.dst_arena;
-    DFSStackEntry* entry = ctx->dfs_stack;
-    // assert(entry->old == dst);
 
     size_t path_len;
     DFSStackEntry* prior_encounter = encountered_before(ctx, dst, &path_len);
@@ -88,25 +84,40 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         assert(oparams.count == oargs.count);
         LARRAY(const Node*, nparams, oargs.count);
         Context ctx2 = *ctx;
+        
+        // Record each step of the depth-first search on a stack so we can identify loops
+        DFSStackEntry dfs_entry = { .parent = ctx->dfs_stack, .old = caller };
+        ctx2.dfs_stack = &dfs_entry;
+        
         struct Dict* tmp_processed = clone_dict(ctx->rewriter.processed);
         ctx2.rewriter.processed = tmp_processed;
         for (size_t i = 0; i < oargs.count; i++) {
             nparams[i] = var(arena, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
             register_processed(&ctx2.rewriter, oparams.nodes[i], nparams[i]);
         }
-        const Node* structured = structure(&ctx2, dst, merge_break(arena, (MergeBreak) { .args = empty(arena) }));
+
+        Node* inner_exit_ladder_lam = lambda(ctx2.rewriter.dst_module, empty(arena));
+        const Node* structured = structure(&ctx2, dst, let(arena, unit(arena), inner_exit_ladder_lam));
         assert(is_terminator(structured));
         // forget we rewrote all that
         destroy_dict(tmp_processed);
 
-        Node* body = lambda(ctx->rewriter.dst_module, nodes(arena, oargs.count, nparams));
-        body->payload.anon_lam.body = structured;
-        bind_instruction(bb, loop_instr(arena, (Loop) {
-            .body = body,
-            .initial_args = rewrite_nodes(&ctx->rewriter, oargs),
-            .yield_types = nodes(arena, 0, NULL),
-        }));
-        return finish_body(bb, exit_ladder);
+        if (dfs_entry.loop_header) {
+            Node* body = lambda(ctx->rewriter.dst_module, nodes(arena, oargs.count, nparams));
+            body->payload.anon_lam.body = structured;
+            bind_instruction(bb, loop_instr(arena, (Loop) {
+                .body = body,
+                .initial_args = rewrite_nodes(&ctx->rewriter, oargs),
+                .yield_types = nodes(arena, 0, NULL),
+            }));
+            // we decide 'late' what the exit ladder should be
+            inner_exit_ladder_lam->payload.anon_lam.body = merge_break(arena, (MergeBreak) { .args = empty(arena) });
+            return finish_body(bb, exit_ladder);
+        } else {
+            bind_variables(bb, nodes(arena, oargs.count, nparams), rewrite_nodes(&ctx->rewriter, oargs));
+            inner_exit_ladder_lam->payload.anon_lam.body = exit_ladder;
+            return finish_body(bb, structured);
+        }
     }
 }
 
@@ -121,13 +132,8 @@ static ControlEntry* search_containing_control(Context* ctx, const Node* old_tok
     return entry;
 }
 
-static const Node* structure(Context* entry_ctx, const Node* abs, const Node* exit_ladder) {
-    IrArena* arena = entry_ctx->rewriter.dst_arena;
-
-    // Record each step of the depth-first search on a stack so we can identify loops
-    DFSStackEntry dfs_entry = { .parent = entry_ctx->dfs_stack, .old = abs };
-    Context ctx2 = *entry_ctx;
-    ctx2.dfs_stack = &dfs_entry;
+static const Node* structure(Context* ctx, const Node* abs, const Node* exit_ladder) {
+    IrArena* arena = ctx->rewriter.dst_arena;
 
     const Node* body = get_abstraction_body(abs);
     switch (is_terminator(body)) {
@@ -145,11 +151,11 @@ static const Node* structure(Context* entry_ctx, const Node* abs, const Node* ex
                 case Instruction_Match_TAG: error("not supposed to exist in IR at this stage");
                 case Instruction_LeafCall_TAG:
                 case Instruction_PrimOp_TAG: {
-                    Nodes rewritten_params = recreate_variables(&ctx2.rewriter, otail_params);
-                    register_processed_list(&ctx2.rewriter, otail_params, rewritten_params);
-                    Node* structured_lam = lambda(ctx2.rewriter.dst_module, rewritten_params);
-                    structured_lam->payload.anon_lam.body = structure(&ctx2, old_tail, exit_ladder);
-                    return let(arena, recreate_node_identity(&ctx2.rewriter, old_instr), structured_lam);
+                    Nodes rewritten_params = recreate_variables(&ctx->rewriter, otail_params);
+                    register_processed_list(&ctx->rewriter, otail_params, rewritten_params);
+                    Node* structured_lam = lambda(ctx->rewriter.dst_module, rewritten_params);
+                    structured_lam->payload.anon_lam.body = structure(ctx, old_tail, exit_ladder);
+                    return let(arena, recreate_node_identity(&ctx->rewriter, old_instr), structured_lam);
                 }
                 case Instruction_IndirectCall_TAG: error("TODO: bail");
                 // let(control(body), tail)
@@ -161,8 +167,8 @@ static const Node* structure(Context* entry_ctx, const Node* abs, const Node* ex
                     assert(old_control_params.count == 1);
 
                     // Create N temporary variables to hold the join point arguments
-                    BodyBuilder* bb_outer = begin_body(ctx2.rewriter.dst_module);
-                    Nodes yield_types = rewrite_nodes(&ctx2.rewriter, old_instr->payload.control.yield_types);
+                    BodyBuilder* bb_outer = begin_body(ctx->rewriter.dst_module);
+                    Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instr->payload.control.yield_types);
                     LARRAY(const Node*, phis, yield_types.count);
                     for (size_t i = 0; i < yield_types.count; i++) {
                         const Type* type = extract_operand_type(yield_types.nodes[i]);
@@ -171,33 +177,33 @@ static const Node* structure(Context* entry_ctx, const Node* abs, const Node* ex
 
                     // Create a new context to rewrite the body with
                     // TODO: Bail if we try to re-enter the same control construct
-                    Context control_ctx = ctx2;
+                    Context control_ctx = *ctx;
                     control_ctx.dfs_stack = NULL;
                     ControlEntry control_entry = {
-                        .parent = ctx2.control_stack,
+                        .parent = ctx->control_stack,
                         .old_token = first(old_control_params),
                         .phis = phis,
-                        .depth = ctx2.control_stack ? ctx2.control_stack->depth + 1 : 1,
+                        .depth = ctx->control_stack ? ctx->control_stack->depth + 1 : 1,
                     };
                     control_ctx.control_stack = &control_entry;
 
                     // Set the depth for threads entering the control body
-                    bind_instruction(bb_outer, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ctx2.level_ptr, int32_literal(arena, control_entry.depth)) }));
+                    bind_instruction(bb_outer, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ctx->level_ptr, int32_literal(arena, control_entry.depth)) }));
 
                     // Start building out the tail, first it needs to dereference the phi variables to recover the arguments given to join()
-                    Node* tail_lambda = lambda(ctx2.rewriter.dst_module, empty(arena));
-                    BodyBuilder* bb2 = begin_body(ctx2.rewriter.dst_module);
+                    Node* tail_lambda = lambda(ctx->rewriter.dst_module, empty(arena));
+                    BodyBuilder* bb2 = begin_body(ctx->rewriter.dst_module);
                     LARRAY(const Node*, phi_values, yield_types.count);
                     for (size_t i = 0; i < yield_types.count; i++) {
                         phi_values[i] = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = load_op, .operands = singleton(phis[i]) })));
-                        register_processed(&ctx2.rewriter, otail_params.nodes[i], phi_values[i]);
+                        register_processed(&ctx->rewriter, otail_params.nodes[i], phi_values[i]);
                     }
 
                     // Wrap the tail in a guarded if, to handle 'far' joins
-                    const Node* level_value = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = load_op, .operands = singleton(ctx2.level_ptr) })));
-                    const Node* guard = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = eq_op, .operands = mk_nodes(arena, level_value, int32_literal(arena, ctx2.control_stack ? ctx2.control_stack->depth : 0)) })));
-                    Node* if_true_lam = lambda(ctx2.rewriter.dst_module, empty(arena));
-                    if_true_lam->payload.anon_lam.body = structure(&ctx2, old_tail, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
+                    const Node* level_value = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = load_op, .operands = singleton(ctx->level_ptr) })));
+                    const Node* guard = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = eq_op, .operands = mk_nodes(arena, level_value, int32_literal(arena, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
+                    Node* if_true_lam = lambda(ctx->rewriter.dst_module, empty(arena));
+                    if_true_lam->payload.anon_lam.body = structure(ctx, old_tail, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
                     bind_instruction(bb2, if_instr(arena, (If) {
                         .condition = guard,
                         .yield_types = empty(arena),
@@ -211,44 +217,44 @@ static const Node* structure(Context* entry_ctx, const Node* abs, const Node* ex
             }
         }
         case Jump_TAG: {
-            BodyBuilder* bb = begin_body(ctx2.rewriter.dst_module);
-            return handle_bb_callsite(&ctx2, bb, body->payload.jump.target, body->payload.jump.args, exit_ladder);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            return handle_bb_callsite(ctx, bb, abs, body->payload.jump.target, body->payload.jump.args, exit_ladder);
         }
         // br(cond, true_bb, false_bb, args)
         // becomes
         // let(if(cond, _ => handle_bb_callsite[true_bb, args], _ => handle_bb_callsite[false_bb, args]), _ => unreachable)
         case Branch_TAG: {
-            const Node* condition = rewrite_node(&ctx2.rewriter, body->payload.branch.branch_condition);
+            const Node* condition = rewrite_node(&ctx->rewriter, body->payload.branch.branch_condition);
 
-            Node* if_true_lam = lambda(ctx2.rewriter.dst_module, empty(ctx2.rewriter.dst_arena));
-            BodyBuilder* if_true_bb = begin_body(ctx2.rewriter.dst_module);
-            if_true_lam->payload.anon_lam.body = handle_bb_callsite(&ctx2, if_true_bb, body->payload.branch.true_target, body->payload.branch.args, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
+            Node* if_true_lam = lambda(ctx->rewriter.dst_module, empty(ctx->rewriter.dst_arena));
+            BodyBuilder* if_true_bb = begin_body(ctx->rewriter.dst_module);
+            if_true_lam->payload.anon_lam.body = handle_bb_callsite(ctx, if_true_bb, abs, body->payload.branch.true_target, body->payload.branch.args, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
 
-            Node* if_false_lam = lambda(ctx2.rewriter.dst_module, empty(ctx2.rewriter.dst_arena));
-            BodyBuilder* if_false_bb = begin_body(ctx2.rewriter.dst_module);
-            if_false_lam->payload.anon_lam.body = handle_bb_callsite(&ctx2, if_false_bb, body->payload.branch.false_target, body->payload.branch.args, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
+            Node* if_false_lam = lambda(ctx->rewriter.dst_module, empty(ctx->rewriter.dst_arena));
+            BodyBuilder* if_false_bb = begin_body(ctx->rewriter.dst_module);
+            if_false_lam->payload.anon_lam.body = handle_bb_callsite(ctx, if_false_bb, abs, body->payload.branch.false_target, body->payload.branch.args, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
 
-            const Node* instr = if_instr(ctx2.rewriter.dst_arena, (If) {
+            const Node* instr = if_instr(arena, (If) {
                 .condition = condition,
-                .yield_types = empty(ctx2.rewriter.dst_arena),
+                .yield_types = empty(arena),
                 .if_true = if_true_lam,
                 .if_false = if_false_lam,
             });
-            Node* post_merge_lam = lambda(ctx2.rewriter.dst_module, empty(ctx2.rewriter.dst_arena));
+            Node* post_merge_lam = lambda(ctx->rewriter.dst_module, empty(ctx->rewriter.dst_arena));
             post_merge_lam->payload.anon_lam.body = exit_ladder;
-            return let(ctx2.rewriter.dst_arena, instr, post_merge_lam);
+            return let(ctx->rewriter.dst_arena, instr, post_merge_lam);
         }
         case Switch_TAG: {
             error("TODO");
         }
         case Join_TAG: {
-            ControlEntry* control = search_containing_control(&ctx2, body->payload.join.join_point);
+            ControlEntry* control = search_containing_control(ctx, body->payload.join.join_point);
             assert(control); // TODO bail out if we can't find control instead
 
-            BodyBuilder* bb = begin_body(ctx2.rewriter.dst_module);
-            bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ctx2.level_ptr, int32_literal(arena, control->depth - 1)) }));
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ctx->level_ptr, int32_literal(arena, control->depth - 1)) }));
 
-            Nodes args = rewrite_nodes(&ctx2.rewriter, body->payload.join.args);
+            Nodes args = rewrite_nodes(&ctx->rewriter, body->payload.join.args);
             for (size_t i = 0; i < args.count; i++) {
                 bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, control->phis[i], args.nodes[i]) }));
             }
@@ -257,7 +263,7 @@ static const Node* structure(Context* entry_ctx, const Node* abs, const Node* ex
         }
 
         case Return_TAG:
-        case Unreachable_TAG: return recreate_node_identity(&ctx2.rewriter, body);
+        case Unreachable_TAG: return recreate_node_identity(&ctx->rewriter, body);
 
         case TailCall_TAG: error("TODO: bail")
 
