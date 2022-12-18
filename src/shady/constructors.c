@@ -299,21 +299,23 @@ Type* nominal_type(Module* mod, Nodes annotations, String name) {
     return decl;
 }
 
-const Node* quote(IrArena* arena, const Node* value) {
-     assert(is_value(value));
-     return prim_op(arena, (PrimOp) {
-         .op = quote_op,
-         .type_arguments = nodes(arena, 0, NULL),
-         .operands = nodes(arena, 1, (const Node*[]){ value })
-     });
+const Node* quote(IrArena* arena, Nodes values) {
+    for (size_t i = 0; i < values.count; i++)
+        assert(is_value(values.nodes[i]));
+
+    return prim_op(arena, (PrimOp) {
+        .op = quote_op,
+        .type_arguments = nodes(arena, 0, NULL),
+        .operands = values
+    });
+}
+
+const Node* quote_single(IrArena* arena, const Node* value) {
+    return quote(arena, singleton(value));
 }
 
 const Node* unit(IrArena* arena) {
-     return prim_op(arena, (PrimOp) {
-         .op = unit_op,
-         .type_arguments = empty(arena),
-         .operands = empty(arena),
-     });
+    return quote(arena, empty(arena));
 }
 
 const Node* unit_type(IrArena* arena) {

@@ -49,12 +49,11 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     switch (prim_op->op) {
         case assign_op:
         case subscript_op:
-        case unit_op:
-            return;
         case quote_op: {
-            assert(outputs.count == 1);
-            outputs.results[0] = emit_value(emitter, prim_op->operands.nodes[0]);
-            outputs.needs_binding[0] = false;
+            for (size_t i = 0; i < prim_op->operands.count; i++) {
+                outputs.results[i] = emit_value(emitter, prim_op->operands.nodes[i]);
+                outputs.needs_binding[i] = false;
+            }
             break;
         }
         case add_op: operator_str = "+";  break;

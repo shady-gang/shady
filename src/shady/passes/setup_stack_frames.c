@@ -49,7 +49,7 @@ static void collect_allocas(VContext* vctx, const Node* node) {
         const Node* ptr_t = ptr_type(arena, (PtrType) { .pointed_type = element_type, .address_space = as });
         slot = gen_reinterpret_cast(vctx->builder, ptr_t, slot);
 
-        register_processed(&vctx->context->rewriter, node, quote(arena, slot));
+        register_processed(&vctx->context->rewriter, node, quote_single(arena, slot));
         return;
     }
 

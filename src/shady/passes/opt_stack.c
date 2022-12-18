@@ -94,7 +94,7 @@ static const Node* process(Context* ctx, const Node* node) {
             } else if (is_pop) {
                 assert(ctx->state->type == VALUE);
                 const Node* value = ctx->state->value;
-                ninstruction = quote(arena, value);
+                ninstruction = quote_single(arena, value);
             } else {
                 // if the stack state is observed, or this was an unrelated instruction, leave it alone
                 ninstruction = recreate_node_identity(&ctx->rewriter, old_instruction);

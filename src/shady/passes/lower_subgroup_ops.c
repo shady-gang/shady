@@ -61,7 +61,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
                     gen_store(builder, logical_addr, partial_result);
                 }
                 const Node* result = gen_load(builder, ptr_elem);
-                return finish_body(builder, let(arena, quote(arena, result), tail));
+                return finish_body(builder, let(arena, quote_single(arena, result), tail));
                 error("TODO")
             }
             default: break;

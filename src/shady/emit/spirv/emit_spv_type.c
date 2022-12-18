@@ -171,8 +171,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             break;
         }
         case RecordType_TAG: {
-            if (type->payload.record_type.special == MultipleReturn
-             && type->payload.record_type.members.count == 0) {
+            if (type->payload.record_type.members.count == 0) {
                 new = emitter->void_t;
                 break;
             }

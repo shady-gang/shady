@@ -382,21 +382,14 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     }
 
     switch (prim_op.op) {
-        case unit_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 0);
-            return unit_type(arena);
-        }
         case quote_op: {
             assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 1);
-            return prim_op.operands.nodes[0]->type;
+            return wrap_multiple_yield_types(arena, extract_types(arena, prim_op.operands));
         }
         case neg_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
             return prim_op.operands.nodes[0]->type;
-            // return qualified_type(arena, (QualifiedType) { .is_uniform = , .type = bool_type(arena) });
         }
         case rshift_arithm_op:
         case rshift_logical_op:

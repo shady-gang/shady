@@ -6,7 +6,6 @@
 // PRIMOP(has_side_effects, name)
 
 #define PRIMOPS(P)              \
-P(0, unit)                      \
 P(0, quote)                     \
 P(0, add)                       \
 P(0, sub)                       \

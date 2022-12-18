@@ -62,8 +62,8 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
 }
 
 static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool mut, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
-    if (is_value(instruction))
-        instruction = quote(builder->arena, instruction);
+    if (is_value(instruction)) // TODO: nuke
+        instruction = quote_single(builder->arena, instruction);
     Nodes params = create_output_variables(builder->arena, instruction, outputs_count, provided_types, output_names);
     StackEntry entry = {
         .instr = instruction,
@@ -88,9 +88,9 @@ Nodes bind_instruction(BodyBuilder* builder, const Node* instruction) {
 
 void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {
     StackEntry entry = {
-            .instr = quote(bb->arena, tuple(bb->arena, values)),
-            .tail = lambda(bb->module, vars),
-            .mut = false,
+        .instr = quote(bb->arena, values),
+        .tail = lambda(bb->module, vars),
+        .mut = false,
     };
     append_list(StackEntry, bb->stack, entry);
 }

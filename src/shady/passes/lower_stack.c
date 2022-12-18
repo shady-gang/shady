@@ -114,7 +114,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 bool uniform = oprim_op->op == get_stack_pointer_uniform_op;
                 const Node* sp = gen_load(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer);
-                return finish_body(bb, let(arena, quote(arena, sp), tail));
+                return finish_body(bb, let(arena, quote_single(arena, sp), tail));
             }
             case set_stack_pointer_op:
             case set_stack_pointer_uniform_op: {
@@ -145,7 +145,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                     return finish_body(bb, let(arena, unit(arena), tail));
 
                 assert(results.count == 1);
-                return finish_body(bb, let(arena, quote(arena, first(results)), tail));
+                return finish_body(bb, let(arena, quote_single(arena, first(results)), tail));
             }
             default: break;
         }

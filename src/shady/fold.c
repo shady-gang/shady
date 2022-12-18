@@ -65,14 +65,8 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
     switch (instruction->tag) {
         case PrimOp_TAG: {
             if (instruction->payload.prim_op.op == quote_op) {
-                const Node* value = instruction->payload.prim_op.operands.nodes[0];
-                if (is_anonymous_lambda(tail)) {
-                    return reduce_beta(tail, nodes(arena, 1, (const Node*[]) { value }));
-                }
-            }
-            else if (instruction->payload.prim_op.op == unit_op) {
-                if (is_anonymous_lambda(tail)) {
-                    return tail->payload.anon_lam.body;
+                if (tail->payload.anon_lam.body) {
+                    return reduce_beta(tail, instruction->payload.prim_op.operands);
                 }
             }
             break;
@@ -90,17 +84,17 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
             // If either operand is zero, destroy the add
             for (size_t i = 0; i < 2; i++)
                 if (is_zero(prim_op.operands.nodes[i]))
-                    return quote(arena, prim_op.operands.nodes[1 - i]);
+                    return quote_single(arena, prim_op.operands.nodes[1 - i]);
             break;
         }
         case mul_op: {
             for (size_t i = 0; i < 2; i++)
                 if (is_zero(prim_op.operands.nodes[i]))
-                    return quote(arena, prim_op.operands.nodes[i]); // return zero !
+                    return quote_single(arena, prim_op.operands.nodes[i]); // return zero !
 
             for (size_t i = 0; i < 2; i++)
                 if (is_one(prim_op.operands.nodes[i]))
-                    return quote(arena, prim_op.operands.nodes[1 - i]);
+                    return quote_single(arena, prim_op.operands.nodes[1 - i]);
 
             break;
         }
@@ -108,7 +102,7 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
         case convert_op:
             // get rid of identity casts
             if (is_subtype(prim_op.type_arguments.nodes[0], extract_operand_type(prim_op.operands.nodes[0]->type)))
-                return quote(arena, prim_op.operands.nodes[0]);
+                return quote_single(arena, prim_op.operands.nodes[0]);
             break;
         default: break;
     }

@@ -314,7 +314,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 const Node* stack_size = gen_load(bb, stack_pointer);
                 if (ctx->config->printf_trace.stack_size)
                     bind_instruction(bb, prim_op(arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = "trace: stack_size=%d uniform=%d" }), stack_size, int32_literal(arena, oprim_op->op != get_stack_base_op )) }));
-                return finish_body(bb, let(arena, quote(arena, stack_size), tail));
+                return finish_body(bb, let(arena, quote_single(arena, stack_size), tail));
             }
             case lea_op: {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
@@ -324,7 +324,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                     break;
                 const Node* new = lower_lea(ctx, bb, oprim_op);
-                return finish_body(bb, let(arena, quote(arena, new), tail));
+                return finish_body(bb, let(arena, quote_single(arena, new), tail));
             }
             case reinterpret_op: {
                 const Type* source_type = first(oprim_op->type_arguments);
@@ -334,7 +334,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 // emulated physical pointers do not care about pointers, they're just ints :frog:
                 const Node* imported = rewrite_node(&ctx->rewriter, first(oprim_op->operands));
-                return finish_body(bb, let(arena, quote(arena, imported), tail));
+                return finish_body(bb, let(arena, quote_single(arena, imported), tail));
             }
             // lowering for either kind of memory accesses is similar
             case load_op:
@@ -353,7 +353,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
                 if (oprim_op->op == load_op) {
                     const Node* result = first(bind_instruction(bb, leaf_call(arena, (LeafCall) { .callee = fn, .args = singleton(pointer_as_offset) })));
-                    return finish_body(bb, let(arena, quote(arena, result), tail));
+                    return finish_body(bb, let(arena, quote_single(arena, result), tail));
                 } else {
                     const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
 

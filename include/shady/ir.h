@@ -172,8 +172,10 @@ const Type* uint64_literal(IrArena* arena, uint64_t i);
 
 /// Turns a value into an 'instruction' (the enclosing let will be folded away later)
 /// Useful for local rewrites
-const Node* quote(IrArena* arena, const Node* value);
-/// Produces a value of unit_type, same use as quote
+const Node* quote(IrArena* arena, Nodes values);
+/// Overload of quote for single values
+const Node* quote_single(IrArena* arena, const Node* value);
+/// Overload of quote for no values
 const Node* unit(IrArena* arena);
 const Node* unit_type(IrArena* arena);
 

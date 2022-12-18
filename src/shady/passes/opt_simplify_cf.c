@@ -59,13 +59,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 register_processed_list(&inline_context.rewriter, oparams, nparams);
                 lam->payload.anon_lam.body = rewrite_node(&ctx->rewriter, old_tgt->payload.basic_block.body);
                 Nodes args = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
-                const Node* wrapped;
-                switch (args.count) {
-                    case 0: wrapped = unit(arena); break;
-                    case 1: wrapped = quote(arena, first(args)); break;
-                    default: wrapped = quote(arena, tuple(arena, args)); break;
-                }
-                return let(arena, wrapped, lam);
+                return let(arena, quote(arena, args), lam);
             }
             return recreate_node_identity(&ctx->rewriter, node);
         }
@@ -82,13 +76,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     register_processed_list(&inline_context.rewriter, oparams, nparams);
                     lam->payload.anon_lam.body = rewrite_node(&inline_context.rewriter, dst_fn->payload.fun.body);
                     Nodes args = rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
-                    const Node* wrapped;
-                    switch (args.count) {
-                        case 0: wrapped = unit(arena); break;
-                        case 1: wrapped = quote(arena, first(args)); break;
-                        default: wrapped = quote(arena, tuple(arena, args)); break;
-                    }
-                    return let(arena, wrapped, lam);
+                    return let(arena, quote(arena, args), lam);
                 }
             }
             return recreate_node_identity(&ctx->rewriter, node);
