@@ -12,7 +12,6 @@
 N(1, 0, 0, MaskType, mask_type) \
 N(1, 0, 1, JoinPointType, join_point_type) \
 N(1, 0, 0, NoRet, noret_type) \
-N(1, 0, 0, Unit, unit_type) \
 N(1, 0, 1, Int, int_type) \
 N(1, 0, 0, Float, float_type) \
 N(1, 0, 0, Bool, bool_type) \

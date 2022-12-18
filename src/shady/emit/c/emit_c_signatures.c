@@ -54,7 +54,6 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         case MaskType_TAG: error("should be lowered away");
         case JoinPointType_TAG: error("TODO")
         case NoRet_TAG:
-        case Unit_TAG: emitted = "void"; break;
         case Bool_TAG: emitted = "bool"; break;
         case Int_TAG: {
             if (emitter->config.explicitly_sized_types) {
@@ -89,6 +88,12 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         }
         case Float_TAG: emitted = "float"; break;
         case Type_RecordType_TAG: {
+            if (type->payload.record_type.special == MultipleReturn
+             && type->payload.record_type.members.count == 0) {
+                emitted = "void";
+                break;
+            }
+
             emitted = unique_name(emitter->arena, "Record");
             String prefixed = format_string(emitter->arena, "struct %s", emitted);
             emit_nominal_type_body(emitter, prefixed, type);

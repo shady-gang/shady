@@ -260,7 +260,6 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
     printf(BCYAN);
     switch (is_type(node)) {
         case NotAType: assert(false); break;
-        case Unit_TAG: printf("()"); break;
         case NoRet_TAG: printf("!"); break;
         case Bool_TAG: printf("bool"); break;
         case Float_TAG: printf("float"); break;

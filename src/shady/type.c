@@ -104,7 +104,6 @@ bool is_subtype(const Type* supertype, const Type* type) {
         case Type_TypeDeclRef_TAG: {
             return supertype->payload.type_decl_ref.decl == type->payload.type_decl_ref.decl;
         }
-        case Unit_TAG:
         case NoRet_TAG:
         case Bool_TAG:
         case MaskType_TAG:
@@ -203,7 +202,6 @@ const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types) {
 
 Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
     switch (type->tag) {
-        case Unit_TAG: return nodes(arena, 0, NULL);
         case RecordType_TAG:
             if (type->payload.record_type.special == MultipleReturn)
                 return type->payload.record_type.members;
@@ -250,7 +248,6 @@ String name_type_safe(IrArena* arena, const Type* t) {
         case Type_MaskType_TAG: return "mask_t";
         case Type_JoinPointType_TAG: return "join_type_t";
         case Type_NoRet_TAG: return "no_ret";
-        case Type_Unit_TAG: return "unit";
         case Type_Int_TAG: return format_string(arena, "int_%s", ((String[]){ "8", "16", "32", "64" })[t->payload.int_type.width]);
         case Type_Float_TAG: return "float";
         case Type_Bool_TAG: return "bool";

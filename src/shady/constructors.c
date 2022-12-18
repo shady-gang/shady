@@ -316,6 +316,13 @@ const Node* unit(IrArena* arena) {
      });
 }
 
+const Node* unit_type(IrArena* arena) {
+     return record_type(arena, (RecordType) {
+         .members = empty(arena),
+         .special = MultipleReturn,
+     });
+}
+
 const Type* int8_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy8 }); }
 const Type* int16_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy16 }); }
 const Type* int32_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy32 }); }

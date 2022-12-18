@@ -113,10 +113,6 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
     SpvId new;
     switch (is_type(type)) {
         case NotAType: error("Not a type");
-        case Unit_TAG: {
-            new = emitter->void_t;
-            break;
-        }
         case Int_TAG: {
             int width;
             switch (type->payload.int_type.width) {
@@ -175,6 +171,11 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             break;
         }
         case RecordType_TAG: {
+            if (type->payload.record_type.special == MultipleReturn
+             && type->payload.record_type.members.count == 0) {
+                new = emitter->void_t;
+                break;
+            }
             new = spvb_fresh_id(emitter->file_builder);
             emit_nominal_type_body(emitter, type, new);
             break;
