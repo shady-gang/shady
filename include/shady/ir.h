@@ -151,6 +151,8 @@ Nodes bind_instruction(BodyBuilder*, const Node* instruction);
 Nodes bind_instruction_extra_mutable(BodyBuilder*, const Node* initial_value, size_t outputs_count, Nodes* provided_types, String const output_names[]);
 Nodes bind_instruction_extra(BodyBuilder*, const Node* initial_value, size_t outputs_count, Nodes* provided_types, String const output_names[]);
 
+void bind_variables(BodyBuilder*, Nodes vars, Nodes values);
+
 const Node* finish_body(BodyBuilder* builder, const Node* terminator);
 
 const Type* int8_type(IrArena* arena);

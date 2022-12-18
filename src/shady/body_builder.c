@@ -73,7 +73,6 @@ static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool m
     append_list(StackEntry, builder->stack, entry);
     return params;
 }
-
 Nodes bind_instruction_extra(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
     return bind_internal(builder, instruction, false, outputs_count, provided_types, output_names);
 }
@@ -87,7 +86,14 @@ Nodes bind_instruction(BodyBuilder* builder, const Node* instruction) {
     return bind_internal(builder, instruction, false, SIZE_MAX, NULL, NULL);
 }
 
-#undef arena
+void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {
+    StackEntry entry = {
+            .instr = quote(bb->arena, tuple(bb->arena, values)),
+            .tail = lambda(bb->module, vars),
+            .mut = false,
+    };
+    append_list(StackEntry, bb->stack, entry);
+}
 
 const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
     size_t stack_size = entries_count_list(builder->stack);

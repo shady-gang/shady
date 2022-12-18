@@ -42,6 +42,7 @@ set(SHADY_SOURCES
     passes/mark_leaf_functions.c
     passes/opt_simplify_cf.c
     passes/opt_stack.c
+    passes/opt_restructurize.c
 )
 
 add_library(shady STATIC ${SHADY_SOURCES})
