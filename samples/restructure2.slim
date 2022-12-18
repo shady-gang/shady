@@ -1,0 +1,23 @@
+@RestructureMe
+fn f i32(varying bool b) {
+    jump(bb1)();
+
+    cont bb1() {
+        branch (b, bb1, bb2)();
+    }
+
+    cont bb2 () {
+        return(7);
+    }
+}
+
+@RestructureMe
+fn g i32(varying bool b) {
+    val r = if i32(b) {
+        merge(6);
+    } else {
+        merge(7);
+    }
+
+    return (r);
+}
