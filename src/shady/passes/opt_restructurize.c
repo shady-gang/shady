@@ -61,7 +61,7 @@ static DFSStackEntry* encountered_before(Context* ctx, const Node* bb, size_t* p
 
 static const Node* structure(Context* entry_ctx, const Node* abs, const Node* exit_ladder);
 
-static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node* dst, Nodes args, const Node* exit_ladder) {
+static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node* dst, Nodes oargs, const Node* exit_ladder) {
     IrArena* arena = ctx->rewriter.dst_arena;
     DFSStackEntry* entry = ctx->dfs_stack;
     // assert(entry->old == dst);
@@ -80,29 +80,31 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
             entry2 = entry2->parent;
         }
         prior_encounter->loop_header = true;
-        return finish_body(bb, merge_continue(ctx->rewriter.dst_arena, (MergeContinue) {
-            .args = rewrite_nodes(&ctx->rewriter, args)
+        return finish_body(bb, merge_continue(arena, (MergeContinue) {
+            .args = rewrite_nodes(&ctx->rewriter, oargs)
         }));
     } else {
-        LARRAY(const Node*, vars, args.count);
-        struct Dict* old_processed = clone_dict(ctx->rewriter.processed);
-        for (size_t i = 0; i < args.count; i++) {
-            vars[i] = var(ctx->rewriter.dst_arena, args.nodes[i]->type, "arg");
-            register_processed(&ctx->rewriter, args.nodes[i], vars[i]);
+        Nodes oparams = get_abstraction_params(dst);
+        assert(oparams.count == oargs.count);
+        LARRAY(const Node*, nparams, oargs.count);
+        Context ctx2 = *ctx;
+        struct Dict* tmp_processed = clone_dict(ctx->rewriter.processed);
+        ctx2.rewriter.processed = tmp_processed;
+        for (size_t i = 0; i < oargs.count; i++) {
+            nparams[i] = var(arena, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
+            register_processed(&ctx2.rewriter, oparams.nodes[i], nparams[i]);
         }
-        Nodes varss = nodes(ctx->rewriter.dst_arena, args.count, vars);
-        const Node* structured = structure(ctx, dst, merge_break(arena, (MergeBreak) { .args = empty(arena) }));
+        const Node* structured = structure(&ctx2, dst, merge_break(arena, (MergeBreak) { .args = empty(arena) }));
         assert(is_terminator(structured));
         // forget we rewrote all that
-        destroy_dict(ctx->rewriter.processed);
-        ctx->rewriter.processed = old_processed;
+        destroy_dict(tmp_processed);
 
-        Node* body = lambda(ctx->rewriter.dst_module, varss);
+        Node* body = lambda(ctx->rewriter.dst_module, nodes(arena, oargs.count, nparams));
         body->payload.anon_lam.body = structured;
-        bind_instruction(bb, loop_instr(ctx->rewriter.dst_arena, (Loop) {
+        bind_instruction(bb, loop_instr(arena, (Loop) {
             .body = body,
-            .initial_args = args,
-            .yield_types = nodes(ctx->rewriter.dst_arena, 0, NULL),
+            .initial_args = rewrite_nodes(&ctx->rewriter, oargs),
+            .yield_types = nodes(arena, 0, NULL),
         }));
         return finish_body(bb, exit_ladder);
     }
