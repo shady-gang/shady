@@ -19,7 +19,6 @@ set(SHADY_SOURCES
     analysis/free_variables.c
     analysis/verify.c
     analysis/callgraph.c
-    analysis/looptree.c
 
     transform/memory_layout.c
     transform/ir_gen_helpers.c
