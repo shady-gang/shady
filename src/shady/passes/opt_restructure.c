@@ -17,21 +17,23 @@ typedef struct {
     Node* new;
 } TodoEntry;
 
-typedef struct DFSStackEntry_ DFSStackEntry;
-struct DFSStackEntry_ {
-    DFSStackEntry* parent;
-    const Node* old;
-
-    bool loop_header;
-    bool in_loop;
-};
-
 typedef struct ControlEntry_ ControlEntry;
 struct ControlEntry_ {
     ControlEntry* parent;
     const Node* old_token;
     const Node** phis;
     int depth;
+};
+
+typedef struct DFSStackEntry_ DFSStackEntry;
+struct DFSStackEntry_ {
+    DFSStackEntry* parent;
+    const Node* old;
+
+    ControlEntry* containing_control;
+
+    bool loop_header;
+    bool in_loop;
 };
 
 typedef struct {
@@ -48,7 +50,7 @@ typedef struct {
 
 static DFSStackEntry* encountered_before(Context* ctx, const Node* bb, size_t* path_len) {
     DFSStackEntry* entry = ctx->dfs_stack;
-    if (path_len) *path_len = 1;
+    if (path_len) *path_len = 0;
     while (entry != NULL) {
         if (entry->old == bb)
             return entry;
@@ -74,6 +76,8 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
             path[path_len - 1 - i] = entry2->old;
             if (entry2->in_loop)
                 longjmp(ctx->bail, 1);
+            if (entry2->containing_control != ctx->control_stack)
+                longjmp(ctx->bail, 1);
             entry2->in_loop = true;
             entry2 = entry2->parent;
         }
@@ -88,7 +92,7 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         Context ctx2 = *ctx;
         
         // Record each step of the depth-first search on a stack so we can identify loops
-        DFSStackEntry dfs_entry = { .parent = ctx->dfs_stack, .old = caller };
+        DFSStackEntry dfs_entry = { .parent = ctx->dfs_stack, .old = dst, .containing_control = ctx->control_stack };
         ctx2.dfs_stack = &dfs_entry;
         
         struct Dict* tmp_processed = clone_dict(ctx->rewriter.processed);
@@ -204,7 +208,6 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     // Create a new context to rewrite the body with
                     // TODO: Bail if we try to re-enter the same control construct
                     Context control_ctx = *ctx;
-                    control_ctx.dfs_stack = NULL;
                     ControlEntry control_entry = {
                         .parent = ctx->control_stack,
                         .old_token = first(old_control_params),
