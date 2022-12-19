@@ -23,7 +23,7 @@ typedef struct Context_ {
     struct Dict* assigned_fn_ptrs;
     FnPtr* next_fn_ptr;
 
-    Node* god_fn;
+    Node** top_dispatcher_fn;
     Node* init_fn;
 } Context;
 
@@ -85,13 +85,17 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
         gen_push_value_stack(builder, rewritten_params.nodes[i]);
     }
 
-    // Initialise next_fn/next_mask to something sensible
+    // Initialise next_fn/next_mask to have all the threads self-terminate after the entry point is done executing
     gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"), lower_fn_addr(ctx, old));
     const Node* entry_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
     gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_mask"), entry_mask);
 
+    if (!*ctx->top_dispatcher_fn) {
+        *ctx->top_dispatcher_fn = function(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), "top_dispatcher", singleton(annotation(dst_arena, (Annotation) { .name = "Generated" })), nodes(dst_arena, 0, NULL));
+    }
+
     bind_instruction(builder, leaf_call(dst_arena, (LeafCall) {
-        .callee = ctx->god_fn,
+        .callee = *ctx->top_dispatcher_fn,
         .args = nodes(dst_arena, 0, NULL)
     }));
 
@@ -110,32 +114,27 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Context ctx2 = *ctx;
 
-            ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_tailcalls");
+            const Node* entry_point_annotation = lookup_annotation_list(old->payload.fun.annotations, "EntryPoint");
+
+            // Leave leaf-calls alone :)
+            ctx2.disable_lowering = lookup_annotation(old, "Leaf");
             if (ctx2.disable_lowering) {
                 Node* fun = recreate_decl_header_identity(&ctx2.rewriter, old);
-                recreate_decl_body_identity(&ctx2.rewriter, old, fun);
+                const Node* body = rewrite_node(&ctx->rewriter, old->payload.fun.body);
+                if (entry_point_annotation) {
+                    Node* lam = lambda(ctx->rewriter.dst_module, empty(dst_arena));
+                    lam->payload.anon_lam.body = body;
+                    body = let(dst_arena, leaf_call(dst_arena, (LeafCall) { .callee = ctx->init_fn, .args = empty(dst_arena) }), lam);
+                }
+                fun->payload.fun.body = body;
                 return fun;
             }
 
-            const Node* entry_point_annotation = NULL;
-            Nodes old_annotations = old->payload.fun.annotations;
-            LARRAY(const Node*, new_annotations, old_annotations.count);
-            size_t new_annotations_count = 0;
-            for (size_t i = 0; i < old_annotations.count; i++) {
-                const Node* annotation = rewrite_node(&ctx->rewriter, old_annotations.nodes[i]);
-                // Entry point annotations are removed
-                if (strcmp(annotation->payload.annotation.name, "EntryPoint") == 0) {
-                    assert(!entry_point_annotation && "Only one entry point annotation is permitted.");
-                    entry_point_annotation = annotation;
-                    continue;
-                }
-                new_annotations[new_annotations_count] = annotation;
-                new_annotations_count++;
-            }
+            Nodes new_annotations = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
 
             String new_name = format_string(dst_arena, "%s_indirect", old->payload.fun.name);
 
-            Node* fun = function(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), new_name, nodes(dst_arena, new_annotations_count, new_annotations), nodes(dst_arena, 0, NULL));
+            Node* fun = function(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), new_name, filter_out_annotation(dst_arena, new_annotations, "EntryPoint"), nodes(dst_arena, 0, NULL));
             register_processed(&ctx->rewriter, old, fun);
 
             if (entry_point_annotation)
@@ -212,7 +211,8 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 void generate_top_level_dispatch_fn(Context* ctx) {
-    assert(ctx->god_fn->tag == Function_TAG);
+    assert(*ctx->top_dispatcher_fn);
+    assert((*ctx->top_dispatcher_fn)->tag == Function_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     BodyBuilder* loop_body_builder = begin_body(ctx->rewriter.dst_module);
@@ -285,7 +285,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
         if (decl->tag == Function_TAG) {
-            if (lookup_annotation(decl, "Builtin"))
+            if (lookup_annotation(decl, "Leaf"))
                 continue;
 
             const Node* fn_lit = lower_fn_addr(ctx, decl);
@@ -343,9 +343,9 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     if (ctx->config->printf_trace.god_function)
         bind_instruction(dispatcher_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: end of top\n" })) }));
 
-    ctx->god_fn->payload.fun.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
+    (*ctx->top_dispatcher_fn)->payload.fun.body = finish_body(dispatcher_body_builder, fn_ret(dst_arena, (Return) {
         .args = nodes(dst_arena, 0, NULL),
-        .fn = ctx->god_fn,
+        .fn = *ctx->top_dispatcher_fn,
     }));
 }
 
@@ -356,12 +356,12 @@ void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* d
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
     IrArena* dst_arena = get_module_arena(dst);
 
-    Nodes top_dispatcher_annotations = nodes(dst_arena, 0, NULL);
-    Node* dispatcher_fn = function(dst, nodes(dst_arena, 0, NULL), "top_dispatcher", top_dispatcher_annotations, nodes(dst_arena, 0, NULL));
-    Node* init_fn = function(dst, nodes(dst_arena, 0, NULL), "generated_init", top_dispatcher_annotations, nodes(dst_arena, 0, NULL));
+    Node* init_fn = function(dst, nodes(dst_arena, 0, NULL), "generated_init", singleton(annotation(dst_arena, (Annotation) { .name = "Generated" })), nodes(dst_arena, 0, NULL));
     init_fn->payload.fun.body = fn_ret(dst_arena, (Return) { .fn = init_fn, .args = empty(dst_arena) });
 
     FnPtr next_fn_ptr = 1;
+
+    Node* top_dispatcher_fn = NULL;
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
@@ -370,12 +370,16 @@ void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* d
         .assigned_fn_ptrs = ptrs,
         .next_fn_ptr = &next_fn_ptr,
 
-        .god_fn = dispatcher_fn,
+        .top_dispatcher_fn = &top_dispatcher_fn,
         .init_fn = init_fn,
     };
 
     rewrite_module(&ctx.rewriter);
-    generate_top_level_dispatch_fn(&ctx);
+
+    // Generate the top dispatcher, but only if it is used for realsies
+    if (ctx.top_dispatcher_fn)
+        generate_top_level_dispatch_fn(&ctx);
+
     destroy_dict(ptrs);
     destroy_rewriter(&ctx.rewriter);
 }

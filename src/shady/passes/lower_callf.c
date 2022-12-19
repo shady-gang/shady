@@ -23,7 +23,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
     if (old->tag == Function_TAG) {
         Context ctx2 = *ctx;
-        ctx2.disable_lowering = lookup_annotation_with_string_payload(old, "DisablePass", "lower_callf");
+        ctx2.disable_lowering = lookup_annotation(old, "Leaf");
         Node* fun = NULL;
         if (!ctx2.disable_lowering) {
             Nodes oparams = get_abstraction_params(old);
