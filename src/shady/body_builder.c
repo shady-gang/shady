@@ -107,3 +107,8 @@ const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
     free(builder);
     return terminator;
 }
+
+void cancel_body(BodyBuilder* bb) {
+    destroy_list(bb->stack);
+    free(bb);
+}

@@ -13,7 +13,7 @@ typedef struct {
     CompilerConfig* config;
 } Context;
 
-static bool is_extended_type(SHADY_UNUSED Arena* arena, const Type* t, bool allow_vectors) {
+static bool is_extended_type(SHADY_UNUSED IrArena* arena, const Type* t, bool allow_vectors) {
     switch (t->tag) {
         case Int_TAG: return true;
         // TODO allow 16-bit floats specifically !
@@ -40,10 +40,13 @@ static const Node* process_let(Context* ctx, const Node* old) {
                 const Node* operand = rewrite_node(&ctx->rewriter, payload.operands.nodes[0]);
                 const Type* element_type = extract_operand_type(operand->type);
 
-                if (element_type->tag == Int_TAG && element_type->payload.int_type.width == IntTy32)
+                if (element_type->tag == Int_TAG && element_type->payload.int_type.width == IntTy32) {
+                    cancel_body(builder);
                     break;
-                else if (is_extended_type(arena, element_type, true) && !ctx->config->lower.emulate_subgroup_ops_extended_types)
+                } else if (is_extended_type(arena, element_type, true) && !ctx->config->lower.emulate_subgroup_ops_extended_types) {
+                    cancel_body(builder);
                     break;
+                }
 
                 const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = int32_literal(arena, 2) });
                 const Type* ptr_t = ptr_type(arena, (PtrType) { .address_space = AsSubgroupPhysical, .pointed_type = local_arr_ty });

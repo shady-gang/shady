@@ -3,6 +3,7 @@
 #include "log.h"
 #include "portability.h"
 #include "dict.h"
+#include "list.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -20,6 +21,7 @@ Program* load_program(Runtime* runtime, const char* program_src) {
     program->generic_program = new_module(program->arena, "my_module");
     CHECK(parse_files(&config, 1, (const char* []){ program_src }, program->generic_program) == CompilationNoError, return false);
     // TODO split the compilation pipeline into generic and non-generic parts
+    append_list(Program*, runtime->programs, program);
     return program;
 }
 
@@ -135,6 +137,7 @@ void destroy_specialized_program(SpecProgram* spec) {
     vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
     free(spec->spirv_bytes);
     destroy_ir_arena(spec->arena);
-
+    assert(spec->arena != get_module_arena(spec->module));
+    destroy_ir_arena(get_module_arena(spec->module));
     free(spec);
 }

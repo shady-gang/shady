@@ -363,4 +363,5 @@ void opt_restructurize(SHADY_UNUSED CompilerConfig* config, Module* src, Module*
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    destroy_list(ctx.tmp_alloc_stack);
 }
