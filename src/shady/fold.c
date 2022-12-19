@@ -48,12 +48,14 @@ static const Node* reduce_beta(const Node* fn, Nodes args) {
     assert(is_abstraction(fn));
     Nodes params = get_abstraction_params(fn);
     const Node* body = get_abstraction_body(fn);
+    assert(body);
 
     assert(params.count == args.count);
     Rewriter r = create_substituter(get_abstraction_module(fn));
     for (size_t i = 0; i < args.count; i++)
         register_processed(&r, params.nodes[i], args.nodes[i]);
     const Node* specialized = rewrite_node(&r, body);
+    assert(specialized);
     destroy_rewriter(&r);
     return specialized;
 }

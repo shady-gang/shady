@@ -40,6 +40,7 @@ Rewriter create_importer(Module* src, Module* dst) {
 }
 
 static const Node* recreate_node_substitutions_only(Rewriter* rewriter, const Node* node) {
+    if (!node) return NULL;
     assert(rewriter->dst_arena == rewriter->src_arena);
     const Node* found = rewriter->processed ? search_processed(rewriter, node) : NULL;
     if (found)
@@ -51,6 +52,10 @@ static const Node* recreate_node_substitutions_only(Rewriter* rewriter, const No
         return node;
     if (node->tag == BasicBlock_TAG) {
         ((Node*) node)->payload.basic_block.body = rewrite_node(rewriter, node->payload.basic_block.body);
+        return node;
+    }
+    if (node->tag == AnonLambda_TAG) {
+        ((Node*) node)->payload.anon_lam.body = rewrite_node(rewriter, node->payload.anon_lam.body);
         return node;
     }
     return recreate_node_identity(rewriter, node);
