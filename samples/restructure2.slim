@@ -1,4 +1,7 @@
-@RestructureMe
+// example of the restructurer with a 'naked' loop (no `control` operator involved)
+// such loops are only allowed if there is only one path through them that involves a back-edge
+// in other words: no implicit synchronisation at the loop header
+
 fn f i32(varying bool b) {
     jump(bb1)();
 
@@ -7,17 +10,17 @@ fn f i32(varying bool b) {
     }
 
     cont bb2 () {
-        return(7);
+        return (7);
     }
 }
 
-@RestructureMe
+// the behaviour should be equivalent to this structured code:
 fn g i32(varying bool b) {
-    val r = if i32(b) {
-        merge(6);
-    } else {
-        merge(7);
+    loop() {
+        if (b) {
+            continue ();
+        }
+        return (7);
     }
-
-    return (r);
+    unreachable ();
 }

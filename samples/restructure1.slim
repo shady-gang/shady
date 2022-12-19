@@ -1,0 +1,36 @@
+// simple example of the restructurer in action (see opt_restructize.c)
+// this function diverges, with both branches eventually calling bb3 then returning
+
+// /!\ there is no reconvergence happening in this function (except for the return itself)
+//     to reconverge, one needs to use the control() construct, such as demonstrated in restructure3
+//     to be absolutely clear: two distinct sets of threads will execute two different dynamic instances bb3
+fn f i32(varying bool b) {
+    branch(b, bb1, bb2)();
+
+    cont bb1() {
+        jump (bb3)(6);
+    }
+
+    cont bb2 () {
+        jump (bb3)(7);
+    }
+
+    cont bb3(varying i32 r) {
+        // blah
+        return (r);
+    }
+}
+
+// f is equivalent (and should be turned back into) this function:
+// (modulo some dataflow jank that opt passes may or may not cleanup)
+fn g i32(varying bool b) {
+    val r = if i32(b) {
+        // blah
+        return (6);
+    } else {
+        // blah
+        return (7);
+    }
+
+    unreachable ();
+}
