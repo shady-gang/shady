@@ -377,7 +377,7 @@ void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* d
     rewrite_module(&ctx.rewriter);
 
     // Generate the top dispatcher, but only if it is used for realsies
-    if (ctx.top_dispatcher_fn)
+    if (*ctx.top_dispatcher_fn)
         generate_top_level_dispatch_fn(&ctx);
 
     destroy_dict(ptrs);

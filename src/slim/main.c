@@ -119,13 +119,10 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
             exit(InvalidTarget);
         } else if (strcmp(argv[i], "--print-builtin") == 0) {
             args->config.logging.skip_builtin = false;
-            i++;
         } else if (strcmp(argv[i], "--print-generated") == 0) {
             args->config.logging.skip_generated = false;
-            i++;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
-            i++;
         } else {
             append_list(const char*, args->input_filenames, argv[i]);
         }

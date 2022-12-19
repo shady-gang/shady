@@ -55,7 +55,7 @@ const Node* lookup_annotation(const Node* decl, const char* name) {
 
 const Node* lookup_annotation_list(Nodes annotations, const char* name) {
     for (size_t i = 0; i < annotations.count; i++) {
-        if (strcmp(get_annotation_name(annotations.nodes[i]), name) != 0) {
+        if (strcmp(get_annotation_name(annotations.nodes[i]), name) == 0) {
             return annotations.nodes[i];
         }
     }
