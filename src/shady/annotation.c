@@ -1,5 +1,6 @@
 #include "ir_private.h"
 #include "log.h"
+#include "portability.h"
 
 #include <assert.h>
 #include <string.h>
@@ -83,6 +84,17 @@ bool lookup_annotation_with_string_payload(const Node* decl, const char* annotat
         if (strcmp(extract_annotation_string_payload(next), expected_payload) == 0)
             return true;
     }
+}
+
+Nodes filter_out_annotation(IrArena* arena, Nodes annotations, const char* name) {
+    LARRAY(const Node*, new_annotations, annotations.count);
+    size_t new_count = 0;
+    for (size_t i = 0; i < annotations.count; i++) {
+        if (strcmp(get_annotation_name(annotations.nodes[i]), name) != 0) {
+            new_annotations[new_count++] = annotations.nodes[i];
+        }
+    }
+    return nodes(arena, new_count, new_annotations);
 }
 
 ExecutionModel execution_model_from_string(const char* string) {

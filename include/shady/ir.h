@@ -100,6 +100,7 @@ const char* extract_annotation_string_payload(const Node* annotation);
 bool lookup_annotation_with_string_payload(const Node* decl, const char* annotation_name, const char* expected_payload);
 bool is_annotation(const Node* node);
 String get_annotation_name(const Node* node);
+Nodes filter_out_annotation(IrArena*, Nodes, const char* name);
 
 String get_abstraction_name(const Node* abs);
 const Node* get_abstraction_body(const Node*);

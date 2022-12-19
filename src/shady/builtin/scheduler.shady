@@ -72,7 +72,7 @@ fn builtin_yield(uniform i32 resume_target) {
         // bump the cursor
         // TODO bump it in a smarter way
         scheduler_cursor = (scheduler_cursor + 1) % SUBGROUP_SIZE;
-        builtin_find_schedulable_leaf();
+        leaf_call(builtin_find_schedulable_leaf)();
     }
 }
 
@@ -83,7 +83,7 @@ fn builtin_join(uniform i32 join_at, uniform TreeNode token) {
 
     // only one thread runs that part
     if (subgroup_elect_first()) {
-        builtin_find_schedulable_leaf();
+        leaf_call(builtin_find_schedulable_leaf)();
     }
 }
 
@@ -111,11 +111,11 @@ fn reduce2 i32(varying i32 a_index, varying i32 b_index) {
     val a = scheduler_vector.a_index;
     val b = scheduler_vector.b_index;
     
-    if (is_parent(a, b)) { return (a_index); }
-    if (is_parent(b, a)) { return (b_index); }
+    if (leaf_call(is_parent)(a, b)) { return (a_index); }
+    if (leaf_call(is_parent)(b, a)) { return (b_index); }
     
-    val a_dist = forward_distance(a_index, scheduler_cursor, MASK_SIZE);
-    val b_dist = forward_distance(b_index, scheduler_cursor, MASK_SIZE);
+    val a_dist = leaf_call(forward_distance)(a_index, scheduler_cursor, MASK_SIZE);
+    val b_dist = leaf_call(forward_distance)(b_index, scheduler_cursor, MASK_SIZE);
     
     if (a_dist < b_dist) { return (a_index); }
     return (b_index);
@@ -126,7 +126,7 @@ fn builtin_find_schedulable_leaf() {
     var i32 reduced = 0;
     loop (uniform i32 i = 1) {
         if (i >= MASK_SIZE) { break; }
-        reduced = reduce2(reduced, i);
+        reduced = leaf_call(reduce2)(reduced, i);
         continue(i + 1);
     }
 

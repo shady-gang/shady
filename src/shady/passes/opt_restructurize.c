@@ -36,8 +36,9 @@ struct ControlEntry_ {
 
 typedef struct {
     Rewriter rewriter;
-    TodoEntry* todos;
-    size_t todo_count;
+    struct List* tmp_alloc_stack;
+
+    jmp_buf bail;
 
     bool lower;
     const Node* level_ptr;
@@ -71,7 +72,8 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         for (size_t i = 0; i < path_len; i++) {
             assert(entry2);
             path[path_len - 1 - i] = entry2->old;
-            assert(!entry2->in_loop); // TODO: BAIL
+            if (entry2->in_loop)
+                longjmp(ctx->bail, 1);
             entry2->in_loop = true;
             entry2 = entry2->parent;
         }
@@ -90,6 +92,7 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         ctx2.dfs_stack = &dfs_entry;
         
         struct Dict* tmp_processed = clone_dict(ctx->rewriter.processed);
+        append_list(struct Dict*, ctx->tmp_alloc_stack, tmp_processed);
         ctx2.rewriter.processed = tmp_processed;
         for (size_t i = 0; i < oargs.count; i++) {
             nparams[i] = var(arena, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
@@ -101,6 +104,7 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         assert(is_terminator(structured));
         // forget we rewrote all that
         destroy_dict(tmp_processed);
+        pop_list_impl(ctx->tmp_alloc_stack);
 
         if (dfs_entry.loop_header) {
             Node* body = lambda(ctx->rewriter.dst_module, nodes(arena, oargs.count, nparams));
@@ -132,6 +136,18 @@ static ControlEntry* search_containing_control(Context* ctx, const Node* old_tok
     return entry;
 }
 
+static const Node* rebuild_let(Context* ctx, const Node* old_let, const Node* new_instruction, const Node* exit_ladder) {
+    IrArena* arena = ctx->rewriter.dst_arena;
+    const Node* old_tail = get_let_tail(old_let);
+    Nodes otail_params = get_abstraction_params(old_tail);
+
+    Nodes rewritten_params = recreate_variables(&ctx->rewriter, otail_params);
+    register_processed_list(&ctx->rewriter, otail_params, rewritten_params);
+    Node* structured_lam = lambda(ctx->rewriter.dst_module, rewritten_params);
+    structured_lam->payload.anon_lam.body = structure(ctx, old_tail, exit_ladder);
+    return let(arena, new_instruction, structured_lam);
+}
+
 static const Node* structure(Context* ctx, const Node* abs, const Node* exit_ladder) {
     IrArena* arena = ctx->rewriter.dst_arena;
 
@@ -151,13 +167,23 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 case Instruction_Match_TAG: error("not supposed to exist in IR at this stage");
                 case Instruction_LeafCall_TAG:
                 case Instruction_PrimOp_TAG: {
-                    Nodes rewritten_params = recreate_variables(&ctx->rewriter, otail_params);
-                    register_processed_list(&ctx->rewriter, otail_params, rewritten_params);
-                    Node* structured_lam = lambda(ctx->rewriter.dst_module, rewritten_params);
-                    structured_lam->payload.anon_lam.body = structure(ctx, old_tail, exit_ladder);
-                    return let(arena, recreate_node_identity(&ctx->rewriter, old_instr), structured_lam);
+                    return rebuild_let(ctx, body, recreate_node_identity(&ctx->rewriter, old_instr), exit_ladder);
                 }
-                case Instruction_IndirectCall_TAG: error("TODO: bail");
+                case Instruction_IndirectCall_TAG: {
+                    const Node* callee = old_instr->payload.indirect_call.callee;
+                    if (callee->tag == FnAddr_TAG) {
+                        const Node* fn = rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
+                        if (lookup_annotation(fn, "Leaf")) {
+                            const Node* call = leaf_call(arena, (LeafCall) {
+                                .callee = rewrite_node(&ctx->rewriter, fn),
+                                .args = rewrite_nodes(&ctx->rewriter, old_instr->payload.indirect_call.args)
+                            });
+                            return rebuild_let(ctx, body, call, exit_ladder);
+                        }
+                    }
+                    // if we don't manage that, give up :(
+                    longjmp(ctx->bail, 1);
+                }
                 // let(control(body), tail)
                 // var phi = undef; level = N+1; structurize[body, if (level == N+1, _ => tail(load(phi))); structured_exit_terminator]
                 case Instruction_Control_TAG: {
@@ -249,7 +275,8 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         }
         case Join_TAG: {
             ControlEntry* control = search_containing_control(ctx, body->payload.join.join_point);
-            assert(control); // TODO bail out if we can't find control instead
+            if (!control)
+                longjmp(ctx->bail, 1);
 
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ctx->level_ptr, int32_literal(arena, control->depth - 1)) }));
@@ -265,7 +292,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         case Return_TAG:
         case Unreachable_TAG: return recreate_node_identity(&ctx->rewriter, body);
 
-        case TailCall_TAG: error("TODO: bail")
+        case TailCall_TAG: longjmp(ctx->bail, 1);
 
         case Terminator_MergeBreak_TAG:
         case Terminator_MergeContinue_TAG:
@@ -284,7 +311,33 @@ static const Node* process(Context* ctx, const Node* node) {
 
     if (node->tag == Function_TAG) {
         Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-        ctx->todos[ctx->todo_count++] = (TodoEntry) { .old = node, .new = new };
+
+        size_t alloc_stack_size_now = entries_count_list(ctx->tmp_alloc_stack);
+
+        Context ctx2 = *ctx;
+        ctx2.dfs_stack = NULL;
+        ctx2.control_stack = NULL;
+        if (lookup_annotation(node, "Builtin") || !lookup_annotation(node, "MaybeLeaf") || setjmp(ctx2.bail)) {
+            ctx2.lower = false;
+            new->payload.fun.body = rewrite_node(&ctx2.rewriter, node->payload.fun.body);
+        } else {
+            ctx2.lower = true;
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            const Node* ptr = first(bind_instruction(bb, prim_op(arena, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(int32_type(arena)) })));
+            bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ptr, int32_literal(arena, 0)) }));
+            ctx2.level_ptr = ptr;
+            new->payload.fun.body = finish_body(bb, structure(&ctx2, node, unreachable(arena)));
+            new->payload.fun.annotations = append_nodes(arena, new->payload.fun.annotations, annotation(arena, (Annotation) { .name = "Leaf" }));
+        }
+
+        // if we did a longjmp, we might have orphaned a few of those
+        while (alloc_stack_size_now >  entries_count_list(ctx->tmp_alloc_stack)) {
+            struct Dict* orphan = pop_last_list(struct Dict*, ctx->tmp_alloc_stack);
+            destroy_dict(orphan);
+        }
+
+        new->payload.fun.annotations = filter_out_annotation(arena, new->payload.fun.annotations, "MaybeLeaf");
+
         return new;
     }
 
@@ -301,29 +354,10 @@ static const Node* process(Context* ctx, const Node* node) {
 
 void opt_restructurize(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     IrArena* arena = get_module_arena(dst);
-    LARRAY(TodoEntry, todos, get_module_declarations(src).count);
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
-        .todos = todos,
+        .tmp_alloc_stack = new_list(struct Dict*),
     };
     rewrite_module(&ctx.rewriter);
-
-    for (size_t i = 0; i < ctx.todo_count; i++) {
-        Context ctx2 = ctx;
-        ctx2.lower = lookup_annotation(ctx.todos[i].old, "RestructureMe");
-        ctx2.dfs_stack = NULL;
-        ctx2.control_stack = NULL;
-        ctx2.todos = NULL;
-        ctx2.todo_count = 0;
-        if (ctx2.lower) {
-            BodyBuilder* bb = begin_body(ctx.rewriter.dst_module);
-            const Node* ptr = first(bind_instruction(bb, prim_op(arena, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(int32_type(arena)) })));
-            bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ptr, int32_literal(arena, 0)) }));
-            ctx2.level_ptr = ptr;
-            ctx.todos[i].new->payload.fun.body = finish_body(bb, structure(&ctx2, ctx.todos[i].old, unreachable(ctx.rewriter.dst_arena)));
-        } else
-            ctx.todos[i].new->payload.fun.body = rewrite_node(&ctx2.rewriter, ctx.todos[i].old->payload.fun.body);
-    }
-
     destroy_rewriter(&ctx.rewriter);
 }

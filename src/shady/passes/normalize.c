@@ -71,6 +71,18 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
             });
             break;
         }
+        case LeafCall_TAG: {
+            assert(ctx->bb);
+            Nodes oargs = node->payload.indirect_call.args;
+
+            const Node* ncallee = rewrite_something(ctx, node->payload.indirect_call.callee);
+
+            let_bound = leaf_call(dst_arena, (LeafCall) {
+                .callee = ncallee,
+                .args = rewrite_nodes_generic(&ctx->rewriter, (RewriteFn) rewrite_value, oargs),
+            });
+            break;
+        }
         default: {
             assert(is_value(node));
             const Node* value = rewrite_something(ctx, node);

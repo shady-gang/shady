@@ -73,8 +73,10 @@ static const Node* process(Context* ctx, const Node* node) {
             CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
             if (is_leaf_fn(ctx, fn_node)) {
+                // It's MaybeLeaf because beside the call graph, there might be some join point shenanigans going on
+                // opt_restructurize handles the rest
                 annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) {
-                    .name = "Leaf",
+                    .name = "MaybeLeaf",
                 }));
             }
             Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
@@ -84,20 +86,6 @@ static const Node* process(Context* ctx, const Node* node) {
 
             recreate_decl_body_identity(&ctx->rewriter, node, new);
             return new;
-        }
-        case IndirectCall_TAG: {
-            const Node* callee = node->payload.indirect_call.callee;
-            if (callee->tag == FnAddr_TAG) {
-                const Node* fn = callee->payload.fn_addr.fn;
-                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, fn);
-                if (is_leaf_fn(ctx, fn_node)) {
-                    return leaf_call(arena, (LeafCall) {
-                        .callee = rewrite_node(&ctx->rewriter, fn),
-                        .args = rewrite_nodes(&ctx->rewriter, node->payload.indirect_call.args)
-                    });
-                }
-            }
-            SHADY_FALLTHROUGH
         }
         default: return recreate_node_identity(&ctx->rewriter, node);
     }
