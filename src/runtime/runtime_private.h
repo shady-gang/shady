@@ -31,6 +31,7 @@ X(0, KHR, portability_subset,             empty_fns) \
 X(0, KHR, shader_subgroup_extended_types, empty_fns) \
 X(0, EXT, external_memory,                empty_fns) \
 X(0, EXT, external_memory_host,           empty_fns) \
+X(0, EXT, subgroup_size_control,          empty_fns) \
 
 #define E(is_required, prefix, name, _) ShadySupports##prefix##name,
 typedef enum {
@@ -85,32 +86,39 @@ struct Runtime_ {
     VkDebugUtilsMessengerEXT debug_messenger;
 };
 
-typedef struct DeviceProperties_ {
+typedef struct {
     VkPhysicalDevice physical_device;
-    char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
+
+    bool supported_extensions[ShadySupportedDeviceExtensionsCount];
+
+    VkPhysicalDeviceProperties base_properties;
+
     uint32_t compute_queue_family;
-    struct {
-        unsigned int major;
-        unsigned int minor;
-    } vk_version;
+
     struct {
         uint8_t major;
         uint8_t minor;
     } spirv_version;
-    uint32_t subgroup_size;
-    bool supported_extensions[ShadySupportedDeviceExtensionsCount];
     struct {
-        bool subgroup_extended_types;
-        bool physical_global_ptrs;
+        uint32_t min, max;
+    } subgroup_size;
+    struct {
+        VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR subgroup_extended_types;
+        VkPhysicalDeviceBufferDeviceAddressFeaturesEXT buffer_device_address;
+        VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroup_size_control;
     } features;
+    struct {
+        VkPhysicalDeviceSubgroupProperties subgroup;
+        VkPhysicalDeviceSubgroupSizeControlPropertiesEXT subgroup_size_control;
+    } extended_properties;
     struct {
         bool is_moltenvk;
     } implementation;
-} DeviceProperties;
+} DeviceCaps;
 
 struct Device_ {
     Runtime* runtime;
-    DeviceProperties properties;
+    DeviceCaps caps;
     VkDevice device;
     VkCommandPool cmd_pool;
     VkQueue compute_queue;
@@ -163,6 +171,7 @@ static inline void append_pnext(VkBaseOutStructure* s, void* n) {
     while (s->pNext != NULL)
         s = s->pNext;
     s->pNext = n;
+    ((VkBaseOutStructure*) n)->pNext = NULL;
 }
 
 #endif

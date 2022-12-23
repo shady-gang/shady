@@ -10,7 +10,8 @@
 #include "murmur3.h"
 
 static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* count, const char* enabled_extensions[], bool support_vector[]) {
-    *count = 0;
+    if (count)
+        *count = 0;
 
     uint32_t available_count;
     CHECK_VK(vkEnumerateDeviceExtensionProperties(physical_device, NULL, &available_count, NULL), return false);
@@ -30,122 +31,151 @@ static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* 
             support_vector[i] = found;
 
         if (is_device_ext_required[i] && !found) {
-            enabled_extensions[0] = shady_supported_device_extensions_names[i];
+            if (enabled_extensions)
+                enabled_extensions[0] = shady_supported_device_extensions_names[i];
             return false;
         }
-        if (found)
+        if (found && enabled_extensions && count)
             enabled_extensions[(*count)++] = shady_supported_device_extensions_names[i];
     }
 
     return true;
 }
 
-static void figure_out_spirv_version(DeviceProperties* device) {
-    assert(device->vk_version.major >= 1);
-    device->spirv_version.major = 1;
-    if (device->vk_version.major == 1 && device->vk_version.minor <= 1) {
+static void figure_out_spirv_version(DeviceCaps* caps) {
+    uint32_t major = VK_VERSION_MAJOR(caps->base_properties.apiVersion);
+    uint32_t minor = VK_VERSION_MINOR(caps->base_properties.apiVersion);
+
+    assert(major >= 1);
+    caps->spirv_version.major = 1;
+    if (major == 1 && minor <= 1) {
         // Vulkan 1.1 offers no clear guarantees of supported SPIR-V versions. There is an ext for 1.4 ...
-        if (device->supported_extensions[ShadySupportsKHRspirv_1_4]) {
-            device->spirv_version.minor = 4;
+        if (caps->supported_extensions[ShadySupportsKHRspirv_1_4]) {
+            caps->spirv_version.minor = 4;
         } else {
             // but there is no way to signal support for spv at or below 1.3, so we just hope 1.3 works out.
-            device->spirv_version.minor = 3;
+            caps->spirv_version.minor = 3;
         }
-    } else if (device->vk_version.major == 1 && device->vk_version.minor == 2) {
+    } else if (major == 1 && minor == 2) {
         // Vulkan 1.2 guarantees support for spv 1.5
-        device->spirv_version.minor = 5;
+        caps->spirv_version.minor = 5;
     } else {
         // Vulkan 1.3 and later can do spv 1.6
-        device->spirv_version.minor = 6;
+        caps->spirv_version.minor = 6;
     }
 
-    debug_print("Using SPIR-V version %d.%d, on Vulkan %d.%d\n", device->spirv_version.major, device->spirv_version.minor, device->vk_version.major, device->vk_version.minor);
+    debug_print("Using SPIR-V version %d.%d, on Vulkan %d.%d\n", caps->spirv_version.major, caps->spirv_version.minor, major, minor);
 }
 
-/// Considers a given physical device for running on, returns false if it's unusable, otherwise returns a report in out
-static bool get_physical_device_properties(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device, DeviceProperties* out) {
-    memset(out, 0, sizeof(DeviceProperties));
-    out->physical_device = physical_device;
-
-    VkPhysicalDeviceSubgroupProperties subgroup_properties = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES,
-        .pNext = NULL
-    };
+static bool fill_basic_device_properties(DeviceCaps* caps) {
     VkPhysicalDeviceProperties2 dp = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
         .pNext = NULL
     };
-    append_pnext((VkBaseOutStructure*) &dp, &subgroup_properties);
-    vkGetPhysicalDeviceProperties2(physical_device, &dp);
+    vkGetPhysicalDeviceProperties2(caps->physical_device, &dp);
+    caps->base_properties = dp.properties;
 
-    if (dp.properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0)) {
-        info_print("Rejecting device '%s' because it does not support Vulkan 1.1 or later\n", dp.properties.deviceName);
+    if (caps->base_properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0)) {
+        info_print("Rejecting device '%s' because it does not support Vulkan 1.1 or later\n", caps->base_properties.deviceName);
         return false;
     }
 
-    LARRAY(const char*, exts, ShadySupportedDeviceExtensionsCount);
-    size_t c;
-    if (!fill_available_extensions(physical_device, &c, exts, out->supported_extensions)) {
-        info_print("Rejecting device %s because it lacks support for '%s'\n", dp.properties.deviceName, exts[0]);
+    String missing_ext;
+    if (!fill_available_extensions(caps->physical_device, NULL, &missing_ext, caps->supported_extensions)) {
+        info_print("Rejecting device %s because it lacks support for '%s'\n", caps->base_properties.deviceName, missing_ext);
         return false;
     }
 
-    out->vk_version.major = VK_VERSION_MAJOR(dp.properties.apiVersion);
-    out->vk_version.minor = VK_VERSION_MINOR(dp.properties.apiVersion);
-    figure_out_spirv_version(out);
+    figure_out_spirv_version(caps);
 
 #ifdef __APPLE__
     // TODO: this is not a proper check
     out->implementation.is_moltenvk = true;
 #endif
 
-    memcpy(out->name, dp.properties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE);
+    return true;
+}
 
-    VkPhysicalDeviceFeatures2 df = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+static bool fill_extended_device_properties(DeviceCaps* caps) {
+    VkPhysicalDeviceProperties2 dp = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
         .pNext = NULL
     };
 
-    VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR subgroup_extended_features = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR,
+    caps->extended_properties.subgroup.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+    append_pnext((VkBaseOutStructure*) &dp, &caps->extended_properties.subgroup);
+
+    if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
+        caps->extended_properties.subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES_EXT;
+        append_pnext((VkBaseOutStructure*) &dp, &caps->extended_properties.subgroup_size_control);
+    }
+
+    vkGetPhysicalDeviceProperties2(caps->physical_device, &dp);
+
+    if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
+        caps->subgroup_size.max = caps->extended_properties.subgroup_size_control.maxSubgroupSize;
+        caps->subgroup_size.min = caps->extended_properties.subgroup_size_control.minSubgroupSize;
+    } else {
+        caps->subgroup_size.max = caps->extended_properties.subgroup.subgroupSize;
+        caps->subgroup_size.min = caps->extended_properties.subgroup.subgroupSize;
+    }
+    info_print("Subgroup size range for device '%s' is [%d; %d]\n", caps->base_properties.deviceName, caps->subgroup_size.min, caps->subgroup_size.max);
+    return true;
+}
+
+static bool fill_device_features(DeviceCaps* caps, VkPhysicalDeviceFeatures2* fill_out_struct) {
+    VkPhysicalDeviceFeatures2 df = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = NULL,
-    };
-    if (out->supported_extensions[ShadySupportsKHRshader_subgroup_extended_types] || dp.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0))
-        append_pnext((VkBaseOutStructure*) &df, &subgroup_extended_features);
-
-    VkPhysicalDeviceBufferDeviceAddressFeaturesEXT bda_features = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT,
-        .pNext = NULL,
+        .features = {
+            .shaderInt64 = true
+        }
     };
 
-    if (out->supported_extensions[ShadySupportsEXTbuffer_device_address] || dp.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0))
-        append_pnext((VkBaseOutStructure*) &df, &bda_features);
+    if (caps->supported_extensions[ShadySupportsKHRshader_subgroup_extended_types] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
+        caps->features.subgroup_extended_types.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR;
+        append_pnext((VkBaseOutStructure*) &df, &caps->features.subgroup_extended_types);
+    }
 
-    vkGetPhysicalDeviceFeatures2(physical_device, &df);
+    if (caps->supported_extensions[ShadySupportsEXTbuffer_device_address] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
+        caps->features.buffer_device_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT;
+        append_pnext((VkBaseOutStructure*) &df, &caps->features.buffer_device_address);
+    }
+
+    if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control]) {
+        caps->features.subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT;
+        append_pnext((VkBaseOutStructure*) &df, &caps->features.subgroup_size_control);
+    }
+
+    if (fill_out_struct) {
+        *fill_out_struct = df;
+        return true;
+    }
+
+    vkGetPhysicalDeviceFeatures2(caps->physical_device, &df);
 
     if (!df.features.shaderInt64) {
-        info_print("Rejecting device '%s' because it does not support 64-bit integers in shaders\n", dp.properties.deviceName);
+        info_print("Rejecting device '%s' because it does not support 64-bit integers in shaders\n", caps->base_properties.deviceName);
         return false;
     }
 
-    out->features.subgroup_extended_types = subgroup_extended_features.shaderSubgroupExtendedTypes;
-    if (!bda_features.bufferDeviceAddress) {
-        info_print("Rejecting device '%s' because it does not buffer device addresses\n", dp.properties.deviceName);
+    if (!caps->features.buffer_device_address.bufferDeviceAddress) {
+        info_print("Rejecting device '%s' because it does not buffer device addresses\n", caps->base_properties.deviceName);
         return false;
     }
-    out->features.physical_global_ptrs = bda_features.bufferDeviceAddress;
 
-    out->subgroup_size = subgroup_properties.subgroupSize;
-    info_print("Subgroup size for device '%s' is %d\n", dp.properties.deviceName, out->subgroup_size);
+    return true;
+}
 
+static bool fill_queue_properties(DeviceCaps* caps) {
     uint32_t queue_families_count;
-    vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_families_count, NULL);
+    vkGetPhysicalDeviceQueueFamilyProperties2(caps->physical_device, &queue_families_count, NULL);
     LARRAY(VkQueueFamilyProperties2, queue_families_properties, queue_families_count);
     for (size_t i = 0; i < queue_families_count; i++) {
         queue_families_properties[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
         queue_families_properties[i].pNext = NULL;
     }
-    vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_families_count, queue_families_properties);
+    vkGetPhysicalDeviceQueueFamilyProperties2(caps->physical_device, &queue_families_count, queue_families_properties);
 
     uint32_t compute_queue_family = queue_families_count;
     for (uint32_t i = 0; i < queue_families_count; i++) {
@@ -156,12 +186,31 @@ static bool get_physical_device_properties(SHADY_UNUSED Runtime* runtime, VkPhys
         }
     }
     if (compute_queue_family >= queue_families_count) {
-        info_print("Rejecting device %s because it lacks a compute queue family\n", dp.properties.deviceName);
-        return NULL;
+        info_print("Rejecting device %s because it lacks a compute queue family\n", caps->base_properties.deviceName);
+        return false;
     }
-    out->compute_queue_family = compute_queue_family;
+    caps->compute_queue_family = compute_queue_family;
+    return true;
+}
+
+/// Considers a given physical device for running on, returns false if it's unusable, otherwise returns a report in out
+static bool get_physical_device_caps(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device, DeviceCaps* out) {
+    memset(out, 0, sizeof(DeviceCaps));
+    out->physical_device = physical_device;
+
+    if (!fill_basic_device_properties(out))
+        goto fail;
+    if (!fill_extended_device_properties(out))
+        goto fail;
+    if (!fill_device_features(out, NULL))
+        goto fail;
+    if (!fill_queue_properties(out))
+        goto fail;
 
     return true;
+
+    fail:
+    return false;
 }
 
 // TODO: unduplicate
@@ -188,34 +237,14 @@ bool cmp_programs(Device** pldevice, Device** prdevice) {
 static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
     Device* device = calloc(1, sizeof(Device));
     device->runtime = runtime;
-    CHECK(get_physical_device_properties(runtime, physical_device, &device->properties), assert(false));
+    CHECK(get_physical_device_caps(runtime, physical_device, &device->caps), assert(false));
 
     LARRAY(const char*, enabled_device_exts, ShadySupportedDeviceExtensionsCount);
     size_t enabled_device_exts_count;
     CHECK(fill_available_extensions(physical_device, &enabled_device_exts_count, enabled_device_exts, NULL), assert(false));
 
-    VkPhysicalDeviceFeatures2 enabled_features = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = NULL,
-        .features = {
-            .shaderInt64 = true
-        }
-    };
-    VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR subgroup_extended_features = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR,
-        .pNext = NULL,
-        .shaderSubgroupExtendedTypes = true
-    };
-    if (device->properties.features.subgroup_extended_types)
-        append_pnext((VkBaseOutStructure*) &enabled_features, &subgroup_extended_features);
-
-    VkPhysicalDeviceBufferDeviceAddressFeaturesEXT bda_features = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT,
-        .pNext = NULL,
-        .bufferDeviceAddress = true,
-    };
-    if (device->properties.features.physical_global_ptrs)
-        append_pnext((VkBaseOutStructure*) &enabled_features, &bda_features);
+    VkPhysicalDeviceFeatures2 enabled_features;
+    fill_device_features(&device->caps, &enabled_features);
 
     CHECK_VK(vkCreateDevice(physical_device, &(VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -227,7 +256,7 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
                 .flags = 0,
                 .pQueuePriorities = (const float []) { 1.0f },
                 .queueCount = 1,
-                .queueFamilyIndex = device->properties.compute_queue_family,
+                .queueFamilyIndex = device->caps.compute_queue_family,
                 .pNext = NULL,
             }
         },
@@ -236,22 +265,24 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
         .ppEnabledExtensionNames = enabled_device_exts,
         .pEnabledFeatures = NULL,
         .pNext = &enabled_features,
-    }, NULL, &device->device), return NULL)
+    }, NULL, &device->device), goto fail;)
 
     CHECK_VK(vkCreateCommandPool(device->device, &(VkCommandPoolCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = NULL,
-        .queueFamilyIndex = device->properties.compute_queue_family,
+        .queueFamilyIndex = device->caps.compute_queue_family,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
     }, NULL, &device->cmd_pool), goto delete_device);
 
     device->specialized_programs = new_dict(Program*, SpecProgram*, (HashFn) hash_program, (CmpFn) cmp_programs);
 
-    vkGetDeviceQueue(device->device, device->properties.compute_queue_family, 0, &device->compute_queue);
+    vkGetDeviceQueue(device->device, device->caps.compute_queue_family, 0, &device->compute_queue);
     return device;
 
     delete_device:
     vkDestroyDevice(device->device, NULL);
+
+    fail:
     return NULL;
 }
 
@@ -269,8 +300,8 @@ bool probe_devices(Runtime* runtime) {
 
     for (uint32_t i = 0; i < devices_count; i++) {
         VkPhysicalDevice physical_device = available_devices[i];
-        DeviceProperties dummy;
-        if (get_physical_device_properties(runtime, physical_device, &dummy)) {
+        DeviceCaps dummy;
+        if (get_physical_device_caps(runtime, physical_device, &dummy)) {
             Device* device = create_device(runtime, physical_device);
             append_list(Device*, runtime->devices, device);
         }
@@ -312,4 +343,4 @@ Device* get_an_device(Runtime* r) {
     return get_device(r, 0);
 }
 
-const char* get_device_name(Device* device) { return device->properties.name; }
+const char* get_device_name(Device* device) { return device->caps.base_properties.deviceName; }

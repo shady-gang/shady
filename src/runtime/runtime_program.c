@@ -74,17 +74,17 @@ static bool create_vk_pipeline(SpecProgram* program) {
 static CompilerConfig get_compiler_config_for_device(Device* device) {
     CompilerConfig config = default_compiler_config();
 
-    config.subgroup_size = device->properties.subgroup_size;
+    config.subgroup_size = device->caps.subgroup_size.max;
     assert(config.subgroup_size > 0);
     // config.per_thread_stack_size = ...
 
-    config.target_spirv_version.major = device->properties.spirv_version.major;
-    config.target_spirv_version.minor = device->properties.spirv_version.minor;
+    config.target_spirv_version.major = device->caps.spirv_version.major;
+    config.target_spirv_version.minor = device->caps.spirv_version.minor;
 
-    if (!device->properties.features.subgroup_extended_types)
+    if (!device->caps.features.subgroup_extended_types.shaderSubgroupExtendedTypes)
         config.lower.emulate_subgroup_ops_extended_types = true;
 
-    if (device->properties.implementation.is_moltenvk)
+    if (device->caps.implementation.is_moltenvk)
         config.lower.emulate_subgroup_ops_extended_types = true;
 
     config.logging.skip_generated = true;

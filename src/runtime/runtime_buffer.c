@@ -9,7 +9,7 @@ typedef enum {
 
 static uint32_t find_suitable_memory_type(Device* device, uint32_t memory_type_bits, AllocHeap heap) {
     VkPhysicalDeviceMemoryProperties device_memory_properties;
-    vkGetPhysicalDeviceMemoryProperties(device->properties.physical_device, &device_memory_properties);
+    vkGetPhysicalDeviceMemoryProperties(device->caps.physical_device, &device_memory_properties);
     for (size_t bit = 0; bit < 32; bit++) {
         VkMemoryType memory_type = device_memory_properties.memoryTypes[bit];
 
@@ -53,7 +53,7 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
         .queueFamilyIndexCount = 0,
         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
     };
-    if (device->properties.features.physical_global_ptrs)
+    if (device->caps.features.buffer_device_address.bufferDeviceAddress)
         buffer_create_info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     CHECK_VK(vkCreateBuffer(device->device, &buffer_create_info, NULL, &buffer->buffer), goto bail_out);
 
@@ -71,7 +71,7 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
         .flags = 0,
         .deviceMask = 0
     };
-    if (device->properties.features.physical_global_ptrs)
+    if (device->caps.features.buffer_device_address.bufferDeviceAddress)
         allocate_flags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
     VkMemoryAllocateInfo allocation_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
