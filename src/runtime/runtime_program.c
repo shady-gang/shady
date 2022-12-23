@@ -51,6 +51,24 @@ static bool create_vk_pipeline(SpecProgram* program) {
         .pCode = (uint32_t*) program->spirv_bytes
     }, NULL, &program->shader_module), return false);
 
+    VkPipelineShaderStageCreateInfo stage_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .module = program->shader_module,
+        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+        .pName = "main",
+        .pSpecializationInfo = NULL
+    };
+
+    VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT pipeline_shader_stage_required_subgroup_size_create_info_ext = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT,
+        .requiredSubgroupSize = program->device->caps.subgroup_size.max
+    };
+    if (program->device->caps.supported_extensions[ShadySupportsEXTsubgroup_size_control]) {
+        append_pnext((VkBaseOutStructure*) &stage_create_info, &pipeline_shader_stage_required_subgroup_size_create_info_ext);
+    }
+
     CHECK_VK(vkCreateComputePipelines(program->device->device, VK_NULL_HANDLE, 1, (VkComputePipelineCreateInfo []) { {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .pNext = NULL,
@@ -58,15 +76,7 @@ static bool create_vk_pipeline(SpecProgram* program) {
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = -1,
         .layout = program->layout,
-        .stage = (VkPipelineShaderStageCreateInfo) {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .pNext = NULL,
-            .flags = 0,
-            .module = program->shader_module,
-            .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-            .pName = "main",
-            .pSpecializationInfo = NULL
-        }
+        .stage = stage_create_info,
     } }, NULL, &program->pipeline), return false);
     return true;
 }
