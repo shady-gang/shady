@@ -182,11 +182,11 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
 
             LARRAY(CTerm, results, yield_types.count);
-            LARRAY(bool, need_binding, yield_types.count);
+            LARRAY(InstrResultBinding, bindings, yield_types.count);
             InstructionOutputs ioutputs = {
                 .count = yield_types.count,
                 .results = results,
-                .needs_binding = need_binding,
+                .binding = bindings,
             };
             emit_instruction(emitter, p, instruction, ioutputs);
 
@@ -196,28 +196,50 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             const Nodes tail_params = tail->payload.anon_lam.params;
             assert(tail_params.count == yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
-                if (!need_binding[i]) {
-                    register_emitted(emitter, tail_params.nodes[i], results[i]);
-                    continue;
-                }
-                String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name,
-                                               fresh_id(emitter->arena));
-
-                String prefix = "";
-                String center = bind_to;
-                switch (emitter->config.dialect) {
-                    case C:
-                        prefix = "register ";
-                        center = format_string(emitter->arena, "const %s", bind_to);
+                bool mut = false;
+                bool has_result = results[i].value || results[i].var;
+                switch (bindings[i]) {
+                    case NoBinding: {
+                        assert(has_result && "unbound results can't be empty");
+                        register_emitted(emitter, tail_params.nodes[i], results[i]);
                         break;
-                    case GLSL:
-                        prefix = "const ";
-                        break;
-                }
+                    }
+                    case LetMutBinding: mut = true;
+                    case LetBinding: {
+                        assert((mut || has_result) && "unbound results are only allowed when creating a mutable local variable");
+                        String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name, fresh_id(emitter->arena));
 
-                String decl = c_emit_type(emitter, yield_types.nodes[i], center);
-                print(p, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, results[i]));
-                register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
+                        String prefix = "";
+                        String center = bind_to;
+
+                        // add extra qualifiers if immutable
+                        if (!mut) switch (emitter->config.dialect) {
+                            case C:
+                                prefix = "register ";
+                                center = format_string(emitter->arena, "const %s", bind_to);
+                                break;
+                            case GLSL:
+                                prefix = "const ";
+                                break;
+                        }
+
+                        const Type* t = yield_types.nodes[i];
+                        if (mut)
+                            t = extract_pointee_type(emitter->arena, t);
+
+                        String decl = c_emit_type(emitter, t, center);
+                        if (has_result)
+                            print(p, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, results[i]));
+                        else
+                            print(p, "\n%s%s;", prefix, decl);
+
+                        if (mut)
+                            register_emitted(emitter, tail_params.nodes[i], term_from_cvar(bind_to));
+                        else
+                            register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
+                        break;
+                    }
+                }
             }
             emit_terminator(emitter, p, tail->payload.anon_lam.body);
 

@@ -64,10 +64,13 @@ void emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
 CTerm emit_value(Emitter* emitter, const Node* value);
 CValue emit_compound_value(Emitter* emitter, CType type, String contents);
 
+typedef enum { NoBinding, LetBinding, LetMutBinding } InstrResultBinding;
+
 typedef struct {
     size_t count;
     CTerm* results;
-    bool* needs_binding;
+    /// What to do with the results at the call site
+    InstrResultBinding* binding;
 } InstructionOutputs;
 
 void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, InstructionOutputs);

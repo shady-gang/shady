@@ -157,6 +157,23 @@ bool contains_qualified_type(const Type* type) {
     }
 }
 
+const Type* extract_pointee_type(IrArena* a, const Type* type) {
+    bool qualified = false, uniform = false;
+    if (contains_qualified_type(type)) {
+        uniform = is_operand_uniform(type);
+        type = extract_operand_type(type);
+    }
+    assert(type->tag == PtrType_TAG);
+    uniform &= is_addr_space_uniform(type->payload.ptr_type.address_space);
+    type = type->payload.ptr_type.pointed_type;
+    if (qualified)
+        type = qualified_type(a, (QualifiedType) {
+            .type = type,
+            .is_uniform = uniform
+        });
+    return type;
+}
+
 Nodes extract_variable_types(IrArena* arena, Nodes variables) {
     LARRAY(const Type*, arr, variables.count);
     for (size_t i = 0; i < variables.count; i++) {

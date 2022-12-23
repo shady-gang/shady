@@ -50,9 +50,10 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case assign_op:
         case subscript_op:
         case quote_op: {
+            assert(outputs.count == 1);
             for (size_t i = 0; i < prim_op->operands.count; i++) {
                 outputs.results[i] = emit_value(emitter, prim_op->operands.nodes[i]);
-                outputs.needs_binding[i] = false;
+                outputs.binding[i] = NoBinding;
             }
             break;
         }
@@ -83,12 +84,17 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             operator_str = "<<";
             break;
         case alloca_op:
-        case alloca_subgroup_op:
-        case alloca_logical_op: error("Lower me");
+        case alloca_subgroup_op: error("Lower me");
+        case alloca_logical_op: {
+            assert(outputs.count == 1);
+            outputs.results[0] = (CTerm) { .value = NULL, .var = NULL };
+            outputs.binding[0] = LetMutBinding;
+            return;
+        }
         case load_op: {
             CAddr dereferenced = deref_term(emitter, emit_value(emitter, first(prim_op->operands)));
             outputs.results[0] = term_from_cvalue(dereferenced);
-            outputs.needs_binding[0] = true;
+            outputs.binding[0] = LetBinding;
             return;
         }
         case store_op: {
@@ -125,7 +131,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             }
             assert(outputs.count == 1);
             outputs.results[0] = acc;
-            outputs.needs_binding[0] = false;
+            outputs.binding[0] = NoBinding;
             return;
         }
         case make_op: {
@@ -181,13 +187,13 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
                     CType t = emit_type(emitter, prim_op->type_arguments.nodes[0], NULL);
                     outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s(%s)", t, to_cvalue(emitter, src)));
-                    outputs.needs_binding[0] = false;
+                    outputs.binding[0] = NoBinding;
                 } else
                     assert(false);
             } else if (src_type->tag == PtrType_TAG && dst_type->tag == PtrType_TAG || true) {
                 CType t = emit_type(emitter, prim_op->type_arguments.nodes[0], NULL);
                 outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "((%s) %s)", t, to_cvalue(emitter, src)));
-                outputs.needs_binding[0] = false;
+                outputs.binding[0] = NoBinding;
             } else {
                 assert(false);
             }
@@ -287,7 +293,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     }
 
     assert(outputs.count == 1);
-    outputs.needs_binding[0] = true;
+    outputs.binding[0] = LetBinding;
     if (operator_str == NULL) {
         if (final_expression)
             outputs.results[0] = term_from_cvalue(final_expression);
@@ -345,11 +351,12 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
         print(p, "\n%s = %s(%s);", emit_type(emitter, call->type, named), callee, params);
         for (size_t i = 0; i < yield_types.count; i++) {
             outputs.results[i] = term_from_cvalue(format_string(emitter->arena, "%s->_%d", named, i));
-            outputs.needs_binding[i] = false;
+            // we have let-bound the actual result already, and extracting their components can be done inline
+            outputs.binding[i] = NoBinding;
         }
     } else if (yield_types.count == 1) {
         outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s(%s)", callee, params));
-        outputs.needs_binding[0] = true;
+        outputs.binding[0] = LetBinding;
     } else {
         print(p, "\n%s(%s);", callee, params);
     }
@@ -388,7 +395,7 @@ static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Instruct
     assert(outputs.count == ephis.count);
     for (size_t i = 0; i < outputs.count; i++) {
         outputs.results[i] = term_from_cvalue(ephis.strings[i]);
-        outputs.needs_binding[i] = false;
+        outputs.binding[i] = NoBinding;
     }
 }
 
@@ -429,7 +436,7 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, In
     assert(outputs.count == ephis.count);
     for (size_t i = 0; i < outputs.count; i++) {
         outputs.results[i] = term_from_cvalue(ephis.strings[i]);
-        outputs.needs_binding[i] = false;
+        outputs.binding[i] = NoBinding;
     }
 }
 
@@ -455,7 +462,7 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Inst
     assert(outputs.count == ephis.count);
     for (size_t i = 0; i < outputs.count; i++) {
         outputs.results[i] = term_from_cvalue(ephis.strings[i]);
-        outputs.needs_binding[i] = false;
+        outputs.binding[i] = NoBinding;
     }
 }
 

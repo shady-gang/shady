@@ -24,6 +24,9 @@ NODES(DEFINE_NODE_CHECK_FN)
 const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types);
 Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 
+/// Returns the (possibly qualified) pointee type from a (possibly qualified) ptr type
+const Type* extract_pointee_type(IrArena*, const Type* type);
+
 Nodes extract_variable_types(IrArena*, Nodes);
 Strings extract_variable_names(IrArena*, Nodes);
 
