@@ -7,6 +7,8 @@ typedef struct Node_ Node;
 typedef struct Module_ Module;
 
 typedef enum LogLevel_ {
+    DEBUGVV,
+    DEBUGV,
     DEBUG,
     INFO,
     WARN,
@@ -20,6 +22,8 @@ void log_node(LogLevel level, const Node* node);
 typedef struct CompilerConfig_ CompilerConfig;
 void log_module(LogLevel level, CompilerConfig*, Module*);
 
+#define debugvv_print(...) log_string(DEBUGVV, __VA_ARGS__)
+#define debugv_print(...) log_string(DEBUGV, __VA_ARGS__)
 #define debug_print(...) log_string(DEBUG, __VA_ARGS__)
 #define info_print(...)  log_string(INFO, __VA_ARGS__)
 #define warn_print(...)  log_string(WARN, __VA_ARGS__)

@@ -31,8 +31,8 @@ old_arena = tmp_arena;                                  \
 tmp_arena = new_ir_arena(aconfig);                      \
 mod = new_module(tmp_arena, get_module_name(old_mod));  \
 pass_name(config, old_mod, mod);                        \
-info_print("After "#pass_name" pass: \n");              \
-log_module(INFO, config, mod);                          \
+debug_print("After "#pass_name" pass: \n");             \
+log_module(DEBUG, config, mod);                         \
 verify_module(mod);                                     \
 if (old_arena) destroy_ir_arena(old_arena);
 
@@ -108,7 +108,7 @@ CompilationResult parse_files(CompilerConfig* config, size_t num_files, const ch
             input_file_contents = files_contents[i - num_builtin_sources_files];
         }
 
-        info_print("Parsing: \n%s\n", input_file_contents);
+        debugv_print("Parsing: \n%s\n", input_file_contents);
         ParserConfig pconfig = {
             .front_end = config->allow_frontend_syntax
         };

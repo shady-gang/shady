@@ -65,13 +65,13 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, Str
     struct List* recover_context = compute_free_variables(&scope);
     size_t recover_context_size = entries_count_list(recover_context);
 
-    debug_print("free variables at '%s': ", name);
+    debugv_print("free (spilled) variables at '%s': ", name);
     for (size_t i = 0; i < recover_context_size; i++) {
-        debug_print("%s", read_list(const Node*, recover_context)[i]->payload.var.name);
+        debugv_print("%s", read_list(const Node*, recover_context)[i]->payload.var.name);
         if (i + 1 < recover_context_size)
-            debug_print(", ");
+            debugv_print(", ");
     }
-    debug_print("\n");
+    debugv_print("\n");
 
     // Create and register new parameters for the lifted continuation
     Nodes new_params = recreate_variables(&ctx->rewriter, oparams);

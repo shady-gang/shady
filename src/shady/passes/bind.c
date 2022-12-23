@@ -146,7 +146,7 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
         bind_instruction_extra(bb, store, 0, NULL, NULL);
 
         add_binding(&body_infer_ctx, true, oparam->payload.var.name, ptr);
-        debug_print("Lowered mutable variable %s\n", oparam->payload.var.name);
+        debugv_print("Lowered mutable variable %s\n", oparam->payload.var.name);
     }
 
     const Node* terminator = rewrite_node(&body_infer_ctx.rewriter, old_lam->payload.anon_lam.body);
@@ -237,7 +237,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 new_bbs[i] = new_bb;
                 add_binding(ctx, false, old_bb->payload.basic_block.name, new_bb);
                 register_processed(&ctx->rewriter, old_bb, new_bb);
-                debug_print("Bound (stub) basic block %s\n", old_bb->payload.basic_block.name);
+                debugv_print("Bound (stub) basic block %s\n", old_bb->payload.basic_block.name);
 
                 for (size_t j = 0; j < new_bb_params.count; j++)
                     add_binding(ctx, false, new_bb->payload.basic_block.params.nodes[j]->payload.var.name, new_bb_params.nodes[j]);
@@ -250,7 +250,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 const Node* old_bb = unbound_blocks.nodes[i];
                 Node* new_bb = new_bbs[i];
                 new_bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, old_bb->payload.basic_block.body);
-                debug_print("Bound basic block %s\n", new_bb->payload.basic_block.name);
+                debugv_print("Bound basic block %s\n", new_bb->payload.basic_block.name);
             }
 
             return bound_body;

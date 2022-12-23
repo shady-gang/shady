@@ -116,7 +116,7 @@ static int min(int a, int b) { return a < b ? a : b; }
 
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 static void strongconnect(CGNode* v, int* index, struct List* stack) {
-    debug_print("strongconnect(%s) \n", v->fn->payload.fun.name);
+    debugvv_print("strongconnect(%s) \n", v->fn->payload.fun.name);
 
     v->tarjan.index = *index;
     v->tarjan.lowlink = *index;
@@ -128,9 +128,9 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
     {
         size_t iter = 0;
         CGNode* w;
-        debug_print(" has %d successors\n", entries_count_dict(v->callees));
+        debugvv_print(" has %d successors\n", entries_count_dict(v->callees));
         while (dict_iter(v->callees, &iter, &w, NULL)) {
-            debug_print("  %s\n", w->fn->payload.fun.name);
+            debugvv_print("  %s\n", w->fn->payload.fun.name);
             if (w->tarjan.index == -1) {
                 // Successor w has not yet been visited; recurse on it
                 strongconnect(w, index, stack);
@@ -162,7 +162,7 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
         if (scc_size > 1) {
             for (size_t i = 0; i < scc_size; i++) {
                 CGNode* w = scc[i];
-                debug_print("Function %s is part of a recursive call chain \n", w->fn->payload.fun.name);
+                debugv_print("Function %s is part of a recursive call chain \n", w->fn->payload.fun.name);
                 w->is_recursive = true;
             }
         }
@@ -196,7 +196,7 @@ CallGraph* get_callgraph(Module* mod) {
         }
     }
 
-    debug_print("CallGraph: done with CFG build, contains %d nodes\n", entries_count_dict(graph->fn2cgn));
+    debugv_print("CallGraph: done with CFG build, contains %d nodes\n", entries_count_dict(graph->fn2cgn));
 
     tarjan(graph->fn2cgn);
 
@@ -207,7 +207,7 @@ void dispose_callgraph(CallGraph* graph) {
     size_t i = 0;
     CGNode* node;
     while (dict_iter(graph->fn2cgn, &i, NULL, &node)) {
-        debug_print("Freeing CG node: %s\n", node->fn->payload.fun.name);
+        debugv_print("Freeing CG node: %s\n", node->fn->payload.fun.name);
         destroy_dict(node->callers);
         destroy_dict(node->callees);
         free(node);

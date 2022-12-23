@@ -24,6 +24,8 @@ Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, in
     dispatch->type = DispatchCompute;
     dispatch->src = get_specialized_program(program, device);
 
+    debug_print("Dispatching kernel on %s\n", device->caps.base_properties.deviceName);
+
     CHECK_VK(vkAllocateCommandBuffers(device->device, &(VkCommandBufferAllocateInfo) {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .pNext = NULL,

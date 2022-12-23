@@ -917,9 +917,9 @@ void parse(ParserConfig config, const char* contents, Module* mod) {
         if (!decl)  decl = accept_nominal_type_decl(ctx, annotations);
 
         if (decl) {
-            debug_print("decl parsed : ");
-            log_node(DEBUG, decl);
-            debug_print("\n");
+            debugv_print("decl parsed : ");
+            log_node(DEBUGV, decl);
+            debugv_print("\n");
             continue;
         }
 

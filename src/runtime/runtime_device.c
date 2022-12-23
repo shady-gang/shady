@@ -119,7 +119,7 @@ static bool fill_extended_device_properties(DeviceCaps* caps) {
         caps->subgroup_size.max = caps->extended_properties.subgroup.subgroupSize;
         caps->subgroup_size.min = caps->extended_properties.subgroup.subgroupSize;
     }
-    info_print("Subgroup size range for device '%s' is [%d; %d]\n", caps->base_properties.deviceName, caps->subgroup_size.min, caps->subgroup_size.max);
+    debug_print("Subgroup size range for device '%s' is [%d; %d]\n", caps->base_properties.deviceName, caps->subgroup_size.min, caps->subgroup_size.max);
     return true;
 }
 
@@ -238,6 +238,7 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     Device* device = calloc(1, sizeof(Device));
     device->runtime = runtime;
     CHECK(get_physical_device_caps(runtime, physical_device, &device->caps), assert(false));
+    info_print("Initialising device %s\n", device->caps.base_properties.deviceName);
 
     LARRAY(const char*, enabled_device_exts, ShadySupportedDeviceExtensionsCount);
     size_t enabled_device_exts_count;
@@ -312,6 +313,8 @@ bool probe_devices(Runtime* runtime) {
         error_print("This is caused by running on weird hardware configurations. Hardware support might get better in the future.\n");
         return false;
     }
+
+    info_print("Found %d usable devices\n", entries_count_list(runtime->devices));
 
     return true;
 }

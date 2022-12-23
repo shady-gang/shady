@@ -38,8 +38,8 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
     const Node* abs = cfnode->node;
 
     for (int i = 0; i < depth; i++)
-        debug_print(" ");
-    debug_print("%s\n", get_abstraction_name(abs));
+        debugvv_print(" ");
+    debugvv_print("%s\n", get_abstraction_name(abs));
 
     // Bind parameters
     Nodes params = get_abstraction_params(abs);
@@ -69,6 +69,7 @@ struct List* compute_free_variables(const Scope* scope) {
         .free_list = free_list,
     };
 
+    debugv_print("Computing free variables...\n");
     visit_domtree(&ctx, scope->entry, 0);
 
     destroy_dict(ignore_set);

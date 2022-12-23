@@ -91,7 +91,7 @@ static void eat_whitespace_and_comments(Tokenizer* tokenizer) {
 Token next_token(Tokenizer* tokenizer) {
     eat_whitespace_and_comments(tokenizer);
     if (tokenizer->pos == tokenizer->source_size) {
-        debug_print("EOF\n");
+        debugvv_print("EOF\n");
         Token token = {
             .tag = EOF_tok
         };
@@ -171,13 +171,13 @@ Token next_token(Tokenizer* tokenizer) {
     token.end = token.start + token_size;
     tokenizer->current = token;
 
-    debug_print("Token parsed: (tag = %s, pos = %zu", token_tags[token.tag], token.start);
+    debugvv_print("Token parsed: (tag = %s, pos = %zu", token_tags[token.tag], token.start);
     if (token.tag == identifier_tok || token.tag == string_lit_tok) {
-        debug_print(", str=");
+        debugvv_print(", str=");
         for (size_t i = token.start; i < token.end; i++)
-            debug_print("%c", tokenizer->source[i]);
+            debugvv_print("%c", tokenizer->source[i]);
     }
-    debug_print(")\n");
+    debugvv_print(")\n");
     return token;
 }
 
