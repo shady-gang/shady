@@ -81,6 +81,11 @@ Nodes bind_instruction_extra_mutable(BodyBuilder* builder, const Node* instructi
     return bind_internal(builder, instruction, true, outputs_count, provided_types, output_names);
 }
 
+Nodes bind_instruction_named(BodyBuilder* builder, const Node* instruction, String const output_names[]) {
+    assert(builder->arena->config.check_types);
+    return bind_internal(builder, instruction, false, SIZE_MAX, NULL, output_names);
+}
+
 Nodes bind_instruction(BodyBuilder* builder, const Node* instruction) {
     assert(builder->arena->config.check_types);
     return bind_internal(builder, instruction, false, SIZE_MAX, NULL, NULL);

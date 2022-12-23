@@ -147,6 +147,7 @@ BodyBuilder* begin_body(Module*);
 /// Appends an instruction to the builder, may apply optimisations.
 /// If the arena is typed, returns a list of variables bound to the values yielded by that instruction
 Nodes bind_instruction(BodyBuilder*, const Node* instruction);
+Nodes bind_instruction_named(BodyBuilder*, const Node* instruction, String const output_names[]);
 
 /// Like append instruction, but you explicitly give it information about any yielded values
 /// ! In untyped arenas, you need to call this because we can't guess how many things are returned without typing info !
