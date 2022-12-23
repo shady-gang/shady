@@ -43,9 +43,9 @@ static void collect_allocas(VContext* vctx, const Node* node) {
         const Type* element_type = rewrite_node(&vctx->context->rewriter, node->payload.prim_op.type_arguments.nodes[0]);
         TypeMemLayout layout = get_mem_layout(vctx->context->config, arena, element_type);
 
-        const Node* slot = first(bind_instruction(vctx->builder, prim_op(arena, (PrimOp) {
+        const Node* slot = first(bind_instruction_named(vctx->builder, prim_op(arena, (PrimOp) {
             .op = lea_op,
-            .operands = mk_nodes(arena, vctx->context->entry_base_stack_ptr, int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes))) })));
+            .operands = mk_nodes(arena, vctx->context->entry_base_stack_ptr, int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes))) }), (String []) { "stack_slot" }));
         const Node* ptr_t = ptr_type(arena, (PtrType) { .pointed_type = element_type, .address_space = as });
         slot = gen_reinterpret_cast(vctx->builder, ptr_t, slot);
 
@@ -69,7 +69,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
 
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-            ctx2.entry_stack_offset = gen_primop_ce(bb, get_stack_pointer_op, 0, NULL);
+            ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(arena, (PrimOp) { .op = get_stack_pointer_op } ), (String []) { format_string(arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
             ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
             VContext vctx = {
                 .visitor = {
