@@ -8,15 +8,15 @@ type JoinPoint = struct {
     i32 destination;
 };
 
-const i32 MASK_SIZE = SUBGROUP_SIZE;
+subgroup i32 actual_subgroup_size;
 
 subgroup i32 next_fn;
 subgroup mask_t next_mask;
 
 subgroup i32 scheduler_cursor = 0;
-subgroup [TreeNode; MASK_SIZE] scheduler_vector;
+subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
 
-subgroup [i32; MASK_SIZE] resume_at;
+subgroup [i32; SUBGROUP_SIZE] resume_at;
 
 @Builtin @DisablePass("lower_cf_instrs") @Leaf
 fn builtin_init_scheduler() {
@@ -27,6 +27,8 @@ fn builtin_init_scheduler() {
 
     val jp = make[JoinPoint]((tree_node, 0));
     push_stack[JoinPoint](jp);
+
+    actual_subgroup_size = subgroup_reduce_sum(1);
 }
 
 @Builtin @DisablePass("lower_cf_instrs") @Leaf
@@ -123,8 +125,8 @@ fn reduce2 i32(varying i32 a_index, varying i32 b_index) {
     if (leaf_call(is_parent)(a, b)) { return (a_index); }
     if (leaf_call(is_parent)(b, a)) { return (b_index); }
     
-    val a_dist = leaf_call(forward_distance)(a_index, scheduler_cursor, MASK_SIZE);
-    val b_dist = leaf_call(forward_distance)(b_index, scheduler_cursor, MASK_SIZE);
+    val a_dist = leaf_call(forward_distance)(a_index, scheduler_cursor, actual_subgroup_size);
+    val b_dist = leaf_call(forward_distance)(b_index, scheduler_cursor, actual_subgroup_size);
     
     if (a_dist < b_dist) { return (a_index); }
     return (b_index);
@@ -134,7 +136,7 @@ fn reduce2 i32(varying i32 a_index, varying i32 b_index) {
 fn builtin_find_schedulable_leaf() {
     var i32 reduced = 0;
     loop (uniform i32 i = 1) {
-        if (i >= MASK_SIZE) { break; }
+        if (i >= actual_subgroup_size) { break; }
         reduced = leaf_call(reduce2)(reduced, i);
         continue(i + 1);
     }
