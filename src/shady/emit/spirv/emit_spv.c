@@ -469,6 +469,7 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
     spvb_capability(file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
     spvb_capability(file_builder, SpvCapabilityGroupNonUniform);
     spvb_capability(file_builder, SpvCapabilityGroupNonUniformBallot);
+    spvb_capability(file_builder, SpvCapabilityGroupNonUniformArithmetic);
 
     spvb_finish(file_builder, words);
 

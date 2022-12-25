@@ -302,6 +302,19 @@ SpvId spvb_broadcast_first(struct SpvBasicBlockBuilder* bb_builder, SpvId result
     return id;
 }
 
+SpvId spvb_non_uniform_iadd(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope, SpvGroupOperation group_op, SpvId* cluster_size) {
+    op(SpvOpGroupNonUniformIAdd, cluster_size ? 7 : 6);
+    SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
+    ref_id(result_type);
+    ref_id(id);
+    ref_id(scope);
+    literal_int(group_op);
+    ref_id(value);
+    if (cluster_size)
+        ref_id(*cluster_size);
+    return id;
+}
+
 void spvb_branch(struct SpvBasicBlockBuilder* bb_builder, SpvId target) {
     op(SpvOpBranch, 2);
     ref_id(target);

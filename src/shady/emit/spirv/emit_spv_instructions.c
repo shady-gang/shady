@@ -156,6 +156,12 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             results[0] = result;
             return;
         }
+        case subgroup_reduce_sum_op: {
+            SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
+            assert(results_count == 1);
+            results[0] = spvb_non_uniform_iadd(bb_builder, emit_type(emitter, extract_operand_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup, SpvGroupOperationReduce, NULL);
+            return;
+        }
         case subgroup_local_id_op: {
             SpvId result_t = emit_type(emitter, get_vulkan_builtins_type(emitter->arena, VulkanBuiltinSubgroupLocalInvocationId));
             SpvId ptr = emit_builtin(emitter, VulkanBuiltinSubgroupLocalInvocationId);

@@ -53,6 +53,7 @@ P(1, set_stack_pointer_uniform) \
 P(1, create_joint_point)        \
 P(0, subgroup_elect_first)      \
 P(0, subgroup_broadcast_first)  \
+P(0, subgroup_reduce_sum)       \
 P(0, subgroup_active_mask)      \
 P(0, subgroup_ballot)           \
 P(0, subgroup_local_id)         \

@@ -48,7 +48,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     CValue final_expression = NULL;
     switch (prim_op->op) {
         case assign_op:
-        case subscript_op:
+        case subscript_op: assert(false);
         case quote_op: {
             assert(outputs.count == 1);
             for (size_t i = 0; i < prim_op->operands.count; i++) {
@@ -248,26 +248,32 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case set_stack_pointer_op:
         case set_stack_pointer_uniform_op: error("Stack operations need to be lowered.");
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
+        case subgroup_reduce_sum_op:
         case subgroup_elect_first_op: {
+            // TODO implement properly
             final_expression = "true /* subgroup_elect_first */";
             break;
         }
         case subgroup_broadcast_first_op: {
+            // TODO implement properly
             final_expression = format_string(emitter->arena, "%s /* subgroup_broadcast_first */", to_cvalue(emitter, emit_value(emitter, first(prim_op->operands))));
             break;
         }
         case subgroup_active_mask_op: {
+            // TODO implement properly
             CType result_type = emit_type(emitter, node->type, NULL);
             final_expression = emit_compound_value(emitter, result_type, "1, 0, 0, 0");
             break;
         }
         case subgroup_ballot_op: {
+            // TODO implement properly
             CType result_type = emit_type(emitter, node->type, NULL);
             CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
             final_expression = emit_compound_value(emitter, result_type, format_string(emitter->arena, "%s, 0, 0, 0", value));
             break;
         }
         case subgroup_local_id_op: {
+            // TODO implement properly
             final_expression = "0 /* subgroup_local_idy */";
             break;
         }

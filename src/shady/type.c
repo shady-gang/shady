@@ -399,10 +399,13 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     }
 
     switch (prim_op.op) {
+        case assign_op:
+        case subscript_op: error("These ops are only allowed in untyped IR before desugaring. They don't type to anything.");
         case quote_op: {
             assert(prim_op.type_arguments.count == 0);
             return wrap_multiple_yield_types(arena, extract_types(arena, prim_op.operands));
         }
+        case not_op:
         case neg_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
@@ -490,6 +493,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             }
             return qualified_type(arena, (QualifiedType) { .is_uniform = is_result_uniform, .type = bool_type(arena) });
         }
+
         case get_stack_pointer_op:
         case get_stack_pointer_uniform_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -573,12 +577,14 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(is_subtype(val_expected_type, val->type));
             return unit_type(arena);
         }
+        case alloca_subgroup_op:
         case alloca_logical_op:
         case alloca_op: {
             AddressSpace as;
             switch (prim_op.op) {
                 case alloca_op: as = AsPrivatePhysical; break;
                 case alloca_logical_op: as = AsFunctionLogical; break;
+                case alloca_subgroup_op: as = AsSubgroupPhysical; break;
                 default: error("")
             }
 
@@ -834,11 +840,11 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = int32_type(arena)
             });
         }
-        case subgroup_broadcast_first_op: {
+        case subgroup_broadcast_first_op:
+        case subgroup_reduce_sum_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
             const Type* operand_type = extract_operand_type(prim_op.operands.nodes[0]->type);
-            //assert(operand_type->tag == Int_TAG || operand_type->tag == Bool_TAG);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
                 .type = operand_type
@@ -857,7 +863,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             // TODO ?
             return unit_type(arena);
         }
-        default: error("unhandled primop %s", primop_names[prim_op.op]);
+        case PRIMOPS_COUNT: assert(false);
     }
 }
 
