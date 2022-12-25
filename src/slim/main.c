@@ -67,7 +67,11 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
             i++;
             if (i == argc)
                 goto incorrect_log_level;
-            if (strcmp(argv[i], "debug") == 0)
+            if (strcmp(argv[i], "debugvv") == 0)
+                set_log_level(DEBUGVV);
+            else if (strcmp(argv[i], "debugvv") == 0)
+                set_log_level(DEBUGV);
+            else if (strcmp(argv[i], "debug") == 0)
                 set_log_level(DEBUG);
             else if (strcmp(argv[i], "info") == 0)
                 set_log_level(INFO);
@@ -78,7 +82,7 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
             else {
                 incorrect_log_level:
                 error_print("--log-level argument takes one of: ");
-                error_print("debug, info, warn,  error");
+                error_print("debug[v[v]], info, warn,  error");
                 error_print("\n");
                 exit(IncorrectLogLevel);
             }
