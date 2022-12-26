@@ -1,4 +1,5 @@
 #include "arena.h"
+#include "portability.h"
 
 #include <stdlib.h>
 #include <assert.h>
