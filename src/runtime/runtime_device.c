@@ -90,7 +90,7 @@ static bool fill_basic_device_properties(DeviceCaps* caps) {
 
 #ifdef __APPLE__
     // TODO: this is not a proper check
-    out->implementation.is_moltenvk = true;
+    caps->implementation.is_moltenvk = true;
 #endif
 
     return true;
