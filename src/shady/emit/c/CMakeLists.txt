@@ -1,4 +1,4 @@
-add_library(shady_c STATIC
+add_library(shady_c OBJECT
     emit_c.c
     emit_c_instructions.c
     emit_c_signatures.c

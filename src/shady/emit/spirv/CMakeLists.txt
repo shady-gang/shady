@@ -1,4 +1,4 @@
-add_library(shady_spirv STATIC
+add_library(shady_spirv OBJECT
     emit_spv.c
     emit_spv_type.c
     emit_spv_builtins.c
