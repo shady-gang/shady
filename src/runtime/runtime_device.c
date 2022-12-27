@@ -159,11 +159,6 @@ static bool fill_device_features(DeviceCaps* caps, VkPhysicalDeviceFeatures2* fi
         return false;
     }
 
-    if (!caps->features.buffer_device_address.bufferDeviceAddress) {
-        info_print("Rejecting device '%s' because it does not buffer device addresses\n", caps->base_properties.deviceName);
-        return false;
-    }
-
     return true;
 }
 
