@@ -458,6 +458,22 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
                 .body = body
             });
         }
+        case control_tok: {
+            next_token(tokenizer);
+            Nodes yield_types = accept_types(ctx, 0, false);
+            expect(accept_token(ctx, lpar_tok));
+            String str = accept_identifier(ctx);
+            expect(str);
+            const Node* param = var(arena, join_point_type(arena, (JoinPointType) {
+                .yield_types = yield_types,
+            }), str);
+            expect(accept_token(ctx, rpar_tok));
+            const Node* body = lambda(mod, singleton(param), expect_body(ctx, fn, NULL));
+            return control(arena, (Control) {
+                .inside = body,
+                .yield_types = yield_types
+            });
+        }
         default: break;
     }
     return NULL;
@@ -686,6 +702,17 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
             next_token(tokenizer);
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
             return merge_break(arena, (MergeBreak) {
+                .args = args
+            });
+        }
+        case join_tok: {
+            next_token(tokenizer);
+            expect(accept_token(ctx, lpar_tok));
+            const Node* jp = accept_operand(ctx);
+            expect(accept_token(ctx, rpar_tok));
+            Nodes args = expect_operands(ctx);
+            return join(arena, (Join) {
+                .join_point = jp,
                 .args = args
             });
         }
