@@ -9,15 +9,19 @@
 
 #include "spirv/unified1/NonSemanticDebugPrintf.h"
 
-enum OperandKind {
-    Signed, Unsigned, Float, Logical, Ptr, Other, OperandKindsCount
-};
+typedef enum {
+    Signed, Unsigned, Float, Logical, Ptr, Other, OperandClassCount
+} OperandClass;
 
-enum ResultKind {
+typedef enum {
+    Custom, BinOp, UnOp, Builtin
+} InstrClass;
+
+typedef enum {
     Same, Bool, TyOperand
-};
+} ResultClass;
 
-static enum OperandKind classify_operand_type(const Type* type) {
+static OperandClass classify_operand_type(const Type* type) {
     assert(is_type(type) && !contains_qualified_type(type));
 
     switch (type->tag) {
@@ -30,9 +34,9 @@ static enum OperandKind classify_operand_type(const Type* type) {
 }
 
 /// What is considered when searching for an instruction
-enum ISelMechanism {
-    Custom, FirstOp, FirstAndResult
-};
+typedef enum {
+    None, One, FirstOp, FirstAndResult
+} ISelMechanism;
 
 #define ISEL_IDENTITY (SpvOpNop /* no-op, should be lowered to nothing beforehand */)
 #define ISEL_LOWERME (SpvOpMax /* boolean conversions don't exist as a single instruction, a pass should lower them instead */)
@@ -40,47 +44,51 @@ enum ISelMechanism {
 #define ISEL_CUSTOM (SpvOpMax /* doesn't make sense to support */)
 
 const struct IselTableEntry {
-    enum ISelMechanism i_sel_mechanism;
-    enum ResultKind result_kind;
+    InstrClass class;
+    ISelMechanism isel_mechanism;
+    ResultClass result_kind;
     union {
+        SpvOp one;
         // matches first operand
-        SpvOp fo[OperandKindsCount];
+        SpvOp fo[OperandClassCount];
         // matches first operand and return type [first operand][result type]
-        SpvOp foar[OperandKindsCount][OperandKindsCount];
+        SpvOp foar[OperandClassCount][OperandClassCount];
+        VulkanBuiltins builtin;
     };
 } isel_table[] = {
-    [add_op] = { FirstOp, Same, .fo = { SpvOpIAdd, SpvOpIAdd, SpvOpFAdd }},
-    [sub_op] = { FirstOp, Same, .fo = { SpvOpISub, SpvOpISub, SpvOpFSub }},
-    [mul_op] = { FirstOp, Same, .fo = { SpvOpIMul, SpvOpIMul, SpvOpFMul }},
-    [div_op] = { FirstOp, Same, .fo = { SpvOpSDiv, SpvOpUDiv, SpvOpFDiv }},
-    [mod_op] = { FirstOp, Same, .fo = { SpvOpSMod, SpvOpUMod, SpvOpFMod }},
+    [add_op] = { BinOp, FirstOp, Same, .fo = { SpvOpIAdd, SpvOpIAdd, SpvOpFAdd }},
+    [sub_op] = { BinOp, FirstOp, Same, .fo = { SpvOpISub, SpvOpISub, SpvOpFSub }},
+    [mul_op] = { BinOp, FirstOp, Same, .fo = { SpvOpIMul, SpvOpIMul, SpvOpFMul }},
+    [div_op] = { BinOp, FirstOp, Same, .fo = { SpvOpSDiv, SpvOpUDiv, SpvOpFDiv }},
+    [mod_op] = { BinOp, FirstOp, Same, .fo = { SpvOpSMod, SpvOpUMod, SpvOpFMod }},
 
-    [neg_op] = { FirstOp, Same, .fo = { SpvOpSNegate, SpvOpSNegate }},
+    [neg_op] = { UnOp, FirstOp, Same, .fo = { SpvOpSNegate, SpvOpSNegate }},
 
-    [eq_op]  = { FirstOp, Bool, .fo = { SpvOpIEqual,            SpvOpIEqual,            SpvOpFOrdNotEqual,         SpvOpLogicalEqual    }},
-    [neq_op] = { FirstOp, Bool, .fo = { SpvOpINotEqual,         SpvOpINotEqual,         SpvOpFOrdNotEqual,         SpvOpLogicalNotEqual }},
-    [lt_op]  = { FirstOp, Bool, .fo = { SpvOpSLessThan,         SpvOpULessThan,         SpvOpFOrdLessThan,         ISEL_IDENTITY        }},
-    [lte_op] = { FirstOp, Bool, .fo = { SpvOpSLessThanEqual,    SpvOpULessThanEqual,    SpvOpFOrdLessThanEqual,    ISEL_IDENTITY        }},
-    [gt_op]  = { FirstOp, Bool, .fo = { SpvOpSGreaterThan,      SpvOpUGreaterThan,      SpvOpFOrdGreaterThan,      ISEL_IDENTITY        }},
-    [gte_op] = { FirstOp, Bool, .fo = { SpvOpSGreaterThanEqual, SpvOpUGreaterThanEqual, SpvOpFOrdGreaterThanEqual, ISEL_IDENTITY        }},
+    [eq_op]  = { BinOp, FirstOp, Bool, .fo = { SpvOpIEqual,            SpvOpIEqual,            SpvOpFOrdNotEqual,         SpvOpLogicalEqual    }},
+    [neq_op] = { BinOp, FirstOp, Bool, .fo = { SpvOpINotEqual,         SpvOpINotEqual,         SpvOpFOrdNotEqual,         SpvOpLogicalNotEqual }},
+    [lt_op]  = { BinOp, FirstOp, Bool, .fo = { SpvOpSLessThan,         SpvOpULessThan,         SpvOpFOrdLessThan,         ISEL_IDENTITY        }},
+    [lte_op] = { BinOp, FirstOp, Bool, .fo = { SpvOpSLessThanEqual,    SpvOpULessThanEqual,    SpvOpFOrdLessThanEqual,    ISEL_IDENTITY        }},
+    [gt_op]  = { BinOp, FirstOp, Bool, .fo = { SpvOpSGreaterThan,      SpvOpUGreaterThan,      SpvOpFOrdGreaterThan,      ISEL_IDENTITY        }},
+    [gte_op] = { BinOp, FirstOp, Bool, .fo = { SpvOpSGreaterThanEqual, SpvOpUGreaterThanEqual, SpvOpFOrdGreaterThanEqual, ISEL_IDENTITY        }},
 
-    [not_op] = { FirstOp, Same, .fo = { SpvOpNot,        SpvOpNot,        SpvOpLogicalNot      }},
-    [and_op] = { FirstOp, Same, .fo = { SpvOpBitwiseAnd, SpvOpBitwiseAnd, SpvOpLogicalAnd      }},
-    [or_op]  = { FirstOp, Same, .fo = { SpvOpBitwiseOr,  SpvOpBitwiseOr,  SpvOpLogicalOr       }},
-    [xor_op] = { FirstOp, Same, .fo = { SpvOpBitwiseXor, SpvOpBitwiseXor, SpvOpLogicalNotEqual }},
+    [not_op] = { UnOp, FirstOp, Same, .fo = { SpvOpNot,        SpvOpNot,        SpvOpLogicalNot      }},
 
-    [lshift_op]         = { FirstOp, Same, .fo = { SpvOpShiftLeftLogical,     SpvOpShiftLeftLogical,     ISEL_ILLEGAL, ISEL_ILLEGAL }},
-    [rshift_arithm_op]  = { FirstOp, Same, .fo = { SpvOpShiftRightArithmetic, SpvOpShiftRightArithmetic, ISEL_ILLEGAL, ISEL_ILLEGAL }},
-    [rshift_logical_op] = { FirstOp, Same, .fo = { SpvOpShiftRightLogical,    SpvOpShiftRightLogical,    ISEL_ILLEGAL, ISEL_ILLEGAL }},
+    [and_op] = { BinOp, FirstOp, Same, .fo = { SpvOpBitwiseAnd, SpvOpBitwiseAnd, SpvOpLogicalAnd      }},
+    [or_op]  = { BinOp, FirstOp, Same, .fo = { SpvOpBitwiseOr,  SpvOpBitwiseOr,  SpvOpLogicalOr       }},
+    [xor_op] = { BinOp, FirstOp, Same, .fo = { SpvOpBitwiseXor, SpvOpBitwiseXor, SpvOpLogicalNotEqual }},
 
-    [convert_op] = { FirstAndResult, TyOperand, .foar = {
+    [lshift_op]         = { BinOp, FirstOp, Same, .fo = { SpvOpShiftLeftLogical,     SpvOpShiftLeftLogical,     ISEL_ILLEGAL, ISEL_ILLEGAL }},
+    [rshift_arithm_op]  = { BinOp, FirstOp, Same, .fo = { SpvOpShiftRightArithmetic, SpvOpShiftRightArithmetic, ISEL_ILLEGAL, ISEL_ILLEGAL }},
+    [rshift_logical_op] = { BinOp, FirstOp, Same, .fo = { SpvOpShiftRightLogical,    SpvOpShiftRightLogical,    ISEL_ILLEGAL, ISEL_ILLEGAL }},
+
+    [convert_op] = { UnOp, FirstAndResult, TyOperand, .foar = {
         { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertSToF, ISEL_LOWERME  },
         { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertUToF, ISEL_LOWERME  },
         { SpvOpConvertFToS, SpvOpConvertFToU, SpvOpFConvert,    ISEL_ILLEGAL  },
         { ISEL_LOWERME,     ISEL_LOWERME,     ISEL_ILLEGAL,     ISEL_IDENTITY }
     }},
 
-    [reinterpret_op] = { FirstAndResult, TyOperand, .foar = {
+    [reinterpret_op] = { UnOp, FirstAndResult, TyOperand, .foar = {
         { SpvOpUConvert,      SpvOpBitcast,       SpvOpBitcast,  ISEL_ILLEGAL,  SpvOpConvertUToPtr },
         { SpvOpBitcast,       ISEL_IDENTITY,      SpvOpBitcast,  ISEL_ILLEGAL,  SpvOpConvertUToPtr },
         { SpvOpBitcast,       SpvOpBitcast,       ISEL_IDENTITY, ISEL_ILLEGAL,  ISEL_ILLEGAL /* no fp-ptr casts */ },
@@ -88,8 +96,33 @@ const struct IselTableEntry {
         { SpvOpConvertPtrToU, SpvOpConvertPtrToU, ISEL_ILLEGAL,  ISEL_ILLEGAL,  ISEL_IDENTITY }
     }},
 
-    [PRIMOPS_COUNT] = { .i_sel_mechanism = Custom }
+    [subgroup_local_id_op] = { Builtin, .builtin = VulkanBuiltinSubgroupLocalInvocationId },
+
+    [PRIMOPS_COUNT] = { Custom }
 };
+
+static const Type* get_result_t(Emitter* emitter, struct IselTableEntry entry, Nodes args, Nodes type_arguments) {
+    switch (entry.result_kind) {
+        case Same:      return extract_operand_type(first(args)->type);
+        case Bool:      return bool_type(emitter->arena);
+        case TyOperand: return first(type_arguments);
+        default: error("unhandled result kind");
+    }
+}
+
+static SpvOp get_opcode(Emitter* emitter, struct IselTableEntry entry, Nodes args, Nodes type_arguments) {
+    OperandClass op_class = classify_operand_type(extract_operand_type(first(args)->type));
+    switch (entry.isel_mechanism) {
+        case None:    return SpvOpMax;
+        case One:     return entry.one;
+        case FirstOp: return entry.fo[op_class];
+        case FirstAndResult: {
+            assert(type_arguments.count == 1);
+            OperandClass return_t_class = classify_operand_type(first(type_arguments));
+            return entry.foar[op_class][return_t_class];
+        }
+    }
+}
 
 static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* instr, size_t results_count, SpvId results[]) {
     PrimOp prim_op = instr->payload.prim_op;
@@ -97,49 +130,46 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
     Nodes type_arguments = prim_op.type_arguments;
 
     struct IselTableEntry entry = isel_table[prim_op.op];
-    if (entry.i_sel_mechanism != Custom) {
+    if (entry.class != Custom) {
         LARRAY(SpvId, emitted_args, args.count);
         for (size_t i = 0; i < args.count; i++)
             emitted_args[i] = emit_value(emitter, bb_builder, args.nodes[i]);
 
-        SpvOp opcode;
-        enum OperandKind op_class = classify_operand_type(extract_operand_type(first(args)->type));
-        if (entry.i_sel_mechanism == FirstOp) {
-            opcode = entry.fo[op_class];
-        } else if (entry.i_sel_mechanism == FirstAndResult) {
-            assert(type_arguments.count == 1);
-            enum OperandKind return_t_class = classify_operand_type(first(type_arguments));
-            opcode = entry.foar[op_class][return_t_class];
-        } else SHADY_UNREACHABLE;
-
-        if (opcode == SpvOpNop) {
-            assert(results_count == 1);
-            results[0] = emitted_args[0];
-            return;
-        } else if (opcode == SpvOpMax) {
-            goto custom_path;
+        switch (entry.class) {
+            case UnOp: {
+                assert(args.count == 1 && results_count == 1);
+                SpvOp opcode = get_opcode(emitter, entry, args, type_arguments);
+                if (opcode == SpvOpNop) {
+                    assert(results_count == 1);
+                    results[0] = emitted_args[0];
+                    return;
+                }
+                assert(opcode != SpvOpMax);
+                const Type* result_t = get_result_t(emitter, entry, args, type_arguments);
+                results[0] = spvb_unop(bb_builder, opcode, emit_type(emitter, result_t), emitted_args[0]);
+                return;
+            }
+            case BinOp: {
+                assert(args.count == 2 && results_count == 1);
+                SpvOp opcode = get_opcode(emitter, entry, args, type_arguments);
+                assert(opcode != SpvOpMax);
+                const Type* result_t = get_result_t(emitter, entry, args, type_arguments);
+                results[0] = spvb_binop(bb_builder, opcode, emit_type(emitter, result_t), emitted_args[0], emitted_args[1]);
+                return;
+            }
+            case Builtin: {
+                assert(args.count == 0 && results_count == 1);
+                SpvId result_t = emit_type(emitter, get_vulkan_builtins_type(emitter->arena, entry.builtin));
+                SpvId ptr = emit_builtin(emitter, entry.builtin);
+                SpvId result = spvb_load(bb_builder, result_t, ptr, 0, NULL);
+                results[0] = result;
+                return;
+            }
+            case Custom: SHADY_UNREACHABLE;
         }
-
-        const Type* result_t;
-        switch (entry.result_kind) {
-            case Same:      result_t = extract_operand_type(first(args)->type); break;
-            case Bool:      result_t = bool_type(emitter->arena); break;
-            case TyOperand: result_t = first(type_arguments); break;
-            default: error("unhandled result kind");
-        }
-
-        assert(results_count == 1);
-        if (args.count == 1)
-            results[0] = spvb_unop(bb_builder, opcode, emit_type(emitter, result_t), emitted_args[0]);
-        else if (args.count == 2)
-            results[0] = spvb_binop(bb_builder, opcode, emit_type(emitter, result_t), emitted_args[0], emitted_args[1]);
-        else
-            error("unhandled isel for argsc > 2");
 
         return;
     }
-
-    custom_path:
     switch (prim_op.op) {
         case subgroup_ballot_op: {
             const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = int32_type(emitter->arena) });
@@ -160,14 +190,6 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
             assert(results_count == 1);
             results[0] = spvb_non_uniform_iadd(bb_builder, emit_type(emitter, extract_operand_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup, SpvGroupOperationReduce, NULL);
-            return;
-        }
-        case subgroup_local_id_op: {
-            SpvId result_t = emit_type(emitter, get_vulkan_builtins_type(emitter->arena, VulkanBuiltinSubgroupLocalInvocationId));
-            SpvId ptr = emit_builtin(emitter, VulkanBuiltinSubgroupLocalInvocationId);
-            SpvId result = spvb_load(bb_builder, result_t, ptr, 0, NULL);
-            assert(results_count == 1);
-            results[0] = result;
             return;
         }
         case subgroup_elect_first_op: {
