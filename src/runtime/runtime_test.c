@@ -27,6 +27,7 @@ typedef struct {
     CompilerConfig compiler_config;
     RuntimeConfig runtime_config;
     struct List* input_filenames;
+    size_t device;
 } Args;
 
 static void process_arguments(int argc, const char** argv, Args* args) {
@@ -36,7 +37,11 @@ static void process_arguments(int argc, const char** argv, Args* args) {
             i++;
             if (i == argc)
                 goto incorrect_log_level;
-            if (strcmp(argv[i], "debug") == 0)
+            if (strcmp(argv[i], "debugvv") == 0)
+                set_log_level(DEBUGVV);
+            else if (strcmp(argv[i], "debugv") == 0)
+                set_log_level(DEBUGV);
+            else if (strcmp(argv[i], "debug") == 0)
                 set_log_level(DEBUG);
             else if (strcmp(argv[i], "info") == 0)
                 set_log_level(INFO);
@@ -53,13 +58,13 @@ static void process_arguments(int argc, const char** argv, Args* args) {
             }
         } else if (strcmp(argv[i], "--print-builtin") == 0) {
             args->compiler_config.logging.skip_builtin = false;
-            i++;
         } else if (strcmp(argv[i], "--print-generated") == 0) {
             args->compiler_config.logging.skip_generated = false;
-            i++;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             i++;
+            args->device = strtol(argv[i], NULL, 10);
         } else {
             append_list(const char*, args->input_filenames, argv[i]);
         }
@@ -68,9 +73,10 @@ static void process_arguments(int argc, const char** argv, Args* args) {
     if (help) {
         error_print("Usage: runtime_test [source.slim]\n");
         error_print("Available arguments: \n");
-        error_print("  --log-level [debug, info, warn, error]\n");
+        error_print("  --log-level debug[v[v]], info, warn, error]\n");
         error_print("  --print-builtin\n");
         error_print("  --print-generated\n");
+        error_print("  --device n\n");
         exit(0);
     }
 }
@@ -90,7 +96,7 @@ int main(int argc, const char* argv[]) {
     info_print("Shady runtime test starting...\n");
 
     Runtime* runtime = initialize_runtime(args.runtime_config);
-    Device* device = get_an_device(runtime);
+    Device* device = get_device(runtime, args.device);
     assert(device);
     const char* shader = NULL;
 
