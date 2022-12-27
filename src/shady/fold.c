@@ -67,9 +67,7 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
     switch (instruction->tag) {
         case PrimOp_TAG: {
             if (instruction->payload.prim_op.op == quote_op) {
-                if (tail->payload.anon_lam.body) {
-                    return reduce_beta(tail, instruction->payload.prim_op.operands);
-                }
+                return reduce_beta(tail, instruction->payload.prim_op.operands);
             }
             break;
         }
