@@ -12,7 +12,7 @@
 
 typedef struct {
     const Node* instr;
-    Node* tail;
+    Nodes vars;
     bool mut;
 } StackEntry;
 
@@ -67,7 +67,7 @@ static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool m
     Nodes params = create_output_variables(builder->arena, instruction, outputs_count, provided_types, output_names);
     StackEntry entry = {
         .instr = instruction,
-        .tail = lambda(builder->module, params),
+        .vars = params,
         .mut = mut,
     };
     append_list(StackEntry, builder->stack, entry);
@@ -94,7 +94,7 @@ Nodes bind_instruction(BodyBuilder* builder, const Node* instruction) {
 void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {
     StackEntry entry = {
         .instr = quote(bb->arena, values),
-        .tail = lambda(bb->module, vars),
+        .vars = vars,
         .mut = false,
     };
     append_list(StackEntry, bb->stack, entry);
@@ -104,8 +104,8 @@ const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
     size_t stack_size = entries_count_list(builder->stack);
     for (size_t i = stack_size - 1; i < stack_size; i--) {
         StackEntry entry = read_list(StackEntry, builder->stack)[i];
-        entry.tail->payload.anon_lam.body = terminator;
-        terminator = (entry.mut ? let_mut : let)(builder->arena, entry.instr, entry.tail);
+        const Node* lam = lambda(builder->module, entry.vars, terminator);
+        terminator = (entry.mut ? let_mut : let)(builder->arena, entry.instr, lam);
     }
 
     destroy_list(builder->stack);

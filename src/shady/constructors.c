@@ -213,11 +213,11 @@ Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
     return create_node_helper(arena, node);
 }
 
-Node* lambda(Module* module, Nodes params) {
+const Node* lambda(Module* module, Nodes params, const Node* body) {
     AnonLambda payload = {
         .module = module,
         .params = params,
-        .body = NULL,
+        .body = body,
     };
 
     IrArena* arena = get_module_arena(module);

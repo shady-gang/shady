@@ -102,8 +102,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 Node* fun = recreate_decl_header_identity(&ctx2.rewriter, old);
                 const Node* body = rewrite_node(&ctx->rewriter, old->payload.fun.body);
                 if (entry_point_annotation) {
-                    Node* lam = lambda(ctx->rewriter.dst_module, empty(dst_arena));
-                    lam->payload.anon_lam.body = body;
+                    const Node* lam = lambda(ctx->rewriter.dst_module, empty(dst_arena), body);
                     body = let(dst_arena, leaf_call(dst_arena, (LeafCall) { .callee = ctx->init_fn, .args = empty(dst_arena) }), lam);
                 }
                 fun->payload.fun.body = body;
@@ -225,8 +224,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
         const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, empty(dst_arena), mk_nodes(dst_arena, iterations_count_param, int32_literal(dst_arena, ctx->config->shader_diagnostics.max_top_iterations)));
-        Node* bail_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena));
-        bail_true_lam->payload.anon_lam.body = break_terminator;
+        const Node* bail_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena), break_terminator);
         const Node* bail_if = if_instr(dst_arena, (If) {
             .condition = bail_condition,
             .if_true = bail_true_lam,
@@ -240,13 +238,11 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     struct List* cases = new_list(const Node*);
 
     // Build 'zero' case (exits the program)
-    Node* zero_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
     BodyBuilder* zero_case_builder = begin_body(ctx->rewriter.dst_module);
     BodyBuilder* zero_if_case_builder = begin_body(ctx->rewriter.dst_module);
     if (ctx->config->printf_trace.god_function)
         bind_instruction(zero_if_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: kill thread %d\n" }), local_id) }));
-    Node* zero_if_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena));
-    zero_if_true_lam->payload.anon_lam.body = finish_body(zero_if_case_builder, break_terminator);
+    const Node* zero_if_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena), finish_body(zero_if_case_builder, break_terminator));
     const Node* zero_if_instruction = if_instr(dst_arena, (If) {
         .condition = should_run,
         .if_true = zero_if_true_lam,
@@ -256,10 +252,11 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     bind_instruction(zero_case_builder, zero_if_instruction);
     if (ctx->config->printf_trace.god_function)
         bind_instruction(zero_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d escaped death!\n" }), local_id) }));
-    zero_case->payload.anon_lam.body = finish_body(zero_case_builder, continue_terminator);
+
+    const Node* zero_case_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), finish_body(zero_case_builder, continue_terminator));
     const Node* zero_lit = int32_literal(dst_arena, 0);
     append_list(const Node*, literals, zero_lit);
-    append_list(const Node*, cases, zero_case);
+    append_list(const Node*, cases, zero_case_lam);
 
     Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
@@ -270,15 +267,12 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             const Node* fn_lit = lower_fn_addr(ctx, decl);
 
-            Node* fn_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
-
             BodyBuilder* if_builder = begin_body(ctx->rewriter.dst_module);
             bind_instruction(if_builder, leaf_call(dst_arena, (LeafCall) {
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, 0, NULL)
             }));
-            Node* if_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena));
-            if_true_lam->payload.anon_lam.body = finish_body(if_builder, merge_selection(dst_arena, (MergeSelection) { .args = nodes(dst_arena, 0, NULL) }));
+            const Node* if_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena), finish_body(if_builder, merge_selection(dst_arena, (MergeSelection) { .args = nodes(dst_arena, 0, NULL) })));
             const Node* if_instruction = if_instr(dst_arena, (If) {
                 .condition = should_run,
                 .if_true = if_true_lam,
@@ -288,34 +282,32 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
             bind_instruction(case_builder, if_instruction);
-            fn_case->payload.anon_lam.body = finish_body(case_builder, continue_terminator);
+            const Node* case_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), finish_body(case_builder, continue_terminator));
 
             append_list(const Node*, literals, fn_lit);
-            append_list(const Node*, cases, fn_case);
+            append_list(const Node*, cases, case_lam);
         }
     }
 
-    Node* default_case = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL));
-    default_case->payload.anon_lam.body = unreachable(dst_arena);
+    const Node* default_case_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), unreachable(dst_arena));
 
     bind_instruction(loop_body_builder, match_instr(dst_arena, (Match) {
         .yield_types = nodes(dst_arena, 0, NULL),
         .inspect = next_function,
         .literals = nodes(dst_arena, entries_count_list(literals), read_list(const Node*, literals)),
         .cases = nodes(dst_arena, entries_count_list(cases), read_list(const Node*, cases)),
-        .default_case = default_case,
+        .default_case = default_case_lam,
     }));
 
     destroy_list(literals);
     destroy_list(cases);
 
-    Node* loop_inside = lambda(ctx->rewriter.dst_module, count_iterations ? singleton(iterations_count_param) : nodes(dst_arena, 0, NULL));
-    loop_inside->payload.anon_lam.body = finish_body(loop_body_builder, unreachable(dst_arena));
+    const Node* loop_inside_lam = lambda(ctx->rewriter.dst_module, count_iterations ? singleton(iterations_count_param) : nodes(dst_arena, 0, NULL), finish_body(loop_body_builder, unreachable(dst_arena)));
 
     const Node* the_loop = loop_instr(dst_arena, (Loop) {
         .yield_types = nodes(dst_arena, 0, NULL),
         .initial_args = count_iterations ? singleton(int32_literal(dst_arena, 0)) : nodes(dst_arena, 0, NULL),
-        .body = loop_inside
+        .body = loop_inside_lam
     });
 
     BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_module);

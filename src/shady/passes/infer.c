@@ -222,12 +222,8 @@ static const Node* _infer_anonymous_lambda(Context* ctx, const Node* node, const
         }
     }
 
-    Node* lam = lambda(ctx->rewriter.dst_module, nodes(arena, inferred_arg_type.count, nparams));
-    assert(lam);
-    register_processed(&ctx->rewriter, node, lam);
-
-    lam->payload.anon_lam.body = infer(&body_context, node->payload.anon_lam.body, NULL);
-    return lam;
+    const Node* new_body = infer(&body_context, node->payload.anon_lam.body, NULL);
+    return lambda(ctx->rewriter.dst_module, nodes(arena, inferred_arg_type.count, nparams), new_body);
 }
 
 static const Node* _infer_basic_block(Context* ctx, const Node* node) {

@@ -151,7 +151,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             const Node* otargets[] = { node->payload.branch.true_target, node->payload.branch.false_target };
             const Node* ntargets[2];
-            Node* cases[2];
+            const Node* cases[2];
             for (size_t i = 0; i < 2; i++) {
                 const Node* otarget = otargets[i];
 
@@ -160,8 +160,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                 BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
                 add_spill_instrs(ctx, case_builder, lifted->save_values);
-                cases[i] = lambda(ctx->rewriter.dst_module, nodes(arena, 0, NULL));
-                cases[i]->payload.anon_lam.body = finish_body(case_builder, merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }));
+                const Node* case_body = finish_body(case_builder, merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }));
+                cases[i] = lambda(ctx->rewriter.dst_module, nodes(arena, 0, NULL), case_body);
             }
 
             // Put the spilling code inside a selection construct

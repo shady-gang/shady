@@ -55,10 +55,9 @@ static const Node* process(Context* ctx, const Node* node) {
                 // turn that BB into a lambda !
                 Nodes oparams = old_tgt->payload.basic_block.params;
                 Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
-                Node* lam = lambda(ctx->rewriter.dst_module, nparams);
                 Context inline_context = *ctx;
                 register_processed_list(&inline_context.rewriter, oparams, nparams);
-                lam->payload.anon_lam.body = rewrite_node(&ctx->rewriter, old_tgt->payload.basic_block.body);
+                const Node* lam = lambda(ctx->rewriter.dst_module, nparams, rewrite_node(&ctx->rewriter, old_tgt->payload.basic_block.body));
                 Nodes args = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
                 return let(arena, quote(arena, args), lam);
             }
@@ -72,10 +71,9 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (entries_count_dict(fn_node->callers) == 1 && !fn_node->is_address_captured) {
                     Nodes oparams = dst_fn->payload.fun.params;
                     Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
-                    Node* lam = lambda(ctx->rewriter.dst_module, nparams);
                     Context inline_context = *ctx;
                     register_processed_list(&inline_context.rewriter, oparams, nparams);
-                    lam->payload.anon_lam.body = rewrite_node(&inline_context.rewriter, dst_fn->payload.fun.body);
+                    const Node* lam = lambda(ctx->rewriter.dst_module, nparams, rewrite_node(&inline_context.rewriter, dst_fn->payload.fun.body));
                     Nodes args = rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
                     return let(arena, quote(arena, args), lam);
                 }

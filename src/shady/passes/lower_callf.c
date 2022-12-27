@@ -75,17 +75,17 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     .is_uniform = true
                 });
                 const Node* jp = var(dst_arena, jpt, "fn_return_point");
-                Node* control_insides = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 1, (const Node*[]) { jp }));
                 BodyBuilder* instructions = begin_body(ctx->rewriter.dst_module);
                 // yeet the join point on the stack
                 gen_push_value_stack(instructions, jp);
                 // tail-call to the target immediately afterwards
-                control_insides->payload.anon_lam.body = finish_body(instructions, tail_call(dst_arena, (TailCall) {
+                const Node* control_body = finish_body(instructions, tail_call(dst_arena, (TailCall) {
                     .target = rewrite_node(&ctx->rewriter, old_instruction->payload.indirect_call.callee),
                     .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.indirect_call.args),
                 }));
 
-                new_instruction = control(dst_arena, (Control) { .yield_types = returned_types, .inside = control_insides });
+                const Node* control_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 1, (const Node*[]) { jp }), control_body);
+                new_instruction = control(dst_arena, (Control) { .yield_types = returned_types, .inside = control_lam });
             }
 
             if (!new_instruction)

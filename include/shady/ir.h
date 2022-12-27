@@ -136,7 +136,7 @@ Node* global_var  (Module*, Nodes annotations, const Type*, String, AddressSpace
 Type* nominal_type(Module*, Nodes annotations, String name);
 
 Node* basic_block (IrArena*, Node* function, Nodes params, const char* name);
-Node* lambda      (Module*, Nodes params);
+const Node* lambda(Module*, Nodes params, const Node* body);
 
 const Node* let(IrArena* arena, const Node* instruction, const Node* tail);
 const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail);
