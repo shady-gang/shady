@@ -43,6 +43,7 @@ typedef struct {
     jmp_buf bail;
 
     bool lower;
+    Node* fn;
     const Node* level_ptr;
     DFSStackEntry* dfs_stack;
     ControlEntry* control_stack;
@@ -103,7 +104,14 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
             register_processed(&ctx2.rewriter, oparams.nodes[i], nparams[i]);
         }
 
+        // We use a basic block for the exit ladder because we don't know what the ladder needs to do ahead of time
+        // opt_simplify_cf will later inline this
+        Node* inner_exit_ladder_bb = basic_block(arena, ctx->fn, empty(arena), unique_name(arena, "exit_ladder_inline_me"));
+
+        // Just jumps to the actual ladder
         Node* inner_exit_ladder_lam = lambda(ctx2.rewriter.dst_module, empty(arena));
+        inner_exit_ladder_lam->payload.anon_lam.body = jump(arena, (Jump) { .target = inner_exit_ladder_bb, .args = empty(arena) });
+
         const Node* structured = structure(&ctx2, dst, let(arena, unit(arena), inner_exit_ladder_lam));
         assert(is_terminator(structured));
         // forget we rewrote all that
@@ -119,11 +127,11 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
                 .yield_types = nodes(arena, 0, NULL),
             }));
             // we decide 'late' what the exit ladder should be
-            inner_exit_ladder_lam->payload.anon_lam.body = merge_break(arena, (MergeBreak) { .args = empty(arena) });
+            inner_exit_ladder_bb->payload.basic_block.body = merge_break(arena, (MergeBreak) { .args = empty(arena) });
             return finish_body(bb, exit_ladder);
         } else {
             bind_variables(bb, nodes(arena, oargs.count, nparams), rewrite_nodes(&ctx->rewriter, oargs));
-            inner_exit_ladder_lam->payload.anon_lam.body = exit_ladder;
+            inner_exit_ladder_bb->payload.basic_block.body = exit_ladder;
             return finish_body(bb, structured);
         }
     }
@@ -329,6 +337,7 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* ptr = first(bind_instruction_named(bb, prim_op(arena, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(int32_type(arena)) }), (String []) { "cf_depth" }));
             bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ptr, int32_literal(arena, 0)) }));
             ctx2.level_ptr = ptr;
+            ctx2.fn = new;
             new->payload.fun.body = finish_body(bb, structure(&ctx2, node, unreachable(arena)));
             new->payload.fun.annotations = append_nodes(arena, new->payload.fun.annotations, annotation(arena, (Annotation) { .name = "Leaf" }));
         }
