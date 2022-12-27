@@ -1,0 +1,10 @@
+// trivial function that does nothing
+@EntryPoint("compute") @WorkgroupSize(64, 1, 1)
+fn main() {
+    val nine = control i32(jp) {
+        val n = 4 + 5;
+        join(jp)(n);
+    }
+    debug_printf("Nine: %d", nine);
+    return ();
+}
