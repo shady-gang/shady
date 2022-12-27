@@ -475,6 +475,32 @@ static const Node* _infer_loop(Context* ctx, const Node* node, const Type* expec
     });
 }
 
+static const Node* _infer_control(Context* ctx, const Node* node, const Type* expected_type) {
+    assert(node->tag == Control_TAG);
+    IrArena* arena = ctx->rewriter.dst_arena;
+
+    Nodes yield_types = infer_nodes(ctx, node->payload.control.yield_types);
+    yield_types = annotate_all_types(ctx->rewriter.dst_arena, yield_types, false);
+
+    const Node* olam = node->payload.control.inside;
+    const Node* ojp = first(get_abstraction_params(olam));
+
+    Context joinable_ctx = *ctx;
+    const Type* jpt = join_point_type(arena, (JoinPointType) {
+            .yield_types = yield_types
+    });
+    jpt = qualified_type(arena, (QualifiedType) { .is_uniform = true, .type = jpt });
+    const Node* jp = var(arena, jpt, ojp->payload.var.name);
+    register_processed(&ctx->rewriter, ojp, jp);
+
+    const Node* nlam = lambda(ctx->rewriter.dst_module, singleton(jp), infer(&joinable_ctx, get_abstraction_body(olam), NULL));
+
+    return control(ctx->rewriter.dst_arena, (Control) {
+        .yield_types = yield_types,
+        .inside = nlam
+    });
+}
+
 static const Node* _infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return _infer_primop(ctx, node, expected_type);
@@ -483,7 +509,7 @@ static const Node* _infer_instruction(Context* ctx, const Node* node, const Type
         case If_TAG:           return _infer_if    (ctx, node, expected_type);
         case Loop_TAG:         return _infer_loop  (ctx, node, expected_type);
         case Match_TAG:        error("TODO")
-        case Control_TAG:      error("TODO")
+        case Control_TAG:      return _infer_control(ctx, node, expected_type);
         case NotAnInstruction: error("not an instruction");
     }
     SHADY_UNREACHABLE;
@@ -491,7 +517,9 @@ static const Node* _infer_instruction(Context* ctx, const Node* node, const Type
 
 static const Node* _infer_terminator(Context* ctx, const Node* node) {
     IrArena* arena = ctx->rewriter.dst_arena;
-    switch (node->tag) {
+    switch (is_terminator(node)) {
+        case Terminator_LetMut_TAG:
+        case NotATerminator: assert(false);
         case Let_TAG: {
             const Node* otail = node->payload.let.tail;
             Nodes annotated_types = extract_variable_types(arena, otail->payload.anon_lam.params);
@@ -591,9 +619,13 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
                 .args = nodes(ctx->rewriter.dst_arena, old_args->count, new_args)
             });
         }
-        // TODO break, continue
         case Unreachable_TAG: return unreachable(ctx->rewriter.dst_arena);
-        default: error("not a terminator");
+        case Terminator_Join_TAG: return join(arena, (Join) {
+            .join_point = infer(ctx, node->payload.join.join_point, NULL),
+            .args = infer_nodes(ctx, node->payload.join.args),
+        });
+        case Terminator_TailCall_TAG:
+        case Terminator_Switch_TAG: error("TODO")
     }
 }
 
