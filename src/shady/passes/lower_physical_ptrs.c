@@ -280,7 +280,7 @@ static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const Prim
                 assert(n < member_types.count);
 
                 size_t field_offset = get_record_field_offset_in_bytes(ctx->config, dst_arena, pointed_type, n);
-                faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, int32_literal(dst_arena, field_offset)});
+                faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, int32_literal(dst_arena, bytes_to_i32_cells(field_offset))});
 
                 pointer_type = ptr_type(dst_arena, (PtrType) {
                     .pointed_type = member_types.nodes[n],
@@ -402,7 +402,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             if (old_gvar->address_space == AsSubgroupPhysical || old_gvar->address_space == AsPrivatePhysical) {
                 Nodes annotations = rewrite_nodes(&ctx->rewriter, old_gvar->annotations); // We keep the old annotations
 
-                const char* emulated_heap_name = old_gvar->address_space == AsSubgroupPhysical ? "private" : "subgroup";
+                const char* emulated_heap_name = old_gvar->address_space == AsPrivatePhysical ? "private" : "subgroup";
 
                 Node* cnst = constant(ctx->rewriter.dst_module, annotations, int32_type(arena), format_string(arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
 
