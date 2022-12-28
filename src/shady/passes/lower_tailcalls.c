@@ -208,9 +208,9 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     if (ctx->config->printf_trace.god_function) {
         if (count_iterations)
-            bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, lid=%d iteration=%d next_fn=%d next_mask=%d\n" }), local_id, iterations_count_param, next_function, next_mask) }));
+            bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, lid=%d iteration=%d next_fn=%d next_mask=%x\n" }), local_id, iterations_count_param, next_function, next_mask) }));
         else
-            bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, lid=%d next_fn=%d next_mask=%d\n" }), local_id, next_function, next_mask) }));
+            bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, lid=%d next_fn=%d next_mask=%x\n" }), local_id, next_function, next_mask) }));
     }
 
     const Node* iteration_count_plus_one = NULL;
@@ -268,6 +268,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
             const Node* fn_lit = lower_fn_addr(ctx, decl);
 
             BodyBuilder* if_builder = begin_body(ctx->rewriter.dst_module);
+            if (ctx->config->printf_trace.god_function)
+                bind_instruction(zero_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d will run fn %d with mask = %x %b\n" }), local_id, fn_lit, next_mask, should_run) }));
             bind_instruction(if_builder, leaf_call(dst_arena, (LeafCall) {
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, 0, NULL)
