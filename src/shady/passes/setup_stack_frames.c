@@ -69,28 +69,32 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
 
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-            ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(arena, (PrimOp) { .op = get_stack_pointer_op } ), (String []) { format_string(arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
-            ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
-            VContext vctx = {
-                .visitor = {
-                    .visit_fn = (VisitFn) collect_allocas,
-                    .visit_fn_scope_rpo = true,
-                },
-                .context = &ctx2,
-                .builder = bb,
-            };
-            visit_children(&vctx.visitor, node->payload.fun.body);
+            if (!ctx2.disable_lowering) {
+                ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(arena, (PrimOp) { .op = get_stack_pointer_op } ), (String []) { format_string(arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
+                ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
+                VContext vctx = {
+                    .visitor = {
+                        .visit_fn = (VisitFn) collect_allocas,
+                        .visit_fn_scope_rpo = true,
+                    },
+                    .context = &ctx2,
+                    .builder = bb,
+                };
+                visit_children(&vctx.visitor, node->payload.fun.body);
+            }
             fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
             return fun;
         }
         case Return_TAG: {
-            assert(ctx->entry_stack_offset);
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-            // Restore SP before calling exit
-            bind_instruction(bb, prim_op(arena, (PrimOp) {
-                .op = set_stack_pointer_op,
-                .operands = nodes(arena, 1, (const Node* []) { ctx->entry_stack_offset })
-            }));
+            if (!ctx->disable_lowering) {
+                assert(ctx->entry_stack_offset);
+                // Restore SP before calling exit
+                bind_instruction(bb, prim_op(arena, (PrimOp) {
+                    .op = set_stack_pointer_op,
+                    .operands = nodes(arena, 1, (const Node* []) { ctx->entry_stack_offset })
+                }));
+            }
             return finish_body(bb, recreate_node_identity(&ctx->rewriter, node));
         }
         default: return recreate_node_identity(&ctx->rewriter, node);

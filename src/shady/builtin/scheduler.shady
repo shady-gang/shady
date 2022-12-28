@@ -18,7 +18,7 @@ subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
 
 subgroup [i32; SUBGROUP_SIZE] resume_at;
 
-@Builtin @DisablePass("lower_cf_instrs") @Leaf
+@Builtin @DisablePass("lower_cf_instrs") @DisablePass("setup_stack_frames") @Leaf
 fn builtin_init_scheduler() {
     val init_mask = subgroup_active_mask();
     val tree_node = make[TreeNode]((init_mask, 0));
