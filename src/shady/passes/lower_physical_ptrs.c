@@ -81,7 +81,6 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, int32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
                 loaded[i] = gen_deserialisation(config, bb, member_types.nodes[i], arr, field_offset);
-                TypeMemLayout member_layout = get_mem_layout(config, bb->arena, member_types.nodes[i]);
             }
             return tuple(bb->arena, nodes(bb->arena, member_types.count, loaded));
         }
