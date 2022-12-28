@@ -69,7 +69,7 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
                 goto incorrect_log_level;
             if (strcmp(argv[i], "debugvv") == 0)
                 set_log_level(DEBUGVV);
-            else if (strcmp(argv[i], "debugvv") == 0)
+            else if (strcmp(argv[i], "debugv") == 0)
                 set_log_level(DEBUGV);
             else if (strcmp(argv[i], "debug") == 0)
                 set_log_level(DEBUG);
