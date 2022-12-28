@@ -105,7 +105,7 @@ fn is_parent bool(varying TreeNode child, varying TreeNode maybe_parent) {
   if ((child_mask | parent_mask) != parent_mask) { return(false); }
   val child_depth = child.1;
   val parent_depth = maybe_parent.1;
-  return (child_depth <= parent_depth);
+  return (child_depth >= parent_depth);
 }
 
 @Builtin @DisablePass("lower_cf_instrs") @Leaf
