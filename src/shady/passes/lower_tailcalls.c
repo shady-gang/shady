@@ -110,6 +110,7 @@ static const Node* process(Context* ctx, const Node* old) {
             }
 
             Nodes new_annotations = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
+            new_annotations = append_nodes(dst_arena, new_annotations, annotation_value(dst_arena, (AnnotationValue) { .name = "FnId", .value = lower_fn_addr(ctx, old) }));
 
             String new_name = format_string(dst_arena, "%s_indirect", old->payload.fun.name);
 
