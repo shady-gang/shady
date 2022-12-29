@@ -840,6 +840,14 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = int32_type(arena)
             });
         }
+        case subgroup_id_op: {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 0);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = true,
+                .type = int32_type(arena)
+            });
+        }
         case subgroup_broadcast_first_op:
         case subgroup_reduce_sum_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -856,6 +864,25 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = is_operand_uniform(prim_op.operands.nodes[0]->type) && is_operand_uniform(prim_op.operands.nodes[1]->type),
                 .type = bool_type(arena)
+            });
+        }
+        case workgroup_id_op:
+        case workgroup_num_op:
+        case workgroup_size_op: {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 0);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = true,
+                .type = pack_type(arena, (PackType) { .element_type = int32_type(arena), .width = 3 })
+            });
+        }
+        case workgroup_local_id_op:
+        case global_id_op: {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 0);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = false,
+                .type = pack_type(arena, (PackType) { .element_type = int32_type(arena), .width = 3 })
             });
         }
         case debug_printf_op: {

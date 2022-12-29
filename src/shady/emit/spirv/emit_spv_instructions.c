@@ -97,6 +97,12 @@ const struct IselTableEntry {
     }},
 
     [subgroup_local_id_op] = { Builtin, .builtin = VulkanBuiltinSubgroupLocalInvocationId },
+    [subgroup_id_op] = { Builtin, .builtin = VulkanBuiltinSubgroupId },
+    [workgroup_local_id_op] = { Builtin, .builtin = VulkanBuiltinLocalInvocationId },
+    [workgroup_num_op] = { Builtin, .builtin = VulkanBuiltinNumWorkgroups },
+    [workgroup_id_op] = { Builtin, .builtin = VulkanBuiltinWorkgroupId },
+    [workgroup_size_op] = { Builtin, .builtin = VulkanBuiltinWorkgroupSize },
+    [global_id_op] = { Builtin, .builtin = VulkanBuiltinGlobalInvocationId },
 
     [PRIMOPS_COUNT] = { Custom }
 };

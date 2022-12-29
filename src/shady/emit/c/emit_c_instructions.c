@@ -272,9 +272,20 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             final_expression = emit_compound_value(emitter, result_type, format_string(emitter->arena, "%s, 0, 0, 0", value));
             break;
         }
+        case subgroup_id_op:
         case subgroup_local_id_op: {
             // TODO implement properly
             final_expression = "0 /* subgroup_local_idy */";
+            break;
+        }
+        case workgroup_id_op:
+        case workgroup_local_id_op:
+        case workgroup_num_op:
+        case workgroup_size_op:
+        case global_id_op: {
+            // TODO implement properly
+            CType result_type = emit_type(emitter, node->type, NULL);
+            final_expression = emit_compound_value(emitter, result_type, "1, 0, 0");
             break;
         }
         case empty_mask_op: {

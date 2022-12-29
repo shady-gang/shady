@@ -59,6 +59,12 @@ P(0, subgroup_ballot)           \
 P(0, subgroup_local_id)         \
 P(0, empty_mask)                \
 P(0, mask_is_thread_active)     \
+P(0, subgroup_id)               \
+P(0, workgroup_local_id)        \
+P(0, workgroup_id)              \
+P(0, global_id)                 \
+P(0, workgroup_size)            \
+P(0, workgroup_num)             \
 P(1, debug_printf)              \
 
 typedef enum Op_ {
