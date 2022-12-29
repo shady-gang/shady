@@ -36,7 +36,7 @@ Nodes strip_qualifiers(IrArena*, Nodes);
 /// Ensures an operand has divergence-annotated type and extracts it
 const Type* extract_operand_type(const Type*);
 bool is_operand_uniform(const Type*);
-void deconstruct_operand_type(const Type*, const Type**, bool* is_uniform_out);
+void deconstruct_operand_type(const Type**, bool* is_uniform_out);
 
 bool contains_qualified_type(const Type* type);
 
