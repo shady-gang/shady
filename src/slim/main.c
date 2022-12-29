@@ -53,6 +53,8 @@ static CodegenTarget guess_target(const char* filename) {
 
 typedef struct {
     CompilerConfig config;
+    // Configuration specific to the C emitter
+    CEmitterConfig c_emitter_config;
     CodegenTarget target;
     struct List* input_filenames;
     const char*     output_filename;
@@ -121,6 +123,8 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
             invalid_target:
             error_print("--target must be followed with a valid target (see help for list of targets)");
             exit(InvalidTarget);
+        } else if (strcmp(argv[i], "--simt2d") == 0) {
+            args->c_emitter_config.simt2d = true;
         } else if (strcmp(argv[i], "--print-builtin") == 0) {
             args->config.logging.skip_builtin = false;
         } else if (strcmp(argv[i], "--print-generated") == 0) {
@@ -135,13 +139,14 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
     if (entries_count_list(args->input_filenames) == 0 || help) {
         error_print("Usage: slim source.slim\n");
         error_print("Available arguments: \n");
-        error_print("  --log-level [debug, info, warn, error]\n");
-        error_print("  --target c spirv\n");
-        error_print("  --output <filename>, -o <filename>\n");
-        error_print("  --dump-cfg <filename>\n");
-        error_print("  --dump-ir <filename>\n");
-        error_print("  --print-builtin\n");
-        error_print("  --print-generated\n");
+        error_print("  --log-level [debug, info, warn, error]    \n");
+        error_print("  --target <c, glsl, spirv>                 \n");
+        error_print("  --simt2d                                  Emits SIMD code instead of SIMT, only effective with the C backend.\n");
+        error_print("  --output <filename>, -o <filename>        \n");
+        error_print("  --dump-cfg <filename>                     Dumps the control flow graph of the final IR\n");
+        error_print("  --dump-ir <filename>                      Dumps the final IR\n");
+        error_print("  --print-builtin                           Includes builtin-in functions in the debug output\n");
+        error_print("  --print-generated                         Includes generated functions in the debug output\n");
         exit(help ? 0 : MissingInputArg);
     }
 }
@@ -222,6 +227,7 @@ int main(int argc, const char** argv) {
     }
 
     if (args.output_filename) {
+        args.c_emitter_config.config = &args.config;
         if (args.target == TgtAuto)
             args.target = guess_target(args.output_filename);
         FILE* f = fopen(args.output_filename, "wb");
@@ -230,8 +236,14 @@ int main(int argc, const char** argv) {
         switch (args.target) {
             case TgtAuto: SHADY_UNREACHABLE;
             case TgtSPV: emit_spirv(&args.config, mod, &output_size, &output_buffer); break;
-            case TgtC: emit_c(&args.config, C, mod, &output_size, &output_buffer); break;
-            case TgtGLSL: emit_c(&args.config, GLSL, mod, &output_size, &output_buffer); break;
+            case TgtC:
+                args.c_emitter_config.dialect = C;
+                goto do_emit_c;
+            case TgtGLSL:
+                args.c_emitter_config.dialect = GLSL;
+                do_emit_c:
+                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer);
+                break;
         }
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);

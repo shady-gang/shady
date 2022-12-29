@@ -42,6 +42,7 @@ set(SHADY_SOURCES
     passes/opt_simplify_cf.c
     passes/opt_stack.c
     passes/opt_restructure.c
+    passes/simt2d.c
 )
 
 add_library(shady SHARED ${SHADY_SOURCES})

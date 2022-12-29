@@ -6,6 +6,7 @@
 
 #include "../../type.h"
 #include "../../ir_private.h"
+#include "../../compile.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -421,17 +422,29 @@ CType* lookup_existing_type(Emitter* emitter, const Type* node) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-void emit_c(CompilerConfig* config, CDialect dialect, Module* mod, size_t* output_size, char** output) {
+static Module* run_backend_specific_passes(CEmitterConfig* econfig, Module* mod) {
+    CompilerConfig* config = econfig->config;
+    IrArena* old_arena = get_module_arena(mod);
+    ArenaConfig aconfig = old_arena->config;
+    Module* old_mod;
+    IrArena* tmp_arena = NULL;
+    if (econfig->simt2d) {
+        RUN_PASS(simt2d)
+    }
+    return mod;
+}
+
+void emit_c(CEmitterConfig config, Module* mod, size_t* output_size, char** output) {
+    IrArena* initial_arena = get_module_arena(mod);
+    mod = run_backend_specific_passes(&config, mod);
     IrArena* arena = get_module_arena(mod);
+
     Growy* type_decls_g = new_growy();
     Growy* fn_decls_g = new_growy();
     Growy* fn_defs_g = new_growy();
 
     Emitter emitter = {
-        .config = {
-            .config = config,
-            .dialect = dialect,
-        },
+        .config = config,
         .arena = arena,
         .type_decls = open_growy_as_printer(type_decls_g),
         .fn_decls = open_growy_as_printer(fn_decls_g),
@@ -490,4 +503,7 @@ void emit_c(CompilerConfig* config, CDialect dialect, Module* mod, size_t* outpu
     *output_size = growy_size(final);
     *output = growy_deconstruct(final);
     destroy_printer(finalp);
+
+    if (initial_arena != arena)
+        destroy_ir_arena(arena);
 }

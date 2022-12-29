@@ -235,7 +235,15 @@ typedef enum {
     C,
     GLSL
 } CDialect;
-void emit_c(CompilerConfig* config, CDialect, Module*, size_t* output_size, char** output);
+
+typedef struct {
+    CompilerConfig* config;
+    CDialect dialect;
+    bool explicitly_sized_types;
+    bool simt2d;
+} CEmitterConfig;
+
+void emit_c(CEmitterConfig config, Module*, size_t* output_size, char** output);
 
 void dump_cfg(FILE* file, Module*);
 void dump_module(Module*);

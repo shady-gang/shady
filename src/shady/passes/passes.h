@@ -33,6 +33,8 @@ RewritePass lower_jumps_structure;
 RewritePass lower_callf;
 /// Emulates tailcalls, forks and joins using a god function
 RewritePass lower_tailcalls;
+/// Turns SIMT code back into SIMD (intended for debugging with the help of the C backend)
+RewritePass simt2d;
 
 // Physical memory emulation
 

@@ -6,12 +6,6 @@
 #include "arena.h"
 #include "printer.h"
 
-typedef struct {
-    CompilerConfig* config;
-    CDialect dialect;
-    bool explicitly_sized_types;
-} EmitterConfig;
-
 #define emit_type c_emit_type
 #define emit_value c_emit_value
 #define emit_instruction c_emit_instruction
@@ -37,7 +31,7 @@ typedef struct {
 typedef Strings Phis;
 
 typedef struct {
-    EmitterConfig config;
+    CEmitterConfig config;
     IrArena* arena;
     Printer *type_decls, *fn_decls, *fn_defs;
     struct {
