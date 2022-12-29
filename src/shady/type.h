@@ -3,10 +3,6 @@
 
 #include "shady/ir.h"
 
-struct TypeTable;
-struct TypeTable* new_type_table();
-void destroy_type_table(struct TypeTable*);
-
 const Type* noret_type(IrArena* arena);
 
 bool is_subtype(const Type* supertype, const Type* type);
