@@ -36,17 +36,26 @@ Strings get_variable_names(IrArena*, Nodes);
 Nodes get_values_types(IrArena*, Nodes);
 Nodes strip_qualifiers(IrArena*, Nodes);
 
+//
 /// Ensures an operand has divergence-annotated type and extracts it
 const Type* get_operand_type(const Type*);
 bool is_operand_uniform(const Type*);
-void deconstruct_operand_type(const Type**, bool* is_uniform_out);
+bool deconstruct_qual_type(const Type**);
+
+const Type* get_maybe_qualified_type_element(const Type*);
+
 const Type* qual_type_helper(const Type*, bool uniform);
-
-size_t get_vector_size(const Type* type);
-size_t deconstruct_vector_size(const Type** type);
-/// Helper for creating pack types, wraps type in a pack_type if width > 1
-const Type* pack_type_helper(size_t width, const Type*);
-
 bool contains_qualified_type(const Type* type);
+
+// Pack (vector) type helpers
+const Type* get_vector_element(const Type*);
+size_t get_vector_size(const Type*);
+size_t deconstruct_vector_size(const Type**);
+const Type* get_maybe_vector_element(const Type*);
+
+size_t get_maybe_vector_size(const Type*);
+size_t deconstruct_maybe_vector_size(const Type**);
+/// Helper for creating pack types, wraps type in a pack_type if width > 1
+const Type* maybe_pack_type_helper(const Type*, size_t width);
 
 #endif

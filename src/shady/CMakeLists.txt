@@ -3,6 +3,7 @@ set(SHADY_SOURCES
     node.c
     constructors.c
     type.c
+    type_helpers.c
     rewrite.c
     visit.c
     print.c
