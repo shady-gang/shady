@@ -38,10 +38,10 @@ static const Node* process(Context* ctx, const Node* node) {
             register_processed(&ctx->rewriter, node, new);
 
             Context fn_ctx = *ctx;
-            Scope scope = build_scope(node);
-            fn_ctx.scope = &scope;
+            Scope* scope = new_scope(node);
+            fn_ctx.scope = scope;
             recreate_decl_body_identity(&fn_ctx.rewriter, node, new);
-            dispose_scope(&scope);
+            destroy_scope(scope);
             return new;
         }
         case Jump_TAG: {

@@ -43,14 +43,14 @@ typedef struct Scope_ {
     CFNode** rpo;
 } Scope;
 
-struct List* build_scopes(Module* mod);
-Scope build_scope(const Node*);
+struct List* build_scopes(Module*);
+Scope* new_scope(const Node*);
 
-CFNode* scope_lookup(Scope* scope, const Node* block);
-void compute_rpo(Scope* scope);
-void compute_domtree(Scope* scope);
+CFNode* scope_lookup(Scope*, const Node* block);
+void compute_rpo(Scope*);
+void compute_domtree(Scope*);
 
-void dispose_scope(Scope*);
+void destroy_scope(Scope*);
 
 #define SHADY_SCOPE_H
 

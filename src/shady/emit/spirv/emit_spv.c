@@ -248,10 +248,10 @@ static void emit_function(Emitter* emitter, const Node* node) {
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
     }
 
-    Scope scope = build_scope(node);
+    Scope* scope = new_scope(node);
     // reserve a bunch of identifiers for the basic blocks in the scope
-    for (size_t i = 0; i < scope.size; i++) {
-        CFNode* cfnode = read_list(CFNode*, scope.contents)[i];
+    for (size_t i = 0; i < scope->size; i++) {
+        CFNode* cfnode = read_list(CFNode*, scope->contents)[i];
         assert(cfnode);
         const Node* bb = cfnode->node;
         if (is_anonymous_lambda(bb))
@@ -274,16 +274,16 @@ static void emit_function(Emitter* emitter, const Node* node) {
     }
     // emit the blocks using the dominator tree
     //emit_basic_block(emitter, fn_builder, &scope, scope.entry);
-    for (size_t i = 0; i < scope.size; i++) {
-        CFNode* cfnode = scope.rpo[i];
+    for (size_t i = 0; i < scope->size; i++) {
+        CFNode* cfnode = scope->rpo[i];
         if (i == 0)
-            assert(cfnode == scope.entry);
+            assert(cfnode == scope->entry);
         if (is_anonymous_lambda(cfnode->node))
             continue;
-        emit_basic_block(emitter, fn_builder, &scope, cfnode);
+        emit_basic_block(emitter, fn_builder, scope, cfnode);
     }
 
-    dispose_scope(&scope);
+    destroy_scope(scope);
 
     spvb_define_function(emitter->file_builder, fn_builder);
 }

@@ -61,9 +61,10 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, Str
     IrArena* arena = ctx->rewriter.dst_arena;
 
     // Compute the live stuff we'll need
-    Scope scope = build_scope(cont);
-    struct List* recover_context = compute_free_variables(&scope);
+    Scope* scope = new_scope(cont);
+    struct List* recover_context = compute_free_variables(scope);
     size_t recover_context_size = entries_count_list(recover_context);
+    destroy_scope(scope);
 
     debugv_print("free (spilled) variables at '%s': ", name);
     for (size_t i = 0; i < recover_context_size; i++) {

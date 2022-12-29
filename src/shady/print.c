@@ -236,11 +236,11 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     printf("\n");
 
     if (node->arena->config.name_bound) {
-        Scope scope = build_scope(node);
-        ctx->scope = &scope;
+        Scope* scope = new_scope(node);
+        ctx->scope = scope;
         ctx->fn = node;
         print_abs_body(ctx, node);
-        dispose_scope(&scope);
+        destroy_scope(scope);
     } else {
         print_abs_body(ctx, node);
     }

@@ -9,14 +9,14 @@
 #include <assert.h>
 
 struct List* build_scopes(Module* mod) {
-    struct List* scopes = new_list(Scope);
+    struct List* scopes = new_list(Scope*);
 
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag != Function_TAG) continue;
-        Scope scope = build_scope(decl);
-        append_list(Scope, scopes, scope);
+        Scope* scope = new_scope(decl);
+        append_list(Scope*, scopes, scope);
     }
 
     return scopes;
@@ -143,7 +143,7 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     }
 }
 
-Scope build_scope(const Node* entry) {
+Scope* new_scope(const Node* entry) {
     assert(is_abstraction(entry));
     Arena* arena = new_arena();
 
@@ -164,7 +164,8 @@ Scope build_scope(const Node* entry) {
 
     destroy_list(context.queue);
 
-    Scope scope = {
+    Scope* scope = calloc(sizeof(Scope), 1);
+    *scope = (Scope) {
         .arena = arena,
         .entry = entry_node,
         .size = entries_count_list(context.contents),
@@ -173,13 +174,13 @@ Scope build_scope(const Node* entry) {
         .rpo = NULL
     };
 
-    compute_rpo(&scope);
-    compute_domtree(&scope);
+    compute_rpo(scope);
+    compute_domtree(scope);
 
     return scope;
 }
 
-void dispose_scope(Scope* scope) {
+void destroy_scope(Scope* scope) {
     for (size_t i = 0; i < scope->size; i++) {
         CFNode* node = read_list(CFNode*, scope->contents)[i];
         destroy_list(node->pred_edges);
@@ -191,6 +192,7 @@ void dispose_scope(Scope* scope) {
     destroy_arena(scope->arena);
     free(scope->rpo);
     destroy_list(scope->contents);
+    free(scope);
 }
 
 static size_t post_order_visit(Scope* scope, CFNode* n, size_t i) {
@@ -322,7 +324,7 @@ void dump_cfg(FILE* output, Module* mod) {
     for (size_t i = 0; i < entries_count_list(scopes); i++) {
         Scope* scope = &read_list(Scope, scopes)[i];
         dump_cfg_scope(output, scope);
-        dispose_scope(scope);
+        destroy_scope(scope);
     }
     destroy_list(scopes);
     fprintf(output, "}\n");

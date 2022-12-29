@@ -19,12 +19,12 @@ void visit_nodes(Visitor* visitor, Nodes nodes) {
 
 void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
     assert(function->tag == Function_TAG);
-    Scope scope = build_scope(function);
-    assert(scope.rpo[0]->node == function);
-    for (size_t i = 1; i < scope.size; i++) {
-        visit_node(visitor, scope.rpo[i]->node);
+    Scope* scope = new_scope(function);
+    assert(scope->rpo[0]->node == function);
+    for (size_t i = 1; i < scope->size; i++) {
+        visit_node(visitor, scope->rpo[i]->node);
     }
-    dispose_scope(&scope);
+    destroy_scope(scope);
 }
 
 #pragma GCC diagnostic error "-Wswitch"
