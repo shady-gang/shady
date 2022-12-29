@@ -40,6 +40,12 @@ Nodes strip_qualifiers(IrArena*, Nodes);
 const Type* get_operand_type(const Type*);
 bool is_operand_uniform(const Type*);
 void deconstruct_operand_type(const Type**, bool* is_uniform_out);
+const Type* qual_type_helper(const Type*, bool uniform);
+
+size_t get_vector_size(const Type* type);
+size_t deconstruct_vector_size(const Type** type);
+/// Helper for creating pack types, wraps type in a pack_type if width > 1
+const Type* pack_type_helper(size_t width, const Type*);
 
 bool contains_qualified_type(const Type* type);
 

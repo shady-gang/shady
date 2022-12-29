@@ -123,18 +123,6 @@ void check_subtype(const Type* supertype, const Type* type) {
     }
 }
 
-void deconstruct_operand_type(const Type** type_out, bool* is_uniform_out) {
-    const Type* type = *type_out;
-    if (type->tag == QualifiedType_TAG) {
-        *is_uniform_out = type->payload.qualified_type.is_uniform;
-        *type_out = type->payload.qualified_type.type;
-    } else {
-        assert(false && "Expected a value type (annotated with qual_type)");
-        *is_uniform_out = Unknown;
-        *type_out = type;
-    }
-}
-
 bool is_operand_uniform(const Type* type) {
     const Type* result_type = type;
     bool is_uniform;
@@ -147,6 +135,43 @@ const Type* get_operand_type(const Type* type) {
     bool is_uniform;
     deconstruct_operand_type(&result_type, &is_uniform);
     return result_type;
+}
+
+void deconstruct_operand_type(const Type** type_out, bool* is_uniform_out) {
+    const Type* type = *type_out;
+    if (type->tag == QualifiedType_TAG) {
+        *is_uniform_out = type->payload.qualified_type.is_uniform;
+        *type_out = type->payload.qualified_type.type;
+    } else error("Expected a value type (annotated with qual_type)")
+}
+
+const Type* qual_type_helper(const Type* type, bool uniform) {
+    return qualified_type(type->arena, (QualifiedType) { .type = type, .is_uniform = uniform });
+}
+
+size_t get_vector_size(const Type* type) {
+    const Type* t = type;
+    return deconstruct_vector_size(&t);
+}
+
+size_t deconstruct_vector_size(const Type** type) {
+    const Type* t = *type;
+    assert(!contains_qualified_type(t));
+    if (t->tag == PackType_TAG) {
+        *type = t->payload.pack_type.element_type;
+        return t->payload.pack_type.width;
+    }
+    return 1;
+}
+
+const Type* pack_type_helper(size_t width, const Type* type) {
+    assert(width > 0);
+    if (width == 1)
+        return type;
+    return pack_type(type->arena, (PackType) {
+        .width = width,
+        .element_type = type,
+    });
 }
 
 // TODO: this isn't really accurate to what we want...
