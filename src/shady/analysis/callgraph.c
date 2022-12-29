@@ -183,7 +183,7 @@ static void tarjan(struct Dict* verts) {
     destroy_list(stack);
 }
 
-CallGraph* get_callgraph(Module* mod) {
+CallGraph* new_callgraph(Module* mod) {
     CallGraph* graph = calloc(sizeof(CallGraph), 1);
     *graph = (CallGraph) {
         .fn2cgn = new_dict(const Node*, CGNode*, (HashFn) hash_node, (CmpFn) compare_node)
@@ -203,7 +203,7 @@ CallGraph* get_callgraph(Module* mod) {
     return graph;
 }
 
-void dispose_callgraph(CallGraph* graph) {
+void destroy_callgraph(CallGraph* graph) {
     size_t i = 0;
     CGNode* node;
     while (dict_iter(graph->fn2cgn, &i, NULL, &node)) {

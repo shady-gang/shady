@@ -98,10 +98,10 @@ void mark_leaf_functions(SHADY_UNUSED CompilerConfig* config, Module* src, Modul
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .fns = new_dict(const Node*, FnInfo, (HashFn) hash_node, (CmpFn) compare_node),
-        .graph = get_callgraph(src)
+        .graph = new_callgraph(src)
     };
     rewrite_module(&ctx.rewriter);
     destroy_dict(ctx.fns);
-    dispose_callgraph(ctx.graph);
+    destroy_callgraph(ctx.graph);
     destroy_rewriter(&ctx.rewriter);
 }

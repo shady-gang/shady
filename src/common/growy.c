@@ -30,7 +30,7 @@ void growy_append_bytes(Growy* g, size_t s, const char* bytes) {
     memcpy(g->buffer + old_used, bytes, s);
 }
 
-void growy_destroy(Growy* g) {
+void destroy_growy(Growy* g) {
     free(g->buffer);
     free(g);
 }

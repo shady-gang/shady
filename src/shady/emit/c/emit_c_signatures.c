@@ -32,7 +32,7 @@ void emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     growy_append_bytes(g, 1, (char[]) { '\0' });
 
     print(emitter->type_decls, growy_data(g));
-    growy_destroy(g);
+    destroy_growy(g);
     destroy_printer(p);
 }
 

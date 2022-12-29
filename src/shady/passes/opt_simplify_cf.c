@@ -87,10 +87,10 @@ static const Node* process(Context* ctx, const Node* node) {
 void opt_simplify_cf(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
-        .graph = get_callgraph(src),
+        .graph = new_callgraph(src),
         .scope = NULL,
     };
     rewrite_module(&ctx.rewriter);
-    dispose_callgraph(ctx.graph);
+    destroy_callgraph(ctx.graph);
     destroy_rewriter(&ctx.rewriter);
 }

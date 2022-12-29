@@ -129,7 +129,7 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
 
             emitted = emit_compound_value(emitter, emit_type(emitter, value->type, NULL), growy_data(g));
 
-            growy_destroy(g);
+            destroy_growy(g);
             destroy_printer(p);
             break;
         }
@@ -148,7 +148,7 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
                     emitted = format_string(emitter->arena, "((%s) { '%s' })", emit_type(emitter, value->payload.arr_lit.element_type, NULL), growy_data(g));
                     break;
             }
-            growy_destroy(g);
+            destroy_growy(g);
             destroy_printer(p);
             break;
         }
@@ -493,9 +493,9 @@ void emit_c(CEmitterConfig config, Module* mod, size_t* output_size, char** outp
 
     print(finalp, "\n");
 
-    growy_destroy(type_decls_g);
-    growy_destroy(fn_decls_g);
-    growy_destroy(fn_defs_g);
+    destroy_growy(type_decls_g);
+    destroy_growy(fn_decls_g);
+    destroy_growy(fn_defs_g);
 
     destroy_dict(emitter.emitted_types);
     destroy_dict(emitter.emitted_terms);

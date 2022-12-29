@@ -161,7 +161,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
 
                     final_expression = emit_compound_value(emitter, t, growy_data(g));
 
-                    growy_destroy(g);
+                    destroy_growy(g);
                     destroy_printer(p2);
                     break;
                 }
