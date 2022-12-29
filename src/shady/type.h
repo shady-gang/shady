@@ -25,16 +25,19 @@ const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types);
 Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 
 /// Returns the (possibly qualified) pointee type from a (possibly qualified) ptr type
-const Type* extract_pointee_type(IrArena*, const Type* type);
+const Type* get_pointee_type(IrArena*, const Type*);
 
-Nodes extract_variable_types(IrArena*, Nodes);
-Strings extract_variable_names(IrArena*, Nodes);
+/// Collects the annotated types in the list of variables
+/// NB: this is different from get_values_types, that function uses node.type, whereas this one uses node.payload.var.type
+/// This means this function works in untyped modules where node.type is NULL.
+Nodes get_variables_types(IrArena*, Nodes);
+Strings get_variable_names(IrArena*, Nodes);
 
-Nodes extract_types(IrArena*, Nodes);
+Nodes get_values_types(IrArena*, Nodes);
 Nodes strip_qualifiers(IrArena*, Nodes);
 
 /// Ensures an operand has divergence-annotated type and extracts it
-const Type* extract_operand_type(const Type*);
+const Type* get_operand_type(const Type*);
 bool is_operand_uniform(const Type*);
 void deconstruct_operand_type(const Type**, bool* is_uniform_out);
 

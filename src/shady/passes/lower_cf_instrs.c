@@ -72,7 +72,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             assert(is_anonymous_lambda(old_loop_body));
 
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, extract_variable_types(arena, old_loop_body->payload.anon_lam.params));
+            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_variables_types(arena, old_loop_body->payload.anon_lam.params));
 
             const Type* break_jp_type = qualified_type(arena, (QualifiedType) {
                 .type = join_point_type(arena, (JoinPointType) { .yield_types = yield_types }),

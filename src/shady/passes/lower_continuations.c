@@ -42,7 +42,7 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
 
         const Node* save_instruction = prim_op(arena, (PrimOp) {
             .op = is_operand_uniform(nvar->type) ? push_stack_uniform_op : push_stack_op,
-            .type_arguments = singleton(extract_operand_type(nvar->type)),
+            .type_arguments = singleton(get_operand_type(nvar->type)),
             .operands = singleton(nvar),
         });
         bind_instruction(builder, save_instruction);
@@ -103,7 +103,7 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, Str
         const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
         const Node* recovered_value = bind_instruction(builder, prim_op(arena, (PrimOp) {
             .op = is_operand_uniform(nvar->type) ? pop_stack_uniform_op : pop_stack_op,
-            .type_arguments = nodes(arena, 1, (const Node* []) { extract_operand_type(nvar->type) })
+            .type_arguments = nodes(arena, 1, (const Node* []) { get_operand_type(nvar->type) })
         })).nodes[0];
 
         // this dict overrides the 'processed' region

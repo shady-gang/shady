@@ -102,7 +102,7 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
 
             const Node* typed_value = infer(ctx, oconstant->value, imported_hint);
             assert(is_value(typed_value));
-            imported_hint = extract_operand_type(typed_value->type);
+            imported_hint = get_operand_type(typed_value->type);
 
             Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
             register_processed(&ctx->rewriter, node, nconstant);
@@ -130,10 +130,10 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
     }
 }
 
-/// Like extract_operand_type but won't error out if type wasn't qualified to begin with
+/// Like get_operand_type but won't error out if type wasn't qualified to begin with
 static const Type* remove_uniformity_qualifier(const Node* type) {
     if (contains_qualified_type(type))
-        return extract_operand_type(type);
+        return get_operand_type(type);
     return type;
 }
 
@@ -173,7 +173,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
             LARRAY(const Node*, inferred, omembers.count);
             if (expected_type) {
                 bool uniform = is_operand_uniform(expected_type);
-                expected_type = extract_operand_type(expected_type);
+                expected_type = get_operand_type(expected_type);
                 assert(expected_type->tag == RecordType_TAG);
                 Nodes expected_members = expected_type->payload.record_type.members;
                 for (size_t i = 0; i < omembers.count; i++)
@@ -309,7 +309,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
         case store_op: {
             assert(old_operands.count == 2);
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
-            const Type* ptr_type = extract_operand_type(new_inputs_scratch[0]->type);
+            const Type* ptr_type = get_operand_type(new_inputs_scratch[0]->type);
             assert(ptr_type->tag == PtrType_TAG);
             new_inputs_scratch[1] = infer(ctx, old_operands.nodes[1], (&ptr_type->payload.ptr_type)->pointed_type);
             goto skip_input_types;
@@ -397,7 +397,7 @@ static const Node* _infer_indirect_call(Context* ctx, const Node* node, const Ty
     assert(is_value(new_callee));
     LARRAY(const Node*, new_args, node->payload.indirect_call.args.count);
 
-    const Type* callee_type = extract_operand_type(new_callee->type);
+    const Type* callee_type = get_operand_type(new_callee->type);
     if (callee_type->tag != PtrType_TAG)
         error("functions are called through function pointers");
     callee_type = callee_type->payload.ptr_type.pointed_type;
@@ -450,7 +450,7 @@ static const Node* _infer_loop(Context* ctx, const Node* node, const Type* expec
     const Node* old_body = node->payload.loop_instr.body;
 
     Nodes old_params = get_abstraction_params(old_body);
-    Nodes old_params_types = extract_variable_types(arena, old_params);
+    Nodes old_params_types = get_variables_types(arena, old_params);
     Nodes new_params_types = infer_nodes(ctx, old_params_types);
 
     Nodes old_initial_args = node->payload.loop_instr.initial_args;
@@ -522,7 +522,7 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
         case NotATerminator: assert(false);
         case Let_TAG: {
             const Node* otail = node->payload.let.tail;
-            Nodes annotated_types = extract_variable_types(arena, otail->payload.anon_lam.params);
+            Nodes annotated_types = get_variables_types(arena, otail->payload.anon_lam.params);
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(arena, annotated_types));
             Nodes inferred_yield_types = unwrap_multiple_yield_types(arena, inferred_instruction->type);
             const Node* inferred_tail = infer(ctx, otail, wrap_multiple_yield_types(arena, inferred_yield_types));
@@ -544,7 +544,7 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
         case Jump_TAG: {
             assert(is_basic_block(node->payload.jump.target));
             const Node* ntarget = infer(ctx, node->payload.jump.target, NULL);
-            Nodes param_types = extract_variable_types(arena, get_abstraction_params(ntarget));
+            Nodes param_types = get_variables_types(arena, get_abstraction_params(ntarget));
 
             LARRAY(const Node*, tmp, node->payload.jump.args.count);
             for (size_t i = 0; i < node->payload.jump.args.count; i++)
@@ -565,8 +565,8 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             const Node* t_target = infer(ctx, node->payload.branch.true_target, NULL);
             const Node* f_target = infer(ctx, node->payload.branch.false_target, NULL);
 
-            Nodes t_param_types = extract_variable_types(arena, get_abstraction_params(t_target));
-            Nodes f_param_types = extract_variable_types(arena, get_abstraction_params(f_target));
+            Nodes t_param_types = get_variables_types(arena, get_abstraction_params(t_target));
+            Nodes f_param_types = get_variables_types(arena, get_abstraction_params(f_target));
 
             // TODO: unify the two target types
 

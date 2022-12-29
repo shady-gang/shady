@@ -62,8 +62,8 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push, boo
         stack_size = gen_primop_ce(bb, sub_op, 2, (const Node* []) { stack_size, element_size});
 
     const Node* addr = gen_lea(bb, stack, stack_size, nodes(arena, 1, (const Node* []) { int32_literal(arena, 0) }));
-    assert(extract_operand_type(addr->type)->tag == PtrType_TAG);
-    AddressSpace addr_space = extract_operand_type(addr->type)->payload.ptr_type.address_space;
+    assert(get_operand_type(addr->type)->tag == PtrType_TAG);
+    AddressSpace addr_space = get_operand_type(addr->type)->payload.ptr_type.address_space;
 
     addr = gen_reinterpret_cast(bb, ptr_type(arena, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr);
 

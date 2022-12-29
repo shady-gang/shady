@@ -46,7 +46,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.args);
 
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-            const Node* return_jp = first(bind_instruction(bb, gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = extract_types(dst_arena, nargs) }))));
+            const Node* return_jp = first(bind_instruction(bb, gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = get_values_types(dst_arena, nargs) }))));
             return_jp = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) { return_jp });
             // Join up at the return address instead of returning
             return finish_body(bb, join(dst_arena, (Join) {

@@ -94,7 +94,7 @@ String get_decl_name(const Node* node) {
     }
 }
 
-int64_t extract_int_literal_value(const Node* node, bool sign_extend) {
+int64_t get_int_literal_value(const Node* node, bool sign_extend) {
     assert(node->tag == IntLiteral_TAG);
     if (sign_extend) {
         switch (node->payload.int_literal.width) {
@@ -125,7 +125,7 @@ const IntLiteral* resolve_to_literal(const Node* node) {
     }
 }
 
-const char* extract_string_literal(IrArena* arena, const Node* node) {
+const char* get_string_literal(IrArena* arena, const Node* node) {
     switch (node->tag) {
         case StringLiteral_TAG: return node->payload.string_lit.string;
         case ArrayLiteral_TAG: {
@@ -134,7 +134,7 @@ const char* extract_string_literal(IrArena* arena, const Node* node) {
             for (size_t i = 0; i < contents.count; i++) {
                 const Node* value = contents.nodes[i];
                 assert(value->tag == IntLiteral_TAG && value->payload.int_literal.width == IntTy8);
-                chars[i] = (unsigned char) extract_int_literal_value(value, false);
+                chars[i] = (unsigned char) get_int_literal_value(value, false);
             }
             assert(chars[contents.count - 1] == 0);
             return string(arena, chars);

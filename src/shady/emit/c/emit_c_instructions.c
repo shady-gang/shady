@@ -105,7 +105,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         } case lea_op: {
             CTerm acc = emit_value(emitter, prim_op->operands.nodes[0]);
 
-            const Type* t = extract_operand_type(prim_op->operands.nodes[0]->type);
+            const Type* t = get_operand_type(prim_op->operands.nodes[0]->type);
             assert(t->tag == PtrType_TAG);
 
             const IntLiteral* offset_static_value = resolve_to_literal(prim_op->operands.nodes[1]);
@@ -141,7 +141,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             String bind_to = unique_name(emitter->arena, "make_body");
             print(p, "\n%s = %s;", emit_type(emitter, first(prim_op->operands)->type, bind_to), src);
 
-            const Type* inside_type = extract_operand_type(first(prim_op->operands)->type);
+            const Type* inside_type = get_operand_type(first(prim_op->operands)->type);
             switch (inside_type->tag) {
                 case RecordType_TAG: {
                     Growy* g = new_growy();
@@ -181,7 +181,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case reinterpret_op: {
             assert(outputs.count == 1);
             CTerm src = emit_value(emitter, first(prim_op->operands));
-            const Type* src_type = extract_operand_type(first(prim_op->operands)->type);
+            const Type* src_type = get_operand_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
             if (emitter->config.dialect == GLSL) {
                 if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
@@ -203,7 +203,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case extract_op: {
             CValue acc = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
 
-            const Type* t = extract_operand_type(first(prim_op->operands)->type);
+            const Type* t = get_operand_type(first(prim_op->operands)->type);
             for (size_t i = 1; i < prim_op->operands.count; i++) {
                 const Node* index = prim_op->operands.nodes[i];
                 const IntLiteral* static_index = resolve_to_literal(index);
@@ -463,8 +463,8 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Inst
 
     Emitter sub_emiter = *emitter;
     Nodes params = get_anonymous_lambda_params(loop->body);
-    Strings param_names = extract_variable_names(emitter->arena, params);
-    Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, extract_variable_types(emitter->arena, params));
+    Strings param_names = get_variable_names(emitter->arena, params);
+    Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, get_variables_types(emitter->arena, params));
     for (size_t i = 0; i < params.count; i++)
         register_emitted(&sub_emiter, params.nodes[i], term_from_cvalue(eparams.strings[i]));
 

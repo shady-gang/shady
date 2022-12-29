@@ -62,14 +62,14 @@ const Node* lookup_annotation_list(Nodes annotations, const char* name) {
     return NULL;
 }
 
-const Node* extract_annotation_value(const Node* annotation) {
+const Node* get_annotation_value(const Node* annotation) {
     assert(annotation);
     if (annotation->tag != AnnotationValue_TAG)
         error("This annotation does not have a single payload");
     return annotation->payload.annotation_value.value;
 }
 
-Nodes extract_annotation_values(const Node* annotation) {
+Nodes get_annotation_values(const Node* annotation) {
     assert(annotation);
     if (annotation->tag != AnnotationValues_TAG)
         error("This annotation does not have multiple payloads");
@@ -77,8 +77,8 @@ Nodes extract_annotation_values(const Node* annotation) {
 }
 
 /// Gets the string literal attached to an annotation, if present.
-const char*  extract_annotation_string_payload(const Node* annotation) {
-    const Node* payload = extract_annotation_value(annotation);
+const char* get_annotation_string_payload(const Node* annotation) {
+    const Node* payload = get_annotation_value(annotation);
     if (!payload) return NULL;
     if (payload->tag != StringLiteral_TAG)
         error("Wrong annotation payload tag, expected a string literal")
@@ -90,7 +90,7 @@ bool lookup_annotation_with_string_payload(const Node* decl, const char* annotat
     while (true) {
         const Node* next = search_annotations(decl, annotation_name, &i);
         if (!next) return false;
-        if (strcmp(extract_annotation_string_payload(next), expected_payload) == 0)
+        if (strcmp(get_annotation_string_payload(next), expected_payload) == 0)
             return true;
     }
 }

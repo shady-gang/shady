@@ -124,7 +124,7 @@ static const Node* process(Context* ctx, const Node* old) {
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
-                const Node* popped = gen_pop_value_stack(bb, rewrite_node(&ctx->rewriter, extract_operand_type(old_param->type)));
+                const Node* popped = gen_pop_value_stack(bb, rewrite_node(&ctx->rewriter, get_operand_type(old_param->type)));
                 if (is_operand_uniform(old_param->type))
                     popped = first(gen_primop(bb, subgroup_broadcast_first_op, empty(dst_arena), singleton(popped)));
                 register_processed(&ctx->rewriter, old_param, popped);

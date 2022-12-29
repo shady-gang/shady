@@ -323,7 +323,7 @@ static const Node* accept_primary_expr(ctxparams) {
             if (expr->tag == IntLiteral_TAG) {
                 return int_literal(arena, (IntLiteral) {
                     // We always treat that value like an signed integer, because it makes no sense to negate an unsigned number !
-                    .value.i64 = -extract_int_literal_value(expr, true)
+                    .value.i64 = -get_int_literal_value(expr, true)
                 });
             } else {
                 return prim_op(arena, (PrimOp) {

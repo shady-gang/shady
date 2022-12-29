@@ -63,7 +63,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
         uint8_t* tmp = malloc(sizeof(uint8_t) * c.count);
         bool ends_zero = false;
         for (size_t i = 0; i < c.count; i++) {
-            tmp[i] = extract_int_literal_value(c.nodes[i], false);
+            tmp[i] = get_int_literal_value(c.nodes[i], false);
             if (tmp[i] == 0) {
                 if (i == c.count - 1)
                     ends_zero = true;
@@ -226,7 +226,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
 
                         const Type* t = yield_types.nodes[i];
                         if (mut)
-                            t = extract_pointee_type(emitter->arena, t);
+                            t = get_pointee_type(emitter->arena, t);
 
                         String decl = c_emit_type(emitter, t, center);
                         if (has_result)

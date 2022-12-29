@@ -84,8 +84,8 @@ String get_decl_name(const Node*);
 
 const IntLiteral* resolve_to_literal(const Node*);
 
-int64_t extract_int_literal_value(const Node*, bool sign_extend);
-const char* extract_string_literal(IrArena*, const Node*);
+int64_t get_int_literal_value(const Node*, bool sign_extend);
+const char* get_string_literal(IrArena*, const Node*);
 
 static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalLogical; }
 
@@ -94,10 +94,10 @@ bool is_addr_space_uniform(AddressSpace);
 
 const Node* lookup_annotation(const Node* decl, const char* name);
 const Node* lookup_annotation_list(Nodes, const char* name);
-const Node* extract_annotation_value(const Node* annotation);
-Nodes extract_annotation_values(const Node* annotation);
+const Node* get_annotation_value(const Node* annotation);
+Nodes get_annotation_values(const Node* annotation);
 /// Gets the string literal attached to an annotation, if present.
-const char* extract_annotation_string_payload(const Node* annotation);
+const char* get_annotation_string_payload(const Node* annotation);
 bool lookup_annotation_with_string_payload(const Node* decl, const char* annotation_name, const char* expected_payload);
 bool is_annotation(const Node* node);
 String get_annotation_name(const Node* node);
