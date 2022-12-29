@@ -162,3 +162,21 @@ const Type* maybe_packed_type_helper(const Type* type, size_t width) {
         .element_type = type,
     });
 }
+
+const Type* get_pointer_type_element(const Type* type) {
+    const Type* t = type;
+    deconstruct_pointer_type(&t);
+    return t;
+}
+
+AddressSpace get_pointer_type_address_space(const Type* type) {
+    const Type* t = type;
+    return deconstruct_pointer_type(&t);
+}
+
+AddressSpace deconstruct_pointer_type(const Type** type) {
+    const Type* t = *type;
+    assert(t->tag == PtrType_TAG);
+    *type = t->payload.ptr_type.pointed_type;
+    return t->payload.ptr_type.address_space;
+}
