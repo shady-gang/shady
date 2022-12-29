@@ -34,28 +34,31 @@ Nodes get_variables_types(IrArena*, Nodes);
 Strings get_variable_names(IrArena*, Nodes);
 
 Nodes get_values_types(IrArena*, Nodes);
-Nodes strip_qualifiers(IrArena*, Nodes);
 
-//
+// Qualified type helpers
 /// Ensures an operand has divergence-annotated type and extracts it
-const Type* get_operand_type(const Type*);
-bool is_operand_uniform(const Type*);
-bool deconstruct_qual_type(const Type**);
+const Type* get_unqualified_type(const Type*);
+bool is_qualified_type_uniform(const Type*);
+bool deconstruct_qualified_type(const Type**);
 
-const Type* get_maybe_qualified_type_element(const Type*);
+const Type* qualified_type_helper(const Type*, bool uniform);
+bool contains_qualified_type(const Type*);
 
-const Type* qual_type_helper(const Type*, bool uniform);
-bool contains_qualified_type(const Type* type);
+Nodes strip_qualifiers(IrArena*, Nodes);
+Nodes add_qualifiers(IrArena*, Nodes, bool);
 
 // Pack (vector) type helpers
-const Type* get_vector_element(const Type*);
-size_t get_vector_size(const Type*);
-size_t deconstruct_vector_size(const Type**);
-const Type* get_maybe_vector_element(const Type*);
+const Type* get_packed_type_element(const Type*);
+size_t get_packed_type_width(const Type*);
+size_t deconstruct_packed_type(const Type**);
 
-size_t get_maybe_vector_size(const Type*);
-size_t deconstruct_maybe_vector_size(const Type**);
 /// Helper for creating pack types, wraps type in a pack_type if width > 1
-const Type* maybe_pack_type_helper(const Type*, size_t width);
+const Type* maybe_packed_type_helper(const Type*, size_t width);
+
+/// 'Maybe' variants that work with any types, and assume width=1 for non-packed types
+/// Useful for writing generic type checking code !
+const Type* get_maybe_packed_type_element(const Type*);
+size_t get_maybe_packed_type_width(const Type*);
+size_t deconstruct_maybe_packed_type(const Type**);
 
 #endif

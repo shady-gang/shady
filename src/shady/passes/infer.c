@@ -102,7 +102,7 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
 
             const Node* typed_value = infer(ctx, oconstant->value, imported_hint);
             assert(is_value(typed_value));
-            imported_hint = get_operand_type(typed_value->type);
+            imported_hint = get_unqualified_type(typed_value->type);
 
             Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
             register_processed(&ctx->rewriter, node, nconstant);
@@ -130,10 +130,10 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
     }
 }
 
-/// Like get_operand_type but won't error out if type wasn't qualified to begin with
+/// Like get_unqualified_type but won't error out if type wasn't qualified to begin with
 static const Type* remove_uniformity_qualifier(const Node* type) {
     if (contains_qualified_type(type))
-        return get_operand_type(type);
+        return get_unqualified_type(type);
     return type;
 }
 
@@ -172,8 +172,8 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
             Nodes omembers = node->payload.tuple.contents;
             LARRAY(const Node*, inferred, omembers.count);
             if (expected_type) {
-                bool uniform = is_operand_uniform(expected_type);
-                expected_type = get_operand_type(expected_type);
+                bool uniform = is_qualified_type_uniform(expected_type);
+                expected_type = get_unqualified_type(expected_type);
                 assert(expected_type->tag == RecordType_TAG);
                 Nodes expected_members = expected_type->payload.record_type.members;
                 for (size_t i = 0; i < omembers.count; i++)
@@ -309,7 +309,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
         case store_op: {
             assert(old_operands.count == 2);
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
-            const Type* ptr_type = get_operand_type(new_inputs_scratch[0]->type);
+            const Type* ptr_type = get_unqualified_type(new_inputs_scratch[0]->type);
             assert(ptr_type->tag == PtrType_TAG);
             new_inputs_scratch[1] = infer(ctx, old_operands.nodes[1], (&ptr_type->payload.ptr_type)->pointed_type);
             goto skip_input_types;
@@ -397,7 +397,7 @@ static const Node* _infer_indirect_call(Context* ctx, const Node* node, const Ty
     assert(is_value(new_callee));
     LARRAY(const Node*, new_args, node->payload.indirect_call.args.count);
 
-    const Type* callee_type = get_operand_type(new_callee->type);
+    const Type* callee_type = get_unqualified_type(new_callee->type);
     if (callee_type->tag != PtrType_TAG)
         error("functions are called through function pointers");
     callee_type = callee_type->payload.ptr_type.pointed_type;

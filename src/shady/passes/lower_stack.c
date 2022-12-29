@@ -62,16 +62,16 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push, boo
         stack_size = gen_primop_ce(bb, sub_op, 2, (const Node* []) { stack_size, element_size});
 
     const Node* addr = gen_lea(bb, stack, stack_size, nodes(arena, 1, (const Node* []) { int32_literal(arena, 0) }));
-    assert(get_operand_type(addr->type)->tag == PtrType_TAG);
-    AddressSpace addr_space = get_operand_type(addr->type)->payload.ptr_type.address_space;
+    assert(get_unqualified_type(addr->type)->tag == PtrType_TAG);
+    AddressSpace addr_space = get_unqualified_type(addr->type)->payload.ptr_type.address_space;
 
     addr = gen_reinterpret_cast(bb, ptr_type(arena, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr);
 
     if (uniform) {
-        assert(is_operand_uniform(stack_pointer->type));
-        assert(is_operand_uniform(stack_size->type));
-        assert(is_operand_uniform(stack->type));
-        assert(is_operand_uniform(addr->type));
+        assert(is_qualified_type_uniform(stack_pointer->type));
+        assert(is_qualified_type_uniform(stack_size->type));
+        assert(is_qualified_type_uniform(stack->type));
+        assert(is_qualified_type_uniform(addr->type));
     }
 
     const Node* popped_value = NULL;

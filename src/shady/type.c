@@ -226,8 +226,8 @@ const Type* check_type_arr_lit(IrArena* arena, ArrayLiteral arr_lit) {
     assert(!contains_qualified_type(elem_type));
     bool uniform = true;
     for (size_t i = 0; i < arr_lit.contents.count; i++) {
-        assert(is_subtype(elem_type, get_operand_type(arr_lit.contents.nodes[i]->type)));
-        uniform &= is_operand_uniform(arr_lit.contents.nodes[i]->type);
+        assert(is_subtype(elem_type, get_unqualified_type(arr_lit.contents.nodes[i]->type)));
+        uniform &= is_qualified_type_uniform(arr_lit.contents.nodes[i]->type);
     }
     return qualified_type(arena, (QualifiedType) {
         .type = arr_type(arena, (ArrType) {
@@ -243,8 +243,8 @@ const Type* check_type_tuple(IrArena* arena, Tuple tuple) {
     LARRAY(const Type*, cleaned, member_types.count);
     bool is_uniform = true;
     for (size_t i = 0; i < member_types.count; i++) {
-        cleaned[i] = get_operand_type(member_types.nodes[i]);
-        is_uniform &= is_operand_uniform(member_types.nodes[i]);
+        cleaned[i] = get_unqualified_type(member_types.nodes[i]);
+        is_uniform &= is_qualified_type_uniform(member_types.nodes[i]);
     }
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = is_uniform,
@@ -320,7 +320,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
 
             const Type* type = first(prim_op.operands)->type;
-            assert(can_do_arithm(get_maybe_vector_element(get_operand_type(type))));
+            assert(can_do_arithm(get_maybe_packed_type_element(get_unqualified_type(type))));
             return type;
         }
         case rshift_arithm_op:
@@ -331,17 +331,17 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* first_operand_type = first(prim_op.operands)->type;
             const Type* second_operand_type = prim_op.operands.nodes[1]->type;
 
-            bool uniform_result = deconstruct_qual_type(&first_operand_type);
-            uniform_result &= deconstruct_qual_type(&second_operand_type);
+            bool uniform_result = deconstruct_qualified_type(&first_operand_type);
+            uniform_result &= deconstruct_qualified_type(&second_operand_type);
 
-            size_t value_simd_width = deconstruct_maybe_vector_size(&first_operand_type);
-            size_t shift_simd_width = deconstruct_maybe_vector_size(&second_operand_type);
+            size_t value_simd_width = deconstruct_maybe_packed_type(&first_operand_type);
+            size_t shift_simd_width = deconstruct_maybe_packed_type(&second_operand_type);
             assert(value_simd_width == shift_simd_width);
 
             assert(first_operand_type->tag == Int_TAG);
             assert(second_operand_type->tag == Int_TAG);
 
-            return qual_type_helper(maybe_pack_type_helper(first_operand_type, value_simd_width), uniform_result);
+            return qualified_type_helper(maybe_packed_type_helper(first_operand_type, value_simd_width), uniform_result);
         }
         case add_op:
         case sub_op:
@@ -350,21 +350,21 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case mod_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
-            const Type* first_operand_type = get_operand_type(first(prim_op.operands)->type);
+            const Type* first_operand_type = get_unqualified_type(first(prim_op.operands)->type);
 
             bool result_uniform = true;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
                 const Node* arg = prim_op.operands.nodes[i];
                 const Type* operand_type = arg->type;
-                bool operand_uniform = deconstruct_qual_type(&operand_type);
+                bool operand_uniform = deconstruct_qualified_type(&operand_type);
 
-                assert(can_do_arithm(get_maybe_vector_element(operand_type)));
+                assert(can_do_arithm(get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
             }
 
-            return qual_type_helper(first_operand_type, result_uniform);
+            return qualified_type_helper(first_operand_type, result_uniform);
         }
 
         case not_op: {
@@ -372,7 +372,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
 
             const Type* type = first(prim_op.operands)->type;
-            assert(can_do_bitstuff(get_maybe_vector_element(get_operand_type(type))));
+            assert(can_do_bitstuff(get_maybe_packed_type_element(get_unqualified_type(type))));
             return type;
         }
         case or_op:
@@ -380,21 +380,21 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case and_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
-            const Type* first_operand_type = get_operand_type(first(prim_op.operands)->type);
+            const Type* first_operand_type = get_unqualified_type(first(prim_op.operands)->type);
 
             bool result_uniform = true;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
                 const Node* arg = prim_op.operands.nodes[i];
                 const Type* operand_type = arg->type;
-                bool operand_uniform = deconstruct_qual_type(&operand_type);
+                bool operand_uniform = deconstruct_qualified_type(&operand_type);
 
-                assert(can_do_bitstuff(get_maybe_vector_element(operand_type)));
+                assert(can_do_bitstuff(get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
             }
 
-            return qual_type_helper(first_operand_type, result_uniform);
+            return qualified_type_helper(first_operand_type, result_uniform);
         }
         case lt_op:
         case lte_op:
@@ -404,22 +404,22 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case neq_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
-            const Type* first_operand_type = get_operand_type(first(prim_op.operands)->type);
-            size_t first_operand_width = get_maybe_vector_size(first_operand_type);
+            const Type* first_operand_type = get_unqualified_type(first(prim_op.operands)->type);
+            size_t first_operand_width = get_maybe_packed_type_width(first_operand_type);
 
             bool result_uniform = true;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
                 const Node* arg = prim_op.operands.nodes[i];
                 const Type* operand_type = arg->type;
-                bool operand_uniform = deconstruct_qual_type(&operand_type);
+                bool operand_uniform = deconstruct_qualified_type(&operand_type);
 
-                assert(can_be_compared(ordered, get_maybe_vector_element(operand_type)));
+                assert(can_be_compared(ordered, get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
             }
 
-            return qual_type_helper(maybe_pack_type_helper(bool_type(arena), first_operand_width), result_uniform);
+            return qualified_type_helper(maybe_packed_type_helper(bool_type(arena), first_operand_width), result_uniform);
         }
 
         case get_stack_pointer_op:
@@ -441,8 +441,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
             bool is_uniform = prim_op.op == set_stack_pointer_uniform_op;
             if (is_uniform)
-                assert(is_operand_uniform(prim_op.operands.nodes[0]->type));
-            assert(get_operand_type(prim_op.operands.nodes[0]->type) == int32_type(arena));
+                assert(is_qualified_type_uniform(prim_op.operands.nodes[0]->type));
+            assert(get_unqualified_type(prim_op.operands.nodes[0]->type) == int32_type(arena));
             return unit_type(arena);
         }
         case push_stack_uniform_op:
@@ -473,14 +473,14 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             const Node* ptr = first(prim_op.operands);
             const Node* ptr_type = ptr->type;
-            bool ptr_uniform = deconstruct_qual_type(&ptr_type);
-            size_t width = deconstruct_maybe_vector_size(&ptr_type);
+            bool ptr_uniform = deconstruct_qualified_type(&ptr_type);
+            size_t width = deconstruct_maybe_packed_type(&ptr_type);
 
             assert(ptr_type->tag == PtrType_TAG);
             const PtrType* node_ptr_type_ = &ptr_type->payload.ptr_type;
             const Type* elem_type = node_ptr_type_->pointed_type;
-            elem_type = maybe_pack_type_helper(elem_type, width);
-            return qual_type_helper(elem_type, ptr_uniform && is_addr_space_uniform(ptr_type->payload.ptr_type.address_space));
+            elem_type = maybe_packed_type_helper(elem_type, width);
+            return qualified_type_helper(elem_type, ptr_uniform && is_addr_space_uniform(ptr_type->payload.ptr_type.address_space));
         }
         case store_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -488,7 +488,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             const Node* ptr = first(prim_op.operands);
             const Node* ptr_type = ptr->type;
-            bool ptr_uniform = deconstruct_qual_type(&ptr_type);
+            bool ptr_uniform = deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
 
             const PtrType* ptr_type_payload = &ptr_type->payload.ptr_type;
@@ -531,15 +531,15 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count >= 2);
 
             const Node* base = prim_op.operands.nodes[0];
-            bool uniform = is_operand_uniform(base->type);
+            bool uniform = is_qualified_type_uniform(base->type);
 
-            const Type* curr_ptr_type = get_operand_type(base->type);
+            const Type* curr_ptr_type = get_unqualified_type(base->type);
             assert(curr_ptr_type->tag == PtrType_TAG && "lea expects a pointer as a base");
 
             const Node* offset = prim_op.operands.nodes[1];
             assert(offset);
             const Type* offset_type = offset->type;
-            bool offset_uniform = deconstruct_qual_type(&offset_type);
+            bool offset_uniform = deconstruct_qualified_type(&offset_type);
             assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
             const Type* pointee_type = curr_ptr_type->payload.ptr_type.pointed_type;
 
@@ -556,7 +556,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
                 const Node* selector = prim_op.operands.nodes[i];
                 const Type* selector_type = selector->type;
-                bool selector_uniform = deconstruct_qual_type(&selector_type);
+                bool selector_uniform = deconstruct_qualified_type(&selector_type);
 
                 assert(selector_type->tag == Int_TAG && "selectors must be integers");
                 uniform &= selector_uniform;
@@ -605,9 +605,9 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(!contains_qualified_type(dst_type));
             assert(dst_type->tag == TypeDeclRef_TAG);
             const Node* nom_type = dst_type->payload.type_decl_ref.decl;
-            assert(is_subtype(nom_type->payload.nom_type.body, get_operand_type(src->type)));
+            assert(is_subtype(nom_type->payload.nom_type.body, get_unqualified_type(src->type)));
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = is_operand_uniform(src->type),
+                .is_uniform = is_qualified_type_uniform(src->type),
                 .type = dst_type,
             });
         }
@@ -616,7 +616,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
             const Node* source = prim_op.operands.nodes[0];
             const Type* src_type = source->type;
-            bool src_uniform = deconstruct_qual_type(&src_type);
+            bool src_uniform = deconstruct_qualified_type(&src_type);
 
             const Type* target_type = prim_op.type_arguments.nodes[0];
             assert(!contains_qualified_type(target_type));
@@ -631,14 +631,14 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 3);
             const Type* condition_type = prim_op.operands.nodes[0]->type;
-            bool condition_uniform = deconstruct_qual_type(&condition_type);
+            bool condition_uniform = deconstruct_qualified_type(&condition_type);
 
             const Type* alternatives_types[2];
             bool alternatives_uniform[2];
             bool alternatives_all_uniform = true;
             for (size_t i = 0; i < 2; i++) {
                 alternatives_types[i] = prim_op.operands.nodes[1 + i]->type;
-                alternatives_uniform[i] = deconstruct_qual_type(&alternatives_types[i]);
+                alternatives_uniform[i] = deconstruct_qualified_type(&alternatives_types[i]);
                 alternatives_all_uniform &= alternatives_uniform[i];
             }
 
@@ -658,7 +658,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* source = prim_op.operands.nodes[0];
 
             const Type* current_type = source->type;
-            bool is_uniform = deconstruct_qual_type(&current_type);
+            bool is_uniform = deconstruct_qualified_type(&current_type);
 
             for (size_t i = 1; i < prim_op.operands.count; i++) {
                 assert(!contains_qualified_type(current_type));
@@ -668,7 +668,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 bool dynamic_index = prim_op.op == extract_dynamic_op;
                 if (dynamic_index) {
                     const Type* index_type = ith_index->type;
-                    bool index_uniform = deconstruct_qual_type(&index_type);
+                    bool index_uniform = deconstruct_qualified_type(&index_type);
                     is_uniform &= index_uniform;
                     assert(index_type->tag == Int_TAG && "extract_dynamic requires integers for the indices");
                 } else {
@@ -716,7 +716,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(!contains_qualified_type(dst_type));
 
             const Type* src_type = prim_op.operands.nodes[0];
-            bool is_uniform = deconstruct_qual_type(&src_type);
+            bool is_uniform = deconstruct_qualified_type(&src_type);
             // TODO check the conversion is legal
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = is_uniform,
@@ -725,7 +725,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         }
         case create_joint_point_op: {
             assert(prim_op.operands.count == 1);
-            assert(is_operand_uniform(first(prim_op.operands)->type));
+            assert(is_qualified_type_uniform(first(prim_op.operands)->type));
             return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = prim_op.type_arguments }), .is_uniform = true });
         }
         case empty_mask_op:
@@ -773,7 +773,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case subgroup_reduce_sum_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
-            const Type* operand_type = get_operand_type(prim_op.operands.nodes[0]->type);
+            const Type* operand_type = get_unqualified_type(prim_op.operands.nodes[0]->type);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
                 .type = operand_type
@@ -783,7 +783,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = is_operand_uniform(prim_op.operands.nodes[0]->type) && is_operand_uniform(prim_op.operands.nodes[1]->type),
+                .is_uniform = is_qualified_type_uniform(prim_op.operands.nodes[0]->type) && is_qualified_type_uniform(prim_op.operands.nodes[1]->type),
                 .type = bool_type(arena)
             });
         }
@@ -827,7 +827,7 @@ static Nodes check_value_call(const Node* callee, Nodes argument_types) {
     assert(is_value(callee));
 
     const Type* callee_type = callee->type;
-    SHADY_UNUSED bool callee_uniform = deconstruct_qual_type(&callee_type);
+    SHADY_UNUSED bool callee_uniform = deconstruct_qualified_type(&callee_type);
     //assert(callee_uniform);
     callee_type = remove_ptr_type_layer(callee_type);
 
@@ -863,7 +863,7 @@ const Type* check_type_indirect_call(IrArena* arena, IndirectCall call) {
 }
 
 const Type* check_type_if_instr(IrArena* arena, If if_instr) {
-    if (get_operand_type(if_instr.condition->type) != bool_type(arena))
+    if (get_unqualified_type(if_instr.condition->type) != bool_type(arena))
         error("condition of a selection should be bool");
     // TODO check the contained Merge instrs
     if (if_instr.yield_types.count > 0)
@@ -890,7 +890,7 @@ const Type* check_type_control(IrArena* arena, Control control) {
     const Node* join_point = control.inside->payload.anon_lam.params.nodes[0];
 
     const Type* join_target_type = join_point->type;
-    bool join_target_uniform = deconstruct_qual_type(&join_target_type);
+    bool join_target_uniform = deconstruct_qualified_type(&join_target_type);
     assert(join_target_uniform);
     assert(join_target_type->tag == JoinPointType_TAG);
 
@@ -942,7 +942,7 @@ const Type* check_type_branch(IrArena* arena, Branch branch) {
     }
 
     const Type* condition_type = branch.branch_condition->type;
-    bool uniform = deconstruct_qual_type(&condition_type);
+    bool uniform = deconstruct_qualified_type(&condition_type);
     assert(bool_type(arena) == condition_type);
 
     const Node* branches[2] = { branch.true_target, branch.false_target };
@@ -971,7 +971,7 @@ const Type* check_type_join(IrArena* arena, Join join) {
 
     const Type* join_target_type = join.join_point->type;
 
-    bool join_target_uniform = deconstruct_qual_type(&join_target_type);
+    bool join_target_uniform = deconstruct_qualified_type(&join_target_type);
     assert(join_target_uniform);
     assert(join_target_type->tag == JoinPointType_TAG);
 

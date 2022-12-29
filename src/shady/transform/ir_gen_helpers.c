@@ -32,7 +32,7 @@ const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes ty, Nodes nodes) {
 }
 
 void gen_push_value_stack(BodyBuilder* bb, const Node* value) {
-    gen_primop(bb, push_stack_op, singleton(get_operand_type(value->type)), singleton(value));
+    gen_primop(bb, push_stack_op, singleton(get_unqualified_type(value->type)), singleton(value));
 }
 
 void gen_push_values_stack(BodyBuilder* bb, Nodes values) {

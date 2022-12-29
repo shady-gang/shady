@@ -54,7 +54,7 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
                 value = gen_primop_e(bb, reinterpret_op, singleton(element_type), singleton(value));
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded: %u at %d as=%d" }),
-                        value, base_offset, int32_literal(bb->arena, get_operand_type(arr->type)->payload.ptr_type.address_space)) }));
+                        value, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
                 return value;
             } else {
                 // We need to decompose this into two loads, then we use the merge routine
@@ -62,13 +62,13 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
                 const Node* lo = gen_load(bb, logical_ptr);
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded i64 lo: %u at %d as=%d" }),
-                       lo, base_offset, int32_literal(bb->arena, get_operand_type(arr->type)->payload.ptr_type.address_space)) }));
+                       lo, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
                 const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
                 logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset });
                 const Node* hi = gen_load(bb, logical_ptr);
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded i64 hi: %u at %d as=%d" }),
-                       hi, hi_destination_offset, int32_literal(bb->arena, get_operand_type(arr->type)->payload.ptr_type.address_space)) }));
+                       hi, hi_destination_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
 
                 return gen_merge_i32s_i64(bb, lo, hi);
             }
@@ -115,7 +115,7 @@ static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, con
                 const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored: %u at %d as=%d" }),
-                        value, base_offset, int32_literal(bb->arena, get_operand_type(arr->type)->payload.ptr_type.address_space)) }));
+                        value, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
                 gen_store(bb, logical_ptr, value);
             } else {
                 const Node* lo = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(value));
@@ -126,13 +126,13 @@ static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, con
                 gen_store(bb, logical_ptr, lo);
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored i64 lo: %u at %d as=%d" }),
-                        lo, base_offset, int32_literal(bb->arena, get_operand_type(arr->type)->payload.ptr_type.address_space)) }));
+                        lo, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
                 const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
                 logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset});
                 gen_store(bb, logical_ptr, hi);
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored i64 hi: %u at %d as=%d" }),
-                        hi, hi_destination_offset, int32_literal(bb->arena, get_operand_type(arr->type)->payload.ptr_type.address_space)) }));
+                        hi, hi_destination_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
             }
             return;
         }
@@ -226,7 +226,7 @@ static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const Prim
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     const Node* old_pointer = lea->operands.nodes[0];
     const Node* faked_pointer = rewrite_node(&ctx->rewriter, old_pointer);
-    const Type* pointer_type = get_operand_type(old_pointer->type);
+    const Type* pointer_type = get_unqualified_type(old_pointer->type);
     assert(pointer_type->tag == PtrType_TAG);
 
     const Node* old_offset = lea->operands.nodes[1];
@@ -318,7 +318,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             case lea_op: {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 const Type* ptr_type = oprim_op->operands.nodes[0]->type;
-                ptr_type = get_operand_type(ptr_type);
+                ptr_type = get_unqualified_type(ptr_type);
                 assert(ptr_type->tag == PtrType_TAG);
                 if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                     break;
@@ -340,7 +340,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             case store_op: {
                 const Node* old_ptr = oprim_op->operands.nodes[0];
                 const Type* ptr_type = old_ptr->type;
-                ptr_type = get_operand_type(ptr_type);
+                ptr_type = get_unqualified_type(ptr_type);
                 assert(ptr_type->tag == PtrType_TAG);
                 if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                     break;

@@ -109,7 +109,7 @@ const struct IselTableEntry {
 
 static const Type* get_result_t(Emitter* emitter, struct IselTableEntry entry, Nodes args, Nodes type_arguments) {
     switch (entry.result_kind) {
-        case Same:      return get_operand_type(first(args)->type);
+        case Same:      return get_unqualified_type(first(args)->type);
         case Bool:      return bool_type(emitter->arena);
         case TyOperand: return first(type_arguments);
         default: error("unhandled result kind");
@@ -117,7 +117,7 @@ static const Type* get_result_t(Emitter* emitter, struct IselTableEntry entry, N
 }
 
 static SpvOp get_opcode(Emitter* emitter, struct IselTableEntry entry, Nodes args, Nodes type_arguments) {
-    OperandClass op_class = classify_operand_type(get_operand_type(first(args)->type));
+    OperandClass op_class = classify_operand_type(get_unqualified_type(first(args)->type));
     switch (entry.isel_mechanism) {
         case None:    return SpvOpMax;
         case One:     return entry.one;
@@ -187,7 +187,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         }
         case subgroup_broadcast_first_op: {
             SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
-            SpvId result = spvb_broadcast_first(bb_builder, emit_type(emitter, get_operand_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
+            SpvId result = spvb_broadcast_first(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
             assert(results_count == 1);
             results[0] = result;
             return;
@@ -195,7 +195,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         case subgroup_reduce_sum_op: {
             SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
             assert(results_count == 1);
-            results[0] = spvb_non_uniform_iadd(bb_builder, emit_type(emitter, get_operand_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup, SpvGroupOperationReduce, NULL);
+            results[0] = spvb_non_uniform_iadd(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup, SpvGroupOperationReduce, NULL);
             return;
         }
         case subgroup_elect_first_op: {
@@ -244,8 +244,8 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             return;
         }
         case load_op: {
-            assert(get_operand_type(first(args)->type)->tag == PtrType_TAG);
-            const Type* elem_type = get_operand_type(first(args)->type)->payload.ptr_type.pointed_type;
+            assert(get_unqualified_type(first(args)->type)->tag == PtrType_TAG);
+            const Type* elem_type = get_unqualified_type(first(args)->type)->payload.ptr_type.pointed_type;
             SpvId eptr = emit_value(emitter, bb_builder, first(args));
             SpvId result = spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, 0, NULL);
             assert(results_count == 1);
@@ -253,7 +253,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             return;
         }
         case store_op: {
-            assert(get_operand_type(first(args)->type)->tag == PtrType_TAG);
+            assert(get_unqualified_type(first(args)->type)->tag == PtrType_TAG);
             SpvId eptr = emit_value(emitter, bb_builder, first(args));
             SpvId eval = emit_value(emitter, bb_builder, args.nodes[1]);
             spvb_store(bb_builder, eval, eptr, 0, NULL);
@@ -361,7 +361,7 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
     for (size_t i = 0; i < yield_types.count; i++) {
         assert(if_instr.if_false && "Ifs with yield types need false branches !");
         SpvId phi_id = spvb_fresh_id(emitter->file_builder);
-        SpvId type = emit_type(emitter, get_operand_type(yield_types.nodes[i]));
+        SpvId type = emit_type(emitter, get_unqualified_type(yield_types.nodes[i]));
         struct Phi* phi = spvb_add_phi(join_bb, type, phi_id);
         join_phis[i] = phi;
         results[i] = phi_id;
@@ -392,7 +392,7 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
 
     SpvId next_id = spvb_fresh_id(emitter->file_builder);
 
-    assert(get_operand_type(match.inspect->type)->tag == Int_TAG);
+    assert(get_unqualified_type(match.inspect->type)->tag == Int_TAG);
     SpvId inspectee = emit_value(emitter, *bb_builder, match.inspect);
 
     SpvId default_id = spvb_fresh_id(emitter->file_builder);
@@ -453,7 +453,7 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     // Wire up the phi nodes for loop exit
     LARRAY(struct Phi*, loop_break_phis, yield_types.count);
     for (size_t i = 0; i < yield_types.count; i++) {
-        SpvId yielded_type = emit_type(emitter, get_operand_type(yield_types.nodes[i]));
+        SpvId yielded_type = emit_type(emitter, get_unqualified_type(yield_types.nodes[i]));
 
         SpvId break_phi_id = spvb_fresh_id(emitter->file_builder);
         struct Phi* phi = spvb_add_phi(next, yielded_type, break_phi_id);
@@ -464,7 +464,7 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     // Wire up the phi nodes for the loop contents
     LARRAY(struct Phi*, loop_continue_phis, body_params.count);
     for (size_t i = 0; i < body_params.count; i++) {
-        SpvId loop_param_type = emit_type(emitter, get_operand_type(body_params.nodes[i]->type));
+        SpvId loop_param_type = emit_type(emitter, get_unqualified_type(body_params.nodes[i]->type));
 
         SpvId continue_phi_id = spvb_fresh_id(emitter->file_builder);
         struct Phi* continue_phi = spvb_add_phi(continue_builder, loop_param_type, continue_phi_id);

@@ -38,7 +38,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
             case subgroup_broadcast_first_op: {
                 BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
                 const Node* operand = rewrite_node(&ctx->rewriter, payload.operands.nodes[0]);
-                const Type* element_type = get_operand_type(operand->type);
+                const Type* element_type = get_unqualified_type(operand->type);
 
                 if (element_type->tag == Int_TAG && element_type->payload.int_type.width == IntTy32) {
                     cancel_body(builder);
