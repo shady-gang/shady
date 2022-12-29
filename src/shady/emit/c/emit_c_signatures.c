@@ -58,10 +58,10 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         case Int_TAG: {
             if (emitter->config.explicitly_sized_types) {
                 switch (type->payload.int_type.width) {
-                    case IntTy8:  emitted = "unt8_t" ; break;
-                    case IntTy16: emitted = "unt16_t"; break;
-                    case IntTy32: emitted = "unt32_t"; break;
-                    case IntTy64: emitted = "unt64_t"; break;
+                    case IntTy8:  emitted = "uint8_t" ; break;
+                    case IntTy16: emitted = "uint16_t"; break;
+                    case IntTy32: emitted = "uint32_t"; break;
+                    case IntTy64: emitted = "uint64_t"; break;
                 }
             } else if (emitter->config.dialect == GLSL) {
                 switch (type->payload.int_type.width) {
