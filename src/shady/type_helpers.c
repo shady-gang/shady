@@ -180,3 +180,29 @@ AddressSpace deconstruct_pointer_type(const Type** type) {
     *type = t->payload.ptr_type.pointed_type;
     return t->payload.ptr_type.address_space;
 }
+
+const Node* get_nominal_type_decl(const Type* type) {
+    assert(type->tag == TypeDeclRef_TAG);
+    return get_maybe_nominal_type_decl(type);
+}
+
+const Type* get_nominal_type_body(const Type* type) {
+    assert(type->tag == TypeDeclRef_TAG);
+    return get_maybe_nominal_type_body(type);
+}
+
+const Node* get_maybe_nominal_type_decl(const Type* type) {
+    if (type->tag == TypeDeclRef_TAG) {
+        const Node* decl = type->payload.type_decl_ref.decl;
+        assert(decl->tag == NominalType_TAG);
+        return decl;
+    }
+    return NULL;
+}
+
+const Type* get_maybe_nominal_type_body(const Type* type) {
+    const Node* decl = get_maybe_nominal_type_decl(type);
+    if (decl)
+        return decl->payload.nom_type.body;
+    return type;
+}

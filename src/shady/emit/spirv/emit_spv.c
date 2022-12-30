@@ -52,8 +52,8 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
             spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), false);
             break;
         }
-        case Tuple_TAG: {
-            Nodes components = node->payload.tuple.contents;
+        case Compound_TAG: {
+            Nodes components = node->payload.compound.contents;
             LARRAY(SpvId, ids, components.count);
             for (size_t i = 0; i < components.count; i++) {
                 ids[i] = emit_value(emitter, bb_builder, components.nodes[i]);

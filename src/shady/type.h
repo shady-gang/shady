@@ -62,4 +62,10 @@ const Type* get_pointer_type_element(const Type*);
 AddressSpace get_pointer_type_address_space(const Type*);
 AddressSpace deconstruct_pointer_type(const Type**);
 
+// Nominal type helpers
+const Node* get_nominal_type_decl(const Type*);
+const Type* get_nominal_type_body(const Type*);
+const Node* get_maybe_nominal_type_decl(const Type*);
+const Type* get_maybe_nominal_type_body(const Type*);
+
 #endif

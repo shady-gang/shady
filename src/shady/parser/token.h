@@ -40,6 +40,7 @@ TEXT_TOKEN(i32) \
 TEXT_TOKEN(i64) \
 TEXT_TOKEN(float) \
 TEXT_TOKEN(mask_t) \
+TEXT_TOKEN(make) \
 TOKEN(const, "const") \
 TOKEN(bool, "bool") \
 TOKEN(true, "true") \

@@ -267,7 +267,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             return new;
         }
         case Variable_TAG: error("variables should be recreated as part of decl handling");
-        case Tuple_TAG: return tuple(arena, rewrite_nodes_generic(rewriter, rewrite_value, node->payload.tuple.contents));
+        case Compound_TAG: return compound(arena, rewrite_type(rewriter, node->payload.compound.type), rewrite_nodes_generic(rewriter, rewrite_value, node->payload.compound.contents));
         case Let_TAG: {
             const Node* instruction = rewrite_instruction(rewriter, node->payload.let.instruction);
             const Node* tail = rewrite_anon_lambda(rewriter, node->payload.let.tail);

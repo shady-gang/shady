@@ -79,10 +79,15 @@ static const Node* accept_primop(ctxparams);
 static const Node* accept_expr(ctxparams, int);
 static Nodes expect_operands(ctxparams);
 
-static const Node* accept_literal(ctxparams) {
+static const Node* accept_value(ctxparams) {
     Token tok = curr_token(tokenizer);
     size_t size = tok.end - tok.start;
     switch (tok.tag) {
+        case identifier_tok: {
+            const char* id = string_sized(arena, (int) size, &contents[tok.start]);
+            next_token(tokenizer);
+            return unbound(arena, (Unbound) { .name = id });
+        }
         case hex_lit_tok:
         case dec_lit_tok: {
             next_token(tokenizer);
@@ -102,22 +107,43 @@ static const Node* accept_literal(ctxparams) {
             Nodes elements = expect_operands(ctx);
             return arr_lit(arena, (ArrayLiteral) { .element_type = element_type, .contents = elements });
         }
+        case lpar_tok: {
+            next_token(tokenizer);
+            if (accept_token(ctx, rpar_tok)) {
+                return unit(arena);
+            }
+            const Node* atom = config.front_end ? accept_expr(ctx, max_precedence()) : accept_value(ctx);
+            assert(atom);
+            if (curr_token(tokenizer).tag == rpar_tok) {
+                next_token(tokenizer);
+            } else {
+                struct List* elements = new_list(const Node*);
+                append_list(const Node*, elements, atom);
+
+                while (!accept_token(ctx, rpar_tok)) {
+                    expect(accept_token(ctx, comma_tok));
+                    const Node* element = config.front_end ? accept_expr(ctx, max_precedence()) : accept_value(ctx);
+                    assert(elements);
+                    append_list(const Node*, elements, element);
+                }
+
+                Nodes tcontents = nodes(arena, entries_count_list(elements), read_list(const Node*, elements));
+                destroy_list(elements);
+                atom = tuple(arena, tcontents);
+            }
+            return atom;
+        }
+        case make_tok: {
+            next_token(tokenizer);
+            expect(accept_token(ctx, lsbracket_tok));
+            const Type* elem_type = accept_unqualified_type(ctx);
+            expect(elem_type);
+            expect(accept_token(ctx, rsbracket_tok));
+            Nodes elems = expect_operands(ctx);
+            return compound(arena, elem_type, elems);
+        }
         default: return NULL;
     }
-}
-
-static const Node* accept_value(ctxparams) {
-    const char* id = accept_identifier(ctx);
-    if (id) {
-        return unbound(arena, (Unbound) {
-            .name = id
-        });
-    }
-
-    const Node* lit = accept_literal(ctx);
-    if (lit) return lit;
-
-    return NULL;
 }
 
 static AddressSpace expect_ptr_address_space(ctxparams) {
@@ -287,53 +313,22 @@ static Nodes accept_types(ctxparams, TokenTag separator, bool expect_qualified) 
     return types2;
 }
 
-static const Node* expect_parenthised_expr(ctxparams) {
-    expect(accept_token(ctx, lpar_tok));
-    const Node* expr = accept_expr(ctx, max_precedence());
-    if (!expr) {
-        expect(accept_token(ctx, rpar_tok));
-        return unit_type(arena);
-    }
-    if (curr_token(tokenizer).tag != rpar_tok) {
-        struct List* elements = new_list(const Node*);
-        append_list(const Node*, elements, expr);
-
-        while (!accept_token(ctx, rpar_tok)) {
-            expect(accept_token(ctx, comma_tok));
-            const Node* element = accept_expr(ctx, max_precedence());
-            assert(elements);
-            append_list(const Node*, elements, element);
-        }
-
-        Nodes tcontents = nodes(arena, entries_count_list(elements), read_list(const Node*, elements));
-        destroy_list(elements);
-        expr = tuple(arena, tcontents);
-    } else {
-        next_token(tokenizer);
-    }
-    return expr;
-}
-
 static const Node* accept_primary_expr(ctxparams) {
-    switch (curr_token(tokenizer).tag) {
-        case minus_tok: {
-            next_token(tokenizer);
-            const Node* expr = accept_primary_expr(ctx);
-            assert(expr);
-            if (expr->tag == IntLiteral_TAG) {
-                return int_literal(arena, (IntLiteral) {
-                    // We always treat that value like an signed integer, because it makes no sense to negate an unsigned number !
-                    .value.i64 = -get_int_literal_value(expr, true)
-                });
-            } else {
-                return prim_op(arena, (PrimOp) {
-                    .op = neg_op,
-                    .operands = nodes(arena, 1, (const Node* []) {expr})
-                });
-            }
+    if (curr_token(tokenizer).tag == minus_tok) {
+        next_token(tokenizer);
+        const Node* expr = accept_primary_expr(ctx);
+        assert(expr);
+        if (expr->tag == IntLiteral_TAG) {
+            return int_literal(arena, (IntLiteral) {
+                // We always treat that value like an signed integer, because it makes no sense to negate an unsigned number !
+                .value.i64 = -get_int_literal_value(expr, true)
+            });
+        } else {
+            return prim_op(arena, (PrimOp) {
+                .op = neg_op,
+                .operands = nodes(arena, 1, (const Node* []) {expr})
+            });
         }
-        case lpar_tok: return expect_parenthised_expr(ctx);
-        default: break;
     }
 
     const Node* expr = accept_value(ctx);

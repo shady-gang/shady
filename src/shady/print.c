@@ -6,6 +6,8 @@
 #include "growy.h"
 #include "printer.h"
 
+#include "type.h"
+
 #include <assert.h>
 #include <inttypes.h>
 
@@ -410,15 +412,17 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf(")");
             printf(RESET);
             break;
-        case Value_Tuple_TAG: {
-            printf("(");
-            Nodes nodes = node->payload.tuple.contents;
-            for (size_t i = 0; i < nodes.count; i++) {
-                print_node(nodes.nodes[i]);
-                if (i + 1 < nodes.count)
-                    printf(", ");
+        case Value_Compound_TAG: {
+            const Node* nom_decl = get_maybe_nominal_type_decl(node->payload.compound.type);
+            if (nom_decl) {
+                printf(BBLUE);
+                printf("make");
+                printf(RESET);
+                printf("[");
+                print_node(nom_decl);
+                printf("]");
             }
-            printf(")");
+            print_args_list(ctx, node->payload.compound.contents);
             break;
         }
         case Value_RefDecl_TAG: {

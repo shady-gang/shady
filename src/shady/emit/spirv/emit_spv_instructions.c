@@ -219,30 +219,6 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             results[0] = result;
             return;
         }
-        case make_op: {
-            const Node* src = first(args);
-            SpvId src_id = emit_value(emitter, bb_builder, src);
-            const Type* dst_type = first(type_arguments);
-            assert(dst_type->tag == TypeDeclRef_TAG);
-            const Node* nom_decl = dst_type->payload.type_decl_ref.decl;
-            assert(nom_decl->tag == NominalType_TAG);
-            const Node* backing_type = nom_decl->payload.nom_type.body;
-            assert(backing_type->tag == RecordType_TAG);
-            switch (backing_type->tag) {
-                case RecordType_TAG: {
-                    Nodes components = backing_type->payload.record_type.members;
-                    LARRAY(SpvId, extracted, components.count);
-                    for (size_t i = 0; i < components.count; i++) {
-                        extracted[i] = spvb_extract(bb_builder, emit_type(emitter, components.nodes[i]), src_id, 1, (uint32_t[]) { i });
-                    }
-                    results[0] = spvb_composite(bb_builder, emit_type(emitter, dst_type), components.count, extracted);
-                    break;
-                }
-                case NotAType: assert(false);
-                default: error("unhandled backing type");
-            }
-            return;
-        }
         case load_op: {
             assert(get_unqualified_type(first(args)->type)->tag == PtrType_TAG);
             const Type* elem_type = get_unqualified_type(first(args)->type)->payload.ptr_type.pointed_type;

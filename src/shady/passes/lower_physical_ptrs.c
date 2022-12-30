@@ -73,22 +73,20 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
                 return gen_merge_i32s_i64(bb, lo, hi);
             }
         }
+        case TypeDeclRef_TAG:
         case RecordType_TAG: {
-            Nodes member_types = element_type->payload.record_type.members;
+            const Type* compound_type = element_type;
+            compound_type = get_maybe_nominal_type_body(compound_type);
+
+            Nodes member_types = compound_type->payload.record_type.members;
             LARRAY(FieldLayout, fields, member_types.count);
-            get_record_layout(config, bb->arena, element_type, fields);
+            get_record_layout(config, bb->arena, compound_type, fields);
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, int32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
                 loaded[i] = gen_deserialisation(config, bb, member_types.nodes[i], arr, field_offset);
             }
-            return tuple(bb->arena, nodes(bb->arena, member_types.count, loaded));
-        }
-        case TypeDeclRef_TAG: {
-            const Node* nom = element_type->payload.type_decl_ref.decl;
-            assert(nom && nom->tag == NominalType_TAG);
-            const Node* body = gen_deserialisation(config, bb, nom->payload.nom_type.body, arr, base_offset);
-            return first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = make_op, .type_arguments = singleton(element_type), .operands = singleton(body) })));
+            return compound(bb->arena, element_type, nodes(bb->arena, member_types.count, loaded));
         }
         default: error("TODO");
     }

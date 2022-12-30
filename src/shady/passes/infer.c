@@ -168,12 +168,23 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
         case StringLiteral_TAG: return string_lit(dst_arena, (StringLiteral) { .string = string(dst_arena, node->payload.string_lit.string )});
         case RefDecl_TAG:
         case FnAddr_TAG: return recreate_node_identity(&ctx->rewriter, node);
-        case Tuple_TAG: {
-            Nodes omembers = node->payload.tuple.contents;
+        case Compound_TAG: {
+            const Node* elem_type = infer(ctx, node->payload.compound.type, NULL);
+            if (elem_type && expected_type) {
+                assert(is_subtype(get_unqualified_type(expected_type), elem_type));
+            } else if (expected_type) {
+                elem_type = expected_type;
+            }
+
+            Nodes omembers = node->payload.compound.contents;
             LARRAY(const Node*, inferred, omembers.count);
             if (expected_type) {
-                bool uniform = is_qualified_type_uniform(expected_type);
-                expected_type = get_unqualified_type(expected_type);
+                bool uniform = deconstruct_qualified_type(&expected_type);
+
+                if (expected_type->tag == TypeDeclRef_TAG) {
+                    expected_type = expected_type->payload.type_decl_ref.decl->payload.nom_type.body;
+                }
+
                 assert(expected_type->tag == RecordType_TAG);
                 Nodes expected_members = expected_type->payload.record_type.members;
                 for (size_t i = 0; i < omembers.count; i++)
@@ -182,7 +193,12 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
                 for (size_t i = 0; i < omembers.count; i++)
                     inferred[i] = infer(ctx, omembers.nodes[i], NULL);
             }
-            return tuple(dst_arena, nodes(dst_arena, omembers.count, inferred));
+            Nodes nmembers = nodes(dst_arena, omembers.count, inferred);
+
+            if (!elem_type)
+                elem_type = record_type(dst_arena, (RecordType) { .members = get_values_types(dst_arena, nmembers) });
+
+            return compound(dst_arena, elem_type, nmembers);
         }
         case ArrayLiteral_TAG: {
             const Type* elem_type = infer(ctx, node->payload.arr_lit.element_type, NULL);

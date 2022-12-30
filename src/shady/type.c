@@ -233,21 +233,19 @@ const Type* check_type_arr_lit(IrArena* arena, ArrayLiteral arr_lit) {
     });
 }
 
-const Type* check_type_tuple(IrArena* arena, Tuple tuple) {
-    Nodes member_types = get_values_types(arena, tuple.contents);
-    LARRAY(const Type*, cleaned, member_types.count);
+const Type* check_type_compound(IrArena* arena, Compound compound) {
+    const Node* body_type = get_maybe_nominal_type_body(compound.type);
+    assert(body_type->tag == RecordType_TAG);
     bool is_uniform = true;
-    for (size_t i = 0; i < member_types.count; i++) {
-        cleaned[i] = get_unqualified_type(member_types.nodes[i]);
-        is_uniform &= is_qualified_type_uniform(member_types.nodes[i]);
+    assert(compound.contents.count == body_type->payload.record_type.members.count);
+    for (size_t i = 0; i < compound.contents.count; i++) {
+        const Type* element_type = compound.contents.nodes[i]->type;
+        is_uniform &= deconstruct_qualified_type(&element_type);
+        assert(is_subtype(body_type->payload.record_type.members.nodes[i], element_type));
     }
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = is_uniform,
-        .type = record_type(arena, (RecordType) {
-            .members = nodes(arena, member_types.count, cleaned),
-            .special = NotSpecial,
-            .names = strings(arena, 0, NULL)
-        })
+        .type = compound.type
     });
 }
 
@@ -538,20 +536,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = uniform,
                 .type = curr_ptr_type
-            });
-        }
-        case make_op: {
-            assert(prim_op.type_arguments.count == 1);
-            assert(prim_op.operands.count == 1);
-            const Type* dst_type = first(prim_op.type_arguments);
-            const Node* src = first(prim_op.operands);
-            assert(!contains_qualified_type(dst_type));
-            assert(dst_type->tag == TypeDeclRef_TAG);
-            const Node* nom_type = dst_type->payload.type_decl_ref.decl;
-            assert(is_subtype(nom_type->payload.nom_type.body, get_unqualified_type(src->type)));
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = is_qualified_type_uniform(src->type),
-                .type = dst_type,
             });
         }
         case reinterpret_op: {

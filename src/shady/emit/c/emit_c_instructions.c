@@ -134,41 +134,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             outputs.binding[0] = NoBinding;
             return;
         }
-        case make_op: {
-            CType t = emit_type(emitter, node->type, NULL);
-            CValue src = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
-
-            String bind_to = unique_name(emitter->arena, "make_body");
-            print(p, "\n%s = %s;", emit_type(emitter, first(prim_op->operands)->type, bind_to), src);
-
-            const Type* inside_type = get_unqualified_type(first(prim_op->operands)->type);
-            switch (inside_type->tag) {
-                case RecordType_TAG: {
-                    Growy* g = new_growy();
-                    Printer* p2 = open_growy_as_printer(g);
-
-                    Nodes field_types = inside_type->payload.record_type.members;
-                    Strings field_names = inside_type->payload.record_type.names;
-                    for (size_t i = 0; i < field_types.count; i++) {
-                        if (field_names.count == field_types.count)
-                            print(p2, "%s.%s", bind_to, field_names.strings[i]);
-                        else
-                            print(p2, "%s._%d", bind_to, i);
-
-                        if (i + 1 < field_types.count)
-                            print(p2, ", ");
-                    }
-
-                    final_expression = emit_compound_value(emitter, t, growy_data(g));
-
-                    destroy_growy(g);
-                    destroy_printer(p2);
-                    break;
-                }
-                default: error("")
-            }
-            break;
-        }
         case select_op: {
             assert(prim_op->operands.count == 3);
             CValue condition = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[0]));
