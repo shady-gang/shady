@@ -10,6 +10,7 @@
 CompilerConfig default_compiler_config() {
     return (CompilerConfig) {
         .allow_frontend_syntax = false,
+        .dynamic_scheduling = true,
         .per_thread_stack_size = 1 KiB,
         .per_subgroup_stack_size = 1 KiB,
 
@@ -79,26 +80,20 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
 #undef mod
 
-static size_t num_builtin_sources_files = 1;
-static const char* builtin_source_files[] = { builtin_scheduler_txt };
-
 CompilationResult parse_files(CompilerConfig* config, size_t num_files, const char** files_contents, Module* mod) {
-    size_t num_source_files = num_builtin_sources_files + num_files;
-
-    for (size_t i = 0; i < num_source_files; i++) {
-        const char* input_file_contents = NULL;
-
-        if (i < num_builtin_sources_files) {
-            input_file_contents = builtin_source_files[i];
-        } else {
-            input_file_contents = files_contents[i - num_builtin_sources_files];
-        }
-
-        debugv_print("Parsing: \n%s\n", input_file_contents);
         ParserConfig pconfig = {
             .front_end = config->allow_frontend_syntax
         };
+    for (size_t i = 0; i < num_files; i++) {
+        const char* input_file_contents = files_contents[i];
+
+        debugv_print("Parsing: \n%s\n", input_file_contents);
         parse(pconfig, input_file_contents, mod);
+    }
+
+    if (config->dynamic_scheduling) {
+        debugv_print("Parsing builtin scheduler code");
+        parse(pconfig, builtin_scheduler_txt, mod);
     }
 
     return CompilationNoError;

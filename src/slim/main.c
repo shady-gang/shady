@@ -123,6 +123,8 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
             invalid_target:
             error_print("--target must be followed with a valid target (see help for list of targets)");
             exit(InvalidTarget);
+        } else if (strcmp(argv[i], "--no-dynamic-scheduling") == 0) {
+            args->config.dynamic_scheduling = false;
         } else if (strcmp(argv[i], "--simt2d") == 0) {
             args->c_emitter_config.simt2d = true;
         } else if (strcmp(argv[i], "--print-builtin") == 0) {
@@ -147,6 +149,7 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
         error_print("  --dump-ir <filename>                      Dumps the final IR\n");
         error_print("  --print-builtin                           Includes builtin-in functions in the debug output\n");
         error_print("  --print-generated                         Includes generated functions in the debug output\n");
+        error_print("  --no-dynamic-scheduling                   Disable the built-in dynamic scheduler, restricts code to only leaf functions\n");
         exit(help ? 0 : MissingInputArg);
     }
 }

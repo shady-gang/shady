@@ -188,6 +188,7 @@ const Node* unit_type(IrArena* arena);
 
 typedef struct CompilerConfig_ {
     bool allow_frontend_syntax;
+    bool dynamic_scheduling;
     uint32_t per_thread_stack_size;
     uint32_t per_subgroup_stack_size;
 

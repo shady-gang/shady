@@ -109,6 +109,8 @@ static const Node* process(Context* ctx, const Node* old) {
                 return fun;
             }
 
+            assert(ctx->config->dynamic_scheduling && "Dynamic scheduling is disabled, but we encountered a non-leaf function");
+
             Nodes new_annotations = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
             new_annotations = append_nodes(dst_arena, new_annotations, annotation_value(dst_arena, (AnnotationValue) { .name = "FnId", .value = lower_fn_addr(ctx, old) }));
 
@@ -191,6 +193,7 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 void generate_top_level_dispatch_fn(Context* ctx) {
+    assert(ctx->config->dynamic_scheduling);
     assert(*ctx->top_dispatcher_fn);
     assert((*ctx->top_dispatcher_fn)->tag == Function_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
