@@ -154,8 +154,8 @@ const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail) {
     return create_node_helper(arena, node);
 }
 
-const Node* compound(IrArena* arena, const Type* elem_type, Nodes contents) {
-    Compound c = {
+const Node* composite(IrArena* arena, const Type* elem_type, Nodes contents) {
+    Composite c = {
         .type = elem_type,
         .contents = contents,
     };
@@ -164,15 +164,15 @@ const Node* compound(IrArena* arena, const Type* elem_type, Nodes contents) {
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_compound(arena, c) : NULL,
-        .tag = Compound_TAG,
-        .payload.compound = c
+        .type = arena->config.check_types ? check_type_composite(arena, c) : NULL,
+        .tag = Composite_TAG,
+        .payload.composite = c
     };
     return create_node_helper(arena, node);
 }
 
 const Node* tuple(IrArena* arena, Nodes contents) {
-    return compound(arena, arena->config.check_types ? record_type(arena, (RecordType) { .members = get_values_types(arena, contents) }) : NULL, contents);
+    return composite(arena, arena->config.check_types ? record_type(arena, (RecordType) { .members = get_values_types(arena, contents) }) : NULL, contents);
 }
 
 Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {

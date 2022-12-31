@@ -92,14 +92,12 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
     }
 }
 
-CValue emit_compound_value(Emitter* emitter, CType type, String contents) {
+CValue emit_composite_value(Emitter* emitter, CType type, String contents) {
     switch (emitter->config.dialect) {
         case C:
             return format_string(emitter->arena, "((%s) { %s })", type, contents);
-            break;
         case GLSL:
             return format_string(emitter->arena, "%s(%s)", type, contents);
-            break;
     }
 }
 
@@ -116,18 +114,18 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
         case Value_IntLiteral_TAG: emitted = format_string(emitter->arena, "%d", value->payload.int_literal.value.u64); break;
         case Value_True_TAG: return term_from_cvalue("true");
         case Value_False_TAG: return term_from_cvalue("false");
-        case Value_Compound_TAG: {
+        case Value_Composite_TAG: {
             Growy* g = new_growy();
             Printer* p = open_growy_as_printer(g);
 
-            Nodes elements = value->payload.compound.contents;
+            Nodes elements = value->payload.composite.contents;
             for (size_t i = 0; i < elements.count; i++) {
                 print(p, "%s", to_cvalue(emitter, emit_value(emitter, elements.nodes[i])));
                 if (i + 1 < elements.count)
                     print(p, ", ");
             }
 
-            emitted = emit_compound_value(emitter, emit_type(emitter, value->type, NULL), growy_data(g));
+            emitted = emit_composite_value(emitter, emit_type(emitter, value->type, NULL), growy_data(g));
 
             destroy_growy(g);
             destroy_printer(p);

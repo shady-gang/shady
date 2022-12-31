@@ -412,8 +412,8 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf(")");
             printf(RESET);
             break;
-        case Value_Compound_TAG: {
-            const Node* nom_decl = get_maybe_nominal_type_decl(node->payload.compound.type);
+        case Value_Composite_TAG: {
+            const Node* nom_decl = get_maybe_nominal_type_decl(node->payload.composite.type);
             if (nom_decl) {
                 printf(BBLUE);
                 printf("make");
@@ -422,7 +422,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
                 print_node(nom_decl);
                 printf("]");
             }
-            print_args_list(ctx, node->payload.compound.contents);
+            print_args_list(ctx, node->payload.composite.contents);
             break;
         }
         case Value_RefDecl_TAG: {

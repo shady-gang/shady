@@ -129,7 +129,7 @@ NODES(NODE_CTOR)
 const Node* var(IrArena* arena, const Type* type, const char* name);
 
 const Node* tuple(IrArena* arena, Nodes contents);
-const Node* compound(IrArena* arena, const Type*, Nodes contents);
+const Node* composite(IrArena* arena, const Type*, Nodes contents);
 
 Node* function    (Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
 Node* constant    (Module*, Nodes annotations, const Type*, const char* name);

@@ -233,19 +233,19 @@ const Type* check_type_arr_lit(IrArena* arena, ArrayLiteral arr_lit) {
     });
 }
 
-const Type* check_type_compound(IrArena* arena, Compound compound) {
-    const Node* body_type = get_maybe_nominal_type_body(compound.type);
+const Type* check_type_composite(IrArena* arena, Composite composite) {
+    const Node* body_type = get_maybe_nominal_type_body(composite.type);
     assert(body_type->tag == RecordType_TAG);
     bool is_uniform = true;
-    assert(compound.contents.count == body_type->payload.record_type.members.count);
-    for (size_t i = 0; i < compound.contents.count; i++) {
-        const Type* element_type = compound.contents.nodes[i]->type;
+    assert(composite.contents.count == body_type->payload.record_type.members.count);
+    for (size_t i = 0; i < composite.contents.count; i++) {
+        const Type* element_type = composite.contents.nodes[i]->type;
         is_uniform &= deconstruct_qualified_type(&element_type);
         assert(is_subtype(body_type->payload.record_type.members.nodes[i], element_type));
     }
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = is_uniform,
-        .type = compound.type
+        .type = composite.type
     });
 }
 

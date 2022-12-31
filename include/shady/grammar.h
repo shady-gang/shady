@@ -33,7 +33,7 @@ N(1, 1, 0, True, true_lit) \
 N(1, 1, 0, False, false_lit) \
 N(1, 1, 1, StringLiteral, string_lit) \
 N(1, 1, 1, ArrayLiteral, arr_lit) \
-N(0, 1, 1, Compound, compound) \
+N(0, 1, 1, Composite, composite) \
 N(1, 1, 1, FnAddr, fn_addr) \
 N(1, 1, 1, RefDecl, ref_decl) \
 
@@ -243,8 +243,8 @@ MkField(1, VALUES, Nodes, contents)
 
 /// A value made out of more values.
 /// Re-ordering values does not count as a computation here !
-typedef struct Compound_ Compound;
-#define Compound_Fields(MkField) \
+typedef struct Composite_ Composite;
+#define Composite_Fields(MkField) \
 MkField(1, TYPE, const Type*, type) \
 MkField(1, VALUES, Nodes, contents)
 

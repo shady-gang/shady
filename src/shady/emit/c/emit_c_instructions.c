@@ -227,14 +227,14 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case subgroup_active_mask_op: {
             // TODO implement properly
             CType result_type = emit_type(emitter, node->type, NULL);
-            final_expression = emit_compound_value(emitter, result_type, "1, 0, 0, 0");
+            final_expression = emit_composite_value(emitter, result_type, "1, 0, 0, 0");
             break;
         }
         case subgroup_ballot_op: {
             // TODO implement properly
             CType result_type = emit_type(emitter, node->type, NULL);
             CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
-            final_expression = emit_compound_value(emitter, result_type, format_string(emitter->arena, "%s, 0, 0, 0", value));
+            final_expression = emit_composite_value(emitter, result_type, format_string(emitter->arena, "%s, 0, 0, 0", value));
             break;
         }
         case subgroup_id_op:
@@ -250,12 +250,12 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case global_id_op: {
             // TODO implement properly
             CType result_type = emit_type(emitter, node->type, NULL);
-            final_expression = emit_compound_value(emitter, result_type, "1, 0, 0");
+            final_expression = emit_composite_value(emitter, result_type, "1, 0, 0");
             break;
         }
         case empty_mask_op: {
             CType result_type = emit_type(emitter, node->type, NULL);
-            final_expression = emit_compound_value(emitter, result_type, "0, 0, 0, 0");
+            final_expression = emit_composite_value(emitter, result_type, "0, 0, 0, 0");
             break;
         }
         case mask_is_thread_active_op: {

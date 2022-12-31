@@ -86,7 +86,7 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
                 const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, int32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
                 loaded[i] = gen_deserialisation(config, bb, member_types.nodes[i], arr, field_offset);
             }
-            return compound(bb->arena, element_type, nodes(bb->arena, member_types.count, loaded));
+            return composite(bb->arena, element_type, nodes(bb->arena, member_types.count, loaded));
         }
         default: error("TODO");
     }

@@ -140,7 +140,7 @@ static const Node* accept_value(ctxparams) {
             expect(elem_type);
             expect(accept_token(ctx, rsbracket_tok));
             Nodes elems = expect_operands(ctx);
-            return compound(arena, elem_type, elems);
+            return composite(arena, elem_type, elems);
         }
         default: return NULL;
     }

@@ -52,17 +52,17 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
             spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), false);
             break;
         }
-        case Compound_TAG: {
-            Nodes components = node->payload.compound.contents;
-            LARRAY(SpvId, ids, components.count);
-            for (size_t i = 0; i < components.count; i++) {
-                ids[i] = emit_value(emitter, bb_builder, components.nodes[i]);
+        case Composite_TAG: {
+            Nodes contents = node->payload.composite.contents;
+            LARRAY(SpvId, ids, contents.count);
+            for (size_t i = 0; i < contents.count; i++) {
+                ids[i] = emit_value(emitter, bb_builder, contents.nodes[i]);
             }
             if (bb_builder) {
-                new = spvb_composite(bb_builder, emit_type(emitter, node->type), components.count, ids);
+                new = spvb_composite(bb_builder, emit_type(emitter, node->type), contents.count, ids);
                 return new;
             } else {
-                new = spvb_constant_composite(emitter->file_builder, emit_type(emitter, node->type), components.count, ids);
+                new = spvb_constant_composite(emitter->file_builder, emit_type(emitter, node->type), contents.count, ids);
                 break;
             }
         }

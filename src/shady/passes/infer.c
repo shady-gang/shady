@@ -168,15 +168,15 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
         case StringLiteral_TAG: return string_lit(dst_arena, (StringLiteral) { .string = string(dst_arena, node->payload.string_lit.string )});
         case RefDecl_TAG:
         case FnAddr_TAG: return recreate_node_identity(&ctx->rewriter, node);
-        case Compound_TAG: {
-            const Node* elem_type = infer(ctx, node->payload.compound.type, NULL);
+        case Value_Composite_TAG: {
+            const Node* elem_type = infer(ctx, node->payload.composite.type, NULL);
             if (elem_type && expected_type) {
                 assert(is_subtype(get_unqualified_type(expected_type), elem_type));
             } else if (expected_type) {
                 elem_type = expected_type;
             }
 
-            Nodes omembers = node->payload.compound.contents;
+            Nodes omembers = node->payload.composite.contents;
             LARRAY(const Node*, inferred, omembers.count);
             if (expected_type) {
                 bool uniform = deconstruct_qualified_type(&expected_type);
@@ -198,7 +198,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
             if (!elem_type)
                 elem_type = record_type(dst_arena, (RecordType) { .members = get_values_types(dst_arena, nmembers) });
 
-            return compound(dst_arena, elem_type, nmembers);
+            return composite(dst_arena, elem_type, nmembers);
         }
         case ArrayLiteral_TAG: {
             const Type* elem_type = infer(ctx, node->payload.arr_lit.element_type, NULL);
