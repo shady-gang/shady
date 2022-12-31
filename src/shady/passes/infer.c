@@ -180,13 +180,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
             LARRAY(const Node*, inferred, omembers.count);
             if (expected_type) {
                 bool uniform = deconstruct_qualified_type(&expected_type);
-
-                if (expected_type->tag == TypeDeclRef_TAG) {
-                    expected_type = expected_type->payload.type_decl_ref.decl->payload.nom_type.body;
-                }
-
-                assert(expected_type->tag == RecordType_TAG);
-                Nodes expected_members = expected_type->payload.record_type.members;
+                Nodes expected_members = get_composite_type_element_types(expected_type);
                 for (size_t i = 0; i < omembers.count; i++)
                     inferred[i] = infer(ctx, omembers.nodes[i], qualified_type(dst_arena, (QualifiedType) { .is_uniform = uniform, .type = expected_members.nodes[i] }));
             } else {
@@ -199,15 +193,6 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
                 elem_type = record_type(dst_arena, (RecordType) { .members = get_values_types(dst_arena, nmembers) });
 
             return composite(dst_arena, elem_type, nmembers);
-        }
-        case ArrayLiteral_TAG: {
-            const Type* elem_type = infer(ctx, node->payload.arr_lit.element_type, NULL);
-            Nodes old_elems = node->payload.arr_lit.contents;
-            LARRAY(const Node*, elements, old_elems.count);
-            for (size_t i = 0; i < old_elems.count; i++) {
-                elements[i] = infer(ctx, old_elems.nodes[i], elem_type);
-            }
-            return arr_lit(dst_arena, (ArrayLiteral) { .element_type = elem_type, .contents = nodes(dst_arena, old_elems.count, elements) });
         }
         default: error("not a value");
     }

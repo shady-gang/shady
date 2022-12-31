@@ -32,7 +32,7 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
         case IntLiteral_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
             SpvId ty = emit_type(emitter, node->type);
-            // 64-bit constants take two spirv words, anythinfg else fits in one
+            // 64-bit constants take two spirv words, anything else fits in one
             if (node->payload.int_literal.width == IntTy64) {
                 uint32_t arr[] = { node->payload.int_literal.value.i64 & 0xFFFFFFFF, node->payload.int_literal.value.i64 >> 32 };
                 spvb_constant(emitter->file_builder, new, ty, 2, arr);

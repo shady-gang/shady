@@ -56,9 +56,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn) {
 
 #include <ctype.h>
 
-static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* p, Growy* g, const Node* array) {
-    const Type* t = array->payload.arr_lit.element_type;
-    Nodes c = array->payload.arr_lit.contents;
+static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* p, Growy* g, const Node* t, Nodes c) {
     if (t->tag == Int_TAG && t->payload.int_type.width == 8) {
         uint8_t* tmp = malloc(sizeof(uint8_t) * c.count);
         bool ends_zero = false;
@@ -115,41 +113,45 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
         case Value_True_TAG: return term_from_cvalue("true");
         case Value_False_TAG: return term_from_cvalue("false");
         case Value_Composite_TAG: {
+            const Type* type = value->payload.composite.type;
+            Nodes elements = value->payload.composite.contents;
+
+            if (type->tag == ArrType_TAG) {
+                Growy* g = new_growy();
+                Printer* p = open_growy_as_printer(g);
+                switch (array_insides_helper(emitter, p, g, type, elements)) {
+                    case ObjectsList:
+                        emitted = format_string(emitter->arena, "((%s) { %s })", emit_type(emitter, type, NULL), growy_data(g));
+                        break;
+                    case StringLit:
+                        emitted = format_string(emitter->arena, "((%s) { \"s\" })", emit_type(emitter, type, NULL), growy_data(g));
+                        break;
+                    case CharsLit:
+                        emitted = format_string(emitter->arena, "((%s) { '%s' })", emit_type(emitter, type, NULL), growy_data(g));
+                        break;
+                }
+                destroy_growy(g);
+                destroy_printer(p);
+                return term_from_cvalue(emitted);
+            }
+
             Growy* g = new_growy();
             Printer* p = open_growy_as_printer(g);
 
-            Nodes elements = value->payload.composite.contents;
             for (size_t i = 0; i < elements.count; i++) {
                 print(p, "%s", to_cvalue(emitter, emit_value(emitter, elements.nodes[i])));
                 if (i + 1 < elements.count)
                     print(p, ", ");
             }
+            growy_append_bytes(g, 1, "\0");
 
-            emitted = emit_composite_value(emitter, emit_type(emitter, value->type, NULL), growy_data(g));
+            emitted = emit_composite_value(emitter, emit_type(emitter, type, NULL), growy_data(g));
 
             destroy_growy(g);
             destroy_printer(p);
             break;
         }
         case Value_StringLiteral_TAG: break;
-        case Value_ArrayLiteral_TAG: {
-            Growy* g = new_growy();
-            Printer* p = open_growy_as_printer(g);
-            switch (array_insides_helper(emitter, p, g, value)) {
-                case ObjectsList:
-                    emitted = format_string(emitter->arena, "((%s) { %s })", emit_type(emitter, value->payload.arr_lit.element_type, NULL), growy_data(g));
-                    break;
-                case StringLit:
-                    emitted = format_string(emitter->arena, "((%s) { \"s\" })", emit_type(emitter, value->payload.arr_lit.element_type, NULL), growy_data(g));
-                    break;
-                case CharsLit:
-                    emitted = format_string(emitter->arena, "((%s) { '%s' })", emit_type(emitter, value->payload.arr_lit.element_type, NULL), growy_data(g));
-                    break;
-            }
-            destroy_growy(g);
-            destroy_printer(p);
-            break;
-        }
         case Value_FnAddr_TAG: {
             emitted = get_decl_name(value->payload.fn_addr.fn);
             emitted = format_string(emitter->arena, "&%s", emitted);

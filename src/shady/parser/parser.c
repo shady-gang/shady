@@ -98,15 +98,6 @@ static const Node* accept_value(ctxparams) {
         case string_lit_tok: next_token(tokenizer); return string_lit(arena, (StringLiteral) {.string = string_sized(arena, (int) size, &contents[tok.start]) });
         case true_tok: next_token(tokenizer); return true_lit(arena);
         case false_tok: next_token(tokenizer); return false_lit(arena);
-        case array_tok: {
-            next_token(tokenizer);
-            expect(accept_token(ctx, lsbracket_tok));
-            const Type* element_type = accept_unqualified_type(ctx);
-            expect(element_type);
-            expect(accept_token(ctx, rsbracket_tok));
-            Nodes elements = expect_operands(ctx);
-            return arr_lit(arena, (ArrayLiteral) { .element_type = element_type, .contents = elements });
-        }
         case lpar_tok: {
             next_token(tokenizer);
             if (accept_token(ctx, rpar_tok)) {

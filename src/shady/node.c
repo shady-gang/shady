@@ -128,8 +128,8 @@ const IntLiteral* resolve_to_literal(const Node* node) {
 const char* get_string_literal(IrArena* arena, const Node* node) {
     switch (node->tag) {
         case StringLiteral_TAG: return node->payload.string_lit.string;
-        case ArrayLiteral_TAG: {
-            Nodes contents = node->payload.arr_lit.contents;
+        case Composite_TAG: {
+            Nodes contents = node->payload.composite.contents;
             LARRAY(char, chars, contents.count);
             for (size_t i = 0; i < contents.count; i++) {
                 const Node* value = contents.nodes[i];

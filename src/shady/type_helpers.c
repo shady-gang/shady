@@ -206,3 +206,25 @@ const Type* get_maybe_nominal_type_body(const Type* type) {
         return decl->payload.nom_type.body;
     return type;
 }
+
+Nodes get_composite_type_element_types(const Type* type) {
+    switch (is_type(type)) {
+        case Type_TypeDeclRef_TAG: {
+            type = get_nominal_type_body(type);
+            assert(type->tag == RecordType_TAG);
+            SHADY_FALLTHROUGH
+        }
+        case RecordType_TAG: {
+            return type->payload.record_type.members;
+        }
+        case Type_ArrType_TAG: {
+            size_t size = get_int_literal_value(type->payload.arr_type.size, false);
+            LARRAY(const Type*, types, size);
+            for (size_t i = 0; i < size; i++) {
+                types[i] = type->payload.arr_type.element_type;
+            }
+            return nodes(type->arena, size, types);
+        }
+        default: error("Not a composite type !")
+    }
+}

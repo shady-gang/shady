@@ -216,32 +216,14 @@ const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
     });
 }
 
-const Type* check_type_arr_lit(IrArena* arena, ArrayLiteral arr_lit) {
-    const Type* elem_type = arr_lit.element_type;
-    assert(!contains_qualified_type(elem_type));
-    bool uniform = true;
-    for (size_t i = 0; i < arr_lit.contents.count; i++) {
-        assert(is_subtype(elem_type, get_unqualified_type(arr_lit.contents.nodes[i]->type)));
-        uniform &= is_qualified_type_uniform(arr_lit.contents.nodes[i]->type);
-    }
-    return qualified_type(arena, (QualifiedType) {
-        .type = arr_type(arena, (ArrType) {
-            .element_type = elem_type,
-            .size = int32_literal(arena, arr_lit.contents.count)
-        }),
-        .is_uniform = uniform
-    });
-}
-
 const Type* check_type_composite(IrArena* arena, Composite composite) {
-    const Node* body_type = get_maybe_nominal_type_body(composite.type);
-    assert(body_type->tag == RecordType_TAG);
+    Nodes expected_member_types = get_composite_type_element_types(composite.type);
     bool is_uniform = true;
-    assert(composite.contents.count == body_type->payload.record_type.members.count);
+    assert(composite.contents.count == expected_member_types.count);
     for (size_t i = 0; i < composite.contents.count; i++) {
         const Type* element_type = composite.contents.nodes[i]->type;
         is_uniform &= deconstruct_qualified_type(&element_type);
-        assert(is_subtype(body_type->payload.record_type.members.nodes[i], element_type));
+        assert(is_subtype(expected_member_types.nodes[i], element_type));
     }
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = is_uniform,
