@@ -225,6 +225,14 @@ Nodes get_composite_type_element_types(const Type* type) {
             }
             return nodes(type->arena, size, types);
         }
+        case Type_PackType_TAG: {
+            size_t size = type->payload.pack_type.width;
+            LARRAY(const Type*, types, size);
+            for (size_t i = 0; i < size; i++) {
+                types[i] = type->payload.pack_type.element_type;
+            }
+            return nodes(type->arena, size, types);
+        }
         default: error("Not a composite type !")
     }
 }

@@ -189,6 +189,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
             }
             Nodes nmembers = nodes(dst_arena, omembers.count, inferred);
 
+            // Composites are tuples by default
             if (!elem_type)
                 elem_type = record_type(dst_arena, (RecordType) { .members = get_values_types(dst_arena, nmembers) });
 
