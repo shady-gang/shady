@@ -429,6 +429,7 @@ static Module* run_backend_specific_passes(CEmitterConfig* econfig, Module* mod)
     Module* old_mod;
     IrArena* tmp_arena = NULL;
     if (econfig->simt2d) {
+        aconfig.is_simt = false;
         RUN_PASS(simt2d)
     }
     return mod;

@@ -131,12 +131,13 @@ static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type
 }
 
 /// Does the same point value refer to the same memory, across the invocations in a subgroup ?
-bool is_addr_space_uniform(AddressSpace as) {
+bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     switch (as) {
+        case AsFunctionLogical:
         case AsPrivateLogical:
         case AsPrivatePhysical:
         case AsInput:
-            return false;
+            return !arena->config.is_simt;
         default:
             return true;
     }
@@ -178,6 +179,7 @@ String name_type_safe(IrArena* arena, const Type* t) {
 const Type* check_type_qualified_type(IrArena* arena, QualifiedType qualified_type) {
     assert(!contains_qualified_type(qualified_type.type));
     assert(is_type(qualified_type.type));
+    assert(arena->config.is_simt || qualified_type.is_uniform);
     return NULL;
 }
 
@@ -410,7 +412,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const PtrType* node_ptr_type_ = &ptr_type->payload.ptr_type;
             const Type* elem_type = node_ptr_type_->pointed_type;
             elem_type = maybe_packed_type_helper(elem_type, width);
-            return qualified_type_helper(elem_type, ptr_uniform && is_addr_space_uniform(ptr_type->payload.ptr_type.address_space));
+            return qualified_type_helper(elem_type, ptr_uniform && is_addr_space_uniform(arena, ptr_type->payload.ptr_type.address_space));
         }
         case store_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -419,13 +421,14 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Node* ptr = first(prim_op.operands);
             const Node* ptr_type = ptr->type;
             bool ptr_uniform = deconstruct_qualified_type(&ptr_type);
+            size_t width = deconstruct_maybe_packed_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
-
             const PtrType* ptr_type_payload = &ptr_type->payload.ptr_type;
             const Type* elem_type = ptr_type_payload->pointed_type;
+            elem_type = maybe_packed_type_helper(elem_type, width);
             // we don't enforce uniform stores - but we care about storing the right thing :)
             const Type* val_expected_type = qualified_type(arena, (QualifiedType) {
-                .is_uniform = false,
+                .is_uniform = !arena->config.is_simt,
                 .type = elem_type
             });
 
@@ -442,7 +445,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* elem_type = prim_op.type_arguments.nodes[0];
             assert(is_type(elem_type));
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = false,
+                .is_uniform = is_addr_space_uniform(arena, as),
                 .type = ptr_type(arena, (PtrType) {
                     .pointed_type = elem_type,
                     .address_space = as,
@@ -541,24 +544,22 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 3);
             const Type* condition_type = prim_op.operands.nodes[0]->type;
             bool condition_uniform = deconstruct_qualified_type(&condition_type);
+            size_t width = deconstruct_maybe_packed_type(&condition_type);
 
             const Type* alternatives_types[2];
-            bool alternatives_uniform[2];
             bool alternatives_all_uniform = true;
             for (size_t i = 0; i < 2; i++) {
                 alternatives_types[i] = prim_op.operands.nodes[1 + i]->type;
-                alternatives_uniform[i] = deconstruct_qualified_type(&alternatives_types[i]);
-                alternatives_all_uniform &= alternatives_uniform[i];
+                alternatives_all_uniform &= deconstruct_qualified_type(&alternatives_types[i]);
+                size_t alternative_width = deconstruct_maybe_packed_type(&alternatives_types[i]);
+                assert(alternative_width == width);
             }
 
             assert(is_subtype(bool_type(arena), condition_type));
             // todo find true supertype
             assert(are_types_identical(2, alternatives_types));
 
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = alternatives_all_uniform && condition_uniform,
-                .type = alternatives_types[0]
-            });
+            return qualified_type_helper(maybe_packed_type_helper(alternatives_types[0], width), alternatives_all_uniform && condition_uniform);
         }
         case extract_dynamic_op:
         case extract_op: {
@@ -823,7 +824,7 @@ const Type* check_type_indirect_call(IrArena* arena, IndirectCall call) {
 
 const Type* check_type_if_instr(IrArena* arena, If if_instr) {
     if (get_unqualified_type(if_instr.condition->type) != bool_type(arena))
-        error("condition of a selection should be bool");
+        error("condition of an if should be bool");
     // TODO check the contained Merge instrs
     if (if_instr.yield_types.count > 0)
         assert(if_instr.if_false);

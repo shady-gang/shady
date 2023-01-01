@@ -48,6 +48,7 @@ typedef struct {
     bool name_bound;
     bool check_types;
     bool allow_fold;
+    bool is_simt;
     /// Selects which type the subgroup intrinsic primops use to manipulate masks
     enum {
         /// Uses the MaskType
@@ -56,6 +57,8 @@ typedef struct {
         SubgroupMaskSpvKHRBallot
     } subgroup_mask_representation;
 } ArenaConfig;
+
+ArenaConfig default_arena_config();
 
 IrArena* new_ir_arena(ArenaConfig);
 void destroy_ir_arena(IrArena*);
@@ -90,7 +93,7 @@ const char* get_string_literal(IrArena*, const Node*);
 static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalLogical; }
 
 /// Returns true if variables in that address space can contain different data for threads in the same subgroup
-bool is_addr_space_uniform(AddressSpace);
+bool is_addr_space_uniform(IrArena*, AddressSpace);
 
 const Node* lookup_annotation(const Node* decl, const char* name);
 const Node* lookup_annotation_list(Nodes, const char* name);

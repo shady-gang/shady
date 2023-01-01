@@ -157,9 +157,7 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
 int main(int argc, const char** argv) {
     platform_specific_terminal_init_extras();
 
-    IrArena* arena = new_ir_arena((ArenaConfig) {
-        .check_types = false
-    });
+    IrArena* arena = new_ir_arena(default_arena_config());
 
     SlimConfig args = {
         .config = default_compiler_config(),

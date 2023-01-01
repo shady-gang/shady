@@ -170,7 +170,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool se
     const Node* value_param = ser ? var(arena, input_value_t, "value") : NULL;
     Nodes params = ser ? mk_nodes(arena, addr_param, value_param) : singleton(addr_param);
 
-    const Type* return_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = is_addr_space_uniform(as), .type = element_type });
+    const Type* return_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = is_addr_space_uniform(arena, as), .type = element_type });
     Nodes return_ts = ser ? empty(arena) : singleton(return_value_t);
 
     String name = format_string(arena, "generated_%s_as%d_%s", ser ? "store" : "load", as, name_type_safe(arena, element_type));

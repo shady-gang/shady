@@ -36,7 +36,7 @@ const Type* get_pointee_type(IrArena* arena, const Type* type) {
         type = get_unqualified_type(type);
     }
     assert(type->tag == PtrType_TAG);
-    uniform &= is_addr_space_uniform(type->payload.ptr_type.address_space);
+    uniform &= is_addr_space_uniform(arena, type->payload.ptr_type.address_space);
     type = type->payload.ptr_type.pointed_type;
     if (qualified)
         type = qualified_type(arena, (QualifiedType) {

@@ -3,6 +3,7 @@
 #include "parser/parser.h"
 #include "builtin_code.h"
 #include "transform/internal_constants.h"
+#include "ir_private.h"
 
 #define KiB * 1024
 #define MiB * 1024 KiB
@@ -23,14 +24,16 @@ CompilerConfig default_compiler_config() {
     };
 }
 
+ArenaConfig default_arena_config() {
+    return (ArenaConfig) {
+        .is_simt = true,
+    };
+}
+
 #define mod (*pmod)
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
-    ArenaConfig aconfig = {
-        .name_bound = true,
-        .allow_fold = false,
-        .check_types = false
-    };
+    ArenaConfig aconfig = get_module_arena(mod)->config;
     Module* old_mod;
 
     IrArena* old_arena = NULL;
@@ -38,6 +41,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     generate_dummy_constants(config, mod);
 
+    aconfig.name_bound = true;
     RUN_PASS(bind_program)
     RUN_PASS(normalize)
 

@@ -15,7 +15,7 @@ Program* load_program(Runtime* runtime, const char* program_src) {
 
     CompilerConfig config = default_compiler_config();
     config.allow_frontend_syntax = true;
-    ArenaConfig arena_config = { 0 };
+    ArenaConfig arena_config = default_arena_config();
     program->arena = new_ir_arena(arena_config);
     CHECK(program->arena != NULL, return false);
     program->generic_program = new_module(program->arena, "my_module");
@@ -121,7 +121,7 @@ static SpecProgram* create_specialized_program(Program* program, Device* device)
     spec_program->base = program;
     spec_program->device = device;
 
-    ArenaConfig arena_config = { 0 };
+    ArenaConfig arena_config = default_arena_config();
     spec_program->arena = new_ir_arena(arena_config);
     spec_program->module = program->generic_program;
 
