@@ -11,6 +11,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <threads.h>
 
 static KeyHash hash_nodes(Nodes* nodes);
 static bool compare_nodes(Nodes* a, Nodes* b);
@@ -166,15 +167,38 @@ Strings import_strings(IrArena* dst_arena, Strings old_strings) {
     return strings(dst_arena, count, arr);
 }
 
+enum {
+    ThreadLocalStaticBufferSize = 256
+};
+
+thread_local char static_buffer[ThreadLocalStaticBufferSize];
+
 String format_string(IrArena* arena, const char* str, ...) {
-    // TODO make this unlimited already!
-    char tmp[256];
-    va_list args;
-    va_start(args, str);
-    int len = vsnprintf(tmp, 256, str, args);
-    const char* interned = string_impl(arena, len, tmp);
-    va_end(args);
-    return interned;
+    size_t buffer_size = ThreadLocalStaticBufferSize;
+    int len;
+    char* tmp;
+    while (true) {
+        if (buffer_size == ThreadLocalStaticBufferSize) {
+            tmp = static_buffer;
+        } else {
+            tmp = malloc(buffer_size);
+        }
+        va_list args;
+        va_start(args, str);
+        len = vsnprintf(tmp, buffer_size, str, args);
+        va_end(args);
+        if (len < 0 || len >= buffer_size - 1) {
+            buffer_size *= 2;
+            if (tmp != static_buffer)
+                free(tmp);
+            continue;
+        } else {
+            const char* interned = string_impl(arena, len, tmp);
+            if (tmp != static_buffer)
+                free(tmp);
+            return interned;
+        }
+    }
 }
 
 const char* unique_name(IrArena* arena, const char* str) {
