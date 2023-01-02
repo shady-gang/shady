@@ -12,6 +12,15 @@ typedef struct {
     const Node* mask;
 } Context;
 
+static const Node* widen(Context* ctx, const Node* value) {
+    IrArena* arena = ctx->rewriter.dst_arena;
+    LARRAY(const Node*, copies, ctx->width);
+    for (size_t j = 0; j < ctx->width; j++)
+        copies[j] = value;
+    const Type* type = pack_type(arena, (PackType) { .width = ctx->width, .element_type = get_unqualified_type(value->type)});
+    return composite(arena, type, nodes(arena, ctx->width, copies));
+}
+
 static const Node* process(Context* ctx, const Node* node) {
     if (!node) return NULL;
     const Node* found = search_processed(&ctx->rewriter, node);
@@ -30,14 +39,22 @@ static const Node* process(Context* ctx, const Node* node) {
             Op op = node->payload.prim_op.op;
             switch (op) {
                 case quote_op: goto rewrite;
-                case alloca_logical_op:
-                case alloca_op: {
+                case alloca_logical_op: {
+                    BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                     const Node* type = rewrite_node(&ctx->rewriter, first(node->payload.prim_op.type_arguments));
-                    return prim_op(arena, (PrimOp) {
-                        .op = op,
-                        .type_arguments = singleton(maybe_packed_type_helper(type, ctx->width)),
-                        .operands = empty(arena)
-                    });
+                    LARRAY(const Node*, allocated, ctx->width);
+                    for (size_t i = 0; i < ctx->width; i++) {
+                        allocated[i] = first(bind_instruction_named(bb, prim_op(arena, (PrimOp) {
+                                .op = op,
+                                .type_arguments = singleton(type),
+                                //.type_arguments = singleton(maybe_packed_type_helper(type, ctx->width)),
+                                .operands = empty(arena)
+                        }), (String[]) {"allocated"}));
+                    }
+                    //return yield_values_and_wrap_in_control(bb, singleton(widen(ctx, allocated)));
+                    const Node* result_type = maybe_packed_type_helper(ptr_type(arena, (PtrType) { .address_space = AsFunctionLogical, .pointed_type = type }), ctx->width);
+                    const Node* packed = composite(arena, result_type, nodes(arena, ctx->width, allocated));
+                    return yield_values_and_wrap_in_control(bb, singleton(packed));
                 }
                 case subgroup_local_id_op: {
                     error("TODO")
@@ -59,14 +76,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 bool op_was_uniform = deconstruct_qualified_type(&old_operand_type);
                 // assert(was_uniform || !op_was_uniform && "result was uniform implies=> operand was uniform");
                 new_operands[i] = rewrite_node(&ctx->rewriter, old_operand);
-                const Type* new_operand_type = new_operands[i]->type;
-                if (op_was_uniform) {
-                    LARRAY(const Node*, copies, ctx->width);
-                    for (size_t j = 0; j < ctx->width; j++)
-                        copies[j] = new_operands[i];
-                    new_operand_type = pack_type(arena, (PackType) { .width = ctx->width, .element_type = get_unqualified_type(new_operand_type)});
-                    new_operands[i] = composite(arena, new_operand_type, nodes(arena, ctx->width, copies));
-                }
+                if (op_was_uniform)
+                    new_operands[i] = widen(ctx, new_operands[i]);
             }
             return prim_op(arena, (PrimOp) {
                 .op = op,
