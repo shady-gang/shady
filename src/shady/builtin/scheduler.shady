@@ -21,11 +21,11 @@ subgroup [i32; SUBGROUP_SIZE] resume_at;
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("setup_stack_frames") @Leaf
 fn builtin_init_scheduler() {
     val init_mask = subgroup_active_mask();
-    val tree_node = make[TreeNode](init_mask, 0);
+    val tree_node = composite TreeNode(init_mask, 0);
 
     scheduler_vector.(subgroup_local_id()) = tree_node;
 
-    val jp = make[JoinPoint](tree_node, 0);
+    val jp = composite JoinPoint(tree_node, 0);
     push_stack[JoinPoint](jp);
 
     actual_subgroup_size = subgroup_reduce_sum(1);
@@ -35,8 +35,8 @@ fn builtin_init_scheduler() {
 fn builtin_create_control_point uniform JoinPoint(uniform i32 join_destination) {
     val curr_mask = subgroup_active_mask();
     val depth = scheduler_vector.(subgroup_local_id()).1;
-    val tree_node = make[TreeNode](curr_mask, depth);
-    val jp = make[JoinPoint](tree_node, join_destination);
+    val tree_node = composite TreeNode(curr_mask, depth);
+    val jp = composite JoinPoint(tree_node, join_destination);
 
     // increase the depth of the active leaves
     scheduler_vector.(subgroup_local_id()).1 = scheduler_vector.(subgroup_local_id()).1 + 1;

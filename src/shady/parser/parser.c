@@ -124,12 +124,10 @@ static const Node* accept_value(ctxparams) {
             }
             return atom;
         }
-        case make_tok: {
+        case composite_tok: {
             next_token(tokenizer);
-            expect(accept_token(ctx, lsbracket_tok));
             const Type* elem_type = accept_unqualified_type(ctx);
             expect(elem_type);
-            expect(accept_token(ctx, rsbracket_tok));
             Nodes elems = expect_operands(ctx);
             return composite(arena, elem_type, elems);
         }

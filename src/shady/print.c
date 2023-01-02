@@ -396,15 +396,11 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf(RESET);
             break;
         case Value_Composite_TAG: {
-            const Node* nom_decl = get_maybe_nominal_type_decl(node->payload.composite.type);
-            if (nom_decl) {
-                printf(BBLUE);
-                printf("make");
-                printf(RESET);
-                printf("[");
-                print_node(nom_decl);
-                printf("]");
-            }
+            const Type* type = node->payload.composite.type;
+            printf(BBLUE);
+            printf("composite");
+            printf(RESET);
+            print_node(type);
             print_args_list(ctx, node->payload.composite.contents);
             break;
         }
@@ -416,7 +412,6 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
         }
         case FnAddr_TAG:
             printf(BYELLOW);
-            // printf("&");
             printf((char*) get_decl_name(node->payload.fn_addr.fn));
             printf(RESET);
             break;
