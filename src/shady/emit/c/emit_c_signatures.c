@@ -47,7 +47,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     if (dom.count == 0 && emitter->config.dialect == C)
         print(paramp, "void");
     else if (fn) {
-        Nodes params = fn_type->payload.fun.params;
+        Nodes params = fn->payload.fun.params;
         assert(params.count == dom.count);
         for (size_t i = 0; i < dom.count; i++) {
             print(paramp, emit_type(emitter, params.nodes[i]->type, format_string(emitter->arena, "%s_%d", params.nodes[i]->payload.var.name, params.nodes[i]->payload.var.id)));
@@ -192,7 +192,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             const Node* size = type->payload.arr_type.size;
             String inner_decl_rhs;
             if (size)
-                inner_decl_rhs = format_string(emitter->arena, "arr[%s]", emit_value(emitter, size));
+                inner_decl_rhs = format_string(emitter->arena, "arr[%s]", emit_value(emitter, NULL, size));
             else
                 inner_decl_rhs = format_string(emitter->arena, "arr[0]");
             print(p, "\n%s;", emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));

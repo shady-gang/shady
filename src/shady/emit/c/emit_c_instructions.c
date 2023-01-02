@@ -52,7 +52,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case quote_op: {
             assert(outputs.count == 1);
             for (size_t i = 0; i < prim_op->operands.count; i++) {
-                outputs.results[i] = emit_value(emitter, prim_op->operands.nodes[i]);
+                outputs.results[i] = emit_value(emitter, p, prim_op->operands.nodes[i]);
                 outputs.binding[i] = NoBinding;
             }
             break;
@@ -92,25 +92,25 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             return;
         }
         case load_op: {
-            CAddr dereferenced = deref_term(emitter, emit_value(emitter, first(prim_op->operands)));
+            CAddr dereferenced = deref_term(emitter, emit_value(emitter, p, first(prim_op->operands)));
             outputs.results[0] = term_from_cvalue(dereferenced);
             outputs.binding[0] = LetBinding;
             return;
         }
         case store_op: {
-            CAddr dereferenced = deref_term(emitter, emit_value(emitter, first(prim_op->operands)));
-            CValue cvalue = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[1]));
+            CAddr dereferenced = deref_term(emitter, emit_value(emitter, p, first(prim_op->operands)));
+            CValue cvalue = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
             print(p, "\n%s = %s;", dereferenced, cvalue);
             return;
         } case lea_op: {
-            CTerm acc = emit_value(emitter, prim_op->operands.nodes[0]);
+            CTerm acc = emit_value(emitter, p, prim_op->operands.nodes[0]);
 
             const Type* t = get_unqualified_type(prim_op->operands.nodes[0]->type);
             assert(t->tag == PtrType_TAG);
 
             const IntLiteral* offset_static_value = resolve_to_literal(prim_op->operands.nodes[1]);
             if (!offset_static_value || offset_static_value->value.i64 != 0) {
-                CTerm offset = emit_value(emitter, prim_op->operands.nodes[1]);
+                CTerm offset = emit_value(emitter, p, prim_op->operands.nodes[1]);
                 // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this
                 // this means such code is never going to be legal in GLSL
                 // also the cast is to account for our arrays-in-structs hack
@@ -121,7 +121,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             for (size_t i = 2; i < prim_op->operands.count; i++) {
                 switch (is_type(t)) {
                     case ArrType_TAG: {
-                        CTerm index = emit_value(emitter, prim_op->operands.nodes[i]);
+                        CTerm index = emit_value(emitter, p, prim_op->operands.nodes[i]);
                         acc = term_from_cvar(format_string(emitter->arena, "(%s.arr[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
                         break;
                     }
@@ -136,16 +136,16 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         }
         case select_op: {
             assert(prim_op->operands.count == 3);
-            CValue condition = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[0]));
-            CValue l = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[1]));
-            CValue r = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[2]));
+            CValue condition = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[0]));
+            CValue l = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+            CValue r = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[2]));
             final_expression = format_string(emitter->arena, "(%s) ? (%s) : (%s)", condition, l, r);
             break;
         }
         case convert_op: error("TODO");
         case reinterpret_op: {
             assert(outputs.count == 1);
-            CTerm src = emit_value(emitter, first(prim_op->operands));
+            CTerm src = emit_value(emitter, p, first(prim_op->operands));
             const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
             if (emitter->config.dialect == GLSL) {
@@ -166,7 +166,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         }
         case extract_dynamic_op:
         case extract_op: {
-            CValue acc = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+            CValue acc = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
 
             const Type* t = get_unqualified_type(first(prim_op->operands)->type);
             for (size_t i = 1; i < prim_op->operands.count; i++) {
@@ -191,7 +191,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     }
                     case Type_ArrType_TAG:
                     case Type_PackType_TAG: {
-                        acc = format_string(emitter->arena, "(%s[%s])", acc, to_cvalue(emitter, emit_value(emitter, index)));
+                        acc = format_string(emitter->arena, "(%s[%s])", acc, to_cvalue(emitter, emit_value(emitter, p, index)));
                         break;
                     }
                     default:
@@ -213,18 +213,25 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case set_stack_pointer_op:
         case set_stack_pointer_uniform_op: error("Stack operations need to be lowered.");
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
-        case subgroup_reduce_sum_op: error("TODO")
-        case subgroup_elect_first_op: {
-            CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+        case subgroup_reduce_sum_op: {
+            CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             switch (emitter->config.dialect) {
-                case ISPC: final_expression = format_string(emitter->arena, "(programIndex == count_trailing_zeros(lanemask()))", value); break;
+                case ISPC: final_expression = format_string(emitter->arena, "reduce_add(%s)", value); break;
+                case C:
+                case GLSL: error("TODO")
+            }
+            break;
+        }
+        case subgroup_elect_first_op: {
+            switch (emitter->config.dialect) {
+                case ISPC: final_expression = format_string(emitter->arena, "(programIndex == count_trailing_zeros(lanemask()))"); break;
                 case C:
                 case GLSL: error("TODO")
             }
             break;
         }
         case subgroup_broadcast_first_op: {
-            CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+            CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             switch (emitter->config.dialect) {
                 case ISPC: final_expression = format_string(emitter->arena, "extract(%s, count_trailing_zeros(lanemask()))", value); break;
                 case C:
@@ -241,7 +248,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             break;
         }
         case subgroup_ballot_op: {
-            CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+            CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             switch (emitter->config.dialect) {
                 case ISPC: final_expression = format_string(emitter->arena, "packmask(%s)", value); break;
                 case C:
@@ -271,7 +278,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             LARRAY(CValue, emitted_args, prim_op->operands.count);
             String args_list = "";
             for (size_t i = 0; i < prim_op->operands.count; i++) {
-                CValue str = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[i]));
+                CValue str = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[i]));
 
                 if (emitter->config.dialect == ISPC && i > 0)
                     str = format_string(emitter->arena, "extract(%s, printf_thread_index)", str);
@@ -309,14 +316,14 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
 
     switch (m) {
         case Infix: {
-            CTerm a = emit_value(emitter, prim_op->operands.nodes[0]);
-            CTerm b = emit_value(emitter, prim_op->operands.nodes[1]);
+            CTerm a = emit_value(emitter, p, prim_op->operands.nodes[0]);
+            CTerm b = emit_value(emitter, p, prim_op->operands.nodes[1]);
             outputs.results[0] = term_from_cvalue(
                     format_string(emitter->arena, "%s %s %s", to_cvalue(emitter, a), operator_str, to_cvalue(emitter, b)));
             break;
         }
         case Prefix: {
-            CTerm operand = emit_value(emitter, prim_op->operands.nodes[0]);
+            CTerm operand = emit_value(emitter, p, prim_op->operands.nodes[0]);
             outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s%s", operator_str, to_cvalue(emitter, operand)));
             break;
         } default: assert(false);
@@ -335,7 +342,7 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
     Growy* g = new_growy();
     Printer* paramsp = open_growy_as_printer(g);
     for (size_t i = 0; i < args.count; i++) {
-        print(paramsp, to_cvalue(emitter, emit_value(emitter, args.nodes[i])));
+        print(paramsp, to_cvalue(emitter, emit_value(emitter, p, args.nodes[i])));
         if (i + 1 < args.count)
             print(paramsp, ", ");
     }
@@ -345,7 +352,7 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
         emit_decl(emitter, call->payload.leaf_call.callee);
         callee = to_cvalue(emitter, *lookup_existing_term(emitter, call->payload.leaf_call.callee));
     } else
-        callee = to_cvalue(emitter, emit_value(emitter, call->payload.indirect_call.callee));
+        callee = to_cvalue(emitter, emit_value(emitter, p, call->payload.indirect_call.callee));
 
     String params = printer_growy_unwrap(paramsp);
 
@@ -387,7 +394,7 @@ static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Instruct
 
     assert(get_anonymous_lambda_params(if_->if_true).count == 0);
     String true_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(if_->if_true), NULL);
-    CValue condition = to_cvalue(emitter, emit_value(emitter, if_->condition));
+    CValue condition = to_cvalue(emitter, emit_value(emitter, p, if_->condition));
     print(p, "\nif (%s) %s", condition, true_body);
     free_tmp_str(true_body);
     if (if_->if_false) {
@@ -420,15 +427,18 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, In
     // We could do GOTO for C, but at the cost of arguably even more noise in the output, and two different codepaths.
     // I don't think it's quite worth it, just like it's not worth doing some data-flow based solution either.
 
-    CValue inspectee = to_cvalue(emitter, emit_value(emitter, match->inspect));
+    CValue inspectee = to_cvalue(emitter, emit_value(emitter, p, match->inspect));
     bool first = true;
+    LARRAY(CValue, literals, match->cases.count);
+    for (size_t i = 0; i < match->cases.count; i++) {
+        literals[i] = to_cvalue(emitter, emit_value(emitter, p, match->literals.nodes[i]));
+    }
     for (size_t i = 0; i < match->cases.count; i++) {
         String case_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(match->cases.nodes[i]), NULL);
-        CValue literal = to_cvalue(emitter, emit_value(emitter, match->literals.nodes[i]));
         print(p, "\n");
         if (!first)
             print(p, "else ");
-        print(p, "if (%s == %s) %s", inspectee, literal, case_body);
+        print(p, "if (%s == %s) %s", inspectee, literals[i], case_body);
         free_tmp_str(case_body);
         first = false;
     }

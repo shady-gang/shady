@@ -248,6 +248,7 @@ typedef struct {
     CompilerConfig* config;
     CDialect dialect;
     bool explicitly_sized_types;
+    bool allow_compound_literals;
 } CEmitterConfig;
 
 void emit_c(CEmitterConfig config, Module*, size_t* output_size, char** output);

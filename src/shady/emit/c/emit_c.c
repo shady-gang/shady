@@ -13,7 +13,7 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator);
+static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator);
 
 CValue to_cvalue(SHADY_UNUSED Emitter* e, CTerm term) {
     if (term.value)
@@ -33,7 +33,7 @@ CAddr deref_term(Emitter* e, CTerm term) {
 
 #include <ctype.h>
 
-static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* p, Growy* g, const Node* t, Nodes c) {
+static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* block_printer, Printer* p, Growy* g, const Node* t, Nodes c) {
     if (t->tag == Int_TAG && t->payload.int_type.width == 8) {
         uint8_t* tmp = malloc(sizeof(uint8_t) * c.count);
         bool ends_zero = false;
@@ -58,7 +58,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
         return is_stringy ? StringLit : CharsLit;
     } else {
         for (size_t i = 0; i < c.count; i++) {
-            print(p, to_cvalue(e, emit_value(e, c.nodes[i])));
+            print(p, to_cvalue(e, emit_value(e, block_printer, c.nodes[i])));
             if (i + 1 < c.count)
                 print(p, ", ");
         }
@@ -67,17 +67,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
     }
 }
 
-CValue emit_composite_value(Emitter* emitter, CType type, String contents) {
-    switch (emitter->config.dialect) {
-        case ISPC:
-        case C:
-            return format_string(emitter->arena, "((%s) { %s })", type, contents);
-        case GLSL:
-            return format_string(emitter->arena, "%s(%s)", type, contents);
-    }
-}
-
-CTerm emit_value(Emitter* emitter, const Node* value) {
+CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
     CTerm* found = lookup_existing_term(emitter, value);
     if (found) return *found;
 
@@ -94,36 +84,57 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
             const Type* type = value->payload.composite.type;
             Nodes elements = value->payload.composite.contents;
 
-            if (type->tag == ArrType_TAG) {
-                Growy* g = new_growy();
-                Printer* p = open_growy_as_printer(g);
-                switch (array_insides_helper(emitter, p, g, type, elements)) {
-                    case ObjectsList:
-                        emitted = format_string(emitter->arena, "((%s) { %s })", emit_type(emitter, type, NULL), growy_data(g));
-                        break;
-                    case StringLit:
-                        emitted = format_string(emitter->arena, "((%s) { \"s\" })", emit_type(emitter, type, NULL), growy_data(g));
-                        break;
-                    case CharsLit:
-                        emitted = format_string(emitter->arena, "((%s) { '%s' })", emit_type(emitter, type, NULL), growy_data(g));
-                        break;
-                }
-                destroy_growy(g);
-                destroy_printer(p);
-                return term_from_cvalue(emitted);
-            }
-
             Growy* g = new_growy();
             Printer* p = open_growy_as_printer(g);
 
-            for (size_t i = 0; i < elements.count; i++) {
-                print(p, "%s", to_cvalue(emitter, emit_value(emitter, elements.nodes[i])));
-                if (i + 1 < elements.count)
-                    print(p, ", ");
+            if (type->tag == ArrType_TAG) {
+                switch (array_insides_helper(emitter, block_printer, p, g, type, elements)) {
+                    case ObjectsList:
+                        emitted = growy_data(g);
+                        break;
+                    case StringLit:
+                        emitted = format_string(emitter->arena, "\"%s\"", growy_data(g));
+                        break;
+                    case CharsLit:
+                        emitted = format_string(emitter->arena, "'%s'", growy_data(g));
+                        break;
+                }
+            } else {
+                for (size_t i = 0; i < elements.count; i++) {
+                    print(p, "%s", to_cvalue(emitter, emit_value(emitter, block_printer, elements.nodes[i])));
+                    if (i + 1 < elements.count)
+                        print(p, ", ");
+                }
+                emitted = growy_data(g);
             }
             growy_append_bytes(g, 1, "\0");
 
-            emitted = emit_composite_value(emitter, emit_type(emitter, type, NULL), growy_data(g));
+            switch (emitter->config.dialect) {
+                no_compound_literals:
+                case ISPC: {
+                    if (block_printer) {
+                        String tmp = unique_name(emitter->arena, "composite");
+                        print(block_printer, "\n%s = { %s };", emit_type(emitter, type, tmp), emitted);
+                        emitted = tmp;
+                    } else {
+                        // this requires us to end up in the initialisation side of a declaration
+                        emitted = format_string(emitter->arena, "{ %s }", emitted);
+                    }
+                    break;
+                }
+                case C:
+                    // If we're C89 (ew)
+                    if (!emitter->config.allow_compound_literals)
+                        goto no_compound_literals;
+                    emitted = format_string(emitter->arena, "((%s) { %s })", type, emitted);
+                    break;
+                case GLSL:
+                    if (type->tag != PackType_TAG)
+                        goto no_compound_literals;
+                    // GLSL doesn't have compound literals, but it does have constructor syntax for vectors
+                    emitted = format_string(emitter->arena, "%s(%s)", type, emitted);
+                    break;
+            }
 
             destroy_growy(g);
             destroy_printer(p);
@@ -147,7 +158,7 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
     return term_from_cvalue(emitted);
 }
 
-static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator) {
+static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator) {
     switch (is_terminator(terminator)) {
         case NotATerminator: assert(false);
         case LetMut_TAG:
@@ -169,7 +180,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
                 .results = results,
                 .binding = bindings,
             };
-            emit_instruction(emitter, p, instruction, ioutputs);
+            emit_instruction(emitter, block_printer, instruction, ioutputs);
 
             const Node* tail = get_let_tail(terminator);
             assert(tail->tag == AnonLambda_TAG);
@@ -213,9 +224,9 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
 
                         String decl = c_emit_type(emitter, t, center);
                         if (has_result)
-                            print(p, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, results[i]));
+                            print(block_printer, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, results[i]));
                         else
-                            print(p, "\n%s%s;", prefix, decl);
+                            print(block_printer, "\n%s%s;", prefix, decl);
 
                         if (mut)
                             register_emitted(emitter, tail_params.nodes[i], term_from_cvar(bind_to));
@@ -225,23 +236,23 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
                     }
                 }
             }
-            emit_terminator(emitter, p, tail->payload.anon_lam.body);
+            emit_terminator(emitter, block_printer, tail->payload.anon_lam.body);
 
             break;
         }
         case Terminator_Return_TAG: {
             Nodes args = terminator->payload.fn_ret.args;
             if (args.count == 0) {
-                print(p, "\nreturn;");
+                print(block_printer, "\nreturn;");
             } else if (args.count == 1) {
-                print(p, "\nreturn %s;", to_cvalue(emitter, emit_value(emitter, args.nodes[0])));
+                print(block_printer, "\nreturn %s;", to_cvalue(emitter, emit_value(emitter, block_printer, args.nodes[0])));
             } else {
                 String packed = unique_name(emitter->arena, "pack_return");
                 LARRAY(CValue, values, args.count);
                 for (size_t i = 0; i < args.count; i++)
-                    values[i] = to_cvalue(emitter, emit_value(emitter, args.nodes[i]));
-                emit_pack_code(p, strings(emitter->arena, args.count, values), packed);
-                print(p, "\nreturn %s;", packed);
+                    values[i] = to_cvalue(emitter, emit_value(emitter, block_printer, args.nodes[i]));
+                emit_pack_code(block_printer, strings(emitter->arena, args.count, values), packed);
+                print(block_printer, "\nreturn %s;", packed);
             }
             break;
         }
@@ -250,7 +261,7 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             Phis phis = emitter->phis.selection;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                print(p, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, args.nodes[i])));
+                print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, block_printer, args.nodes[i])));
 
             break;
         }
@@ -259,8 +270,8 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             Phis phis = emitter->phis.loop_continue;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                print(p, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, args.nodes[i])));
-            print(p, "\ncontinue;");
+                print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, block_printer, args.nodes[i])));
+            print(block_printer, "\ncontinue;");
             break;
         }
         case MergeBreak_TAG: {
@@ -268,18 +279,18 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             Phis phis = emitter->phis.loop_break;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                print(p, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, args.nodes[i])));
-            print(p, "\nbreak;");
+                print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, block_printer, args.nodes[i])));
+            print(block_printer, "\nbreak;");
             break;
         }
         case Terminator_Unreachable_TAG: {
             switch (emitter->config.dialect) {
                 case C:
-                    print(p, "\n__builtin_unreachable();");
+                    print(block_printer, "\n__builtin_unreachable();");
                     break;
                 case ISPC:
                 case GLSL:
-                    print(p, "\n//unreachable");
+                    print(block_printer, "\n//unreachable");
                     break;
             }
             break;
@@ -342,7 +353,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
 
             register_emitted(emitter, decl, emit_as);
             if (decl->payload.global_variable.init) {
-                print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), to_cvalue(emitter, emit_value(emitter, decl->payload.global_variable.init)));
+                print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init)));
 
                 if (!has_forward_declarations(emitter->config.dialect))
                     return;
@@ -383,7 +394,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 case GLSL: prefix = "const "; break;
             }
 
-            print(emitter->fn_defs, "\n%s%s = %s;", prefix, emit_type(emitter, decl->type, decl_center), to_cvalue(emitter, emit_value(emitter, decl->payload.constant.value)));
+            print(emitter->fn_defs, "\n%s%s = %s;", prefix, emit_type(emitter, decl->type, decl_center), to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.constant.value)));
             if (!has_forward_declarations(emitter->config.dialect))
                 return;
 
