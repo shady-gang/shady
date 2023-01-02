@@ -160,8 +160,9 @@ Nodes bind_instruction_extra(BodyBuilder*, const Node* initial_value, size_t out
 
 void bind_variables(BodyBuilder*, Nodes vars, Nodes values);
 
-const Node* finish_body(BodyBuilder* builder, const Node* terminator);
-void cancel_body(BodyBuilder* builder);
+const Node* finish_body(BodyBuilder*, const Node* terminator);
+void cancel_body(BodyBuilder*);
+const Node* yield_values_and_wrap_in_control(BodyBuilder*, Nodes);
 
 const Type* int8_type(IrArena* arena);
 const Type* int16_type(IrArena* arena);

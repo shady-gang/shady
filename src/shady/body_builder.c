@@ -113,6 +113,25 @@ const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
     return terminator;
 }
 
+const Node* yield_values_and_wrap_in_control(BodyBuilder* bb, Nodes values) {
+    IrArena* arena = bb->arena;
+    Module* module = bb->module;
+    Nodes types = get_values_types(arena, values);
+    types = strip_qualifiers(arena, types);
+
+    const Type* jp_type = join_point_type(arena, (JoinPointType) { .yield_types = types });
+    const Node* jp_variable = var(arena, qualified_type_helper(jp_type, true), "jp");
+    const Node* terminator = join(arena, (Join) {
+        .join_point = jp_variable,
+        .args = values
+    });
+    const Node* lam = lambda(module, singleton(jp_variable), finish_body(bb, terminator));
+    return control(arena, (Control) {
+        .yield_types = types,
+        .inside = lam,
+    });
+}
+
 void cancel_body(BodyBuilder* bb) {
     destroy_list(bb->stack);
     free(bb);
