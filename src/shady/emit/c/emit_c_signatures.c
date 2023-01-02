@@ -36,6 +36,64 @@ void emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     destroy_printer(p);
 }
 
+String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn) {
+    assert(fn_type->tag == FnType_TAG);
+    assert(!fn || fn->type == fn_type);
+    Nodes codom = fn_type->payload.fn_type.return_types;
+
+    Growy* paramg = new_growy();
+    Printer* paramp = open_growy_as_printer(paramg);
+    Nodes dom = fn_type->payload.fn_type.param_types;
+    if (dom.count == 0 && emitter->config.dialect == C)
+        print(paramp, "void");
+    else if (fn) {
+        Nodes params = fn_type->payload.fun.params;
+        assert(params.count == dom.count);
+        for (size_t i = 0; i < dom.count; i++) {
+            print(paramp, emit_type(emitter, params.nodes[i]->type, format_string(emitter->arena, "%s_%d", params.nodes[i]->payload.var.name, params.nodes[i]->payload.var.id)));
+            if (i + 1 < dom.count) {
+                print(paramp, ", ");
+            }
+        }
+    } else {
+        for (size_t i = 0; i < dom.count; i++) {
+            print(paramp, emit_type(emitter, dom.nodes[i], ""));
+            if (i + 1 < dom.count) {
+                print(paramp, ", ");
+            }
+        }
+    }
+    growy_append_bytes(paramg, 1, (char[]) { 0 });
+    const char* parameters = printer_growy_unwrap(paramp);
+    switch (emitter->config.dialect) {
+        case ISPC:
+        case C:
+            center = format_string(emitter->arena, "(%s)(%s)", center, parameters);
+            break;
+        case GLSL:
+            // GLSL does not accept functions declared like void (foo)(int);
+            // it also does not support higher-order functions and/or function pointers, so we drop the parentheses
+            center = format_string(emitter->arena, "%s(%s)", center, parameters);
+            break;
+    }
+    free_tmp_str(parameters);
+
+    String cdecl = emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
+
+    const Node* entry_point = fn ? lookup_annotation(fn, "EntryPoint") : NULL;
+    if (entry_point) switch (emitter->config.dialect) {
+            case C:
+                break;
+            case GLSL:
+                break;
+            case ISPC:
+                cdecl = format_string(emitter->arena, "export %s", cdecl);
+                break;
+        }
+
+    return cdecl;
+}
+
 String emit_type(Emitter* emitter, const Type* type, const char* center) {
     if (center == NULL)
         center = "";
@@ -56,33 +114,46 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         case NoRet_TAG:
         case Bool_TAG: emitted = "bool"; break;
         case Int_TAG: {
-            if (emitter->config.explicitly_sized_types) {
-                switch (type->payload.int_type.width) {
-                    case IntTy8:  emitted = "uint8_t" ; break;
-                    case IntTy16: emitted = "uint16_t"; break;
-                    case IntTy32: emitted = "uint32_t"; break;
-                    case IntTy64: emitted = "uint64_t"; break;
-                }
-            } else if (emitter->config.dialect == GLSL) {
-                switch (type->payload.int_type.width) {
-                    case IntTy8:  warn_print("vanilla GLSL does not support 8-bit integers");
-                        emitted = "ubyte";
-                        break;
-                    case IntTy16: warn_print("vanilla GLSL does not support 16-bit integers");
-                        emitted = "ushort";
-                        break;
-                    case IntTy32: emitted = "uint";   break;
-                    case IntTy64: warn_print("vanilla GLSL does not support 64-bit integers");
-                        emitted = "ulong";
-                        break;
-                }
-            } else {
-                switch (type->payload.int_type.width) {
-                    case IntTy8:  emitted = "unsigned char";  break;
-                    case IntTy16: emitted = "unsigned short"; break;
-                    case IntTy32: emitted = "unsigned int";   break;
-                    case IntTy64: emitted = "unsigned long";  break;
-                }
+            switch (emitter->config.dialect) {
+                case ISPC:
+                    switch (type->payload.int_type.width) {
+                        case IntTy8:  emitted = "uint8";  break;
+                        case IntTy16: emitted = "uint16"; break;
+                        case IntTy32: emitted = "uint32";   break;
+                        case IntTy64: emitted = "uint64";  break;
+                    }
+                    break;
+                case C:
+                    if (emitter->config.explicitly_sized_types) {
+                        switch (type->payload.int_type.width) {
+                            case IntTy8:  emitted = "uint8_t" ; break;
+                            case IntTy16: emitted = "uint16_t"; break;
+                            case IntTy32: emitted = "uint32_t"; break;
+                            case IntTy64: emitted = "uint64_t"; break;
+                        }
+                    } else {
+                        switch (type->payload.int_type.width) {
+                            case IntTy8:  emitted = "unsigned char";  break;
+                            case IntTy16: emitted = "unsigned short"; break;
+                            case IntTy32: emitted = "unsigned int";   break;
+                            case IntTy64: emitted = "unsigned long";  break;
+                        }
+                    }
+                    break;
+                case GLSL:
+                    switch (type->payload.int_type.width) {
+                        case IntTy8:  warn_print("vanilla GLSL does not support 8-bit integers");
+                            emitted = "ubyte";
+                            break;
+                        case IntTy16: warn_print("vanilla GLSL does not support 16-bit integers");
+                            emitted = "ushort";
+                            break;
+                        case IntTy32: emitted = "uint";   break;
+                        case IntTy64: warn_print("vanilla GLSL does not support 64-bit integers");
+                            emitted = "ulong";
+                            break;
+                    }
+                    break;
             }
             break;
         }
@@ -108,34 +179,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             return emit_type(emitter, type->payload.ptr_type.pointed_type, format_string(emitter->arena, "*%s", center));
         }
         case Type_FnType_TAG: {
-            Nodes dom = type->payload.fn_type.param_types;
-            Nodes codom = type->payload.fn_type.return_types;
-
-            Growy* paramg = new_growy();
-            Printer* paramp = open_growy_as_printer(paramg);
-            if (dom.count == 0 && emitter->config.dialect == C)
-                print(paramp, "void");
-            else for (size_t i = 0; i < dom.count; i++) {
-                    print(paramp, emit_type(emitter, dom.nodes[i], NULL));
-                    if (i + 1 < dom.count) {
-                        print(paramp, ", ");
-                    }
-                }
-            growy_append_bytes(paramg, 1, (char[]) { 0 });
-            const char* parameters = printer_growy_unwrap(paramp);
-            switch (emitter->config.dialect) {
-                case C:
-                    center = format_string(emitter->arena, "(%s)(%s)", center, parameters);
-                    break;
-                case GLSL:
-                    // GLSL does not accept functions declared like void (foo)(int);
-                    // it also does not support higher-order functions and/or function pointers, so we drop the parentheses
-                    center = format_string(emitter->arena, "%s(%s)", center, parameters);
-                    break;
-            }
-            free_tmp_str(parameters);
-
-            return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
+            return emit_fn_head(emitter, type, center, NULL);
         }
         case Type_ArrType_TAG: {
             emitted = unique_name(emitter->arena, "Array");
@@ -161,29 +205,40 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             free_tmp_str(subdecl);
 
             // ditto from RecordType
-            if (emitter->config.dialect == C)
-                emitted = prefixed;
+            switch (emitter->config.dialect) {
+                case C:
+                case ISPC:
+                    emitted = prefixed;
+                    break;
+                case GLSL:
+                    break;
+            }
             break;
         }
         case Type_PackType_TAG: {
             int width = type->payload.pack_type.width;
             const Type* element_type = type->payload.pack_type.element_type;
-            if (emitter->config.dialect == GLSL) {
-                assert(is_glsl_scalar_type(element_type));
-                assert(width > 1);
-                String base;
-                switch (element_type->tag) {
-                    case Bool_TAG: base = "bvec"; break;
-                    case Int_TAG: base = "uvec";  break; // TODO not every int is 32-bit
-                    case Float_TAG: base = "vec"; break;
-                    default: error("not a valid GLSL vector type");
+            switch (emitter->config.dialect) {
+                case GLSL: {
+                    assert(is_glsl_scalar_type(element_type));
+                    assert(width > 1);
+                    String base;
+                    switch (element_type->tag) {
+                        case Bool_TAG: base = "bvec"; break;
+                        case Int_TAG: base = "uvec";  break; // TODO not every int is 32-bit
+                        case Float_TAG: base = "vec"; break;
+                        default: error("not a valid GLSL vector type");
+                    }
+                    emitted = format_string(emitter->arena, "%s%d", base, width);
+                    break;
                 }
-                emitted = format_string(emitter->arena, "%s%d", base, width);
-            } else if (emitter->config.dialect == C) {
-                emitted = emit_type(emitter, element_type, NULL);
-                emitted = format_string(emitter->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width,
-                                        emitted, emitted);
-            } else assert(false);
+                case ISPC: error("Please lower to something else")
+                case C: {
+                    emitted = emit_type(emitter, element_type, NULL);
+                    emitted = format_string(emitter->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width, emitted, emitted);
+                    break;
+                }
+            }
             break;
         }
         case Type_TypeDeclRef_TAG: {

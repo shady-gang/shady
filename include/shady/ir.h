@@ -240,7 +240,8 @@ void emit_spirv(CompilerConfig* config, Module*, size_t* output_size, char** out
 
 typedef enum {
     C,
-    GLSL
+    GLSL,
+    ISPC
 } CDialect;
 
 typedef struct {

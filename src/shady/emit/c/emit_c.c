@@ -31,29 +31,6 @@ CAddr deref_term(Emitter* e, CTerm term) {
     assert(false);
 }
 
-String emit_fn_head(Emitter* emitter, const Node* fn) {
-    assert(fn->tag == Function_TAG);
-    Nodes dom = fn->payload.fun.params;
-    Nodes codom = fn->payload.fun.return_types;
-
-    Growy* paramg = new_growy();
-    Printer* paramp = open_growy_as_printer(paramg);
-    if (dom.count == 0)
-        print(paramp, "void");
-    else for (size_t i = 0; i < dom.count; i++) {
-        print(paramp, emit_type(emitter, dom.nodes[i]->type, format_string(emitter->arena, "%s_%d", dom.nodes[i]->payload.var.name, dom.nodes[i]->payload.var.id)));
-        if (i + 1 < dom.count) {
-            print(paramp, ", ");
-        }
-    }
-    growy_append_bytes(paramg, 1, (char[]) { 0 });
-    const char* parameters = printer_growy_unwrap(paramp);
-    String center = format_string(emitter->arena, "%s(%s)", fn->payload.fun.name, parameters);
-    free_tmp_str(parameters);
-
-    return emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
-}
-
 #include <ctype.h>
 
 static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* p, Growy* g, const Node* t, Nodes c) {
@@ -92,6 +69,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
 
 CValue emit_composite_value(Emitter* emitter, CType type, String contents) {
     switch (emitter->config.dialect) {
+        case ISPC:
         case C:
             return format_string(emitter->arena, "((%s) { %s })", type, contents);
         case GLSL:
@@ -151,7 +129,9 @@ CTerm emit_value(Emitter* emitter, const Node* value) {
             destroy_printer(p);
             break;
         }
-        case Value_StringLiteral_TAG: break;
+        case Value_StringLiteral_TAG:
+            emitted = format_string(emitter->arena, "\"%s\"", value->payload.string_lit.string);
+            break;
         case Value_FnAddr_TAG: {
             emitted = get_decl_name(value->payload.fn_addr.fn);
             emitted = format_string(emitter->arena, "&%s", emitted);
@@ -215,6 +195,9 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
 
                         // add extra qualifiers if immutable
                         if (!mut) switch (emitter->config.dialect) {
+                            case ISPC:
+                                center = format_string(emitter->arena, "const %s", bind_to);
+                                break;
                             case C:
                                 prefix = "register ";
                                 center = format_string(emitter->arena, "const %s", bind_to);
@@ -290,10 +273,15 @@ static void emit_terminator(Emitter* emitter, Printer* p, const Node* terminator
             break;
         }
         case Terminator_Unreachable_TAG: {
-            if (emitter->config.dialect == C)
-                print(p, "\n__builtin_unreachable();");
-            else
-                print(p, "\n//unreachable");
+            switch (emitter->config.dialect) {
+                case C:
+                    print(p, "\n__builtin_unreachable();");
+                    break;
+                case ISPC:
+                case GLSL:
+                    print(p, "\n//unreachable");
+                    break;
+            }
             break;
         }
     }
@@ -323,6 +311,15 @@ String emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
     return printer_growy_unwrap(p);
 }
 
+static bool has_forward_declarations(CDialect dialect) {
+    switch (dialect) {
+        case C: return true;
+        case GLSL: // no global variable forward declarations in GLSL
+        case ISPC: // ISPC seems to share this quirk
+            return false;
+    }
+}
+
 void emit_decl(Emitter* emitter, const Node* decl) {
     assert(is_declaration(decl));
 
@@ -347,14 +344,18 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             if (decl->payload.global_variable.init) {
                 print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), to_cvalue(emitter, emit_value(emitter, decl->payload.global_variable.init)));
 
-                if (emitter->config.dialect == GLSL)
-                    return; // no global variable forward declarations in GLSL
+                if (!has_forward_declarations(emitter->config.dialect))
+                    return;
             }
-            break;
+
+            String declaration = emit_type(emitter, decl_type, decl_center);
+            print(emitter->fn_decls, "\n%s;", declaration);
+            return;
         }
         case Function_TAG: {
             emit_as = term_from_cvalue(name);
             register_emitted(emitter, decl, emit_as);
+            String head = emit_fn_head(emitter, decl->type, get_abstraction_name(decl), decl);
             const Node* body = decl->payload.fun.body;
             if (body) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
@@ -363,10 +364,12 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 }
 
                 String fn_body = emit_lambda_body(emitter, body, NULL);
-                print(emitter->fn_defs, "\n%s %s", emit_fn_head(emitter, decl), fn_body);
+                print(emitter->fn_defs, "\n%s %s", head, fn_body);
                 free_tmp_str(fn_body);
             }
-            break;
+
+            print(emitter->fn_decls, "\n%s;", head);
+            return;
         }
         case Constant_TAG: {
             emit_as = term_from_cvalue(name);
@@ -375,19 +378,24 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
             String prefix = "";
             switch (emitter->config.dialect) {
+                case ISPC:
                 case C: decl_center = format_string(emitter->arena, "const %s", decl_center); break;
                 case GLSL: prefix = "const "; break;
             }
 
             print(emitter->fn_defs, "\n%s%s = %s;", prefix, emit_type(emitter, decl->type, decl_center), to_cvalue(emitter, emit_value(emitter, decl->payload.constant.value)));
-            if (emitter->config.dialect == GLSL)
-                return; // no constant forward declarations in GLSL
-            break;
+            if (!has_forward_declarations(emitter->config.dialect))
+                return;
+
+            String declaration = emit_type(emitter, decl_type, decl_center);
+            print(emitter->fn_decls, "\n%s;", declaration);
+            return;
         }
         case NominalType_TAG: {
             CType emitted = decl->payload.nom_type.name;
             register_emitted_type(emitter, decl, emitted);
             switch (emitter->config.dialect) {
+                case ISPC:
                 case C: print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
                 case GLSL: emit_nominal_type_body(emitter, format_string(emitter->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
             }
@@ -395,9 +403,6 @@ void emit_decl(Emitter* emitter, const Node* decl) {
         }
         default: error("not a decl");
     }
-
-    String declaration = emit_type(emitter, decl_type, decl_center);
-    print(emitter->fn_decls, "\n%s;", declaration);
 }
 
 void register_emitted(Emitter* emitter, const Node* node, CTerm as) {
@@ -471,16 +476,21 @@ void emit_c(CEmitterConfig config, Module* mod, size_t* output_size, char** outp
 
     print(finalp, "/* file generated by shady */\n");
 
-    if (emitter.config.dialect == C) {
-        print(finalp, "\n#include <stdbool.h>");
-        print(finalp, "\n#include <stdint.h>");
-        print(finalp, "\n#include <stddef.h>");
-        print(finalp, "\n#include <stdio.h>");
-    } else if (emitter.config.dialect == GLSL) {
-        print(finalp, "#extension GL_ARB_compute_shader: require\n");
-        print(finalp, "#define ubyte uint\n");
-        print(finalp, "#define uchar uint\n");
-        print(finalp, "#define ulong uint\n");
+    switch (emitter.config.dialect) {
+        case ISPC:
+            break;
+        case C:
+            print(finalp, "\n#include <stdbool.h>");
+            print(finalp, "\n#include <stdint.h>");
+            print(finalp, "\n#include <stddef.h>");
+            print(finalp, "\n#include <stdio.h>");
+            break;
+        case GLSL:
+            print(finalp, "#extension GL_ARB_compute_shader: require\n");
+            print(finalp, "#define ubyte uint\n");
+            print(finalp, "#define uchar uint\n");
+            print(finalp, "#define ulong uint\n");
+            break;
     }
 
     print(finalp, "\n/* types: */\n");

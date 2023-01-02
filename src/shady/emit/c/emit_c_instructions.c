@@ -261,6 +261,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case mask_is_thread_active_op: {
             CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
             switch (emitter->config.dialect) {
+                case ISPC: error("TODO")
                 case C: final_expression = format_string(emitter->arena, "(%s[0] == 1)", value); break;
                 case GLSL: final_expression = format_string(emitter->arena, "(%s.x == 1)", value); break;
             }
@@ -268,7 +269,17 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         }
         case debug_printf_op: {
             CValue str = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
-            print(p, "\nprintf(%s);", str);
+            switch (emitter->config.dialect) {
+                case ISPC:
+                    print(p, "\nprint(%s);", str);
+                    break;
+                case C:
+                    print(p, "\nprintf(%s);", str);
+                    break;
+                case GLSL: warn_print("printf is not supported in GLSL");
+                    break;
+            }
+
             return;
         }
         case PRIMOPS_COUNT: assert(false); break;

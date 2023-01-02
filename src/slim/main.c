@@ -9,6 +9,8 @@
 #include <string.h>
 #include <assert.h>
 
+#pragma GCC diagnostic error "-Wswitch"
+
 char* read_file(const char* filename);
 
 enum SlimErrorCodes {
@@ -23,7 +25,7 @@ enum SlimErrorCodes {
 };
 
 typedef enum {
-    TgtAuto, TgtC, TgtSPV, TgtGLSL,
+    TgtAuto, TgtC, TgtSPV, TgtGLSL, TgtISPC,
 } CodegenTarget;
 
 static bool string_ends_with(const char* string, const char* suffix) {
@@ -43,10 +45,10 @@ static CodegenTarget guess_target(const char* filename) {
         return TgtC;
     else if (string_ends_with(filename, "glsl"))
         return TgtGLSL;
-    else if (string_ends_with(filename, "spirv"))
+    else if (string_ends_with(filename, "spirv") || string_ends_with(filename, "spv"))
         return TgtSPV;
-    else if (string_ends_with(filename, "spv"))
-        return TgtSPV;
+    else if (string_ends_with(filename, "ispc"))
+        return TgtISPC;
     error_print("No target has been specified, and output filename '%s' did not allow guessing the right one\n");
     exit(InvalidTarget);
 }
@@ -117,6 +119,10 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
                 args->target = TgtC;
             else if (strcmp(argv[i], "spirv") == 0)
                 args->target = TgtSPV;
+            else if (strcmp(argv[i], "glsl") == 0)
+                args->target = TgtGLSL;
+            else if (strcmp(argv[i], "ispc") == 0)
+                args->target = TgtISPC;
             else
                 goto invalid_target;
             continue;
@@ -142,7 +148,7 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
         error_print("Usage: slim source.slim\n");
         error_print("Available arguments: \n");
         error_print("  --log-level [debug, info, warn, error]    \n");
-        error_print("  --target <c, glsl, spirv>                 \n");
+        error_print("  --target <c, glsl, ispc, spirv>           \n");
         error_print("  --simt2d                                  Emits SIMD code instead of SIMT, only effective with the C backend.\n");
         error_print("  --output <filename>, -o <filename>        \n");
         error_print("  --dump-cfg <filename>                     Dumps the control flow graph of the final IR\n");
@@ -239,10 +245,14 @@ int main(int argc, const char** argv) {
             case TgtSPV: emit_spirv(&args.config, mod, &output_size, &output_buffer); break;
             case TgtC:
                 args.c_emitter_config.dialect = C;
-                goto do_emit_c;
+                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer);
+                break;
             case TgtGLSL:
                 args.c_emitter_config.dialect = GLSL;
-                do_emit_c:
+                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer);
+                break;
+            case TgtISPC:
+                args.c_emitter_config.dialect = ISPC;
                 emit_c(args.c_emitter_config, mod, &output_size, &output_buffer);
                 break;
         }

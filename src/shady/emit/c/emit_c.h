@@ -53,6 +53,7 @@ CAddr deref_term(Emitter*, CTerm);
 
 void emit_decl(Emitter* emitter, const Node* decl);
 CType emit_type(Emitter* emitter, const Type*, const char* identifier);
+String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn);
 void emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
 
 CTerm emit_value(Emitter* emitter, const Node* value);
