@@ -73,7 +73,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(lower_subgroup_ops)
 
-    aconfig.subgroup_mask_representation = SubgroupMaskSpvKHRBallot;
+    aconfig.subgroup_mask_representation = SubgroupMaskInt64;
     RUN_PASS(lower_mask)
     RUN_PASS(lower_stack)
     RUN_PASS(lower_physical_ptrs)

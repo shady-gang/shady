@@ -23,6 +23,8 @@ bool is_data_type(const Type*);
 NODES(DEFINE_NODE_CHECK_FN)
 #undef DEFINE_NODE_CHECK_FN
 
+const Type* get_actual_mask_type(IrArena* arena);
+
 const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types);
 Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 

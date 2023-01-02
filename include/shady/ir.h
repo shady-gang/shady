@@ -53,8 +53,8 @@ typedef struct {
     enum {
         /// Uses the MaskType
         SubgroupMaskAbstract,
-        /// Uses four packed 32-bit integers
-        SubgroupMaskSpvKHRBallot
+        /// Uses a 64-bit integer
+        SubgroupMaskInt64
     } subgroup_mask_representation;
 } ArenaConfig;
 

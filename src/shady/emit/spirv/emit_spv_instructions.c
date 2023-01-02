@@ -180,9 +180,15 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         case subgroup_ballot_op: {
             const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = int32_type(emitter->arena) });
             SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
-            SpvId result = spvb_ballot(bb_builder, emit_type(emitter, i32x4), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
+            SpvId raw_result = spvb_ballot(bb_builder, emit_type(emitter, i32x4), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
+            SpvId low32 = spvb_extract(bb_builder, emit_type(emitter, int32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
+            SpvId hi32 = spvb_extract(bb_builder, emit_type(emitter, int32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
+            SpvId low64 = spvb_unop(bb_builder, SpvOpUConvert, emit_type(emitter, int64_type(emitter->arena)), low32);
+            SpvId hi64 = spvb_unop(bb_builder, SpvOpUConvert, emit_type(emitter, int64_type(emitter->arena)), hi32);
+            hi64 = spvb_binop(bb_builder, SpvOpShiftLeftLogical, emit_type(emitter, int64_type(emitter->arena)), hi64, emit_value(emitter, bb_builder, int64_literal(emitter->arena, 32)));
+            SpvId final_result = spvb_binop(bb_builder, SpvOpBitwiseOr, emit_type(emitter, int64_type(emitter->arena)), low64, hi64);
             assert(results_count == 1);
-            results[0] = result;
+            results[0] = final_result;
             return;
         }
         case subgroup_broadcast_first_op: {

@@ -143,10 +143,10 @@ bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     }
 }
 
-static const Type* get_actual_mask_type(IrArena* arena) {
+const Type* get_actual_mask_type(IrArena* arena) {
     switch (arena->config.subgroup_mask_representation) {
         case SubgroupMaskAbstract: return mask_type(arena);
-        case SubgroupMaskSpvKHRBallot: return pack_type(arena, (PackType) { .element_type = int32_type(arena), .width = 4 });
+        case SubgroupMaskInt64: return int64_type(arena);
         default: assert(false);
     }
 }
