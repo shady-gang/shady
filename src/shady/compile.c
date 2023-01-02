@@ -20,7 +20,7 @@ CompilerConfig default_compiler_config() {
         .target_spirv_version = {
             .major = 1,
             .minor = 4
-        }
+        },
     };
 }
 
@@ -78,6 +78,11 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_stack)
     RUN_PASS(lower_physical_ptrs)
     RUN_PASS(lower_subgroup_vars)
+
+    if (config->lower.simt_to_explicit_simd) {
+        aconfig.is_simt = false;
+        RUN_PASS(simt2d)
+    }
 
     return CompilationNoError;
 }

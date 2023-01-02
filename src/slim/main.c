@@ -126,7 +126,7 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
         } else if (strcmp(argv[i], "--no-dynamic-scheduling") == 0) {
             args->config.dynamic_scheduling = false;
         } else if (strcmp(argv[i], "--simt2d") == 0) {
-            args->c_emitter_config.simt2d = true;
+            args->config.lower.simt_to_explicit_simd = true;
         } else if (strcmp(argv[i], "--print-builtin") == 0) {
             args->config.logging.skip_builtin = false;
         } else if (strcmp(argv[i], "--print-generated") == 0) {

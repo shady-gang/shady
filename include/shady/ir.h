@@ -206,6 +206,7 @@ typedef struct CompilerConfig_ {
     struct {
         bool emulate_subgroup_ops;
         bool emulate_subgroup_ops_extended_types;
+        bool simt_to_explicit_simd;
     } lower;
 
     struct {
@@ -246,7 +247,6 @@ typedef struct {
     CompilerConfig* config;
     CDialect dialect;
     bool explicitly_sized_types;
-    bool simt2d;
 } CEmitterConfig;
 
 void emit_c(CEmitterConfig config, Module*, size_t* output_size, char** output);
