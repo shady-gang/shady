@@ -213,34 +213,49 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case set_stack_pointer_op:
         case set_stack_pointer_uniform_op: error("Stack operations need to be lowered.");
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
-        case subgroup_reduce_sum_op:
+        case subgroup_reduce_sum_op: error("TODO")
         case subgroup_elect_first_op: {
-            // TODO implement properly
-            final_expression = "true /* subgroup_elect_first */";
+            CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+            switch (emitter->config.dialect) {
+                case ISPC: final_expression = format_string(emitter->arena, "(programIndex == count_trailing_zeros(lanemask()))", value); break;
+                case C:
+                case GLSL: error("TODO")
+            }
             break;
         }
         case subgroup_broadcast_first_op: {
-            // TODO implement properly
-            final_expression = format_string(emitter->arena, "%s /* subgroup_broadcast_first */", to_cvalue(emitter, emit_value(emitter, first(prim_op->operands))));
+            CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+            switch (emitter->config.dialect) {
+                case ISPC: final_expression = format_string(emitter->arena, "extract(%s, count_trailing_zeros(lanemask()))", value); break;
+                case C:
+                case GLSL: error("TODO")
+            }
             break;
         }
         case subgroup_active_mask_op: {
-            // TODO implement properly
-            CType result_type = emit_type(emitter, node->type, NULL);
-            final_expression = emit_composite_value(emitter, result_type, "1, 0, 0, 0");
+            switch (emitter->config.dialect) {
+                case ISPC: final_expression = "lanemask()"; break;
+                case C:
+                case GLSL: error("TODO")
+            }
             break;
         }
         case subgroup_ballot_op: {
-            // TODO implement properly
-            CType result_type = emit_type(emitter, node->type, NULL);
             CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
-            final_expression = emit_composite_value(emitter, result_type, format_string(emitter->arena, "%s, 0, 0, 0", value));
+            switch (emitter->config.dialect) {
+                case ISPC: final_expression = format_string(emitter->arena, "packmask(%s)", value); break;
+                case C:
+                case GLSL: error("TODO")
+            }
             break;
         }
         case subgroup_id_op:
         case subgroup_local_id_op: {
-            // TODO implement properly
-            final_expression = "0 /* subgroup_local_idy */";
+            switch (emitter->config.dialect) {
+                case ISPC: final_expression = "programIndex"; break;
+                case C: error("TODO");
+                case GLSL: error("TODO");
+            }
             break;
         }
         case workgroup_id_op:
@@ -248,33 +263,30 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case workgroup_num_op:
         case workgroup_size_op:
         case global_id_op: {
-            // TODO implement properly
-            CType result_type = emit_type(emitter, node->type, NULL);
-            final_expression = emit_composite_value(emitter, result_type, "1, 0, 0");
-            break;
+            error("TODO")
         }
-        case empty_mask_op: {
-            CType result_type = emit_type(emitter, node->type, NULL);
-            final_expression = emit_composite_value(emitter, result_type, "0, 0, 0, 0");
-            break;
-        }
-        case mask_is_thread_active_op: {
-            CValue value = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
-            switch (emitter->config.dialect) {
-                case ISPC: error("TODO")
-                case C: final_expression = format_string(emitter->arena, "(%s[0] == 1)", value); break;
-                case GLSL: final_expression = format_string(emitter->arena, "(%s.x == 1)", value); break;
-            }
-            break;
-        }
+        case empty_mask_op:
+        case mask_is_thread_active_op: error("lower_me");
         case debug_printf_op: {
-            CValue str = to_cvalue(emitter, emit_value(emitter, first(prim_op->operands)));
+            LARRAY(CValue, emitted_args, prim_op->operands.count);
+            String args_list = "";
+            for (size_t i = 0; i < prim_op->operands.count; i++) {
+                CValue str = to_cvalue(emitter, emit_value(emitter, prim_op->operands.nodes[i]));
+
+                if (emitter->config.dialect == ISPC && i > 0)
+                    str = format_string(emitter->arena, "extract(%s, printf_thread_index)", str);
+
+                if (i > 0)
+                    args_list = format_string(emitter->arena, "%s, %s", args_list, str);
+                else
+                    args_list = str;
+            }
             switch (emitter->config.dialect) {
                 case ISPC:
-                    print(p, "\nprint(%s);", str);
+                    print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
                     break;
                 case C:
-                    print(p, "\nprintf(%s);", str);
+                    print(p, "\nprintf(%s);", args_list);
                     break;
                 case GLSL: warn_print("printf is not supported in GLSL");
                     break;
