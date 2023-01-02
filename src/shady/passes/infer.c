@@ -170,17 +170,18 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
         case FnAddr_TAG: return recreate_node_identity(&ctx->rewriter, node);
         case Value_Composite_TAG: {
             const Node* elem_type = infer(ctx, node->payload.composite.type, NULL);
+            bool uniform = false;
             if (elem_type && expected_type) {
                 assert(is_subtype(get_unqualified_type(expected_type), elem_type));
             } else if (expected_type) {
+                uniform = deconstruct_qualified_type(&elem_type);
                 elem_type = expected_type;
             }
 
             Nodes omembers = node->payload.composite.contents;
             LARRAY(const Node*, inferred, omembers.count);
-            if (expected_type) {
-                bool uniform = deconstruct_qualified_type(&expected_type);
-                Nodes expected_members = get_composite_type_element_types(expected_type);
+            if (elem_type) {
+                Nodes expected_members = get_composite_type_element_types(elem_type);
                 for (size_t i = 0; i < omembers.count; i++)
                     inferred[i] = infer(ctx, omembers.nodes[i], qualified_type(dst_arena, (QualifiedType) { .is_uniform = uniform, .type = expected_members.nodes[i] }));
             } else {
@@ -191,7 +192,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
 
             // Composites are tuples by default
             if (!elem_type)
-                elem_type = record_type(dst_arena, (RecordType) { .members = get_values_types(dst_arena, nmembers) });
+                elem_type = record_type(dst_arena, (RecordType) { .members = strip_qualifiers(dst_arena, get_values_types(dst_arena, nmembers)) });
 
             return composite(dst_arena, elem_type, nmembers);
         }
@@ -290,7 +291,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             assert(old_operands.count == 1);
             assert(type_args.count == 1);
             const Type* element_type = type_args.nodes[0];
-            assert(!contains_qualified_type(element_type));
+            assert(is_data_type(element_type));
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], element_type);
             goto skip_input_types;
         }
@@ -299,7 +300,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             assert(old_operands.count == 0);
             assert(type_args.count == 1);
             const Type* element_type = type_args.nodes[0];
-            assert(!contains_qualified_type(element_type));
+            assert(is_data_type(element_type));
             new_inputs_scratch[0] = element_type;
             goto skip_input_types;
         }
@@ -321,7 +322,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             assert(old_operands.count == 0);
             const Type* element_type = type_args.nodes[0];
             assert(is_type(element_type));
-            assert(!contains_qualified_type(element_type));
+            assert(is_data_type(element_type));
             goto skip_input_types;
         }
         case lea_op: {
@@ -648,7 +649,7 @@ static const Node* process(Context* src_ctx, const Node* node) {
         return _infer_type(&ctx, node);
     } else if (is_value(node)) {
         const Node* value = _infer_value(&ctx, node, expect);
-        assert(contains_qualified_type(value->type));
+        assert(is_value_type(value->type));
         return value;
     }else if (is_instruction(node))
         return _infer_instruction(&ctx, node, expect);

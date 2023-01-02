@@ -157,7 +157,7 @@ String name_type_safe(IrArena* arena, const Type* t) {
         case Type_MaskType_TAG: return "mask_t";
         case Type_JoinPointType_TAG: return "join_type_t";
         case Type_NoRet_TAG: return "no_ret";
-        case Type_Int_TAG: return format_string(arena, "int_%s", ((String[]){ "8", "16", "32", "64" })[t->payload.int_type.width]);
+        case Type_Int_TAG: return format_string(arena, "int_%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
         case Type_Float_TAG: return "float";
         case Type_Bool_TAG: return "bool";
         case Type_RecordType_TAG: break;
@@ -173,18 +173,76 @@ String name_type_safe(IrArena* arena, const Type* t) {
     return unique_name(arena, node_tags[t->tag]);
 }
 
+/// Is this a type that a value in the language can have ?
+bool is_value_type(const Type* type) {
+    if (type->tag != QualifiedType_TAG)
+        return false;
+    return is_data_type(get_unqualified_type(type));
+}
+
+/// Is this a valid data type (for usage in other types and as type arguments) ?
+bool is_data_type(const Type* type) {
+    switch (is_type(type)) {
+        case Type_MaskType_TAG:
+        case Type_JoinPointType_TAG:
+        case Type_Int_TAG:
+        case Type_Float_TAG:
+        case Type_Bool_TAG:
+        case Type_PtrType_TAG:
+        case Type_ArrType_TAG:
+        case Type_PackType_TAG:
+            return true;
+        // multi-return record types are the results of instructions, but are not values themselves
+        case Type_RecordType_TAG:
+            return type->payload.record_type.special == NotSpecial;
+        case Type_TypeDeclRef_TAG:
+            return !get_nominal_type_body(type) || is_data_type(get_nominal_type_body(type));
+        // qualified types are not data types because that information is only meant for values
+        case Type_QualifiedType_TAG: return false;
+        // values cannot contain abstractions
+        case Type_FnType_TAG:
+        case Type_BBType_TAG:
+        case Type_LamType_TAG:
+            return false;
+        // this type has no values to begin with
+        case Type_NoRet_TAG:
+            return false;
+        case NotAType:
+            return false;
+    }
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
+const Type* check_type_join_point_type(IrArena* arena, JoinPointType type) {
+    for (size_t i = 0; i < type.yield_types.count; i++) {
+        assert(!contains_qualified_type(type.yield_types.nodes[i]));
+    }
+    return NULL;
+}
+
+const Type* check_type_record_type(IrArena* arena, RecordType type) {
+    assert(type.names.count == 0 || type.names.count == type.members.count);
+    for (size_t i = 0; i < type.members.count; i++) {
+        assert((type.special == MultipleReturn) == contains_qualified_type(type.members.nodes[i]));
+    }
+    return NULL;
+}
+
 const Type* check_type_qualified_type(IrArena* arena, QualifiedType qualified_type) {
-    assert(!contains_qualified_type(qualified_type.type));
-    assert(is_type(qualified_type.type));
+    assert(is_data_type(qualified_type.type));
     assert(arena->config.is_simt || qualified_type.is_uniform);
     return NULL;
 }
 
+const Type* check_type_arr_type(IrArena* arena, ArrType type) {
+    assert(is_data_type(type.element_type));
+    return NULL;
+}
+
 const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
-    assert(!contains_qualified_type(pack_type.element_type));
+    assert(is_data_type(pack_type.element_type));
     return NULL;
 }
 
@@ -234,7 +292,7 @@ const Type* check_type_composite(IrArena* arena, Composite composite) {
 }
 
 const Type* check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
-    assert(!contains_qualified_type(fn_addr.fn->type));
+    assert(fn_addr.fn->type->tag == FnType_TAG);
     assert(fn_addr.fn->tag == Function_TAG);
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
@@ -531,7 +589,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool src_uniform = deconstruct_qualified_type(&src_type);
 
             const Type* target_type = prim_op.type_arguments.nodes[0];
-            assert(!contains_qualified_type(target_type));
+            assert(is_data_type(target_type));
             assert(is_reinterpret_cast_legal(src_type, target_type));
 
             return qualified_type(arena, (QualifiedType) {
@@ -571,7 +629,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool is_uniform = deconstruct_qualified_type(&current_type);
 
             for (size_t i = 1; i < prim_op.operands.count; i++) {
-                assert(!contains_qualified_type(current_type));
+                assert(is_data_type(current_type));
 
                 // Check index is valid !
                 const Node* ith_index = prim_op.operands.nodes[i];
@@ -623,7 +681,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);
             const Type* dst_type = prim_op.type_arguments.nodes[0];
-            assert(!contains_qualified_type(dst_type));
+            assert(is_data_type(dst_type));
 
             const Type* src_type = prim_op.operands.nodes[0];
             bool is_uniform = deconstruct_qualified_type(&src_type);
@@ -680,7 +738,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         // Intermediary ops
         case create_joint_point_op: {
             assert(prim_op.operands.count == 1);
-            assert(is_qualified_type_uniform(first(prim_op.operands)->type));
+            const Node* join_point = first(prim_op.operands);
+            assert(is_qualified_type_uniform(join_point->type));
             return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = prim_op.type_arguments }), .is_uniform = true });
         }
         // Invocation ID and compute kernel stuff
@@ -748,7 +807,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);
             const Type* element_type = first(prim_op.type_arguments);
-            assert(!contains_qualified_type(element_type) && "annotations do not go here");
+            assert(is_data_type(element_type));
             const Type* qual_element_type = qualified_type(arena, (QualifiedType) {
                 .is_uniform = prim_op.op == push_stack_uniform_op,
                 .type = element_type
@@ -762,7 +821,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             assert(prim_op.type_arguments.count == 1);
             const Type* element_type = prim_op.type_arguments.nodes[0];
-            assert(!contains_qualified_type(element_type) && "annotations do not go here");
+            assert(is_data_type(element_type));
             return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == pop_stack_uniform_op, .type = element_type});
         }
         // Debugging ops
@@ -847,16 +906,20 @@ const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
 const Type* check_type_control(IrArena* arena, Control control) {
     // TODO check it then !
     assert(is_anonymous_lambda(control.inside));
-    const Node* join_point = control.inside->payload.anon_lam.params.nodes[0];
+    const Node* join_point = first(control.inside->payload.anon_lam.params);
 
-    const Type* join_target_type = join_point->type;
-    bool join_target_uniform = deconstruct_qualified_type(&join_target_type);
-    assert(join_target_uniform);
-    assert(join_target_type->tag == JoinPointType_TAG);
+    const Type* join_point_type = join_point->type;
+    bool join_point_uniform = deconstruct_qualified_type(&join_point_type);
+    assert(join_point_uniform && join_point_type->tag == JoinPointType_TAG);
 
-    assert(is_subtype(wrap_multiple_yield_types(arena, join_target_type->payload.join_point_type.yield_types), wrap_multiple_yield_types(arena, control.yield_types)));
+    Nodes join_point_yield_types = join_point_type->payload.join_point_type.yield_types;
+    assert(join_point_yield_types.count == control.yield_types.count);
+    for (size_t i = 0; i < control.yield_types.count; i++) {
+        assert(is_data_type(control.yield_types.nodes[i]));
+        assert(is_subtype(control.yield_types.nodes[i], join_point_yield_types.nodes[i]));
+    }
 
-    return wrap_multiple_yield_types(arena, join_target_type->payload.join_point_type.yield_types);
+    return wrap_multiple_yield_types(arena, add_qualifiers(arena, join_point_yield_types, !arena->config.is_simt /* non-simt worlds might have spurious control statements, but they ban varying types */));
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
@@ -935,7 +998,10 @@ const Type* check_type_join(IrArena* arena, Join join) {
     assert(join_target_uniform);
     assert(join_target_type->tag == JoinPointType_TAG);
 
-    check_arguments_types_against_parameters_helper(join_target_type->payload.join_point_type.yield_types, get_values_types(arena, join.args));
+    Nodes join_point_param_types = join_target_type->payload.join_point_type.yield_types;
+    join_point_param_types = add_qualifiers(arena, join_point_param_types, !arena->config.is_simt);
+
+    check_arguments_types_against_parameters_helper(join_point_param_types, get_values_types(arena, join.args));
 
     return noret_type(arena);
 }
@@ -966,7 +1032,7 @@ const Type* check_type_fn_ret(IrArena* arena, Return ret) {
 
 const Type* check_type_fun(IrArena* arena, Function fn) {
     for (size_t i = 0; i < fn.return_types.count; i++) {
-        assert(contains_qualified_type(fn.return_types.nodes[i]));
+        assert(is_value_type(fn.return_types.nodes[i]));
     }
     return fn_type(arena, (FnType) { .param_types = get_variables_types(arena, (&fn)->params), .return_types = (&fn)->return_types });
 }
@@ -988,7 +1054,7 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
 }
 
 const Type* check_type_constant(IrArena* arena, Constant cnst) {
-    assert(!contains_qualified_type(cnst.type_hint));
+    assert(is_data_type(cnst.type_hint));
     return cnst.type_hint;
 }
 

@@ -8,6 +8,12 @@ const Type* noret_type(IrArena* arena);
 bool is_subtype(const Type* supertype, const Type* type);
 void check_subtype(const Type* supertype, const Type* type);
 
+/// Is this a type that a value in the language can have ?
+bool is_value_type(const Type*);
+
+/// Is this a valid data type (for usage in other types and as type arguments) ?
+bool is_data_type(const Type*);
+
 #define DEFINE_NODE_CHECK_FN_1_1(struct_name, short_name) const Type* check_type_##short_name(IrArena*, struct_name);
 #define DEFINE_NODE_CHECK_FN_1_0(struct_name, short_name) const Type* check_type_##short_name(IrArena*);
 

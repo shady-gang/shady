@@ -46,7 +46,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.args);
 
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-            const Node* return_jp = first(bind_instruction(bb, gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = get_values_types(dst_arena, nargs) }))));
+            const Node* return_jp = first(bind_instruction(bb, gen_pop_value_stack(bb, join_point_type(dst_arena, (JoinPointType) { .yield_types = strip_qualifiers(dst_arena, get_values_types(dst_arena, nargs)) }))));
             return_jp = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) { return_jp });
             // Join up at the return address instead of returning
             return finish_body(bb, join(dst_arena, (Join) {
@@ -71,7 +71,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 Nodes returned_types = rewrite_nodes(&ctx->rewriter, oparam_types);
 
                 const Type* jpt = qualified_type(dst_arena, (QualifiedType) {
-                    .type = join_point_type(dst_arena, (JoinPointType) { .yield_types = returned_types }),
+                    .type = join_point_type(dst_arena, (JoinPointType) { .yield_types = strip_qualifiers(dst_arena, returned_types) }),
                     .is_uniform = true
                 });
                 const Node* jp = var(dst_arena, jpt, "fn_return_point");
@@ -85,7 +85,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 }));
 
                 const Node* control_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 1, (const Node*[]) { jp }), control_body);
-                new_instruction = control(dst_arena, (Control) { .yield_types = returned_types, .inside = control_lam });
+                new_instruction = control(dst_arena, (Control) { .yield_types = strip_qualifiers(dst_arena, returned_types), .inside = control_lam });
             }
 
             if (!new_instruction)

@@ -93,8 +93,6 @@ const Type* qualified_type_helper(const Type* type, bool uniform) {
     return qualified_type(type->arena, (QualifiedType) { .type = type, .is_uniform = uniform });
 }
 
-// TODO: this isn't really accurate to what we want...
-// It would be better to have verify_is_value_type, verify_is_operand etc functions.
 bool contains_qualified_type(const Type* type) {
     switch (type->tag) {
         case QualifiedType_TAG: return true;

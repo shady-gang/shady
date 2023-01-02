@@ -324,9 +324,9 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 return finish_body(bb, let(arena, quote_single(arena, new), tail));
             }
             case reinterpret_op: {
-                const Type* source_type = first(oprim_op->type_arguments);
-                assert(!contains_qualified_type(source_type));
-                if (source_type->tag != PtrType_TAG || !is_as_emulated(ctx, source_type->payload.ptr_type.address_space))
+                const Type* dest_type = first(oprim_op->type_arguments);
+                assert(is_data_type(dest_type));
+                if (dest_type->tag != PtrType_TAG || !is_as_emulated(ctx, dest_type->payload.ptr_type.address_space))
                     break;
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 // emulated physical pointers do not care about pointers, they're just ints :frog:
@@ -406,7 +406,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
                 uint32_t* preallocated = old_gvar->address_space == AsSubgroupPhysical ? &ctx->preallocated_subgroup_memory : &ctx->preallocated_private_memory;
 
                 const Type* contents_type = rewrite_node(&ctx->rewriter, old_gvar->type);
-                assert(!contains_qualified_type(contents_type));
+                assert(is_data_type(contents_type));
                 uint32_t required_space = bytes_to_i32_cells(get_mem_layout(ctx->config, arena, contents_type).size_in_bytes);
 
                 cnst->payload.constant.value = uint32_literal(arena, *preallocated);

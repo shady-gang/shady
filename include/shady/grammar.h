@@ -10,18 +10,18 @@
 
 #define TYPE_NODES(N) \
 N(1, 0, 0, MaskType, mask_type) \
-N(1, 0, 1, JoinPointType, join_point_type) \
+N(1, 1, 1, JoinPointType, join_point_type) \
 N(1, 0, 0, NoRet, noret_type) \
 N(1, 0, 1, Int, int_type) \
 N(1, 0, 0, Float, float_type) \
 N(1, 0, 0, Bool, bool_type) \
-N(1, 0, 1, RecordType, record_type) \
+N(1, 1, 1, RecordType, record_type) \
 N(1, 0, 1, FnType, fn_type) \
 N(1, 0, 1, BBType, bb_type) \
 N(1, 0, 1, LamType, lam_type) \
 N(1, 0, 1, PtrType, ptr_type) \
 N(1, 1, 1, QualifiedType, qualified_type) \
-N(1, 0, 1, ArrType, arr_type) \
+N(1, 1, 1, ArrType, arr_type) \
 N(1, 1, 1, PackType, pack_type) \
 N(1, 0, 1, TypeDeclRef, type_decl_ref) \
 
