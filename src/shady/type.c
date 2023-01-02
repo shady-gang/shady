@@ -247,7 +247,7 @@ const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
 }
 
 const Type* check_type_var(IrArena* arena, Variable variable) {
-    assert(variable.type);
+    assert(is_value_type(variable.type));
     return variable.type;
 }
 

@@ -400,6 +400,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf(BBLUE);
             printf("composite");
             printf(RESET);
+            printf(" ");
             print_node(type);
             print_args_list(ctx, node->payload.composite.contents);
             break;
