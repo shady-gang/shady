@@ -115,7 +115,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                 case ISPC: {
                     if (block_printer) {
                         String tmp = unique_name(emitter->arena, "composite");
-                        print(block_printer, "\n%s = { %s };", emit_type(emitter, type, tmp), emitted);
+                        print(block_printer, "\n%s = { %s };", emit_type(emitter, value->type, tmp), emitted);
                         emitted = tmp;
                     } else {
                         // this requires us to end up in the initialisation side of a declaration
@@ -371,16 +371,71 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
 
+            String address_space_prefix = NULL;
+            switch (decl->payload.global_variable.address_space) {
+                case AsGeneric:
+                case AsSubgroupLogical:
+                case AsSubgroupPhysical:
+                    switch (emitter->config.dialect) {
+                        case C:
+                        case GLSL:
+                            warn_print("C and GLSL do not have a 'subgroup' level addressing space, using shared instead");
+                            address_space_prefix = "shared ";
+                            break;
+                        case ISPC:
+                            address_space_prefix = "uniform ";
+                            break;
+                    }
+                    break;
+                case AsGlobalPhysical:
+                    assert(false);
+                case AsPrivatePhysical:
+                case AsPrivateLogical:
+                    address_space_prefix = "";
+                    break;
+                case AsSharedPhysical:
+                case AsSharedLogical:
+                    switch (emitter->config.dialect) {
+                        case C:
+                            break;
+                        case GLSL:
+                            address_space_prefix = "shared ";
+                            break;
+                        case ISPC:
+                            // that's wrong but close enough for debugging a single subgroup
+                            address_space_prefix = "uniform ";
+                            break;
+                    }
+                    break;
+                case AsGlobalLogical:
+                    break;
+                case AsFunctionLogical:
+                    break;
+                case AsInput:
+                    break;
+                case AsOutput:
+                    break;
+                case AsExternal:
+                    break;
+                case AsProgramCode:
+                    break;
+            }
+
+            if (!address_space_prefix) {
+                warn_print("No known address space prefix for as %d, this might produce broken code");
+                address_space_prefix = "";
+            }
+
             register_emitted(emitter, decl, emit_as);
             if (decl->payload.global_variable.init) {
-                print(emitter->fn_defs, "\n%s = %s;", emit_type(emitter, decl_type, decl_center), to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init)));
+                print(emitter->fn_defs, "\n%s%s = %s;", address_space_prefix, emit_type(emitter, decl_type, decl_center), to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init)));
 
                 if (!has_forward_declarations(emitter->config.dialect))
                     return;
             }
 
             String declaration = emit_type(emitter, decl_type, decl_center);
-            print(emitter->fn_decls, "\n%s;", declaration);
+            print(emitter->fn_decls, "\n%s%s;", address_space_prefix, declaration);
             return;
         }
         case Function_TAG: {

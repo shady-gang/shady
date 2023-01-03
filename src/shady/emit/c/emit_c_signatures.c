@@ -174,7 +174,16 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             break;
         }
         case Type_QualifiedType_TAG:
-            return emit_type(emitter, type->payload.qualified_type.type, center);
+            switch (emitter->config.dialect) {
+                case C:
+                case GLSL:
+                    return emit_type(emitter, type->payload.qualified_type.type, center);
+                case ISPC:
+                    if (type->payload.qualified_type.is_uniform)
+                        return format_string(emitter->arena, "uniform %s", emit_type(emitter, type->payload.qualified_type.type, center));
+                    else
+                        return emit_type(emitter, type->payload.qualified_type.type, center);
+            }
         case Type_PtrType_TAG: {
             return emit_type(emitter, type->payload.ptr_type.pointed_type, format_string(emitter->arena, "*%s", center));
         }
