@@ -375,6 +375,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             // Global variables into emulated address spaces become integer constants (to index into arrays used for emulation of said address space)
             if (old_gvar->address_space == AsSubgroupPhysical || old_gvar->address_space == AsPrivatePhysical) {
                 Nodes annotations = rewrite_nodes(&ctx->rewriter, old_gvar->annotations); // We keep the old annotations
+                annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) { .name = "Generated" }));
 
                 const char* emulated_heap_name = old_gvar->address_space == AsPrivatePhysical ? "private" : "subgroup";
 
@@ -404,29 +405,46 @@ bool compare_node(Node**, Node**);
 void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
     IrArena* dst_arena = get_module_arena(dst);
 
-    const Type* stack_base_element = int32_type(dst_arena);
-    const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
-        .element_type = stack_base_element,
-        .size = uint32_literal(dst_arena, config->per_thread_stack_size * 2),
+    uint32_t per_thread_private_memory = 0, per_subgroup_memory = 0;
+    Nodes old_decls = get_module_declarations(src);
+    for (size_t i = 0; i < old_decls.count; i++) {
+        const Node* decl = old_decls.nodes[i];
+        if (decl->tag != GlobalVariable_TAG) continue;
+        const Type* type = decl->payload.global_variable.type;
+        TypeMemLayout layout = get_mem_layout(config, dst_arena, type);
+        switch (decl->payload.global_variable.address_space) {
+            case AsPrivatePhysical:
+                per_thread_private_memory += bytes_to_i32_cells(layout.size_in_bytes);
+                break;
+            case AsSubgroupPhysical:
+                per_subgroup_memory += bytes_to_i32_cells(layout.size_in_bytes);
+                break;
+            default: continue;
+        }
+    }
+
+    const Type* emulated_memory_base_type = int32_type(dst_arena);
+    const Type* private_memory_arr_type = arr_type(dst_arena, (ArrType) {
+        .element_type = emulated_memory_base_type,
+        .size = uint32_literal(dst_arena, per_thread_private_memory),
     });
-    const Type* uniform_stack_arr_type = arr_type(dst_arena, (ArrType) {
-        .element_type = stack_base_element,
-        .size = uint32_literal(dst_arena, config->per_subgroup_stack_size * 2),
+    const Type* subgroup_memory_arr_type = arr_type(dst_arena, (ArrType) {
+        .element_type = emulated_memory_base_type,
+        .size = uint32_literal(dst_arena, per_subgroup_memory),
     });
 
-    // TODO add a @Synthetic annotation to tag those
-    Nodes annotations = nodes(dst_arena, 0, NULL);
+    Nodes annotations = singleton(annotation(dst_arena, (Annotation) { .name = "Generated" }));
 
     // divide memory up between subgroups in a workgroup
     // TODO decide between shared/global memory for this purpose
     SHADY_UNUSED const Type* wrapped_type = record_type(dst_arena, (RecordType) {
-        .members = nodes(dst_arena, 1, (const Node* []) { stack_arr_type }),
+        .members = nodes(dst_arena, 1, (const Node* []) {private_memory_arr_type }),
         .special = DecorateBlock,
         .names = strings(dst_arena, 0, NULL)
     });
 
-    Node* thread_private_memory = global_var(dst, annotations, stack_arr_type, "physical_private_buffer", AsPrivateLogical);
-    Node* subgroup_shared_memory = global_var(dst, annotations, uniform_stack_arr_type, "physical_subgroup_buffer", AsSubgroupLogical);
+    Node* thread_private_memory = global_var(dst, annotations, private_memory_arr_type, "emulated_private_memory", AsPrivateLogical);
+    Node* subgroup_shared_memory = global_var(dst, annotations, subgroup_memory_arr_type, "emulated_subgroup_memory", AsSubgroupLogical);
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
