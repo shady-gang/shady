@@ -40,6 +40,7 @@ static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String g
 
 static void emit_primop(Emitter* emitter, Printer* p, const Node* node, InstructionOutputs outputs) {
     assert(node->tag == PrimOp_TAG);
+    IrArena* arena = emitter->arena;
     const PrimOp* prim_op = &node->payload.prim_op;
     enum {
         Infix, Prefix
@@ -105,8 +106,8 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         } case lea_op: {
             CTerm acc = emit_value(emitter, p, prim_op->operands.nodes[0]);
 
-            const Type* t = get_unqualified_type(prim_op->operands.nodes[0]->type);
-            assert(t->tag == PtrType_TAG);
+            const Type* curr_ptr_type = get_unqualified_type(prim_op->operands.nodes[0]->type);
+            assert(curr_ptr_type->tag == PtrType_TAG);
 
             const IntLiteral* offset_static_value = resolve_to_literal(prim_op->operands.nodes[1]);
             if (!offset_static_value || offset_static_value->value.i64 != 0) {
@@ -114,18 +115,42 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this
                 // this means such code is never going to be legal in GLSL
                 // also the cast is to account for our arrays-in-structs hack
-                acc = term_from_cvalue(format_string(emitter->arena, "(%s) &(%s.arr[%s])", emit_type(emitter, t, NULL), deref_term(emitter, acc), to_cvalue(emitter, offset)));
+                acc = term_from_cvalue(format_string(arena, "((%s) &(%s.arr[%s]))", emit_type(emitter, curr_ptr_type, NULL), deref_term(emitter, acc), to_cvalue(emitter, offset)));
             }
 
-            t = t->payload.ptr_type.pointed_type;
+            //t = t->payload.ptr_type.pointed_type;
             for (size_t i = 2; i < prim_op->operands.count; i++) {
-                switch (is_type(t)) {
+                const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
+                const Node* selector = prim_op->operands.nodes[i];
+                switch (is_type(pointee_type)) {
                     case ArrType_TAG: {
-                        CTerm index = emit_value(emitter, p, prim_op->operands.nodes[i]);
-                        acc = term_from_cvar(format_string(emitter->arena, "(%s.arr[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
+                        CTerm index = emit_value(emitter, p, selector);
+                        acc = term_from_cvar(format_string(arena, "(%s.arr[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
+                        curr_ptr_type = ptr_type(arena, (PtrType) {
+                                .pointed_type = pointee_type->payload.arr_type.element_type,
+                                .address_space = curr_ptr_type->payload.ptr_type.address_space
+                        });
                         break;
                     }
-                    case RecordType_TAG: error("TODO");
+                    case TypeDeclRef_TAG: {
+                        pointee_type = get_nominal_type_body(pointee_type);
+                        SHADY_FALLTHROUGH
+                    }
+                    case RecordType_TAG: {
+                        assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
+                        size_t static_index = get_int_literal_value(selector, false);
+                        assert(static_index < pointee_type->payload.record_type.members.count);
+                        Strings names = pointee_type->payload.record_type.names;
+                        if (names.count == 0)
+                            acc = term_from_cvar(format_string(arena, "(%s._%d)", deref_term(emitter, acc), static_index));
+                        else
+                            acc = term_from_cvar(format_string(arena, "(%s.%s)", deref_term(emitter, acc), names.strings[static_index]));
+                        curr_ptr_type = ptr_type(arena, (PtrType) {
+                                .pointed_type = pointee_type->payload.record_type.members.nodes[static_index],
+                                .address_space = curr_ptr_type->payload.ptr_type.address_space
+                        });
+                        break;
+                    }
                     default: error("lea can't work on this");
                 }
             }
