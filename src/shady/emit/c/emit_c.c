@@ -10,6 +10,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -140,9 +141,28 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             destroy_printer(p);
             break;
         }
-        case Value_StringLiteral_TAG:
-            emitted = format_string(emitter->arena, "\"%s\"", value->payload.string_lit.string);
+        case Value_StringLiteral_TAG: {
+            Growy* g = new_growy();
+            Printer* p = open_growy_as_printer(g);
+
+            String str = value->payload.string_lit.string;
+            size_t len = strlen(str);
+            for (size_t i = 0; i < len; i++) {
+                char c = str[i];
+                switch (c) {
+                    case '\n': print(p, "\\n");
+                        break;
+                    default:
+                        growy_append_bytes(g, 1, &c);
+                }
+            }
+            growy_append_bytes(g, 1, "\0");
+
+            emitted = format_string(emitter->arena, "\"%s\"", growy_data(g));
+            destroy_growy(g);
+            destroy_printer(p);
             break;
+        }
         case Value_FnAddr_TAG: {
             emitted = get_decl_name(value->payload.fn_addr.fn);
             emitted = format_string(emitter->arena, "&%s", emitted);
