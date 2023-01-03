@@ -71,10 +71,10 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(eliminate_constants)
 
-    RUN_PASS(lower_subgroup_ops)
-
     aconfig.subgroup_mask_representation = SubgroupMaskInt64;
     RUN_PASS(lower_mask)
+
+    RUN_PASS(lower_subgroup_ops)
     RUN_PASS(lower_stack)
     RUN_PASS(lower_physical_ptrs)
     RUN_PASS(lower_subgroup_vars)

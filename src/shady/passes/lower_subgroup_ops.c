@@ -48,6 +48,8 @@ static const Node* process_let(Context* ctx, const Node* old) {
                     break;
                 }
 
+                TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
+
                 const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = int32_literal(arena, 2) });
 
                 const Node* varying_top_of_stack = gen_primop_e(builder, get_stack_base_op, empty(arena), empty(arena));
@@ -63,7 +65,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
                 const Node* uniform_typed_ptr = gen_reinterpret_cast(builder, uniform_typed_ptr_t, uniform_top_of_stack);
 
                 gen_store(builder, varying_typed_ptr, varying_value);
-                for (int32_t j = 0; j < 2; j++) {
+                for (int32_t j = 0; j < bytes_to_i32_cells(layout.size_in_bytes); j++) {
                     const Node* varying_logical_addr = gen_lea(builder, varying_raw_ptr, int32_literal(arena, 0), nodes(arena, 1, (const Node* []) {int32_literal(arena, j) }));
                     const Node* input = gen_load(builder, varying_logical_addr);
 
