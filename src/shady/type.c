@@ -94,12 +94,14 @@ bool is_subtype(const Type* supertype, const Type* type) {
         }
         case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width;
         case ArrType_TAG: {
-            return supertype->payload.arr_type.size == type->payload.arr_type.size
-            && is_subtype(supertype->payload.arr_type.element_type, type->payload.arr_type.element_type);
+            if (!is_subtype(supertype->payload.arr_type.element_type, type->payload.arr_type.element_type))
+                return false;
+            return supertype->payload.arr_type.size == type->payload.arr_type.size || !supertype->payload.arr_type.size || get_int_literal_value(supertype->payload.arr_type.size, false) == 0;
         }
         case PackType_TAG: {
-            return supertype->payload.pack_type.width == type->payload.pack_type.width
-            && is_subtype(supertype->payload.pack_type.element_type, type->payload.pack_type.element_type);
+            if (!is_subtype(supertype->payload.pack_type.element_type, type->payload.pack_type.element_type))
+                return false;
+            return supertype->payload.pack_type.width == type->payload.pack_type.width;
         }
         case Type_TypeDeclRef_TAG: {
             return supertype->payload.type_decl_ref.decl == type->payload.type_decl_ref.decl;
@@ -544,7 +546,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
                 assert(selector_type->tag == Int_TAG && "selectors must be integers");
                 uniform &= selector_uniform;
-                const Type* pointee_type = curr_ptr_type->payload.ptr_type.pointed_type;
+                pointee_type = curr_ptr_type->payload.ptr_type.pointed_type;
                 switch (pointee_type->tag) {
                     case ArrType_TAG: {
                         curr_ptr_type = ptr_type(arena, (PtrType) {
@@ -554,10 +556,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                         break;
                     }
                     case TypeDeclRef_TAG: {
-                        const Node* decl = pointee_type->payload.type_decl_ref.decl;
-                        assert(decl && decl->tag == NominalType_TAG);
-                        pointee_type = decl->payload.nom_type.body;
-                        assert(pointee_type);
+                        pointee_type = get_nominal_type_body(pointee_type);
                         SHADY_FALLTHROUGH
                     }
                     case RecordType_TAG: {

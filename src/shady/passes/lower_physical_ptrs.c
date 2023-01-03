@@ -12,7 +12,6 @@
 #include "dict.h"
 
 #include <assert.h>
-#include <string.h>
 
 typedef struct Context_ {
     Rewriter rewriter;
@@ -304,15 +303,6 @@ static const Node* process_let(Context* ctx, const Node* node) {
         switch (oprim_op->op) {
             case alloca_subgroup_op:
             case alloca_op: error("This needs to be lowered (see setup_stack_frames.c)")
-            case get_stack_base_uniform_op:
-            case get_stack_base_op: {
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-                const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, oprim_op->op == get_stack_base_op ? "stack_ptr" : "uniform_stack_ptr");
-                const Node* stack_size = gen_load(bb, stack_pointer);
-                if (ctx->config->printf_trace.stack_size)
-                    bind_instruction(bb, prim_op(arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = "trace: stack_size=%d uniform=%d" }), stack_size, int32_literal(arena, oprim_op->op != get_stack_base_op )) }));
-                return finish_body(bb, let(arena, quote_single(arena, stack_size), tail));
-            }
             case lea_op: {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 const Type* ptr_type = oprim_op->operands.nodes[0]->type;
@@ -371,19 +361,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
     if (found) return found;
 
     IrArena* arena = ctx->rewriter.dst_arena;
-
-    if (old->tag == Function_TAG && strcmp(get_abstraction_name(old), "generated_init") == 0) {
-        Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
-        BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-
-        // Make sure to zero-init the stack pointers
-        const Node* uniform_stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "uniform_stack_ptr");
-        gen_store(bb, uniform_stack_pointer, int32_literal(arena, 0));
-        const Node* stack_pointer = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "stack_ptr");
-        gen_store(bb, stack_pointer, int32_literal(arena, 0));
-        new->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body));
-        return new;
-    }
 
     switch (old->tag) {
         case Let_TAG: return process_let(ctx, old);

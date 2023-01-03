@@ -12,6 +12,7 @@
 #include "../type.h"
 
 #include <assert.h>
+#include <string.h>
 
 typedef uint32_t FnPtr;
 
@@ -124,7 +125,16 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 gen_store(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer, val);
                 return finish_body(bb, let(arena, unit(arena), tail));
             }
-
+            case get_stack_base_uniform_op:
+            case get_stack_base_op: {
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                const Node* stack_pointer = oprim_op->op == get_stack_base_op ? ctx->stack_pointer : ctx->uniform_stack_pointer;
+                const Node* stack_size = gen_load(bb, stack_pointer);
+                const Node* stack_base_ptr = gen_lea(bb, oprim_op->op == get_stack_base_op ? ctx->stack : ctx->uniform_stack, stack_size, empty(arena));
+                if (ctx->config->printf_trace.stack_size)
+                    bind_instruction(bb, prim_op(arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = "trace: stack_size=%d uniform=%d" }), stack_size, int32_literal(arena, oprim_op->op != get_stack_base_op )) }));
+                return finish_body(bb, let(arena, quote_single(arena, stack_base_ptr), tail));
+            }
             case push_stack_op:
             case push_stack_uniform_op:
             case pop_stack_op:
@@ -157,6 +167,21 @@ static const Node* process_let(Context* ctx, const Node* node) {
 static const Node* process_node(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
+
+    IrArena* arena = ctx->rewriter.dst_arena;
+
+    if (old->tag == Function_TAG && strcmp(get_abstraction_name(old), "generated_init") == 0) {
+        Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
+        BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+
+        // Make sure to zero-init the stack pointers
+        const Node* uniform_stack_pointer = ctx->uniform_stack_pointer;
+        gen_store(bb, uniform_stack_pointer, int32_literal(arena, 0));
+        const Node* stack_pointer = ctx->stack_pointer;
+        gen_store(bb, stack_pointer, int32_literal(arena, 0));
+        new->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body));
+        return new;
+    }
 
     switch (old->tag) {
         case Let_TAG: return process_let(ctx, old);
