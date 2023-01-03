@@ -861,7 +861,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     else if (accept_token(ctx, shared_tok))
         as = AsSharedLogical;
     else if (accept_token(ctx, subgroup_tok))
-        as = AsSubgroupPhysical;
+        as = AsSubgroupLogical;
     else if (accept_token(ctx, extern_tok))
         as = AsExternal;
     else if (accept_token(ctx, input_tok))
