@@ -90,7 +90,7 @@ const IntLiteral* resolve_to_literal(const Node*);
 int64_t get_int_literal_value(const Node*, bool sign_extend);
 const char* get_string_literal(IrArena*, const Node*);
 
-static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalLogical; }
+static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalPhysical; }
 
 /// Returns true if variables in that address space can contain different data for threads in the same subgroup
 bool is_addr_space_uniform(IrArena*, AddressSpace);
