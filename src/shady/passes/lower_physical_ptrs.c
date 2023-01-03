@@ -17,8 +17,11 @@ typedef struct Context_ {
     Rewriter rewriter;
     CompilerConfig* config;
 
-    struct Dict* ser[NumAddressSpaces];
-    struct Dict* des[NumAddressSpaces];
+    struct Dict*   serialisation_uniform[NumAddressSpaces];
+    struct Dict* deserialisation_uniform[NumAddressSpaces];
+
+    struct Dict*   serialisation_varying[NumAddressSpaces];
+    struct Dict* deserialisation_varying[NumAddressSpaces];
 
     /// Bytes used up by static allocations
     uint32_t preallocated_private_memory;
@@ -154,8 +157,13 @@ static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, con
     }
 }
 
-static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool ser, AddressSpace as) {
-    struct Dict* cache = ser ? ctx->ser[as] : ctx->des[as];
+static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool uniform, bool ser, AddressSpace as) {
+    struct Dict* cache;
+
+    if (uniform)
+        cache = ser ? ctx->serialisation_uniform[as] : ctx->deserialisation_uniform[as];
+    else
+        cache = ser ? ctx->serialisation_varying[as] : ctx->deserialisation_varying[as];
 
     const Node** found = find_value_dict(const Node*, const Node*, cache, element_type);
     if (found)
@@ -163,16 +171,16 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool se
 
     IrArena* arena = ctx->rewriter.dst_arena;
 
-    const Node* addr_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = int32_type(arena) }), "ptr");
+    const Node* addr_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform, .type = int32_type(arena) }), "ptr");
 
-    const Type* input_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = element_type });
+    const Type* input_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform, .type = element_type });
     const Node* value_param = ser ? var(arena, input_value_t, "value") : NULL;
     Nodes params = ser ? mk_nodes(arena, addr_param, value_param) : singleton(addr_param);
 
-    const Type* return_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = is_addr_space_uniform(arena, as), .type = element_type });
+    const Type* return_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || (uniform && is_addr_space_uniform(arena, as)), .type = element_type });
     Nodes return_ts = ser ? empty(arena) : singleton(return_value_t);
 
-    String name = format_string(arena, "generated_%s_as%d_%s", ser ? "store" : "load", as, name_type_safe(arena, element_type));
+    String name = format_string(arena, "generated_%s_as%d_%s_%s", ser ? "store" : "load", as, uniform ? "uniform" : "varying", name_type_safe(arena, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(arena, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
@@ -328,7 +336,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             case store_op: {
                 const Node* old_ptr = oprim_op->operands.nodes[0];
                 const Type* ptr_type = old_ptr->type;
-                ptr_type = get_unqualified_type(ptr_type);
+                bool uniform_ptr = deconstruct_qualified_type(&ptr_type);
                 assert(ptr_type->tag == PtrType_TAG);
                 if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                     break;
@@ -336,7 +344,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
                 const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
                 const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
-                const Node* fn = gen_serdes_fn(ctx, element_type, oprim_op->op == store_op, ptr_type->payload.ptr_type.address_space);
+                const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, oprim_op->op == store_op, ptr_type->payload.ptr_type.address_space);
 
                 if (oprim_op->op == load_op) {
                     const Node* result = first(bind_instruction(bb, leaf_call(arena, (LeafCall) { .callee = fn, .args = singleton(pointer_as_offset) })));
@@ -463,8 +471,10 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {
         if (is_as_emulated(&ctx, i)) {
-            ctx.ser[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
-            ctx.des[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx.serialisation_varying[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx.deserialisation_varying[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx.serialisation_uniform[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx.deserialisation_uniform[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
         }
     }
 
@@ -473,8 +483,10 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {
         if (is_as_emulated(&ctx, i)) {
-            destroy_dict(ctx.ser[i]);
-            destroy_dict(ctx.des[i]);
+            destroy_dict(ctx.serialisation_varying[i]);
+            destroy_dict(ctx.deserialisation_varying[i]);
+            destroy_dict(ctx.serialisation_uniform[i]);
+            destroy_dict(ctx.deserialisation_uniform[i]);
         }
     }
 }
