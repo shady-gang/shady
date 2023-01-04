@@ -127,7 +127,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                     // If we're C89 (ew)
                     if (!emitter->config.allow_compound_literals)
                         goto no_compound_literals;
-                    emitted = format_string(emitter->arena, "((%s) { %s })", type, emitted);
+                    emitted = format_string(emitter->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), emitted);
                     break;
                 case GLSL:
                     if (type->tag != PackType_TAG)
@@ -464,7 +464,8 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
             String prefix = "";
             switch (emitter->config.dialect) {
-                case ISPC:
+                // ISPC defaults to varying, even for constants... yuck
+                case ISPC: decl_center = format_string(emitter->arena, "uniform %s", decl_center); break;
                 case C: decl_center = format_string(emitter->arena, "const %s", decl_center); break;
                 case GLSL: prefix = "const "; break;
             }

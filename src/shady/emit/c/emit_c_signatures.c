@@ -180,9 +180,9 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                     return emit_type(emitter, type->payload.qualified_type.type, center);
                 case ISPC:
                     if (type->payload.qualified_type.is_uniform)
-                        return format_string(emitter->arena, "uniform %s", emit_type(emitter, type->payload.qualified_type.type, center));
+                        return emit_type(emitter, type->payload.qualified_type.type, format_string(emitter->arena, "uniform %s", center));
                     else
-                        return emit_type(emitter, type->payload.qualified_type.type, center);
+                        return emit_type(emitter, type->payload.qualified_type.type, format_string(emitter->arena, "varying %s", center));
             }
         case Type_PtrType_TAG: {
             return emit_type(emitter, type->payload.ptr_type.pointed_type, format_string(emitter->arena, "*%s", center));

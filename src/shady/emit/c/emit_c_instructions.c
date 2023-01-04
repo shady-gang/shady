@@ -156,6 +156,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             }
             assert(outputs.count == 1);
             outputs.results[0] = acc;
+            outputs.binding[0] = emitter->config.dialect == ISPC ? LetBinding : NoBinding;
             outputs.binding[0] = NoBinding;
             return;
         }
