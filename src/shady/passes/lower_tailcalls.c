@@ -53,6 +53,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
     Nodes rewritten_params = recreate_variables(&ctx2.rewriter, old->payload.fun.params);
+    rewritten_params = empty(dst_arena);
     Node* new_entry_pt = function(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), nodes(dst_arena, 0, NULL));
 
     BodyBuilder* builder = begin_body(ctx2.rewriter.dst_module);
@@ -126,9 +127,11 @@ static const Node* process(Context* ctx, const Node* old) {
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
-                const Node* popped = gen_pop_value_stack(bb, rewrite_node(&ctx->rewriter, get_unqualified_type(old_param->type)));
+                const Type* new_param_type = rewrite_node(&ctx->rewriter, get_unqualified_type(old_param->type));
+                const Node* popped = first(bind_instruction_named(bb, prim_op(dst_arena, (PrimOp) { .op = pop_stack_op, .type_arguments = singleton(new_param_type), .operands = empty(dst_arena) }), &old_param->payload.var.name));
+                // TODO use the uniform stack instead ? or no ?
                 if (is_qualified_type_uniform(old_param->type))
-                    popped = first(gen_primop(bb, subgroup_broadcast_first_op, empty(dst_arena), singleton(popped)));
+                    popped = first(bind_instruction_named(bb, prim_op(dst_arena, (PrimOp) { .op = subgroup_broadcast_first_op, .type_arguments = empty(dst_arena), .operands =singleton(popped) }), &old_param->payload.var.name));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
             fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));

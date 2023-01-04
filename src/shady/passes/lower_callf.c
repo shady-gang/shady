@@ -16,7 +16,6 @@ typedef struct Context_ {
     bool disable_lowering;
 
     Node* self;
-    bool entry_point;
     const Node* return_jp;
 } Context;
 
@@ -35,16 +34,13 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
             register_processed_list(&ctx->rewriter, oparams, nparams);
 
-            ctx2.entry_point = lookup_annotation(old, "EntryPoint");
-            if (!ctx2.entry_point) {
-                // Supplement an additional parameter for the join point
-                const Type* jp_type = join_point_type(dst_arena, (JoinPointType) {
-                        .yield_types = strip_qualifiers(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
-                });
-                const Node* jp_variable = var(dst_arena, qualified_type_helper(jp_type, true), "return_jp");
-                nparams = append_nodes(dst_arena, nparams, jp_variable);
-                ctx2.return_jp = jp_variable;
-            }
+            // Supplement an additional parameter for the join point
+            const Type* jp_type = join_point_type(dst_arena, (JoinPointType) {
+                    .yield_types = strip_qualifiers(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
+            });
+            const Node* jp_variable = var(dst_arena, qualified_type_helper(jp_type, true), "return_jp");
+            nparams = append_nodes(dst_arena, nparams, jp_variable);
+            ctx2.return_jp = jp_variable;
 
             Nodes nannots = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
             fun = function(ctx->rewriter.dst_module, nparams, get_abstraction_name(old), nannots, empty(dst_arena));
@@ -72,8 +68,6 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                         .join_point = return_jp,
                         .args = nargs,
                 }));
-            } else if (ctx->entry_point) {
-                return fn_ret(dst_arena, (Return) { .fn = ctx->self, .args = empty(dst_arena) });
             } else {
                 assert(false);
             }
