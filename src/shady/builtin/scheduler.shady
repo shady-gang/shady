@@ -21,11 +21,12 @@ subgroup [i32; SUBGROUP_SIZE] resume_at;
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("setup_stack_frames") @Leaf
 fn builtin_init_scheduler() {
     val init_mask = subgroup_active_mask();
-    val tree_node = composite TreeNode(init_mask, 0);
 
-    scheduler_vector.(subgroup_local_id()) = tree_node;
+    val tree_node1 = composite TreeNode(init_mask, 1);
+    scheduler_vector.(subgroup_local_id()) = tree_node1;
 
-    val jp = composite JoinPoint(tree_node, 0);
+    val tree_node0 = composite TreeNode(init_mask, 0);
+    val jp = composite JoinPoint(tree_node0, 0);
     push_stack[JoinPoint](jp);
 
     actual_subgroup_size = subgroup_reduce_sum(1);
