@@ -72,6 +72,7 @@ TOKEN(infix_ls, "<") \
 TOKEN(infix_and, "&") \
 TOKEN(infix_xor, "^") \
 TOKEN(infix_or, "|") \
+TOKEN(unary_excl, "!") \
 TOKEN(plus, "+") \
 TOKEN(minus, "-") \
 TOKEN(star, "*") \

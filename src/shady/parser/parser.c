@@ -303,8 +303,7 @@ static Nodes accept_types(ctxparams, TokenTag separator, bool expect_qualified) 
 }
 
 static const Node* accept_primary_expr(ctxparams) {
-    if (curr_token(tokenizer).tag == minus_tok) {
-        next_token(tokenizer);
+    if (accept_token(ctx, minus_tok)) {
         const Node* expr = accept_primary_expr(ctx);
         assert(expr);
         if (expr->tag == IntLiteral_TAG) {
@@ -318,6 +317,13 @@ static const Node* accept_primary_expr(ctxparams) {
                 .operands = nodes(arena, 1, (const Node* []) {expr})
             });
         }
+    } else if (accept_token(ctx, unary_excl_tok)) {
+        const Node* expr = accept_primary_expr(ctx);
+        assert(expr);
+        return prim_op(arena, (PrimOp) {
+            .op = not_op,
+            .operands = singleton(expr),
+        });
     }
 
     const Node* expr = accept_value(ctx);
