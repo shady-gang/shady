@@ -51,8 +51,17 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
     }
 
     LARRAY(Node*, vars, types.count);
-    for (size_t i = 0; i < types.count; i++)
-        vars[i] = (Node*) var(arena, types.nodes[i], output_names ? output_names[i] : node_tags[value->tag]);
+    for (size_t i = 0; i < types.count; i++) {
+        String var_name = output_names ? output_names[i] : NULL;
+        if (!var_name) {
+            if (value->tag == PrimOp_TAG) {
+                var_name = primop_names[value->payload.prim_op.op];
+            } else {
+                var_name = node_tags[value->tag];
+            }
+        }
+        vars[i] = (Node*) var(arena, types.nodes[i], var_name);
+    }
 
     for (size_t i = 0; i < outputs_count; i++) {
         vars[i]->payload.var.instruction = value;
