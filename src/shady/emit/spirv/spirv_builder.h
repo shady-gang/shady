@@ -29,6 +29,7 @@ SpvId spvb_binop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result
 SpvId spvb_unop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, SpvId value);
 SpvId spvb_elect(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope);
 SpvId spvb_ballot(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId predicate, SpvId scope);
+SpvId spvb_shuffle(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope, SpvId value, SpvId id);
 SpvId spvb_broadcast_first(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId value, SpvId scope);
 SpvId spvb_non_uniform_iadd(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId value, SpvId scope, SpvGroupOperation group_op, SpvId* cluster_size);
 

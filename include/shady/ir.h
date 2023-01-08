@@ -210,6 +210,10 @@ typedef struct CompilerConfig_ {
     } lower;
 
     struct {
+        bool spv_shuffle_instead_of_broadcast_first;
+    } hacks;
+
+    struct {
         bool memory_accesses;
         bool stack_accesses;
         bool god_function;

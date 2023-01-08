@@ -94,8 +94,14 @@ static CompilerConfig get_compiler_config_for_device(Device* device) {
     if (!device->caps.features.subgroup_extended_types.shaderSubgroupExtendedTypes)
         config.lower.emulate_subgroup_ops_extended_types = true;
 
-    if (device->caps.implementation.is_moltenvk)
+    if (device->caps.implementation.is_moltenvk) {
+        warn_print("Hack: MoltenVK says they supported subgroup extended types, but it's a lie. 64-bit types are unaccounted for !\n");
         config.lower.emulate_subgroup_ops_extended_types = true;
+    }
+    if (device->caps.base_properties.vendorID == 0x10de) {
+        warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
+        config.hacks.spv_shuffle_instead_of_broadcast_first = true;
+    }
 
     config.logging.skip_generated = true;
     config.logging.skip_builtin = true;

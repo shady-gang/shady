@@ -131,11 +131,11 @@ static SpvOp get_opcode(Emitter* emitter, struct IselTableEntry entry, Nodes arg
 }
 
 static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* instr, size_t results_count, SpvId results[]) {
-    PrimOp prim_op = instr->payload.prim_op;
-    Nodes args = prim_op.operands;
-    Nodes type_arguments = prim_op.type_arguments;
+    PrimOp the_op = instr->payload.prim_op;
+    Nodes args = the_op.operands;
+    Nodes type_arguments = the_op.type_arguments;
 
-    struct IselTableEntry entry = isel_table[prim_op.op];
+    struct IselTableEntry entry = isel_table[the_op.op];
     if (entry.class != Custom) {
         LARRAY(SpvId, emitted_args, args.count);
         for (size_t i = 0; i < args.count; i++)
@@ -176,7 +176,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
 
         return;
     }
-    switch (prim_op.op) {
+    switch (the_op.op) {
         case subgroup_ballot_op: {
             const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = int32_type(emitter->arena) });
             SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
@@ -193,7 +193,16 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         }
         case subgroup_broadcast_first_op: {
             SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
-            SpvId result = spvb_broadcast_first(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
+            SpvId result;
+
+            if (emitter->configuration->hacks.spv_shuffle_instead_of_broadcast_first) {
+                SpvId local_id;
+                emit_primop(emitter, fn_builder, bb_builder, prim_op(emitter->arena, (PrimOp) { .op = subgroup_local_id_op }), 1, &local_id);
+                result = spvb_shuffle(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), scope_subgroup, emit_value(emitter, bb_builder, first(args)), local_id);
+            } else {
+                result = spvb_broadcast_first(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
+            }
+
             assert(results_count == 1);
             results[0] = result;
             return;
