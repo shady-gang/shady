@@ -24,16 +24,21 @@ void emit_unpack_code(Printer* p, String src, Strings dst) {
     }
 }
 
-static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String given_name, Strings* given_names, Nodes types) {
+static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String given_name, Strings* given_names, Nodes types, const Nodes* init_values) {
     if (given_names)
         assert(given_names->count == types.count);
+    if (init_values)
+        assert(init_values->count == types.count);
     LARRAY(String, names, types.count);
     for (size_t i = 0; i < types.count; i++) {
         VarId id = fresh_id(emitter->arena);
         String name = given_names ? given_names->strings[i] : given_name;
         assert(name);
         names[i] = format_string(emitter->arena, "%s_%d", name, id);
-        print(p, "\n%s;", c_emit_type(emitter, types.nodes[i], names[i]));
+        if (init_values)
+            print(p, "\n%s = %s;", c_emit_type(emitter, types.nodes[i], names[i]), to_cvalue(emitter, emit_value(emitter, p, init_values->nodes[i])));
+        else
+            print(p, "\n%s;", c_emit_type(emitter, types.nodes[i], names[i]));
     }
     return strings(emitter->arena, types.count, names);
 }
@@ -415,7 +420,7 @@ static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Instruct
     assert(if_instr->tag == If_TAG);
     const If* if_ = &if_instr->payload.if_instr;
     Emitter sub_emiter = *emitter;
-    Strings ephis = emit_variable_declarations(emitter, p, "loop_break_phi", NULL, if_->yield_types);
+    Strings ephis = emit_variable_declarations(emitter, p, "if_phi", NULL, if_->yield_types, NULL);
     sub_emiter.phis.selection = ephis;
 
     assert(get_anonymous_lambda_params(if_->if_true).count == 0);
@@ -441,7 +446,7 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, In
     assert(match_instr->tag == Match_TAG);
     const Match* match = &match_instr->payload.match_instr;
     Emitter sub_emiter = *emitter;
-    Strings ephis = emit_variable_declarations(emitter, p, "loop_break_phi", NULL, match->yield_types);
+    Strings ephis = emit_variable_declarations(emitter, p, "match_phi", NULL, match->yield_types, NULL);
     sub_emiter.phis.selection = ephis;
 
     // Of course, the sensible thing to do here would be to emit a switch statement.
@@ -488,12 +493,12 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Inst
     Emitter sub_emiter = *emitter;
     Nodes params = get_anonymous_lambda_params(loop->body);
     Strings param_names = get_variable_names(emitter->arena, params);
-    Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, get_variables_types(emitter->arena, params));
+    Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, get_variables_types(emitter->arena, params), &loop_instr->payload.loop_instr.initial_args);
     for (size_t i = 0; i < params.count; i++)
         register_emitted(&sub_emiter, params.nodes[i], term_from_cvalue(eparams.strings[i]));
 
     sub_emiter.phis.loop_continue = eparams;
-    Strings ephis = emit_variable_declarations(emitter, p, "loop_break_phi", NULL, loop->yield_types);
+    Strings ephis = emit_variable_declarations(emitter, p, "loop_break_phi", NULL, loop->yield_types, NULL);
     sub_emiter.phis.loop_break = ephis;
 
     String body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(loop->body), NULL);
