@@ -88,7 +88,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push, boo
     gen_store(bb, stack_pointer, stack_size);
     if (ctx->config->printf_trace.stack_size) {
         bind_instruction(bb, prim_op(arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = name })) }));
-        bind_instruction(bb, prim_op(arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = "stack size after: %d" }), stack_size) }));
+        bind_instruction(bb, prim_op(arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = "stack size after: %d\n" }), stack_size) }));
     }
 
     if (push) {
@@ -131,8 +131,12 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 const Node* stack_pointer = oprim_op->op == get_stack_base_op ? ctx->stack_pointer : ctx->uniform_stack_pointer;
                 const Node* stack_size = gen_load(bb, stack_pointer);
                 const Node* stack_base_ptr = gen_lea(bb, oprim_op->op == get_stack_base_op ? ctx->stack : ctx->uniform_stack, stack_size, empty(arena));
-                if (ctx->config->printf_trace.stack_size)
-                    bind_instruction(bb, prim_op(arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = "trace: stack_size=%d uniform=%d" }), stack_size, int32_literal(arena, oprim_op->op != get_stack_base_op )) }));
+                if (ctx->config->printf_trace.stack_size) {
+                    if (oprim_op->op == get_stack_base_op)
+                        bind_instruction(bb, prim_op(arena, (PrimOp) {.op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) {.string = "trace: stack_size=%d\n"}), stack_size)}));
+                    else
+                        bind_instruction(bb, prim_op(arena, (PrimOp) {.op = debug_printf_op, .operands = mk_nodes(arena, string_lit(arena, (StringLiteral) {.string = "trace: uniform stack_size=%d\n"}), stack_size)}));
+                }
                 return finish_body(bb, let(arena, quote_single(arena, stack_base_ptr), tail));
             }
             case push_stack_op:

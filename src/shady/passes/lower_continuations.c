@@ -41,7 +41,7 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
         const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
 
         const Node* save_instruction = prim_op(arena, (PrimOp) {
-            .op = is_qualified_type_uniform(nvar->type) ? push_stack_uniform_op : push_stack_op,
+            .op = push_stack_op,
             .type_arguments = singleton(get_unqualified_type(nvar->type)),
             .operands = singleton(nvar),
         });
@@ -102,10 +102,13 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, Str
         assert(ovar->tag == Variable_TAG);
 
         const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
-        const Node* recovered_value = bind_instruction(builder, prim_op(arena, (PrimOp) {
-            .op = is_qualified_type_uniform(nvar->type) ? pop_stack_uniform_op : pop_stack_op,
+        const Node* recovered_value = first(bind_instruction_named(builder, prim_op(arena, (PrimOp) {
+            .op = pop_stack_op,
             .type_arguments = nodes(arena, 1, (const Node* []) { get_unqualified_type(nvar->type) })
-        })).nodes[0];
+        }), &ovar->payload.var.name));
+
+        if (is_qualified_type_uniform(nvar->type))
+            recovered_value = first(bind_instruction_named(builder, prim_op(arena, (PrimOp) { .op = subgroup_broadcast_first_op, .operands = singleton(recovered_value) }), &ovar->payload.var.name));
 
         // this dict overrides the 'processed' region
         register_processed(&substituter, nvar, recovered_value);
