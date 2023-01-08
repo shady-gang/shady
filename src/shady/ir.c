@@ -11,7 +11,6 @@
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
-#include <threads.h>
 
 static KeyHash hash_nodes(Nodes* nodes);
 static bool compare_nodes(Nodes* a, Nodes* b);
@@ -171,7 +170,7 @@ enum {
     ThreadLocalStaticBufferSize = 256
 };
 
-thread_local char static_buffer[ThreadLocalStaticBufferSize];
+char static_buffer[ThreadLocalStaticBufferSize];
 
 String format_string(IrArena* arena, const char* str, ...) {
     size_t buffer_size = ThreadLocalStaticBufferSize;
