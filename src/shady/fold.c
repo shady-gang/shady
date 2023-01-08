@@ -157,6 +157,12 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
 
             break;
         }
+        case subgroup_broadcast_first_op: {
+            const Node* value = first(prim_op.operands);
+            if (is_qualified_type_uniform(value->type))
+                return quote_single(arena, value);
+            break;
+        }
         case reinterpret_op:
         case convert_op:
             // get rid of identity casts
