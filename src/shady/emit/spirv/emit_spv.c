@@ -70,7 +70,7 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
             const Node* decl = node->payload.ref_decl.decl;
             switch (decl->tag) {
                 case GlobalVariable_TAG: {
-                    new = *find_value_dict(const Node*, SpvId, emitter->node_ids, decl);
+                    new = emit_decl(emitter, decl);
                     break;
                 }
                 case Constant_TAG: {

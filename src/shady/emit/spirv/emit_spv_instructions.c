@@ -71,11 +71,11 @@ const struct IselTableEntry {
     [gt_op]  = { BinOp, FirstOp, Bool, .fo = { SpvOpSGreaterThan,      SpvOpUGreaterThan,      SpvOpFOrdGreaterThan,      ISEL_IDENTITY        }},
     [gte_op] = { BinOp, FirstOp, Bool, .fo = { SpvOpSGreaterThanEqual, SpvOpUGreaterThanEqual, SpvOpFOrdGreaterThanEqual, ISEL_IDENTITY        }},
 
-    [not_op] = { UnOp, FirstOp, Same, .fo = { SpvOpNot,        SpvOpNot,        SpvOpLogicalNot      }},
+    [not_op] = { UnOp, FirstOp, Same, .fo = { SpvOpNot,        SpvOpNot,        ISEL_ILLEGAL, SpvOpLogicalNot      }},
 
-    [and_op] = { BinOp, FirstOp, Same, .fo = { SpvOpBitwiseAnd, SpvOpBitwiseAnd, SpvOpLogicalAnd      }},
-    [or_op]  = { BinOp, FirstOp, Same, .fo = { SpvOpBitwiseOr,  SpvOpBitwiseOr,  SpvOpLogicalOr       }},
-    [xor_op] = { BinOp, FirstOp, Same, .fo = { SpvOpBitwiseXor, SpvOpBitwiseXor, SpvOpLogicalNotEqual }},
+    [and_op] = { BinOp, FirstOp, Same, .fo = { SpvOpBitwiseAnd, SpvOpBitwiseAnd, ISEL_ILLEGAL, SpvOpLogicalAnd      }},
+    [or_op]  = { BinOp, FirstOp, Same, .fo = { SpvOpBitwiseOr,  SpvOpBitwiseOr,  ISEL_ILLEGAL, SpvOpLogicalOr       }},
+    [xor_op] = { BinOp, FirstOp, Same, .fo = { SpvOpBitwiseXor, SpvOpBitwiseXor, ISEL_ILLEGAL, SpvOpLogicalNotEqual }},
 
     [lshift_op]         = { BinOp, FirstOp, Same, .fo = { SpvOpShiftLeftLogical,     SpvOpShiftLeftLogical,     ISEL_ILLEGAL, ISEL_ILLEGAL }},
     [rshift_arithm_op]  = { BinOp, FirstOp, Same, .fo = { SpvOpShiftRightArithmetic, SpvOpShiftRightArithmetic, ISEL_ILLEGAL, ISEL_ILLEGAL }},
@@ -158,7 +158,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             case BinOp: {
                 assert(args.count == 2 && results_count == 1);
                 SpvOp opcode = get_opcode(emitter, entry, args, type_arguments);
-                assert(opcode != SpvOpMax);
+                assert(opcode != SpvOpMax && opcode != SpvOpNop);
                 const Type* result_t = get_result_t(emitter, entry, args, type_arguments);
                 results[0] = spvb_binop(bb_builder, opcode, emit_type(emitter, result_t), emitted_args[0], emitted_args[1]);
                 return;
