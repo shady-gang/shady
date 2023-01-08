@@ -10,13 +10,12 @@ type JoinPoint = struct {
 
 subgroup i32 actual_subgroup_size;
 
-subgroup i32 next_fn;
-subgroup mask_t next_mask;
-
 subgroup i32 scheduler_cursor = 0;
 subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
-
 subgroup [i32; SUBGROUP_SIZE] resume_at;
+
+subgroup i32 next_fn;
+subgroup TreeNode active_branch;
 
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("setup_stack_frames") @Leaf
 fn builtin_init_scheduler() {
@@ -24,6 +23,7 @@ fn builtin_init_scheduler() {
 
     val tree_node1 = composite TreeNode(init_mask, 1);
     scheduler_vector.(subgroup_local_id()) = tree_node1;
+    active_branch = tree_node1;
 
     val tree_node0 = composite TreeNode(init_mask, 0);
     val jp = composite JoinPoint(tree_node0, 0);
@@ -47,30 +47,36 @@ fn builtin_create_control_point uniform JoinPoint(uniform i32 join_destination) 
 
 @Builtin @DisablePass("lower_cf_instrs") @Leaf
 fn builtin_fork(varying i32 branch_destination) {
-    // First ask the first thread where it thinks we should branch, and all the threads that agree are set to go there
     val first_branch = subgroup_broadcast_first(branch_destination);
-    if (first_branch == branch_destination) {
-        next_fn = first_branch;
-        next_mask = subgroup_active_mask();
 
-        // tag those variables as not in use.
-        // resume_at.(subgroup_local_id()) = -1;
-        // resume_with.(subgroup_local_id()) = empty_mask();
-        return ();
-    }
-
-    // We're left with the threads we can't schedule right now.
-    loop() {
+    // if there is disagreement on the destination, then increase the depth of every branch
+    val uniform_branch = subgroup_active_mask() == subgroup_ballot(first_branch == branch_destination);
+    if (!uniform_branch) {
         // update depth counter
         val old_depth = scheduler_vector.(subgroup_local_id()).1;
         scheduler_vector.(subgroup_local_id()).1 = old_depth + 1;
+    }
 
+    // Partition the set of branch destinations and adapt the masks in turn
+    loop() {
         val elected = subgroup_broadcast_first(branch_destination);
         if (elected == branch_destination) {
             resume_at.(subgroup_local_id()) = elected;
             scheduler_vector.(subgroup_local_id()).0 = subgroup_ballot(elected == branch_destination);
             break;
         }
+    }
+
+    // We must pick one branch as our 'favourite child' to schedule for immediate execution.
+    // we could do fancy intrinsics, but for now we'll just pick the first one
+    if (subgroup_elect_first()) {
+        next_fn = subgroup_broadcast_first(branch_destination);
+        active_branch = subgroup_broadcast_first(scheduler_vector.(subgroup_local_id()));
+
+        // tag those variables as not in use.
+        // resume_at.(subgroup_local_id()) = -1;
+        // resume_with.(subgroup_local_id()) = empty_mask();
+        // return ();
     }
 }
 
@@ -143,6 +149,14 @@ fn builtin_find_schedulable_leaf() {
     }
 
     next_fn = subgroup_broadcast_first(resume_at.reduced);
-    next_mask = subgroup_broadcast_first(scheduler_vector.reduced.0);
+    active_branch = subgroup_broadcast_first(scheduler_vector.reduced);
     return ();
+}
+
+@Builtin @DisablePass("lower_cf_instrs") @Leaf
+fn builtin_get_active_branch mask_t() {
+    val this_thread_branch = scheduler_vector.(subgroup_local_id());
+    val same_dest = resume_at.(subgroup_local_id()) == next_fn;
+    val not_escaping = leaf_call(is_parent)(this_thread_branch, active_branch);
+    return (subgroup_ballot(same_dest & not_escaping));
 }

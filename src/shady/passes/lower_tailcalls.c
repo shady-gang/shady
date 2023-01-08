@@ -67,9 +67,10 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     }
 
     // Initialise next_fn/next_mask to the entry function
-    gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"), lower_fn_addr(ctx, old));
-    const Node* entry_mask = gen_primop_ce(builder, subgroup_active_mask_op, 0, NULL);
-    gen_store(builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_mask"), entry_mask);
+    const Node* jump_fn = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_fork");
+    assert(jump_fn->tag == FnAddr_TAG);
+    jump_fn = jump_fn->payload.fn_addr.fn;
+    bind_instruction(builder, leaf_call(dst_arena, (LeafCall) { .callee = jump_fn, .args = singleton(lower_fn_addr(ctx, old)) }));
 
     if (!*ctx->top_dispatcher_fn) {
         *ctx->top_dispatcher_fn = function(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), "top_dispatcher", singleton(annotation(dst_arena, (Annotation) { .name = "Generated" })), nodes(dst_arena, 0, NULL));
@@ -204,7 +205,10 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     BodyBuilder* loop_body_builder = begin_body(ctx->rewriter.dst_module);
 
     const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"));
-    const Node* next_mask = gen_load(loop_body_builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_mask"));
+    const Node* get_active_branch_fn = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_get_active_branch");
+    assert(get_active_branch_fn->tag == FnAddr_TAG);
+    get_active_branch_fn = get_active_branch_fn->payload.fn_addr.fn;
+    const Node* next_mask = first(bind_instruction(loop_body_builder, leaf_call(dst_arena, (LeafCall) { .callee = get_active_branch_fn, .args = empty(dst_arena) })));
     const Node* local_id = gen_primop_e(loop_body_builder, subgroup_local_id_op, empty(dst_arena), empty(dst_arena));
     const Node* should_run = gen_primop_e(loop_body_builder, mask_is_thread_active_op, empty(dst_arena), mk_nodes(dst_arena, next_mask, local_id));
 
