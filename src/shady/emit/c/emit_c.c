@@ -320,7 +320,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
 
 void emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, const Nodes* bbs) {
     assert(is_terminator(body));
-    print(p, "{");
+    //print(p, "{");
     indent(p);
 
     emit_terminator(emitter, p, body);
@@ -331,7 +331,7 @@ void emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, const N
     }
 
     deindent(p);
-    print(p, "\n}");
+    print(p, "\n");
 }
 
 String emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
@@ -450,8 +450,15 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 }
 
                 String fn_body = emit_lambda_body(emitter, body, NULL);
-                print(emitter->fn_defs, "\n%s %s", head, fn_body);
-                free_tmp_str(fn_body);
+                String free_me = fn_body;
+                if (emitter->config.dialect == ISPC) {
+                    // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
+                    // therefore we must tell ISPC to please, pretty please, mask everything by branching on what the mask should be
+                    fn_body = format_string(emitter->arena, "if ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
+                    // I hate everything about this too.
+                }
+                print(emitter->fn_defs, "\n%s { %s }", head, fn_body);
+                free_tmp_str(free_me);
             }
 
             print(emitter->fn_decls, "\n%s;", head);

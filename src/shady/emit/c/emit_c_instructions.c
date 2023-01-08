@@ -426,12 +426,12 @@ static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Instruct
     assert(get_anonymous_lambda_params(if_->if_true).count == 0);
     String true_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(if_->if_true), NULL);
     CValue condition = to_cvalue(emitter, emit_value(emitter, p, if_->condition));
-    print(p, "\nif (%s) %s", condition, true_body);
+    print(p, "\nif (%s) { %s}", condition, true_body);
     free_tmp_str(true_body);
     if (if_->if_false) {
         assert(get_anonymous_lambda_params(if_->if_false).count == 0);
         String false_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(if_->if_false), NULL);
-        print(p, " else %s", false_body);
+        print(p, " else {%s}", false_body);
         free_tmp_str(false_body);
     }
 
@@ -469,13 +469,13 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, In
         print(p, "\n");
         if (!first)
             print(p, "else ");
-        print(p, "if (%s == %s) %s", inspectee, literals[i], case_body);
+        print(p, "if (%s == %s) { %s}", inspectee, literals[i], case_body);
         free_tmp_str(case_body);
         first = false;
     }
     if (match->default_case) {
         String default_case_body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(match->default_case), NULL);
-        print(p, "\nelse %s", default_case_body);
+        print(p, "\nelse { %s}", default_case_body);
         free_tmp_str(default_case_body);
     }
 
@@ -502,7 +502,7 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Inst
     sub_emiter.phis.loop_break = ephis;
 
     String body = emit_lambda_body(&sub_emiter, get_anonymous_lambda_body(loop->body), NULL);
-    print(p, "\nwhile(true) %s", body);
+    print(p, "\nwhile(true) { %s}", body);
     free_tmp_str(body);
 
     assert(outputs.count == ephis.count);
