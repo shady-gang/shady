@@ -78,7 +78,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     }
     free_tmp_str(parameters);
 
-    String cdecl = emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
+    String c_decl = emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
 
     const Node* entry_point = fn ? lookup_annotation(fn, "EntryPoint") : NULL;
     if (entry_point) switch (emitter->config.dialect) {
@@ -87,11 +87,11 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
             case GLSL:
                 break;
             case ISPC:
-                cdecl = format_string(emitter->arena, "export %s", cdecl);
+                c_decl = format_string(emitter->arena, "export %s", c_decl);
                 break;
         }
 
-    return cdecl;
+    return c_decl;
 }
 
 String emit_type(Emitter* emitter, const Type* type, const char* center) {
