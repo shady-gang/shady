@@ -4,7 +4,7 @@ fn fib varying i32(varying i32 n) {
   return (indirect_call(fib)(n-1) + indirect_call(fib)(n-2));
 }
 
-@EntryPoint("compute") @WorkgroupSize(64, 1, 1) fn fib_main() {
-    debug_printf("hi %", fib(subgroup_local_id()));
+@EntryPoint("compute") @WorkgroupSize(64, 1, 1) fn main() {
+    debug_printf("hi %d", fib(subgroup_local_id() % 16));
     return ();
 }
