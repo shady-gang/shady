@@ -26,6 +26,7 @@ struct Module_ {
     IrArena* arena;
     String name;
     struct List* decls;
+    bool sealed;
 };
 
 void register_decl_module(Module*, Node*);

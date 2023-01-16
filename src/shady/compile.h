@@ -15,6 +15,7 @@ pass_name(config, old_mod, mod);                        \
 debug_print("After "#pass_name" pass: \n");             \
 log_module(DEBUG, config, mod);                         \
 verify_module(mod);                                     \
+mod->sealed = true;                                     \
 if (old_arena) destroy_ir_arena(old_arena);
 
 #endif

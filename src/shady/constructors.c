@@ -176,6 +176,7 @@ const Node* tuple(IrArena* arena, Nodes contents) {
 }
 
 Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
+    assert(!mod->sealed);
     IrArena* arena = mod->arena;
     Function payload = {
         .module = mod,
@@ -200,6 +201,7 @@ Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, N
 }
 
 Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
+    assert(!fn->payload.fun.module->sealed);
     BasicBlock payload = {
         .params = params,
         .body = NULL,
@@ -219,6 +221,7 @@ Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
 }
 
 const Node* lambda(Module* module, Nodes params, const Node* body) {
+    assert(!module->sealed);
     AnonLambda payload = {
         .module = module,
         .params = params,
