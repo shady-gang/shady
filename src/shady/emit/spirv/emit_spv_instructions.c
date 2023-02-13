@@ -18,7 +18,7 @@ typedef enum {
 } InstrClass;
 
 typedef enum {
-    Same, Bool, TyOperand
+    Same, SameTuple, Bool, TyOperand
 } ResultClass;
 
 static OperandClass classify_operand_type(const Type* type) {
@@ -61,6 +61,10 @@ const struct IselTableEntry {
     [mul_op] = { BinOp, FirstOp, Same, .fo = { SpvOpIMul, SpvOpIMul, SpvOpFMul }},
     [div_op] = { BinOp, FirstOp, Same, .fo = { SpvOpSDiv, SpvOpUDiv, SpvOpFDiv }},
     [mod_op] = { BinOp, FirstOp, Same, .fo = { SpvOpSMod, SpvOpUMod, SpvOpFMod }},
+
+    [add_carry_op] = { BinOp, FirstOp, SameTuple, .fo = { SpvOpIAddCarry, SpvOpIAddCarry }},
+    [sub_borrow_op] = { BinOp, FirstOp, SameTuple, .fo = { SpvOpISubBorrow, SpvOpISubBorrow }},
+    [mul_extended_op] = { BinOp, FirstOp, SameTuple, .fo = { SpvOpSMulExtended, SpvOpUMulExtended }},
 
     [neg_op] = { UnOp, FirstOp, Same, .fo = { SpvOpSNegate, SpvOpSNegate }},
 
@@ -107,12 +111,14 @@ const struct IselTableEntry {
     [PRIMOPS_COUNT] = { Custom }
 };
 
+#pragma GCC diagnostic error "-Wswitch"
+
 static const Type* get_result_t(Emitter* emitter, struct IselTableEntry entry, Nodes args, Nodes type_arguments) {
     switch (entry.result_kind) {
         case Same:      return get_unqualified_type(first(args)->type);
+        case SameTuple: return record_type(emitter->arena, (RecordType) { .members = mk_nodes(emitter->arena, get_unqualified_type(first(args)->type), get_unqualified_type(first(args)->type)) });
         case Bool:      return bool_type(emitter->arena);
         case TyOperand: return first(type_arguments);
-        default: error("unhandled result kind");
     }
 }
 

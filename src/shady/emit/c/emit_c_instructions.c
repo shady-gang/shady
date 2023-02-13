@@ -63,6 +63,11 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             }
             break;
         }
+        case add_carry_op:
+        case sub_borrow_op:
+        case mul_extended_op:
+            error("TODO: implement extended arithm ops in C");
+            break;
         case add_op: operator_str = "+";  break;
         case sub_op: operator_str = "-";  break;
         case mul_op: operator_str = "*";  break;

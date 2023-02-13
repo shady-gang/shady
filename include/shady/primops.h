@@ -7,8 +7,11 @@
 
 #define ARITHM_PRIMOPS(P) \
 P(0, add)                 \
+P(0, add_carry)           \
 P(0, sub)                 \
+P(0, sub_borrow)          \
 P(0, mul)                 \
+P(0, mul_extended)        \
 P(0, div)                 \
 P(0, mod)                 \
 P(0, neg)                 \

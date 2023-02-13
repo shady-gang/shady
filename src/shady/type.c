@@ -344,6 +344,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         assert(operand && is_value(operand));
     }
 
+    bool extended = false;
     bool ordered = false;
     AddressSpace as;
     switch (prim_op.op) {
@@ -381,6 +382,9 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             return qualified_type_helper(maybe_packed_type_helper(first_operand_type, value_simd_width), uniform_result);
         }
+        case add_carry_op:
+        case sub_borrow_op:
+        case mul_extended_op: extended = true; SHADY_FALLTHROUGH;
         case add_op:
         case sub_op:
         case mul_op:
@@ -402,7 +406,12 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 result_uniform &= operand_uniform;
             }
 
-            return qualified_type_helper(first_operand_type, result_uniform);
+            const Type* result_t = first_operand_type;
+            if (extended) {
+                // TODO: assert unsigned
+                result_t = record_type(arena, (RecordType) {.members = mk_nodes(arena, result_t, result_t)});
+            }
+            return qualified_type_helper(result_t, result_uniform);
         }
 
         case not_op: {
