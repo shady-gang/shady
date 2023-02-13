@@ -14,7 +14,7 @@ typedef struct {
     const Node* one;
 } Context;
 
-const Node* process(Context* ctx, const Node* node) {
+static const Node* process(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
