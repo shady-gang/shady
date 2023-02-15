@@ -54,6 +54,11 @@ RewritePass lower_subgroup_vars;
 /// Lowers the abstract mask type to whatever the configured target mask representation is
 RewritePass lower_mask;
 
+// Emulation misc.
+
+/// Emulates unsupported integer datatypes and operations
+RewritePass lower_int;
+
 // Optimisation passes
 
 /// Eliminates all Constant decls
