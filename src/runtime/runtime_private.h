@@ -103,6 +103,7 @@ typedef struct {
         uint32_t min, max;
     } subgroup_size;
     struct {
+        VkPhysicalDeviceFeatures2 base;
         VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR subgroup_extended_types;
         VkPhysicalDeviceBufferDeviceAddressFeaturesEXT buffer_device_address;
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroup_size_control;

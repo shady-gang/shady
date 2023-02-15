@@ -124,40 +124,32 @@ static bool fill_extended_device_properties(DeviceCaps* caps) {
 }
 
 static bool fill_device_features(DeviceCaps* caps, VkPhysicalDeviceFeatures2* fill_out_struct) {
-    VkPhysicalDeviceFeatures2 df = {
+    caps->features.base = (VkPhysicalDeviceFeatures2) {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = NULL,
-        .features = {
-            .shaderInt64 = true
-        }
     };
 
     if (caps->supported_extensions[ShadySupportsKHRshader_subgroup_extended_types] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
         caps->features.subgroup_extended_types.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR;
-        append_pnext((VkBaseOutStructure*) &df, &caps->features.subgroup_extended_types);
+        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.subgroup_extended_types);
     }
 
     if (caps->supported_extensions[ShadySupportsEXTbuffer_device_address] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
         caps->features.buffer_device_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT;
-        append_pnext((VkBaseOutStructure*) &df, &caps->features.buffer_device_address);
+        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.buffer_device_address);
     }
 
     if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control]) {
         caps->features.subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT;
-        append_pnext((VkBaseOutStructure*) &df, &caps->features.subgroup_size_control);
+        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.subgroup_size_control);
     }
 
     if (fill_out_struct) {
-        *fill_out_struct = df;
+        *fill_out_struct = caps->features.base;
         return true;
     }
 
-    vkGetPhysicalDeviceFeatures2(caps->physical_device, &df);
-
-    if (!df.features.shaderInt64) {
-        info_print("Rejecting device '%s' because it does not support 64-bit integers in shaders\n", caps->base_properties.deviceName);
-        return false;
-    }
+    vkGetPhysicalDeviceFeatures2(caps->physical_device, &caps->features.base);
 
     return true;
 }
