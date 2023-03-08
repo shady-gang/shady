@@ -123,7 +123,7 @@ static bool fill_extended_device_properties(DeviceCaps* caps) {
     return true;
 }
 
-static bool fill_device_features(DeviceCaps* caps, VkPhysicalDeviceFeatures2* fill_out_struct) {
+static bool fill_device_features(DeviceCaps* caps) {
     caps->features.base = (VkPhysicalDeviceFeatures2) {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = NULL,
@@ -142,11 +142,6 @@ static bool fill_device_features(DeviceCaps* caps, VkPhysicalDeviceFeatures2* fi
     if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control]) {
         caps->features.subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT;
         append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.subgroup_size_control);
-    }
-
-    if (fill_out_struct) {
-        *fill_out_struct = caps->features.base;
-        return true;
     }
 
     vkGetPhysicalDeviceFeatures2(caps->physical_device, &caps->features.base);
@@ -189,7 +184,7 @@ static bool get_physical_device_caps(SHADY_UNUSED Runtime* runtime, VkPhysicalDe
         goto fail;
     if (!fill_extended_device_properties(out))
         goto fail;
-    if (!fill_device_features(out, NULL))
+    if (!fill_device_features(out))
         goto fail;
     if (!fill_queue_properties(out))
         goto fail;
@@ -231,9 +226,6 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     size_t enabled_device_exts_count;
     CHECK(fill_available_extensions(physical_device, &enabled_device_exts_count, enabled_device_exts, NULL), assert(false));
 
-    VkPhysicalDeviceFeatures2 enabled_features;
-    fill_device_features(&device->caps, &enabled_features);
-
     CHECK_VK(vkCreateDevice(physical_device, &(VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .flags = 0,
@@ -252,7 +244,7 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
         .enabledExtensionCount = enabled_device_exts_count,
         .ppEnabledExtensionNames = enabled_device_exts,
         .pEnabledFeatures = NULL,
-        .pNext = &enabled_features,
+        .pNext = &device->caps.features.base,
     }, NULL, &device->device), goto fail;)
 
     CHECK_VK(vkCreateCommandPool(device->device, &(VkCommandPoolCreateInfo) {
