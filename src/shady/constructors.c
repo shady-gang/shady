@@ -172,7 +172,14 @@ const Node* composite(IrArena* arena, const Type* elem_type, Nodes contents) {
 }
 
 const Node* tuple(IrArena* arena, Nodes contents) {
-    return composite(arena, arena->config.check_types ? record_type(arena, (RecordType) { .members = get_values_types(arena, contents) }) : NULL, contents);
+    const Type* t = NULL;
+    if (arena->config.check_types) {
+        // infer the type of the tuple
+        Nodes member_types = get_values_types(arena, contents);
+        t = record_type(arena, (RecordType) {.members = strip_qualifiers(arena, member_types)});
+    }
+
+    return composite(arena, t, contents);
 }
 
 Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
