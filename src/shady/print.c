@@ -324,11 +324,10 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
         case PtrType_TAG: {
             printf("ptr");
             printf(RESET);
-            printf("(");
+            printf(" ");
             print_ptr_addr_space(ctx, node->payload.ptr_type.address_space);
-            printf(", ");
+            printf(" ");
             print_node(node->payload.ptr_type.pointed_type);
-            printf(")");
             break;
         }
         case ArrType_TAG: {
