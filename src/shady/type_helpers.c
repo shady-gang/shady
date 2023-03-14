@@ -1,5 +1,5 @@
+#include "ir_private.h"
 #include "type.h"
-
 #include "log.h"
 #include "portability.h"
 
@@ -110,7 +110,7 @@ Nodes strip_qualifiers(IrArena* arena, Nodes tys) {
 Nodes add_qualifiers(IrArena* arena, Nodes tys, bool uniform) {
     LARRAY(const Type*, arr, tys.count);
     for (size_t i = 0; i < tys.count; i++)
-        arr[i] = qualified_type_helper(tys.nodes[i], uniform);
+        arr[i] = qualified_type_helper(tys.nodes[i], uniform || !arena->config.is_simt /* SIMD arenas ban varying value types */);
     return nodes(arena, tys.count, arr);
 }
 

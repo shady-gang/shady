@@ -20,8 +20,8 @@ DECL := const [TYPE] IDENTIFIER = VALUE; // constant definition
 PARAM := Q_TYPE VAR
 PARAMS := ( [PARAM [(, PARAM)+]] )
 
-PARAM := Q_TYPE VAR = VALUE
-DEFAULT_PARAMS := ( [DEFAULT_PARAM [(, DEFAULT_PARAM)+]] )
+LOOP_PARAM := TYPE VAR = VALUE
+LOOP_PARAMS := ( [LOOP_PARAM [(, LOOP_PARAM)+]] )
 
 FN_BODY := { TERMINATOR; BASIC_BLOCK* } // the list of continuations is only for the front-end
 
@@ -34,13 +34,13 @@ TYPE_ARGS: `[` TYPE [(, TYPE)+] `]`
 
 INSTRUCTION := PRIMOP [TYPE_ARGS] VALUES                    // primop
              | call (VALUES) VALUES               // call
-             | if Q_TYPES (VALUE)               // structured if construct, can be defined to yield values
+             | if TYPES (VALUE)               // structured if construct, can be defined to yield values
                    then LAMBDA
                    else LAMBDA
-             | match Q_TYPES (VALUE)           // structured match construct
+             | match TYPES (VALUE)           // structured match construct
                    (case LITERAL LAMBDA)* 
                    default LAMBDA
-             | loop Q_TYPES DEFAULT_PARAMS BODY  // structured loop construct
+             | loop TYPES LOOP_PARAMS BODY  // structured loop construct
              | control LAMBDA                    // structured 'control' construct
 
 TERMINATOR := unreachable;                           // use as a placeholder if nothing belongs. undefined behaviour if reached.

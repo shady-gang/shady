@@ -284,21 +284,28 @@ static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_value
     }
 }
 
-static Nodes accept_types(ctxparams, TokenTag separator, bool expect_qualified) {
-    struct List* types = new_list(Type*);
+typedef enum { MustQualified, MaybeQualified, NeverQualified } Qualified;
+
+static Nodes accept_types(ctxparams, TokenTag separator, Qualified qualified) {
+    struct List* tmp = new_list(Type*);
     while (true) {
-        const Type* type = expect_qualified ? accept_qualified_type(ctx) : accept_maybe_qualified_type(ctx);
+        const Type* type;
+        switch (qualified) {
+            case MustQualified:  type = accept_qualified_type(ctx);       break;
+            case MaybeQualified: type = accept_maybe_qualified_type(ctx); break;
+            case NeverQualified: type = accept_unqualified_type(ctx);     break;
+        }
         if (!type)
             break;
 
-        append_list(Type*, types, type);
+        append_list(Type*, tmp, type);
 
         if (separator != 0)
             accept_token(ctx, separator);
     }
 
-    Nodes types2 = nodes(arena, types->elements_count, (const Type**) types->alloc);
-    destroy_list(types);
+    Nodes types2 = nodes(arena, tmp->elements_count, (const Type**) tmp->alloc);
+    destroy_list(tmp);
     return types2;
 }
 
@@ -410,7 +417,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
     switch (current_token.tag) {
         case if_tok: {
             next_token(tokenizer);
-            Nodes yield_types = accept_types(ctx, 0, false);
+            Nodes yield_types = accept_types(ctx, 0, NeverQualified);
             expect(accept_token(ctx, lpar_tok));
             const Node* condition = accept_operand(ctx);
             expect(condition);
@@ -434,7 +441,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
         }
         case loop_tok: {
             next_token(tokenizer);
-            Nodes yield_types = accept_types(ctx, 0, false);
+            Nodes yield_types = accept_types(ctx, 0, NeverQualified);
             Nodes parameters;
             Nodes default_values;
             expect_parameters(ctx, &parameters, &default_values);
@@ -450,7 +457,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
         }
         case control_tok: {
             next_token(tokenizer);
-            Nodes yield_types = accept_types(ctx, 0, false);
+            Nodes yield_types = accept_types(ctx, 0, NeverQualified);
             expect(accept_token(ctx, lpar_tok));
             String str = accept_identifier(ctx);
             expect(str);
@@ -846,7 +853,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
 
     const char* name = accept_identifier(ctx);
     expect(name);
-    Nodes types = accept_types(ctx, comma_tok, false);
+    Nodes types = accept_types(ctx, comma_tok, MaybeQualified);
     expect(curr_token(tokenizer).tag == lpar_tok);
     Nodes parameters;
     expect_parameters(ctx, &parameters, NULL);

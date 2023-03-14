@@ -27,7 +27,7 @@ typedef struct {
 
     const Type* expected_type;
 
-    const Nodes* join_types;
+    const Nodes* merge_types;
     const Nodes* break_types;
     const Nodes* continue_types;
 } Context;
@@ -428,15 +428,15 @@ static const Node* _infer_if(Context* ctx, const Node* node, const Type* expecte
     const Node* condition = infer(ctx, node->payload.if_instr.condition, bool_type(ctx->rewriter.dst_arena));
 
     Nodes join_types = infer_nodes(ctx, node->payload.if_instr.yield_types);
-    // The type annotation on `if` may not include divergence/convergence info, we default that stuff to divergent
-    join_types = annotate_all_types(ctx->rewriter.dst_arena, join_types, false);
-    Context joinable_ctx = *ctx;
-    joinable_ctx.join_types = &join_types;
+    Context infer_if_body_ctx = *ctx;
+    // When we infer the types of the arguments to a call to merge(), they are expected to be varying
+    Nodes expected_join_types = annotate_all_types(ctx->rewriter.dst_arena, join_types, false);
+    infer_if_body_ctx.merge_types = &expected_join_types;
 
-    const Node* true_body = infer(&joinable_ctx, node->payload.if_instr.if_true, wrap_multiple_yield_types(arena, nodes(ctx->rewriter.dst_arena, 0, NULL)));
+    const Node* true_body = infer(&infer_if_body_ctx, node->payload.if_instr.if_true, wrap_multiple_yield_types(arena, nodes(ctx->rewriter.dst_arena, 0, NULL)));
     // don't allow seeing the variables made available in the true branch
-    joinable_ctx.rewriter = ctx->rewriter;
-    const Node* false_body = node->payload.if_instr.if_false ? infer(&joinable_ctx, node->payload.if_instr.if_false, wrap_multiple_yield_types(arena, nodes(ctx->rewriter.dst_arena, 0, NULL))) : NULL;
+    infer_if_body_ctx.rewriter = ctx->rewriter;
+    const Node* false_body = node->payload.if_instr.if_false ? infer(&infer_if_body_ctx, node->payload.if_instr.if_false, wrap_multiple_yield_types(arena, nodes(ctx->rewriter.dst_arena, 0, NULL))) : NULL;
 
     return if_instr(ctx->rewriter.dst_arena, (If) {
         .yield_types = join_types,
@@ -462,9 +462,8 @@ static const Node* _infer_loop(Context* ctx, const Node* node, const Type* expec
         new_initial_args[i] = infer(ctx, old_initial_args.nodes[i], new_params_types.nodes[i]);
 
     Nodes loop_yield_types = infer_nodes(ctx, node->payload.loop_instr.yield_types);
-    loop_yield_types = annotate_all_types(ctx->rewriter.dst_arena, loop_yield_types, false);
 
-    loop_body_ctx.join_types = NULL;
+    loop_body_ctx.merge_types = NULL;
     loop_body_ctx.break_types = &loop_yield_types;
     loop_body_ctx.continue_types = &new_params_types;
 
@@ -586,7 +585,7 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             });
         }
         case MergeSelection_TAG: {
-            const Nodes* expected_types = ctx->join_types;
+            const Nodes* expected_types = ctx->merge_types;
             assert(expected_types && "Merge terminator found but we're not within a suitable if instruction !");
             const Nodes* old_args = &node->payload.merge_selection.args;
             assert(expected_types->count == old_args->count);

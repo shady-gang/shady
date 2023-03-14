@@ -889,29 +889,39 @@ const Type* check_type_indirect_call(IrArena* arena, IndirectCall call) {
     return wrap_multiple_yield_types(arena, check_value_call(call.callee, argument_types));
 }
 
+static void ensure_yield_types_are_datatypes(const Nodes* yield_types) {
+    for (size_t i = 0; i < yield_types->count; i++) {
+        assert(is_data_type(yield_types->nodes[i]));
+    }
+}
+
 const Type* check_type_if_instr(IrArena* arena, If if_instr) {
+    ensure_yield_types_are_datatypes(&if_instr.yield_types);
     if (get_unqualified_type(if_instr.condition->type) != bool_type(arena))
         error("condition of an if should be bool");
     // TODO check the contained Merge instrs
     if (if_instr.yield_types.count > 0)
         assert(if_instr.if_false);
 
-    return wrap_multiple_yield_types(arena, if_instr.yield_types);
+    return wrap_multiple_yield_types(arena, add_qualifiers(arena, if_instr.yield_types, false));
 }
 
 const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
+    ensure_yield_types_are_datatypes(&loop_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
-    return wrap_multiple_yield_types(arena, loop_instr.yield_types);
+    return wrap_multiple_yield_types(arena, add_qualifiers(arena, loop_instr.yield_types, false));
 }
 
 const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
+    ensure_yield_types_are_datatypes(&match_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
-    return wrap_multiple_yield_types(arena, match_instr.yield_types);
+    return wrap_multiple_yield_types(arena, add_qualifiers(arena, match_instr.yield_types, false));
 }
 
 const Type* check_type_control(IrArena* arena, Control control) {
+    ensure_yield_types_are_datatypes(&control.yield_types);
     // TODO check it then !
     assert(is_anonymous_lambda(control.inside));
     const Node* join_point = first(control.inside->payload.anon_lam.params);
@@ -923,11 +933,10 @@ const Type* check_type_control(IrArena* arena, Control control) {
     Nodes join_point_yield_types = join_point_type->payload.join_point_type.yield_types;
     assert(join_point_yield_types.count == control.yield_types.count);
     for (size_t i = 0; i < control.yield_types.count; i++) {
-        assert(is_data_type(control.yield_types.nodes[i]));
         assert(is_subtype(control.yield_types.nodes[i], join_point_yield_types.nodes[i]));
     }
 
-    return wrap_multiple_yield_types(arena, add_qualifiers(arena, join_point_yield_types, !arena->config.is_simt /* non-simt worlds might have spurious control statements, but they ban varying types */));
+    return wrap_multiple_yield_types(arena, add_qualifiers(arena, join_point_yield_types, false));
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
