@@ -10,6 +10,7 @@
 
 #include <assert.h>
 #include <inttypes.h>
+#include <string.h>
 
 typedef struct PrinterCtx_ PrinterCtx;
 typedef void (*PrintFn)(PrinterCtx* ctx, char* format, ...);
@@ -384,8 +385,16 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf(BBLUE);
             switch (node->payload.float_literal.width) {
                 case FloatTy16: printf("%" PRIu16, node->payload.float_literal.value.b16); break;
-                case FloatTy32: printf("%f", node->payload.float_literal.value.b32); break;
-                case FloatTy64: printf("%d", node->payload.float_literal.value.b64); break;
+                case FloatTy32: {
+                    float f;
+                    memcpy(&f, &node->payload.float_literal.value.b32, sizeof(uint32_t));
+                    printf("%f", f); break;
+                }
+                case FloatTy64: {
+                    double d;
+                    memcpy(&d, &node->payload.float_literal.value.b64, sizeof(uint64_t));
+                    printf("%d", d); break;
+                }
                 default: error("Not a known valid float width")
             }
             printf(RESET);
