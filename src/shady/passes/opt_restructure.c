@@ -206,7 +206,8 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instr->payload.control.yield_types);
                     LARRAY(const Node*, phis, yield_types.count);
                     for (size_t i = 0; i < yield_types.count; i++) {
-                        const Type* type = get_unqualified_type(yield_types.nodes[i]);
+                        const Type* type = yield_types.nodes[i];
+                        assert(is_data_type(type));
                         phis[i] = first(bind_instruction_named(bb_outer, prim_op(arena, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(type) }), (String []) { "ctrl_phi" }));
                     }
 

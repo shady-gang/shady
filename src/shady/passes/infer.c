@@ -483,7 +483,6 @@ static const Node* _infer_control(Context* ctx, const Node* node, const Type* ex
     IrArena* arena = ctx->rewriter.dst_arena;
 
     Nodes yield_types = infer_nodes(ctx, node->payload.control.yield_types);
-    yield_types = annotate_all_types(ctx->rewriter.dst_arena, yield_types, false);
 
     const Node* olam = node->payload.control.inside;
     const Node* ojp = first(get_abstraction_params(olam));

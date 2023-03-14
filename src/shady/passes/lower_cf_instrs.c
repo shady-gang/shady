@@ -36,6 +36,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
         case If_TAG: {
             bool has_false_branch = old_instruction->payload.if_instr.if_false;
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.if_instr.yield_types);
+            yield_types = strip_qualifiers(arena, yield_types);
 
             const Type* jp_type = qualified_type(arena, (QualifiedType) {
                 .type = join_point_type(arena, (JoinPointType) { .yield_types = yield_types }),
@@ -72,7 +73,11 @@ static const Node* process_let(Context* ctx, const Node* node) {
             assert(is_anonymous_lambda(old_loop_body));
 
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.yield_types);
+            yield_types = strip_qualifiers(arena, yield_types);
             Nodes param_types = rewrite_nodes(&ctx->rewriter, get_variables_types(arena, old_loop_body->payload.anon_lam.params));
+            // TODO: figure out if uniform loop parameters can be enforcable, or drop them altogether
+            // TODO: (also applies to yield types...)
+            param_types = strip_qualifiers(arena, param_types);
 
             const Type* break_jp_type = qualified_type(arena, (QualifiedType) {
                 .type = join_point_type(arena, (JoinPointType) { .yield_types = yield_types }),
