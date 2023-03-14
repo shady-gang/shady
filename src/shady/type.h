@@ -14,6 +14,10 @@ bool is_value_type(const Type*);
 /// Is this a valid data type (for usage in other types and as type arguments) ?
 bool is_data_type(const Type*);
 
+bool can_do_arithm(const Type* t);
+bool can_do_bitstuff(const Type* t);
+bool can_be_compared(bool ordered, const Type* t);
+
 #define DEFINE_NODE_CHECK_FN_1_1(struct_name, short_name) const Type* check_type_##short_name(IrArena*, struct_name);
 #define DEFINE_NODE_CHECK_FN_1_0(struct_name, short_name) const Type* check_type_##short_name(IrArena*);
 

@@ -320,15 +320,15 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
     });
 }
 
-static bool can_do_arithm(const Type* t) {
+bool can_do_arithm(const Type* t) {
     return t->tag == Int_TAG || t->tag == Float_TAG;
 }
 
-static bool can_do_bitstuff(const Type* t) {
+bool can_do_bitstuff(const Type* t) {
     return t->tag == Int_TAG || t->tag == Bool_TAG || t->tag == MaskType_TAG;
 }
 
-static bool can_be_compared(bool ordered, const Type* t) {
+bool can_be_compared(bool ordered, const Type* t) {
     if (ordered)
         return can_do_arithm(t);
     return true; // TODO this is fine to allow, but we'll need to lower it for composite and native ptr types !
