@@ -127,6 +127,14 @@ Token next_token(Tokenizer* tokenizer) {
         while (in_bounds(tokenizer, token_size) && is_digit(slice[token_size])) {
             token_size++;
         }
+        if (slice[token_size] == '.')
+            token_size++;
+        while (in_bounds(tokenizer, token_size) && is_digit(slice[token_size])) {
+            token_size++;
+        }
+        if (slice[token_size] == 'f')
+            token_size++;
+
         goto parsed_successfully;
     } else if(slice[0] == '"') {
         token.tag = string_lit_tok;
