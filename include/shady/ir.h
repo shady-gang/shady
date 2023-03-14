@@ -179,6 +179,10 @@ const Type* uint16_literal(IrArena* arena, uint16_t i);
 const Type* uint32_literal(IrArena* arena, uint32_t i);
 const Type* uint64_literal(IrArena* arena, uint64_t i);
 
+const Type* fp16_type(IrArena* arena);
+const Type* fp32_type(IrArena* arena);
+const Type* fp64_type(IrArena* arena);
+
 /// Turns a value into an 'instruction' (the enclosing let will be folded away later)
 /// Useful for local rewrites
 const Node* quote(IrArena* arena, Nodes values);

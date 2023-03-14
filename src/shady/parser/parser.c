@@ -154,8 +154,12 @@ static const Type* accept_unqualified_type(ctxparams) {
         return int32_type(arena);
     } else if (accept_token(ctx, i64_tok)) {
         return int64_type(arena);
-    } else if (accept_token(ctx, float_tok)) {
-        return float_type(arena);
+    } else if (accept_token(ctx, f16_tok)) {
+        return fp16_type(arena);
+    } else if (accept_token(ctx, f32_tok)) {
+        return fp32_type(arena);
+    } else if (accept_token(ctx, f64_tok)) {
+        return fp64_type(arena);
     } else if (accept_token(ctx, bool_tok)) {
         return bool_type(arena);
     } else if (accept_token(ctx, mask_t_tok)) {

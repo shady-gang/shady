@@ -27,8 +27,11 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
         return *existing;
 
     SpvId new;
-    switch (node->tag) {
+    switch (is_value(node)) {
+        case NotAValue: error("");
         case Variable_TAG: error("tried to emit a variable: but all variables should be emitted by enclosing scope or preceding instructions !");
+        case Value_UntypedNumber_TAG:
+        case Value_FnAddr_TAG: error("Should be lowered away earlier!");
         case IntLiteral_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
             SpvId ty = emit_type(emitter, node->type);
@@ -42,6 +45,28 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
             }
             break;
         }
+        case FloatLiteral_TAG: {
+            new = spvb_fresh_id(emitter->file_builder);
+            SpvId ty = emit_type(emitter, node->type);
+            switch (node->payload.float_literal.width) {
+                case FloatTy16: {
+                    uint32_t arr[] = { node->payload.float_literal.value.b16 /* todo endianness ? */ };
+                    spvb_constant(emitter->file_builder, new, ty, 1, arr);
+                    break;
+                }
+                case FloatTy32: {
+                    uint32_t arr[] = { node->payload.float_literal.value.b32 };
+                    spvb_constant(emitter->file_builder, new, ty, 1, arr);
+                    break;
+                }
+                case FloatTy64: {
+                    uint32_t arr[] = { node->payload.float_literal.value.b64 & 0xFFFFFFFF, node->payload.float_literal.value.b64 >> 32 };
+                    spvb_constant(emitter->file_builder, new, ty, 2, arr);
+                    break;
+                }
+            }
+            break;
+        }
         case True_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
             spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), true);
@@ -50,6 +75,10 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
         case False_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
             spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), false);
+            break;
+        }
+        case Value_StringLiteral_TAG: {
+            new = spvb_debug_string(emitter->file_builder, node->payload.string_lit.string);
             break;
         }
         case Composite_TAG: {
@@ -81,7 +110,6 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
             }
             break;
         }
-        default: error("don't know hot to emit value");
     }
 
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, new);

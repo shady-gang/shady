@@ -128,7 +128,13 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             new = spvb_bool_type(emitter->file_builder);
             break;
         } case Float_TAG: {
-            new = spvb_float_type(emitter->file_builder, 32);
+            int width;
+            switch (type->payload.float_type.width) {
+                case FloatTy16: width = 16; break;
+                case FloatTy32: width = 32; break;
+                case FloatTy64: width = 64; break;
+            }
+            new = spvb_float_type(emitter->file_builder, width);
             break;
         } case PtrType_TAG: {
             SpvId pointee = emit_type(emitter, type->payload.ptr_type.pointed_type);

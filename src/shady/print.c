@@ -380,6 +380,16 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             }
             printf(RESET);
             break;
+        case FloatLiteral_TAG:
+            printf(BBLUE);
+            switch (node->payload.float_literal.width) {
+                case FloatTy16: printf("%" PRIu16, node->payload.float_literal.value.b16); break;
+                case FloatTy32: printf("%f", node->payload.float_literal.value.b32); break;
+                case FloatTy64: printf("%d", node->payload.float_literal.value.b64); break;
+                default: error("Not a known valid float width")
+            }
+            printf(RESET);
+            break;
         case True_TAG:
             printf(BBLUE);
             printf("true");

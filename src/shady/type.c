@@ -264,6 +264,13 @@ const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
     });
 }
 
+const Type* check_type_float_literal(IrArena* arena, FloatLiteral lit) {
+    return qualified_type(arena, (QualifiedType) {
+        .is_uniform = true,
+        .type = float_type(arena, (Float) { .width = lit.width })
+    });
+}
+
 const Type* check_type_true_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
 const Type* check_type_false_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
 

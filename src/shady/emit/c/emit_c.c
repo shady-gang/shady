@@ -79,6 +79,19 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case Value_UntypedNumber_TAG: error("lower me");
         case Value_Variable_TAG: error("variables need to be emitted beforehand");
         case Value_IntLiteral_TAG: emitted = format_string(emitter->arena, "%d", value->payload.int_literal.value.u64); break;
+        case Value_FloatLiteral_TAG:
+            switch (value->payload.float_literal.width) {
+                case FloatTy16:
+                    assert(false);
+                    break;
+                case FloatTy32:
+                    emitted = format_string(emitter->arena, "%f", value->payload.float_literal.value.b32); break;
+                    break;
+                case FloatTy64:
+                    emitted = format_string(emitter->arena, "%d", value->payload.float_literal.value.b64); break;
+                    break;
+            }
+            break;
         case Value_True_TAG: return term_from_cvalue("true");
         case Value_False_TAG: return term_from_cvalue("false");
         case Value_Composite_TAG: {

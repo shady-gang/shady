@@ -10,7 +10,7 @@
 #include "spirv/unified1/NonSemanticDebugPrintf.h"
 
 typedef enum {
-    Signed, Unsigned, Float, Logical, Ptr, Other, OperandClassCount
+    Signed, Unsigned, FP, Logical, Ptr, Other, OperandClassCount
 } OperandClass;
 
 typedef enum {
@@ -28,7 +28,7 @@ static OperandClass classify_operand_type(const Type* type) {
         case Int_TAG:     return Signed;
         case Bool_TAG:    return Logical;
         case PtrType_TAG: return Ptr;
-        // TODO float, unsigned
+        case Float_TAG:   return FP;
         default: error("we don't know what to do with this")
     }
 }

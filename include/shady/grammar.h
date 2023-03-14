@@ -13,7 +13,7 @@ N(1, 0, 0, MaskType, mask_type) \
 N(1, 1, 1, JoinPointType, join_point_type) \
 N(1, 0, 0, NoRet, noret_type) \
 N(1, 0, 1, Int, int_type) \
-N(1, 0, 0, Float, float_type) \
+N(1, 0, 1, Float, float_type) \
 N(1, 0, 0, Bool, bool_type) \
 N(1, 1, 1, RecordType, record_type) \
 N(1, 0, 1, FnType, fn_type) \
@@ -29,6 +29,7 @@ N(1, 0, 1, TypeDeclRef, type_decl_ref) \
 N(0, 1, 1, Variable, var) \
 N(1, 1, 1, UntypedNumber, untyped_number) \
 N(1, 1, 1, IntLiteral, int_literal) \
+N(1, 1, 1, FloatLiteral, float_literal) \
 N(1, 1, 0, True, true_lit) \
 N(1, 1, 0, False, false_lit) \
 N(1, 1, 1, StringLiteral, string_lit) \
@@ -192,6 +193,16 @@ typedef struct Int_ Int;
 #define Int_Fields(MkField) \
 MkField(1, POD, IntSizes, width)
 
+typedef enum {
+    FloatTy16,
+    FloatTy32,
+    FloatTy64
+} FloatSizes;
+
+typedef struct Float_ Float;
+#define Float_Fields(MkField) \
+MkField(1, POD, FloatSizes, width)
+
 typedef struct PackType_ PackType;
 #define PackType_Fields(MkField) \
 MkField(1, TYPE, const Type*, element_type) \
@@ -230,6 +241,18 @@ typedef struct IntLiteral_ IntLiteral;
 #define IntLiteral_Fields(MkField) \
 MkField(1, POD, IntSizes, width) \
 MkField(1, POD, IntLiteralValue, value)
+
+/// C lacks sized float types, so let's just store the raw bits for them.
+typedef union {
+    uint64_t b64;
+    uint32_t b32;
+    uint16_t b16;
+} FloatLiteralValue;
+
+typedef struct FloatLiteral_ FloatLiteral;
+#define FloatLiteral_Fields(MkField) \
+MkField(1, POD, FloatSizes, width) \
+MkField(1, POD, FloatLiteralValue, value)
 
 typedef struct StringLiteral_ StringLiteral;
 #define StringLiteral_Fields(MkField) \

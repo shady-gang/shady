@@ -7,6 +7,9 @@
 #include "../rewrite.h"
 
 #include <assert.h>
+#include <string.h>
+
+#pragma GCC diagnostic error "-Wswitch"
 
 static Nodes annotate_all_types(IrArena* arena, Nodes types, bool uniform_by_default) {
     LARRAY(const Type*, ntypes, types.count);
@@ -54,7 +57,7 @@ static const Node* _infer_annotation(Context* ctx, const Node* node) {
         case AnnotationValue_TAG: return annotation_value(ctx->rewriter.dst_arena, (AnnotationValue) { .name = node->payload.annotation_value.name, .value = infer(ctx, node->payload.annotation_value.value, NULL) });
         case AnnotationValues_TAG: return annotation_values(ctx->rewriter.dst_arena, (AnnotationValues) { .name = node->payload.annotation_values.name, .values = infer_nodes(ctx, node->payload.annotation_values.values) });
         case AnnotationCompound_TAG: return annotations_compound(ctx->rewriter.dst_arena, (AnnotationCompound) { .name = node->payload.annotations_compound.name, .entries = infer_nodes(ctx, node->payload.annotations_compound.entries) });
-        default: error("TODO");
+        default: error("Not an annotation");
     }
 }
 
@@ -142,13 +145,20 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
 
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (is_value(node)) {
+        case NotAValue: error("");
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
-        case IntLiteral_TAG:
+        case IntLiteral_TAG: {
+            if (expected_type) {
+                expected_type = remove_uniformity_qualifier(expected_type);
+                assert(expected_type->tag == Int_TAG);
+                assert(expected_type->payload.int_type.width == node->payload.int_literal.width);
+            }
+            return int_literal(dst_arena, (IntLiteral) {.width = node->payload.int_literal.width, .value.u64 = node->payload.int_literal.value.u64});
+        }
         case UntypedNumber_TAG: {
             expected_type = expected_type ? expected_type : int32_type(ctx->rewriter.dst_arena);
             expected_type = remove_uniformity_qualifier(expected_type);
-            assert(expected_type->tag == Int_TAG);
-            if (node->tag == UntypedNumber_TAG) {
+            if (expected_type->tag == Int_TAG) {
                 int64_t v;
                 if (sizeof(long) == sizeof(int64_t))
                     v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
@@ -157,11 +167,34 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
                 else
                     assert(false);
                 // TODO chop off extra bits based on width ?
-                return int_literal(dst_arena, (IntLiteral) { .value.i64 = v, .width = expected_type->payload.int_type.width });
-            } else {
-                assert(expected_type->payload.int_type.width == node->payload.int_literal.width);
-                return int_literal(dst_arena, (IntLiteral) { .width = node->payload.int_literal.width, .value.u64 = node->payload.int_literal.value.u64 });
+                return int_literal(dst_arena, (IntLiteral) {.value.i64 = v, .width = expected_type->payload.int_type.width});
+            } else if (expected_type->tag == Float_TAG) {
+                FloatLiteralValue v;
+                switch (expected_type->payload.float_type.width) {
+                    case FloatTy16:
+                        error("TODO: implement fp16 parsing");
+                        break;
+                    case FloatTy32:
+                        assert(sizeof(float) == sizeof(uint32_t));
+                        float f = strtof(node->payload.untyped_number.plaintext, NULL);
+                        memcpy(&v.b32, &f, sizeof(uint32_t));
+                        break;
+                    case FloatTy64:
+                        assert(sizeof(double) == sizeof(uint64_t));
+                        double d = strtod(node->payload.untyped_number.plaintext, NULL);
+                        memcpy(&v.b64, &d, sizeof(uint64_t));
+                        break;
+                }
+                return float_literal(dst_arena, (FloatLiteral) {.value = v, .width = expected_type->payload.float_type.width});
             }
+        }
+        case FloatLiteral_TAG: {
+            if (expected_type) {
+                expected_type = remove_uniformity_qualifier(expected_type);
+                assert(expected_type->tag == Float_TAG);
+                assert(expected_type->payload.float_type.width == node->payload.float_literal.width);
+            }
+            return float_literal(dst_arena, (FloatLiteral) { .width = node->payload.float_literal.width, .value = node->payload.float_literal.value });
         }
         case True_TAG: return true_lit(dst_arena);
         case False_TAG: return false_lit(dst_arena);
@@ -196,7 +229,6 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
 
             return composite(dst_arena, elem_type, nmembers);
         }
-        default: error("not a value");
     }
 }
 
@@ -526,6 +558,9 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             Nodes annotated_types = get_variables_types(arena, otail->payload.anon_lam.params);
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(arena, annotated_types));
             Nodes inferred_yield_types = unwrap_multiple_yield_types(arena, inferred_instruction->type);
+            // for (size_t i = 0; i < inferred_yield_types.count; i++) {
+            //     assert(is_value_type(inferred_yield_types.nodes[i]));
+            // }
             const Node* inferred_tail = infer(ctx, otail, wrap_multiple_yield_types(arena, inferred_yield_types));
             return let(arena, inferred_instruction, inferred_tail);
         }

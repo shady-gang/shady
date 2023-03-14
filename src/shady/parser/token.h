@@ -38,7 +38,9 @@ TEXT_TOKEN(i8) \
 TEXT_TOKEN(i16) \
 TEXT_TOKEN(i32) \
 TEXT_TOKEN(i64) \
-TEXT_TOKEN(float) \
+TEXT_TOKEN(f16) \
+TEXT_TOKEN(f32) \
+TEXT_TOKEN(f64) \
 TEXT_TOKEN(mask_t) \
 TEXT_TOKEN(composite) \
 TOKEN(const, "const") \

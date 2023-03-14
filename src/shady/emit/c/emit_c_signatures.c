@@ -157,7 +157,18 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             }
             break;
         }
-        case Float_TAG: emitted = "float"; break;
+        case Float_TAG:
+            switch (type->payload.float_type.width) {
+                case FloatTy16:
+                    assert(false);
+                    break;
+                case FloatTy32:
+                    emitted = "float";
+                    break;
+                case FloatTy64:
+                    emitted = "double";
+                    break;
+            }
         case Type_RecordType_TAG: {
             if (type->payload.record_type.members.count == 0) {
                 emitted = "void";
