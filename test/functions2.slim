@@ -1,9 +1,0 @@
-fn identity varying i32(varying i32 i) {
-    return(i);
-}
-
-fn f i32 (varying i32 i) {
-    let j = call(identity)(i);
-    let k = add(j, i);
-    return(k);
-}

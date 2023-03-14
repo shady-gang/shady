@@ -184,7 +184,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                         const Node* fn = rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
                         if (lookup_annotation(fn, "Leaf")) {
                             const Node* call = leaf_call(arena, (LeafCall) {
-                                .callee = rewrite_node(&ctx->rewriter, fn),
+                                .callee = fn,
                                 .args = rewrite_nodes(&ctx->rewriter, old_instr->payload.indirect_call.args)
                             });
                             return rebuild_let(ctx, body, call, exit_ladder);
