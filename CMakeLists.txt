@@ -15,6 +15,11 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
 
 add_subdirectory(src)
 
+include(CTest)
+if (BUILD_TESTING)
+  add_subdirectory(test)
+endif()
+
 include(CMakePackageConfigHelpers)
 
 install(TARGETS api EXPORT shady_export_set)
