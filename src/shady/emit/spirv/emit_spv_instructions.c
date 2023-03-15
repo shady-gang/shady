@@ -184,12 +184,12 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
     }
     switch (the_op.op) {
         case subgroup_ballot_op: {
-            const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = int32_type(emitter->arena) });
+            const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = uint32_type(emitter->arena) });
             SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
             SpvId raw_result = spvb_ballot(bb_builder, emit_type(emitter, i32x4), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
             // TODO: why are we doing this in SPIR-V and not the IR ?
-            SpvId low32 = spvb_extract(bb_builder, emit_type(emitter, int32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
-            SpvId hi32 = spvb_extract(bb_builder, emit_type(emitter, int32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
+            SpvId low32 = spvb_extract(bb_builder, emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
+            SpvId hi32 = spvb_extract(bb_builder, emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
             SpvId low64 = spvb_unop(bb_builder, SpvOpUConvert, emit_type(emitter, uint64_type(emitter->arena)), low32);
             SpvId hi64 = spvb_unop(bb_builder, SpvOpUConvert, emit_type(emitter, uint64_type(emitter->arena)), hi32);
             hi64 = spvb_binop(bb_builder, SpvOpShiftLeftLogical, emit_type(emitter, uint64_type(emitter->arena)), hi64, emit_value(emitter, bb_builder, int64_literal(emitter->arena, 32)));
