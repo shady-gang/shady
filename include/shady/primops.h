@@ -38,6 +38,12 @@ P(0, lshift)             \
 #define MATH_PRIMOPS(P) \
 P(0, sqrt)              \
 P(0, inv_sqrt)          \
+P(0, floor)             \
+P(0, ceil)              \
+P(0, round)             \
+P(0, fract)             \
+P(0, abs)               \
+P(0, sign)              \
 
 #define STACK_PRIMOPS(P) \
 P(1, push_stack)                \

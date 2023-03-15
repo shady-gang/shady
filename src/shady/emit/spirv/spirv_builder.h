@@ -27,6 +27,7 @@ SpvId spvb_load(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvI
 void  spvb_store(struct SpvBasicBlockBuilder* bb_builder, SpvId value, SpvId pointer, size_t operands_count, uint32_t operands[]);
 SpvId spvb_binop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, SpvId lhs, SpvId rhs);
 SpvId spvb_unop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, SpvId value);
+SpvId spvb_op(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, size_t operands_count, SpvId operands[]);
 SpvId spvb_elect(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope);
 SpvId spvb_ballot(struct SpvBasicBlockBuilder*, SpvId result_t, SpvId predicate, SpvId scope);
 SpvId spvb_shuffle(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope, SpvId value, SpvId id);

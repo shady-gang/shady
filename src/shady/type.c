@@ -506,13 +506,29 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return qualified_type_helper(maybe_packed_type_helper(bool_type(arena), first_operand_width), result_uniform);
         }
         case sqrt_op:
-        case inv_sqrt_op: {
+        case inv_sqrt_op:
+        case floor_op:
+        case ceil_op:
+        case round_op:
+        case fract_op:
+        {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
             const Node* src_type = first(prim_op.operands)->type;
             bool uniform = deconstruct_qualified_type(&src_type);
             size_t width = deconstruct_maybe_packed_type(&src_type);
             assert(src_type->tag == Float_TAG);
+            return qualified_type_helper(maybe_packed_type_helper(src_type, width), uniform);
+        }
+        case abs_op:
+        case sign_op:
+        {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 1);
+            const Node* src_type = first(prim_op.operands)->type;
+            bool uniform = deconstruct_qualified_type(&src_type);
+            size_t width = deconstruct_maybe_packed_type(&src_type);
+            assert(src_type->tag == Float_TAG || src_type->tag == Int_TAG && src_type->payload.int_type.is_signed);
             return qualified_type_helper(maybe_packed_type_helper(src_type, width), uniform);
         }
         case load_op: {

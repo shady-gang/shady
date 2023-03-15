@@ -94,6 +94,13 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case lshift_op:
             operator_str = "<<";
             break;
+        // MATH OPS
+        case abs_op:
+        case sign_op:
+        case floor_op:
+        case ceil_op:
+        case round_op:
+        case fract_op:
         case sqrt_op:
         case inv_sqrt_op: error("TODO");
         case alloca_op:
