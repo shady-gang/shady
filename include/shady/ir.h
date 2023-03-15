@@ -169,6 +169,11 @@ const Type* int16_type(IrArena* arena);
 const Type* int32_type(IrArena* arena);
 const Type* int64_type(IrArena* arena);
 
+const Type* uint8_type(IrArena* arena);
+const Type* uint16_type(IrArena* arena);
+const Type* uint32_type(IrArena* arena);
+const Type* uint64_type(IrArena* arena);
+
 const Type* int8_literal(IrArena* arena,  int8_t i);
 const Type* int16_literal(IrArena* arena, int16_t i);
 const Type* int32_literal(IrArena* arena, int32_t i);

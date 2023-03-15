@@ -191,7 +191,8 @@ typedef enum {
 
 typedef struct Int_ Int;
 #define Int_Fields(MkField) \
-MkField(1, POD, IntSizes, width)
+MkField(1, POD, IntSizes, width) \
+MkField(1, POD, bool, is_signed)
 
 typedef enum {
     FloatTy16,
@@ -240,6 +241,7 @@ typedef union {
 typedef struct IntLiteral_ IntLiteral;
 #define IntLiteral_Fields(MkField) \
 MkField(1, POD, IntSizes, width) \
+MkField(1, POD, bool, is_signed) \
 MkField(1, POD, IntLiteralValue, value)
 
 /// C lacks sized float types, so let's just store the raw bits for them.

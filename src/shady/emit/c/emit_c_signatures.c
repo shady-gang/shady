@@ -115,31 +115,30 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         case Bool_TAG: emitted = "bool"; break;
         case Int_TAG: {
             switch (emitter->config.dialect) {
-                case ISPC:
-                    switch (type->payload.int_type.width) {
-                        case IntTy8:  emitted = "uint8";  break;
-                        case IntTy16: emitted = "uint16"; break;
-                        case IntTy32: emitted = "uint32";   break;
-                        case IntTy64: emitted = "uint64";  break;
-                    }
-                    break;
-                case C:
-                    if (emitter->config.explicitly_sized_types) {
-                        switch (type->payload.int_type.width) {
-                            case IntTy8:  emitted = "uint8_t" ; break;
-                            case IntTy16: emitted = "uint16_t"; break;
-                            case IntTy32: emitted = "uint32_t"; break;
-                            case IntTy64: emitted = "uint64_t"; break;
-                        }
-                    } else {
-                        switch (type->payload.int_type.width) {
-                            case IntTy8:  emitted = "unsigned char";  break;
-                            case IntTy16: emitted = "unsigned short"; break;
-                            case IntTy32: emitted = "unsigned int";   break;
-                            case IntTy64: emitted = "unsigned long";  break;
-                        }
-                    }
-                    break;
+                case ISPC: {
+                    const char* ispc_int_types[4][2] = {
+                        { "uint8" , "int8"  },
+                        { "uint16", "int16" },
+                        { "uint32", "int32" },
+                        { "uint64", "int64" },
+                    };
+                    return ispc_int_types[type->payload.int_type.width][type->payload.int_type.is_signed];
+                }
+                case C: {
+                    const char* c_classic_int_types[4][2] = {
+                            { "unsigned char" , "char"  },
+                            { "unsigned short", "short" },
+                            { "unsigned int"  , "int" },
+                            { "unsigned long" , "long" },
+                    };
+                    const char* c_explicit_int_sizes[4][2] = {
+                            { "uint8_t" , "int8_t"  },
+                            { "uint16_t", "int16_t" },
+                            { "uint32_t", "int32_t" },
+                            { "uint64_t", "int64_t" },
+                    };
+                    return (emitter->config.explicitly_sized_types ? c_explicit_int_sizes : c_classic_int_types)[type->payload.int_type.width][type->payload.int_type.is_signed];
+                }
                 case GLSL:
                     switch (type->payload.int_type.width) {
                         case IntTy8:  warn_print("vanilla GLSL does not support 8-bit integers");

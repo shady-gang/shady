@@ -153,7 +153,10 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
                 assert(expected_type->tag == Int_TAG);
                 assert(expected_type->payload.int_type.width == node->payload.int_literal.width);
             }
-            return int_literal(dst_arena, (IntLiteral) {.width = node->payload.int_literal.width, .value.u64 = node->payload.int_literal.value.u64});
+            return int_literal(dst_arena, (IntLiteral) {
+                .width = node->payload.int_literal.width,
+                .is_signed = expected_type->payload.int_literal.is_signed,
+                .value.u64 = node->payload.int_literal.value.u64});
         }
         case UntypedNumber_TAG: {
             expected_type = expected_type ? expected_type : int32_type(ctx->rewriter.dst_arena);
@@ -167,7 +170,11 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
                 else
                     assert(false);
                 // TODO chop off extra bits based on width ?
-                return int_literal(dst_arena, (IntLiteral) {.value.i64 = v, .width = expected_type->payload.int_type.width});
+                return int_literal(dst_arena, (IntLiteral) {
+                    .width = expected_type->payload.int_type.width,
+                    .is_signed = expected_type->payload.int_literal.is_signed,
+                    .value.i64 = v
+                });
             } else if (expected_type->tag == Float_TAG) {
                 FloatLiteralValue v;
                 switch (expected_type->payload.float_type.width) {

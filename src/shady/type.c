@@ -92,7 +92,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
                 return false;
             return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
         }
-        case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width;
+        case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width && supertype->payload.int_type.is_signed == type->payload.int_type.is_signed;
         case ArrType_TAG: {
             if (!is_subtype(supertype->payload.arr_type.element_type, type->payload.arr_type.element_type))
                 return false;
@@ -260,7 +260,7 @@ const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
 const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
-        .type = int_type(arena, (Int) { .width = lit.width })
+        .type = int_type(arena, (Int) { .width = lit.width, .is_signed = lit.is_signed })
     });
 }
 

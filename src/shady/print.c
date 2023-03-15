@@ -276,11 +276,12 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.qualified_type.type);
             break;
         case Int_TAG:
-            switch (node->payload.int_literal.width) {
-                case IntTy8:  printf("i8");  break;
-                case IntTy16: printf("i16"); break;
-                case IntTy32: printf("i32"); break;
-                case IntTy64: printf("i64"); break;
+            printf(node->payload.int_type.is_signed ? "i" : "u");
+            switch (node->payload.int_type.width) {
+                case IntTy8:  printf("8");  break;
+                case IntTy16: printf("16"); break;
+                case IntTy32: printf("32"); break;
+                case IntTy64: printf("64"); break;
                 default: error("Not a known valid int width")
             }
             break;
