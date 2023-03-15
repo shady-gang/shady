@@ -172,28 +172,25 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
                 .value.u64 = node->payload.int_literal.value.u64});
         }
         case UntypedNumber_TAG: {
-            expected_type = expected_type ? expected_type : int32_type(ctx->rewriter.dst_arena);
+            char* endptr;
+            int64_t i = strtoll(node->payload.untyped_number.plaintext, &endptr, 10);
+            if (!expected_type) {
+                bool valid_int = *endptr == '\0';
+                expected_type = valid_int ? int32_type(dst_arena) : fp32_type(dst_arena);
+            }
             expected_type = remove_uniformity_qualifier(expected_type);
             if (expected_type->tag == Int_TAG) {
-                int64_t v;
-                if (sizeof(long) == sizeof(int64_t))
-                    v = strtol(node->payload.untyped_number.plaintext, NULL, 10);
-                else if (sizeof(long long) == sizeof(int64_t))
-                    v = strtoll(node->payload.untyped_number.plaintext, NULL, 10);
-                else
-                    assert(false);
                 // TODO chop off extra bits based on width ?
                 return int_literal(dst_arena, (IntLiteral) {
                     .width = expected_type->payload.int_type.width,
                     .is_signed = expected_type->payload.int_literal.is_signed,
-                    .value.i64 = v
+                    .value.i64 = i
                 });
             } else if (expected_type->tag == Float_TAG) {
                 FloatLiteralValue v;
                 switch (expected_type->payload.float_type.width) {
                     case FloatTy16:
                         error("TODO: implement fp16 parsing");
-                        break;
                     case FloatTy32:
                         assert(sizeof(float) == sizeof(uint32_t));
                         float f = strtof(node->payload.untyped_number.plaintext, NULL);
