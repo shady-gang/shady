@@ -76,6 +76,7 @@ bool is_qualified_type_uniform(const Type* type) {
 }
 
 const Type* get_unqualified_type(const Type* type) {
+    assert(is_type(type));
     const Type* result_type = type;
     deconstruct_qualified_type(&result_type);
     return result_type;

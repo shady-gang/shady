@@ -190,6 +190,11 @@ typedef enum {
     IntTy64,
 } IntSizes;
 
+enum {
+    IntSizeMin = IntTy8,
+    IntSizeMax = IntTy64,
+};
+
 typedef struct Int_ Int;
 #define Int_Fields(MkField) \
 MkField(1, POD, IntSizes, width) \

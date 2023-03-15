@@ -17,6 +17,9 @@ typedef struct Context_ {
     Rewriter rewriter;
     CompilerConfig* config;
 
+    IntSizes emulated_ptr_width;
+    IntSizes emulated_memory_word_size;
+
     struct Dict*   serialisation_uniform[NumAddressSpaces];
     struct Dict* deserialisation_uniform[NumAddressSpaces];
 
@@ -35,7 +38,8 @@ typedef struct Context_ {
 } Context;
 
 static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset) {
-    const Node* zero = int32_literal(bb->arena, 0);
+    assert(get_unqualified_type(base_offset->type) == uint32_type(bb->arena));
+    const Node* zero = uint32_literal(bb->arena, 0);
     switch (element_type->tag) {
         case Bool_TAG: {
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
@@ -65,14 +69,15 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded i64 lo: %u at %d as=%d" }),
                        lo, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
-                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
+                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, uint32_literal(bb->arena, 1) });
                 logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset });
                 const Node* hi = gen_load(bb, logical_ptr);
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded i64 hi: %u at %d as=%d" }),
                        hi, hi_destination_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
 
-                return gen_merge_i32s_i64(bb, lo, hi);
+                const Node* merged = gen_merge_halves(bb, lo, hi);
+                return gen_reinterpret_cast(bb, element_type, merged);
             }
         }
         case TypeDeclRef_TAG:
@@ -85,7 +90,7 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
             get_record_layout(config, bb->arena, compound_type, fields);
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
-                const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, int32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
+                const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, uint32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
                 loaded[i] = gen_deserialisation(config, bb, member_types.nodes[i], arr, field_offset);
             }
             return composite(bb->arena, element_type, nodes(bb->arena, member_types.count, loaded));
@@ -95,11 +100,12 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
 }
 
 static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset, const Node* value) {
-    const Node* zero = int32_literal(bb->arena, 0);
+    assert(get_unqualified_type(base_offset->type) == uint32_type(bb->arena));
+    const Node* zero = uint32_literal(bb->arena, 0);
     switch (element_type->tag) {
         case Bool_TAG: {
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
-            const Node* one = int32_literal(bb->arena, 1);
+            const Node* one = uint32_literal(bb->arena, 1);
             const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one, zero });
             gen_store(bb, logical_ptr, int_value);
             return;
@@ -109,25 +115,30 @@ static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, con
             default: error("TODO")
         }
         case Int_TAG: des_int: {
-            // Same story as for deser
+            // First bitcast to unsigned so we always get zero-extension and not sign-extension afterwards
+            const Type* element_t_unsigned = int_type(bb->arena, (Int) { .width = element_type->payload.int_type.width, .is_signed = false});
+            const Node* unsigned_value = gen_primop_e(bb, reinterpret_op, singleton(element_t_unsigned), singleton(value));
             if (element_type->payload.int_type.width != IntTy64) {
-                value = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(value));
+                value = unsigned_value;
+                value = gen_primop_e(bb, convert_op, singleton(uint32_type(bb->arena)), singleton(value));
                 const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored: %u at %d as=%d" }),
                         value, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
                 gen_store(bb, logical_ptr, value);
             } else {
-                const Node* lo = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(value));
-                const Node* hi = gen_primop_ce(bb, rshift_logical_op, 2, (const Node* []){ value, int64_literal(bb->arena, 32) });
-                hi = gen_primop_e(bb, reinterpret_op, singleton(int32_type(bb->arena)), singleton(hi));
+                const Node* lo = unsigned_value;
+                            lo = gen_primop_e(bb, convert_op, singleton(uint32_type(bb->arena)), singleton(lo));
+                const Node* hi = unsigned_value;
+                            hi = gen_primop_e(bb, rshift_logical_op, empty(bb->arena), mk_nodes(bb->arena, hi, uint64_literal(bb->arena, 32)));
+                            hi = gen_primop_e(bb, convert_op, singleton(uint32_type(bb->arena)), singleton(hi));
                 // TODO: make this dependant on the emulation array type
                 const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
                 gen_store(bb, logical_ptr, lo);
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored i64 lo: %u at %d as=%d" }),
                         lo, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
-                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, int32_literal(bb->arena, 1) });
+                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, uint32_literal(bb->arena, 1) });
                 logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset});
                 gen_store(bb, logical_ptr, hi);
                 if (config->printf_trace.memory_accesses)
@@ -142,7 +153,7 @@ static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, con
             get_record_layout(config, bb->arena, element_type, fields);
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* extracted_value = first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, value, int32_literal(bb->arena, i)), .type_arguments = empty(bb->arena) })));
-                const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, int32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
+                const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, uint32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
                 gen_serialisation(config, bb, member_types.nodes[i], arr, field_offset, extracted_value);
             }
             return;
@@ -171,7 +182,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
 
     IrArena* arena = ctx->rewriter.dst_arena;
 
-    const Node* addr_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform, .type = int32_type(arena) }), "ptr");
+    const Node* addr_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform, .type = uint32_type(arena) }), "ptr");
 
     const Type* input_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform, .type = element_type });
     const Node* value_param = ser ? var(arena, input_value_t, "value") : NULL;
@@ -202,7 +213,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
 
     // some address spaces need to put the data in a special 'Block'-based record, so we need an extra lea to match
     if (is_backed_by_block_buffer)
-        base = gen_lea(bb, base, NULL, nodes(arena, 1, (const Node* []) { int32_literal(arena, 0) }));
+        base = gen_lea(bb, base, NULL, nodes(arena, 1, (const Node* []) { uint32_literal(arena, 0) }));
 
     if (ser) {
         gen_serialisation(ctx->config, bb, element_type, base, addr_param, value_param);
@@ -226,12 +237,26 @@ static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
     }
 }
 
+static const Node* convert_offset(BodyBuilder* bb, const Type* dst_type, const Node* src) {
+    const Type* src_type = get_unqualified_type(src->type);
+    assert(src_type->tag == Int_TAG);
+    assert(dst_type->tag == Int_TAG);
+
+    // first convert to final bitsize then bitcast
+    const Type* extended_src_t = int_type(bb->arena, (Int) { .width = dst_type->payload.int_type.width, .is_signed = src_type->payload.int_type.is_signed });
+    const Node* val = src;
+                val = gen_primop_e(bb, convert_op, singleton(extended_src_t), singleton(val));
+                val = gen_primop_e(bb, reinterpret_op, singleton(dst_type), singleton(val));
+    return val;
+}
+
 // TODO consume layouts from memory_layout.h
 static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const PrimOp* lea) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     const Node* old_pointer = lea->operands.nodes[0];
     const Node* faked_pointer = rewrite_node(&ctx->rewriter, old_pointer);
     const Type* pointer_type = get_unqualified_type(old_pointer->type);
+    const Type* emulated_ptr_t = int_type(dst_arena, (Int) { .width = ctx->emulated_ptr_width, .is_signed = false });
     assert(pointer_type->tag == PtrType_TAG);
 
     const Node* old_offset = lea->operands.nodes[1];
@@ -243,10 +268,11 @@ static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const Prim
         const Type* element_type = arr_type->payload.arr_type.element_type;
         TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
-        const Node* elem_size_val = int32_literal(dst_arena, bytes_to_i32_cells(element_t_layout.size_in_bytes));
-        const Node* computed_offset = gen_primop_ce(instructions, mul_op, 2, (const Node* []) { rewrite_node(&ctx->rewriter, old_offset), elem_size_val});
+        const Node* elem_size_val = uint32_literal(dst_arena, bytes_to_i32_cells(element_t_layout.size_in_bytes));
+        const Node* new_offset = convert_offset(instructions, emulated_ptr_t, rewrite_node(&ctx->rewriter, old_offset));
+        const Node* physical_offset = gen_primop_ce(instructions, mul_op, 2, (const Node* []) { new_offset, elem_size_val});
 
-        faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, computed_offset});
+        faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, physical_offset});
     }
 
     for (size_t i = 2; i < lea->operands.count; i++) {
@@ -258,10 +284,11 @@ static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const Prim
 
                 TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
 
-                const Node* elem_size_val = int32_literal(dst_arena, bytes_to_i32_cells(element_t_layout.size_in_bytes));
-                const Node* computed_offset = gen_primop_ce(instructions, mul_op, 2, (const Node* []) { rewrite_node(&ctx->rewriter, lea->operands.nodes[i]), elem_size_val});
+                const Node* elem_size_val = uint32_literal(dst_arena, bytes_to_i32_cells(element_t_layout.size_in_bytes));
+                const Node* new_index = convert_offset(instructions, emulated_ptr_t, rewrite_node(&ctx->rewriter, lea->operands.nodes[i]));
+                const Node* physical_offset = gen_primop_ce(instructions, mul_op, 2, (const Node* []) {new_index, elem_size_val});
 
-                faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, computed_offset});
+                faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) {faked_pointer, physical_offset});
 
                 pointer_type = ptr_type(dst_arena, (PtrType) {
                     .pointed_type = element_type,
@@ -284,7 +311,7 @@ static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const Prim
                 assert(n < member_types.count);
 
                 size_t field_offset = get_record_field_offset_in_bytes(ctx->config, dst_arena, pointed_type, n);
-                faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, int32_literal(dst_arena, bytes_to_i32_cells(field_offset))});
+                faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, uint32_literal(dst_arena, bytes_to_i32_cells(field_offset))});
 
                 pointer_type = ptr_type(dst_arena, (PtrType) {
                     .pointed_type = member_types.nodes[n],
@@ -374,7 +401,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case Let_TAG: return process_let(ctx, old);
         case PtrType_TAG: {
             if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
-                return int32_type(arena);
+                return int_type(arena, (Int) { .width = ctx->emulated_ptr_width, .is_signed = false });
 
             return recreate_node_identity(&ctx->rewriter, old);
         }
@@ -387,7 +414,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
                 const char* emulated_heap_name = old_gvar->address_space == AsPrivatePhysical ? "private" : "subgroup";
 
-                Node* cnst = constant(ctx->rewriter.dst_module, annotations, int32_type(arena), format_string(arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
+                const Type* emulated_ptr_type = int_type(arena, (Int) { .width = ctx->emulated_ptr_width, .is_signed = false });
+                Node* cnst = constant(ctx->rewriter.dst_module, annotations, emulated_ptr_type, format_string(arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
 
                 uint32_t* preallocated = old_gvar->address_space == AsSubgroupPhysical ? &ctx->preallocated_subgroup_memory : &ctx->preallocated_private_memory;
 
@@ -431,7 +459,11 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
         }
     }
 
-    const Type* emulated_memory_base_type = int32_type(dst_arena);
+    // TODO make everything else use this and then make it configurable...
+    IntSizes emulated_physical_pointer_width = IntTy32;
+    IntSizes emulated_memory_word_size = IntTy32;
+
+    const Type* emulated_memory_base_type = int_type(dst_arena, (Int) { .width = emulated_memory_word_size, .is_signed = false });
     const Type* private_memory_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = emulated_memory_base_type,
         .size = uint32_literal(dst_arena, per_thread_private_memory),
@@ -464,6 +496,9 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
 
         .tpm_is_block_buffer = false,
         .ssm_is_block_buffer = false,
+
+        .emulated_memory_word_size = emulated_memory_word_size,
+        .emulated_ptr_width = emulated_physical_pointer_width,
 
         .thread_private_memory = ref_decl(dst_arena, (RefDecl) { .decl = thread_private_memory }),
         .subgroup_shared_memory = ref_decl(dst_arena, (RefDecl) { .decl = subgroup_shared_memory }),

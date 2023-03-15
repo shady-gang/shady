@@ -14,6 +14,8 @@ bool is_value_type(const Type*);
 /// Is this a valid data type (for usage in other types and as type arguments) ?
 bool is_data_type(const Type*);
 
+size_t get_type_bitwidth(const Type* t);
+
 bool can_do_arithm(const Type* t);
 bool can_do_bitstuff(const Type* t);
 bool can_be_compared(bool ordered, const Type* t);

@@ -125,10 +125,36 @@ void check_subtype(const Type* supertype, const Type* type) {
     }
 }
 
+size_t get_type_bitwidth(const Type* t) {
+    switch (t->tag) {
+        case Int_TAG: {
+            switch (t->payload.int_type.width) {
+                case IntTy8:  return 8;
+                case IntTy16: return 16;
+                case IntTy32: return 32;
+                case IntTy64: return 64;
+            }
+        }
+        case Float_TAG: {
+            switch (t->payload.float_type.width) {
+                case FloatTy16: return 16;
+                case FloatTy32: return 32;
+                case FloatTy64: return 64;
+            }
+        }
+        case PtrType_TAG: {
+            if (is_physical_as(t->payload.ptr_type.address_space))
+                return 64;
+        }
+        default: break;
+    }
+    return SIZE_MAX;
+}
+
 /// Oracle of what casts are legal
 static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
-    // TODO implement rules
     assert(is_type(src_type) && is_type(dst_type));
+    assert(get_type_bitwidth(src_type) == get_type_bitwidth(dst_type));
     return true;
 }
 
@@ -148,7 +174,7 @@ bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
 const Type* get_actual_mask_type(IrArena* arena) {
     switch (arena->config.subgroup_mask_representation) {
         case SubgroupMaskAbstract: return mask_type(arena);
-        case SubgroupMaskInt64: return int64_type(arena);
+        case SubgroupMaskInt64: return uint64_type(arena);
         default: assert(false);
     }
 }
@@ -159,7 +185,11 @@ String name_type_safe(IrArena* arena, const Type* t) {
         case Type_MaskType_TAG: return "mask_t";
         case Type_JoinPointType_TAG: return "join_type_t";
         case Type_NoRet_TAG: return "no_ret";
-        case Type_Int_TAG: return format_string(arena, "int_%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
+        case Type_Int_TAG:
+            if (t->payload.int_type.is_signed)
+                return format_string(arena, "i%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
+            else
+                return format_string(arena, "u%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
         case Type_Float_TAG: return "float";
         case Type_Bool_TAG: return "bool";
         case Type_RecordType_TAG: break;
@@ -698,7 +728,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* dst_type = prim_op.type_arguments.nodes[0];
             assert(is_data_type(dst_type));
 
-            const Type* src_type = prim_op.operands.nodes[0];
+            const Type* src_type = prim_op.operands.nodes[0]->type;
             bool is_uniform = deconstruct_qualified_type(&src_type);
             // TODO check the conversion is legal
             return qualified_type(arena, (QualifiedType) {

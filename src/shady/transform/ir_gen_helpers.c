@@ -52,12 +52,24 @@ const Node* gen_reinterpret_cast(BodyBuilder* bb, const Type* dst, const Node* s
     return first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = reinterpret_op, .operands = singleton(src), .type_arguments = singleton(dst)})));
 }
 
-const Node* gen_merge_i32s_i64(BodyBuilder* bb, const Node* lo, const Node* hi) {
+const Node* gen_conversion(BodyBuilder* bb, const Type* dst, const Node* src) {
+    assert(is_type(dst));
+    return first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = convert_op, .operands = singleton(src), .type_arguments = singleton(dst)})));
+}
+
+const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
+    const Type* src_type = get_unqualified_type(lo->type);
+    assert(get_unqualified_type(hi->type) == src_type);
+    assert(src_type->tag == Int_TAG);
+    IntSizes size = src_type->payload.int_type.width;
+    assert(size != IntSizeMax);
+    const Type* dst_type = int_type(bb->arena, (Int) { .width = size + 1, .is_signed = src_type->payload.int_type.is_signed });
     // widen them
-    lo = gen_reinterpret_cast(bb, int64_type(bb->arena), lo);
-    hi = gen_reinterpret_cast(bb, int64_type(bb->arena), hi);
-    // shift hi by 32
-    hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []) { hi, int64_literal(bb->arena, 32) });
+    lo = gen_conversion(bb, dst_type, lo);
+    hi = gen_conversion(bb, dst_type, hi);
+    // shift hi
+    const Node* shift_by = int_literal(bb->arena, (IntLiteral)  { .width = size + 1, .is_signed = src_type->payload.int_type.is_signed, .value.u64 = get_type_bitwidth(src_type) });
+    hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []) { hi, shift_by});
     // Merge the two
     return gen_primop_ce(bb, or_op, 2, (const Node* []) { lo, hi });
 }
