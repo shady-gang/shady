@@ -1,8 +1,13 @@
 add_executable(embedder embed.c)
 
-set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/builtin_code.c PROPERTIES GENERATED TRUE)
-add_library(builtin_code OBJECT ${CMAKE_CURRENT_BINARY_DIR}/builtin_code.c)
-target_include_directories(builtin_code INTERFACE .)
+add_library(builtin_code INTERFACE)
+target_include_directories(builtin_code INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 
-add_custom_target(builtin_code_generate COMMAND ${CMAKE_COMMAND} -DBUILTIN_CODE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/embed_builtin_code.cmake)
-add_dependencies(builtin_code builtin_code_generate)
+function(embed_file TYPE NAME SRC)
+    add_custom_target(builtin_code_generate_${NAME} COMMAND embedder ${TYPE} ${NAME} ${CMAKE_CURRENT_SOURCE_DIR}/${SRC} ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.h)
+    set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${SRC}.h PROPERTIES GENERATED TRUE)
+    add_dependencies(builtin_code builtin_code_generate_${NAME})
+endfunction()
+
+embed_file(string shady_scheduler_src scheduler.slim)
+

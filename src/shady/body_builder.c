@@ -1,8 +1,7 @@
 #include "ir_private.h"
 #include "log.h"
 #include "portability.h"
-
-#include "../type.h"
+#include "type.h"
 
 #include "list.h"
 #include "dict.h"

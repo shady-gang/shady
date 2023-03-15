@@ -1,7 +1,7 @@
 #include "compile.h"
 
 #include "parser/parser.h"
-#include "builtin_code.h"
+#include "shady_scheduler_src.h"
 #include "transform/internal_constants.h"
 #include "ir_private.h"
 
@@ -104,7 +104,7 @@ CompilationResult parse_files(CompilerConfig* config, size_t num_files, const ch
 
     if (config->dynamic_scheduling) {
         debugv_print("Parsing builtin scheduler code");
-        parse(pconfig, builtin_scheduler_txt, mod);
+        parse(pconfig, shady_scheduler_src, mod);
     }
 
     return CompilationNoError;
