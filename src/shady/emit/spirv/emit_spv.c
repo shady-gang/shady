@@ -276,44 +276,47 @@ static void emit_function(Emitter* emitter, const Node* node) {
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
     }
 
-    Scope* scope = new_scope(node);
-    // reserve a bunch of identifiers for the basic blocks in the scope
-    for (size_t i = 0; i < scope->size; i++) {
-        CFNode* cfnode = read_list(CFNode*, scope->contents)[i];
-        assert(cfnode);
-        const Node* bb = cfnode->node;
-        if (is_anonymous_lambda(bb))
-            continue;
-        assert(is_basic_block(bb) || bb == node);
-        SpvId bb_id = spvb_fresh_id(emitter->file_builder);
-        BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, bb_id);
-        insert_dict(const Node*, BBBuilder, emitter->bb_builders, bb, basic_block_builder);
-        // add phis for every non-entry basic block
-        if (i > 0) {
-            assert(is_basic_block(bb) && bb != node);
-            Nodes bb_params = bb->payload.basic_block.params;
-            for (size_t j = 0; j < bb_params.count; j++) {
-                const Node* bb_param = bb_params.nodes[j];
-                spvb_add_phi(basic_block_builder, emit_type(emitter, bb_param->type), spvb_fresh_id(emitter->file_builder));
+    if (node->payload.fun.body) {
+        Scope* scope = new_scope(node);
+        // reserve a bunch of identifiers for the basic blocks in the scope
+        for (size_t i = 0; i < scope->size; i++) {
+            CFNode* cfnode = read_list(CFNode*, scope->contents)[i];
+            assert(cfnode);
+            const Node* bb = cfnode->node;
+            if (is_anonymous_lambda(bb))
+                continue;
+            assert(is_basic_block(bb) || bb == node);
+            SpvId bb_id = spvb_fresh_id(emitter->file_builder);
+            BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, bb_id);
+            insert_dict(const Node*, BBBuilder, emitter->bb_builders, bb, basic_block_builder);
+            // add phis for every non-entry basic block
+            if (i > 0) {
+                assert(is_basic_block(bb) && bb != node);
+                Nodes bb_params = bb->payload.basic_block.params;
+                for (size_t j = 0; j < bb_params.count; j++) {
+                    const Node* bb_param = bb_params.nodes[j];
+                    spvb_add_phi(basic_block_builder, emit_type(emitter, bb_param->type), spvb_fresh_id(emitter->file_builder));
+                }
+                // also make sure to register the label for basic blocks
+                register_result(emitter, bb, bb_id);
             }
-            // also make sure to register the label for basic blocks
-            register_result(emitter, bb, bb_id);
         }
-    }
-    // emit the blocks using the dominator tree
-    //emit_basic_block(emitter, fn_builder, &scope, scope.entry);
-    for (size_t i = 0; i < scope->size; i++) {
-        CFNode* cfnode = scope->rpo[i];
-        if (i == 0)
-            assert(cfnode == scope->entry);
-        if (is_anonymous_lambda(cfnode->node))
-            continue;
-        emit_basic_block(emitter, fn_builder, scope, cfnode);
-    }
+        // emit the blocks using the dominator tree
+        //emit_basic_block(emitter, fn_builder, &scope, scope.entry);
+        for (size_t i = 0; i < scope->size; i++) {
+            CFNode* cfnode = scope->rpo[i];
+            if (i == 0)
+                assert(cfnode == scope->entry);
+            if (is_anonymous_lambda(cfnode->node))
+                continue;
+            emit_basic_block(emitter, fn_builder, scope, cfnode);
+        }
 
-    destroy_scope(scope);
+        destroy_scope(scope);
 
-    spvb_define_function(emitter->file_builder, fn_builder);
+        spvb_define_function(emitter->file_builder, fn_builder);
+    } else
+        spvb_declare_function(emitter->file_builder, fn_builder);
 }
 
 SpvId emit_decl(Emitter* emitter, const Node* decl) {

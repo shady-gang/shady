@@ -586,6 +586,29 @@ SpvId spvb_debug_string(struct SpvFileBuilder* file_builder, const char* string)
 }
 
 #undef target_data
+#define target_data file_builder->fn_decls
+
+void spvb_declare_function(struct SpvFileBuilder* file_builder, struct SpvFnBuilder* fn_builder) {
+    op(SpvOpFunction, 5);
+    ref_id(fn_builder->fn_ret_type);
+    ref_id(fn_builder->function_id);
+    literal_int(SpvFunctionControlMaskNone);
+    ref_id(fn_builder->fn_type);
+
+    // Includes stuff like OpFunctionParameters
+    copy_section(fn_builder->header);
+
+    assert(entries_count_list(fn_builder->bbs) == 0 && "declared functions must be empty");
+
+    op(SpvOpFunctionEnd, 1);
+
+    destroy_list(fn_builder->bbs);
+    destroy_list(fn_builder->header);
+    destroy_list(fn_builder->variables);
+    free(fn_builder);
+}
+
+#undef target_data
 #define target_data file_builder->fn_defs
 
 void spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuilder* fn_builder) {
