@@ -12,6 +12,7 @@ list(APPEND BASIC_TESTS test/restructure1)
 list(APPEND BASIC_TESTS test/restructure2)
 list(APPEND BASIC_TESTS test/simplify_control)
 list(APPEND BASIC_TESTS test/float)
+list(APPEND BASIC_TESTS test/fn_decl)
 
 list(APPEND BASIC_TESTS samples/fib)
 list(APPEND BASIC_TESTS samples/hello_world)

@@ -161,6 +161,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
     IrArena* arena = ctx->rewriter.dst_arena;
 
     const Node* body = get_abstraction_body(abs);
+    assert(body);
     switch (is_terminator(body)) {
         case NotATerminator:
         case LetMut_TAG: assert(false);
@@ -324,9 +325,14 @@ static const Node* process(Context* ctx, const Node* node) {
         Context ctx2 = *ctx;
         ctx2.dfs_stack = NULL;
         ctx2.control_stack = NULL;
-        if (lookup_annotation(node, "Builtin") || !lookup_annotation(node, "MaybeLeaf") || setjmp(ctx2.bail)) {
+        bool is_builtin = lookup_annotation(node, "Builtin");
+        bool is_leaf = false;
+        if (is_builtin || !node->payload.fun.body || !lookup_annotation(node, "MaybeLeaf") || setjmp(ctx2.bail)) {
             ctx2.lower = false;
-            new->payload.fun.body = rewrite_node(&ctx2.rewriter, node->payload.fun.body);
+            if (node->payload.fun.body)
+                new->payload.fun.body = rewrite_node(&ctx2.rewriter, node->payload.fun.body);
+            // builtin functions are always considered leaf functions
+            is_leaf = is_builtin;
         } else {
             ctx2.lower = true;
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
@@ -335,8 +341,11 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
             new->payload.fun.body = finish_body(bb, structure(&ctx2, node, unreachable(arena)));
-            new->payload.fun.annotations = append_nodes(arena, new->payload.fun.annotations, annotation(arena, (Annotation) { .name = "Leaf" }));
+            is_leaf = true;
         }
+
+        if (is_leaf)
+            new->payload.fun.annotations = append_nodes(arena, new->payload.fun.annotations, annotation(arena, (Annotation) { .name = "Leaf" }));
 
         // if we did a longjmp, we might have orphaned a few of those
         while (alloc_stack_size_now >  entries_count_list(ctx->tmp_alloc_stack)) {

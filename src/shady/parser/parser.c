@@ -863,7 +863,8 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     expect_parameters(ctx, &parameters, NULL);
 
     Node* fn = function(mod, parameters, name, annotations, types);
-    fn->payload.fun.body = expect_body(ctx, fn, types.count == 0 ? fn_ret(arena, (Return) { .args = types }) : NULL);
+    if (!accept_token(ctx, semi_tok))
+        fn->payload.fun.body = expect_body(ctx, fn, types.count == 0 ? fn_ret(arena, (Return) { .args = types }) : NULL);
 
     const Node* declaration = fn;
     assert(declaration);

@@ -80,9 +80,11 @@ static const Node* process(Context* ctx, const Node* node) {
                     .context = &ctx2,
                     .builder = bb,
                 };
-                visit_children(&vctx.visitor, node->payload.fun.body);
+                if (node->payload.fun.body)
+                        visit_children(&vctx.visitor, node->payload.fun.body);
             }
-            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
+            if (node->payload.fun.body)
+                fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
             return fun;
         }
         case Return_TAG: {

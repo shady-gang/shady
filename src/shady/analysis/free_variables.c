@@ -49,7 +49,9 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
         assert(r);
     }
 
-    visit_fv(ctx, get_abstraction_body(abs));
+    const Node* body = get_abstraction_body(abs);
+    if (body)
+        visit_fv(ctx, body);
 
     for (size_t i = 0; i < entries_count_list(cfnode->dominates); i++) {
         CFNode* child = read_list(CFNode*, cfnode->dominates)[i];

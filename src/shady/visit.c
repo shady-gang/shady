@@ -67,7 +67,8 @@ void visit_children(Visitor* visitor, const Node* node) {
     if (node->tag == Function_TAG) {
         visit_nodes(visitor, node->payload.fun.params);
         visit_nodes(visitor, node->payload.fun.return_types);
-        visit_node(visitor, node->payload.fun.body);
+        if (node->payload.fun.body)
+            visit_node(visitor, node->payload.fun.body);
         if (visitor->visit_fn_scope_rpo)
             visit_fn_blocks_except_head(visitor, node);
     }

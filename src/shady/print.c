@@ -231,8 +231,10 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     assert(is_function(node));
     print_yield_types(ctx, node->payload.fun.return_types);
     print_param_list(ctx, node->payload.fun.params, NULL);
-    if (!node->payload.fun.body)
+    if (!node->payload.fun.body) {
+        printf(";");
         return;
+    }
 
     printf(" {");
     indent(ctx->printer);

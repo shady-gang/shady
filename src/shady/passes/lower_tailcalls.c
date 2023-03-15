@@ -99,15 +99,17 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* entry_point_annotation = lookup_annotation_list(old->payload.fun.annotations, "EntryPoint");
 
             // Leave leaf-calls alone :)
-            ctx2.disable_lowering = lookup_annotation(old, "Leaf");
+            ctx2.disable_lowering = lookup_annotation(old, "Leaf") || !old->payload.fun.body;
             if (ctx2.disable_lowering) {
                 Node* fun = recreate_decl_header_identity(&ctx2.rewriter, old);
-                const Node* body = rewrite_node(&ctx->rewriter, old->payload.fun.body);
-                if (entry_point_annotation) {
-                    const Node* lam = lambda(ctx->rewriter.dst_module, empty(dst_arena), body);
-                    body = let(dst_arena, leaf_call(dst_arena, (LeafCall) { .callee = ctx->init_fn, .args = empty(dst_arena) }), lam);
+                if (old->payload.fun.body) {
+                    const Node* nbody = rewrite_node(&ctx->rewriter, old->payload.fun.body);
+                    if (entry_point_annotation) {
+                        const Node* lam = lambda(ctx->rewriter.dst_module, empty(dst_arena), nbody);
+                        nbody = let(dst_arena, leaf_call(dst_arena, (LeafCall) {.callee = ctx->init_fn, .args = empty(dst_arena)}), lam);
+                    }
+                    fun->payload.fun.body = nbody;
                 }
-                fun->payload.fun.body = body;
                 return fun;
             }
 
