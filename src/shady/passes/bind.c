@@ -102,6 +102,8 @@ static const Node* get_node_address_safe(Context* ctx, const Node* node) {
                     .op = lea_op,
                     .operands = nodes(dst_arena, 3, (const Node* []) { src_ptr, int32_literal(dst_arena, 0), index })
                 });
+            } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == deref_op) {
+                return rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands));
             }
         }
         default: break;
@@ -197,13 +199,22 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
 }
 
 static const Node* bind_node(Context* ctx, const Node* node) {
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
     if (node == NULL)
         return NULL;
 
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    // in case the node is an l-value, we load it
+    const Node* lhs = get_node_address_safe(ctx, node);
+    if (lhs) {
+        return prim_op(dst_arena, (PrimOp) {
+                .op = load_op,
+                .operands = singleton(lhs)
+        });
+    }
+
     switch (node->tag) {
         case Function_TAG:
         case Constant_TAG:
@@ -215,14 +226,8 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case Variable_TAG: error("the binders should be handled such that this node is never reached");
         case Unbound_TAG: {
             Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
-            if (entry.is_var) {
-                return prim_op(dst_arena, (PrimOp) {
-                    .op = load_op,
-                    .operands = nodes(dst_arena, 1, (const Node* []) { get_node_address(ctx, node) })
-                });
-            } else {
-                return entry.node;
-            }
+            assert(!entry.is_var);
+            return entry.node;
         }
         case UnboundBBs_TAG: {
             Nodes unbound_blocks = node->payload.unbound_bbs.children_blocks;
@@ -282,11 +287,6 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                     .operands = nodes(dst_arena, 2, (const Node* []) { target_ptr, value })
                 });
             } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == subscript_op) {
-                const Node* lhs = get_node_address_safe(ctx, node);
-                if (lhs) return prim_op(dst_arena, (PrimOp) {
-                    .op = load_op,
-                    .operands = singleton(lhs)
-                });
                 return prim_op(dst_arena, (PrimOp) {
                     .op = extract_op,
                     .operands = mk_nodes(dst_arena, rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[0]), rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]))

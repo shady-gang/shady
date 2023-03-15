@@ -53,6 +53,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     String operator_str = NULL;
     CValue final_expression = NULL;
     switch (prim_op->op) {
+        case deref_op:
         case assign_op:
         case subscript_op: assert(false);
         case quote_op: {

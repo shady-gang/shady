@@ -81,12 +81,17 @@ P(0, global_id)                       \
 P(0, workgroup_size)                  \
 P(0, workgroup_num)                   \
 
+#define SYNTAX_SUGAR_OPS(P) \
+P(1, assign)                \
+P(1, subscript)             \
+P(1, deref)                 \
+
 #define PRIMOPS(P)              \
 P(0, quote)                     \
 ARITHM_PRIMOPS(P)               \
 BITSTUFF_PRIMOPS(P)             \
 CMP_PRIMOPS(P)                  \
-MATH_PRIMOPS(P)                  \
+MATH_PRIMOPS(P)                 \
 SHIFT_PRIMOPS(P)                \
 MEMORY_PRIMOPS(P)               \
 P(0, select)                    \
@@ -99,8 +104,7 @@ COMPUTE_INTRINSICS_PRIMOPS(P)   \
 SUBGROUP_INTRINSICS_PRIMOPS(P)  \
 /* these are all lowered away */\
 STACK_PRIMOPS(P)                \
-P(1, assign)                    \
-P(1, subscript)                 \
+SYNTAX_SUGAR_OPS(P)             \
 P(1, create_joint_point)        \
 P(0, empty_mask)                \
 P(0, mask_is_thread_active)     \

@@ -366,6 +366,13 @@ static const Node* accept_primary_expr(ctxparams) {
             .op = not_op,
             .operands = singleton(expr),
         });
+    } else if (accept_token(ctx, star_tok)) {
+        const Node* expr = accept_primary_expr(ctx);
+        assert(expr);
+        return prim_op(arena, (PrimOp) {
+            .op = deref_op,
+            .operands = singleton(expr),
+        });
     }
 
     const Node* expr = accept_value(ctx);
