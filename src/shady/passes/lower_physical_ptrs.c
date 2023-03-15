@@ -37,6 +37,14 @@ typedef struct Context_ {
     bool ssm_is_block_buffer;
 } Context;
 
+static IntSizes float_to_int_width(FloatSizes width) {
+    switch (width) {
+        case FloatTy16: return IntTy16;
+        case FloatTy32: return IntTy32;
+        case FloatTy64: return IntTy64;
+    }
+}
+
 static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset) {
     assert(get_unqualified_type(base_offset->type) == uint32_type(bb->arena));
     const Node* zero = uint32_literal(bb->arena, 0);
@@ -47,7 +55,6 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
             return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, zero});
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
-            case AsProgramCode: goto ser_int;
             default: error("TODO")
         }
         case Int_TAG: ser_int: {
@@ -79,6 +86,11 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
                 const Node* merged = gen_merge_halves(bb, lo, hi);
                 return gen_reinterpret_cast(bb, element_type, merged);
             }
+        }
+        case Float_TAG: {
+            const Type* unsigned_int_t = int_type(bb->arena, (Int) {.width = float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
+            const Node* unsigned_int = gen_deserialisation(config, bb, unsigned_int_t, arr, base_offset);
+            return gen_reinterpret_cast(bb, element_type, unsigned_int);
         }
         case TypeDeclRef_TAG:
         case RecordType_TAG: {
@@ -146,6 +158,11 @@ static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, con
                         hi, hi_destination_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
             }
             return;
+        }
+        case Float_TAG: {
+            const Type* unsigned_int_t = int_type(bb->arena, (Int) {.width = float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
+            const Node* unsigned_value = gen_primop_e(bb, reinterpret_op, singleton(unsigned_int_t), singleton(value));
+            return gen_serialisation(config, bb, unsigned_int_t, arr, base_offset, unsigned_value);
         }
         case RecordType_TAG: {
             Nodes member_types = element_type->payload.record_type.members;
