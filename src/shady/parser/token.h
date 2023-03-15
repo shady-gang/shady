@@ -91,6 +91,7 @@ TOKEN(rbracket, "}") \
 TOKEN(lsbracket, "[") \
 TOKEN(rsbracket, "]") \
 TOKEN(at, "@") \
+TOKEN(pound, "#") \
 TOKEN(dot, ".") \
 TOKEN(semi, ";") \
 TOKEN(colon, ":") \
