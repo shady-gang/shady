@@ -25,7 +25,7 @@ static OperandClass classify_operand_type(const Type* type) {
     assert(is_type(type) && !contains_qualified_type(type));
 
     switch (type->tag) {
-        case Int_TAG:     return Signed;
+        case Int_TAG:     return type->payload.int_type.is_signed ? Signed : Unsigned;
         case Bool_TAG:    return Logical;
         case PtrType_TAG: return Ptr;
         case Float_TAG:   return FP;
@@ -93,8 +93,8 @@ const struct IselTableEntry {
     }},
 
     [reinterpret_op] = { UnOp, FirstAndResult, TyOperand, .foar = {
-        { SpvOpUConvert,      SpvOpBitcast,       SpvOpBitcast,  ISEL_ILLEGAL,  SpvOpConvertUToPtr },
-        { SpvOpBitcast,       ISEL_IDENTITY,      SpvOpBitcast,  ISEL_ILLEGAL,  SpvOpConvertUToPtr },
+        { SpvOpSConvert,      SpvOpBitcast,       SpvOpBitcast,  ISEL_ILLEGAL,  SpvOpConvertUToPtr },
+        { SpvOpBitcast,       SpvOpUConvert,      SpvOpBitcast,  ISEL_ILLEGAL,  SpvOpConvertUToPtr },
         { SpvOpBitcast,       SpvOpBitcast,       ISEL_IDENTITY, ISEL_ILLEGAL,  ISEL_ILLEGAL /* no fp-ptr casts */ },
         { ISEL_ILLEGAL,       ISEL_ILLEGAL,       ISEL_ILLEGAL,  ISEL_IDENTITY, ISEL_ILLEGAL /* no bool reinterpret */ },
         { SpvOpConvertPtrToU, SpvOpConvertPtrToU, ISEL_ILLEGAL,  ISEL_ILLEGAL,  ISEL_IDENTITY }
@@ -187,12 +187,13 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = int32_type(emitter->arena) });
             SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
             SpvId raw_result = spvb_ballot(bb_builder, emit_type(emitter, i32x4), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
+            // TODO: why are we doing this in SPIR-V and not the IR ?
             SpvId low32 = spvb_extract(bb_builder, emit_type(emitter, int32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
             SpvId hi32 = spvb_extract(bb_builder, emit_type(emitter, int32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
-            SpvId low64 = spvb_unop(bb_builder, SpvOpUConvert, emit_type(emitter, int64_type(emitter->arena)), low32);
-            SpvId hi64 = spvb_unop(bb_builder, SpvOpUConvert, emit_type(emitter, int64_type(emitter->arena)), hi32);
-            hi64 = spvb_binop(bb_builder, SpvOpShiftLeftLogical, emit_type(emitter, int64_type(emitter->arena)), hi64, emit_value(emitter, bb_builder, int64_literal(emitter->arena, 32)));
-            SpvId final_result = spvb_binop(bb_builder, SpvOpBitwiseOr, emit_type(emitter, int64_type(emitter->arena)), low64, hi64);
+            SpvId low64 = spvb_unop(bb_builder, SpvOpUConvert, emit_type(emitter, uint64_type(emitter->arena)), low32);
+            SpvId hi64 = spvb_unop(bb_builder, SpvOpUConvert, emit_type(emitter, uint64_type(emitter->arena)), hi32);
+            hi64 = spvb_binop(bb_builder, SpvOpShiftLeftLogical, emit_type(emitter, uint64_type(emitter->arena)), hi64, emit_value(emitter, bb_builder, int64_literal(emitter->arena, 32)));
+            SpvId final_result = spvb_binop(bb_builder, SpvOpBitwiseOr, emit_type(emitter, uint64_type(emitter->arena)), low64, hi64);
             assert(results_count == 1);
             results[0] = final_result;
             return;
