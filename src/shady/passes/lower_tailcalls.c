@@ -189,7 +189,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
             if (pointee->tag == FnType_TAG) {
-                const Type* emulated_fn_ptr_type = int32_type(ctx->rewriter.dst_arena);
+                const Type* emulated_fn_ptr_type = uint32_type(ctx->rewriter.dst_arena);
                 return emulated_fn_ptr_type;
             }
             SHADY_FALLTHROUGH
@@ -267,7 +267,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         bind_instruction(zero_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d escaped death!\n" }), local_id) }));
 
     const Node* zero_case_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), finish_body(zero_case_builder, continue_terminator));
-    const Node* zero_lit = int32_literal(dst_arena, 0);
+    const Node* zero_lit = uint32_literal(dst_arena, 0);
     append_list(const Node*, literals, zero_lit);
     append_list(const Node*, cases, zero_case_lam);
 

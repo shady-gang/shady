@@ -79,9 +79,52 @@ static const Node* accept_primop(ctxparams);
 static const Node* accept_expr(ctxparams, int);
 static Nodes expect_operands(ctxparams);
 
+static const Type* accept_numerical_type(ctxparams) {
+    if (accept_token(ctx, i8_tok)) {
+        return int8_type(arena);
+    } else if (accept_token(ctx, i16_tok)) {
+        return int16_type(arena);
+    } else if (accept_token(ctx, i32_tok)) {
+        return int32_type(arena);
+    } else if (accept_token(ctx, i64_tok)) {
+        return int64_type(arena);
+    } else if (accept_token(ctx, u8_tok)) {
+        return uint8_type(arena);
+    } else if (accept_token(ctx, u16_tok)) {
+        return uint16_type(arena);
+    } else if (accept_token(ctx, u32_tok)) {
+        return uint32_type(arena);
+    } else if (accept_token(ctx, u64_tok)) {
+        return uint64_type(arena);
+    } else if (accept_token(ctx, f16_tok)) {
+        return fp16_type(arena);
+    } else if (accept_token(ctx, f32_tok)) {
+        return fp32_type(arena);
+    } else if (accept_token(ctx, f64_tok)) {
+        return fp64_type(arena);
+    }
+    return NULL;
+}
+
 static const Node* accept_value(ctxparams) {
+    const Type* num_type = accept_numerical_type(ctx);
     Token tok = curr_token(tokenizer);
     size_t size = tok.end - tok.start;
+    if (num_type) {
+        switch (tok.tag) {
+            case hex_lit_tok:
+            case dec_lit_tok: {
+                next_token(tokenizer);
+                return constrained(arena, (ConstrainedValue) {
+                    .type = num_type,
+                    .value = untyped_number(arena, (UntypedNumber) {
+                            .plaintext = string_sized(arena, (int) size, &contents[tok.start])
+                    })
+                });
+            }
+            default: error("primtype literal")
+        }
+    }
     switch (tok.tag) {
         case identifier_tok: {
             const char* id = string_sized(arena, (int) size, &contents[tok.start]);
@@ -146,29 +189,9 @@ static AddressSpace expect_ptr_address_space(ctxparams) {
 }
 
 static const Type* accept_unqualified_type(ctxparams) {
-    if (accept_token(ctx, i8_tok)) {
-        return int8_type(arena);
-    } else if (accept_token(ctx, i16_tok)) {
-        return int16_type(arena);
-    } else if (accept_token(ctx, i32_tok)) {
-        return int32_type(arena);
-    } else if (accept_token(ctx, i64_tok)) {
-        return int64_type(arena);
-    } else if (accept_token(ctx, u8_tok)) {
-        return uint8_type(arena);
-    } else if (accept_token(ctx, u16_tok)) {
-        return uint16_type(arena);
-    } else if (accept_token(ctx, u32_tok)) {
-        return uint32_type(arena);
-    } else if (accept_token(ctx, u64_tok)) {
-        return uint64_type(arena);
-    } else if (accept_token(ctx, f16_tok)) {
-        return fp16_type(arena);
-    } else if (accept_token(ctx, f32_tok)) {
-        return fp32_type(arena);
-    } else if (accept_token(ctx, f64_tok)) {
-        return fp64_type(arena);
-    } else if (accept_token(ctx, bool_tok)) {
+    const Type* prim_type = accept_numerical_type(ctx);
+    if (prim_type) return prim_type;
+    else if (accept_token(ctx, bool_tok)) {
         return bool_type(arena);
     } else if (accept_token(ctx, mask_t_tok)) {
         return mask_type(arena);

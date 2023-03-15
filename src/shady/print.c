@@ -360,6 +360,12 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
 static void print_value(PrinterCtx* ctx, const Node* node) {
     switch (is_value(node)) {
         case NotAValue: assert(false); break;
+        case ConstrainedValue_TAG: {
+            print_node(node->payload.constrained.type);
+            printf(" ");
+            print_node(node->payload.constrained.value);
+            break;
+        }
         case Variable_TAG:
             printf(YELLOW);
             if (ctx->config.reparseable)

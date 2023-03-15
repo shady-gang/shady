@@ -30,6 +30,7 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
     switch (is_value(node)) {
         case NotAValue: error("");
         case Variable_TAG: error("tried to emit a variable: but all variables should be emitted by enclosing scope or preceding instructions !");
+        case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG:
         case Value_FnAddr_TAG: error("Should be lowered away earlier!");
         case IntLiteral_TAG: {

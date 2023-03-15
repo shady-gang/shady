@@ -64,7 +64,7 @@ static const Node* _infer_annotation(Context* ctx, const Node* node) {
 static const Node* _infer_type(Context* ctx, const Type* type) {
     switch (type->tag) {
         case ArrType_TAG: {
-            const Node* size = infer(ctx, type->payload.arr_type.size, int32_type(ctx->rewriter.dst_arena));
+            const Node* size = infer(ctx, type->payload.arr_type.size, NULL);
             return arr_type(ctx->rewriter.dst_arena, (ArrType) {
                 .size = size,
                 .element_type = infer(ctx, type->payload.arr_type.element_type, NULL)
@@ -102,8 +102,8 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
         case Constant_TAG: {
             const Constant* oconstant = &node->payload.constant;
             const Type* imported_hint = infer(ctx, oconstant->type_hint, NULL);
-
-            const Node* typed_value = infer(ctx, oconstant->value, imported_hint);
+            assert(is_data_type(imported_hint));
+            const Node* typed_value = infer(ctx, oconstant->value, qualified_type_helper(imported_hint, true));
             assert(is_value(typed_value));
             imported_hint = get_unqualified_type(typed_value->type);
 
@@ -143,10 +143,23 @@ static const Type* remove_uniformity_qualifier(const Node* type) {
 static const Node* _infer_value(Context* ctx, const Node* node, const Type* expected_type) {
     if (!node) return NULL;
 
+    if (expected_type) {
+        assert(is_value_type(expected_type));
+    }
+
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     switch (is_value(node)) {
         case NotAValue: error("");
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
+        case Value_ConstrainedValue_TAG: {
+            const Type* type = infer(ctx, node->payload.constrained.type, NULL);
+            bool expect_uniform = false;
+            if (expected_type) {
+                expect_uniform = deconstruct_qualified_type(&expected_type);
+                assert(is_subtype(expected_type, type));
+            }
+            return infer(ctx, node->payload.constrained.value, qualified_type_helper(type, expect_uniform));
+        }
         case IntLiteral_TAG: {
             if (expected_type) {
                 expected_type = remove_uniformity_qualifier(expected_type);
@@ -155,7 +168,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
             }
             return int_literal(dst_arena, (IntLiteral) {
                 .width = node->payload.int_literal.width,
-                .is_signed = expected_type->payload.int_literal.is_signed,
+                .is_signed = node->payload.int_literal.is_signed,
                 .value.u64 = node->payload.int_literal.value.u64});
         }
         case UntypedNumber_TAG: {
@@ -308,7 +321,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
     LARRAY(const Node*, new_inputs_scratch, old_operands.count);
     Nodes input_types;
     switch (node->payload.prim_op.op) {
-        case neg_op:
+        /*case neg_op:
             input_types = nodes(dst_arena, 1, (const Type*[]){ int32_type(dst_arena) }); break;
         case rshift_arithm_op:
         case rshift_logical_op:
@@ -324,7 +337,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
         case neq_op:
         case gt_op:
         case gte_op:
-            input_types = nodes(dst_arena, 2, (const Type*[]){ int32_type(dst_arena), int32_type(dst_arena) }); break;
+            input_types = nodes(dst_arena, 2, (const Type*[]){ int32_type(dst_arena), int32_type(dst_arena) }); break;*/
         case push_stack_op:
         case push_stack_uniform_op: {
             assert(old_operands.count == 1);
@@ -368,7 +381,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             assert(old_operands.count >= 2);
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
             for (size_t i = 1; i < old_operands.count; i++) {
-                new_inputs_scratch[i] = infer(ctx, old_operands.nodes[i], int32_type(dst_arena));
+                new_inputs_scratch[i] = infer(ctx, old_operands.nodes[i], /*int32_type(dst_arena)*/ NULL);
             }
             goto skip_input_types;
         }
@@ -385,7 +398,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             input_types = nodes(dst_arena, 1, (const Type* []) { bool_type(dst_arena) });
             break;
         case mask_is_thread_active_op: {
-            input_types = nodes(dst_arena, 2, (const Type* []) { mask_type(dst_arena), int32_type(dst_arena) });
+            input_types = nodes(dst_arena, 2, (const Type* []) { mask_type(dst_arena), uint32_type(dst_arena) });
             break;
         }
         default: {

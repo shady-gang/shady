@@ -27,6 +27,7 @@ N(1, 0, 1, TypeDeclRef, type_decl_ref) \
 
 #define VALUE_NODES(N) \
 N(0, 1, 1, Variable, var) \
+N(1, 0, 1, ConstrainedValue, constrained) \
 N(1, 1, 1, UntypedNumber, untyped_number) \
 N(1, 1, 1, IntLiteral, int_literal) \
 N(1, 1, 1, FloatLiteral, float_literal) \
@@ -222,6 +223,11 @@ MkField(1, POD, VarId, id) \
 MkField(1, STRING, String, name) \
 MkField(0, INSTRUCTION, const Node*, instruction) \
 MkField(0, POD, unsigned, output)
+
+typedef struct ConstrainedValue_ ConstrainedValue;
+#define ConstrainedValue_Fields(MkField) \
+MkField(1, TYPE, const Type*, type) \
+MkField(1, VALUE, const Node*, value) \
 
 typedef struct UntypedNumber_ UntypedNumber;
 #define UntypedNumber_Fields(MkField) \
