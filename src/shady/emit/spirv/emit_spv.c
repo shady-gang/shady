@@ -452,15 +452,28 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
     }
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 static void emit_decls(Emitter* emitter, Nodes declarations) {
     for (size_t i = 0; i < declarations.count; i++) {
         const Node* decl = declarations.nodes[i];
         emit_decl(emitter, decl);
     }
 }
+
+SpvId get_extended_instruction_set(Emitter* emitter, const char* name) {
+    SpvId* found = find_value_dict(const char*, SpvId, emitter->extended_instruction_sets, name);
+    if (found)
+        return *found;
+
+    SpvId new = spvb_extended_import(emitter->file_builder, name);
+    insert_dict(const char*, SpvId, emitter->extended_instruction_sets, name, new);
+    return new;
+}
+
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
+
+KeyHash hash_string(const char** string);
+bool compare_string(const char** a, const char** b);
 
 void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output) {
     IrArena* arena = get_module_arena(mod);
@@ -479,7 +492,7 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
         .num_entry_pts = 0,
     };
 
-    emitter.non_semantic_imported_instrs.debug_printf = spvb_extended_import(file_builder, "NonSemantic.DebugPrintf");
+    emitter.extended_instruction_sets = new_dict(const char*, SpvId, (HashFn) hash_string, (CmpFn) compare_string);
 
     for (size_t i = 0; i < VulkanBuiltinsCount; i++)
         emitter.emitted_builtins[i] = 0;
@@ -517,5 +530,6 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
     *output = malloc(*output_size);
     memcpy(*output, words->alloc, *output_size);
 
+    destroy_dict(emitter.extended_instruction_sets);
     destroy_list(words);
 }

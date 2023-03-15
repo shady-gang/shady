@@ -21,9 +21,7 @@ typedef struct Emitter_ {
     SpvId emitted_builtins[VulkanBuiltinsCount];
     size_t num_entry_pts;
 
-    struct {
-        SpvId debug_printf;
-    } non_semantic_imported_instrs;
+    struct Dict* extended_instruction_sets;
 } Emitter;
 
 typedef struct Phi** Phis;
@@ -50,6 +48,8 @@ void emit_terminator(Emitter*, FnBuilder, BBBuilder, MergeTargets, const Node* t
 
 SpvId find_reserved_id(Emitter* emitter, const Node* node);
 void register_result(Emitter*, const Node*, SpvId id);
+
+SpvId get_extended_instruction_set(Emitter*, const char*);
 
 SpvStorageClass emit_addr_space(AddressSpace address_space);
 // SPIR-V doesn't have multiple return types, this bridges the gap...

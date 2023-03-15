@@ -14,7 +14,7 @@ typedef enum {
 } OperandClass;
 
 typedef enum {
-    Custom, BinOp, UnOp, Builtin
+    Custom, BinOp, UnOp, Builtin, Extended
 } InstrClass;
 
 typedef enum {
@@ -54,6 +54,7 @@ const struct IselTableEntry {
         // matches first operand and return type [first operand][result type]
         SpvOp foar[OperandClassCount][OperandClassCount];
         VulkanBuiltins builtin;
+        struct { const char* set; int id; } extended;
     };
 } isel_table[] = {
     [add_op] = { BinOp, FirstOp, Same, .fo = { SpvOpIAdd, SpvOpIAdd, SpvOpFAdd }},
@@ -99,6 +100,9 @@ const struct IselTableEntry {
         { ISEL_ILLEGAL,       ISEL_ILLEGAL,       ISEL_ILLEGAL,  ISEL_IDENTITY, ISEL_ILLEGAL /* no bool reinterpret */ },
         { SpvOpConvertPtrToU, SpvOpConvertPtrToU, ISEL_ILLEGAL,  ISEL_ILLEGAL,  ISEL_IDENTITY }
     }},
+
+    [sqrt_op] = { Extended, .extended = { .set =  "GLSL.std.450", .id = 31 }},
+    [inv_sqrt_op] = { Extended, .extended = { .set =  "GLSL.std.450", .id = 32 }},
 
     [subgroup_local_id_op] = { Builtin, .builtin = VulkanBuiltinSubgroupLocalInvocationId },
     [subgroup_id_op] = { Builtin, .builtin = VulkanBuiltinSubgroupId },
@@ -175,6 +179,12 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 SpvId ptr = emit_builtin(emitter, entry.builtin);
                 SpvId result = spvb_load(bb_builder, result_t, ptr, 0, NULL);
                 results[0] = result;
+                return;
+            }
+            case Extended: {
+                SpvId set_id = get_extended_instruction_set(emitter, entry.extended.set);
+                const Type* result_t = get_result_t(emitter, entry, args, type_arguments);
+                results[0] = spvb_ext_instruction(bb_builder, emit_type(emitter, result_t), set_id, entry.extended.id, args.count, emitted_args);
                 return;
             }
             case Custom: SHADY_UNREACHABLE;
@@ -302,7 +312,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             arr[0] = spvb_debug_string(emitter->file_builder, get_string_literal(emitter->arena, first(args)));
             for (size_t i = 1; i < args.count; i++)
                 arr[i] = emit_value(emitter, bb_builder, args.nodes[i]);
-            spvb_ext_instruction(bb_builder, emit_type(emitter, unit_type(emitter->arena)), emitter->non_semantic_imported_instrs.debug_printf, NonSemanticDebugPrintfDebugPrintf, args.count, arr);
+            spvb_ext_instruction(bb_builder, emit_type(emitter, unit_type(emitter->arena)), get_extended_instruction_set(emitter, "NonSemantic.DebugPrintf"), NonSemanticDebugPrintfDebugPrintf, args.count, arr);
             assert(results_count == 0);
             return;
         }

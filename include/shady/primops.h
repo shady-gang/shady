@@ -35,6 +35,10 @@ P(0, rshift_logical)     \
 P(0, rshift_arithm)      \
 P(0, lshift)             \
 
+#define MATH_PRIMOPS(P) \
+P(0, sqrt)              \
+P(0, inv_sqrt)          \
+
 #define STACK_PRIMOPS(P) \
 P(1, push_stack)                \
 P(1, pop_stack)                 \
@@ -76,6 +80,7 @@ P(0, quote)                     \
 ARITHM_PRIMOPS(P)               \
 BITSTUFF_PRIMOPS(P)             \
 CMP_PRIMOPS(P)                  \
+MATH_PRIMOPS(P)                  \
 SHIFT_PRIMOPS(P)                \
 MEMORY_PRIMOPS(P)               \
 P(0, select)                    \

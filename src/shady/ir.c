@@ -18,8 +18,8 @@ static bool compare_nodes(Nodes* a, Nodes* b);
 static KeyHash hash_strings(Strings* strings);
 static bool compare_strings(Strings* a, Strings* b);
 
-static KeyHash hash_string(const char** string);
-static bool compare_string(const char** a, const char** b);
+KeyHash hash_string(const char** string);
+bool compare_string(const char** a, const char** b);
 
 KeyHash hash_node(const Node**);
 bool compare_node(const Node** a, const Node** b);
