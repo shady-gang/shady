@@ -366,7 +366,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
             const Type* ptr_type = get_unqualified_type(new_inputs_scratch[0]->type);
             assert(ptr_type->tag == PtrType_TAG);
-            new_inputs_scratch[1] = infer(ctx, old_operands.nodes[1], (&ptr_type->payload.ptr_type)->pointed_type);
+            new_inputs_scratch[1] = infer(ctx, old_operands.nodes[1], qualified_type_helper((&ptr_type->payload.ptr_type)->pointed_type, false));
             goto skip_input_types;
         }
         case alloca_op: {
