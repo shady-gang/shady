@@ -8,6 +8,7 @@
 #include <assert.h>
 
 #include "spirv/unified1/NonSemanticDebugPrintf.h"
+#include "spirv/unified1/GLSL.std.450.h"
 
 typedef enum {
     Signed, Unsigned, FP, Logical, Ptr, Other, OperandClassCount
@@ -18,7 +19,7 @@ typedef enum {
 } InstrClass;
 
 typedef enum {
-    Same, SameTuple, Bool, TyOperand
+    Same, SameTuple, Bool, Void, TyOperand
 } ResultClass;
 
 static OperandClass classify_operand_type(const Type* type) {
@@ -101,8 +102,10 @@ const struct IselTableEntry {
         { SpvOpConvertPtrToU, SpvOpConvertPtrToU, ISEL_ILLEGAL,  ISEL_ILLEGAL,  ISEL_IDENTITY }
     }},
 
-    [sqrt_op] = { Extended, .extended = { .set =  "GLSL.std.450", .id = 31 }},
-    [inv_sqrt_op] = { Extended, .extended = { .set =  "GLSL.std.450", .id = 32 }},
+    [sqrt_op] = { Extended, .result_kind = Same, .extended = { .set =  "GLSL.std.450", .id = GLSLstd450Sqrt }},
+    [inv_sqrt_op] = { Extended, .result_kind = Same, .extended = { .set =  "GLSL.std.450", .id = GLSLstd450InverseSqrt }},
+
+    [debug_printf_op] = { Extended, .result_kind = Void, .extended = { .set = "NonSemantic.DebugPrintf", .id = NonSemanticDebugPrintfDebugPrintf }},
 
     [subgroup_local_id_op] = { Builtin, .builtin = VulkanBuiltinSubgroupLocalInvocationId },
     [subgroup_id_op] = { Builtin, .builtin = VulkanBuiltinSubgroupId },
@@ -123,6 +126,7 @@ static const Type* get_result_t(Emitter* emitter, struct IselTableEntry entry, N
         case SameTuple: return record_type(emitter->arena, (RecordType) { .members = mk_nodes(emitter->arena, get_unqualified_type(first(args)->type), get_unqualified_type(first(args)->type)) });
         case Bool:      return bool_type(emitter->arena);
         case TyOperand: return first(type_arguments);
+        case Void:      return unit_type(emitter->arena);
     }
 }
 
@@ -304,16 +308,6 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             SpvId result = spvb_select(bb_builder, emit_type(emitter, args.nodes[1]->type), cond, truv, flsv);
             assert(results_count == 1);
             results[0] = result;
-            return;
-        }
-        case debug_printf_op: {
-            assert(args.count >= 1);
-            LARRAY(SpvId, arr, args.count);
-            arr[0] = spvb_debug_string(emitter->file_builder, get_string_literal(emitter->arena, first(args)));
-            for (size_t i = 1; i < args.count; i++)
-                arr[i] = emit_value(emitter, bb_builder, args.nodes[i]);
-            spvb_ext_instruction(bb_builder, emit_type(emitter, unit_type(emitter->arena)), get_extended_instruction_set(emitter, "NonSemantic.DebugPrintf"), NonSemanticDebugPrintfDebugPrintf, args.count, arr);
-            assert(results_count == 0);
             return;
         }
         default: error("TODO: unhandled op");
