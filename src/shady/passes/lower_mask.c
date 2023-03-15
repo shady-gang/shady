@@ -34,7 +34,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                     const Node* mask = rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
                     const Node* index = rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
-                    index = gen_reinterpret_cast(bb, get_actual_mask_type(ctx->rewriter.dst_arena), index);
+                    index = gen_conversion(bb, get_actual_mask_type(ctx->rewriter.dst_arena), index);
                     const Node* acc = mask;
                     // acc >>= index
                     acc = gen_primop_ce(bb, rshift_logical_op, 2, (const Node* []) { acc, index });
