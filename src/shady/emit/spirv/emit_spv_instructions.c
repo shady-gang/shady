@@ -179,13 +179,19 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 }
                 assert(opcode != SpvOpMax);
 
+                SpvId result;
                 if (entry.extended_set) {
                     SpvId set_id = get_extended_instruction_set(emitter, entry.extended_set);
                     const Type* result_t = get_result_t(emitter, entry, args, type_arguments);
-                    results[0] = spvb_ext_instruction(bb_builder, emit_type(emitter, result_t), set_id, opcode, args.count, emitted_args);
+                    result = spvb_ext_instruction(bb_builder, emit_type(emitter, result_t), set_id, opcode, args.count, emitted_args);
                 } else {
                     const Type* result_t = get_result_t(emitter, entry, args, type_arguments);
-                    results[0] = spvb_op(bb_builder, opcode, emit_type(emitter, result_t), args.count, emitted_args);
+                    result = spvb_op(bb_builder, opcode, emit_type(emitter, result_t), args.count, emitted_args);
+                }
+                if (results_count == 1) {
+                    results[0] = result;
+                } else if (results_count > 1) {
+                    error("TODO");
                 }
                 return;
             }
