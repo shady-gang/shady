@@ -1,7 +1,7 @@
 find_package(json-c CONFIG)
 
 if (json-c_FOUND)
-    add_executable(shady_clang main.c)
+    add_executable(shady_clang main.c clang_ast.c cdecl.c)
     target_link_libraries(shady_clang PRIVATE json-c::json-c)
     target_link_libraries(shady_clang PRIVATE shady common)
 endif()

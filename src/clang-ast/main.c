@@ -1,22 +1,13 @@
+#include "clang_ast.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 
-#include "shady/ir.h"
-
-#include "json-c/json.h"
-
 #include "log.h"
 #include "portability.h"
 #include "growy.h"
-
-void ast_to_shady(json_object* object, Module* mod) {
-    assert(object && json_object_is_type(object, json_type_object));
-    json_object* kind = json_object_object_get(object, "kind");
-    assert(kind && json_object_get_string(kind) && strcmp(json_object_get_string(kind), "TranslationUnitDecl") == 0);
-    debug_print("Parsed root json object successfully\n");
-}
 
 int main(int argc, char** argv) {
     int clang_retval = system("clang --version");
@@ -61,6 +52,8 @@ int main(int argc, char** argv) {
     Module* mod = new_module(arena, "my_module");
 
     ast_to_shady(root, mod);
+
+    dump_module(mod);
 
     json_object_put(root);
     return 0;
