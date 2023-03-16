@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
             fprintf(dst, "\"");
             while (pos < size) {
                 read = fread(buffer, sizeof(char), sizeof(buffer) / sizeof(char), src);
-                for (int i = 0; i < read; i++) {
+                for (size_t i = 0; i < read; i++) {
                     char c = buffer[i];
                     switch (c) {
                         case '"':
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
             fprintf(dst, "{");
             while (pos < size) {
                 read = fread(buffer, sizeof(char), sizeof(buffer) / sizeof(char), src);
-                for (int i = 0; i < read; i++) {
+                for (size_t i = 0; i < read; i++) {
                     char c = buffer[i];
                     fprintf(dst, "%d, ", c);
                     pos++;

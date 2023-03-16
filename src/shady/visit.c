@@ -1,6 +1,7 @@
 #include "shady/ir.h"
 #include "log.h"
 #include "visit.h"
+#include "portability.h"
 
 #include "analysis/scope.h"
 
@@ -77,7 +78,7 @@ void visit_children(Visitor* visitor, const Node* node) {
         case InvalidNode_TAG: error("")
         #define VISIT_FIELD(hash, ft, t, n) VISIT_FIELD_##ft(t, n)
         #define VISIT_NODE_0(StructName, short_name) case StructName##_TAG: return;
-        #define VISIT_NODE_1(StructName, short_name) case StructName##_TAG: { StructName payload = node->payload.short_name; StructName##_Fields(VISIT_FIELD) break; }
+        #define VISIT_NODE_1(StructName, short_name) case StructName##_TAG: { SHADY_UNUSED StructName payload = node->payload.short_name; StructName##_Fields(VISIT_FIELD) break; }
         #define VISIT_NODE(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name) VISIT_NODE_##has_payload(StructName, short_name)
         NODES(VISIT_NODE)
     }

@@ -59,6 +59,9 @@ typedef struct  {
 #define ISEL_ILLEGAL (SpvOpMax /* doesn't make sense to support */)
 #define ISEL_CUSTOM (SpvOpMax /* doesn't make sense to support */)
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 const IselTableEntry isel_table[] = {
     [add_op] = {Plain, FirstOp, Same, .fo = {SpvOpIAdd, SpvOpIAdd, SpvOpFAdd }},
     [sub_op] = {Plain, FirstOp, Same, .fo = {SpvOpISub, SpvOpISub, SpvOpFSub }},
@@ -127,6 +130,7 @@ const IselTableEntry isel_table[] = {
     [PRIMOPS_COUNT] = { Custom }
 };
 
+#pragma GCC diagnostic pop
 #pragma GCC diagnostic error "-Wswitch"
 
 static const Type* get_result_t(Emitter* emitter, IselTableEntry entry, Nodes args, Nodes type_arguments) {
@@ -139,7 +143,7 @@ static const Type* get_result_t(Emitter* emitter, IselTableEntry entry, Nodes ar
     }
 }
 
-static SpvOp get_opcode(Emitter* emitter, IselTableEntry entry, Nodes args, Nodes type_arguments) {
+static SpvOp get_opcode(SHADY_UNUSED Emitter* emitter, IselTableEntry entry, Nodes args, Nodes type_arguments) {
     switch (entry.isel_mechanism) {
         case None:        return SpvOpMax;
         case Monomorphic: return entry.op;

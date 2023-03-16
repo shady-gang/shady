@@ -201,7 +201,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     outputs.binding[0] = NoBinding;
                 } else
                     assert(false);
-            } else if (src_type->tag == PtrType_TAG && dst_type->tag == PtrType_TAG || true) {
+            } else if (src_type->tag == PtrType_TAG && dst_type->tag == PtrType_TAG) {
                 CType t = emit_type(emitter, prim_op->type_arguments.nodes[0], NULL);
                 outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "((%s) %s)", t, to_cvalue(emitter, src)));
                 outputs.binding[0] = NoBinding;
@@ -321,7 +321,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case empty_mask_op:
         case mask_is_thread_active_op: error("lower_me");
         case debug_printf_op: {
-            LARRAY(CValue, emitted_args, prim_op->operands.count);
             String args_list = "";
             for (size_t i = 0; i < prim_op->operands.count; i++) {
                 CValue str = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[i]));

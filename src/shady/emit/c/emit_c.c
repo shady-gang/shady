@@ -371,7 +371,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
     CTerm* found = lookup_existing_term(emitter, decl);
     if (found) return;
 
-    CTerm* found2 = lookup_existing_type(emitter, decl);
+    CType* found2 = lookup_existing_type(emitter, decl);
     if (found2) return;
 
     const char* name = get_decl_name(decl);
@@ -535,12 +535,12 @@ CType* lookup_existing_type(Emitter* emitter, const Type* node) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-static Module* run_backend_specific_passes(CEmitterConfig* econfig, Module* mod) {
-    CompilerConfig* config = econfig->config;
-    IrArena* old_arena = get_module_arena(mod);
-    ArenaConfig aconfig = old_arena->config;
-    Module* old_mod;
-    IrArena* tmp_arena = NULL;
+static Module* run_backend_specific_passes(SHADY_UNUSED CEmitterConfig* econfig, Module* mod) {
+    // CompilerConfig* config = econfig->config;
+    // IrArena* old_arena = get_module_arena(mod);
+    // ArenaConfig aconfig = old_arena->config;
+    // Module* old_mod;
+    // IrArena* tmp_arena = NULL;
     // if (econfig->simt2d) {
     //     aconfig.is_simt = false;
     //     RUN_PASS(simt2d)

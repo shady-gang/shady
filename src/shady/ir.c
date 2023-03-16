@@ -186,7 +186,7 @@ String format_string(IrArena* arena, const char* str, ...) {
         va_start(args, str);
         len = vsnprintf(tmp, buffer_size, str, args);
         va_end(args);
-        if (len < 0 || len >= buffer_size - 1) {
+        if (len < 0 || len >= (int) buffer_size - 1) {
             buffer_size *= 2;
             if (tmp != static_buffer)
                 free(tmp);
