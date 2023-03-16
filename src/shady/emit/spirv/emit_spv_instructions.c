@@ -216,10 +216,10 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             // TODO: why are we doing this in SPIR-V and not the IR ?
             SpvId low32 = spvb_extract(bb_builder, emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
             SpvId hi32 = spvb_extract(bb_builder, emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
-            SpvId low64 = spvb_unop(bb_builder, SpvOpUConvert, emit_type(emitter, uint64_type(emitter->arena)), low32);
-            SpvId hi64 = spvb_unop(bb_builder, SpvOpUConvert, emit_type(emitter, uint64_type(emitter->arena)), hi32);
-            hi64 = spvb_binop(bb_builder, SpvOpShiftLeftLogical, emit_type(emitter, uint64_type(emitter->arena)), hi64, emit_value(emitter, bb_builder, int64_literal(emitter->arena, 32)));
-            SpvId final_result = spvb_binop(bb_builder, SpvOpBitwiseOr, emit_type(emitter, uint64_type(emitter->arena)), low64, hi64);
+            SpvId low64 = spvb_op(bb_builder, SpvOpUConvert, emit_type(emitter, uint64_type(emitter->arena)), 1, &low32);
+            SpvId hi64 = spvb_op(bb_builder, SpvOpUConvert, emit_type(emitter, uint64_type(emitter->arena)), 1, &hi32);
+            hi64 = spvb_op(bb_builder, SpvOpShiftLeftLogical, emit_type(emitter, uint64_type(emitter->arena)), 2, (SpvId []) { hi64, emit_value(emitter, bb_builder, int64_literal(emitter->arena, 32)) });
+            SpvId final_result = spvb_op(bb_builder, SpvOpBitwiseOr, emit_type(emitter, uint64_type(emitter->arena)), 2, (SpvId []) { low64, hi64 });
             assert(results_count == 1);
             results[0] = final_result;
             return;

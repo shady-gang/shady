@@ -202,16 +202,6 @@ SpvId spvb_vector_insert_dynamic(struct SpvBasicBlockBuilder* bb_builder, SpvId 
     return id;
 }
 
-// Used for almost all conversion operations
-SpvId spvb_convert(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId target_type, SpvId value) {
-    op(op, 4);
-    SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
-    ref_id(target_type);
-    ref_id(id);
-    ref_id(value);
-    return id;
-}
-
 SpvId spvb_access_chain(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId element, size_t indices_count, SpvId indices[]) {
     op(SpvOpAccessChain, 4 + indices_count);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
@@ -252,25 +242,6 @@ void spvb_store(struct SpvBasicBlockBuilder* bb_builder, SpvId value, SpvId poin
     ref_id(value);
     for (size_t i = 0; i < operands_count; i++)
         literal_int(operands[i]);
-}
-
-SpvId spvb_binop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, SpvId lhs, SpvId rhs) {
-    op(op, 5);
-    SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
-    ref_id(result_type);
-    ref_id(id);
-    ref_id(lhs);
-    ref_id(rhs);
-    return id;
-}
-
-SpvId spvb_unop(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, SpvId value) {
-    op(op, 4);
-    SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
-    ref_id(result_type);
-    ref_id(id);
-    ref_id(value);
-    return id;
 }
 
 SpvId spvb_op(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, size_t operands_count, SpvId operands[]) {

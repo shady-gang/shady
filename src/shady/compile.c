@@ -92,9 +92,9 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 #undef mod
 
 CompilationResult parse_files(CompilerConfig* config, size_t num_files, const char** files_contents, Module* mod) {
-        ParserConfig pconfig = {
-            .front_end = config->allow_frontend_syntax
-        };
+    ParserConfig pconfig = {
+        .front_end = config->allow_frontend_syntax
+    };
     for (size_t i = 0; i < num_files; i++) {
         const char* input_file_contents = files_contents[i];
 
