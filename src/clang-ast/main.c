@@ -1,3 +1,4 @@
+#include "shady/cli.h"
 #include "clang_ast.h"
 
 #include <stdio.h>

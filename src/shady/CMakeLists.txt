@@ -12,6 +12,7 @@ set(SHADY_SOURCES
     compile.c
     annotation.c
     module.c
+    cli.c
 
     parser/parser.c
     parser/token.c
