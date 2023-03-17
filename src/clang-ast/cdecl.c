@@ -31,13 +31,13 @@ static const Type* accept_primtype(ClangAst* ast, size_t* plen, const char** pty
     accept_token(plen, ptype, "const");
     if (accept_token(plen, ptype, "int"))
         return int32_type(ast->arena);
+    if (accept_token(plen, ptype, "float"))
+        return fp32_type(ast->arena);
     return NULL;
 }
 
 static const Type* eat_qualtype(ClangAst* ast, bool value_type, size_t* plen, const char** ptype) {
     const Type* acc = accept_primtype(ast, plen, ptype);
-    if (value_type)
-        acc = qualified_type_helper(acc, false);
     while (acc) {
         if (accept_token(plen, ptype, "(")) {
             if (!contains_qualified_type(acc))
@@ -72,6 +72,8 @@ static const Type* eat_qualtype(ClangAst* ast, bool value_type, size_t* plen, co
         }
         break;
     }
+    if (value_type)
+        acc = qualified_type_helper(acc, false);
     return acc;
 }
 

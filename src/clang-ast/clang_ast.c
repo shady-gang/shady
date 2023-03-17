@@ -6,14 +6,26 @@
 #include "log.h"
 #include "portability.h"
 
-static struct { const char* str; Op op; } opcodes[] = {
+static struct { const char* str; Op op; } binary_opcodes[] = {
     {"+", add_op},
 };
 
-static Op opcode_to_shady(const char* str) {
-    for (int i = 0; i < sizeof(opcodes) / sizeof(*opcodes); i++) {
-        if (strcmp(opcodes[i].str, str) == 0)
-            return opcodes[i].op;
+static struct { const char* str; Op op; } unary_opcodes[] = {
+    {"*", deref_op},
+};
+
+static Op binary_opcode_to_shady(const char* str) {
+    for (int i = 0; i < sizeof(binary_opcodes) / sizeof(*binary_opcodes); i++) {
+        if (strcmp(binary_opcodes[i].str, str) == 0)
+            return binary_opcodes[i].op;
+    }
+    assert(false);
+}
+
+static Op unary_opcode_to_shady(const char* str) {
+    for (int i = 0; i < sizeof(unary_opcodes) / sizeof(*unary_opcodes); i++) {
+        if (strcmp(unary_opcodes[i].str, str) == 0)
+            return unary_opcodes[i].op;
     }
     assert(false);
 }
@@ -35,10 +47,24 @@ static json_object* get_first_inner(json_object* obj) {
     return json_object_array_get_idx(inner, 0);
 }
 
+const Type* get_node_type(ClangAst* ast, json_object* obj, bool value_type) {
+    json_object* jtype = json_object_object_get(obj, "type");
+    const char* qualified_type = json_object_get_string(json_object_object_get(jtype, "qualType"));
+    return convert_qualtype(ast, value_type, qualified_type);
+}
+
 static const Node* expr_to_shady(ClangAst* ast, BodyBuilder* bb, json_object* expr) {
     const char* kind = json_object_get_string(json_object_object_get(expr, "kind"));
 
-    if (strcmp(kind, "BinaryOperator") == 0) {
+    if (strcmp(kind, "UnaryOperator") == 0) {
+        const char* opcode = json_object_get_string(json_object_object_get(expr, "opcode"));
+        return prim_op(ast->arena, (PrimOp) {
+                .op = unary_opcode_to_shady(opcode),
+                .type_arguments = empty(ast->arena),
+                .operands = singleton(expr_to_shady(ast, bb, get_first_inner(expr)))
+        });
+    }
+    else if (strcmp(kind, "BinaryOperator") == 0) {
         const char* opcode = json_object_get_string(json_object_object_get(expr, "opcode"));
 
         json_object* inner = json_object_object_get(expr, "inner");
@@ -51,7 +77,7 @@ static const Node* expr_to_shady(ClangAst* ast, BodyBuilder* bb, json_object* ex
         }
 
         return prim_op(ast->arena, (PrimOp) {
-            .op = opcode_to_shady(opcode),
+            .op = binary_opcode_to_shady(opcode),
             .type_arguments = empty(ast->arena),
             .operands = nodes(ast->arena, len, operands)
         });
@@ -69,6 +95,13 @@ static const Node* expr_to_shady(ClangAst* ast, BodyBuilder* bb, json_object* ex
 
         if (strcmp(cast_kind, "LValueToRValue") == 0) {
             return expr_to_shady(ast, bb, get_first_inner(expr));
+        } else if (strcmp(cast_kind, "IntegralToFloating") == 0) {
+            const Type* dst_type = get_node_type(ast, expr, false);
+            return prim_op(ast->arena, (PrimOp) {
+                    .op = convert_op,
+                    .type_arguments = singleton(dst_type),
+                    .operands = singleton(expr_to_shady(ast, bb, get_first_inner(expr)))
+            });
         } else {
             assert(false);
         }
@@ -83,9 +116,7 @@ static void var_decl_to_shady(ClangAst* ast, BodyBuilder* bb, json_object* decl)
 
     const char* name = json_object_get_string(json_object_object_get(decl, "name"));
 
-    json_object* jtype = json_object_object_get(decl, "type");
-    const char* qualified_type = json_object_get_string(json_object_object_get(jtype, "qualType"));
-    const Type* type = convert_qualtype(ast, false, qualified_type);
+    const Type* type = get_node_type(ast, decl, false);
 
     json_object* inner = json_object_object_get(decl, "inner");
     assert(inner && json_object_get_type(inner) == json_type_array);
