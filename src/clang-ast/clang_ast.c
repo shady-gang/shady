@@ -85,7 +85,7 @@ static void var_decl_to_shady(ClangAst* ast, BodyBuilder* bb, json_object* decl)
 
     json_object* jtype = json_object_object_get(decl, "type");
     const char* qualified_type = json_object_get_string(json_object_object_get(jtype, "qualType"));
-    const Type* type = convert_qualtype(ast, qualified_type);
+    const Type* type = convert_qualtype(ast, false, qualified_type);
 
     json_object* inner = json_object_object_get(decl, "inner");
     assert(inner && json_object_get_type(inner) == json_type_array);
@@ -151,7 +151,7 @@ static void toplevel_to_shady(ClangAst* ast, json_object* decl) {
         const char* mangled_name = json_object_get_string(json_object_object_get(decl, "mangledName"));
         printf("fn: %s\n", mangled_name);
         const char* qualified_type = json_object_get_string(json_object_object_get(json_object_object_get(decl, "type"), "qualType"));
-        const Type* fn_type = convert_qualtype(ast, qualified_type);
+        const Type* fn_type = convert_qualtype(ast, false, qualified_type);
         dump_node(fn_type);
 
         int params_count = fn_type->payload.fn_type.param_types.count;
@@ -168,7 +168,7 @@ static void toplevel_to_shady(ClangAst* ast, json_object* decl) {
             if (strcmp(body_kind, "ParmVarDecl") == 0) {
                 const char* param_qualified_type = json_object_get_string(json_object_object_get(json_object_object_get(sub_decl, "type"), "qualType"));
                 const char* param_name = json_object_get_string(json_object_object_get(sub_decl, "name"));
-                const Node* type = convert_qualtype(ast, param_qualified_type);
+                const Node* type = convert_qualtype(ast, true, param_qualified_type);
                 params[param_i++] = var(ast->arena, type, param_name);
             } else if (strcmp(body_kind, "CompoundStmt") == 0) {
                 assert(param_i == params_count);

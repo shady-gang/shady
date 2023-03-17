@@ -13,7 +13,7 @@ struct ClangAst_ {
 
 void ast_to_shady(json_object* object, Module* mod);
 
-const Type* convert_qualtype(ClangAst*, const char*);
+const Type* convert_qualtype(ClangAst*, bool, const char*);
 
 void parse_c_file(const char* filename, Module* mod);
 

@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 #include "list.h"
+#include "../shady/type.h"
 
 static void skip_whitespace(size_t* const plen, const char** const ptype) {
     while (*plen > 0 && **ptype == ' ') {
@@ -33,10 +34,15 @@ static const Type* accept_primtype(ClangAst* ast, size_t* plen, const char** pty
     return NULL;
 }
 
-static const Type* eat_qualtype(ClangAst* ast, size_t* plen, const char** ptype) {
+static const Type* eat_qualtype(ClangAst* ast, bool value_type, size_t* plen, const char** ptype) {
     const Type* acc = accept_primtype(ast, plen, ptype);
+    if (value_type)
+        acc = qualified_type_helper(acc, false);
     while (acc) {
         if (accept_token(plen, ptype, "(")) {
+            if (!contains_qualified_type(acc))
+                acc = qualified_type_helper(acc, false);
+
             bool first = true;
             struct List* params = new_list(const Type*);
             while (true) {
@@ -47,7 +53,7 @@ static const Type* eat_qualtype(ClangAst* ast, size_t* plen, const char** ptype)
                     assert(b);
                 }
                 first = false;
-                const Type* param = eat_qualtype(ast, plen, ptype);
+                const Type* param = eat_qualtype(ast, true, plen, ptype);
                 assert(param);
                 append_list(const Type*, params, param);
             }
@@ -69,10 +75,10 @@ static const Type* eat_qualtype(ClangAst* ast, size_t* plen, const char** ptype)
     return acc;
 }
 
-const Type* convert_qualtype(ClangAst* ast, const char* type) {
+const Type* convert_qualtype(ClangAst* ast, bool value_type, const char* type) {
     assert(type);
     size_t len = strlen(type);
-    const Type* eaten = eat_qualtype(ast, &len, &type);
+    const Type* eaten = eat_qualtype(ast, value_type, &len, &type);
     skip_whitespace(&len, &type);
     assert(len == 0 && *type == '\0' && eaten);
     return eaten;
