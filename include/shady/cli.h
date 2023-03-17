@@ -20,6 +20,7 @@ typedef enum {
 
 struct List;
 
+bool string_ends_with(const char* string, const char* suffix);
 CodegenTarget guess_target(const char* filename);
 
 void pack_remaining_args(int* pargc, char** argv);

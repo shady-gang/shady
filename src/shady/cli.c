@@ -8,7 +8,7 @@
 #include "portability.h"
 #include "list.h"
 
-static bool string_ends_with(const char* string, const char* suffix) {
+bool string_ends_with(const char* string, const char* suffix) {
     size_t len = strlen(string);
     size_t slen = strlen(suffix);
     if (len < slen)

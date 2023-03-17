@@ -10,7 +10,7 @@
 #include "portability.h"
 #include "growy.h"
 
-int main(int argc, char** argv) {
+void parse_c_file(const char* filename, Module* mod) {
     int clang_retval = system("clang --version");
     if (clang_retval != 0)
         error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
@@ -20,11 +20,9 @@ int main(int argc, char** argv) {
     growy_append(g, " -Xclang -ast-dump=json");
     growy_append(g, " -c");
 
-    for (size_t i = 1; i < argc; i++) {
-        growy_append(g, " \"");
-        growy_append_bytes(g, strlen(argv[i]), argv[i]);
-        growy_append(g, "\"");
-    }
+    growy_append(g, " \"");
+    growy_append_bytes(g, strlen(filename), filename);
+    growy_append(g, "\"");
 
     growy_append(g, "\0");
     char* arg_string = growy_deconstruct(g);
@@ -49,13 +47,9 @@ int main(int argc, char** argv) {
     json_object* root = json_tokener_parse(json_string);
     free(json_string);
 
-    IrArena* arena = new_ir_arena(default_arena_config());
-    Module* mod = new_module(arena, "my_module");
-
     ast_to_shady(root, mod);
 
-    dump_module(mod);
+    // dump_module(mod);
 
     json_object_put(root);
-    return 0;
 }

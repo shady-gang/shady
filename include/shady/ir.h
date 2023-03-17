@@ -245,7 +245,7 @@ typedef enum CompilationResult_ {
     CompilationNoError
 } CompilationResult;
 
-CompilationResult parse_files(CompilerConfig*, size_t num_files, const char** files_contents, Module* module);
+CompilationResult parse_files(CompilerConfig*, size_t num_files, const char** file_names, const char** files_contents, Module* module);
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
 
 //////////////////////////////// Emission ////////////////////////////////

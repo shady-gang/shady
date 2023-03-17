@@ -12,8 +12,6 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-char* read_file(const char* filename);
-
 typedef struct {
     CompilerConfig config;
     // Configuration specific to the C emitter
@@ -123,27 +121,12 @@ int main(int argc, char** argv) {
         exit(MissingInputArg);
     }
 
-    // Read the files
-    size_t num_source_files = entries_count_list(args.input_filenames);
-    LARRAY(const char*, read_files, num_source_files);
-    for (size_t i = 0; i < num_source_files; i++) {
-        const char* input_file_contents = read_file(read_list(const char*, args.input_filenames)[i]);
-        if ((void*)input_file_contents == NULL) {
-            error_print("file does not exist\n");
-            exit(InputFileDoesNotExist);
-        }
-        read_files[i] = input_file_contents;
-    }
-    destroy_list(args.input_filenames);
-
-    // Parse the lot
     Module* mod = new_module(arena, "my_module");
-    CompilationResult parse_result = parse_files(&args.config, num_source_files, read_files, mod);
-    assert(parse_result == CompilationNoError);
 
-    // Free the read files
-    for (size_t i = 0; i < num_source_files; i++)
-        free((void*) read_files[i]);
+    size_t num_source_files = entries_count_list(args.input_filenames);
+    CompilationResult parse_result = parse_files(&args.config, num_source_files, read_list(const char*, args.input_filenames), NULL, mod);
+    assert(parse_result == CompilationNoError);
+    destroy_list(args.input_filenames);
 
     info_print("Parsed program successfully: \n");
     log_module(INFO, &args.config, mod);
