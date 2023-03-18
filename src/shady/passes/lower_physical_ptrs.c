@@ -360,8 +360,10 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 const Type* ptr_type = oprim_op->operands.nodes[0]->type;
                 ptr_type = get_unqualified_type(ptr_type);
                 assert(ptr_type->tag == PtrType_TAG);
-                if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
+                if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space)) {
+                    cancel_body(bb);
                     break;
+                }
                 const Node* new = lower_lea(ctx, bb, oprim_op);
                 return finish_body(bb, let(arena, quote_single(arena, new), tail));
             }
