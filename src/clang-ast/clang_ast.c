@@ -87,7 +87,8 @@ static const Node* expr_to_shady(ClangAst* ast, BodyBuilder* bb, json_object* ex
         });
     } else if (strcmp(kind, "VarDecl") == 0 || strcmp(kind, "ParmVarDecl") == 0) {
         const char* name = json_object_get_string(json_object_object_get(expr, "name"));
-        return unbound(ast->arena, (Unbound) { .name = name });
+        assert(name && strlen(name) > 0);
+        return unbound(ast->arena, (Unbound) { .name = string(ast->arena, name) });
     } else if (strcmp(kind, "DeclRefExpr") == 0) {
         return expr_to_shady(ast, bb, json_object_object_get(expr, "referencedDecl"));
     } else if (strcmp(kind, "ImplicitCastExpr") == 0) {
