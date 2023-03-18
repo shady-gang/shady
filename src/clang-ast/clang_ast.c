@@ -83,7 +83,7 @@ static const Node* expr_to_shady(ClangAst* ast, BodyBuilder* bb, json_object* ex
         });
     } else if (strcmp(kind, "IntegerLiteral") == 0) {
         return untyped_number(ast->arena, (UntypedNumber) {
-            .plaintext = json_object_get_string(json_object_object_get(expr, "value"))
+            .plaintext = string(ast->arena, json_object_get_string(json_object_object_get(expr, "value")))
         });
     } else if (strcmp(kind, "VarDecl") == 0 || strcmp(kind, "ParmVarDecl") == 0) {
         const char* name = json_object_get_string(json_object_object_get(expr, "name"));
