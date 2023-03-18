@@ -44,12 +44,18 @@ void parse_c_file(const char* filename, Module* mod) {
     char* json_string = growy_deconstruct(json_bytes);
 
     debugv_print("json: %s\n", json_string);
-    json_object* root = json_tokener_parse(json_string);
-    free(json_string);
+    json_tokener* tokener = json_tokener_new_ex(512);
+    json_object* root = json_tokener_parse_ex(tokener, json_string, strlen(json_string));
+    enum json_tokener_error err = json_tokener_get_error(tokener);
+    if (err != json_tokener_success) {
+        error("Json tokener error: %s\n", json_tokener_error_desc(err));
+    }
 
     ast_to_shady(root, mod);
+    free(json_string);
 
     // dump_module(mod);
 
     json_object_put(root);
+    json_tokener_free(tokener);
 }
