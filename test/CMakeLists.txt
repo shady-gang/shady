@@ -19,6 +19,7 @@ list(APPEND BASIC_TESTS test/c/simple1.c)
 list(APPEND BASIC_TESTS test/c/simple2.c)
 list(APPEND BASIC_TESTS test/c/simple3.c)
 list(APPEND BASIC_TESTS test/c/simple4.c)
+list(APPEND BASIC_TESTS test/c/include.c)
 
 list(APPEND BASIC_TESTS samples/fib.slim)
 list(APPEND BASIC_TESTS samples/hello_world.slim)
