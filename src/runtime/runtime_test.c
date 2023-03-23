@@ -5,6 +5,7 @@
 #include "log.h"
 #include "portability.h"
 #include "list.h"
+#include "util.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -53,8 +54,6 @@ static void parse_runtime_arguments(int* pargc, char** argv, Args* args) {
     }
 }
 
-char* read_file(const char* filename);
-
 int main(int argc, char* argv[]) {
     set_log_level(INFO);
     Args args = {
@@ -80,7 +79,10 @@ int main(int argc, char* argv[]) {
     size_t num_source_files = entries_count_list(args.input_filenames);
     LARRAY(const char*, read_files, num_source_files);
     for (size_t i = 0; i < num_source_files; i++) {
-        const char* input_file_contents = read_file(read_list(const char*, args.input_filenames)[i]);
+        const char* input_file_contents;
+
+        bool ok = read_file(read_list(const char*, args.input_filenames)[i], NULL, input_file_contents);
+        assert(ok);
         if ((void*)input_file_contents == NULL) {
             error_print("file does not exist\n");
             exit(InputFileDoesNotExist);
