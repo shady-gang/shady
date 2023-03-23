@@ -169,6 +169,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
 
     IselTableEntry entry = isel_table[the_op.op];
     if (entry.class != Custom) {
+        assert(results_count <= 1);
         LARRAY(SpvId, emitted_args, args.count);
         for (size_t i = 0; i < args.count; i++)
             emitted_args[i] = emit_value(emitter, bb_builder, args.nodes[i]);
@@ -183,19 +184,18 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 }
                 assert(opcode != SpvOpMax);
 
-                SpvId result;
                 if (entry.extended_set) {
                     SpvId set_id = get_extended_instruction_set(emitter, entry.extended_set);
                     const Type* result_t = get_result_t(emitter, entry, args, type_arguments);
-                    result = spvb_ext_instruction(bb_builder, emit_type(emitter, result_t), set_id, opcode, args.count, emitted_args);
+
+                    SpvId result = spvb_ext_instruction(bb_builder, emit_type(emitter, result_t), set_id, opcode, args.count, emitted_args);
+                    if (results_count == 1)
+                        results[0] = result;
                 } else {
                     const Type* result_t = get_result_t(emitter, entry, args, type_arguments);
-                    result = spvb_op(bb_builder, opcode, emit_type(emitter, result_t), args.count, emitted_args);
-                }
-                if (results_count == 1) {
-                    results[0] = result;
-                } else if (results_count > 1) {
-                    error("TODO");
+                    SpvId result = spvb_op(bb_builder, opcode, emit_type(emitter, result_t), args.count, emitted_args);
+                    if (results_count == 1)
+                        results[0] = result;
                 }
                 return;
             }

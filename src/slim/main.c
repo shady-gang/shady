@@ -1,4 +1,5 @@
 #include "shady/ir.h"
+#include "shady/cli.h"
 
 #include "list.h"
 
@@ -11,48 +12,6 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-char* read_file(const char* filename);
-
-enum SlimErrorCodes {
-    NoError,
-    MissingInputArg,
-    MissingOutputArg,
-    InputFileDoesNotExist = 4,
-    MissingDumpCfgArg,
-    MissingDumpIrArg,
-    IncorrectLogLevel = 16,
-    InvalidTarget,
-};
-
-typedef enum {
-    TgtAuto, TgtC, TgtSPV, TgtGLSL, TgtISPC,
-} CodegenTarget;
-
-static bool string_ends_with(const char* string, const char* suffix) {
-    size_t len = strlen(string);
-    size_t slen = strlen(suffix);
-    if (len < slen)
-        return false;
-    for (size_t i = 0; i < slen; i++) {
-        if (string[len - 1 - i] != suffix[slen - 1 - i])
-            return false;
-    }
-    return true;
-}
-
-static CodegenTarget guess_target(const char* filename) {
-    if (string_ends_with(filename, ".c"))
-        return TgtC;
-    else if (string_ends_with(filename, "glsl"))
-        return TgtGLSL;
-    else if (string_ends_with(filename, "spirv") || string_ends_with(filename, "spv"))
-        return TgtSPV;
-    else if (string_ends_with(filename, "ispc"))
-        return TgtISPC;
-    error_print("No target has been specified, and output filename '%s' did not allow guessing the right one\n");
-    exit(InvalidTarget);
-}
-
 typedef struct {
     CompilerConfig config;
     // Configuration specific to the C emitter
@@ -64,33 +23,13 @@ typedef struct {
     const char* cfg_output_filename;
 } SlimConfig;
 
-static void process_arguments(int argc, const char** argv, SlimConfig* args) {
+static void parse_slim_arguments(SlimConfig* args, int* pargc, char** argv) {
+    int argc = *pargc;
+
     bool help = false;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--log-level") == 0) {
-            i++;
-            if (i == argc)
-                goto incorrect_log_level;
-            if (strcmp(argv[i], "debugvv") == 0)
-                set_log_level(DEBUGVV);
-            else if (strcmp(argv[i], "debugv") == 0)
-                set_log_level(DEBUGV);
-            else if (strcmp(argv[i], "debug") == 0)
-                set_log_level(DEBUG);
-            else if (strcmp(argv[i], "info") == 0)
-                set_log_level(INFO);
-            else if (strcmp(argv[i], "warn") == 0)
-                set_log_level(WARN);
-            else if (strcmp(argv[i], "error") == 0)
-                set_log_level(ERROR);
-            else {
-                incorrect_log_level:
-                error_print("--log-level argument takes one of: ");
-                error_print("debug[v[v]], info, warn,  error");
-                error_print("\n");
-                exit(IncorrectLogLevel);
-            }
-        } else if (strcmp(argv[i], "--output") == 0 || strcmp(argv[i], "-o") == 0) {
+        if (strcmp(argv[i], "--output") == 0 || strcmp(argv[i], "-o") == 0) {
+            argv[i] = NULL;
             i++;
             if (i == argc) {
                 error_print("--output must be followed with a filename");
@@ -98,6 +37,7 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
             }
             args->output_filename = argv[i];
         } else if (strcmp(argv[i], "--dump-cfg") == 0) {
+            argv[i] = NULL;
             i++;
             if (i == argc) {
                 error_print("--dump-cfg must be followed with a filename");
@@ -105,6 +45,7 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
             }
             args->cfg_output_filename = argv[i];
         } else if (strcmp(argv[i], "--dump-ir") == 0) {
+            argv[i] = NULL;
             i++;
             if (i == argc) {
                 error_print("--dump-ir must be followed with a filename");
@@ -112,6 +53,7 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
             }
             args->shd_output_filename = argv[i];
         } else if (strcmp(argv[i], "--target") == 0) {
+            argv[i] = NULL;
             i++;
             if (i == argc)
                 goto invalid_target;
@@ -129,38 +71,28 @@ static void process_arguments(int argc, const char** argv, SlimConfig* args) {
             invalid_target:
             error_print("--target must be followed with a valid target (see help for list of targets)");
             exit(InvalidTarget);
-        } else if (strcmp(argv[i], "--no-dynamic-scheduling") == 0) {
-            args->config.dynamic_scheduling = false;
-        } else if (strcmp(argv[i], "--simt2d") == 0) {
-            args->config.lower.simt_to_explicit_simd = true;
-        } else if (strcmp(argv[i], "--print-builtin") == 0) {
-            args->config.logging.skip_builtin = false;
-        } else if (strcmp(argv[i], "--print-generated") == 0) {
-            args->config.logging.skip_generated = false;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
+            continue;
         } else {
-            append_list(const char*, args->input_filenames, argv[i]);
+            continue;
         }
+        argv[i] = NULL;
     }
 
-    if (entries_count_list(args->input_filenames) == 0 || help) {
+    if (help) {
         error_print("Usage: slim source.slim\n");
         error_print("Available arguments: \n");
-        error_print("  --log-level [debug, info, warn, error]    \n");
         error_print("  --target <c, glsl, ispc, spirv>           \n");
-        error_print("  --simt2d                                  Emits SIMD code instead of SIMT, only effective with the C backend.\n");
         error_print("  --output <filename>, -o <filename>        \n");
         error_print("  --dump-cfg <filename>                     Dumps the control flow graph of the final IR\n");
         error_print("  --dump-ir <filename>                      Dumps the final IR\n");
-        error_print("  --print-builtin                           Includes builtin-in functions in the debug output\n");
-        error_print("  --print-generated                         Includes generated functions in the debug output\n");
-        error_print("  --no-dynamic-scheduling                   Disable the built-in dynamic scheduler, restricts code to only leaf functions\n");
-        exit(help ? 0 : MissingInputArg);
     }
+
+    pack_remaining_args(pargc, argv);
 }
 
-int main(int argc, const char** argv) {
+int main(int argc, char** argv) {
     platform_specific_terminal_init_extras();
 
     IrArena* arena = new_ir_arena(default_arena_config());
@@ -179,29 +111,22 @@ int main(int argc, const char** argv) {
     args.config.logging.skip_builtin = true;
     args.config.logging.skip_generated = true;
 
-    process_arguments(argc, argv, &args);
+    parse_slim_arguments(&args, &argc, argv);
+    parse_common_args(&argc, argv);
+    parse_compiler_config_args(&args.config, &argc, argv);
+    parse_input_files(args.input_filenames, &argc, argv);
 
-    // Read the files
-    size_t num_source_files = entries_count_list(args.input_filenames);
-    LARRAY(const char*, read_files, num_source_files);
-    for (size_t i = 0; i < num_source_files; i++) {
-        const char* input_file_contents = read_file(read_list(const char*, args.input_filenames)[i]);
-        if ((void*)input_file_contents == NULL) {
-            error_print("file does not exist\n");
-            exit(InputFileDoesNotExist);
-        }
-        read_files[i] = input_file_contents;
+    if (entries_count_list(args.input_filenames) == 0) {
+        error_print("Missing input file. See --help for proper usage");
+        exit(MissingInputArg);
     }
-    destroy_list(args.input_filenames);
 
-    // Parse the lot
     Module* mod = new_module(arena, "my_module");
-    CompilationResult parse_result = parse_files(&args.config, num_source_files, read_files, mod);
-    assert(parse_result == CompilationNoError);
 
-    // Free the read files
-    for (size_t i = 0; i < num_source_files; i++)
-        free((void*) read_files[i]);
+    size_t num_source_files = entries_count_list(args.input_filenames);
+    CompilationResult parse_result = parse_files(&args.config, num_source_files, read_list(const char*, args.input_filenames), NULL, mod);
+    assert(parse_result == CompilationNoError);
+    destroy_list(args.input_filenames);
 
     info_print("Parsed program successfully: \n");
     log_module(INFO, &args.config, mod);

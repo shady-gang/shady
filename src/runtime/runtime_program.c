@@ -19,7 +19,7 @@ Program* load_program(Runtime* runtime, const char* program_src) {
     program->arena = new_ir_arena(arena_config);
     CHECK(program->arena != NULL, return false);
     program->generic_program = new_module(program->arena, "my_module");
-    CHECK(parse_files(&config, 1, (const char* []){ program_src }, program->generic_program) == CompilationNoError, return false);
+    CHECK(parse_files(&config, 1, NULL, (const char* []){ program_src }, program->generic_program) == CompilationNoError, return false);
     // TODO split the compilation pipeline into generic and non-generic parts
     append_list(Program*, runtime->programs, program);
     return program;

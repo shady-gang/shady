@@ -1,5 +1,6 @@
 #include "shady/runtime.h"
 #include "shady/ir.h"
+#include "shady/cli.h"
 
 #include "log.h"
 #include "portability.h"
@@ -16,13 +17,6 @@ static const char* default_shader =
 "    return ();\n"
 "}";
 
-enum RTTErrorCodes {
-    NoError,
-    MissingInputArg,
-    InputFileDoesNotExist = 4,
-    IncorrectLogLevel = 16,
-};
-
 typedef struct {
     CompilerConfig compiler_config;
     RuntimeConfig runtime_config;
@@ -30,44 +24,22 @@ typedef struct {
     size_t device;
 } Args;
 
-static void process_arguments(int argc, const char** argv, Args* args) {
+static void parse_runtime_arguments(int* pargc, char** argv, Args* args) {
+    int argc = *pargc;
+
     bool help = false;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--log-level") == 0) {
-            i++;
-            if (i == argc)
-                goto incorrect_log_level;
-            if (strcmp(argv[i], "debugvv") == 0)
-                set_log_level(DEBUGVV);
-            else if (strcmp(argv[i], "debugv") == 0)
-                set_log_level(DEBUGV);
-            else if (strcmp(argv[i], "debug") == 0)
-                set_log_level(DEBUG);
-            else if (strcmp(argv[i], "info") == 0)
-                set_log_level(INFO);
-            else if (strcmp(argv[i], "warn") == 0)
-                set_log_level(WARN);
-            else if (strcmp(argv[i], "error") == 0)
-                set_log_level(ERROR);
-            else {
-                incorrect_log_level:
-                error_print("--log-level argument takes one of: ");
-                error_print("debug, info, warn,  error");
-                error_print("\n");
-                exit(IncorrectLogLevel);
-            }
-        } else if (strcmp(argv[i], "--print-builtin") == 0) {
-            args->compiler_config.logging.skip_builtin = false;
-        } else if (strcmp(argv[i], "--print-generated") == 0) {
-            args->compiler_config.logging.skip_generated = false;
-        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
-        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            continue;
+        } else if (strcmp(argv[i], "--device") == 0 || strcmp(argv[i], "-d") == 0) {
+            argv[i] = NULL;
             i++;
             args->device = strtol(argv[i], NULL, 10);
         } else {
-            append_list(const char*, args->input_filenames, argv[i]);
+            continue;
         }
+        argv[i] = NULL;
     }
 
     if (help) {
@@ -83,7 +55,7 @@ static void process_arguments(int argc, const char** argv, Args* args) {
 
 char* read_file(const char* filename);
 
-int main(int argc, const char* argv[]) {
+int main(int argc, char* argv[]) {
     set_log_level(INFO);
     Args args = {
         .input_filenames = new_list(const char*),
@@ -92,7 +64,11 @@ int main(int argc, const char* argv[]) {
         .use_validation = true,
         .dump_spv = true,
     };
-    process_arguments(argc, argv, &args);
+    parse_runtime_arguments(&argc, argv, &args);
+    parse_common_args(&argc, argv);
+    parse_compiler_config_args(&args.compiler_config, &argc, argv);
+    parse_input_files(args.input_filenames, &argc, argv);
+
     info_print("Shady runtime test starting...\n");
 
     Runtime* runtime = initialize_runtime(args.runtime_config);

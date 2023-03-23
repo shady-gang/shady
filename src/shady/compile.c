@@ -1,9 +1,15 @@
+#include "shady/cli.h"
 #include "compile.h"
 
 #include "parser/parser.h"
 #include "shady_scheduler_src.h"
 #include "transform/internal_constants.h"
+#include "portability.h"
 #include "ir_private.h"
+
+#ifdef C_PARSER_PRESENT
+#include "../clang-ast/clang_ast.h"
+#endif
 
 #define KiB * 1024
 #define MiB * 1024 KiB
@@ -91,21 +97,51 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
 #undef mod
 
-CompilationResult parse_files(CompilerConfig* config, size_t num_files, const char** files_contents, Module* mod) {
+char* read_file(const char* filename);
+
+CompilationResult parse_files(CompilerConfig* config, size_t num_files, const char** file_names, const char** files_contents, Module* mod) {
     ParserConfig pconfig = {
         .front_end = config->allow_frontend_syntax
     };
-    for (size_t i = 0; i < num_files; i++) {
-        const char* input_file_contents = files_contents[i];
 
-        debugv_print("Parsing: \n%s\n", input_file_contents);
-        parse(pconfig, input_file_contents, mod);
+    LARRAY(const char*, read_files, num_files);
+    for (size_t i = 0; i < num_files; i++)
+        read_files[i] = NULL;
+
+    for (size_t i = 0; i < num_files; i++) {
+        const char* file_contents;
+
+        if (files_contents) {
+            file_contents = files_contents[i];
+        } else {
+            assert(file_names);
+            read_files[i] = read_file(file_names[i]);
+            file_contents = read_files[i];
+
+            if (file_contents == NULL) {
+                error_print("file does not exist\n");
+                exit(InputFileDoesNotExist);
+            }
+        }
+
+        debugv_print("Parsing: \n%s\n", file_contents);
+
+#ifdef C_PARSER_PRESENT
+        if (file_names && string_ends_with(file_names[i], ".c"))
+            parse_c_file(file_names[i], mod);
+        else
+#endif
+        parse(pconfig, file_contents, mod);
     }
 
     if (config->dynamic_scheduling) {
         debugv_print("Parsing builtin scheduler code");
         parse(pconfig, shady_scheduler_src, mod);
     }
+
+    // Free the read files
+    for (size_t i = 0; i < num_files; i++)
+        free((void*) read_files[i]);
 
     return CompilationNoError;
 }
