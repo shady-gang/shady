@@ -28,7 +28,7 @@ typedef struct {
 typedef struct SpvDeco_ SpvDeco;
 
 typedef struct {
-    enum { Todo, Str, Decl, Value, Literals } type;
+    enum { Todo, Str, Typ, Decl, Value, Literals } type;
     union {
         Node* node;
         String str;
@@ -48,6 +48,7 @@ typedef struct {
     size_t len;
     uint32_t* words;
     Module* mod;
+    IrArena* arena;
 
     SpvHeader header;
     SpvDef* defs;
@@ -146,6 +147,24 @@ bool parse_spv_instruction(SpvParser* parser) {
             add_decoration(parser, target, deco);
             break;
         }
+        case SpvOpTypeInt: {
+            uint32_t width = instruction[2];
+            bool is_signed = instruction[3];
+            IntSizes w;
+            switch (width) {
+                case  8: w = IntTy8;  break;
+                case 16: w = IntTy16; break;
+                case 32: w = IntTy32; break;
+                case 64: w = IntTy64; break;
+                default: error("unhandled int width");
+            }
+            parser->defs[result].type = Typ;
+            parser->defs[result].node = int_type(parser->arena, (Int) {
+                .width = w,
+                .is_signed = is_signed,
+            });
+            break;
+        }
         default: error("Unsupported op: %d, size: %d", op, size);
     }
 
@@ -159,6 +178,7 @@ S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
         .len = len,
         .words = words,
         .mod = dst,
+        .arena = get_module_arena(dst),
 
         .decorations_arena = new_arena(),
     };
