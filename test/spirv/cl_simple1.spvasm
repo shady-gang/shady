@@ -1,0 +1,66 @@
+               OpCapability Addresses
+               OpCapability Linkage
+               OpCapability Kernel
+               OpCapability Int64
+               OpCapability GenericPointer
+          %1 = OpExtInstImport "OpenCL.std"
+          %2 = OpExtInstImport "OpenCL.DebugInfo.100"
+               OpMemoryModel Physical64 OpenCL
+         %29 = OpString "/app/<stdin>"
+         %30 = OpString "//__CSK_MD5:caab691e75df1cd02bd63707134e8bbe"
+         %33 = OpString "int"
+         %37 = OpString "char"
+         %42 = OpString "foo"
+         %43 = OpString "/app/example.clcpp"
+         %45 = OpString "_Z3fooiiPU3AS1c"
+         %47 = OpString "a"
+         %49 = OpString "b"
+         %51 = OpString "ptr"
+               OpSource OpenCL_C 200000
+               OpName %_Z3fooiiPU3AS1c "_Z3fooiiPU3AS1c"
+               OpName %a "a"
+               OpName %b "b"
+               OpName %ptr "ptr"
+               OpName %entry "entry"
+               OpName %if_then "if.then"
+               OpName %if_end "if.end"
+               OpName %return "return"
+               OpName %cmp "cmp"
+               OpName %idxprom "idxprom"
+               OpName %arrayidx "arrayidx"
+               OpName %sub "sub"
+               OpName %retval_0 "retval.0"
+               OpModuleProcessed "Debug info producer: clang version 17.0.0 (https://github.com/llvm/llvm-project.git 0c0387c7a5e979d2dbf791404c7398856895f8fb)"
+               OpDecorate %_Z3fooiiPU3AS1c LinkageAttributes "_Z3fooiiPU3AS1c" Export
+               OpDecorate %ptr FuncParamAttr NoCapture
+               OpDecorate %ptr FuncParamAttr NoWrite
+               OpDecorate %sub NoSignedWrap
+       %uint = OpTypeInt 32 0
+      %ulong = OpTypeInt 64 0
+    %uint_32 = OpConstant %uint 32
+     %uint_8 = OpConstant %uint 8
+%_ptr_CrossWorkgroup_uint = OpTypePointer CrossWorkgroup %uint
+          %5 = OpTypeFunction %uint %uint %uint %_ptr_CrossWorkgroup_uint
+       %void = OpTypeVoid
+       %bool = OpTypeBool
+%_ptr_Generic_uint = OpTypePointer Generic %uint
+%_Z3fooiiPU3AS1c = OpFunction %uint None %5
+          %a = OpFunctionParameter %uint
+          %b = OpFunctionParameter %uint
+        %ptr = OpFunctionParameter %_ptr_CrossWorkgroup_uint
+      %entry = OpLabel
+        %cmp = OpSLessThan %bool %a %b
+               OpBranchConditional %cmp %if_then %if_end
+    %if_then = OpLabel
+         %22 = OpPtrCastToGeneric %_ptr_Generic_uint %ptr
+    %idxprom = OpSConvert %ulong %a
+   %arrayidx = OpInBoundsPtrAccessChain %_ptr_Generic_uint %22 %idxprom
+         %26 = OpLoad %uint %arrayidx Aligned 4
+               OpBranch %return
+     %if_end = OpLabel
+        %sub = OpISub %uint %a %b
+               OpBranch %return
+     %return = OpLabel
+   %retval_0 = OpPhi %uint %26 %if_then %sub %if_end
+               OpReturnValue %retval_0
+               OpFunctionEnd
