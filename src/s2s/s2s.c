@@ -11,9 +11,11 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 #include "spirv/unified1/spirv.h"
 
 #include "log.h"
+#include "arena.h"
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct {
     struct {
@@ -23,13 +25,23 @@ typedef struct {
     uint32_t bound;
 } SpvHeader;
 
+typedef struct SpvDeco_ SpvDeco;
+
 typedef struct {
-    enum { Todo, Str, Decl, Value } type;
+    enum { Todo, Str, Decl, Value, Literals } type;
     union {
         Node* node;
         String str;
+        struct { size_t count; uint32_t* data; } literals;
     };
+    SpvDeco* decoration;
 } SpvDef;
+
+struct SpvDeco_ {
+    SpvDecoration decoration;
+    int member;
+    SpvDef payload;
+};
 
 typedef struct {
     size_t cursor;
@@ -39,7 +51,35 @@ typedef struct {
 
     SpvHeader header;
     SpvDef* defs;
+    Arena* decorations_arena;
 } SpvParser;
+
+SpvDef* new_def(SpvParser* parser) {
+    SpvDef* interned = arena_alloc(parser->decorations_arena, sizeof(SpvDef));
+    SpvDef empty = {};
+    memcpy(interned, &empty, sizeof(SpvDef));
+    return interned;
+}
+
+void add_decoration(SpvParser* parser, SpvId id, SpvDeco decoration) {
+    SpvDef* tgt_def = &parser->defs[id];
+    while (tgt_def->decoration) {
+        tgt_def = &tgt_def->decoration->payload;
+    }
+    SpvDeco* interned = arena_alloc(parser->decorations_arena, sizeof(SpvDeco));
+    memcpy(interned, &decoration, sizeof(SpvDeco));
+    tgt_def->decoration = interned;
+}
+
+SpvDeco* find_decoration(SpvParser* parser, SpvId id, int member, SpvDecoration tag) {
+    SpvDef* tgt_def = &parser->defs[id];
+    while (tgt_def->decoration) {
+        if (tgt_def->decoration->decoration == tag && (member < 0 || tgt_def->decoration->member == member))
+            return tgt_def->decoration;
+        tgt_def = &tgt_def->decoration->payload;
+    }
+    return NULL;
+}
 
 bool parse_spv_header(SpvParser* parser) {
     assert(parser->cursor == 0);
@@ -91,6 +131,21 @@ bool parse_spv_instruction(SpvParser* parser) {
         case SpvOpModuleProcessed:
         case SpvOpSourceExtension:
             break;
+        case SpvOpDecorate:
+        case SpvOpMemberDecorate: {
+            SpvDef payload = { Literals };
+            SpvId target = instruction[1];
+            int data_offset = op == SpvOpMemberDecorate ? 4 : 3;
+            payload.literals.count = size - data_offset;
+            payload.literals.data = instruction + data_offset;
+            SpvDeco deco = {
+                    .payload = payload,
+                    .member = op == SpvOpMemberDecorate ? (int) instruction[3] : -1,
+                    .decoration = instruction[data_offset - 1]
+            };
+            add_decoration(parser, target, deco);
+            break;
+        }
         default: error("Unsupported op: %d, size: %d", op, size);
     }
 
@@ -104,6 +159,8 @@ S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
         .len = len,
         .words = words,
         .mod = dst,
+
+        .decorations_arena = new_arena(),
     };
 
     if (!parse_spv_header(&parser))
@@ -114,6 +171,8 @@ S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
     while (parser.cursor < parser.len) {
         parse_spv_instruction(&parser);
     }
+
+    destroy_arena(parser.decorations_arena);
 
     return S2S_Success;
 }
