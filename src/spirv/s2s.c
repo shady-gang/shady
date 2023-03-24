@@ -12,6 +12,7 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 
 #include "log.h"
 #include "arena.h"
+#include "portability.h"
 
 #include "../shady/type.h"
 
@@ -200,6 +201,11 @@ bool parse_spv_instruction(SpvParser* parser) {
             add_decoration(parser, target, deco);
             break;
         }
+        case SpvOpTypeVoid: {
+            parser->defs[result].type = Typ;
+            parser->defs[result].node = unit_type(parser->arena);
+            break;
+        }
         case SpvOpTypeInt: {
             uint32_t width = instruction[2];
             bool is_signed = instruction[3];
@@ -215,6 +221,33 @@ bool parse_spv_instruction(SpvParser* parser) {
             parser->defs[result].node = int_type(parser->arena, (Int) {
                 .width = w,
                 .is_signed = is_signed,
+            });
+            break;
+        }
+        case SpvOpTypeBool: {
+            parser->defs[result].type = Typ;
+            parser->defs[result].node = bool_type(parser->arena);
+            break;
+        }
+        case SpvOpTypePointer: {
+            AddressSpace as = convert_storage_class(instruction[2]);
+            const Type* element_t = get_def_type(parser, instruction[3]);
+            parser->defs[result].type = Typ;
+            parser->defs[result].node = ptr_type(parser->arena, (PtrType) {
+                .pointed_type = element_t,
+                .address_space = as
+            });
+            break;
+        }
+        case SpvOpTypeFunction: {
+            parser->defs[result].type = Typ;
+            const Type* return_t = get_def_type(parser, instruction[2]);
+            LARRAY(const Type*, param_ts, size - 3);
+            for (size_t i = 0; i < size - 3; i++)
+                param_ts[i] = get_def_type(parser, instruction[3 + i]);
+            parser->defs[result].node = fn_type(parser->arena, (FnType) {
+                .return_types = singleton(return_t),
+                .param_types = nodes(parser->arena, size - 3, param_ts)
             });
             break;
         }
@@ -250,16 +283,6 @@ bool parse_spv_instruction(SpvParser* parser) {
                 }
                 default: error("OpConstant must produce an int or a float");
             }
-            break;
-        }
-        case SpvOpTypePointer: {
-            AddressSpace as = convert_storage_class(instruction[2]);
-            const Type* element_t = get_def_type(parser, instruction[3]);
-            parser->defs[result].type = Typ;
-            parser->defs[result].node = ptr_type(parser->arena, (PtrType) {
-                .pointed_type = element_t,
-                .address_space = as
-            });
             break;
         }
         default: error("Unsupported op: %d, size: %d", op, size);
