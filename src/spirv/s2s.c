@@ -10,6 +10,12 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 #define SPV_ENABLE_UTILITY_CODE 1
 #include "spirv/unified1/spirv.h"
 
+// TODO: reserve real decoration IDs
+typedef enum {
+    ShdDecorationName = 999999,
+    ShdDecorationMemberName = 999998,
+} ShdDecoration;
+
 #include "log.h"
 #include "arena.h"
 #include "portability.h"
@@ -174,16 +180,28 @@ bool parse_spv_instruction(SpvParser* parser) {
         case SpvOpMemoryModel:
         case SpvOpCapability: break;
         // these are basically just strings and we can infer how to handle them from ctx at the uses
-        case SpvOpName:
         case SpvOpExtInstImport:
-        case SpvOpSource:
         case SpvOpString: {
             parser->defs[result].type = Str;
             parser->defs[result].str = decode_spv_string_literal(parser, instruction + 2);
             break;
         }
+        case SpvOpName:
+        case SpvOpMemberName: {
+            SpvId target = instruction[1];
+            ShdDecoration decoration = op == SpvOpName ? ShdDecorationName : ShdDecorationMemberName;
+            int name_offset = op == SpvOpName ? 3 : 4;
+            SpvDeco deco = {
+                .payload = { Str, .str = decode_spv_string_literal(parser, instruction + name_offset), .decoration = NULL },
+                .decoration = decoration,
+                .member = op == SpvOpName ? -1 : (int)instruction[3],
+            };
+            add_decoration(parser, target, deco);
+            break;
+        }
         // more debug nonsense
         case SpvOpModuleProcessed:
+        case SpvOpSource:
         case SpvOpSourceExtension:
             break;
         case SpvOpDecorate:
