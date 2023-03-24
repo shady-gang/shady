@@ -61,6 +61,7 @@ typedef struct {
 
     SpvHeader header;
     SpvDef* defs;
+    size_t* forward;
     Arena* decorations_arena;
 } SpvParser;
 
@@ -156,6 +157,33 @@ AddressSpace convert_storage_class(SpvStorageClass class) {
         case SpvStorageClassMax:
             error("Unsupported");
     }
+}
+
+void scan_definitions(SpvParser* parser) {
+    size_t old_cursor = parser->cursor;
+    while (true) {
+        size_t available = parser->len - parser->cursor;
+        if (available == 0)
+            break;
+        assert(available > 0);
+        uint32_t* instruction = parser->words + parser->cursor;
+        SpvOp op = instruction[0] & 0xFFFF;
+        int size = (int) ((instruction[0] >> 16u) & 0xFFFFu);
+
+        SpvId result;
+        bool has_result, has_type;
+        SpvHasResultAndType(op, &has_result, &has_type);
+        if (has_result) {
+            if (has_type)
+                result = instruction[2];
+            else
+                result = instruction[1];
+
+            parser->forward[result] = parser->cursor;
+        }
+        parser->cursor += size;
+    }
+    parser->cursor = old_cursor;
 }
 
 bool parse_spv_instruction(SpvParser* parser) {
@@ -313,7 +341,7 @@ bool parse_spv_instruction(SpvParser* parser) {
 S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
     SpvParser parser = {
         .cursor = 0,
-        .len = len,
+        .len = len / sizeof(uint32_t),
         .words = words,
         .mod = dst,
         .arena = get_module_arena(dst),
@@ -325,12 +353,17 @@ S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
         return S2S_FailedParsingGeneric;
     assert(parser.header.bound > 0 && parser.header.bound < 512 * 1024 * 1024); // sanity check
     parser.defs = calloc(parser.header.bound, sizeof(SpvDef));
+    parser.forward = calloc(parser.header.bound, sizeof(size_t));
+
+    scan_definitions(&parser);
 
     while (parser.cursor < parser.len) {
         parse_spv_instruction(&parser);
     }
 
     destroy_arena(parser.decorations_arena);
+    free(parser.defs);
+    free(parser.forward);
 
     return S2S_Success;
 }
