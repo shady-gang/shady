@@ -15,7 +15,7 @@
 #endif
 
 #ifdef SPV_PARSER_PRESENT
-#include "../s2s/s2s.h"
+#include "../spirv/s2s.h"
 #endif
 
 #define KiB * 1024
