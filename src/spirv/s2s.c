@@ -118,6 +118,39 @@ String decode_spv_string_literal(SpvParser* parser, uint32_t* at) {
     return string(get_module_arena(parser->mod), (const char*) at);
 }
 
+AddressSpace convert_storage_class(SpvStorageClass class) {
+    switch (class) {
+        case SpvStorageClassInput:                 return AsInput;
+        case SpvStorageClassOutput:                return AsOutput;
+        case SpvStorageClassWorkgroup:             return AsSharedPhysical;
+        case SpvStorageClassCrossWorkgroup:        return AsGlobalPhysical;
+        case SpvStorageClassPhysicalStorageBuffer: return AsGlobalPhysical;
+        case SpvStorageClassPrivate:               return AsPrivatePhysical;
+        case SpvStorageClassFunction:              return AsPrivatePhysical;
+        case SpvStorageClassGeneric:               return AsGeneric;
+        case SpvStorageClassPushConstant:
+        case SpvStorageClassAtomicCounter:
+        case SpvStorageClassImage:
+        case SpvStorageClassStorageBuffer:
+            error("TODO");
+        case SpvStorageClassUniformConstant:
+        case SpvStorageClassUniform:
+            error("TODO");
+        case SpvStorageClassCallableDataKHR:
+        case SpvStorageClassIncomingCallableDataKHR:
+        case SpvStorageClassRayPayloadKHR:
+        case SpvStorageClassHitAttributeKHR:
+        case SpvStorageClassIncomingRayPayloadKHR:
+        case SpvStorageClassShaderRecordBufferKHR:
+            error("Unsupported");
+        case SpvStorageClassCodeSectionINTEL:
+        case SpvStorageClassDeviceOnlyINTEL:
+        case SpvStorageClassHostOnlyINTEL:
+        case SpvStorageClassMax:
+            error("Unsupported");
+    }
+}
+
 bool parse_spv_instruction(SpvParser* parser) {
     size_t available = parser->len - parser->cursor;
     assert(available >= 1);
@@ -217,6 +250,16 @@ bool parse_spv_instruction(SpvParser* parser) {
                 }
                 default: error("OpConstant must produce an int or a float");
             }
+            break;
+        }
+        case SpvOpTypePointer: {
+            AddressSpace as = convert_storage_class(instruction[2]);
+            const Type* element_t = get_def_type(parser, instruction[3]);
+            parser->defs[result].type = Typ;
+            parser->defs[result].node = ptr_type(parser->arena, (PtrType) {
+                .pointed_type = element_t,
+                .address_space = as
+            });
             break;
         }
         default: error("Unsupported op: %d, size: %d", op, size);
