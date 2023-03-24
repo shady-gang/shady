@@ -13,6 +13,8 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 #include "log.h"
 #include "arena.h"
 
+#include "../shady/type.h"
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,7 +32,7 @@ typedef struct SpvDeco_ SpvDeco;
 typedef struct {
     enum { Todo, Str, Typ, Decl, Value, Literals } type;
     union {
-        Node* node;
+        const Node* node;
         String str;
         struct { size_t count; uint32_t* data; } literals;
     };
@@ -82,6 +84,20 @@ SpvDeco* find_decoration(SpvParser* parser, SpvId id, int member, SpvDecoration 
     return NULL;
 }
 
+const Type* get_def_type(SpvParser* parser, SpvId id) {
+    assert(parser->defs[id].type == Typ);
+    const Type* t = parser->defs[id].node;
+    assert(t && is_type(t));
+    return t;
+}
+
+const Type* get_def_ssa_value(SpvParser* parser, SpvId id) {
+    assert(parser->defs[id].type == Value);
+    const Node* n = parser->defs[id].node;
+    assert(n && (is_value(n) || is_instruction(n)));
+    return n;
+}
+
 bool parse_spv_header(SpvParser* parser) {
     assert(parser->cursor == 0);
     assert(parser->len >= 4);
@@ -109,10 +125,14 @@ bool parse_spv_instruction(SpvParser* parser) {
     SpvOp op = instruction[0] & 0xFFFF;
     int size = (int) ((instruction[0] >> 16u) & 0xFFFFu);
 
-    SpvId result = 0;
+    SpvId result_t, result;
     bool has_result, has_type;
     SpvHasResultAndType(op, &has_result, &has_type);
-    if (has_result)
+    if (has_type) {
+        result_t = instruction[1];
+        if (has_result)
+            result = instruction[2];
+    } else if (has_result)
         result = instruction[1];
 
     switch (op) {
@@ -163,6 +183,40 @@ bool parse_spv_instruction(SpvParser* parser) {
                 .width = w,
                 .is_signed = is_signed,
             });
+            break;
+        }
+        case SpvOpConstant: {
+            parser->defs[result].type = Value;
+            const Type* t = get_def_type(parser, result_t);
+            int width = get_type_bitwidth(t);
+            switch (is_type(t)) {
+                case Int_TAG: {
+                    IntLiteralValue v;
+                    if (width == 64) {
+                        v.u64 = *(uint64_t*)(instruction + 3);
+                    } else
+                        v.u64 = instruction[3];
+                    parser->defs[result].node = int_literal(parser->arena, (IntLiteral) {
+                        .width = t->payload.int_literal.width,
+                        .is_signed = t->payload.int_literal.is_signed,
+                        .value = v
+                    });
+                    break;
+                }
+                case Float_TAG: {
+                    FloatLiteralValue v;
+                    if (width == 64) {
+                        v.b64 = *(uint64_t*)(instruction + 3);
+                    } else
+                        v.b64 = instruction[3];
+                    parser->defs[result].node = float_literal(parser->arena, (FloatLiteral) {
+                        .width = t->payload.float_literal.width,
+                        .value = v
+                    });
+                    break;
+                }
+                default: error("OpConstant must produce an int or a float");
+            }
             break;
         }
         default: error("Unsupported op: %d, size: %d", op, size);
