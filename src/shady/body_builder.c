@@ -38,7 +38,8 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
         }
         outputs_count = types.count;
     } else {
-         if (provided_types) {
+        assert(outputs_count != SIZE_MAX);
+        if (provided_types) {
             assert(provided_types->count == outputs_count);
             types = *provided_types;
         } else {

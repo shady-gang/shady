@@ -173,6 +173,25 @@ AddressSpace convert_storage_class(SpvStorageClass class) {
     }
 }
 
+typedef struct {
+    bool valid;
+    Op op;
+    int base_size;
+} SpvShdOpMapping;
+
+static SpvShdOpMapping spv_shd_op_mapping[] = {
+    [SpvOpSLessThan] = { 1, lt_op, 3 }
+};
+
+const SpvShdOpMapping* convert_spv_op(SpvOp src) {
+    const int nentries = sizeof(spv_shd_op_mapping) / sizeof(*spv_shd_op_mapping);
+    if (src >= nentries)
+        return NULL;
+    if (spv_shd_op_mapping[src].valid)
+        return &spv_shd_op_mapping[src];
+    return NULL;
+}
+
 SpvId get_result_defined_at(SpvParser* parser, size_t instruction_offset) {
     uint32_t* instruction = parser->words + instruction_offset;
 
@@ -243,6 +262,26 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
     }
 
     instruction_offset += size;
+
+    if (convert_spv_op(op)) {
+        assert(parser->bb);
+        SpvShdOpMapping shd_op = *convert_spv_op(op);
+        int num_ops = size - shd_op.base_size;
+        LARRAY(const Node*, ops, num_ops);
+        for (size_t i = 0; i < num_ops; i++)
+            ops[i] = get_def_ssa_value(parser, instruction[shd_op.base_size + i]);
+        int results_count = has_result ? 1 : 0;
+        Nodes results = bind_instruction_extra(parser->bb, prim_op(parser->arena, (PrimOp) {
+            .op = shd_op.op,
+            .type_arguments = empty(parser->arena),
+            .operands = nodes(parser->arena, num_ops, ops)
+        }), results_count, NULL, NULL);
+        if (has_result) {
+            parser->defs[result].type = Value;
+            parser->defs[result].node = first(results);
+        }
+        return size;
+    }
 
     switch (op) {
         // shady doesn't care, the emitter will set those up
