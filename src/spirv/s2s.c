@@ -190,7 +190,7 @@ typedef struct {
 } SpvShdOpMapping;
 
 static SpvShdOpMapping spv_shd_op_mapping[] = {
-    [SpvOpSLessThan] = { 1, lt_op, 3 }
+    [SpvOpSLessThan] = { 1, lt_op, 3 },
 };
 
 const SpvShdOpMapping* convert_spv_op(SpvOp src) {
@@ -533,6 +533,64 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 .branch_condition = get_def_ssa_value(parser, instruction[1]),
                 .args = empty(parser->arena), // TODO
             }));
+            break;
+        }
+        case SpvOpSConvert:
+        case SpvOpFConvert:
+        case SpvOpUConvert:
+        case SpvOpPtrCastToGeneric: {
+            const Type* src = get_def_ssa_value(parser, instruction[3]);
+            const Type* dst_t = get_def_type(parser, result_t);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = first(bind_instruction_extra(parser->bb, prim_op(parser->arena, (PrimOp) {
+                    .op = convert_op,
+                    .type_arguments = singleton(dst_t),
+                    .operands = singleton(src)
+            }), 1, NULL, NULL));
+            break;
+        }
+        case SpvOpInBoundsPtrAccessChain:
+        case SpvOpPtrAccessChain:
+        case SpvOpInBoundsAccessChain:
+        case SpvOpAccessChain: {
+            bool has_element = op == SpvOpInBoundsPtrAccessChain || op == SpvOpPtrAccessChain;
+            int indices_start = has_element ? 5 : 4;
+            int num_indices = size - indices_start;
+            LARRAY(const Node*, ops, 2 + num_indices);
+            ops[0] = get_def_ssa_value(parser, instruction[3]);
+            if (has_element)
+                ops[1] = get_def_ssa_value(parser, instruction[4]);
+            else
+                ops[1] = int32_literal(parser->arena, 0);
+            for (size_t i = 0; i < num_indices; i++)
+                ops[2 + i] = get_def_ssa_value(parser, instruction[indices_start + i]);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = first(bind_instruction_extra(parser->bb, prim_op(parser->arena, (PrimOp) {
+                    .op = lea_op,
+                    .type_arguments = empty(parser->arena),
+                    .operands = nodes(parser->arena, 2 + num_indices, ops)
+            }), 1, NULL, NULL));
+            break;
+        }
+        case SpvOpLoad: {
+            const Type* src = get_def_ssa_value(parser, instruction[3]);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = first(bind_instruction_extra(parser->bb, prim_op(parser->arena, (PrimOp) {
+                    .op = load_op,
+                    .type_arguments = empty(parser->arena),
+                    .operands = singleton(src)
+            }), 1, NULL, NULL));
+            break;
+        }
+        case SpvOpStore: {
+            const Type* ptr = get_def_ssa_value(parser, instruction[1]);
+            const Type* value = get_def_ssa_value(parser, instruction[2]);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = first(bind_instruction_extra(parser->bb, prim_op(parser->arena, (PrimOp) {
+                    .op = load_op,
+                    .type_arguments = empty(parser->arena),
+                    .operands = mk_nodes(parser->arena, ptr, value)
+            }), 1, NULL, NULL));
             break;
         }
         default: error("Unsupported op: %d, size: %d", op, size);
