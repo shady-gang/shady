@@ -73,9 +73,11 @@ typedef struct {
     Node* fun;
     size_t fun_arg_i;
 
-    SpvId cur_block;
-    BodyBuilder* bb;
-    const Node* finished_body;
+    struct CurrBlock {
+        SpvId id;
+        BodyBuilder* builder;
+        const Node* finished;
+    } current_block;
 
     SpvHeader header;
     SpvDef* defs;
@@ -313,14 +315,14 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
     instruction_offset += size;
 
     if (convert_spv_op(op)) {
-        assert(parser->bb);
+        assert(parser->current_block.builder);
         SpvShdOpMapping shd_op = *convert_spv_op(op);
         int num_ops = size - shd_op.base_size;
         LARRAY(const Node*, ops, num_ops);
         for (size_t i = 0; i < num_ops; i++)
             ops[i] = get_def_ssa_value(parser, instruction[shd_op.base_size + i]);
         int results_count = has_result ? 1 : 0;
-        Nodes results = bind_instruction_extra(parser->bb, prim_op(parser->arena, (PrimOp) {
+        Nodes results = bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
             .op = shd_op.op,
             .type_arguments = empty(parser->arena),
             .operands = nodes(parser->arena, num_ops, ops)
@@ -507,6 +509,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             break;
         }
         case SpvOpLabel: {
+            struct CurrBlock old = parser->current_block;
+            parser->current_block.id = result;
+
             Nodes params = empty(parser->arena);
             parser->fun_arg_i = 0;
             while (true) {
@@ -538,18 +543,22 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].type = BB;
             String bb_name = get_name(parser, result);
             bb_name = bb_name ? bb_name : unique_name(parser->arena, "basic_block");
-            parser->defs[result].node = basic_block(parser->arena, parser->fun, params, bb_name);
+            Node* block = basic_block(parser->arena, parser->fun, params, bb_name);
+            parser->defs[result].node = block;
 
-            assert(!parser->bb);
             BodyBuilder* bb = begin_body(parser->mod);
-            parser->bb = bb;
-            parser->cur_block = result;
-            while (parser->bb) {
+            parser->current_block.builder = bb;
+            parser->current_block.finished = NULL;
+            while (parser->current_block.builder) {
                 size_t s = parse_spv_instruction_at(parser, instruction_offset);
                 assert(s > 0);
                 size += s;
                 instruction_offset += s;
             }
+            assert(parser->current_block.finished);
+            block->payload.basic_block.body = parser->current_block.finished;
+            parser->current_block = old;
+            break;
         }
         case SpvOpPhi: {
             parser->defs[result].type = Value;
@@ -569,7 +578,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     }
                 } else {
                     arg = arena_alloc(parser->decorations_arena, sizeof(SpvPhiArgs));
-                    insert_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->cur_block, arg);
+                    insert_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->current_block.id, arg);
                 }
                 *arg = (SpvPhiArgs) {
                     .predecessor = predecessor_block,
@@ -577,28 +586,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .arg = argument_value,
                     .next_ = NULL,
                 };
+                debugv_print("s2s: recorded argument %d (value id=%d) for block %d with predecessor %d\n", parser->fun_arg_i, argument_value, parser->current_block.id, predecessor_block);
             }
             parser->fun_arg_i++;
-            break;
-        }
-        case SpvOpBranch: {
-            BodyBuilder* bb = parser->bb;
-            parser->bb = NULL;
-            parser->finished_body = finish_body(bb, jump(parser->arena, (Jump) {
-                .target = get_def_block(parser, instruction[1]),
-                .args = get_args_from_phi(parser, instruction[1], parser->cur_block),
-            }));
-            break;
-        }
-        case SpvOpBranchConditional: {
-            BodyBuilder* bb = parser->bb;
-            parser->bb = NULL;
-            parser->finished_body = finish_body(bb, branch(parser->arena, (Branch) {
-                .true_target = get_def_block(parser, instruction[2]),
-                .false_target = get_def_block(parser, instruction[3]),
-                .branch_condition = get_def_ssa_value(parser, instruction[1]),
-                .args = empty(parser->arena), // TODO
-            }));
             break;
         }
         case SpvOpSConvert:
@@ -608,7 +598,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             const Type* dst_t = get_def_type(parser, result_t);
             parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_extra(parser->bb, prim_op(parser->arena, (PrimOp) {
+            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = convert_op,
                     .type_arguments = singleton(dst_t),
                     .operands = singleton(src)
@@ -631,7 +621,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             for (size_t i = 0; i < num_indices; i++)
                 ops[2 + i] = get_def_ssa_value(parser, instruction[indices_start + i]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_extra(parser->bb, prim_op(parser->arena, (PrimOp) {
+            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = lea_op,
                     .type_arguments = empty(parser->arena),
                     .operands = nodes(parser->arena, 2 + num_indices, ops)
@@ -641,7 +631,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpLoad: {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_extra(parser->bb, prim_op(parser->arena, (PrimOp) {
+            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = load_op,
                     .type_arguments = empty(parser->arena),
                     .operands = singleton(src)
@@ -652,11 +642,46 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             const Type* ptr = get_def_ssa_value(parser, instruction[1]);
             const Type* value = get_def_ssa_value(parser, instruction[2]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_extra(parser->bb, prim_op(parser->arena, (PrimOp) {
+            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = load_op,
                     .type_arguments = empty(parser->arena),
                     .operands = mk_nodes(parser->arena, ptr, value)
             }), 1, NULL, NULL));
+            break;
+        }
+        case SpvOpBranch: {
+            BodyBuilder* bb = parser->current_block.builder;
+            parser->current_block.finished = finish_body(bb, jump(parser->arena, (Jump) {
+                    .target = get_def_block(parser, instruction[1]),
+                    .args = get_args_from_phi(parser, instruction[1], parser->current_block.id),
+            }));
+            parser->current_block.builder = NULL;
+            break;
+        }
+        case SpvOpBranchConditional: {
+            BodyBuilder* bb = parser->current_block.builder;
+            parser->current_block.finished = finish_body(bb, branch(parser->arena, (Branch) {
+                    .true_target = get_def_block(parser, instruction[2]),
+                    .false_target = get_def_block(parser, instruction[3]),
+                    .branch_condition = get_def_ssa_value(parser, instruction[1]),
+                    .args = empty(parser->arena), // TODO
+            }));
+            parser->current_block.builder = NULL;
+            break;
+        }
+        case SpvOpReturn:
+        case SpvOpReturnValue: {
+            Nodes args;
+            if (op == SpvOpReturn)
+                args = empty(parser->arena);
+            else
+                args = singleton(get_def_ssa_value(parser, instruction[1]));
+            BodyBuilder* bb = parser->current_block.builder;
+            parser->current_block.finished = finish_body(bb, fn_ret(parser->arena, (Return) {
+                .fn = parser->fun,
+                .args = args,
+            }));
+            parser->current_block.builder = NULL;
             break;
         }
         default: error("Unsupported op: %d, size: %d", op, size);
