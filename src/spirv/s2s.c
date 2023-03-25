@@ -107,16 +107,26 @@ String get_name(SpvParser* parser, SpvId id) {
 }
 
 const Type* get_def_type(SpvParser* parser, SpvId id) {
-    assert(parser->defs[id].type == Typ);
-    const Type* t = parser->defs[id].node;
+    SpvDef* def = get_definition_by_id(parser, id);
+    assert(def->type == Typ);
+    const Node* t = def->node;
     assert(t && is_type(t));
     return t;
 }
 
 const Type* get_def_ssa_value(SpvParser* parser, SpvId id) {
-    assert(parser->defs[id].type == Value);
-    const Node* n = parser->defs[id].node;
+    SpvDef* def = get_definition_by_id(parser, id);
+    assert(def->type == Value);
+    const Node* n = def->node;
     assert(n && (is_value(n) || is_instruction(n)));
+    return n;
+}
+
+const Type* get_def_block(SpvParser* parser, SpvId id) {
+    SpvDef* def = get_definition_by_id(parser, id);
+    assert(def->type == BB);
+    const Node* n = def->node;
+    assert(n && n->tag == BasicBlock_TAG);
     return n;
 }
 
@@ -258,6 +268,8 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         if (parser->defs[result].final_size > 0) {
             // already parsed, skip it
             return parser->defs[result].final_size;
+        } else if (parser->defs[result].type != Forward) {
+            return SIZE_MAX;
         }
     }
 
@@ -502,6 +514,26 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         }
         case SpvOpPhi: {
             error("TODO: OpPhi")
+        }
+        case SpvOpBranch: {
+            BodyBuilder* bb = parser->bb;
+            parser->bb = NULL;
+            parser->finished_body = finish_body(bb, jump(parser->arena, (Jump) {
+                .target = get_def_block(parser, instruction[1]),
+                .args = empty(parser->arena), // TODO
+            }));
+            break;
+        }
+        case SpvOpBranchConditional: {
+            BodyBuilder* bb = parser->bb;
+            parser->bb = NULL;
+            parser->finished_body = finish_body(bb, branch(parser->arena, (Branch) {
+                .true_target = get_def_block(parser, instruction[2]),
+                .false_target = get_def_block(parser, instruction[3]),
+                .branch_condition = get_def_ssa_value(parser, instruction[1]),
+                .args = empty(parser->arena), // TODO
+            }));
+            break;
         }
         default: error("Unsupported op: %d, size: %d", op, size);
     }
