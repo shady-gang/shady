@@ -206,6 +206,7 @@ typedef struct {
 
 static SpvShdOpMapping spv_shd_op_mapping[] = {
     [SpvOpSLessThan] = { 1, lt_op, 3 },
+    [SpvOpISub] = { 1, sub_op, 3 },
 };
 
 const SpvShdOpMapping* convert_spv_op(SpvOp src) {
@@ -349,7 +350,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpMemberName: {
             SpvId target = instruction[1];
             ShdDecoration decoration = op == SpvOpName ? ShdDecorationName : ShdDecorationMemberName;
-            int name_offset = op == SpvOpName ? 3 : 4;
+            int name_offset = op == SpvOpName ? 2 : 3;
             SpvDeco deco = {
                 .payload = { Str, .str = decode_spv_string_literal(parser, instruction + name_offset), .next_decoration = NULL },
                 .decoration = decoration,
@@ -488,7 +489,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 size_t s = parse_spv_instruction_at(parser, instruction_offset);
                 assert(s > 0);
                 const Node* block = get_definition_by_id(parser, get_result_defined_at(parser, instruction_offset))->node;
-                assert(is_terminator(block));
+                assert(is_basic_block(block));
                 if (!first_block)
                     first_block = block;
                 size += s;
@@ -499,8 +500,12 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             size_t s = parse_spv_instruction_at(parser, instruction_offset);
             size += s;
 
-            fun->payload.fun.body = first_block;
+            // steal the body of the first block, it can't be jumped to anyways!
+            fun->payload.fun.body = first_block->payload.basic_block.body;
             parser->fun = old_fun;
+            break;
+        }
+        case SpvOpFunctionEnd: {
             break;
         }
         case SpvOpFunctionParameter: {
