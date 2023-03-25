@@ -37,13 +37,15 @@ typedef struct {
 typedef struct SpvDeco_ SpvDeco;
 
 typedef struct {
-    enum { Todo, Str, Typ, Decl, Value, Literals } type;
+    enum { Nothing, Forward, Str, Typ, Decl, BB, Value, Literals } type;
     union {
+        size_t instruction_offset;
         const Node* node;
         String str;
         struct { size_t count; uint32_t* data; } literals;
     };
-    SpvDeco* decoration;
+    SpvDeco* next_decoration;
+    size_t final_size;
 } SpvDef;
 
 struct SpvDeco_ {
@@ -59,11 +61,16 @@ typedef struct {
     Module* mod;
     IrArena* arena;
 
+    Node* fun;
+    BodyBuilder* bb;
+    const Node* finished_body;
+
     SpvHeader header;
     SpvDef* defs;
-    size_t* forward;
     Arena* decorations_arena;
 } SpvParser;
+
+SpvDef* get_definition_by_id(SpvParser* parser, size_t id);
 
 SpvDef* new_def(SpvParser* parser) {
     SpvDef* interned = arena_alloc(parser->decorations_arena, sizeof(SpvDef));
@@ -74,22 +81,29 @@ SpvDef* new_def(SpvParser* parser) {
 
 void add_decoration(SpvParser* parser, SpvId id, SpvDeco decoration) {
     SpvDef* tgt_def = &parser->defs[id];
-    while (tgt_def->decoration) {
-        tgt_def = &tgt_def->decoration->payload;
+    while (tgt_def->next_decoration) {
+        tgt_def = &tgt_def->next_decoration->payload;
     }
     SpvDeco* interned = arena_alloc(parser->decorations_arena, sizeof(SpvDeco));
     memcpy(interned, &decoration, sizeof(SpvDeco));
-    tgt_def->decoration = interned;
+    tgt_def->next_decoration = interned;
 }
 
 SpvDeco* find_decoration(SpvParser* parser, SpvId id, int member, SpvDecoration tag) {
     SpvDef* tgt_def = &parser->defs[id];
-    while (tgt_def->decoration) {
-        if (tgt_def->decoration->decoration == tag && (member < 0 || tgt_def->decoration->member == member))
-            return tgt_def->decoration;
-        tgt_def = &tgt_def->decoration->payload;
+    while (tgt_def->next_decoration) {
+        if (tgt_def->next_decoration->decoration == tag && (member < 0 || tgt_def->next_decoration->member == member))
+            return tgt_def->next_decoration;
+        tgt_def = &tgt_def->next_decoration->payload;
     }
     return NULL;
+}
+
+String get_name(SpvParser* parser, SpvId id) {
+    SpvDeco* deco = find_decoration(parser, id, -1, ShdDecorationName);
+    if (!deco)
+        return NULL;
+    return deco->payload.str;
 }
 
 const Type* get_def_type(SpvParser* parser, SpvId id) {
@@ -159,6 +173,23 @@ AddressSpace convert_storage_class(SpvStorageClass class) {
     }
 }
 
+SpvId get_result_defined_at(SpvParser* parser, size_t instruction_offset) {
+    uint32_t* instruction = parser->words + instruction_offset;
+
+    SpvOp op = instruction[0] & 0xFFFF;
+    SpvId result;
+    bool has_result, has_type;
+    SpvHasResultAndType(op, &has_result, &has_type);
+    if (has_result) {
+        if (has_type)
+            result = instruction[2];
+        else
+            result = instruction[1];
+        return result;
+    }
+    error("no result defined at offset %zu", instruction_offset);
+}
+
 void scan_definitions(SpvParser* parser) {
     size_t old_cursor = parser->cursor;
     while (true) {
@@ -179,19 +210,19 @@ void scan_definitions(SpvParser* parser) {
             else
                 result = instruction[1];
 
-            parser->forward[result] = parser->cursor;
+            parser->defs[result].type = Forward;
+            parser->defs[result].instruction_offset = parser->cursor;
         }
         parser->cursor += size;
     }
     parser->cursor = old_cursor;
 }
 
-bool parse_spv_instruction(SpvParser* parser) {
-    size_t available = parser->len - parser->cursor;
-    assert(available >= 1);
-    uint32_t* instruction = parser->words + parser->cursor;
+size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
+    uint32_t* instruction = parser->words + instruction_offset;
     SpvOp op = instruction[0] & 0xFFFF;
     int size = (int) ((instruction[0] >> 16u) & 0xFFFFu);
+    assert(size > 0);
 
     SpvId result_t, result;
     bool has_result, has_type;
@@ -202,6 +233,16 @@ bool parse_spv_instruction(SpvParser* parser) {
             result = instruction[2];
     } else if (has_result)
         result = instruction[1];
+
+    if (has_result) {
+        assert(parser->defs[result].type != Nothing && "consistency issue");
+        if (parser->defs[result].final_size > 0) {
+            // already parsed, skip it
+            return parser->defs[result].final_size;
+        }
+    }
+
+    instruction_offset += size;
 
     switch (op) {
         // shady doesn't care, the emitter will set those up
@@ -220,7 +261,7 @@ bool parse_spv_instruction(SpvParser* parser) {
             ShdDecoration decoration = op == SpvOpName ? ShdDecorationName : ShdDecorationMemberName;
             int name_offset = op == SpvOpName ? 3 : 4;
             SpvDeco deco = {
-                .payload = { Str, .str = decode_spv_string_literal(parser, instruction + name_offset), .decoration = NULL },
+                .payload = { Str, .str = decode_spv_string_literal(parser, instruction + name_offset), .next_decoration = NULL },
                 .decoration = decoration,
                 .member = op == SpvOpName ? -1 : (int)instruction[3],
             };
@@ -331,11 +372,116 @@ bool parse_spv_instruction(SpvParser* parser) {
             }
             break;
         }
+        case SpvOpFunction: {
+            const Type* t = get_def_type(parser, instruction[4]);
+            assert(t && t->tag == FnType_TAG);
+
+            size_t params_count = t->payload.fn_type.param_types.count;
+            LARRAY(const Node*, params, params_count);
+
+            for (size_t i = 0; ((parser->words + instruction_offset)[0] & 0xFFFF) == SpvOpFunctionParameter; i++) {
+                size_t s = parse_spv_instruction_at(parser, instruction_offset);
+                assert(s > 0);
+                params[i] = get_def_ssa_value(parser, get_result_defined_at(parser, instruction_offset));
+                size += s;
+                instruction_offset += s;
+            }
+
+            Node* fun = function(parser->mod, nodes(parser->arena, params_count, params), get_name(parser, result), empty(parser->arena), t->payload.fn_type.return_types);
+            parser->defs[result].type = Decl;
+            parser->defs[result].node = fun;
+            Node* old_fun = parser->fun;
+            parser->fun = fun;
+
+            const Node* first_block = NULL;
+            while (((parser->words + instruction_offset)[0] & 0xFFFF) != SpvOpFunctionEnd) {
+                size_t s = parse_spv_instruction_at(parser, instruction_offset);
+                assert(s > 0);
+                const Node* block = get_definition_by_id(parser, get_result_defined_at(parser, instruction_offset))->node;
+                assert(is_terminator(block));
+                if (!first_block)
+                    first_block = block;
+                size += s;
+                instruction_offset += s;
+            }
+
+            // Final OpFunctionEnd
+            size_t s = parse_spv_instruction_at(parser, instruction_offset);
+            size += s;
+
+            fun->payload.fun.body = first_block;
+            parser->fun = old_fun;
+            break;
+        }
+        case SpvOpFunctionParameter: {
+            parser->defs[result].type = Value;
+            parser->defs[result].node = var(parser->arena, get_def_type(parser, result_t), get_name(parser, result));
+            break;
+        }
+        case SpvOpLabel: {
+            Nodes params = empty(parser->arena);
+            while (true) {
+                SpvOp param_op = (parser->words + instruction_offset)[0] & 0xFFFF;
+                bool is_param = false;
+                switch (param_op) {
+                    case SpvOpPhi: {
+                        is_param = true;
+                        break;
+                    }
+                    case SpvOpLine:
+                    case SpvOpNoLine:
+                        break;
+                    default: goto done_with_params;
+                }
+                size_t s = parse_spv_instruction_at(parser, instruction_offset);
+                assert(s > 0);
+                if (is_param) {
+                    const Node* param = get_definition_by_id(parser, get_result_defined_at(parser, instruction_offset))->node;
+                    assert(param && param->tag == Variable_TAG);
+                    params = concat_nodes(parser->arena, params, singleton(param));
+                }
+                size += s;
+                instruction_offset += s;
+            }
+
+            done_with_params:
+
+            parser->defs[result].type = BB;
+            String bb_name = get_name(parser, result);
+            bb_name = bb_name ? bb_name : unique_name(parser->arena, "basic_block");
+            parser->defs[result].node = basic_block(parser->arena, parser->fun, params, bb_name);
+
+            assert(!parser->bb);
+            BodyBuilder* bb = begin_body(parser->mod);
+            parser->bb = bb;
+            while (parser->bb) {
+                size_t s = parse_spv_instruction_at(parser, instruction_offset);
+                assert(s > 0);
+                size += s;
+                instruction_offset += s;
+            }
+        }
+        case SpvOpPhi: {
+            error("TODO: OpPhi")
+        }
         default: error("Unsupported op: %d, size: %d", op, size);
     }
 
-    parser->cursor += size;
-    return true;
+    if (has_result) {
+        parser->defs[result].final_size = size;
+    }
+
+    return size;
+}
+
+SpvDef* get_definition_by_id(SpvParser* parser, size_t id) {
+    assert(id > 0 && id < parser->header.bound);
+    if (parser->defs[id].type == Nothing)
+    error("there is no Op that defines result %zu", id);
+    if (parser->defs[id].type == Forward)
+        parse_spv_instruction_at(parser, parser->defs[id].instruction_offset);
+    assert(parser->defs[id].type != Forward);
+    return &parser->defs[id];
 }
 
 S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
@@ -353,17 +499,15 @@ S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
         return S2S_FailedParsingGeneric;
     assert(parser.header.bound > 0 && parser.header.bound < 512 * 1024 * 1024); // sanity check
     parser.defs = calloc(parser.header.bound, sizeof(SpvDef));
-    parser.forward = calloc(parser.header.bound, sizeof(size_t));
 
     scan_definitions(&parser);
 
     while (parser.cursor < parser.len) {
-        parse_spv_instruction(&parser);
+        parser.cursor += parse_spv_instruction_at(&parser, parser.cursor);
     }
 
     destroy_arena(parser.decorations_arena);
     free(parser.defs);
-    free(parser.forward);
 
     return S2S_Success;
 }
