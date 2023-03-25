@@ -177,8 +177,10 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
             Node* bound = function(ctx->rewriter.dst_module, new_fn_params, decl->payload.fun.name, rewrite_nodes(&ctx->rewriter, decl->payload.fun.annotations), rewrite_nodes(&ctx->rewriter, decl->payload.fun.return_types));
             register_processed(&ctx->rewriter, decl, bound);
             Context fn_ctx = *ctx;
-            for (size_t i = 0; i < new_fn_params.count; i++)
+            for (size_t i = 0; i < new_fn_params.count; i++) {
                 add_binding(&fn_ctx, false, decl->payload.fun.params.nodes[i]->payload.var.name, new_fn_params.nodes[i]);
+            }
+            register_processed_list(&ctx->rewriter, decl->payload.fun.params, new_fn_params);
 
             fn_ctx.current_function = bound;
             bound->payload.fun.body = rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body);
@@ -260,12 +262,22 @@ static const Node* bind_node(Context* ctx, const Node* node) {
 
             return bound_body;
         }
-        case BasicBlock_TAG: error("rewrite_decl should handle this")
+        case BasicBlock_TAG: {
+            assert(is_basic_block(node));
+            Nodes new_bb_params = recreate_variables(&ctx->rewriter, node->payload.basic_block.params);
+            Node* new_bb = basic_block(ctx->rewriter.dst_arena, (Node*) ctx->current_function, new_bb_params, node->payload.basic_block.name);
+            add_binding(ctx, false, node->payload.basic_block.name, new_bb);
+            register_processed(&ctx->rewriter, node, new_bb);
+            register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new_bb_params);
+            new_bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, node->payload.basic_block.body);
+            return new_bb;
+        }
         case AnonLambda_TAG: {
             Nodes old_params = node->payload.anon_lam.params;
             Nodes new_params = recreate_variables(&ctx->rewriter, old_params);
             for (size_t i = 0; i < new_params.count; i++)
                 add_binding(ctx, false, old_params.nodes[i]->payload.var.name, new_params.nodes[i]);
+            register_processed_list(&ctx->rewriter, old_params, new_params);
             const Node* new_body = rewrite_node(&ctx->rewriter, node->payload.anon_lam.body);
             return lambda(ctx->rewriter.dst_module, new_params, new_body);
         }
