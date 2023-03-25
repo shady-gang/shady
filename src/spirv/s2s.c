@@ -19,6 +19,7 @@ typedef enum {
 #include "log.h"
 #include "arena.h"
 #include "portability.h"
+#include "dict.h"
 
 #include "../shady/type.h"
 
@@ -54,6 +55,14 @@ struct SpvDeco_ {
     SpvDef payload;
 };
 
+typedef struct SpvPhiArgs_ SpvPhiArgs;
+struct SpvPhiArgs_ {
+    SpvId predecessor;
+    size_t arg_i;
+    SpvId arg;
+    SpvPhiArgs* next_;
+};
+
 typedef struct {
     size_t cursor;
     size_t len;
@@ -62,12 +71,16 @@ typedef struct {
     IrArena* arena;
 
     Node* fun;
+    size_t fun_arg_i;
+
+    SpvId cur_block;
     BodyBuilder* bb;
     const Node* finished_body;
 
     SpvHeader header;
     SpvDef* defs;
     Arena* decorations_arena;
+    struct Dict* phi_arguments;
 } SpvParser;
 
 SpvDef* get_definition_by_id(SpvParser* parser, size_t id);
@@ -245,6 +258,30 @@ void scan_definitions(SpvParser* parser) {
         parser->cursor += size;
     }
     parser->cursor = old_cursor;
+}
+
+Nodes get_args_from_phi(SpvParser* parser, SpvId block, SpvId predecessor) {
+    SpvDef* block_def = get_definition_by_id(parser, block);
+    assert(block_def->type == BB && block_def->node);
+    int params_count = block_def->node->payload.basic_block.params.count;
+
+    LARRAY(const Node*, params, params_count);
+
+    SpvPhiArgs** found = find_value_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, block);
+    assert(found);
+    SpvPhiArgs* arg = *found;
+    while (true) {
+        if (arg->predecessor == predecessor) {
+            assert(arg->arg_i < params_count);
+            params[arg->arg_i] = get_def_ssa_value(parser, arg->arg);
+        }
+        if (arg->next_)
+           arg = arg->next_;
+        else
+            break;
+    }
+
+    return nodes(parser->arena, params_count, params);
 }
 
 size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
@@ -471,6 +508,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         }
         case SpvOpLabel: {
             Nodes params = empty(parser->arena);
+            parser->fun_arg_i = 0;
             while (true) {
                 SpvOp param_op = (parser->words + instruction_offset)[0] & 0xFFFF;
                 bool is_param = false;
@@ -505,6 +543,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             assert(!parser->bb);
             BodyBuilder* bb = begin_body(parser->mod);
             parser->bb = bb;
+            parser->cur_block = result;
             while (parser->bb) {
                 size_t s = parse_spv_instruction_at(parser, instruction_offset);
                 assert(s > 0);
@@ -513,14 +552,41 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }
         }
         case SpvOpPhi: {
-            error("TODO: OpPhi")
+            parser->defs[result].type = Value;
+            parser->defs[result].node = var(parser->arena, get_def_type(parser, result_t), get_name(parser, result));
+            assert(size % 2 == 1);
+            int num_callsites = (size - 3) / 2;
+            for (size_t i = 0; i < num_callsites; i++) {
+                SpvId argument_value = instruction[3 + i * 2 + 0];
+                SpvId predecessor_block = instruction[3 + i * 2 + 1];
+
+                SpvPhiArgs** found = find_value_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, predecessor_block);
+                SpvPhiArgs* arg;
+                if (found) {
+                    arg = *found;
+                    while (arg->next_) {
+                        arg = arg->next_;
+                    }
+                } else {
+                    arg = arena_alloc(parser->decorations_arena, sizeof(SpvPhiArgs));
+                    insert_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->cur_block, arg);
+                }
+                *arg = (SpvPhiArgs) {
+                    .predecessor = predecessor_block,
+                    .arg_i = parser->fun_arg_i,
+                    .arg = argument_value,
+                    .next_ = NULL,
+                };
+            }
+            parser->fun_arg_i++;
+            break;
         }
         case SpvOpBranch: {
             BodyBuilder* bb = parser->bb;
             parser->bb = NULL;
             parser->finished_body = finish_body(bb, jump(parser->arena, (Jump) {
                 .target = get_def_block(parser, instruction[1]),
-                .args = empty(parser->arena), // TODO
+                .args = get_args_from_phi(parser, instruction[1], parser->cur_block),
             }));
             break;
         }
@@ -613,6 +679,16 @@ SpvDef* get_definition_by_id(SpvParser* parser, size_t id) {
     return &parser->defs[id];
 }
 
+KeyHash hash_spvid(SpvId* p) {
+    return hash_murmur(p, sizeof(SpvId));
+}
+
+bool compare_spvid(SpvId* pa, SpvId* pb) {
+    if (pa == pb) return true;
+    if (!pa || !pb) return false;
+    return *pa == *pb;
+}
+
 S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
     SpvParser parser = {
         .cursor = 0,
@@ -622,6 +698,7 @@ S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
         .arena = get_module_arena(dst),
 
         .decorations_arena = new_arena(),
+        .phi_arguments = new_dict(SpvId, SpvPhiArgs*, (HashFn) hash_spvid, (CmpFn) compare_spvid),
     };
 
     if (!parse_spv_header(&parser))
@@ -635,6 +712,7 @@ S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
         parser.cursor += parse_spv_instruction_at(&parser, parser.cursor);
     }
 
+    destroy_dict(parser.phi_arguments);
     destroy_arena(parser.decorations_arena);
     free(parser.defs);
 
