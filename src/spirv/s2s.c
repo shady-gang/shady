@@ -269,6 +269,8 @@ Nodes get_args_from_phi(SpvParser* parser, SpvId block, SpvId predecessor) {
     int params_count = block_def->node->payload.basic_block.params.count;
 
     LARRAY(const Node*, params, params_count);
+    for (size_t i = 0; i < params_count; i++)
+        params[i] = NULL;
 
     SpvPhiArgs** found = find_value_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, block);
     assert(found);
@@ -283,6 +285,9 @@ Nodes get_args_from_phi(SpvParser* parser, SpvId block, SpvId predecessor) {
         else
             break;
     }
+
+    for (size_t i = 0; i < params_count; i++)
+        assert(params[i]);
 
     return nodes(parser->arena, params_count, params);
 }
@@ -574,23 +579,25 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 SpvId argument_value = instruction[3 + i * 2 + 0];
                 SpvId predecessor_block = instruction[3 + i * 2 + 1];
 
-                SpvPhiArgs** found = find_value_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, predecessor_block);
-                SpvPhiArgs* arg;
-                if (found) {
-                    arg = *found;
-                    while (arg->next_) {
-                        arg = arg->next_;
-                    }
-                } else {
-                    arg = arena_alloc(parser->decorations_arena, sizeof(SpvPhiArgs));
-                    insert_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->current_block.id, arg);
-                }
-                *arg = (SpvPhiArgs) {
+                SpvPhiArgs* new = arena_alloc(parser->decorations_arena, sizeof(SpvPhiArgs));
+                *new = (SpvPhiArgs) {
                     .predecessor = predecessor_block,
                     .arg_i = parser->fun_arg_i,
                     .arg = argument_value,
                     .next_ = NULL,
                 };
+
+                SpvPhiArgs** found = find_value_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->current_block.id);
+                if (found) {
+                    SpvPhiArgs* arg = *found;
+                    while (arg->next_) {
+                        arg = arg->next_;
+                    }
+                    arg->next_ = new;
+                } else {
+                    insert_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->current_block.id, new);
+                }
+
                 debugv_print("s2s: recorded argument %d (value id=%d) for block %d with predecessor %d\n", parser->fun_arg_i, argument_value, parser->current_block.id, predecessor_block);
             }
             parser->fun_arg_i++;
