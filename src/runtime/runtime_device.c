@@ -7,8 +7,6 @@
 
 #include <string.h>
 
-#include "murmur3.h"
-
 static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* count, const char* enabled_extensions[], bool support_vector[]) {
     if (count)
         *count = 0;
@@ -193,19 +191,6 @@ static bool get_physical_device_caps(SHADY_UNUSED Runtime* runtime, VkPhysicalDe
 
     fail:
     return false;
-}
-
-// TODO: unduplicate
-static KeyHash hash_murmur(const void* data, size_t size) {
-    int32_t out[4];
-    MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);
-
-    uint32_t final = 0;
-    final ^= out[0];
-    final ^= out[1];
-    final ^= out[2];
-    final ^= out[3];
-    return final;
 }
 
 KeyHash hash_program(Program** pdevice) {

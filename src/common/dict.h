@@ -44,5 +44,6 @@ void* insert_dict_and_get_key_impl(struct Dict*, void* key, void* value);
 #define      insert_set_get_result(K, dict, key)           insert_dict_and_get_result_impl(dict, (void*) (&(key)), NULL)
 bool insert_dict_and_get_result_impl(struct Dict*, void* key, void* value);
 
+KeyHash hash_murmur(const void* data, size_t size);
 
 #endif

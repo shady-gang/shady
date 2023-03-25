@@ -293,3 +293,17 @@ bool dict_iter(struct Dict* dict, size_t* iterator_state, void* key, void* value
     }
     return true;
 }
+
+#include "murmur3.h"
+
+KeyHash hash_murmur(const void* data, size_t size) {
+    int32_t out[4];
+    MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);
+
+    uint32_t final = 0;
+    final ^= out[0];
+    final ^= out[1];
+    final ^= out[2];
+    final ^= out[3];
+    return final;
+}
