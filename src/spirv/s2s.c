@@ -515,7 +515,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         }
         case SpvOpFunctionParameter: {
             parser->defs[result].type = Value;
-            parser->defs[result].node = var(parser->arena, get_def_type(parser, result_t), get_name(parser, result));
+            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), false), get_name(parser, result));
             break;
         }
         case SpvOpLabel: {
@@ -572,7 +572,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         }
         case SpvOpPhi: {
             parser->defs[result].type = Value;
-            parser->defs[result].node = var(parser->arena, get_def_type(parser, result_t), get_name(parser, result));
+            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), false), get_name(parser, result));
             assert(size % 2 == 1);
             int num_callsites = (size - 3) / 2;
             for (size_t i = 0; i < num_callsites; i++) {
