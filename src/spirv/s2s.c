@@ -201,12 +201,98 @@ AddressSpace convert_storage_class(SpvStorageClass class) {
 typedef struct {
     bool valid;
     Op op;
-    int base_size;
+    int ops_offset;
 } SpvShdOpMapping;
 
 static SpvShdOpMapping spv_shd_op_mapping[] = {
-    [SpvOpSLessThan] = { 1, lt_op, 3 },
+    // 3.42.13 Arithmetic operations
+    [SpvOpSNegate] = { 1, neg_op, 3 },
+    [SpvOpFNegate] = { 1, neg_op, 3 },
+    [SpvOpIAdd] = { 1, add_op, 3 },
+    [SpvOpFAdd] = { 1, add_op, 3 },
     [SpvOpISub] = { 1, sub_op, 3 },
+    [SpvOpFSub] = { 1, sub_op, 3 },
+    [SpvOpIMul] = { 1, mul_op, 3 },
+    [SpvOpFMul] = { 1, mul_op, 3 },
+    [SpvOpUDiv] = { 1, div_op, 3 },
+    [SpvOpSDiv] = { 1, div_op, 3 },
+    [SpvOpFDiv] = { 1, div_op, 3 },
+    [SpvOpUMod] = { 1, mod_op, 3 },
+    [SpvOpSRem] = { 1, mod_op, 3 },
+    [SpvOpSMod] = { 1, mod_op, 3 }, /* TODO: this is slightly incorrect! rem and mod are different ops for signed numbers. */
+    [SpvOpFRem] = { 1, mod_op, 3 },
+    [SpvOpFMod] = { 1, mod_op, 3 }, /* TODO ditto */
+    [SpvOpVectorTimesScalar] = { 0 },
+    [SpvOpMatrixTimesScalar] = { 0 },
+    [SpvOpVectorTimesMatrix] = { 0 },
+    [SpvOpMatrixTimesVector] = { 0 },
+    [SpvOpMatrixTimesMatrix] = { 0 },
+    [SpvOpOuterProduct] = { 0 },
+    [SpvOpDot] = { 0 },
+    [SpvOpIAddCarry] = { 1, add_carry_op, 3},
+    [SpvOpISubBorrow] = { 1, sub_borrow_op, 3},
+    [SpvOpUMulExtended] = { 1, mul_extended_op, 3},
+    [SpvOpSMulExtended] = { 1, mul_extended_op, 3},
+    [SpvOpSDot] = { 0 },
+    [SpvOpUDot] = { 0 },
+    [SpvOpSUDot] = { 0 },
+    [SpvOpSDotAccSat] = { 0 },
+    [SpvOpUDotAccSat] = { 0 },
+    [SpvOpSUDotAccSat] = { 0 },
+    // 3.42.14 Bit instructions
+    [SpvOpShiftRightLogical] = { 1, rshift_logical_op, 3 },
+    [SpvOpShiftRightArithmetic] = { 1, rshift_arithm_op, 3 },
+    [SpvOpShiftLeftLogical] = { 1, lshift_op, 3 },
+    [SpvOpBitwiseOr] = { 1, or_op, 3 },
+    [SpvOpBitwiseXor] = { 1, xor_op, 3 },
+    [SpvOpBitwiseAnd] = { 1, and_op, 3 },
+    [SpvOpNot] = { 1, not_op, 3 },
+    [SpvOpBitFieldInsert] = { 0 },
+    [SpvOpBitFieldSExtract] = { 0 },
+    [SpvOpBitFieldUExtract] = { 0 },
+    [SpvOpBitReverse] = { 0 },
+    [SpvOpBitCount] = { 0 },
+    // 3.42.15 Relational and Logical instructions
+    [SpvOpAny] = { 0 },
+    [SpvOpAll] = { 0 },
+    [SpvOpIsNan] = { 0 },
+    [SpvOpIsInf] = { 0 },
+    [SpvOpIsFinite] = { 0 },
+    [SpvOpIsNormal] = { 0 },
+    [SpvOpSignBitSet] = { 0 },
+    [SpvOpLessOrGreater] = { 0 },
+    [SpvOpOrdered] = { 0 },
+    [SpvOpUnordered] = { 0 },
+    [SpvOpLogicalEqual] = { 1, eq_op, 3 },
+    [SpvOpLogicalNotEqual] = { 1, eq_op, 3 },
+    [SpvOpLogicalOr] = { 1, or_op, 3 },
+    [SpvOpLogicalAnd] = { 1, and_op, 3 },
+    [SpvOpLogicalNot] = { 1, not_op, 3 },
+    [SpvOpSelect] = { 1, select_op, 3 },
+    [SpvOpIEqual] = { 1, eq_op, 3 },
+    [SpvOpINotEqual] = { 1, neq_op, 3 },
+    [SpvOpUGreaterThan] = { 1, gt_op, 3 },
+    [SpvOpSGreaterThan] = { 1, gt_op, 3 },
+    [SpvOpUGreaterThanEqual] = { 1, gte_op, 3 },
+    [SpvOpSGreaterThanEqual] = { 1, gte_op, 3 },
+    [SpvOpULessThan] = { 1, lt_op, 3 },
+    [SpvOpSLessThan] = { 1, lt_op, 3 },
+    [SpvOpULessThanEqual] = { 1, lte_op, 3 },
+    [SpvOpSLessThanEqual] = { 1, lte_op, 3 },
+    [SpvOpFOrdEqual] = { 1, eq_op, 3 },
+    [SpvOpFUnordEqual] = { 1, eq_op, 3 }, /* TODO again these are not the same */
+    [SpvOpFOrdNotEqual] = { 1, neq_op, 3 },
+    [SpvOpFUnordNotEqual] = { 1, neq_op, 3 }, /* ditto */
+    [SpvOpFOrdLessThan] = { 1, lt_op, 3 },
+    [SpvOpFUnordLessThan] = { 1, lt_op, 3 },
+    [SpvOpFOrdLessThanEqual] = { 1, lte_op, 3 },
+    [SpvOpFUnordLessThanEqual] = { 1, lte_op, 3 },
+    [SpvOpFOrdGreaterThan] = { 1, gt_op, 3 },
+    [SpvOpFUnordGreaterThan] = { 1, gt_op, 3 },
+    [SpvOpFOrdGreaterThanEqual] = { 1, gte_op, 3 },
+    [SpvOpFUnordGreaterThanEqual] = { 1, gte_op, 3 },
+    // 3.42.16 Derivative Instructions
+    // honestly none of those are implemented ...
 };
 
 const SpvShdOpMapping* convert_spv_op(SpvOp src) {
@@ -323,10 +409,10 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
     if (convert_spv_op(op)) {
         assert(parser->current_block.builder);
         SpvShdOpMapping shd_op = *convert_spv_op(op);
-        int num_ops = size - shd_op.base_size;
+        int num_ops = size - shd_op.ops_offset;
         LARRAY(const Node*, ops, num_ops);
         for (size_t i = 0; i < num_ops; i++)
-            ops[i] = get_def_ssa_value(parser, instruction[shd_op.base_size + i]);
+            ops[i] = get_def_ssa_value(parser, instruction[shd_op.ops_offset + i]);
         int results_count = has_result ? 1 : 0;
         Nodes results = bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
             .op = shd_op.op,
