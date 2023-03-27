@@ -9,6 +9,7 @@
 #include "../type.h"
 
 #include <setjmp.h>
+#include <string.h>
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -317,6 +318,15 @@ static const Node* process(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
+    if (is_declaration(node)) {
+        String name = get_decl_name(node);
+        Nodes decls = get_module_declarations(ctx->rewriter.dst_module);
+        for (size_t i = 0; i < decls.count; i++) {
+            if (strcmp(get_decl_name(decls.nodes[i]), name) == 0)
+                return decls.nodes[i];
+        }
+    }
+
     if (node->tag == Function_TAG) {
         Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
 
@@ -329,6 +339,7 @@ static const Node* process(Context* ctx, const Node* node) {
         bool is_leaf = false;
         if (is_builtin || !node->payload.fun.body || !lookup_annotation(node, "MaybeLeaf") || setjmp(ctx2.bail)) {
             ctx2.lower = false;
+            ctx2.rewriter.processed = ctx->rewriter.processed;
             if (node->payload.fun.body)
                 new->payload.fun.body = rewrite_node(&ctx2.rewriter, node->payload.fun.body);
             // builtin functions are always considered leaf functions
@@ -340,6 +351,9 @@ static const Node* process(Context* ctx, const Node* node) {
             bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ptr, int32_literal(arena, 0)) }));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
+            struct Dict* tmp_processed = clone_dict(ctx->rewriter.processed);
+            append_list(struct Dict*, ctx->tmp_alloc_stack, tmp_processed);
+            ctx2.rewriter.processed = tmp_processed;
             new->payload.fun.body = finish_body(bb, structure(&ctx2, node, unreachable(arena)));
             is_leaf = true;
         }
