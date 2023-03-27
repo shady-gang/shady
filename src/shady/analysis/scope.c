@@ -285,6 +285,8 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const Node* bb = read_list(const CFNode*, scope->contents)[i]->node;
         const Node* body = get_abstraction_body(bb);
+        if (!body) continue;
+
         switch (body->tag) {
             case Let_TAG: body = body->payload.let.instruction; break;
             default: break;
@@ -322,7 +324,7 @@ void dump_cfg(FILE* output, Module* mod) {
     fprintf(output, "digraph G {\n");
     struct List* scopes = build_scopes(mod);
     for (size_t i = 0; i < entries_count_list(scopes); i++) {
-        Scope* scope = &read_list(Scope, scopes)[i];
+        Scope* scope = read_list(Scope*, scopes)[i];
         dump_cfg_scope(output, scope);
         destroy_scope(scope);
     }
