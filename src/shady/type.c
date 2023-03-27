@@ -653,6 +653,26 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = curr_ptr_type
             });
         }
+        case align_of_op:
+        case size_of_op: {
+            assert(prim_op.type_arguments.count == 1);
+            assert(prim_op.operands.count == 0);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = true,
+                .type = uint32_type(arena)
+            });
+        }
+        case offset_of_op: {
+            assert(prim_op.type_arguments.count == 1);
+            assert(prim_op.operands.count == 1);
+            const Type* optype = first(prim_op.operands)->type;
+            bool uniform = deconstruct_qualified_type(&optype);
+            assert(uniform && optype->tag == Int_TAG);
+            return qualified_type(arena, (QualifiedType) {
+                    .is_uniform = true,
+                    .type = uint32_type(arena)
+            });
+        }
         case reinterpret_op: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);

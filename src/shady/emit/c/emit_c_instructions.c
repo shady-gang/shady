@@ -180,7 +180,18 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             outputs.binding[0] = NoBinding;
             return;
         }
-        case select_op: {
+        case size_of_op:
+            final_expression = format_string(emitter->arena, "sizeof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL));
+            break;
+        case align_of_op:
+            final_expression = format_string(emitter->arena, "alignof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL));
+            break;
+        case offset_of_op: {
+            // TODO get member name
+            String member_name; error("TODO");
+            final_expression = format_string(emitter->arena, "offsetof(%s, %s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL), member_name);
+            break;
+        } case select_op: {
             assert(prim_op->operands.count == 3);
             CValue condition = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[0]));
             CValue l = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
