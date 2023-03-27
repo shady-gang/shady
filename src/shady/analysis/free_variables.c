@@ -37,9 +37,13 @@ static void visit_fv(Context* visitor, const Node* node) {
 static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
     const Node* abs = cfnode->node;
 
-    for (int i = 0; i < depth; i++)
-        debugvv_print(" ");
-    debugvv_print("%s\n", get_abstraction_name(abs));
+    bool is_named = abs->tag != AnonLambda_TAG;
+
+    if (is_named) {
+        for (int i = 0; i < depth; i++)
+            debugvv_print(" ");
+        debugvv_print("%s\n", get_abstraction_name(abs));
+    }
 
     // Bind parameters
     Nodes params = get_abstraction_params(abs);
@@ -55,7 +59,7 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
 
     for (size_t i = 0; i < entries_count_list(cfnode->dominates); i++) {
         CFNode* child = read_list(CFNode*, cfnode->dominates)[i];
-        visit_domtree(ctx, child, depth + 1);
+        visit_domtree(ctx, child, depth + (is_named ? 1 : 0));
     }
 }
 
