@@ -267,7 +267,16 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
         case NotAType: assert(false); break;
         case NoRet_TAG: printf("!"); break;
         case Bool_TAG: printf("bool"); break;
-        case Float_TAG: printf("float"); break;
+        case Float_TAG:
+            printf("f");
+            switch (node->payload.float_type.width) {
+                // case FloatTy8:  printf("8");  break;
+                case FloatTy16: printf("16"); break;
+                case FloatTy32: printf("32"); break;
+                case FloatTy64: printf("64"); break;
+                default: error("Not a known valid float width")
+            }
+            break;
         case MaskType_TAG: printf("mask"); break;
         case QualifiedType_TAG:
             printf(node->payload.qualified_type.is_uniform ? "uniform" : "varying");
