@@ -15,7 +15,8 @@ bool compare_node(Node**, Node**);
 
 typedef struct {
     Visitor visitor;
-    struct Dict* ignore_set;
+    struct Dict* bound_set;
+    struct Dict* set;
     struct List* free_list;
 } Context;
 
@@ -23,11 +24,14 @@ static void visit_fv(Context* visitor, const Node* node) {
     assert(node);
     switch (node->tag) {
         case Variable_TAG: {
-            // if we encounter a node we haven't ignored already, it is deemed free
-            if (insert_set_get_result(const Node*, visitor->ignore_set, node))
+            if (find_key_dict(const Node*, visitor->bound_set, node))
+                return;
+            if (insert_set_get_result(const Node*, visitor->set, node)) {
                 append_list(const Node*, visitor->free_list, node);
+            }
             break;
         }
+        case Function_TAG:
         case AnonLambda_TAG:
         case BasicBlock_TAG: break; // we do not visit the insides of functions/basic blocks, that's what the domtree search is already doing!
         default: visit_children(&visitor->visitor, node); break;
@@ -49,7 +53,7 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
     Nodes params = get_abstraction_params(abs);
     for (size_t j = 0; j < params.count; j++) {
         const Node* param = params.nodes[j];
-        bool r = insert_set_get_result(const Node*, ctx->ignore_set, param);
+        bool r = insert_set_get_result(const Node*, ctx->bound_set, param);
         // assert(r);
         // this can happen if you visit the domtree of a CFG starting _inside_ a loop
         // we will meet some unbound params but eventually we'll enter their definition after the fact
@@ -64,23 +68,33 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
         CFNode* child = read_list(CFNode*, cfnode->dominates)[i];
         visit_domtree(ctx, child, depth + (is_named ? 1 : 0));
     }
+
+    // Unbind parameters
+    for (size_t j = 0; j < params.count; j++) {
+        const Node* param = params.nodes[j];
+        bool r = remove_dict(const Node*, ctx->bound_set, param);
+        assert(r);
+    }
 }
 
 struct List* compute_free_variables(const Scope* scope) {
-    struct Dict* ignore_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    struct Dict* bound_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    struct Dict* set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct List* free_list = new_list(const Node*);
 
     Context ctx = {
         .visitor = {
             .visit_fn = (VisitFn) visit_fv,
         },
-        .ignore_set = ignore_set,
+        .bound_set = bound_set,
+        .set = set,
         .free_list = free_list,
     };
 
     debugv_print("Computing free variables...\n");
     visit_domtree(&ctx, scope->entry, 0);
 
-    destroy_dict(ignore_set);
+    destroy_dict(bound_set);
+    destroy_dict(set);
     return free_list;
 }
