@@ -343,7 +343,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (node->payload.fun.body)
                 new->payload.fun.body = rewrite_node(&ctx2.rewriter, node->payload.fun.body);
             // builtin functions are always considered leaf functions
-            is_leaf = is_builtin;
+            is_leaf = is_builtin || !node->payload.fun.body;
         } else {
             ctx2.lower = true;
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
@@ -370,6 +370,18 @@ static const Node* process(Context* ctx, const Node* node) {
         new->payload.fun.annotations = filter_out_annotation(arena, new->payload.fun.annotations, "MaybeLeaf");
 
         return new;
+    } else if (node->tag == Instruction_IndirectCall_TAG) {
+        const Node* callee = node->payload.indirect_call.callee;
+        if (callee->tag == FnAddr_TAG) {
+            const Node* fn = rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
+            if (lookup_annotation(fn, "Leaf")) {
+                const Node* call = leaf_call(arena, (LeafCall) {
+                        .callee = fn,
+                        .args = rewrite_nodes(&ctx->rewriter, node->payload.indirect_call.args)
+                });
+                return call;
+            }
+        }
     }
 
     if (!ctx->lower)

@@ -207,8 +207,8 @@ String name_type_safe(IrArena* arena, const Type* t) {
 
 /// Is this a type that a value in the language can have ?
 bool is_value_type(const Type* type) {
-    if (type->tag == RecordType_TAG && type->payload.record_type.special == MultipleReturn)
-        return true;
+    //if (type->tag == RecordType_TAG && type->payload.record_type.special == MultipleReturn)
+    //    return true;
     if (type->tag != QualifiedType_TAG)
         return false;
     return is_data_type(get_unqualified_type(type));

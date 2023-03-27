@@ -557,7 +557,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             for (size_t i = 0; i < size - 3; i++)
                 param_ts[i] = get_def_type(parser, instruction[3 + i]);
             parser->defs[result].node = fn_type(parser->arena, (FnType) {
-                .return_types = singleton(return_t),
+                .return_types = (return_t == unit_type(parser->arena)) ? empty(parser->arena) : singleton(return_t),
                 .param_types = nodes(parser->arena, size - 3, param_ts)
             });
             break;
@@ -907,8 +907,8 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 args[i] = get_def_ssa_value(parser, instruction[4 + i]);
 
             int rslts_count = get_def_type(parser, result_t) == unit_type(parser->arena) ? 0 : 1;
-            Nodes rslts = bind_instruction_extra(parser->current_block.builder, leaf_call(parser->arena, (LeafCall) {
-                .callee = callee,
+            Nodes rslts = bind_instruction_extra(parser->current_block.builder, indirect_call(parser->arena, (IndirectCall) {
+                .callee = fn_addr(parser->arena, (FnAddr) { .fn = callee }),
                 .args = nodes(parser->arena, num_args, args)
             }), rslts_count, NULL, NULL);
 
