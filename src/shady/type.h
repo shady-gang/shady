@@ -52,7 +52,6 @@ bool is_qualified_type_uniform(const Type*);
 bool deconstruct_qualified_type(const Type**);
 
 const Type* qualified_type_helper(const Type*, bool uniform);
-bool contains_qualified_type(const Type*);
 
 Nodes strip_qualifiers(IrArena*, Nodes);
 Nodes add_qualifiers(IrArena*, Nodes, bool);

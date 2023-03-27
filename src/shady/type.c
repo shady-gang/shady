@@ -207,6 +207,8 @@ String name_type_safe(IrArena* arena, const Type* t) {
 
 /// Is this a type that a value in the language can have ?
 bool is_value_type(const Type* type) {
+    if (type->tag == RecordType_TAG && type->payload.record_type.special == MultipleReturn)
+        return true;
     if (type->tag != QualifiedType_TAG)
         return false;
     return is_data_type(get_unqualified_type(type));
@@ -249,7 +251,7 @@ bool is_data_type(const Type* type) {
 
 const Type* check_type_join_point_type(IrArena* arena, JoinPointType type) {
     for (size_t i = 0; i < type.yield_types.count; i++) {
-        assert(!contains_qualified_type(type.yield_types.nodes[i]));
+        assert(is_data_type(type.yield_types.nodes[i]));
     }
     return NULL;
 }
@@ -257,7 +259,8 @@ const Type* check_type_join_point_type(IrArena* arena, JoinPointType type) {
 const Type* check_type_record_type(IrArena* arena, RecordType type) {
     assert(type.names.count == 0 || type.names.count == type.members.count);
     for (size_t i = 0; i < type.members.count; i++) {
-        assert((type.special == MultipleReturn) == contains_qualified_type(type.members.nodes[i]));
+        // member types are value types iff this is a return tuple
+        assert((type.special == MultipleReturn) == is_value_type(type.members.nodes[i]));
     }
     return NULL;
 }
@@ -350,7 +353,7 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
         case Constant_TAG: break;
         default: error("You can only use RefDecl on a global or a constant. See FnAddr for taking addresses of functions.")
     }
-    assert(!contains_qualified_type(t));
+    assert(t->tag != QualifiedType_TAG && "decl types may not be qualified");
     return qualified_type(arena, (QualifiedType) {
         .type = t,
         .is_uniform = true,

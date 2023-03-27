@@ -30,7 +30,7 @@ Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
 
 const Type* get_pointee_type(IrArena* arena, const Type* type) {
     bool qualified = false, uniform = false;
-    if (contains_qualified_type(type)) {
+    if (is_value_type(type)) {
         qualified = true;
         uniform = is_qualified_type_uniform(type);
         type = get_unqualified_type(type);
@@ -94,13 +94,6 @@ const Type* qualified_type_helper(const Type* type, bool uniform) {
     return qualified_type(type->arena, (QualifiedType) { .type = type, .is_uniform = uniform });
 }
 
-bool contains_qualified_type(const Type* type) {
-    switch (type->tag) {
-        case QualifiedType_TAG: return true;
-        default: return false;
-    }
-}
-
 Nodes strip_qualifiers(IrArena* arena, Nodes tys) {
     LARRAY(const Type*, arr, tys.count);
     for (size_t i = 0; i < tys.count; i++)
@@ -144,7 +137,7 @@ size_t get_maybe_packed_type_width(const Type* type) {
 
 size_t deconstruct_maybe_packed_type(const Type** type) {
     const Type* t = *type;
-    assert(!contains_qualified_type(t));
+    assert(is_data_type(t));
     if (t->tag == PackType_TAG) {
         *type = t->payload.pack_type.element_type;
         return t->payload.pack_type.width;

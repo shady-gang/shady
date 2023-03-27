@@ -14,7 +14,7 @@
 static Nodes annotate_all_types(IrArena* arena, Nodes types, bool uniform_by_default) {
     LARRAY(const Type*, ntypes, types.count);
     for (size_t i = 0; i < types.count; i++) {
-        if (!contains_qualified_type(types.nodes[i]))
+        if (is_data_type(types.nodes[i]))
             ntypes[i] = qualified_type(arena, (QualifiedType) {
                 .type = types.nodes[i],
                 .is_uniform = uniform_by_default,
@@ -135,7 +135,7 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
 
 /// Like get_unqualified_type but won't error out if type wasn't qualified to begin with
 static const Type* remove_uniformity_qualifier(const Node* type) {
-    if (contains_qualified_type(type))
+    if (is_value_type(type))
         return get_unqualified_type(type);
     return type;
 }

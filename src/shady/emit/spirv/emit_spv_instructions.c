@@ -28,7 +28,7 @@ typedef enum {
 } OperandClass;
 
 static OperandClass classify_operand_type(const Type* type) {
-    assert(is_type(type) && !contains_qualified_type(type));
+    assert(is_type(type) && is_data_type(type));
 
     switch (type->tag) {
         case Int_TAG:     return type->payload.int_type.is_signed ? Signed : Unsigned;

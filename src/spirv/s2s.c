@@ -867,7 +867,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .op = store_op,
                     .type_arguments = empty(parser->arena),
                     .operands = mk_nodes(parser->arena, ptr, value)
-            }), 1, NULL, NULL);
+            }), 0, NULL, NULL);
             break;
         }
         case SpvOpCopyMemory:
