@@ -139,8 +139,9 @@ const Type* get_def_type(SpvParser* parser, SpvId id) {
 
 const Type* get_def_ssa_value(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
-    assert(def->type == Value);
     const Node* n = def->node;
+    if (is_declaration(n))
+        n = ref_decl(parser->arena, (RefDecl) { .decl = n });
     assert(n && (is_value(n) || is_instruction(n)));
     return n;
 }
@@ -659,7 +660,8 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             size += s;
 
             // steal the body of the first block, it can't be jumped to anyways!
-            fun->payload.fun.body = first_block->payload.basic_block.body;
+            if (first_block)
+                fun->payload.fun.body = first_block->payload.basic_block.body;
             parser->fun = old_fun;
             break;
         }
@@ -668,7 +670,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         }
         case SpvOpFunctionParameter: {
             parser->defs[result].type = Value;
-            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), false), get_name(parser, result));
+            String param_name = get_name(parser, result);
+            param_name = param_name ? param_name : format_string(parser->arena, "param%d", parser->fun_arg_i);
+            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), false), param_name);
             break;
         }
         case SpvOpLabel: {
@@ -725,7 +729,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         }
         case SpvOpPhi: {
             parser->defs[result].type = Value;
-            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), false), get_name(parser, result));
+            String phi_name = get_name(parser, result);
+            phi_name = phi_name ? phi_name : unique_name(parser->arena, "phi");
+            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), false), phi_name);
             assert(size % 2 == 1);
             int num_callsites = (size - 3) / 2;
             for (size_t i = 0; i < num_callsites; i++) {
