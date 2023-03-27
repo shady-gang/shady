@@ -816,6 +816,17 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }), 1, NULL, NULL));
             break;
         }
+        case SpvOpBitcast: {
+            const Type* src = get_def_ssa_value(parser, instruction[3]);
+            const Type* dst_t = get_def_type(parser, result_t);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                    .op = reinterpret_op,
+                    .type_arguments = singleton(dst_t),
+                    .operands = singleton(src)
+            }), 1, NULL, NULL));
+            break;
+        }
         case SpvOpInBoundsPtrAccessChain:
         case SpvOpPtrAccessChain:
         case SpvOpInBoundsAccessChain:
