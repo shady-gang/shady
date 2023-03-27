@@ -622,6 +622,24 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].node = get_default_zero_value(parser->arena, element_t);
             break;
         }
+        case SpvOpVariable: {
+            parser->defs[result].type = Decl;
+            String name = get_name(parser, result);
+            name = name ? name : unique_name(parser->arena, "global_variable");
+
+            AddressSpace as = convert_storage_class(instruction[3]);
+            const Type* contents_t = get_def_type(parser, result_t);
+            AddressSpace as2 = deconstruct_pointer_type(&contents_t);
+            assert(as == as2);
+            assert(is_data_type(contents_t));
+
+            Node* global = global_var(parser->mod, empty(parser->arena), contents_t, name, as);
+            parser->defs[result].node = global;
+
+            if (size == 5)
+                global->payload.global_variable.init = get_def_ssa_value(parser, instruction[4]);
+            break;
+        }
         case SpvOpFunction: {
             const Type* t = get_def_type(parser, instruction[4]);
             assert(t && t->tag == FnType_TAG);
