@@ -50,7 +50,10 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
     for (size_t j = 0; j < params.count; j++) {
         const Node* param = params.nodes[j];
         bool r = insert_set_get_result(const Node*, ctx->ignore_set, param);
-        assert(r);
+        // assert(r);
+        // this can happen if you visit the domtree of a CFG starting _inside_ a loop
+        // we will meet some unbound params but eventually we'll enter their definition after the fact
+        // those params should still be considered free in this case.
     }
 
     const Node* body = get_abstraction_body(abs);
