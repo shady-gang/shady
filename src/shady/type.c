@@ -110,7 +110,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
         case Bool_TAG:
         case MaskType_TAG:
         case Float_TAG:
-            return true;
+            return supertype->payload.float_type.width == type->payload.float_type.width;
     }
     SHADY_UNREACHABLE;
 }

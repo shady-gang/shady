@@ -50,8 +50,9 @@ static const Node* recreate_node_substitutions_only(Rewriter* rewriter, const No
         return node;
     if (node->tag == Variable_TAG)
         return node;
-    if (node->tag == BasicBlock_TAG) {
-        ((Node*) node)->payload.basic_block.body = rewrite_node(rewriter, node->payload.basic_block.body);
+    if (node->tag == BasicBlock_TAG && !node->payload.basic_block.body) {
+        // ((Node*) node)->payload.basic_block.body = rewrite_node(rewriter, node->payload.basic_block.body);
+        register_processed(rewriter, node, node);
         return node;
     }
     return recreate_node_identity(rewriter, node);
