@@ -864,7 +864,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             const Type* ptr = get_def_ssa_value(parser, instruction[1]);
             const Type* value = get_def_ssa_value(parser, instruction[2]);
             bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                    .op = load_op,
+                    .op = store_op,
                     .type_arguments = empty(parser->arena),
                     .operands = mk_nodes(parser->arena, ptr, value)
             }), 1, NULL, NULL);
