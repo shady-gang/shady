@@ -14,6 +14,7 @@
 #include "dict.h"
 
 #include <assert.h>
+#include <string.h>
 
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
@@ -23,6 +24,8 @@ typedef struct Context_ {
     struct Dict* lifted;
     bool disable_lowering;
 } Context;
+
+static const Node* process_node(Context* ctx, const Node* node);
 
 typedef struct {
     const Node* old_cont;
@@ -49,7 +52,7 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
     }
 }
 
-static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, String given_name) {
+static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name) {
     assert(is_basic_block(cont) || is_anonymous_lambda(cont));
     LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, cont);
     if (found)
@@ -68,7 +71,8 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, Str
 
     debugv_print("free (spilled) variables at '%s': ", name);
     for (size_t i = 0; i < recover_context_size; i++) {
-        debugv_print("%s", read_list(const Node*, recover_context)[i]->payload.var.name);
+        const Node* item = read_list(const Node*, recover_context)[i];
+        debugv_print("%s~%d", item->payload.var.name, item->payload.var.id);
         if (i + 1 < recover_context_size)
             debugv_print(", ");
     }
@@ -76,7 +80,6 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, Str
 
     // Create and register new parameters for the lifted continuation
     Nodes new_params = recreate_variables(&ctx->rewriter, oparams);
-    register_processed_list(&ctx->rewriter, oparams, new_params);
 
     // Keep annotations the same
     Nodes annotations = nodes(arena, 0, NULL);
@@ -88,12 +91,9 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, Str
     lifted_cont->save_values = recover_context;
     insert_dict(const Node*, LiftedCont*, ctx->lifted, cont, lifted_cont);
 
-    Context spilled_ctx = *ctx;
-
-    // Rewrite the body once in the new arena with the new params
-    const Node* pre_substitution = rewrite_node(&spilled_ctx.rewriter, obody);
-
-    Rewriter substituter = create_substituter(ctx->rewriter.dst_module);
+    Context lifting_ctx = *ctx;
+    lifting_ctx.rewriter = create_rewriter(ctx->rewriter.src_module, ctx->rewriter.dst_module, (RewriteFn) process_node);
+    register_processed_list(&lifting_ctx.rewriter, oparams, new_params);
 
     // Recover that stuff inside the new body
     BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
@@ -101,23 +101,22 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, Str
         const Node* ovar = read_list(const Node*, recover_context)[i];
         assert(ovar->tag == Variable_TAG);
 
-        const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
+        const Type* value_type = rewrite_node(&ctx->rewriter, ovar->type);
+
         const Node* recovered_value = first(bind_instruction_named(builder, prim_op(arena, (PrimOp) {
             .op = pop_stack_op,
-            .type_arguments = nodes(arena, 1, (const Node* []) { get_unqualified_type(nvar->type) })
+            .type_arguments = singleton(get_unqualified_type(value_type))
         }), &ovar->payload.var.name));
 
-        if (is_qualified_type_uniform(nvar->type))
+        if (is_qualified_type_uniform(ovar->type))
             recovered_value = first(bind_instruction_named(builder, prim_op(arena, (PrimOp) { .op = subgroup_broadcast_first_op, .operands = singleton(recovered_value) }), &ovar->payload.var.name));
 
-        // this dict overrides the 'processed' region
-        register_processed(&substituter, nvar, recovered_value);
+        register_processed(&lifting_ctx.rewriter, ovar, recovered_value);
     }
 
-    // Rewrite the body a second time in the new arena,
-    // this time substituting the captured free variables with the recovered context
-    const Node* substituted = rewrite_node(&substituter, pre_substitution);
-    destroy_rewriter(&substituter);
+    const Node* substituted = rewrite_node(&lifting_ctx.rewriter, obody);
+    //destroy_dict(lifting_ctx.rewriter.processed);
+    destroy_rewriter(&lifting_ctx.rewriter);
 
     assert(is_terminator(substituted));
     new_fn->payload.fun.body = finish_body(builder, substituted);
@@ -129,6 +128,16 @@ static const Node* process_node(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
+    // TODO: share this code
+    if (is_declaration(node)) {
+        String name = get_decl_name(node);
+        Nodes decls = get_module_declarations(ctx->rewriter.dst_module);
+        for (size_t i = 0; i < decls.count; i++) {
+            if (strcmp(get_decl_name(decls.nodes[i]), name) == 0)
+                return decls.nodes[i];
+        }
+    }
+
     IrArena* arena = ctx->rewriter.dst_arena;
 
     if (ctx->disable_lowering)
@@ -139,7 +148,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Jump_TAG: {
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
             const Node* otarget = node->payload.jump.target;
-            LiftedCont* lifted = lift_lambda_into_function(ctx, otarget, NULL);
+            LiftedCont* lifted = lambda_lift(ctx, otarget, NULL);
 
             add_spill_instrs(ctx, bb, lifted->save_values);
 
@@ -160,7 +169,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             for (size_t i = 0; i < 2; i++) {
                 const Node* otarget = otargets[i];
 
-                LiftedCont* lifted = lift_lambda_into_function(ctx, otarget, NULL);
+                LiftedCont* lifted = lambda_lift(ctx, otarget, NULL);
                 ntargets[i] = lifted->lifted_fn;
 
                 BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
@@ -187,12 +196,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (oinstruction->tag == Control_TAG) {
                 const Node* otail = get_let_tail(node);
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-                LiftedCont* lifted_tail = lift_lambda_into_function(ctx, otail, unique_name(arena, "let_tail"));
+                LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(arena, "let_tail"));
                 // if tail is a BB, add all the context-saving stuff in front
                 add_spill_instrs(ctx, bb, lifted_tail->save_values);
                 const Node* tail_ptr = fn_addr(arena, (FnAddr) { .fn = lifted_tail->lifted_fn });
 
-                LiftedCont* lifted_body = lift_lambda_into_function(ctx, oinstruction->payload.control.inside, unique_name(arena, "control_body"));
+                LiftedCont* lifted_body = lambda_lift(ctx, oinstruction->payload.control.inside, unique_name(arena, "control_body"));
                 const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
                 add_spill_instrs(ctx, bb, lifted_body->save_values);
                 const Node* lifted_body_ptr = fn_addr(arena, (FnAddr) { .fn = lifted_body->lifted_fn });
