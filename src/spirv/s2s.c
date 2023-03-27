@@ -493,6 +493,21 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             });
             break;
         }
+        case SpvOpTypeFloat: {
+            uint32_t width = instruction[2];
+            FloatSizes w;
+            switch (width) {
+                case 16: w = FloatTy16; break;
+                case 32: w = FloatTy32; break;
+                case 64: w = FloatTy64; break;
+                default: error("unhandled float width");
+            }
+            parser->defs[result].type = Typ;
+            parser->defs[result].node = float_type(parser->arena, (Float) {
+                .width = w,
+            });
+            break;
+        }
         case SpvOpTypeBool: {
             parser->defs[result].type = Typ;
             parser->defs[result].node = bool_type(parser->arena);
