@@ -891,7 +891,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 .op = memcpy_op,
                 .type_arguments = empty(parser->arena),
                 .operands = mk_nodes(parser->arena, dst, src, cnt)
-            }), 1, NULL, NULL);
+            }), 0, NULL, NULL);
             break;
         }
         case SpvOpLifetimeStart:
@@ -905,10 +905,16 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             LARRAY(const Node*, args, num_args);
             for (size_t i = 0; i < num_args; i++)
                 args[i] = get_def_ssa_value(parser, instruction[4 + i]);
-            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, leaf_call(parser->arena, (LeafCall) {
+
+            int rslts_count = get_def_type(parser, result_t) == unit_type(parser->arena) ? 0 : 1;
+            Nodes rslts = bind_instruction_extra(parser->current_block.builder, leaf_call(parser->arena, (LeafCall) {
                 .callee = callee,
                 .args = nodes(parser->arena, num_args, args)
-            }), 1, NULL, NULL));
+            }), rslts_count, NULL, NULL);
+
+            if (rslts_count == 1)
+                parser->defs[result].node = first(rslts);
+
             break;
         }
         case SpvOpExtInst: {

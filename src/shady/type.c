@@ -663,8 +663,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             deconstruct_qualified_type(&dst_t);
             assert(dst_t->tag == PtrType_TAG);
             const Type* src_t = prim_op.operands.nodes[1]->type;
-            assert(src_t->tag == PtrType_TAG);
             deconstruct_qualified_type(&src_t);
+            assert(src_t->tag == PtrType_TAG);
             const Type* cnt_t = prim_op.operands.nodes[2]->type;
             deconstruct_qualified_type(&cnt_t);
             assert(cnt_t->tag == Int_TAG);
