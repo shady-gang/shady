@@ -9,6 +9,7 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 
 #define SPV_ENABLE_UTILITY_CODE 1
 #include "spirv/unified1/spirv.h"
+#include "spirv/unified1/OpenCL.std.h"
 
 // TODO: reserve real decoration IDs
 typedef enum {
@@ -143,6 +144,12 @@ const Type* get_def_decl(SpvParser* parser, SpvId id) {
     const Node* n = def->node;
     assert(n && is_declaration(n));
     return n;
+}
+
+String get_def_string(SpvParser* parser, SpvId id) {
+    SpvDef* def = get_definition_by_id(parser, id);
+    assert(def->type == Str);
+    return def->str;
 }
 
 const Type* get_def_ssa_value(SpvParser* parser, SpvId id) {
@@ -860,6 +867,39 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 .callee = callee,
                 .args = nodes(parser->arena, num_args, args)
             }), 1, NULL, NULL));
+            break;
+        }
+        case SpvOpExtInst: {
+            String set = get_def_string(parser, instruction[3]);
+            assert(set);
+            uint32_t ext_instr = instruction[4];
+            size_t num_args = size - 5;
+            LARRAY(const Node*, args, num_args);
+            for (size_t i = 0; i < num_args; i++)
+                args[i] = get_def_ssa_value(parser, instruction[5 + i]);
+
+            const Node* instr = NULL;
+            if (strcmp(set, "OpenCL.std") == 0) {
+                switch (ext_instr) {
+                    case OpenCLstd_Mad:
+                        assert(num_args == 3);
+                        instr = prim_op(parser->arena, (PrimOp) {
+                            .op = mul_op,
+                            .operands = mk_nodes(parser->arena, args[0], args[1])
+                        });
+                        instr = prim_op(parser->arena, (PrimOp) {
+                            .op = add_op,
+                            .operands = mk_nodes(parser->arena, instruction, args[2])
+                        });
+                        break;
+                    default: error("unhandled extended instruction %d in set '%s'", ext_instr, set);
+                }
+            } else {
+                error("Unknown extended instruction set '%s'", set);
+            }
+
+            parser->defs[result].type = Value;
+            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, instr, 1, NULL, NULL));
             break;
         }
         case SpvOpBranch: {
