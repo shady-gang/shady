@@ -870,6 +870,30 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }), 1, NULL, NULL);
             break;
         }
+        case SpvOpCopyMemory:
+        case SpvOpCopyMemorySized: {
+            const Node* dst = get_def_ssa_value(parser, instruction[1]);
+            const Node* src = get_def_ssa_value(parser, instruction[2]);
+            const Node* cnt;
+            if (op == SpvOpCopyMemory) {
+                const Type* elem_t = src->type;
+                deconstruct_qualified_type(&elem_t);
+                deconstruct_pointer_type(&elem_t);
+                cnt = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                    .op = size_of_op,
+                    .type_arguments = singleton(elem_t),
+                    .operands = empty(parser->arena)
+                }), 1, NULL, NULL));
+            } else {
+                cnt = get_def_ssa_value(parser, instruction[3]);
+            }
+            bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                .op = memcpy_op,
+                .type_arguments = empty(parser->arena),
+                .operands = mk_nodes(parser->arena, dst, src, cnt)
+            }), 1, NULL, NULL);
+            break;
+        }
         case SpvOpFunctionCall: {
             parser->defs[result].type = Value;
             const Node* callee = get_def_decl(parser, instruction[3]);
