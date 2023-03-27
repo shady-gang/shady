@@ -137,6 +137,14 @@ const Type* get_def_type(SpvParser* parser, SpvId id) {
     return t;
 }
 
+const Type* get_def_decl(SpvParser* parser, SpvId id) {
+    SpvDef* def = get_definition_by_id(parser, id);
+    assert(def->type == Decl);
+    const Node* n = def->node;
+    assert(n && is_declaration(n));
+    return n;
+}
+
 const Type* get_def_ssa_value(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
     const Node* n = def->node;
@@ -780,6 +788,10 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->fun_arg_i++;
             break;
         }
+        case SpvOpConvertFToU:
+        case SpvOpConvertFToS:
+        case SpvOpConvertUToF:
+        case SpvOpConvertSToF:
         case SpvOpSConvert:
         case SpvOpFConvert:
         case SpvOpUConvert:
@@ -835,6 +847,19 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .op = load_op,
                     .type_arguments = empty(parser->arena),
                     .operands = mk_nodes(parser->arena, ptr, value)
+            }), 1, NULL, NULL));
+            break;
+        }
+        case SpvOpFunctionCall: {
+            parser->defs[result].type = Value;
+            const Node* callee = get_def_decl(parser, instruction[3]);
+            size_t num_args = size - 4;
+            LARRAY(const Node*, args, num_args);
+            for (size_t i = 0; i < num_args; i++)
+                args[i] = get_def_ssa_value(parser, instruction[4 + i]);
+            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, leaf_call(parser->arena, (LeafCall) {
+                .callee = callee,
+                .args = nodes(parser->arena, num_args, args)
             }), 1, NULL, NULL));
             break;
         }
