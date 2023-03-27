@@ -382,6 +382,9 @@ Nodes get_args_from_phi(SpvParser* parser, SpvId block, SpvId predecessor) {
     for (size_t i = 0; i < params_count; i++)
         params[i] = NULL;
 
+    if (params_count == 0)
+        return empty(parser->arena);
+
     SpvPhiArgs** found = find_value_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, block);
     assert(found);
     SpvPhiArgs* arg = *found;
