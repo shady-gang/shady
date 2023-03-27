@@ -22,6 +22,7 @@ typedef enum {
 #include "dict.h"
 
 #include "../shady/type.h"
+#include "../shady/transform/ir_gen_helpers.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -611,6 +612,13 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 }
                 default: error("OpConstant must produce an int or a float");
             }
+            break;
+        }
+        case SpvOpUndef:
+        case SpvOpConstantNull: {
+            const Type* element_t = get_def_type(parser, result_t);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = get_default_zero_value(parser->arena, element_t);
             break;
         }
         case SpvOpFunction: {

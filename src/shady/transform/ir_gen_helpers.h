@@ -25,4 +25,6 @@ typedef struct Rewriter_ Rewriter;
 const Node* find_or_process_decl(Rewriter*, Module* mod, const char* name);
 const Node* access_decl(Rewriter*, Module* mod, const char* name);
 
+const Node* get_default_zero_value(IrArena*, const Type*);
+
 #endif
