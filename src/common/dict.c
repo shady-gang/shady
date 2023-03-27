@@ -156,10 +156,12 @@ void* find_value_dict_impl(struct Dict* dict, void* key) {
 bool remove_dict_impl(struct Dict* dict, void* key) {
     void* found = find_key_dict_impl(dict, key);
     if (found) {
-        struct BucketTag* tag = (void *) ((size_t) found + dict->tag_offset);
+        struct BucketTag* tag = (void *) (((size_t) found) + dict->tag_offset);
+        assert(tag->is_present && !tag->is_thombstone);
         tag->is_present = false;
         tag->is_thombstone = true;
         dict->thombstones_count++;
+        dict->entries_count--;
         return true;
     }
     return false;
@@ -200,6 +202,7 @@ static void rehash(struct Dict* dict, void* old_alloc, size_t old_size) {
 
 static void grow_and_rehash(struct Dict* dict) {
     //printf("grow_rehash\n");
+    size_t old_entries_count = entries_count_dict(dict);
 
     void* old_alloc = dict->alloc;
     size_t old_size = dict->size;
@@ -212,6 +215,7 @@ static void grow_and_rehash(struct Dict* dict) {
     memset(dict->alloc, 0, dict->size * dict->bucket_entry_size);
 
     rehash(dict, old_alloc, old_size);
+    assert(old_entries_count == entries_count_dict(dict));
 
     free(old_alloc);
 }
@@ -226,49 +230,72 @@ bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr)
     const size_t init_pos = pos;
     const size_t alloc_base = (size_t) dict->alloc;
 
-    bool replacing = false;
+    enum { Inserting, Overwriting, Moving } mode;
+
+    size_t first_available_pos = SIZE_MAX;
 
     // Find an empty spot...
     while (true) {
         size_t bucket = alloc_base + pos * dict->bucket_entry_size;
 
         struct BucketTag tag = *(struct BucketTag*) (void*) (bucket + dict->tag_offset);
-        if (!tag.is_present)
-            break;
-
-        void* in_dict_key = (void*) bucket;
-        if (dict->cmp_fn(in_dict_key, key)) {
-            replacing = true;
-            break;
+        if (!tag.is_present) {
+            if (first_available_pos == SIZE_MAX)
+                first_available_pos = pos;
+            if (!tag.is_thombstone) {
+                mode = Inserting;
+                break;
+            }
+        } else {
+            void* in_dict_key = (void*) bucket;
+            if (dict->cmp_fn(in_dict_key, key)) {
+                if (first_available_pos == SIZE_MAX)
+                    first_available_pos = pos;
+                mode = (first_available_pos == pos) ? Overwriting : Moving;
+                break;
+            }
         }
 
         pos++;
-
         if (pos == dict->size)
             pos = 0;
-        // Make sure to die if we go full circle
-        assert(pos != init_pos);
+        if (pos == init_pos) {
+            assert(first_available_pos != SIZE_MAX);
+            mode = Inserting;
+            break;
+        }
     }
+    assert(first_available_pos < dict->size);
     assert(pos < dict->size);
 
-    size_t bucket = alloc_base + pos * dict->bucket_entry_size;
-    struct BucketTag* tag = (struct BucketTag*) (void*) (bucket + dict->tag_offset);
-    void* in_dict_key = (void*) bucket;
-    void* in_dict_value = (void*) (bucket + dict->value_offset);
-    assert(!tag->is_present || replacing);
+    size_t dst_bucket = alloc_base + first_available_pos * dict->bucket_entry_size;
+    struct BucketTag* dst_tag = (struct BucketTag*) (void*) (dst_bucket + dict->tag_offset);
+    void* in_dict_key = (void*) dst_bucket;
+    void* in_dict_value = (void*) (dst_bucket + dict->value_offset);
 
-    tag->is_present = true;
-    if (!replacing)
-        dict->entries_count++;
-    if (tag->is_thombstone)
+    if (dst_tag->is_thombstone)
         dict->thombstones_count--;
-    tag->is_thombstone = false;
+
+    if (mode == Moving) {
+        size_t src_bucket = alloc_base + pos * dict->bucket_entry_size;
+        struct BucketTag* src_tag = (struct BucketTag*) (void*) (src_bucket + dict->tag_offset);
+        assert(src_tag->is_present && dst_tag->is_thombstone);
+        src_tag->is_thombstone = true;
+        src_tag->is_present = false;
+    } else if (mode == Overwriting) {
+        assert(dst_tag->is_present);
+    } else {
+        dict->entries_count++;
+    }
+
+    dst_tag->is_present = true;
+    dst_tag->is_thombstone = false;
     memcpy(in_dict_key, key, dict->key_size);
     if (dict->value_size)
         memcpy(in_dict_value, value, dict->value_size);
     *out_ptr = in_dict_key;
 
-    return !replacing;
+    return mode == Inserting;
 }
 
 bool dict_iter(struct Dict* dict, size_t* iterator_state, void* key, void* value) {
