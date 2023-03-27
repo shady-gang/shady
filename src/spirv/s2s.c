@@ -121,6 +121,13 @@ String get_name(SpvParser* parser, SpvId id) {
     return deco->payload.str;
 }
 
+String get_member_name(SpvParser* parser, SpvId id, int member_id) {
+    SpvDeco* deco = find_decoration(parser, id, member_id, ShdDecorationName);
+    if (!deco)
+        return NULL;
+    return deco->payload.str;
+}
+
 const Type* get_def_type(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
     assert(def->type == Typ);
@@ -532,6 +539,30 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].node = fn_type(parser->arena, (FnType) {
                 .return_types = singleton(return_t),
                 .param_types = nodes(parser->arena, size - 3, param_ts)
+            });
+            break;
+        }
+        case SpvOpTypeStruct: {
+            parser->defs[result].type = Typ;
+            String name = get_name(parser, result);
+            name = name ? name : unique_name(parser->arena, "struct_type");
+            Node* nominal_type_decl = nominal_type(parser->mod, empty(parser->arena), name);
+            const Node* nom_t_ref = type_decl_ref(parser->arena, (TypeDeclRef) {
+                .decl = nominal_type_decl
+            });
+            parser->defs[result].node = nom_t_ref;
+            int members_count = size - 2;
+            LARRAY(String, member_names, members_count);
+            LARRAY(const Type*, member_tys, members_count);
+            for (size_t i = 0; i < members_count; i++) {
+                member_names[i] = get_member_name(parser, result, i);
+                if (!member_names[i])
+                    member_names[i] = format_string(parser->arena, "member%d", i);
+                member_tys[i] = get_def_type(parser, instruction[2 + i]);
+            }
+            nominal_type_decl->payload.nom_type.body = record_type(parser->arena, (RecordType) {
+                .members = nodes(parser->arena, members_count, member_tys),
+                .names = strings(parser->arena, members_count, member_names),
             });
             break;
         }
