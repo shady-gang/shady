@@ -362,7 +362,7 @@ static const Node* process(Context* ctx, const Node* node) {
             new->payload.fun.annotations = append_nodes(arena, new->payload.fun.annotations, annotation(arena, (Annotation) { .name = "Leaf" }));
 
         // if we did a longjmp, we might have orphaned a few of those
-        while (alloc_stack_size_now >  entries_count_list(ctx->tmp_alloc_stack)) {
+        while (alloc_stack_size_now < entries_count_list(ctx->tmp_alloc_stack)) {
             struct Dict* orphan = pop_last_list(struct Dict*, ctx->tmp_alloc_stack);
             destroy_dict(orphan);
         }

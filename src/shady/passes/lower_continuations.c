@@ -117,6 +117,7 @@ static LiftedCont* lift_lambda_into_function(Context* ctx, const Node* cont, Str
     // Rewrite the body a second time in the new arena,
     // this time substituting the captured free variables with the recovered context
     const Node* substituted = rewrite_node(&substituter, pre_substitution);
+    destroy_rewriter(&substituter);
 
     assert(is_terminator(substituted));
     new_fn->payload.fun.body = finish_body(builder, substituted);
