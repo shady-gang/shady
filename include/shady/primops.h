@@ -64,6 +64,7 @@ P(1, alloca_subgroup)     \
 P(0, load)                \
 P(1, store)               \
 P(0, lea)                 \
+P(1, memcpy)              \
 
 #define LAYOUT_PRIMOPS(P) \
 P(0, size_of)             \

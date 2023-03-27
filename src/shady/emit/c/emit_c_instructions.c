@@ -180,6 +180,10 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             outputs.binding[0] = NoBinding;
             return;
         }
+        case memcpy_op: {
+            print(p, "\nmemcpy(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[0])), to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[1])), to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[2])));
+            return;
+        }
         case size_of_op:
             final_expression = format_string(emitter->arena, "sizeof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL));
             break;
