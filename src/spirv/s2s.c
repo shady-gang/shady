@@ -954,12 +954,27 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             break;
         }
         case SpvOpBranchConditional: {
+            SpvId destinations[2] = { instruction[2], instruction[3] };
+            Node* trampolines[2];
+            for (size_t i = 0; i < 2; i++) {
+                String name = get_name(parser, destinations[i]);
+                if (name)
+                    name = format_string(parser->arena, "%s_trampoline", name);
+                else
+                    name = unique_name(parser->arena, "trampoline");
+                trampolines[i] = basic_block(parser->arena, parser->fun, empty(parser->arena), name);
+                trampolines[i]->payload.basic_block.body = jump(parser->arena, (Jump) {
+                    .target = get_def_block(parser, destinations[i]),
+                    .args = get_args_from_phi(parser, destinations[i], parser->current_block.id),
+                });
+            }
+
             BodyBuilder* bb = parser->current_block.builder;
             parser->current_block.finished = finish_body(bb, branch(parser->arena, (Branch) {
-                    .true_target = get_def_block(parser, instruction[2]),
-                    .false_target = get_def_block(parser, instruction[3]),
+                    .true_target = trampolines[0],
+                    .false_target = trampolines[1],
                     .branch_condition = get_def_ssa_value(parser, instruction[1]),
-                    .args = empty(parser->arena), // TODO
+                    .args = empty(parser->arena),
             }));
             parser->current_block.builder = NULL;
             break;
