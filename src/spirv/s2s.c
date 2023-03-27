@@ -842,12 +842,11 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpStore: {
             const Type* ptr = get_def_ssa_value(parser, instruction[1]);
             const Type* value = get_def_ssa_value(parser, instruction[2]);
-            parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+            bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = load_op,
                     .type_arguments = empty(parser->arena),
                     .operands = mk_nodes(parser->arena, ptr, value)
-            }), 1, NULL, NULL));
+            }), 1, NULL, NULL);
             break;
         }
         case SpvOpFunctionCall: {
