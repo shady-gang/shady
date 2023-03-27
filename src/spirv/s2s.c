@@ -894,6 +894,10 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }), 1, NULL, NULL);
             break;
         }
+        case SpvOpLifetimeStart:
+        case SpvOpLifetimeStop:
+            // these are no-ops ... I think ?
+            break;
         case SpvOpFunctionCall: {
             parser->defs[result].type = Value;
             const Node* callee = get_def_decl(parser, instruction[3]);
@@ -927,7 +931,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                         });
                         instr = prim_op(parser->arena, (PrimOp) {
                             .op = add_op,
-                            .operands = mk_nodes(parser->arena, instruction, args[2])
+                            .operands = mk_nodes(parser->arena, instr, args[2])
                         });
                         break;
                     default: error("unhandled extended instruction %d in set '%s'", ext_instr, set);
