@@ -566,6 +566,19 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             });
             break;
         }
+        case SpvOpTypeRuntimeArray:
+        case SpvOpTypeArray: {
+            parser->defs[result].type = Typ;
+            const Type* element_t = get_def_type(parser, instruction[2]);
+            const Node* array_size = NULL;
+            if (op != SpvOpTypeRuntimeArray)
+                array_size = get_def_ssa_value(parser, instruction[3]);
+            parser->defs[result].node = arr_type(parser->arena, (ArrType) {
+                .element_type = element_t,
+                .size = array_size,
+            });
+            break;
+        }
         case SpvOpConstant: {
             parser->defs[result].type = Value;
             const Type* t = get_def_type(parser, result_t);
