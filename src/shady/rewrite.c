@@ -272,6 +272,13 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Composite_TAG: return composite(arena, rewrite_type(rewriter, node->payload.composite.type), rewrite_nodes_generic(rewriter, rewrite_value, node->payload.composite.contents));
         case Let_TAG: {
             const Node* instruction = rewrite_instruction(rewriter, node->payload.let.instruction);
+            if (arena->config.check_types && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
+                Nodes old_params = node->payload.let.tail->payload.anon_lam.params;
+                Nodes new_args = instruction->payload.prim_op.operands;
+                assert(old_params.count == new_args.count);
+                register_processed_list(rewriter, old_params, new_args);
+                return rewrite_node(rewriter, node->payload.let.tail->payload.anon_lam.body);
+            }
             const Node* tail = rewrite_anon_lambda(rewriter, node->payload.let.tail);
             return let(arena, instruction, tail);
         }
