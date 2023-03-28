@@ -13,3 +13,5 @@ if [ "${ZSH_VERSION:-}" != "" ]; then
     export fpath=(${CUR}/zsh ${fpath:-})
     compinit
 fi
+
+alias shady-rebuild="ninja -C ${CUR}/build"
