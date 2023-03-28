@@ -46,9 +46,8 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
         const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
-        const Node* elem_size_val = bytes_to_words(bb, ctx->memory_word_size, element_t_size);
         const Node* new_offset = convert_offset(bb, emulated_ptr_t, offset);
-        const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) { new_offset, elem_size_val});
+        const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) { new_offset, element_t_size});
 
         ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset});
     }
@@ -62,9 +61,8 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
                 const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
-                const Node* elem_size_val = bytes_to_words(bb, ctx->memory_word_size, element_t_size);
                 const Node* new_index = convert_offset(bb, emulated_ptr_t, rewrite_node(&ctx->rewriter, indices[i]));
-                const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) {new_index, elem_size_val});
+                const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) {new_index, element_t_size});
 
                 ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset });
 
@@ -89,7 +87,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
                 assert(n < member_types.count);
 
                 const Node* offset_of = gen_primop_e(bb, offset_of_op, singleton(pointed_type), singleton(uint64_literal(a, n)));
-                ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, bytes_to_words(bb, ctx->memory_word_size, offset_of) });
+                ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, offset_of });
 
                 pointer_type = ptr_type(a, (PtrType) {
                     .pointed_type = member_types.nodes[n],
