@@ -42,8 +42,14 @@ RewritePass simt2d;
 RewritePass setup_stack_frames;
 /// Turns stack pushes and pops into accesses into pointer load and stores
 RewritePass lower_stack;
+/// Eliminates lea_op on all physical address spaces
+RewritePass lower_lea;
+/// Emulates generic pointers by replacing them with tagged integers and special load/store routines that look at those tags
+RewritePass lower_generic_ptrs;
 /// Emulates physical pointers to certain address spaces by using integer indices into global arrays
 RewritePass lower_physical_ptrs;
+/// Replaces size_of, offset_of etc with their exact values
+RewritePass lower_memory_layout;
 
 // Subgroup stuff
 

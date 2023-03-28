@@ -254,95 +254,6 @@ static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
     }
 }
 
-static const Node* convert_offset(BodyBuilder* bb, const Type* dst_type, const Node* src) {
-    const Type* src_type = get_unqualified_type(src->type);
-    assert(src_type->tag == Int_TAG);
-    assert(dst_type->tag == Int_TAG);
-
-    // first convert to final bitsize then bitcast
-    const Type* extended_src_t = int_type(bb->arena, (Int) { .width = dst_type->payload.int_type.width, .is_signed = src_type->payload.int_type.is_signed });
-    const Node* val = src;
-                val = gen_primop_e(bb, convert_op, singleton(extended_src_t), singleton(val));
-                val = gen_primop_e(bb, reinterpret_op, singleton(dst_type), singleton(val));
-    return val;
-}
-
-// TODO consume layouts from memory_layout.h
-static const Node* lower_lea(Context* ctx, BodyBuilder* instructions, const PrimOp* lea) {
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
-    const Node* old_pointer = lea->operands.nodes[0];
-    const Node* faked_pointer = rewrite_node(&ctx->rewriter, old_pointer);
-    const Type* pointer_type = get_unqualified_type(old_pointer->type);
-    const Type* emulated_ptr_t = int_type(dst_arena, (Int) { .width = ctx->emulated_ptr_width, .is_signed = false });
-    assert(pointer_type->tag == PtrType_TAG);
-
-    const Node* old_offset = lea->operands.nodes[1];
-    const IntLiteral* offset_value = resolve_to_literal(old_offset);
-    bool offset_is_zero = offset_value && offset_value->value.i64 == 0;
-    if (!offset_is_zero) {
-        const Type* arr_type = pointer_type->payload.ptr_type.pointed_type;
-        assert(arr_type->tag == ArrType_TAG);
-        const Type* element_type = arr_type->payload.arr_type.element_type;
-        TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
-
-        const Node* elem_size_val = uint32_literal(dst_arena, bytes_to_i32_cells(element_t_layout.size_in_bytes));
-        const Node* new_offset = convert_offset(instructions, emulated_ptr_t, rewrite_node(&ctx->rewriter, old_offset));
-        const Node* physical_offset = gen_primop_ce(instructions, mul_op, 2, (const Node* []) { new_offset, elem_size_val});
-
-        faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, physical_offset});
-    }
-
-    for (size_t i = 2; i < lea->operands.count; i++) {
-        assert(pointer_type->tag == PtrType_TAG);
-        const Type* pointed_type = pointer_type->payload.ptr_type.pointed_type;
-        switch (pointed_type->tag) {
-            case ArrType_TAG: {
-                const Type* element_type = pointed_type->payload.arr_type.element_type;
-
-                TypeMemLayout element_t_layout = get_mem_layout(ctx->config, ctx->rewriter.dst_arena, element_type);
-
-                const Node* elem_size_val = uint32_literal(dst_arena, bytes_to_i32_cells(element_t_layout.size_in_bytes));
-                const Node* new_index = convert_offset(instructions, emulated_ptr_t, rewrite_node(&ctx->rewriter, lea->operands.nodes[i]));
-                const Node* physical_offset = gen_primop_ce(instructions, mul_op, 2, (const Node* []) {new_index, elem_size_val});
-
-                faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) {faked_pointer, physical_offset});
-
-                pointer_type = ptr_type(dst_arena, (PtrType) {
-                    .pointed_type = element_type,
-                    .address_space = pointer_type->payload.ptr_type.address_space
-                });
-                break;
-            }
-            case TypeDeclRef_TAG: {
-                const Node* nom_decl = pointed_type->payload.type_decl_ref.decl;
-                assert(nom_decl && nom_decl->tag == NominalType_TAG);
-                pointed_type = nom_decl->payload.nom_type.body;
-                SHADY_FALLTHROUGH
-            }
-            case RecordType_TAG: {
-                Nodes member_types = pointed_type->payload.record_type.members;
-
-                const IntLiteral* selector_value = resolve_to_literal(rewrite_node(&ctx->rewriter, lea->operands.nodes[i]));
-                assert(selector_value && "selector value must be known for LEA into a record");
-                size_t n = selector_value->value.u64;
-                assert(n < member_types.count);
-
-                size_t field_offset = get_record_field_offset_in_bytes(ctx->config, dst_arena, pointed_type, n);
-                faked_pointer = gen_primop_ce(instructions, add_op, 2, (const Node* []) { faked_pointer, uint32_literal(dst_arena, bytes_to_i32_cells(field_offset))});
-
-                pointer_type = ptr_type(dst_arena, (PtrType) {
-                    .pointed_type = member_types.nodes[n],
-                    .address_space = pointer_type->payload.ptr_type.address_space
-                });
-                break;
-            }
-            default: error("cannot index into this")
-        }
-    }
-
-    return faked_pointer;
-}
-
 static const Node* process_let(Context* ctx, const Node* node) {
     assert(node->tag == Let_TAG);
     IrArena* arena = ctx->rewriter.dst_arena;
@@ -355,28 +266,6 @@ static const Node* process_let(Context* ctx, const Node* node) {
         switch (oprim_op->op) {
             case alloca_subgroup_op:
             case alloca_op: error("This needs to be lowered (see setup_stack_frames.c)")
-            case lea_op: {
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-                const Type* ptr_type = oprim_op->operands.nodes[0]->type;
-                ptr_type = get_unqualified_type(ptr_type);
-                assert(ptr_type->tag == PtrType_TAG);
-                if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space)) {
-                    cancel_body(bb);
-                    break;
-                }
-                const Node* new = lower_lea(ctx, bb, oprim_op);
-                return finish_body(bb, let(arena, quote_single(arena, new), tail));
-            }
-            case reinterpret_op: {
-                const Type* dest_type = first(oprim_op->type_arguments);
-                assert(is_data_type(dest_type));
-                if (dest_type->tag != PtrType_TAG || !is_as_emulated(ctx, dest_type->payload.ptr_type.address_space))
-                    break;
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-                // emulated physical pointers do not care about pointers, they're just ints :frog:
-                const Node* imported = rewrite_node(&ctx->rewriter, first(oprim_op->operands));
-                return finish_body(bb, let(arena, quote_single(arena, imported), tail));
-            }
             // lowering for either kind of memory accesses is similar
             case load_op:
             case store_op: {

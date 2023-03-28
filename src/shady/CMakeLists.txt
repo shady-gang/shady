@@ -33,6 +33,7 @@ set(SHADY_SOURCES
     passes/lower_continuations.c
     passes/lower_callf.c
     passes/lower_stack.c
+    passes/lower_lea.c
     passes/lower_physical_ptrs.c
     passes/lower_tailcalls.c
     passes/lower_mask.c
