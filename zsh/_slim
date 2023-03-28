@@ -3,7 +3,7 @@
 _arguments \
   '(- *)'{-h,--help}"[Display help message]" \
   "--target[Target format]:<target>:(c glsl ispc spirv)" \
-  '(- *)'{-o,--output}"[Output file]::_files -/" \
+  {-o,--output}"[Output file]::_files -/" \
   "--dump-cfg[Dumps the control flow graph of the final IR]::_files -/" \
   "--dump-ir[Dumps the final IR]::_files -/" \
   "--log-level:lvl:(debug debugv debugvv info warn error)" \
