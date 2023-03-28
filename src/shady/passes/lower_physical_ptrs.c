@@ -1,8 +1,8 @@
 #include "passes.h"
 
-#include "../transform/memory_layout.h"
 #include "../transform/ir_gen_helpers.h"
 
+#include "../ir_private.h"
 #include "../rewrite.h"
 #include "../type.h"
 #include "log.h"

@@ -27,4 +27,6 @@ const Node* access_decl(Rewriter*, Module* mod, const char* name);
 
 const Node* get_default_zero_value(IrArena*, const Type*);
 
+const Node* bytes_to_words(BodyBuilder* bb, IntSizes word_size, const Node* bytes);
+
 #endif

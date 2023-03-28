@@ -137,3 +137,11 @@ const Node* get_default_zero_value(IrArena* a, const Type* t) {
         }
     }
 }
+
+const Node* bytes_to_words(BodyBuilder* bb, IntSizes word_size, const Node* bytes) {
+    IrArena* a = bb->arena;
+    const Type* word_type = int_type(a, (Int) { .width = word_size, .is_signed = false });
+    size_t word_width = get_type_bitwidth(word_type);
+    const Node* bytes_per_word = uint64_literal(a, word_width / 8);
+    return gen_primop_e(bb, div_op, empty(a), mk_nodes(a, bytes, bytes_per_word));
+}

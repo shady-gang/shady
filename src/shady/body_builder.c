@@ -82,6 +82,7 @@ static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool m
     append_list(StackEntry, builder->stack, entry);
     return params;
 }
+
 Nodes bind_instruction_extra(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
     return bind_internal(builder, instruction, false, outputs_count, provided_types, output_names);
 }

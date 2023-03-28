@@ -30,15 +30,6 @@ static const Node* convert_offset(BodyBuilder* bb, const Type* dst_type, const N
     return val;
 }
 
-static const Node* bytes_to_words(Context* ctx, BodyBuilder* bb, const Node* bytes) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    const Type* word_type = int_type(bb->arena, (Int) { .width = ctx->memory_word_size, .is_signed = false });
-    size_t word_width = get_type_bitwidth(word_type);
-    const Node* bytes_per_word = uint64_literal(a, word_width / 8);
-    return gen_primop_e(bb, div_op, empty(a), mk_nodes(a, bytes, bytes_per_word));
-}
-
-// TODO consume layouts from memory_layout.h
 static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset, size_t n_indices, const Node** indices) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* emulated_ptr_t = int_type(a, (Int) { .width = ctx->ptr_width, .is_signed = false });
@@ -55,7 +46,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
         const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
-        const Node* elem_size_val = bytes_to_words(ctx, bb, element_t_size);
+        const Node* elem_size_val = bytes_to_words(bb, ctx->memory_word_size, element_t_size);
         const Node* new_offset = convert_offset(bb, emulated_ptr_t, offset);
         const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) { new_offset, elem_size_val});
 
@@ -71,15 +62,15 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
                 const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
-                const Node* elem_size_val = bytes_to_words(ctx, bb, element_t_size);
+                const Node* elem_size_val = bytes_to_words(bb, ctx->memory_word_size, element_t_size);
                 const Node* new_index = convert_offset(bb, emulated_ptr_t, rewrite_node(&ctx->rewriter, indices[i]));
                 const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) {new_index, elem_size_val});
 
                 ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset });
 
                 pointer_type = ptr_type(a, (PtrType) {
-                        .pointed_type = element_type,
-                        .address_space = pointer_type->payload.ptr_type.address_space
+                    .pointed_type = element_type,
+                    .address_space = pointer_type->payload.ptr_type.address_space
                 });
                 break;
             }
@@ -98,11 +89,11 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
                 assert(n < member_types.count);
 
                 const Node* offset_of = gen_primop_e(bb, offset_of_op, singleton(pointed_type), singleton(uint64_literal(a, n)));
-                ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, bytes_to_words(ctx, bb, offset_of) });
+                ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, bytes_to_words(bb, ctx->memory_word_size, offset_of) });
 
                 pointer_type = ptr_type(a, (PtrType) {
-                        .pointed_type = member_types.nodes[n],
-                        .address_space = pointer_type->payload.ptr_type.address_space
+                    .pointed_type = member_types.nodes[n],
+                    .address_space = pointer_type->payload.ptr_type.address_space
                 });
                 break;
             }
