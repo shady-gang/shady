@@ -34,6 +34,11 @@ CompilerConfig default_compiler_config() {
             .major = 1,
             .minor = 4
         },
+
+        .memory = {
+            .word_size = IntTy32,
+            .ptr_size = IntTy64,
+        }
     };
 }
 

@@ -1,5 +1,6 @@
 #include "passes.h"
 
+#include "../transform/memory_layout.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include "../ir_private.h"
@@ -16,9 +17,6 @@
 typedef struct Context_ {
     Rewriter rewriter;
     CompilerConfig* config;
-
-    IntSizes emulated_ptr_width;
-    IntSizes emulated_memory_word_size;
 
     struct Dict*   serialisation_uniform[NumAddressSpaces];
     struct Dict* deserialisation_uniform[NumAddressSpaces];
@@ -309,7 +307,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case Let_TAG: return process_let(ctx, old);
         case PtrType_TAG: {
             if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
-                return int_type(arena, (Int) { .width = ctx->emulated_ptr_width, .is_signed = false });
+                return int_type(arena, (Int) { .width = ctx->config->memory.ptr_size, .is_signed = false });
 
             return recreate_node_identity(&ctx->rewriter, old);
         }
@@ -322,7 +320,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
                 const char* emulated_heap_name = old_gvar->address_space == AsPrivatePhysical ? "private" : "subgroup";
 
-                const Type* emulated_ptr_type = int_type(arena, (Int) { .width = ctx->emulated_ptr_width, .is_signed = false });
+                const Type* emulated_ptr_type = int_type(arena, (Int) { .width = ctx->config->memory.ptr_size, .is_signed = false });
                 Node* cnst = constant(ctx->rewriter.dst_module, annotations, emulated_ptr_type, format_string(arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
 
                 uint32_t* preallocated = old_gvar->address_space == AsSubgroupPhysical ? &ctx->preallocated_subgroup_memory : &ctx->preallocated_private_memory;
@@ -367,11 +365,7 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
         }
     }
 
-    // TODO make everything else use this and then make it configurable...
-    IntSizes emulated_physical_pointer_width = IntTy32;
-    IntSizes emulated_memory_word_size = IntTy32;
-
-    const Type* emulated_memory_base_type = int_type(dst_arena, (Int) { .width = emulated_memory_word_size, .is_signed = false });
+    const Type* emulated_memory_base_type = int_type(dst_arena, (Int) { .width = config->memory.word_size, .is_signed = false });
     const Type* private_memory_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = emulated_memory_base_type,
         .size = uint32_literal(dst_arena, per_thread_private_memory),
@@ -404,9 +398,6 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
 
         .tpm_is_block_buffer = false,
         .ssm_is_block_buffer = false,
-
-        .emulated_memory_word_size = emulated_memory_word_size,
-        .emulated_ptr_width = emulated_physical_pointer_width,
 
         .thread_private_memory = ref_decl(dst_arena, (RefDecl) { .decl = thread_private_memory }),
         .subgroup_shared_memory = ref_decl(dst_arena, (RefDecl) { .decl = subgroup_shared_memory }),

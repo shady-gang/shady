@@ -220,6 +220,12 @@ typedef struct CompilerConfig_ {
     } lower;
 
     struct {
+        IntSizes ptr_size;
+        /// The base type for emulated memory
+        IntSizes word_size;
+    } memory;
+
+    struct {
         bool spv_shuffle_instead_of_broadcast_first;
     } hacks;
 
