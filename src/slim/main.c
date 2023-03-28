@@ -67,6 +67,7 @@ static void parse_slim_arguments(SlimConfig* args, int* pargc, char** argv) {
                 args->target = TgtISPC;
             else
                 goto invalid_target;
+            argv[i] = NULL;
             continue;
             invalid_target:
             error_print("--target must be followed with a valid target (see help for list of targets)");
