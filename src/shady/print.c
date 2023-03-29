@@ -455,7 +455,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             break;
         case Value_AntiQuote_TAG:
             printf(BBLUE);
-            printf("anti_quote");
+            printf("anti_quote ");
             printf(RESET);
             print_node(node->payload.anti_quote.instruction);
             break;
@@ -561,7 +561,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(BGREEN);
             printf("block");
             printf(RESET);
-            print_lambda_body(ctx, node->payload.control.inside);
+            print_lambda_body(ctx, node->payload.block.inside);
             break;
         }
     }
