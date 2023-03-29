@@ -36,10 +36,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 IrArena * arena = rewriter->dst_arena;
                 Node* result = NULL;
 
-                const Node* join_token = var(arena, join_point_type(arena, (JoinPointType) {
-                            .yield_types = empty(arena)
-                            }), "jp");
-
                 Node* fn = NULL;
                 Node* new_bb = NULL;
                 if (is_function(node)) {
@@ -51,10 +47,43 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     register_processed(rewriter, node, new_bb);
                 }
 
-                Node* pre_join = basic_block(arena, fn, empty(arena), "exit");
+                Nodes yield_types;
+                Nodes exit_args;
+                Nodes lambda_args;
+                const Nodes old_params = idom->node->payload.basic_block.params;
+                if (old_params.count == 0) {
+                    yield_types = empty(arena);
+                    exit_args = empty(arena);
+                    lambda_args = empty(arena);
+                } else {
+                    const Node* types[old_params.count];
+                    const Node* inner_args[old_params.count];
+                    const Node* outer_args[old_params.count];
+
+                    for (size_t j = 0; j < old_params.count; j++) {
+                        const Node* qualified_type = rewrite_node(rewriter, old_params.nodes[j]->payload.var.type);
+                        types[j] = qualified_type;
+
+                        if (contains_qualified_type(types[j]))
+                            types[j] = get_unqualified_type(types[j]);
+
+                        inner_args[j] = var(arena, qualified_type, old_params.nodes[j]->payload.var.name);
+                        outer_args[j] = var(arena, qualified_type, old_params.nodes[j]->payload.var.name);
+                    }
+
+                    yield_types = nodes(arena, old_params.count, types);
+                    exit_args = nodes(arena, old_params.count, inner_args);
+                    lambda_args = nodes(arena, old_params.count, outer_args);
+                }
+
+                const Node* join_token = var(arena, join_point_type(arena, (JoinPointType) {
+                            .yield_types = yield_types
+                            }), "jp");
+
+                Node* pre_join = basic_block(arena, fn, exit_args, "exit");
                 pre_join->payload.basic_block.body = join(arena, (Join) {
                         .join_point = join_token,
-                        .args = empty(arena)
+                        .args = exit_args
                         });
 
                 const Node* cached = search_processed(rewriter, idom->node);
@@ -77,16 +106,16 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 const Node* control_inner = lambda(rewriter->dst_module, singleton(join_token), inner_terminator);
                 const Node* new_target = control (arena, (Control) {
                         .inside = control_inner,
-                        .yield_types = empty(arena)
+                        .yield_types = yield_types
                         });
 
                 const Node* recreated_join = rewrite_node(rewriter, idom->node);
                 const Node* outer_terminator = jump(arena, (Jump) {
                         .target = recreated_join,
-                        .args = empty(arena)
+                        .args = lambda_args
                         });
 
-                const Node* anon_lam = lambda(rewriter->dst_module, empty(arena), outer_terminator);
+                const Node* anon_lam = lambda(rewriter->dst_module, lambda_args, outer_terminator);
                 const Node* empty_let = let(arena, new_target, anon_lam);
 
                 if (is_function(node)) {
