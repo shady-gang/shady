@@ -89,6 +89,11 @@ void compute_domtree(Scope*);
 
 void destroy_scope(Scope*);
 
+/**
+ * @returns @ref List of @ref CFNode*
+ */
+struct List* scope_get_dom_frontier(Scope*, const CFNode* node);
+
 #define SHADY_SCOPE_H
 
 #endif

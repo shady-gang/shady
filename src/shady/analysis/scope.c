@@ -321,6 +321,40 @@ void compute_domtree(Scope* scope) {
     }
 }
 
+/**
+ * @param node: Start node.
+ * @param target: List to extend. @ref List of @ref CFNode*
+ */
+static void get_undominated_children(const CFNode* node, struct List* target) {
+    for (size_t i = 0; i < entries_count_list(node->succ_edges); i++) {
+        CFEdge edge = read_list(CFEdge, node->succ_edges)[i];
+
+        bool contained = false;
+        for (size_t j = 0; j < entries_count_list(node->dominates); j++) {
+            CFNode* dominated = read_list(CFNode*, node->dominates)[j];
+            if (edge.dst == dominated) {
+                contained = true;
+                break;
+            }
+        }
+        if (!contained)
+            append_list(CFNode*, target, edge.dst);
+    }
+}
+
+//TODO: this function can produce duplicates.
+struct List* scope_get_dom_frontier(Scope* scope, const CFNode* node) {
+    struct List* dom_frontier = new_list(CFNode*);
+
+    get_undominated_children(node, dom_frontier);
+    for (size_t i = 0; i < entries_count_list(node->dominates); i++) {
+        CFNode* dom = read_list(CFNode*, node->dominates)[i];
+        get_undominated_children(dom, dom_frontier);
+    }
+
+    return dom_frontier;
+}
+
 static int extra_uniqueness = 0;
 
 static void dump_cfg_scope(FILE* output, Scope* scope) {
