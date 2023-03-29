@@ -45,6 +45,7 @@ set(SHADY_SOURCES
     passes/opt_simplify_cf.c
     passes/opt_stack.c
     passes/opt_restructure.c
+    passes/reconvergence_heuristics.c
     passes/simt2d.c
 )
 
