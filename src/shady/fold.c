@@ -131,28 +131,76 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
 }
 
 static const Node* fold_prim_op(IrArena* arena, const Node* node) {
-    PrimOp prim_op = node->payload.prim_op;
-    switch (prim_op.op) {
+    PrimOp payload = node->payload.prim_op;
+
+    LARRAY(const IntLiteral*, int_literals, payload.operands.count);
+    bool all_int_literals = true;
+    IntSizes width;
+    bool is_signed;
+    for (size_t i = 0; i < payload.operands.count; i++) {
+        int_literals[i] = resolve_to_literal(payload.operands.nodes[i]);
+        all_int_literals &= int_literals[i] != NULL;
+        if (int_literals[i]) {
+            const Type* int_t = payload.operands.nodes[i]->type;
+            deconstruct_qualified_type(&int_t);
+            assert(int_t->tag == Int_TAG);
+            width = int_t->payload.int_type.width;
+            is_signed = int_t->payload.int_type.is_signed;
+        }
+    }
+
+    switch (payload.op) {
         case add_op: {
+            if (all_int_literals)
+                return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.u64 = int_literals[0]->value.u64 + int_literals[1]->value.u64 }));
             // If either operand is zero, destroy the add
             for (size_t i = 0; i < 2; i++)
-                if (is_zero(prim_op.operands.nodes[i]))
-                    return quote_single(arena, prim_op.operands.nodes[1 - i]);
+                if (is_zero(payload.operands.nodes[i]))
+                    return quote_single(arena, payload.operands.nodes[1 - i]);
+            break;
+        }
+        case sub_op: {
+            if (all_int_literals)
+                return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.u64 = int_literals[0]->value.u64 - int_literals[1]->value.u64 }));
+            // If second operand is zero, return the first one
+            if (is_zero(payload.operands.nodes[1]))
+                return quote_single(arena, payload.operands.nodes[0]);
+            // if first operand is zero, invert the second one
+            if (is_zero(payload.operands.nodes[0]))
+                return prim_op(arena, (PrimOp) { .op = neg_op, .operands = singleton(payload.operands.nodes[1]), .type_arguments = empty(arena) });
             break;
         }
         case mul_op: {
+            if (all_int_literals) {
+                if (is_signed)
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.i64 = int_literals[0]->value.i64 * int_literals[1]->value.i64 }));
+                else
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.u64 = int_literals[0]->value.u64 * int_literals[1]->value.u64 }));
+            }
             for (size_t i = 0; i < 2; i++)
-                if (is_zero(prim_op.operands.nodes[i]))
-                    return quote_single(arena, prim_op.operands.nodes[i]); // return zero !
+                if (is_zero(payload.operands.nodes[i]))
+                    return quote_single(arena, payload.operands.nodes[i]); // return zero !
 
             for (size_t i = 0; i < 2; i++)
-                if (is_one(prim_op.operands.nodes[i]))
-                    return quote_single(arena, prim_op.operands.nodes[1 - i]);
+                if (is_one(payload.operands.nodes[i]))
+                    return quote_single(arena, payload.operands.nodes[1 - i]);
 
             break;
         }
+        case div_op: {
+            if (all_int_literals) {
+                if (is_signed)
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.i64 = int_literals[0]->value.i64 / int_literals[1]->value.i64 }));
+                else
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.u64 = int_literals[0]->value.u64 / int_literals[1]->value.u64 }));
+            }
+            // If second operand is one, return the first one
+            if (is_one(payload.operands.nodes[1]))
+                return quote_single(arena, payload.operands.nodes[0]);
+            break;
+        }
         case subgroup_broadcast_first_op: {
-            const Node* value = first(prim_op.operands);
+            const Node* value = first(payload.operands);
             if (is_qualified_type_uniform(value->type))
                 return quote_single(arena, value);
             break;
@@ -160,8 +208,8 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
         case reinterpret_op:
         case convert_op:
             // get rid of identity casts
-            if (is_subtype(prim_op.type_arguments.nodes[0], get_unqualified_type(prim_op.operands.nodes[0]->type)))
-                return quote_single(arena, prim_op.operands.nodes[0]);
+            if (is_subtype(payload.type_arguments.nodes[0], get_unqualified_type(payload.operands.nodes[0]->type)))
+                return quote_single(arena, payload.operands.nodes[0]);
             break;
         default: break;
     }
@@ -173,6 +221,22 @@ const Node* fold_node(IrArena* arena, const Node* node) {
     switch (node->tag) {
         case Let_TAG: folded = fold_let(arena, node); break;
         case PrimOp_TAG: folded = fold_prim_op(arena, node); break;
+        case Block_TAG: {
+            const Node* lam = node->payload.block.inside;
+            const Node* term = lam->payload.anon_lam.body;
+            if (term->tag == Yield_TAG) {
+                return quote(arena, term->payload.yield.args);
+            }
+            break;
+        }
+        case AntiQuote_TAG: {
+            const Node* instr = node->payload.anti_quote.instruction;
+            if (instr->tag == PrimOp_TAG && instr->payload.prim_op.op == quote_op) {
+                assert(instr->payload.prim_op.operands.count == 1);
+                return first(instr->payload.prim_op.operands);
+            }
+            break;
+        }
         default: break;
     }
 
