@@ -1,0 +1,108 @@
+#include "passes.h"
+
+#include "portability.h"
+#include "log.h"
+
+#include "../rewrite.h"
+#include "../type.h"
+#include "../transform/ir_gen_helpers.h"
+#include "../transform/memory_layout.h"
+
+typedef struct {
+    Rewriter rewriter;
+    CompilerConfig* config;
+} Context;
+
+static Node* rewrite_entry_point_fun(Context* ctx, const Node* node) {
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
+
+    Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
+    Node* fun = function(ctx->rewriter.dst_module, empty(dst_arena), node->payload.fun.name, annotations, empty(dst_arena));
+
+    register_processed(&ctx->rewriter, node, fun);
+
+    return fun;
+}
+
+static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
+    IrArena* dst_arena = rewriter->dst_arena;
+
+    LARRAY(const Node*, types, params.count);
+    LARRAY(String, names, params.count);
+
+    for (int i = 0; i < params.count; ++i) {
+        const Type* type = rewrite_node(rewriter, params.nodes[i]->type);
+
+        if (type->tag != QualifiedType_TAG || !type->payload.qualified_type.is_uniform)
+            error("EntryPoint parameters must be uniform");
+
+        types[i] = type->payload.qualified_type.type;
+        names[i] = params.nodes[i]->payload.var.name;
+    }
+
+    return record_type(dst_arena, (RecordType) {
+        .members = nodes(dst_arena, params.count, types),
+        .names = strings(dst_arena, params.count, names)
+    });
+}
+
+static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry_point, const Node* new_entry_point) {
+    IrArena* dst_arena = rewriter->dst_arena;
+
+    Nodes annotations = mk_nodes(dst_arena, annotation_value(dst_arena, (AnnotationValue) { .name = "EntryPointArgs", .value = new_entry_point }));
+    const Node* type = generate_arg_struct_type(rewriter, old_entry_point->payload.fun.params);
+    String name = format_string(dst_arena, "__%s_args", old_entry_point->payload.fun.name);
+    Node* var = global_var(rewriter->dst_module, annotations, type, name, AsExternal);
+
+    return ref_decl(dst_arena, (RefDecl) { .decl = var });
+}
+
+static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const Node* arg_struct) {
+    IrArena* dst_arena = ctx->rewriter.dst_arena;
+
+    BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
+
+    Nodes params = old_entry_point->payload.fun.params;
+
+    for (int i = 0; i < params.count; ++i) {
+        const Node* addr = first(bind_instruction(builder, prim_op(dst_arena, (PrimOp) {
+            .op = lea_op, .operands = mk_nodes(dst_arena, arg_struct, int32_literal(dst_arena, 0), int32_literal(dst_arena, i))
+        })));
+
+        const Node* val = first(bind_instruction(builder, prim_op(dst_arena, (PrimOp) {
+            .op = load_op, .operands = mk_nodes(dst_arena, addr)
+        })));
+
+        register_processed(&ctx->rewriter, params.nodes[i], val);
+    }
+
+    return finish_body(builder, rewrite_node(&ctx->rewriter, old_entry_point->payload.fun.body));
+}
+
+static const Node* process(Context* ctx, const Node* node) {
+    if (!node) return NULL;
+    const Node* found = search_processed(&ctx->rewriter, node);
+    if (found) return found;
+
+    switch (node->tag) {
+    case Function_TAG:
+        if (lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {
+            Node* new_entry_point = rewrite_entry_point_fun(ctx, node);
+            const Node* arg_struct = generate_arg_struct(&ctx->rewriter, node, new_entry_point);
+            new_entry_point->payload.fun.body = rewrite_body(ctx, node, arg_struct);
+            return new_entry_point;
+        }
+        break;
+    }
+
+    return recreate_node_identity(&ctx->rewriter, node);
+}
+
+void lower_entrypoint_args(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+    Context ctx = {
+        .rewriter = create_rewriter(src, dst, (RewriteFn)process),
+        .config = config
+    };
+    rewrite_module(&ctx.rewriter);
+    destroy_rewriter(&ctx.rewriter);
+}

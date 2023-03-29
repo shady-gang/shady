@@ -69,6 +69,8 @@ RewritePass opt_simplify_cf;
 RewritePass opt_stack;
 RewritePass opt_restructurize;
 
+RewritePass lower_entrypoint_args;
+
 #define SHADY_PASSES_H
 
 #endif

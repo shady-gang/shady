@@ -483,6 +483,8 @@ static Module* run_backend_specific_passes(CompilerConfig* config, Module* mod) 
     Module* old_mod = mod;
     IrArena* tmp_arena = NULL;
 
+    RUN_PASS(lower_entrypoint_args)
+
     return mod;
 }
 
