@@ -37,6 +37,7 @@ N(1, 1, 1, StringLiteral, string_lit) \
 N(0, 1, 1, Composite, composite) \
 N(1, 1, 1, FnAddr, fn_addr) \
 N(1, 1, 1, RefDecl, ref_decl) \
+N(1, 1, 1, AntiQuote, anti_quote) \
 
 #define INSTRUCTION_NODES(N) \
 N(1, 1, 1, LeafCall, leaf_call) \
@@ -288,6 +289,11 @@ MkField(1, DECL, const Node*, decl)
 typedef struct FnAddr_ FnAddr;
 #define FnAddr_Fields(MkField) \
 MkField(1, DECL, const Node*, fn)
+
+/// Like RefDecl but for functions, it yields a _function pointer_ !
+typedef struct AntiQuote_ AntiQuote;
+#define AntiQuote_Fields(MkField) \
+MkField(1, INSTRUCTION, const Node*, instruction)
 
 //////////////////////////////// Instructions ////////////////////////////////
 

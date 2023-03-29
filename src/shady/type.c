@@ -360,6 +360,11 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
     });
 }
 
+const Type* check_type_anti_quote(IrArena* arena, AntiQuote payload) {
+    assert(is_instruction(payload.instruction));
+    return payload.instruction->type;
+}
+
 bool can_do_arithm(const Type* t) {
     return t->tag == Int_TAG || t->tag == Float_TAG;
 }
