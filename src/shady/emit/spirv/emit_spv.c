@@ -484,6 +484,9 @@ static Module* run_backend_specific_passes(CompilerConfig* config, Module* mod) 
     IrArena* tmp_arena = NULL;
 
     RUN_PASS(lower_entrypoint_args)
+    RUN_PASS(spirv_map_entrypoint_args)
+
+    dump_module(mod);
 
     return mod;
 }

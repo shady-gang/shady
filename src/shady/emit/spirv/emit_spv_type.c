@@ -33,6 +33,7 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
 
         // TODO: depending on platform, use push constants/ubos/ssbos here
         case AsExternal: return SpvStorageClassStorageBuffer;
+        case AsPushConstant: return SpvStorageClassPushConstant;
         default: SHADY_NOT_IMPLEM;
     }
 }
