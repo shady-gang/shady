@@ -51,6 +51,23 @@ err_post_open:
     return false;
 }
 
+bool write_file(const char* filename, size_t size, const unsigned char* data) {
+    FILE* f = fopen(filename, "wb");
+    if (f == NULL)
+        return false;
+
+    if (fwrite(data, size, 1, f) != 1)
+        goto err_post_open;
+
+    fclose(f);
+
+    return true;
+
+err_post_open:
+    fclose(f);
+    return false;
+}
+
 void error_die() {
     abort();
 }
