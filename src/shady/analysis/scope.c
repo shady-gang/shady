@@ -143,7 +143,45 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     }
 }
 
-Scope* new_scope(const Node* entry) {
+/**
+ * Invert all edges in this scope. Used to compute a post dominance tree.
+ */
+static void flip_scope(Scope* scope) {
+    scope->entry = NULL;
+
+    for (size_t i = 0; i < scope->size; i++) {
+        CFNode * cur = read_list(CFNode*, scope->contents)[i];
+
+        struct List* tmp = cur->succ_edges;
+        cur->succ_edges = cur->pred_edges;
+        cur->pred_edges = tmp;
+
+        for (size_t j = 0; j < entries_count_list(cur->succ_edges); j++) {
+            CFEdge* edge = &read_list(CFEdge, cur->succ_edges)[j];
+
+            CFNode* tmp = edge->dst;
+            edge->dst = edge->src;
+            edge->src = tmp;
+        }
+
+        for (size_t j = 0; j < entries_count_list(cur->pred_edges); j++) {
+            CFEdge* edge = &read_list(CFEdge, cur->pred_edges)[j];
+
+            CFNode* tmp = edge->dst;
+            edge->dst = edge->src;
+            edge->src = tmp;
+        }
+
+        if (entries_count_list(cur->pred_edges) == 0) {
+            if (scope->entry != NULL)
+                error("Only one exiting node should exist for now.");
+            scope->entry = cur;
+        }
+    }
+}
+
+
+Scope* new_scope_impl(const Node* entry, bool flipped) {
     assert(is_abstraction(entry));
     Arena* arena = new_arena();
 
@@ -173,6 +211,9 @@ Scope* new_scope(const Node* entry) {
         .map = context.nodes,
         .rpo = NULL
     };
+
+    if (flipped)
+        flip_scope(scope);
 
     compute_rpo(scope);
     compute_domtree(scope);
@@ -231,8 +272,10 @@ CFNode* least_common_ancestor(CFNode* i, CFNode* j) {
 }
 
 void compute_domtree(Scope* scope) {
-    for (size_t i = 1; i < scope->size; i++) {
+    for (size_t i = 0; i < scope->size; i++) {
         CFNode* n = read_list(CFNode*, scope->contents)[i];
+        if (n == scope->entry)
+            continue;
         for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
             CFEdge e = read_list(CFEdge, n->pred_edges)[j];
             CFNode* p = e.src;
@@ -248,8 +291,10 @@ void compute_domtree(Scope* scope) {
     bool todo = true;
     while (todo) {
         todo = false;
-        for (size_t i = 1; i < scope->size; i++) {
+        for (size_t i = 0; i < scope->size; i++) {
             CFNode* n = read_list(CFNode*, scope->contents)[i];
+            if (n == scope->entry)
+                continue;
             CFNode* new_idom = NULL;
             for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
                 CFEdge e = read_list(CFEdge, n->pred_edges)[j];
@@ -268,8 +313,10 @@ void compute_domtree(Scope* scope) {
         CFNode* n = read_list(CFNode*, scope->contents)[i];
         n->dominates = new_list(CFNode*);
     }
-    for (size_t i = 1; i < scope->size; i++) {
+    for (size_t i = 0; i < scope->size; i++) {
         CFNode* n = read_list(CFNode*, scope->contents)[i];
+        if (n == scope->entry)
+            continue;
         append_list(CFNode*, n->idom->dominates, n);
     }
 }
