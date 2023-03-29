@@ -54,11 +54,11 @@ static const Node* get_emulated_as_word_array(Context* ctx, AddressSpace as) {
     }
 }
 
-static const Node* bytes_to_words(BodyBuilder* bb, IntSizes word_size, const Node* bytes) {
+static const Node* bytes_to_words(Context* ctx, BodyBuilder* bb, const Node* bytes) {
     IrArena* a = bb->arena;
-    const Type* word_type = int_type(a, (Int) { .width = word_size, .is_signed = false });
+    const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
     size_t word_width = get_type_bitwidth(word_type);
-    const Node* bytes_per_word = uint64_literal(a, word_width / 8);
+    const Node* bytes_per_word = int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = word_width / 8 });
     return gen_primop_e(bb, div_op, empty(a), mk_nodes(a, bytes, bytes_per_word));
 }
 
@@ -290,13 +290,13 @@ static const Node* process_node(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
 
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     switch (old->tag) {
         case Let_TAG: return process_let(ctx, old);
         case PtrType_TAG: {
             if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
-                return int_type(arena, (Int) { .width = ctx->config->memory.ptr_size, .is_signed = false });
+                return int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
 
             return recreate_node_identity(&ctx->rewriter, old);
         }
@@ -335,7 +335,7 @@ static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t
         member_names[members_count] = decl->payload.global_variable.name;
 
         // Turn the old global variable into a pointer (which are also now integers)
-        const Type* emulated_ptr_type = int_type(a, (Int) { .width = ctx->config->memory.ptr_size, .is_signed = false });
+        const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
         Nodes annotations = rewrite_nodes(&ctx->rewriter, decl->payload.global_variable.annotations);
         Node* cnst = constant(ctx->rewriter.dst_module, annotations, emulated_ptr_type, decl->payload.global_variable.name);
 
@@ -343,7 +343,7 @@ static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
         BodyBuilder* bb = begin_body(m);
         const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(uint32_literal(a, members_count)));
-        const Node* offset_in_words = bytes_to_words(bb, ctx->config->memory.word_size, offset);
+        const Node* offset_in_words = bytes_to_words(ctx, bb, offset);
         cnst->payload.constant.value = anti_quote(a, (AntiQuote) {
             .instruction = yield_values_and_wrap_in_control(bb, singleton(offset_in_words))
         });
@@ -375,9 +375,9 @@ static const Node* construct_emulated_memory_array(Context* ctx, AddressSpace as
     // compute the size
     BodyBuilder* bb = begin_body(m);
     const Node* size_of = gen_primop_e(bb, size_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), empty(a));
-    const Node* size_in_words = bytes_to_words(bb, ctx->config->memory.word_size, size_of);
+    const Node* size_in_words = bytes_to_words(ctx, bb, size_of);
 
-    const Type* word_type = int_type(a, (Int) { .width = ctx->config->memory.word_size, .is_signed = false });
+    const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
     const Type* words_array_type = arr_type(a, (ArrType) {
         .element_type = word_type,
         .size = anti_quote(a, (AntiQuote) {
@@ -385,7 +385,7 @@ static const Node* construct_emulated_memory_array(Context* ctx, AddressSpace as
         }),
     });
 
-    Node* words_array = global_var(m, annotations, words_array_type, format_string(a, "addressable_word_memory_", as_name), logical_as);
+    Node* words_array = global_var(m, annotations, words_array_type, format_string(a, "addressable_word_memory_%s", as_name), logical_as);
     return words_array;
 }
 

@@ -681,7 +681,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
-                .type = uint32_type(arena)
+                .type = int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false })
             });
         }
         case offset_of_op: {
@@ -691,8 +691,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool uniform = deconstruct_qualified_type(&optype);
             assert(uniform && optype->tag == Int_TAG);
             return qualified_type(arena, (QualifiedType) {
-                    .is_uniform = true,
-                    .type = uint32_type(arena)
+                .is_uniform = true,
+                .type = int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false })
             });
         }
         case reinterpret_op: {
@@ -897,13 +897,13 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case get_stack_pointer_uniform_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 0);
-            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_pointer_uniform_op, .type = int32_type(arena) });
+            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_pointer_uniform_op, .type = uint32_type(arena) });
         }
         case get_stack_base_op:
         case get_stack_base_uniform_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 0);
-            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = NULL }), .address_space = prim_op.op == get_stack_base_op ? AsPrivatePhysical : AsSubgroupPhysical});
+            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = uint8_type(arena), .size = NULL }), .address_space = prim_op.op == get_stack_base_op ? AsPrivatePhysical : AsSubgroupPhysical});
             return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_base_uniform_op, .type = ptr });
         }
         case set_stack_pointer_op:
@@ -913,7 +913,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool is_uniform = prim_op.op == set_stack_pointer_uniform_op;
             if (is_uniform)
                 assert(is_qualified_type_uniform(prim_op.operands.nodes[0]->type));
-            assert(get_unqualified_type(prim_op.operands.nodes[0]->type) == int32_type(arena));
+            assert(get_unqualified_type(prim_op.operands.nodes[0]->type) == uint32_type(arena));
             return unit_type(arena);
         }
         case push_stack_uniform_op:

@@ -189,6 +189,7 @@ const Node* get_let_instruction(const Node* let) {
         default: assert(false);
     }
 }
+
 const Node* get_let_tail(const Node* let) {
     switch (let->tag) {
         case Let_TAG: return let->payload.let.tail;

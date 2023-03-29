@@ -34,17 +34,17 @@ CompilerConfig default_compiler_config() {
             .major = 1,
             .minor = 4
         },
-
-        .memory = {
-            .word_size = IntTy32,
-            .ptr_size = IntTy64,
-        }
     };
 }
 
 ArenaConfig default_arena_config() {
     return (ArenaConfig) {
         .is_simt = true,
+
+        .memory = {
+            .word_size = IntTy32,
+            .ptr_size = IntTy64,
+        }
     };
 }
 

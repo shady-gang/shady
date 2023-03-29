@@ -12,8 +12,6 @@
 
 typedef struct {
     Rewriter rewriter;
-    IntSizes ptr_width;
-    IntSizes memory_word_size;
 } Context;
 
 // Widens the offset to match the desired type
@@ -32,7 +30,7 @@ static const Node* convert_offset(BodyBuilder* bb, const Type* dst_type, const N
 
 static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset, size_t n_indices, const Node** indices) {
     IrArena* a = ctx->rewriter.dst_arena;
-    const Type* emulated_ptr_t = int_type(a, (Int) { .width = ctx->ptr_width, .is_signed = false });
+    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
     assert(pointer_type->tag == PtrType_TAG);
 
     const Node* ptr = base;
@@ -106,7 +104,7 @@ static const Node* process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
 
-    const Type* emulated_ptr_t = int_type(ctx->rewriter.dst_arena, (Int) { .width = ctx->ptr_width, .is_signed = false });
+    const Type* emulated_ptr_t = int_type(ctx->rewriter.dst_arena, (Int) { .width = ctx->rewriter.dst_arena->config.memory.ptr_size, .is_signed = false });
 
     switch (old->tag) {
         case PrimOp_TAG: {
@@ -117,14 +115,17 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Type* old_base_ptr_t = old_base->type;
                     deconstruct_qualified_type(&old_base_ptr_t);
                     assert(old_base_ptr_t->tag == PtrType_TAG);
+                    const Node* old_result_t = old->type;
+                    deconstruct_qualified_type(&old_result_t);
                     // Leave logical ptrs alone
                     if (!is_physical_as(old_base_ptr_t->payload.ptr_type.address_space))
                         break;
                     BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                     Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
                     const Node* cast_base = gen_reinterpret_cast(bb, emulated_ptr_t, first(new_ops));
-                    const Type* new_ptr_t = rewrite_node(&ctx->rewriter, old_base_ptr_t);
-                    const Node* result = lower_ptr_arithm(ctx, bb, new_ptr_t, cast_base, new_ops.nodes[1], new_ops.count - 2, &new_ops.nodes[2]);
+                    const Type* new_base_t = rewrite_node(&ctx->rewriter, old_base_ptr_t);
+                    const Node* result = lower_ptr_arithm(ctx, bb, new_base_t, cast_base, new_ops.nodes[1], new_ops.count - 2, &new_ops.nodes[2]);
+                    const Type* new_ptr_t = rewrite_node(&ctx->rewriter, old_result_t);
                     const Node* cast_result = gen_reinterpret_cast(bb, new_ptr_t, result);
                     return yield_values_and_wrap_in_control(bb, singleton(cast_result));
                 }

@@ -23,7 +23,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 case size_of_op: {
                     const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
                     TypeMemLayout layout = get_mem_layout(ctx->config, a, t);
-                    const Node* byte_size = uint64_literal(a, layout.size_in_bytes);
+                    const Node* byte_size = int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = layout.size_in_bytes });
                     return quote(a, singleton(byte_size));
                 }
                 case align_of_op: error("TODO");
@@ -32,7 +32,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Node* n = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands));
                     const IntLiteral* literal = resolve_to_literal(n);
                     assert(literal);
-                    const Node* offset_in_bytes = uint64_literal(a, get_record_field_offset_in_bytes(ctx->config, a, t, literal->value.u64 ));
+                    const Node* offset_in_bytes = int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = literal->value.u64 });
                     return quote(a, singleton(offset_in_bytes));
                 }
                 default: break;

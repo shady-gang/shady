@@ -56,6 +56,12 @@ typedef struct {
         /// Uses a 64-bit integer
         SubgroupMaskInt64
     } subgroup_mask_representation;
+
+    struct {
+        IntSizes ptr_size;
+        /// The base type for emulated memory
+        IntSizes word_size;
+    } memory;
 } ArenaConfig;
 
 ArenaConfig default_arena_config();
@@ -218,12 +224,6 @@ typedef struct CompilerConfig_ {
         bool simt_to_explicit_simd;
         bool int64;
     } lower;
-
-    struct {
-        IntSizes ptr_size;
-        /// The base type for emulated memory
-        IntSizes word_size;
-    } memory;
 
     struct {
         bool spv_shuffle_instead_of_broadcast_first;

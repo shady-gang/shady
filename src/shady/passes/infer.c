@@ -246,6 +246,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
 
             return composite(dst_arena, elem_type, nmembers);
         }
+        case Value_AntiQuote_TAG: error("TODO");
     }
 }
 
