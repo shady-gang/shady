@@ -1,5 +1,6 @@
 #include "shady/cli.h"
 #include "clang_ast.h"
+#include "json-c/json.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +10,8 @@
 #include "log.h"
 #include "portability.h"
 #include "growy.h"
+
+void ast_to_shady(json_object* object, Module* mod);
 
 void parse_c_file(const char* filename, Module* mod) {
     int clang_retval = system("clang --version");
