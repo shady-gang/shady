@@ -224,6 +224,21 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
     }
 }
 
+static const Node* rebind_results(Rewriter* rewriter, const Node* ninstruction, const Node* olam) {
+    assert(olam->tag == AnonLambda_TAG);
+    Nodes oparams = olam->payload.anon_lam.params;
+    Nodes ntypes = unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type);
+    assert(ntypes.count == oparams.count);
+    LARRAY(const Node*, new_params, oparams.count);
+    for (size_t i = 0; i < oparams.count; i++) {
+        new_params[i] = var(rewriter->dst_arena, ntypes.nodes[i], oparams.nodes[i]->payload.var.name);
+        register_processed(rewriter, oparams.nodes[i], new_params[i]);
+    }
+    const Node* nbody = rewrite_node(rewriter, olam->payload.anon_lam.body);
+    const Node* tail = lambda(rewriter->dst_module, nodes(rewriter->dst_arena, oparams.count, new_params), nbody);
+    return tail;
+}
+
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;
@@ -279,7 +294,11 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 register_processed_list(rewriter, old_params, new_args);
                 return rewrite_node(rewriter, node->payload.let.tail->payload.anon_lam.body);
             }
-            const Node* tail = rewrite_anon_lambda(rewriter, node->payload.let.tail);
+            const Node* tail;
+            if (arena->config.check_types)
+                tail = rebind_results(rewriter, instruction, node->payload.let.tail);
+            else
+                tail = rewrite_anon_lambda(rewriter, node->payload.let.tail);
             return let(arena, instruction, tail);
         }
         case LetMut_TAG: error("De-sugar this by hand")
