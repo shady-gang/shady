@@ -13,7 +13,7 @@
 #include <assert.h>
 
 static const char* default_shader =
-"@EntryPoint(\"compute\") @WorkgroupSize(64, 1, 1) fn main() {\n"
+"@EntryPoint(\"compute\") @WorkgroupSize(32, 1, 1) fn main() {\n"
 "    debug_printf(\"hi\");"
 "    return ();\n"
 "}";
