@@ -173,10 +173,44 @@ static void flip_scope(Scope* scope) {
         }
 
         if (entries_count_list(cur->pred_edges) == 0) {
-            if (scope->entry != NULL)
-                error("Only one exiting node should exist for now.");
-            scope->entry = cur;
+            if (scope->entry != NULL) {
+                if (scope->entry->node) {
+                    CFNode* new_entry = arena_alloc(scope->arena, sizeof(CFNode));
+                    *new_entry = (CFNode) {
+                        .node = NULL,
+                        .succ_edges = new_list(CFEdge),
+                        .pred_edges = new_list(CFEdge),
+                        .rpo_index = SIZE_MAX,
+                        .idom = NULL,
+                        .dominates = NULL,
+                    };
+
+                    CFEdge prev_entry_edge = {
+                        .type = ForwardEdge,
+                        .src = new_entry,
+                        .dst = scope->entry
+                    };
+                    append_list(CFEdge, new_entry->succ_edges, prev_entry_edge);
+                    append_list(CFEdge, scope->entry->pred_edges, prev_entry_edge);
+                    scope->entry = new_entry;
+                }
+
+                CFEdge new_edge = {
+                    .type = ForwardEdge,
+                    .src = scope->entry,
+                    .dst = cur
+                };
+                append_list(CFEdge, scope->entry->succ_edges, new_edge);
+                append_list(CFEdge, cur->pred_edges, new_edge);
+            } else {
+                scope->entry = cur;
+            }
         }
+    }
+
+    if (!scope->entry->node) {
+        scope->size += 1;
+        append_list(Node*, scope->contents, scope->entry);
     }
 }
 

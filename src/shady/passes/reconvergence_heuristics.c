@@ -32,6 +32,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 CFNode* cfnode = scope_lookup(branched_scope, node);
                 CFNode* idom = cfnode->idom;
 
+                if(!idom->node) {
+                    error("Degenerate case: there is no imediate post dominator for this branch.");
+                }
+
                 Rewriter * rewriter = &ctx->rewriter;
                 IrArena * arena = rewriter->dst_arena;
                 Node* result = NULL;
