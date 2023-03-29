@@ -6,11 +6,6 @@
 
 #include <assert.h>
 
-size_t bytes_to_i32_cells(size_t size_in_bytes) {
-    assert(size_in_bytes % 4 == 0);
-    return (size_in_bytes + 3) / 4;
-}
-
 size_t get_record_layout(const CompilerConfig* config, IrArena* arena, const Node* record_type, FieldLayout* fields) {
     assert(record_type->tag == RecordType_TAG);
     size_t total_size = 0;

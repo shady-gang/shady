@@ -1,6 +1,5 @@
 #include "passes.h"
 
-#include "../transform/memory_layout.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include "../ir_private.h"
@@ -24,15 +23,8 @@ typedef struct Context_ {
     struct Dict*   serialisation_varying[NumAddressSpaces];
     struct Dict* deserialisation_varying[NumAddressSpaces];
 
-    /// Bytes used up by static allocations
-    uint32_t preallocated_private_memory;
-    uint32_t preallocated_subgroup_memory;
-
     const Node* thread_private_memory;
     const Node* subgroup_shared_memory;
-
-    bool tpm_is_block_buffer;
-    bool ssm_is_block_buffer;
 } Context;
 
 static IntSizes float_to_int_width(FloatSizes width) {
@@ -40,6 +32,25 @@ static IntSizes float_to_int_width(FloatSizes width) {
         case FloatTy16: return IntTy16;
         case FloatTy32: return IntTy32;
         case FloatTy64: return IntTy64;
+    }
+}
+
+// TODO: make this configuration-dependant
+static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
+    switch (as) {
+        case AsSubgroupPhysical: return true;
+        case AsPrivatePhysical:  return true;
+        case AsSharedPhysical: return false; // error("TODO");
+        case AsGlobalPhysical: return false; // TODO config
+        default: return false;
+    }
+}
+
+static const Node* get_emulated_as_word_array(Context* ctx, AddressSpace as) {
+    switch (as) {
+        case AsPrivatePhysical: return ctx->thread_private_memory;
+        case AsSubgroupPhysical: return ctx->subgroup_shared_memory;
+        default: error("Emulation of this AS is not supported");
     }
 }
 
@@ -104,12 +115,11 @@ static const Node* gen_deserialisation(const CompilerConfig* config, BodyBuilder
             compound_type = get_maybe_nominal_type_body(compound_type);
 
             Nodes member_types = compound_type->payload.record_type.members;
-            LARRAY(FieldLayout, fields, member_types.count);
-            get_record_layout(config, bb->arena, compound_type, fields);
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
-                const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, uint32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
-                loaded[i] = gen_deserialisation(config, bb, member_types.nodes[i], arr, field_offset);
+                const Node* field_offset = gen_primop_e(bb, offset_of_op, singleton(element_type), singleton(uint32_literal(bb->arena, i)));
+                const Node* adjusted_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, field_offset));
+                loaded[i] = gen_deserialisation(config, bb, member_types.nodes[i], arr, adjusted_offset);
             }
             return composite(bb->arena, element_type, nodes(bb->arena, member_types.count, loaded));
         }
@@ -172,12 +182,11 @@ static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, con
         }
         case RecordType_TAG: {
             Nodes member_types = element_type->payload.record_type.members;
-            LARRAY(FieldLayout, fields, member_types.count);
-            get_record_layout(config, bb->arena, element_type, fields);
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* extracted_value = first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, value, int32_literal(bb->arena, i)), .type_arguments = empty(bb->arena) })));
-                const Node* field_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, uint32_literal(bb->arena, bytes_to_i32_cells(fields[i].offset_in_bytes))));
-                gen_serialisation(config, bb, member_types.nodes[i], arr, field_offset, extracted_value);
+                const Node* field_offset = gen_primop_e(bb, offset_of_op, singleton(element_type), singleton(uint32_literal(bb->arena, i)));
+                const Node* adjusted_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, field_offset));
+                gen_serialisation(config, bb, member_types.nodes[i], arr, adjusted_offset, extracted_value);
             }
             return;
         }
@@ -192,6 +201,7 @@ static void gen_serialisation(const CompilerConfig* config, BodyBuilder* bb, con
 }
 
 static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool uniform, bool ser, AddressSpace as) {
+    assert(is_as_emulated(ctx, as));
     struct Dict* cache;
 
     if (uniform)
@@ -219,25 +229,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
-
-    const Node* base = NULL;
-    bool is_backed_by_block_buffer;
-    switch (as) {
-        case AsPrivatePhysical:
-            base = ctx->thread_private_memory;
-            is_backed_by_block_buffer = ctx->tpm_is_block_buffer;
-            break;
-        case AsSubgroupPhysical:
-            base = ctx->subgroup_shared_memory;
-            is_backed_by_block_buffer = ctx->ssm_is_block_buffer;
-            break;
-        default: error("Emulation of this AS is not supported");
-    }
-
-    // some address spaces need to put the data in a special 'Block'-based record, so we need an extra lea to match
-    if (is_backed_by_block_buffer)
-        base = gen_lea(bb, base, NULL, nodes(arena, 1, (const Node* []) { uint32_literal(arena, 0) }));
-
+    const Node* base = get_emulated_as_word_array(ctx, as);
     if (ser) {
         gen_serialisation(ctx->config, bb, element_type, base, addr_param, value_param);
         fun->payload.fun.body = finish_body(bb, fn_ret(arena, (Return) { .fn = fun, .args = empty(arena) }));
@@ -247,17 +239,6 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
         fun->payload.fun.body = finish_body(bb, fn_ret(arena, (Return) { .fn = fun, .args = singleton(loaded_value) }));
     }
     return fun;
-}
-
-// TODO: make this configuration-dependant
-static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
-    switch (as) {
-        case AsSubgroupPhysical: return true;
-        case AsPrivatePhysical:  return true;
-        case AsSharedPhysical: return false; // error("TODO");
-        case AsGlobalPhysical: return false; // TODO config
-        default: return false;
-    }
 }
 
 static const Node* process_let(Context* ctx, const Node* node) {
@@ -322,26 +303,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case GlobalVariable_TAG: {
             const GlobalVariable* old_gvar = &old->payload.global_variable;
             // Global variables into emulated address spaces become integer constants (to index into arrays used for emulation of said address space)
-            if (old_gvar->address_space == AsSubgroupPhysical || old_gvar->address_space == AsPrivatePhysical) {
-                Nodes annotations = rewrite_nodes(&ctx->rewriter, old_gvar->annotations); // We keep the old annotations
-                annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) { .name = "Generated" }));
-
-                const char* emulated_heap_name = old_gvar->address_space == AsPrivatePhysical ? "private" : "subgroup";
-
-                const Type* emulated_ptr_type = int_type(arena, (Int) { .width = ctx->config->memory.ptr_size, .is_signed = false });
-                Node* cnst = constant(ctx->rewriter.dst_module, annotations, emulated_ptr_type, format_string(arena, "%s_offset_%s_arr", old_gvar->name, emulated_heap_name));
-
-                uint32_t* preallocated = old_gvar->address_space == AsSubgroupPhysical ? &ctx->preallocated_subgroup_memory : &ctx->preallocated_private_memory;
-
-                const Type* contents_type = rewrite_node(&ctx->rewriter, old_gvar->type);
-                assert(is_data_type(contents_type));
-                uint32_t required_space = bytes_to_i32_cells(get_mem_layout(ctx->config, arena, contents_type).size_in_bytes);
-
-                cnst->payload.constant.value = uint32_literal(arena, *preallocated);
-                *preallocated += required_space;
-
-                register_processed(&ctx->rewriter, old, cnst);
-                return cnst;
+            if (is_as_emulated(ctx, old_gvar->address_space)) {
+                assert(false);
             }
             return recreate_node_identity(&ctx->rewriter, old);
         }
@@ -352,64 +315,88 @@ static const Node* process_node(Context* ctx, const Node* old) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
-    IrArena* dst_arena = get_module_arena(dst);
+/// Collects all global variables in a specific AS, and creates a record type for them.
+static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t, AddressSpace as) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    Module* m = ctx->rewriter.dst_module;
+    Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
 
-    uint32_t per_thread_private_memory = 0, per_subgroup_memory = 0;
-    Nodes old_decls = get_module_declarations(src);
+    LARRAY(String, member_names, old_decls.count);
+    LARRAY(const Type*, member_tys, old_decls.count);
+    size_t members_count = 0;
+
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
         if (decl->tag != GlobalVariable_TAG) continue;
+        if (decl->payload.global_variable.address_space != as) continue;
         const Type* type = decl->payload.global_variable.type;
-        TypeMemLayout layout = get_mem_layout(config, dst_arena, type);
-        switch (decl->payload.global_variable.address_space) {
-            case AsPrivatePhysical:
-                per_thread_private_memory += bytes_to_i32_cells(layout.size_in_bytes);
-                break;
-            case AsSubgroupPhysical:
-                per_subgroup_memory += bytes_to_i32_cells(layout.size_in_bytes);
-                break;
-            default: continue;
-        }
+
+        member_tys[members_count] = rewrite_node(&ctx->rewriter, type);
+        member_names[members_count] = decl->payload.global_variable.name;
+
+        // Turn the old global variable into a pointer (which are also now integers)
+        const Type* emulated_ptr_type = int_type(a, (Int) { .width = ctx->config->memory.ptr_size, .is_signed = false });
+        Nodes annotations = rewrite_nodes(&ctx->rewriter, decl->payload.global_variable.annotations);
+        Node* cnst = constant(ctx->rewriter.dst_module, annotations, emulated_ptr_type, decl->payload.global_variable.name);
+
+        // we need to compute the actual pointer by getting the offset and dividing it
+        // after lower_memory_layout, optimisations will eliminate this and resolve to a value
+        BodyBuilder* bb = begin_body(m);
+        const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(uint32_literal(a, members_count)));
+        const Node* offset_in_words = bytes_to_words(bb, ctx->config->memory.word_size, offset);
+        cnst->payload.constant.value = anti_quote(a, (AntiQuote) {
+            .instruction = yield_values_and_wrap_in_control(bb, singleton(offset_in_words))
+        });
+
+        register_processed(&ctx->rewriter, decl, cnst);
+
+        members_count++;
     }
 
-    const Type* emulated_memory_base_type = int_type(dst_arena, (Int) { .width = config->memory.word_size, .is_signed = false });
-    const Type* private_memory_arr_type = arr_type(dst_arena, (ArrType) {
-        .element_type = emulated_memory_base_type,
-        .size = uint32_literal(dst_arena, per_thread_private_memory),
-    });
-    const Type* subgroup_memory_arr_type = arr_type(dst_arena, (ArrType) {
-        .element_type = emulated_memory_base_type,
-        .size = uint32_literal(dst_arena, per_subgroup_memory),
+    const Type* record_t = record_type(a, (RecordType) {
+        .members = nodes(a, members_count, member_tys),
+        .names = strings(a, members_count, member_names)
     });
 
-    Nodes annotations = singleton(annotation(dst_arena, (Annotation) { .name = "Generated" }));
+    //return record_t;
+    global_struct_t->payload.nom_type.body = record_t;
+}
 
-    // divide memory up between subgroups in a workgroup
-    // TODO decide between shared/global memory for this purpose
-    SHADY_UNUSED const Type* wrapped_type = record_type(dst_arena, (RecordType) {
-        .members = nodes(dst_arena, 1, (const Node* []) {private_memory_arr_type }),
-        .special = DecorateBlock,
-        .names = strings(dst_arena, 0, NULL)
+static const Node* construct_emulated_memory_array(Context* ctx, AddressSpace as, AddressSpace logical_as) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    Module* m = ctx->rewriter.dst_module;
+    String as_name = format_string(a, "as_%d", as);
+    Nodes annotations = singleton(annotation(a, (Annotation) { .name = "Generated" }));
+
+    Node* global_struct_t = nominal_type(m, annotations, format_string(a, "globals_physical_%s_t", as_name));
+    //global_struct_t->payload.nom_type.body = collect_globals_into_record_type(ctx, as);
+    collect_globals_into_record_type(ctx, global_struct_t, as);
+
+    // compute the size
+    BodyBuilder* bb = begin_body(m);
+    const Node* size_of = gen_primop_e(bb, size_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), empty(a));
+    const Node* size_in_words = bytes_to_words(bb, ctx->config->memory.word_size, size_of);
+
+    const Type* word_type = int_type(a, (Int) { .width = ctx->config->memory.word_size, .is_signed = false });
+    const Type* words_array_type = arr_type(a, (ArrType) {
+        .element_type = word_type,
+        .size = anti_quote(a, (AntiQuote) {
+            .instruction = yield_values_and_wrap_in_control(bb, singleton(size_in_words))
+        }),
     });
 
-    Node* thread_private_memory = global_var(dst, annotations, private_memory_arr_type, "emulated_private_memory", AsPrivateLogical);
-    Node* subgroup_shared_memory = global_var(dst, annotations, subgroup_memory_arr_type, "emulated_subgroup_memory", AsSubgroupLogical);
+    Node* words_array = global_var(m, annotations, words_array_type, format_string(a, "addressable_word_memory_", as_name), logical_as);
+    return words_array;
+}
 
+void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
-
         .config = config,
-
-        .preallocated_private_memory = 0,
-        .preallocated_subgroup_memory = 0,
-
-        .tpm_is_block_buffer = false,
-        .ssm_is_block_buffer = false,
-
-        .thread_private_memory = ref_decl(dst_arena, (RefDecl) { .decl = thread_private_memory }),
-        .subgroup_shared_memory = ref_decl(dst_arena, (RefDecl) { .decl = subgroup_shared_memory }),
     };
+
+    ctx.thread_private_memory = construct_emulated_memory_array(&ctx, AsPrivatePhysical, AsPrivateLogical);
+    ctx.subgroup_shared_memory = construct_emulated_memory_array(&ctx, AsSubgroupPhysical, AsSubgroupLogical);
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {
         if (is_as_emulated(&ctx, i)) {
