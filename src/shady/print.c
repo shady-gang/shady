@@ -557,6 +557,12 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             print_param_list(ctx, node->payload.control.inside->payload.anon_lam.params, NULL);
             print_lambda_body(ctx, node->payload.control.inside);
             break;
+        } case Block_TAG: {
+            printf(BGREEN);
+            printf("block");
+            printf(RESET);
+            print_lambda_body(ctx, node->payload.control.inside);
+            break;
         }
     }
 }
@@ -688,6 +694,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
         case MergeSelection_TAG:
         case MergeContinue_TAG:
         case MergeBreak_TAG:
+        case Terminator_Yield_TAG:
             printf(BGREEN);
             printf("%s", node_tags[node->tag]);
             printf(RESET);

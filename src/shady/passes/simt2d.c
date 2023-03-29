@@ -54,7 +54,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     //return yield_values_and_wrap_in_control(bb, singleton(widen(ctx, allocated)));
                     const Node* result_type = maybe_packed_type_helper(ptr_type(arena, (PtrType) { .address_space = AsFunctionLogical, .pointed_type = type }), ctx->width);
                     const Node* packed = composite(arena, result_type, nodes(arena, ctx->width, allocated));
-                    return yield_values_and_wrap_in_control(bb, singleton(packed));
+                    return yield_values_and_wrap_in_block(bb, singleton(packed));
                 }
                 case subgroup_local_id_op: {
                     error("TODO")

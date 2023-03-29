@@ -127,7 +127,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Node* result = lower_ptr_arithm(ctx, bb, new_base_t, cast_base, new_ops.nodes[1], new_ops.count - 2, &new_ops.nodes[2]);
                     const Type* new_ptr_t = rewrite_node(&ctx->rewriter, old_result_t);
                     const Node* cast_result = gen_reinterpret_cast(bb, new_ptr_t, result);
-                    return yield_values_and_wrap_in_control(bb, singleton(cast_result));
+                    return yield_values_and_wrap_in_block(bb, singleton(cast_result));
                 }
                 default: break;
             }

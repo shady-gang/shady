@@ -227,6 +227,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             spvb_branch(basic_block_builder, merge_targets.break_target);
             return;
         }
+        case Terminator_Yield_TAG: error("Should be eliminated by the compiler");
         case Unreachable_TAG: {
             spvb_unreachable(basic_block_builder);
             return;

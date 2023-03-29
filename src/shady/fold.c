@@ -73,12 +73,10 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
             }
             break;
         }
-        case Control_TAG: {
-            // follow the terminator of the control until we hit either a join() or some kind of divergent control flow
-            // if we hit the join defined by the control, without encountering any other control flow, we can optimise the control away
-            const Node* lam = instruction->payload.control.inside;
+        case Block_TAG: {
+            // follow the terminator of the block until we hit a yield()
+            const Node* lam = instruction->payload.block.inside;
             const Node* terminator = get_abstraction_body(lam);
-            const Node* original_jp = first(get_abstraction_params(lam));
             size_t depth = 0;
             bool dry_run = true;
             const Node** lets = NULL;
@@ -94,33 +92,29 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
                         depth++;
                         continue;
                     }
-                    case Terminator_Join_TAG: {
-                        if (terminator->payload.join.join_point == original_jp) {
-                            if (dry_run) {
-                                lets = calloc(sizeof(const Node*), depth);
-                                dry_run = false;
-                                depth = 0;
-                                // Start over !
-                                lam = instruction->payload.control.inside;
-                                terminator = get_abstraction_body(lam);
-                                continue;
-                            } else {
-                                // wrap the original tail with the args of join()
-                                assert(is_anonymous_lambda(tail));
-                                const Node* acc = let(arena, quote(arena, terminator->payload.join.args), tail);
-                                // rebuild the let chain that we traversed
-                                for (size_t i = 0; i < depth; i++) {
-                                    const Node* olet = lets[depth - 1 - i];
-                                    const Node* olam = get_let_tail(olet);
-                                    const Node* nlam = lambda(get_abstraction_module(olam), get_abstraction_params(olam), acc);
-                                    acc = let(arena, get_let_instruction(olet), nlam);
-                                }
-                                free(lets);
-                                return acc;
+                    case Terminator_Yield_TAG: {
+                        if (dry_run) {
+                            lets = calloc(sizeof(const Node*), depth);
+                            dry_run = false;
+                            depth = 0;
+                            // Start over !
+                            lam = instruction->payload.block.inside;
+                            terminator = get_abstraction_body(lam);
+                            continue;
+                        } else {
+                            // wrap the original tail with the args of join()
+                            assert(is_anonymous_lambda(tail));
+                            const Node* acc = let(arena, quote(arena, terminator->payload.yield.args), tail);
+                            // rebuild the let chain that we traversed
+                            for (size_t i = 0; i < depth; i++) {
+                                const Node* olet = lets[depth - 1 - i];
+                                const Node* olam = get_let_tail(olet);
+                                const Node* nlam = lambda(get_abstraction_module(olam), get_abstraction_params(olam), acc);
+                                acc = let(arena, get_let_instruction(olet), nlam);
                             }
+                            free(lets);
+                            return acc;
                         }
-
-                        SHADY_FALLTHROUGH
                     }
                     // if we see anything else, give up
                     default: {

@@ -995,14 +995,14 @@ const Type* check_type_indirect_call(IrArena* arena, IndirectCall call) {
     return wrap_multiple_yield_types(arena, check_value_call(call.callee, argument_types));
 }
 
-static void ensure_yield_types_are_datatypes(const Nodes* yield_types) {
+static void ensure_types_are_data_types(const Nodes* yield_types) {
     for (size_t i = 0; i < yield_types->count; i++) {
         assert(is_data_type(yield_types->nodes[i]));
     }
 }
 
 const Type* check_type_if_instr(IrArena* arena, If if_instr) {
-    ensure_yield_types_are_datatypes(&if_instr.yield_types);
+    ensure_types_are_data_types(&if_instr.yield_types);
     if (get_unqualified_type(if_instr.condition->type) != bool_type(arena))
         error("condition of an if should be bool");
     // TODO check the contained Merge instrs
@@ -1013,21 +1013,21 @@ const Type* check_type_if_instr(IrArena* arena, If if_instr) {
 }
 
 const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
-    ensure_yield_types_are_datatypes(&loop_instr.yield_types);
+    ensure_types_are_data_types(&loop_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
     return wrap_multiple_yield_types(arena, add_qualifiers(arena, loop_instr.yield_types, false));
 }
 
 const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
-    ensure_yield_types_are_datatypes(&match_instr.yield_types);
+    ensure_types_are_data_types(&match_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
     return wrap_multiple_yield_types(arena, add_qualifiers(arena, match_instr.yield_types, false));
 }
 
 const Type* check_type_control(IrArena* arena, Control control) {
-    ensure_yield_types_are_datatypes(&control.yield_types);
+    ensure_types_are_data_types(&control.yield_types);
     // TODO check it then !
     assert(is_anonymous_lambda(control.inside));
     const Node* join_point = first(control.inside->payload.anon_lam.params);
@@ -1043,6 +1043,32 @@ const Type* check_type_control(IrArena* arena, Control control) {
     }
 
     return wrap_multiple_yield_types(arena, add_qualifiers(arena, join_point_yield_types, false));
+}
+
+const Type* check_type_block(IrArena* arena, Block payload) {
+    assert(is_anonymous_lambda(payload.inside));
+    assert(payload.inside->payload.anon_lam.params.count == 0);
+
+    const Node* lam = payload.inside;
+    const Node* yield_instr = NULL;
+    while (true) {
+        assert(lam->tag == AnonLambda_TAG);
+        const Node* terminator = lam->payload.anon_lam.body;
+        switch (terminator->tag) {
+            case Let_TAG: {
+                lam = terminator->payload.let.tail;
+                continue;
+            }
+            case Yield_TAG:
+                yield_instr = terminator;
+                break;
+            default: assert(false);
+        }
+        break;
+    }
+
+    Nodes yield_values = yield_instr->payload.yield.args;
+    return wrap_multiple_yield_types(arena, get_values_types(arena, yield_values));
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
@@ -1144,6 +1170,11 @@ const Type* check_type_merge_continue(IrArena* arena, MergeContinue mc) {
 }
 
 const Type* check_type_merge_break(IrArena* arena, MergeBreak mc) {
+    // TODO check it
+    return noret_type(arena);
+}
+
+const Type* check_type_yield(IrArena* arena, SHADY_UNUSED Yield payload) {
     // TODO check it
     return noret_type(arena);
 }

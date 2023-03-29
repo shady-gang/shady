@@ -198,6 +198,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
         case NotATerminator: assert(false);
         case LetMut_TAG:
         case Join_TAG: error("this must be lowered away!");
+        case Terminator_Yield_TAG: error("Should be eliminated by the compiler");
         case Jump_TAG:
         case Branch_TAG:
         case Switch_TAG:

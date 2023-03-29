@@ -47,6 +47,7 @@ N(1, 1, 1, If, if_instr) \
 N(1, 1, 1, Match, match_instr) \
 N(1, 1, 1, Loop, loop_instr) \
 N(1, 1, 1, Control, control) \
+N(1, 1, 1, Block, block) \
 
 #define TERMINATOR_NODES(N) \
 N(0, 1, 1, Let, let) \
@@ -59,6 +60,7 @@ N(1, 1, 1, Join, join) \
 N(1, 1, 1, MergeSelection, merge_selection) \
 N(1, 1, 1, MergeContinue, merge_continue) \
 N(1, 1, 1, MergeBreak, merge_break) \
+N(1, 1, 1, Yield, yield) \
 N(1, 1, 1, Return, fn_ret) \
 N(1, 1, 0, Unreachable, unreachable) \
 
@@ -347,6 +349,12 @@ typedef struct Control_ Control;
 MkField(1, TYPES, Nodes, yield_types) \
 MkField(1, TERMINATOR, const Node*, inside)
 
+/// Structured "block" construct
+/// used as a helper block to insert multiple instructions in place of one
+typedef struct Block_ Block;
+#define Block_Fields(MkField) \
+MkField(1, TERMINATOR, const Node*, inside)
+
 //////////////////////////////// Terminators ////////////////////////////////
 
 typedef struct Let_ Let;
@@ -411,6 +419,10 @@ MkField(1, VALUES, Nodes, args)
 
 typedef struct MergeBreak_ MergeBreak;
 #define MergeBreak_Fields(MkField) \
+MkField(1, VALUES, Nodes, args)
+
+typedef struct Yield_ Yield;
+#define Yield_Fields(MkField) \
 MkField(1, VALUES, Nodes, args)
 
 //////////////////////////////// Decls ////////////////////////////////

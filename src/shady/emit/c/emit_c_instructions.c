@@ -552,6 +552,7 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_If_TAG:           emit_if    (emitter, p, instruction, outputs); break;
         case Instruction_Match_TAG:        emit_match (emitter, p, instruction, outputs); break;
         case Instruction_Loop_TAG:         emit_loop  (emitter, p, instruction, outputs); break;
-        case Instruction_Control_TAG: error("TODO")
+        case Instruction_Control_TAG:      error("TODO")
+        case Instruction_Block_TAG:        error("Should be eliminated by the compiler")
     }
 }

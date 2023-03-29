@@ -42,6 +42,23 @@ String format_string(IrArena* arena, const char* str, ...);
 String unique_name(IrArena* arena, const char* start);
 String name_type_safe(IrArena*, const Type*);
 
+//////////////////////////////// Modules ////////////////////////////////
+
+typedef struct Module_ Module;
+
+Module* new_module(IrArena*, String name);
+
+IrArena* get_module_arena(const Module*);
+String get_module_name(const Module*);
+Nodes get_module_declarations(const Module*);
+
+//////////////////////////////// Grammar ////////////////////////////////
+
+// The language grammar is big enough that it deserve its own files
+
+#include "primops.h"
+#include "grammar.h"
+
 //////////////////////////////// IR Arena ////////////////////////////////
 
 typedef struct {
@@ -49,6 +66,7 @@ typedef struct {
     bool check_types;
     bool allow_fold;
     bool is_simt;
+
     /// Selects which type the subgroup intrinsic primops use to manipulate masks
     enum {
         /// Uses the MaskType
@@ -68,23 +86,6 @@ ArenaConfig default_arena_config();
 
 IrArena* new_ir_arena(ArenaConfig);
 void destroy_ir_arena(IrArena*);
-
-//////////////////////////////// Modules ////////////////////////////////
-
-typedef struct Module_ Module;
-
-Module* new_module(IrArena*, String name);
-
-IrArena* get_module_arena(const Module*);
-String get_module_name(const Module*);
-Nodes get_module_declarations(const Module*);
-
-//////////////////////////////// Grammar ////////////////////////////////
-
-// The language grammar is big enough that it deserve its own files
-
-#include "primops.h"
-#include "grammar.h"
 
 //////////////////////////////// Getters ////////////////////////////////
 
@@ -168,7 +169,7 @@ void bind_variables(BodyBuilder*, Nodes vars, Nodes values);
 
 const Node* finish_body(BodyBuilder*, const Node* terminator);
 void cancel_body(BodyBuilder*);
-const Node* yield_values_and_wrap_in_control(BodyBuilder*, Nodes);
+const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
 
 const Type* int8_type(IrArena* arena);
 const Type* int16_type(IrArena* arena);

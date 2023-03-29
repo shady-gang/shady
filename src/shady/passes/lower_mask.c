@@ -42,7 +42,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     acc = gen_primop_ce(bb, and_op, 2, (const Node* []) { acc, ctx->one });
                     // acc == 1
                     acc = gen_primop_ce(bb, eq_op, 2, (const Node* []) { acc, ctx->one });
-                    return yield_values_and_wrap_in_control(bb, singleton(acc));
+                    return yield_values_and_wrap_in_block(bb, singleton(acc));
                 }
                 default: break;
             }

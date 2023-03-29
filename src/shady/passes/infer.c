@@ -408,7 +408,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                         .type_arguments = empty(dst_arena),
                         .operands = final_lea_ops
                 })));
-                return yield_values_and_wrap_in_control(bb, singleton(rslt));
+                return yield_values_and_wrap_in_block(bb, singleton(rslt));
             }
             goto skip_input_types;
         }
@@ -581,6 +581,19 @@ static const Node* _infer_control(Context* ctx, const Node* node, const Type* ex
     });
 }
 
+static const Node* _infer_block(Context* ctx, const Node* node, const Type* expected_type) {
+    assert(node->tag == Block_TAG);
+    IrArena* arena = ctx->rewriter.dst_arena;
+
+    const Node* olam = node->payload.block.inside;
+
+    const Node* nlam = lambda(ctx->rewriter.dst_module, empty(arena), infer(ctx, get_abstraction_body(olam), NULL));
+
+    return control(ctx->rewriter.dst_arena, (Control) {
+        .inside = nlam
+    });
+}
+
 static const Node* _infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return _infer_primop(ctx, node, expected_type);
@@ -590,6 +603,7 @@ static const Node* _infer_instruction(Context* ctx, const Node* node, const Type
         case Loop_TAG:         return _infer_loop  (ctx, node, expected_type);
         case Match_TAG:        error("TODO")
         case Control_TAG:      return _infer_control(ctx, node, expected_type);
+        case Block_TAG:        return _infer_block  (ctx, node, expected_type);
         case NotAnInstruction: error("not an instruction");
     }
     SHADY_UNREACHABLE;
@@ -699,6 +713,15 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             for (size_t i = 0; i < old_args->count; i++)
                 new_args[i] = infer(ctx, old_args->nodes[i], (*expected_types).nodes[i]);
             return merge_break(ctx->rewriter.dst_arena, (MergeBreak) {
+                .args = nodes(ctx->rewriter.dst_arena, old_args->count, new_args)
+            });
+        }
+        case Yield_TAG: {
+            const Nodes* old_args = &node->payload.yield.args;
+            LARRAY(const Node*, new_args, old_args->count);
+            for (size_t i = 0; i < old_args->count; i++)
+                new_args[i] = infer(ctx, old_args->nodes[i], NULL);
+            return yield(ctx->rewriter.dst_arena, (Yield) {
                 .args = nodes(ctx->rewriter.dst_arena, old_args->count, new_args)
             });
         }

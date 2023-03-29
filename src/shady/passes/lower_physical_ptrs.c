@@ -345,7 +345,7 @@ static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t
         const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(uint32_literal(a, members_count)));
         const Node* offset_in_words = bytes_to_words(ctx, bb, offset);
         cnst->payload.constant.value = anti_quote(a, (AntiQuote) {
-            .instruction = yield_values_and_wrap_in_control(bb, singleton(offset_in_words))
+            .instruction = yield_values_and_wrap_in_block(bb, singleton(offset_in_words))
         });
 
         register_processed(&ctx->rewriter, decl, cnst);
@@ -381,7 +381,7 @@ static const Node* construct_emulated_memory_array(Context* ctx, AddressSpace as
     const Type* words_array_type = arr_type(a, (ArrType) {
         .element_type = word_type,
         .size = anti_quote(a, (AntiQuote) {
-            .instruction = yield_values_and_wrap_in_control(bb, singleton(size_in_words))
+            .instruction = yield_values_and_wrap_in_block(bb, singleton(size_in_words))
         }),
     });
 
