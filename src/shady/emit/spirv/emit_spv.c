@@ -486,13 +486,11 @@ static Module* run_backend_specific_passes(CompilerConfig* config, Module* mod) 
     RUN_PASS(lower_entrypoint_args)
     RUN_PASS(spirv_map_entrypoint_args)
 
-    dump_module(mod);
-
     return mod;
 }
 
 void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output) {
-    //IrArena* initial_arena = get_module_arena(mod);
+    IrArena* initial_arena = get_module_arena(mod);
     mod = run_backend_specific_passes(config, mod);
     IrArena* arena = get_module_arena(mod);
     struct List* words = new_list(uint32_t);
@@ -551,6 +549,6 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
     destroy_dict(emitter.extended_instruction_sets);
     destroy_list(words);
 
-    //if (initial_arena != arena)
-    //    destroy_ir_arena(arena);
+    if (initial_arena != arena)
+        destroy_ir_arena(arena);
 }

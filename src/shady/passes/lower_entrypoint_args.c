@@ -25,7 +25,7 @@ static Node* rewrite_entry_point_fun(Context* ctx, const Node* node) {
 }
 
 static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
-    IrArena* dst_arena = rewriter->dst_arena;
+    IrArena* a = rewriter->dst_arena;
 
     LARRAY(const Node*, types, params.count);
     LARRAY(String, names, params.count);
@@ -40,43 +40,37 @@ static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
         names[i] = params.nodes[i]->payload.var.name;
     }
 
-    return record_type(dst_arena, (RecordType) {
-        .members = nodes(dst_arena, params.count, types),
-        .names = strings(dst_arena, params.count, names)
+    return record_type(a, (RecordType) {
+        .members = nodes(a, params.count, types),
+        .names = strings(a, params.count, names)
     });
 }
 
 static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry_point, const Node* new_entry_point) {
-    IrArena* dst_arena = rewriter->dst_arena;
+    IrArena* a = rewriter->dst_arena;
 
-    Nodes annotations = mk_nodes(dst_arena, annotation_value(dst_arena, (AnnotationValue) { .name = "EntryPointArgs", .value = new_entry_point }));
+    Nodes annotations = mk_nodes(a, annotation_value(a, (AnnotationValue) { .name = "EntryPointArgs", .value = new_entry_point }));
     const Node* type = generate_arg_struct_type(rewriter, old_entry_point->payload.fun.params);
-    String name = format_string(dst_arena, "__%s_args", old_entry_point->payload.fun.name);
+    String name = format_string(a, "__%s_args", old_entry_point->payload.fun.name);
     Node* var = global_var(rewriter->dst_module, annotations, type, name, AsExternal);
 
-    return ref_decl(dst_arena, (RefDecl) { .decl = var });
+    return ref_decl(a, (RefDecl) { .decl = var });
 }
 
 static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const Node* arg_struct) {
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
-    BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
 
     Nodes params = old_entry_point->payload.fun.params;
 
     for (int i = 0; i < params.count; ++i) {
-        const Node* addr = first(bind_instruction(builder, prim_op(dst_arena, (PrimOp) {
-            .op = lea_op, .operands = mk_nodes(dst_arena, arg_struct, int32_literal(dst_arena, 0), int32_literal(dst_arena, i))
-        })));
-
-        const Node* val = first(bind_instruction(builder, prim_op(dst_arena, (PrimOp) {
-            .op = load_op, .operands = mk_nodes(dst_arena, addr)
-        })));
-
+        const Node* addr = gen_lea(bb, arg_struct, int32_literal(a, 0), singleton(int32_literal(a, i)));
+        const Node* val = gen_load(bb, addr);
         register_processed(&ctx->rewriter, params.nodes[i], val);
     }
 
-    return finish_body(builder, rewrite_node(&ctx->rewriter, old_entry_point->payload.fun.body));
+    return finish_body(bb, rewrite_node(&ctx->rewriter, old_entry_point->payload.fun.body));
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -100,7 +94,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
 void lower_entrypoint_args(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn)process),
+        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .config = config
     };
     rewrite_module(&ctx.rewriter);
