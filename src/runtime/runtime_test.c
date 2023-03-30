@@ -30,6 +30,8 @@ static void parse_runtime_arguments(int* pargc, char** argv, Args* args) {
 
     bool help = false;
     for (int i = 1; i < argc; i++) {
+        if (argv[i] == NULL)
+            continue;
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             continue;
