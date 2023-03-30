@@ -423,7 +423,6 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     break;
                 case AsGlobalLogical:
                     break;
-                case AsFunctionLogical:
                     break;
                 case AsInput:
                     break;
@@ -433,6 +432,9 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     break;
                 case AsProgramCode:
                     break;
+                case AsFunctionLogical:
+                case AsPushConstant: error("These only make sense for SPIR-V !")
+                case NumAddressSpaces: error("");
             }
 
             if (!address_space_prefix) {

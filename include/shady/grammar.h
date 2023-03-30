@@ -152,28 +152,34 @@ typedef enum AddressSpace_ {
     /// Global memory, all threads see the same data (not necessarily consistent!)
     AsGlobalPhysical,
 
-    // Local variants of the prior four ASes
-    AsSubgroupLogical,
+    // All address spaces after this are 'logical', that is, their pointers have an opaque representation
+    // their bit-pattern is not observable, they cannot be reinterpreted and pointer arithmetic is severely limited
+    PhysicalAddressSpacesEnd = AsGlobalPhysical,
+
+    // Logical variants of the prior four ASes
     AsPrivateLogical,
+    AsSubgroupLogical,
     AsSharedLogical,
     AsGlobalLogical,
-
-    /// Weird nonsense for SPIR-V, this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)
-    AsFunctionLogical,
 
     /// special addressing spaces for input/output global variables in shader stages
     AsInput,
     AsOutput,
-    /// Ditto for descriptors
+
+    /// For resources supplied by the host, agnostic of the binding model
     AsExternal,
 
     // "fake" address space for function pointers
     AsProgramCode,
 
-    NumAddressSpaces,
+    // SPIR-V specific address spaces
 
-    // address spaces used by backends
-    AsPushConstant
+    /// Maps to Vulkan push constants
+    AsPushConstant,
+    /// Weird nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)
+    AsFunctionLogical,
+
+    NumAddressSpaces,
 } AddressSpace;
 
 typedef struct PtrType_ PtrType;

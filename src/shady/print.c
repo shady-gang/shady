@@ -57,46 +57,34 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node);
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static void print_storage_qualifier_for_global(PrinterCtx* ctx, AddressSpace as) {
+static void print_address_space_prefix(PrinterCtx* ctx, AddressSpace as, bool expects_physical) {
+    bool physical = is_physical_as(as);
+    if (expects_physical != physical) {
+        printf(BLUE);
+        if (physical)
+            printf("physical");
+        else
+            printf("logical");
+        printf(RESET);
+        printf(" ");
+    }
+}
+
+static void print_address_space(PrinterCtx* ctx, AddressSpace as) {
     printf(BLUE);
     switch (as) {
         case AsGeneric:             printf("generic"); break;
 
-        case AsFunctionLogical:  printf("l_function"); break;
-        case AsSubgroupLogical:  printf("l_subgroup"); break;
-        case AsPrivateLogical:      printf("private"); break;
-        case AsSharedLogical:        printf("shared"); break;
-        case AsGlobalLogical:        printf("global"); break;
-
-        case AsPrivatePhysical:   printf("p_private"); break;
-        case AsSubgroupPhysical: printf("p_subgroup"); break;
-        case AsSharedPhysical:     printf("p_shared"); break;
-        case AsGlobalPhysical:     printf("p_global"); break;
-
-        case AsInput:                 printf("input"); break;
-        case AsOutput:               printf("output"); break;
-        case AsExternal:           printf("external"); break;
-        case AsProgramCode:    printf("program_code"); break;
-
-        case AsPushConstant:  printf("push_constant"); break;
-    }
-    printf(RESET);
-}
-
-static void print_ptr_addr_space(PrinterCtx* ctx, AddressSpace as) {
-    printf(GREY);
-    switch (as) {
-        case AsGeneric:             printf("generic"); break;
-
-        case AsFunctionLogical:  printf("l_function"); break;
-        case AsSubgroupLogical:  printf("l_subgroup"); break;
-        case AsPrivateLogical:    printf("l_private"); break;
-        case AsSharedLogical:      printf("l_shared"); break;
-        case AsGlobalLogical:      printf("l_global"); break;
-
+        case AsPrivateLogical:
         case AsPrivatePhysical:     printf("private"); break;
+
+        case AsSubgroupLogical:
         case AsSubgroupPhysical:   printf("subgroup"); break;
+
+        case AsSharedLogical:
         case AsSharedPhysical:       printf("shared"); break;
+
+        case AsGlobalLogical:
         case AsGlobalPhysical:       printf("global"); break;
 
         case AsInput:                 printf("input"); break;
@@ -104,7 +92,9 @@ static void print_ptr_addr_space(PrinterCtx* ctx, AddressSpace as) {
         case AsExternal:           printf("external"); break;
         case AsProgramCode:    printf("program_code"); break;
 
+        case AsFunctionLogical:    printf("function"); break;
         case AsPushConstant:  printf("push_constant"); break;
+        case NumAddressSpaces: error("");
     }
     printf(RESET);
 }
@@ -338,7 +328,8 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             printf("ptr");
             printf(RESET);
             printf("(");
-            print_ptr_addr_space(ctx, node->payload.ptr_type.address_space);
+            print_address_space_prefix(ctx, node->payload.ptr_type.address_space, true);
+            print_address_space(ctx, node->payload.ptr_type.address_space);
             printf(", ");
             print_node(node->payload.ptr_type.pointed_type);
             printf(")");
@@ -706,7 +697,8 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
         case GlobalVariable_TAG: {
             const GlobalVariable* gvar = &node->payload.global_variable;
             print_annotations(ctx, gvar->annotations);
-            print_storage_qualifier_for_global(ctx, gvar->address_space);
+            print_address_space_prefix(ctx, gvar->address_space, false);
+            print_address_space(ctx, gvar->address_space);
             printf(" ");
             print_node(gvar->type);
             printf(BYELLOW);
