@@ -79,14 +79,15 @@ static const Node* process(Context* ctx, const Node* node) {
     if (found) return found;
 
     switch (node->tag) {
-    case Function_TAG:
-        if (lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {
-            Node* new_entry_point = rewrite_entry_point_fun(ctx, node);
-            const Node* arg_struct = generate_arg_struct(&ctx->rewriter, node, new_entry_point);
-            new_entry_point->payload.fun.body = rewrite_body(ctx, node, arg_struct);
-            return new_entry_point;
-        }
-        break;
+        case Function_TAG:
+            if (lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {
+                Node* new_entry_point = rewrite_entry_point_fun(ctx, node);
+                const Node* arg_struct = generate_arg_struct(&ctx->rewriter, node, new_entry_point);
+                new_entry_point->payload.fun.body = rewrite_body(ctx, node, arg_struct);
+                return new_entry_point;
+            }
+            break;
+        default: break;
     }
 
     return recreate_node_identity(&ctx->rewriter, node);

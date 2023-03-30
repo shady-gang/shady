@@ -36,26 +36,27 @@ static const Node* process(Context* ctx, const Node* node) {
     if (found) return found;
 
     switch (node->tag) {
-    case GlobalVariable_TAG:
-        if (lookup_annotation(node, "EntryPointArgs")) {
-            if (node->payload.global_variable.address_space != AsExternal)
-                error("EntryPointArgs address space must be extern");
+        case GlobalVariable_TAG:
+            if (lookup_annotation(node, "EntryPointArgs")) {
+                if (node->payload.global_variable.address_space != AsExternal)
+                    error("EntryPointArgs address space must be extern");
 
-            Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations);
-            const Node* type = rewrite_args_type(&ctx->rewriter, node->payload.global_variable.type);
+                Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations);
+                const Node* type = rewrite_args_type(&ctx->rewriter, node->payload.global_variable.type);
 
-            const Node* new_var = global_var(ctx->rewriter.dst_module,
-                annotations,
-                type,
-                node->payload.global_variable.name,
-                AsPushConstant
-            );
+                const Node* new_var = global_var(ctx->rewriter.dst_module,
+                    annotations,
+                    type,
+                    node->payload.global_variable.name,
+                    AsPushConstant
+                );
 
-            register_processed(&ctx->rewriter, node, new_var);
+                register_processed(&ctx->rewriter, node, new_var);
 
-            return new_var;
-        }
-        break;
+                return new_var;
+            }
+            break;
+        default: break;
     }
 
     return recreate_node_identity(&ctx->rewriter, node);
