@@ -125,10 +125,11 @@ static bool compile_specialized_program(SpecProgram* spec) {
     }
 
     if (spec->base->runtime->config.dump_spv) {
-        FILE* f = fopen("runtime-dump.spv", "wb");
-        fwrite(spec->spirv_bytes, 1, spec->spirv_size, f);
-        fclose(f);
+        String module_name = get_module_name(spec->module);
+        String file_name = format_string(spec->arena, "%s.spv", module_name);
+        write_file(file_name, spec->spirv_size, (unsigned char*)spec->spirv_bytes);
     }
+
     return true;
 }
 
