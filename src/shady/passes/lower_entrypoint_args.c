@@ -33,10 +33,10 @@ static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
     for (int i = 0; i < params.count; ++i) {
         const Type* type = rewrite_node(rewriter, params.nodes[i]->type);
 
-        if (type->tag != QualifiedType_TAG || !type->payload.qualified_type.is_uniform)
+        if (!deconstruct_qualified_type(&type))
             error("EntryPoint parameters must be uniform");
 
-        types[i] = type->payload.qualified_type.type;
+        types[i] = type;
         names[i] = params.nodes[i]->payload.var.name;
     }
 
