@@ -491,10 +491,11 @@ static Module* run_backend_specific_passes(CompilerConfig* config, Module* mod) 
     return mod;
 }
 
-void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output) {
+void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
     IrArena* initial_arena = get_module_arena(mod);
     mod = run_backend_specific_passes(config, mod);
     IrArena* arena = get_module_arena(mod);
+
     struct List* words = new_list(uint32_t);
 
     FileBuilder file_builder = spvb_begin();
@@ -551,6 +552,8 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
     destroy_dict(emitter.extended_instruction_sets);
     destroy_list(words);
 
-    if (initial_arena != arena)
+    if (new_mod)
+        *new_mod = mod;
+    else if (initial_arena != arena)
         destroy_ir_arena(arena);
 }

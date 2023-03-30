@@ -167,18 +167,18 @@ int main(int argc, char** argv) {
         char* output_buffer;
         switch (args.target) {
             case TgtAuto: SHADY_UNREACHABLE;
-            case TgtSPV: emit_spirv(&args.config, mod, &output_size, &output_buffer); break;
+            case TgtSPV: emit_spirv(&args.config, mod, &output_size, &output_buffer, NULL); break;
             case TgtC:
                 args.c_emitter_config.dialect = C;
-                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer);
+                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
             case TgtGLSL:
                 args.c_emitter_config.dialect = GLSL;
-                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer);
+                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
             case TgtISPC:
                 args.c_emitter_config.dialect = ISPC;
-                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer);
+                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
         }
         fwrite(output_buffer, output_size, 1, f);

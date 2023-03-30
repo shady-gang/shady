@@ -552,7 +552,7 @@ static Module* run_backend_specific_passes(SHADY_UNUSED CEmitterConfig* econfig,
     return mod;
 }
 
-void emit_c(CEmitterConfig config, Module* mod, size_t* output_size, char** output) {
+void emit_c(CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
     IrArena* initial_arena = get_module_arena(mod);
     mod = run_backend_specific_passes(&config, mod);
     IrArena* arena = get_module_arena(mod);
@@ -627,6 +627,8 @@ void emit_c(CEmitterConfig config, Module* mod, size_t* output_size, char** outp
     *output = growy_deconstruct(final);
     destroy_printer(finalp);
 
-    if (initial_arena != arena)
+    if (new_mod)
+        *new_mod = mod;
+    else if (initial_arena != arena)
         destroy_ir_arena(arena);
 }

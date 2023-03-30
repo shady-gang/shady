@@ -115,7 +115,15 @@ static bool compile_specialized_program(SpecProgram* spec) {
     CompilerConfig config = get_compiler_config_for_device(spec->device);
 
     CHECK(run_compiler_passes(&config, &spec->module) == CompilationNoError, return false);
-    emit_spirv(&config, spec->module, &spec->spirv_size, &spec->spirv_bytes);
+
+    Module* new_mod;
+    emit_spirv(&config, spec->module, &spec->spirv_size, &spec->spirv_bytes, &new_mod);
+    if (new_mod != spec->module) {
+        destroy_ir_arena(spec->arena);
+        spec->arena = get_module_arena(new_mod);
+        spec->module = new_mod;
+    }
+
     if (spec->base->runtime->config.dump_spv) {
         FILE* f = fopen("runtime-dump.spv", "wb");
         fwrite(spec->spirv_bytes, 1, spec->spirv_size, f);
