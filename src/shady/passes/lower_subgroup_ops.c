@@ -26,6 +26,11 @@ static bool is_extended_type(SHADY_UNUSED IrArena* arena, const Type* t, bool al
     }
 }
 
+static size_t bytes_to_i32_cells(size_t size_in_bytes) {
+    assert(size_in_bytes % 4 == 0);
+    return (size_in_bytes + 3) / 4;
+}
+
 static const Node* process_let(Context* ctx, const Node* old) {
     assert(old->tag == Let_TAG);
     IrArena* arena = ctx->rewriter.dst_arena;

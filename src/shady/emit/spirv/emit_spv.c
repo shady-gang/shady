@@ -34,6 +34,7 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
         case Variable_TAG: error("tried to emit a variable: but all variables should be emitted by enclosing scope or preceding instructions !");
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG:
+        case Value_AntiQuote_TAG:
         case Value_FnAddr_TAG: error("Should be lowered away earlier!");
         case IntLiteral_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
@@ -228,6 +229,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             spvb_branch(basic_block_builder, merge_targets.break_target);
             return;
         }
+        case Terminator_Yield_TAG: error("Should be eliminated by the compiler");
         case Unreachable_TAG: {
             spvb_unreachable(basic_block_builder);
             return;

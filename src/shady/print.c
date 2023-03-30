@@ -448,6 +448,12 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf((char*) get_decl_name(node->payload.fn_addr.fn));
             printf(RESET);
             break;
+        case Value_AntiQuote_TAG:
+            printf(BBLUE);
+            printf("anti_quote ");
+            printf(RESET);
+            print_node(node->payload.anti_quote.instruction);
+            break;
     }
 }
 
@@ -545,6 +551,12 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             print_yield_types(ctx, node->payload.control.yield_types);
             print_param_list(ctx, node->payload.control.inside->payload.anon_lam.params, NULL);
             print_lambda_body(ctx, node->payload.control.inside);
+            break;
+        } case Block_TAG: {
+            printf(BGREEN);
+            printf("block");
+            printf(RESET);
+            print_lambda_body(ctx, node->payload.block.inside);
             break;
         }
     }
@@ -677,6 +689,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
         case MergeSelection_TAG:
         case MergeContinue_TAG:
         case MergeBreak_TAG:
+        case Terminator_Yield_TAG:
             printf(BGREEN);
             printf("%s", node_tags[node->tag]);
             printf(RESET);

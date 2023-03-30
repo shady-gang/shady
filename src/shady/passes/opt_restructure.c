@@ -166,6 +166,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
     switch (is_terminator(body)) {
         case NotATerminator:
         case LetMut_TAG: assert(false);
+        case Terminator_Yield_TAG: error("Should be eliminated by the compiler");
         case Let_TAG: {
             const Node* old_tail = get_let_tail(body);
             Nodes otail_params = get_abstraction_params(old_tail);
@@ -176,6 +177,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 case Instruction_If_TAG:
                 case Instruction_Loop_TAG:
                 case Instruction_Match_TAG: error("not supposed to exist in IR at this stage");
+                case Instruction_Block_TAG: error("Should be eliminated by the compiler");
                 case Instruction_LeafCall_TAG:
                 case Instruction_PrimOp_TAG: {
                     return rebuild_let(ctx, body, recreate_node_identity(&ctx->rewriter, old_instr), exit_ladder);

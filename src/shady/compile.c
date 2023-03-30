@@ -40,6 +40,11 @@ CompilerConfig default_compiler_config() {
 ArenaConfig default_arena_config() {
     return (ArenaConfig) {
         .is_simt = true,
+
+        .memory = {
+            .word_size = IntTy32,
+            .ptr_size = IntTy64,
+        }
     };
 }
 
@@ -89,8 +94,11 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(lower_subgroup_ops)
     RUN_PASS(lower_stack)
+
+    RUN_PASS(lower_lea)
     RUN_PASS(lower_physical_ptrs)
     RUN_PASS(lower_subgroup_vars)
+    RUN_PASS(lower_memory_layout)
 
     RUN_PASS(lower_int)
 

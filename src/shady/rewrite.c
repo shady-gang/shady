@@ -147,6 +147,7 @@ Nodes rewrite_nodes_generic(Rewriter* rewriter, RewriteFn fn, Nodes values) {
 void rewrite_module(Rewriter* rewriter) {
     Nodes old_decls = get_module_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
+        if (old_decls.nodes[i]->tag == NominalType_TAG) continue;
         rewrite_decl(rewriter, old_decls.nodes[i]);
     }
 }
