@@ -361,6 +361,13 @@ static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t
         members_count++;
     }
 
+    // add some dummy thing so we don't end up with a zero-sized thing, which SPIR-V hates
+    if (members_count == 0) {
+        member_tys[0] = int32_type(a);
+        member_names[0] = "dummy";
+        members_count++;
+    }
+
     const Type* record_t = record_type(a, (RecordType) {
         .members = nodes(a, members_count, member_tys),
         .names = strings(a, members_count, member_names)
