@@ -95,6 +95,9 @@ static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const No
         case Instruction_Control_TAG:
             add_edge(ctx, parent->node, instruction->payload.control.inside, ControlBodyEdge);
             break;
+        case Instruction_Block_TAG:
+            add_edge(ctx, parent->node, instruction->payload.block.inside, BlockBodyEdge);
+            break;
     }
 }
 
@@ -132,7 +135,8 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
         }
         case MergeSelection_TAG:
         case MergeContinue_TAG:
-        case MergeBreak_TAG: {
+        case MergeBreak_TAG:
+        case Yield_TAG: {
             // error("TODO: only allow this if we have traversed structured constructs...")
             break;
         }
