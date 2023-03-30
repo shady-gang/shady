@@ -183,6 +183,8 @@ static AddressSpace expect_ptr_address_space(ctxparams) {
         case global_tok:  next_token(tokenizer); return AsGlobalPhysical;
         case private_tok: next_token(tokenizer); return AsPrivatePhysical;
         case shared_tok:  next_token(tokenizer); return AsSharedPhysical;
+        case subgroup_tok:  next_token(tokenizer); return AsSubgroupPhysical;
+        case generic_tok:  next_token(tokenizer); return AsGeneric;
         default: error("expected address space qualifier");
     }
     SHADY_UNREACHABLE;

@@ -15,6 +15,8 @@ list(APPEND BASIC_TESTS test/simplify_control.slim)
 list(APPEND BASIC_TESTS test/float.slim)
 list(APPEND BASIC_TESTS test/fn_decl.slim)
 list(APPEND BASIC_TESTS test/math.slim)
+list(APPEND BASIC_TESTS test/generic_ptrs1.slim)
+list(APPEND BASIC_TESTS test/generic_ptrs2.slim)
 
 list(APPEND BASIC_TESTS test/c/simple1.c)
 list(APPEND BASIC_TESTS test/c/simple2.c)

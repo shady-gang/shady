@@ -1,0 +1,16 @@
+fn foo1 ptr generic i32(varying ptr global i32 x) {
+    return (convert[ptr generic i32](x));
+}
+
+fn foo2 ptr generic i32(varying ptr shared i32 x) {
+    return (convert[ptr generic i32](x));
+}
+
+fn foo3 ptr generic i32(varying ptr subgroup i32 x) {
+    return (convert[ptr generic i32](x));
+}
+
+fn foo4 ptr generic i32(varying ptr private i32 x) {
+    return (convert[ptr generic i32](x));
+}
+
