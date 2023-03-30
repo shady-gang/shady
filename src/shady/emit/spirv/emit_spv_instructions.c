@@ -379,7 +379,7 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
     for (size_t i = 0; i < yield_types.count; i++) {
         assert(if_instr.if_false && "Ifs with yield types need false branches !");
         SpvId phi_id = spvb_fresh_id(emitter->file_builder);
-        SpvId type = emit_type(emitter, get_unqualified_type(yield_types.nodes[i]));
+        SpvId type = emit_type(emitter, yield_types.nodes[i]);
         struct Phi* phi = spvb_add_phi(join_bb, type, phi_id);
         join_phis[i] = phi;
         results[i] = phi_id;
@@ -405,10 +405,9 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
 }
 
 static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match, size_t results_count, SHADY_UNUSED SpvId results[]) {
-    assert(match.yield_types.count == 0 && "TODO use phis");
-    assert(results_count == match.yield_types.count);
-
-    SpvId next_id = spvb_fresh_id(emitter->file_builder);
+    Nodes yield_types = match.yield_types;
+    assert(yield_types.count == results_count);
+    SpvId join_bb_id = spvb_fresh_id(emitter->file_builder);
 
     assert(get_unqualified_type(match.inspect->type)->tag == Int_TAG);
     SpvId inspectee = emit_value(emitter, *bb_builder, match.inspect);
@@ -420,11 +419,23 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
         literals_and_cases[i * 2 + 1] = spvb_fresh_id(emitter->file_builder);
     }
 
-    spvb_selection_merge(*bb_builder, next_id, 0);
+    spvb_selection_merge(*bb_builder, join_bb_id, 0);
     spvb_switch(*bb_builder, inspectee, default_id, match.cases.count, literals_and_cases);
 
+    // When 'join' is codegen'd, these will be filled with the values given to it
+    BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
+    LARRAY(struct Phi*, join_phis, yield_types.count);
+    for (size_t i = 0; i < yield_types.count; i++) {
+        SpvId phi_id = spvb_fresh_id(emitter->file_builder);
+        SpvId type = emit_type(emitter, yield_types.nodes[i]);
+        struct Phi* phi = spvb_add_phi(join_bb, type, phi_id);
+        join_phis[i] = phi;
+        results[i] = phi_id;
+    }
+
     MergeTargets merge_targets_branches = *merge_targets;
-    merge_targets_branches.join_target = next_id;
+    merge_targets_branches.join_target = join_bb_id;
+    merge_targets_branches.join_phis = join_phis;
 
     for (size_t i = 0; i < match.cases.count; i++) {
         BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * 2 + 1]);
@@ -438,9 +449,8 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
     spvb_add_bb(fn_builder, default_bb);
     emit_terminator(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case->payload.anon_lam.body);
 
-    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
-    spvb_add_bb(fn_builder, next);
-    *bb_builder = next;
+    spvb_add_bb(fn_builder, join_bb);
+    *bb_builder = join_bb;
 }
 
 static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Loop loop_instr, size_t results_count, SpvId results[]) {
