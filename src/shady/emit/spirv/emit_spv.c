@@ -6,6 +6,8 @@
 #include "../../ir_private.h"
 #include "../../analysis/scope.h"
 
+#include "../../compile.h"
+
 #include "emit_spv.h"
 #include "emit_spv_builtins.h"
 
@@ -475,7 +477,21 @@ bool compare_node(Node**, Node**);
 KeyHash hash_string(const char** string);
 bool compare_string(const char** a, const char** b);
 
+static Module* run_backend_specific_passes(CompilerConfig* config, Module* mod) {
+    IrArena* old_arena = get_module_arena(mod);
+    ArenaConfig aconfig = old_arena->config;
+    Module* old_mod = mod;
+    IrArena* tmp_arena = NULL;
+
+    RUN_PASS(lower_entrypoint_args)
+    RUN_PASS(spirv_map_entrypoint_args)
+
+    return mod;
+}
+
 void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output) {
+    IrArena* initial_arena = get_module_arena(mod);
+    mod = run_backend_specific_passes(config, mod);
     IrArena* arena = get_module_arena(mod);
     struct List* words = new_list(uint32_t);
 
@@ -532,4 +548,7 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
 
     destroy_dict(emitter.extended_instruction_sets);
     destroy_list(words);
+
+    if (initial_arena != arena)
+        destroy_ir_arena(arena);
 }

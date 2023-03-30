@@ -1,4 +1,5 @@
 list(APPEND BASIC_TESTS test/empty.slim)
+list(APPEND BASIC_TESTS test/entrypoint_args1.slim)
 list(APPEND BASIC_TESTS test/basic_blocks1.slim)
 list(APPEND BASIC_TESTS test/control_flow1.slim)
 list(APPEND BASIC_TESTS test/control_flow2.slim)

@@ -91,7 +91,7 @@ SpvDef* get_definition_by_id(SpvParser* parser, size_t id);
 
 SpvDef* new_def(SpvParser* parser) {
     SpvDef* interned = arena_alloc(parser->decorations_arena, sizeof(SpvDef));
-    SpvDef empty = {};
+    SpvDef empty = {0};
     memcpy(interned, &empty, sizeof(SpvDef));
     return interned;
 }

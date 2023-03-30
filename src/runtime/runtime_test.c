@@ -13,7 +13,7 @@
 #include <assert.h>
 
 static const char* default_shader =
-"@EntryPoint(\"compute\") @WorkgroupSize(64, 1, 1) fn main() {\n"
+"@EntryPoint(\"compute\") @WorkgroupSize(32, 1, 1) fn main() {\n"
 "    debug_printf(\"hi\");"
 "    return ();\n"
 "}";
@@ -79,15 +79,15 @@ int main(int argc, char* argv[]) {
     size_t num_source_files = entries_count_list(args.input_filenames);
     LARRAY(const char*, read_files, num_source_files);
     for (size_t i = 0; i < num_source_files; i++) {
-        const char* input_file_contents;
+        unsigned char* input_file_contents;
 
-        bool ok = read_file(read_list(const char*, args.input_filenames)[i], NULL, input_file_contents);
+        bool ok = read_file(read_list(const char*, args.input_filenames)[i], NULL, &input_file_contents);
         assert(ok);
-        if ((void*)input_file_contents == NULL) {
+        if (input_file_contents == NULL) {
             error_print("file does not exist\n");
             exit(InputFileDoesNotExist);
         }
-        read_files[i] = input_file_contents;
+        read_files[i] = (char*)input_file_contents;
     }
     destroy_list(args.input_filenames);
 

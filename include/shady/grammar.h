@@ -169,9 +169,12 @@ typedef enum AddressSpace_ {
 
     // "fake" address space for function pointers
     AsProgramCode,
-} AddressSpace;
 
-enum { NumAddressSpaces = AsProgramCode + 1 };
+    NumAddressSpaces,
+
+    // address spaces used by backends
+    AsPushConstant
+} AddressSpace;
 
 typedef struct PtrType_ PtrType;
 #define PtrType_Fields(MkField) \

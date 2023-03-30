@@ -46,6 +46,9 @@ set(SHADY_SOURCES
     passes/opt_stack.c
     passes/opt_restructure.c
     passes/simt2d.c
+
+    passes/lower_entrypoint_args.c
+    passes/spirv_map_entrypoint_args.c
 )
 
 add_library(shady SHARED ${SHADY_SOURCES})

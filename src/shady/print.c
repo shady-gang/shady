@@ -77,6 +77,8 @@ static void print_storage_qualifier_for_global(PrinterCtx* ctx, AddressSpace as)
         case AsOutput:               printf("output"); break;
         case AsExternal:           printf("external"); break;
         case AsProgramCode:    printf("program_code"); break;
+
+        case AsPushConstant:  printf("push_constant"); break;
     }
     printf(RESET);
 }
@@ -101,6 +103,8 @@ static void print_ptr_addr_space(PrinterCtx* ctx, AddressSpace as) {
         case AsOutput:               printf("output"); break;
         case AsExternal:           printf("external"); break;
         case AsProgramCode:    printf("program_code"); break;
+
+        case AsPushConstant:  printf("push_constant"); break;
     }
     printf(RESET);
 }
