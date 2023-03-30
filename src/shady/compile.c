@@ -51,13 +51,13 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(bind_program)
     RUN_PASS(normalize)
 
-    RUN_PASS(reconvergence_heuristics)
-
     // TODO: do this late
     patch_constants(config, mod);
 
     aconfig.check_types = true;
     RUN_PASS(infer_program)
+
+    RUN_PASS(reconvergence_heuristics)
 
     aconfig.allow_fold = true;
 
