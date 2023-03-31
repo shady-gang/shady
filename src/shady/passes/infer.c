@@ -342,7 +342,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             assert(type_args.count == 1);
             const Type* element_type = type_args.nodes[0];
             assert(is_data_type(element_type));
-            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], element_type);
+            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], qualified_type_helper(element_type, false));
             goto skip_input_types;
         }
         case pop_stack_op:
@@ -351,7 +351,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             assert(type_args.count == 1);
             const Type* element_type = type_args.nodes[0];
             assert(is_data_type(element_type));
-            new_inputs_scratch[0] = element_type;
+            //new_inputs_scratch[0] = element_type;
             goto skip_input_types;
         }
         case load_op: {
@@ -422,10 +422,10 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
             goto skip_input_types;
         case subgroup_ballot_op:
-            input_types = nodes(dst_arena, 1, (const Type* []) { bool_type(dst_arena) });
+            input_types = singleton(qualified_type_helper(bool_type(dst_arena), false));
             break;
         case mask_is_thread_active_op: {
-            input_types = nodes(dst_arena, 2, (const Type* []) { mask_type(dst_arena), uint32_type(dst_arena) });
+            input_types = mk_nodes(dst_arena, qualified_type_helper(mask_type(dst_arena), false), qualified_type_helper(uint32_type(dst_arena), false));
             break;
         }
         default: {
