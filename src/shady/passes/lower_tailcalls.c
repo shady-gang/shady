@@ -282,7 +282,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             BodyBuilder* if_builder = begin_body(ctx->rewriter.dst_module);
             if (ctx->config->printf_trace.god_function)
-                bind_instruction(zero_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d will run fn %d with mask = %x %b\n" }), local_id, fn_lit, next_mask, should_run) }));
+                bind_instruction(if_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d will run fn %d with mask = %x %b\n" }), local_id, fn_lit, next_mask, should_run) }));
             bind_instruction(if_builder, leaf_call(dst_arena, (LeafCall) {
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, 0, NULL)

@@ -69,6 +69,13 @@ static const Node* bytes_to_words(Context* ctx, BodyBuilder* bb, const Node* byt
     return gen_primop_e(bb, div_op, empty(a), mk_nodes(a, bytes, bytes_per_word));
 }
 
+static uint64_t bytes_to_words_static(Context* ctx, uint64_t bytes) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
+    uint64_t word_width = get_type_bitwidth(word_type);
+    return bytes / ( word_width / 8 );
+}
+
 static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset) {
     const CompilerConfig* config = ctx->config;
     const Node* zero = size_t_literal(ctx, 0);
@@ -90,7 +97,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 // note: folding gets rid of identity casts
                 value = gen_primop_e(bb, reinterpret_op, singleton(element_type), singleton(value));
                 if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded: %u at %d as=%d" }),
+                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded: %u at %lu as=%d" }),
                         value, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
                 return value;
             } else {
@@ -98,13 +105,13 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
                 const Node* lo = gen_load(bb, logical_ptr);
                 if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded i64 lo: %u at %d as=%d" }),
+                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded i64 lo: %u at %lu as=%d" }),
                        lo, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
-                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, size_t_literal(ctx, 1) });
+                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, size_t_literal(ctx, bytes_to_words_static(ctx, 4)) });
                 logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset });
                 const Node* hi = gen_load(bb, logical_ptr);
                 if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded i64 hi: %u at %d as=%d" }),
+                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded i64 hi: %u at %lu as=%d" }),
                        hi, hi_destination_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
 
                 const Node* merged = gen_merge_halves(bb, lo, hi);
@@ -125,6 +132,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* field_offset = gen_primop_e(bb, offset_of_op, singleton(element_type), singleton(size_t_literal(ctx, i)));
+                            field_offset = bytes_to_words(ctx, bb, field_offset);
                 const Node* adjusted_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, field_offset));
                 loaded[i] = gen_deserialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset);
             }
@@ -158,7 +166,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 value = gen_primop_e(bb, convert_op, singleton(uint32_type(bb->arena)), singleton(value));
                 const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
                 if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored: %u at %d as=%d" }),
+                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored: %u at %lu as=%d" }),
                         value, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
                 gen_store(bb, logical_ptr, value);
             } else {
@@ -171,13 +179,13 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
                 gen_store(bb, logical_ptr, lo);
                 if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored i64 lo: %u at %d as=%d" }),
+                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored i64 lo: %u at %lu as=%d" }),
                         lo, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
-                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, size_t_literal(ctx, 1) });
+                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, size_t_literal(ctx, bytes_to_words_static(ctx, 4)) });
                 logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset});
                 gen_store(bb, logical_ptr, hi);
                 if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored i64 hi: %u at %d as=%d" }),
+                    bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "stored i64 hi: %u at %lu as=%d" }),
                         hi, hi_destination_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
             }
             return;
@@ -192,6 +200,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* extracted_value = first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, value, int32_literal(bb->arena, i)), .type_arguments = empty(bb->arena) })));
                 const Node* field_offset = gen_primop_e(bb, offset_of_op, singleton(element_type), singleton(size_t_literal(ctx, i)));
+                            field_offset = bytes_to_words(ctx, bb, field_offset);
                 const Node* adjusted_offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, base_offset, field_offset));
                 gen_serialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset, extracted_value);
             }
@@ -223,11 +232,11 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     IrArena* arena = ctx->rewriter.dst_arena;
 
     const Type* emulated_ptr_type = int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false });
-    const Node* addr_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform, .type = emulated_ptr_type }), "ptr");
+    const Node* address_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform, .type = emulated_ptr_type }), "ptr");
 
     const Type* input_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform, .type = element_type });
     const Node* value_param = ser ? var(arena, input_value_t, "value") : NULL;
-    Nodes params = ser ? mk_nodes(arena, addr_param, value_param) : singleton(addr_param);
+    Nodes params = ser ? mk_nodes(arena, address_param, value_param) : singleton(address_param);
 
     const Type* return_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || (uniform && is_addr_space_uniform(arena, as)), .type = element_type });
     Nodes return_ts = ser ? empty(arena) : singleton(return_value_t);
@@ -237,12 +246,13 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+    const Node* address = bytes_to_words(ctx, bb, address_param);
     const Node* base = ref_decl(arena, (RefDecl) { .decl = *get_emulated_as_word_array(ctx, as) });
     if (ser) {
-        gen_serialisation(ctx, bb, element_type, base, addr_param, value_param);
+        gen_serialisation(ctx, bb, element_type, base, address, value_param);
         fun->payload.fun.body = finish_body(bb, fn_ret(arena, (Return) { .fn = fun, .args = empty(arena) }));
     } else {
-        const Node* loaded_value = gen_deserialisation(ctx, bb, element_type, base, addr_param);
+        const Node* loaded_value = gen_deserialisation(ctx, bb, element_type, base, address);
         assert(loaded_value);
         fun->payload.fun.body = finish_body(bb, fn_ret(arena, (Return) { .fn = fun, .args = singleton(loaded_value) }));
     }
@@ -351,9 +361,9 @@ static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
         BodyBuilder* bb = begin_body(m);
         const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(size_t_literal(ctx,  members_count)));
-        const Node* offset_in_words = bytes_to_words(ctx, bb, offset);
+        // const Node* offset_in_words = bytes_to_words(ctx, bb, offset);
         cnst->payload.constant.value = anti_quote(a, (AntiQuote) {
-            .instruction = yield_values_and_wrap_in_block(bb, singleton(offset_in_words))
+            .instruction = yield_values_and_wrap_in_block(bb, singleton(offset))
         });
 
         register_processed(&ctx->rewriter, decl, cnst);
