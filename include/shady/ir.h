@@ -235,6 +235,7 @@ typedef struct CompilerConfig_ {
         bool stack_accesses;
         bool god_function;
         bool stack_size;
+        bool subgroup_ops;
     } printf_trace;
 
     struct {
