@@ -45,7 +45,7 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
         const Node* node = decls.nodes[i];
 
         switch (node->tag) {
-            case GlobalVariable_TAG:
+            case GlobalVariable_TAG: {
                 const Node* entry_point_args_annotation = lookup_annotation(node, "EntryPointArgs");
                 if (entry_point_args_annotation) {
                     if (node->payload.global_variable.type->tag != RecordType_TAG) {
@@ -62,7 +62,8 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
                     args_struct_type = node->payload.global_variable.type;
                 }
                 break;
-            case Function_TAG:
+            }
+            case Function_TAG: {
                 if (lookup_annotation(node, "EntryPoint")) {
                     if (node->payload.fun.params.count != 0) {
                         error_print("EntryPoint cannot have parameters\n");
@@ -77,6 +78,7 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
                     entrypoint = node;
                 }
                 break;
+            }
             default: break;
         }
     }
