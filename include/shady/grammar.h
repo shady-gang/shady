@@ -37,6 +37,7 @@ N(1, 1, 1, StringLiteral, string_lit) \
 N(0, 1, 1, Composite, composite) \
 N(1, 1, 1, FnAddr, fn_addr) \
 N(1, 1, 1, RefDecl, ref_decl) \
+N(1, 1, 1, AntiQuote, anti_quote) \
 
 #define INSTRUCTION_NODES(N) \
 N(1, 1, 1, LeafCall, leaf_call) \
@@ -46,6 +47,7 @@ N(1, 1, 1, If, if_instr) \
 N(1, 1, 1, Match, match_instr) \
 N(1, 1, 1, Loop, loop_instr) \
 N(1, 1, 1, Control, control) \
+N(1, 1, 1, Block, block) \
 
 #define TERMINATOR_NODES(N) \
 N(0, 1, 1, Let, let) \
@@ -58,6 +60,7 @@ N(1, 1, 1, Join, join) \
 N(1, 1, 1, MergeSelection, merge_selection) \
 N(1, 1, 1, MergeContinue, merge_continue) \
 N(1, 1, 1, MergeBreak, merge_break) \
+N(1, 1, 1, Yield, yield) \
 N(1, 1, 1, Return, fn_ret) \
 N(1, 1, 0, Unreachable, unreachable) \
 
@@ -152,26 +155,35 @@ typedef enum AddressSpace_ {
     /// Global memory, all threads see the same data (not necessarily consistent!)
     AsGlobalPhysical,
 
-    // Local variants of the prior four ASes
-    AsSubgroupLogical,
+    // All address spaces after this are 'logical', that is, their pointers have an opaque representation
+    // their bit-pattern is not observable, they cannot be reinterpreted and pointer arithmetic is severely limited
+    PhysicalAddressSpacesEnd = AsGlobalPhysical,
+
+    // Logical variants of the prior four ASes
     AsPrivateLogical,
+    AsSubgroupLogical,
     AsSharedLogical,
     AsGlobalLogical,
-
-    /// Weird nonsense for SPIR-V, this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)
-    AsFunctionLogical,
 
     /// special addressing spaces for input/output global variables in shader stages
     AsInput,
     AsOutput,
-    /// Ditto for descriptors
+
+    /// For resources supplied by the host, agnostic of the binding model
     AsExternal,
 
     // "fake" address space for function pointers
     AsProgramCode,
-} AddressSpace;
 
-enum { NumAddressSpaces = AsProgramCode + 1 };
+    // SPIR-V specific address spaces
+
+    /// Maps to Vulkan push constants
+    AsPushConstant,
+    /// Weird nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)
+    AsFunctionLogical,
+
+    NumAddressSpaces,
+} AddressSpace;
 
 typedef struct PtrType_ PtrType;
 #define PtrType_Fields(MkField) \
@@ -289,6 +301,11 @@ typedef struct FnAddr_ FnAddr;
 #define FnAddr_Fields(MkField) \
 MkField(1, DECL, const Node*, fn)
 
+/// Like RefDecl but for functions, it yields a _function pointer_ !
+typedef struct AntiQuote_ AntiQuote;
+#define AntiQuote_Fields(MkField) \
+MkField(1, INSTRUCTION, const Node*, instruction)
+
 //////////////////////////////// Instructions ////////////////////////////////
 
 typedef struct PrimOp_ PrimOp;
@@ -339,6 +356,12 @@ MkField(1, VALUES, Nodes, initial_args)
 typedef struct Control_ Control;
 #define Control_Fields(MkField) \
 MkField(1, TYPES, Nodes, yield_types) \
+MkField(1, TERMINATOR, const Node*, inside)
+
+/// Structured "block" construct
+/// used as a helper block to insert multiple instructions in place of one
+typedef struct Block_ Block;
+#define Block_Fields(MkField) \
 MkField(1, TERMINATOR, const Node*, inside)
 
 //////////////////////////////// Terminators ////////////////////////////////
@@ -405,6 +428,10 @@ MkField(1, VALUES, Nodes, args)
 
 typedef struct MergeBreak_ MergeBreak;
 #define MergeBreak_Fields(MkField) \
+MkField(1, VALUES, Nodes, args)
+
+typedef struct Yield_ Yield;
+#define Yield_Fields(MkField) \
 MkField(1, VALUES, Nodes, args)
 
 //////////////////////////////// Decls ////////////////////////////////

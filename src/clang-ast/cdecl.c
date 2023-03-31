@@ -40,7 +40,7 @@ static const Type* eat_qualtype(ClangAst* ast, bool value_type, size_t* plen, co
     const Type* acc = accept_primtype(ast, plen, ptype);
     while (acc) {
         if (accept_token(plen, ptype, "(")) {
-            if (!contains_qualified_type(acc))
+            if (!is_value_type(acc))
                 acc = qualified_type_helper(acc, false);
 
             bool first = true;

@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
     size_t size = ftell(src);
     fseek(src, 0, 0);
 
-    printf("source file is %ld bytes long\n", size);
+    printf("source file is %zd bytes long\n", size);
 
     size_t pos = 0;
     char buffer[16384];

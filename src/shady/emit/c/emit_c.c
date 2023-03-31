@@ -76,6 +76,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
 
     switch (is_value(value)) {
         case NotAValue: assert(false);
+        case Value_AntiQuote_TAG:
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG: error("lower me");
         case Value_Variable_TAG: error("variables need to be emitted beforehand");
@@ -197,6 +198,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
         case NotATerminator: assert(false);
         case LetMut_TAG:
         case Join_TAG: error("this must be lowered away!");
+        case Terminator_Yield_TAG: error("Should be eliminated by the compiler");
         case Jump_TAG:
         case Branch_TAG:
         case Switch_TAG:
@@ -423,7 +425,6 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     break;
                 case AsGlobalLogical:
                     break;
-                case AsFunctionLogical:
                     break;
                 case AsInput:
                     break;
@@ -433,6 +434,9 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     break;
                 case AsProgramCode:
                     break;
+                case AsFunctionLogical:
+                case AsPushConstant: error("These only make sense for SPIR-V !")
+                case NumAddressSpaces: error("");
             }
 
             if (!address_space_prefix) {

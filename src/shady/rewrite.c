@@ -50,8 +50,10 @@ static const Node* recreate_node_substitutions_only(Rewriter* rewriter, const No
         return node;
     if (node->tag == Variable_TAG)
         return node;
-    if (node->tag == BasicBlock_TAG) {
-        ((Node*) node)->payload.basic_block.body = rewrite_node(rewriter, node->payload.basic_block.body);
+    if (node->tag == BasicBlock_TAG && !node->payload.basic_block.body) {
+    // if (node->tag == BasicBlock_TAG) {
+        // ((Node*) node)->payload.basic_block.body = rewrite_node(rewriter, node->payload.basic_block.body);
+        register_processed(rewriter, node, node);
         return node;
     }
     return recreate_node_identity(rewriter, node);
@@ -145,6 +147,7 @@ Nodes rewrite_nodes_generic(Rewriter* rewriter, RewriteFn fn, Nodes values) {
 void rewrite_module(Rewriter* rewriter) {
     Nodes old_decls = get_module_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
+        if (old_decls.nodes[i]->tag == NominalType_TAG) continue;
         rewrite_decl(rewriter, old_decls.nodes[i]);
     }
 }
@@ -222,6 +225,21 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
     }
 }
 
+static const Node* rebind_results(Rewriter* rewriter, const Node* ninstruction, const Node* olam) {
+    assert(olam->tag == AnonLambda_TAG);
+    Nodes oparams = olam->payload.anon_lam.params;
+    Nodes ntypes = unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type);
+    assert(ntypes.count == oparams.count);
+    LARRAY(const Node*, new_params, oparams.count);
+    for (size_t i = 0; i < oparams.count; i++) {
+        new_params[i] = var(rewriter->dst_arena, ntypes.nodes[i], oparams.nodes[i]->payload.var.name);
+        register_processed(rewriter, oparams.nodes[i], new_params[i]);
+    }
+    const Node* nbody = rewrite_node(rewriter, olam->payload.anon_lam.body);
+    const Node* tail = lambda(rewriter->dst_module, nodes(rewriter->dst_arena, oparams.count, new_params), nbody);
+    return tail;
+}
+
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;
@@ -270,7 +288,18 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Composite_TAG: return composite(arena, rewrite_type(rewriter, node->payload.composite.type), rewrite_nodes_generic(rewriter, rewrite_value, node->payload.composite.contents));
         case Let_TAG: {
             const Node* instruction = rewrite_instruction(rewriter, node->payload.let.instruction);
-            const Node* tail = rewrite_anon_lambda(rewriter, node->payload.let.tail);
+            if (arena->config.check_types && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
+                Nodes old_params = node->payload.let.tail->payload.anon_lam.params;
+                Nodes new_args = instruction->payload.prim_op.operands;
+                assert(old_params.count == new_args.count);
+                register_processed_list(rewriter, old_params, new_args);
+                return rewrite_node(rewriter, node->payload.let.tail->payload.anon_lam.body);
+            }
+            const Node* tail;
+            if (arena->config.check_types)
+                tail = rebind_results(rewriter, instruction, node->payload.let.tail);
+            else
+                tail = rewrite_anon_lambda(rewriter, node->payload.let.tail);
             return let(arena, instruction, tail);
         }
         case LetMut_TAG: error("De-sugar this by hand")

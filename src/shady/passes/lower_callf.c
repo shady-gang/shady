@@ -36,7 +36,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
             // Supplement an additional parameter for the join point
             const Type* jp_type = join_point_type(dst_arena, (JoinPointType) {
-                    .yield_types = strip_qualifiers(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
+                .yield_types = strip_qualifiers(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
             });
             const Node* jp_variable = var(dst_arena, qualified_type_helper(jp_type, true), "return_jp");
             nparams = append_nodes(dst_arena, nparams, jp_variable);

@@ -51,7 +51,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push, boo
     BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
 
     TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
-    const Node* element_size = int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes));
+    const Node* element_size = uint32_literal(arena, layout.size_in_bytes);
 
     // TODO somehow annotate the uniform guys as uniform
     const Node* stack_pointer = uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer;
@@ -62,7 +62,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push, boo
     if (!push) // for pop, we decrease the stack size first
         stack_size = gen_primop_ce(bb, sub_op, 2, (const Node* []) { stack_size, element_size});
 
-    const Node* addr = gen_lea(bb, stack, stack_size, nodes(arena, 1, (const Node* []) { int32_literal(arena, 0) }));
+    const Node* addr = gen_lea(bb, stack, stack_size, nodes(arena, 1, (const Node* []) { uint32_literal(arena, 0) }));
     assert(get_unqualified_type(addr->type)->tag == PtrType_TAG);
     AddressSpace addr_space = get_unqualified_type(addr->type)->payload.ptr_type.address_space;
 
@@ -146,7 +146,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
                 const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
                 TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
-                const Node* element_size = int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes));
+                const Node* element_size = uint32_literal(arena, layout.size_in_bytes);
 
                 bool push = oprim_op->op == push_stack_op || oprim_op->op == push_stack_uniform_op;
                 bool uniform = oprim_op->op == push_stack_uniform_op || oprim_op->op == pop_stack_uniform_op;
@@ -179,10 +179,12 @@ static const Node* process_node(Context* ctx, const Node* old) {
         BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
 
         // Make sure to zero-init the stack pointers
+        // TODO isn't this redundant with thoose things having an initial value already ?
+        // is this an old forgotten workarround ?
         const Node* uniform_stack_pointer = ctx->uniform_stack_pointer;
-        gen_store(bb, uniform_stack_pointer, int32_literal(arena, 0));
+        gen_store(bb, uniform_stack_pointer, uint32_literal(arena, 0));
         const Node* stack_pointer = ctx->stack_pointer;
-        gen_store(bb, stack_pointer, int32_literal(arena, 0));
+        gen_store(bb, stack_pointer, uint32_literal(arena, 0));
         new->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body));
         return new;
     }
@@ -199,7 +201,7 @@ bool compare_node(Node**, Node**);
 void lower_stack(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     IrArena* dst_arena = get_module_arena(dst);
 
-    const Type* stack_base_element = int32_type(dst_arena);
+    const Type* stack_base_element = uint8_type(dst_arena);
     const Type* stack_arr_type = arr_type(dst_arena, (ArrType) {
         .element_type = stack_base_element,
         .size = uint32_literal(dst_arena, config->per_thread_stack_size),
@@ -208,7 +210,7 @@ void lower_stack(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) 
         .element_type = stack_base_element,
         .size = uint32_literal(dst_arena, config->per_subgroup_stack_size),
     });
-    const Type* stack_counter_t = int32_type(dst_arena);
+    const Type* stack_counter_t = uint32_type(dst_arena);
 
     // TODO add a @Synthetic annotation to tag those
     Nodes annotations = nodes(dst_arena, 0, NULL);
@@ -219,9 +221,9 @@ void lower_stack(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) 
 
     // Pointers into those arrays
     Node* stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "stack_ptr", AsPrivateLogical);
-    stack_ptr_decl->payload.global_variable.init = int32_literal(dst_arena, 0);
+    stack_ptr_decl->payload.global_variable.init = uint32_literal(dst_arena, 0);
     Node* uniform_stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "uniform_stack_ptr", AsSubgroupLogical);
-    uniform_stack_ptr_decl->payload.global_variable.init = int32_literal(dst_arena, 0);
+    uniform_stack_ptr_decl->payload.global_variable.init = uint32_literal(dst_arena, 0);
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),

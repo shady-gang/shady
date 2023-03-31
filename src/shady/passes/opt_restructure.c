@@ -9,6 +9,7 @@
 #include "../type.h"
 
 #include <setjmp.h>
+#include <string.h>
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -165,6 +166,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
     switch (is_terminator(body)) {
         case NotATerminator:
         case LetMut_TAG: assert(false);
+        case Terminator_Yield_TAG: error("Should be eliminated by the compiler");
         case Let_TAG: {
             const Node* old_tail = get_let_tail(body);
             Nodes otail_params = get_abstraction_params(old_tail);
@@ -175,6 +177,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 case Instruction_If_TAG:
                 case Instruction_Loop_TAG:
                 case Instruction_Match_TAG: error("not supposed to exist in IR at this stage");
+                case Instruction_Block_TAG: error("Should be eliminated by the compiler");
                 case Instruction_LeafCall_TAG:
                 case Instruction_PrimOp_TAG: {
                     return rebuild_let(ctx, body, recreate_node_identity(&ctx->rewriter, old_instr), exit_ladder);
@@ -317,6 +320,15 @@ static const Node* process(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
+    if (is_declaration(node)) {
+        String name = get_decl_name(node);
+        Nodes decls = get_module_declarations(ctx->rewriter.dst_module);
+        for (size_t i = 0; i < decls.count; i++) {
+            if (strcmp(get_decl_name(decls.nodes[i]), name) == 0)
+                return decls.nodes[i];
+        }
+    }
+
     if (node->tag == Function_TAG) {
         Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
 
@@ -329,10 +341,11 @@ static const Node* process(Context* ctx, const Node* node) {
         bool is_leaf = false;
         if (is_builtin || !node->payload.fun.body || !lookup_annotation(node, "MaybeLeaf") || setjmp(ctx2.bail)) {
             ctx2.lower = false;
+            ctx2.rewriter.processed = ctx->rewriter.processed;
             if (node->payload.fun.body)
                 new->payload.fun.body = rewrite_node(&ctx2.rewriter, node->payload.fun.body);
             // builtin functions are always considered leaf functions
-            is_leaf = is_builtin;
+            is_leaf = is_builtin || !node->payload.fun.body;
         } else {
             ctx2.lower = true;
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
@@ -340,6 +353,9 @@ static const Node* process(Context* ctx, const Node* node) {
             bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ptr, int32_literal(arena, 0)) }));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
+            struct Dict* tmp_processed = clone_dict(ctx->rewriter.processed);
+            append_list(struct Dict*, ctx->tmp_alloc_stack, tmp_processed);
+            ctx2.rewriter.processed = tmp_processed;
             new->payload.fun.body = finish_body(bb, structure(&ctx2, node, unreachable(arena)));
             is_leaf = true;
         }
@@ -348,7 +364,7 @@ static const Node* process(Context* ctx, const Node* node) {
             new->payload.fun.annotations = append_nodes(arena, new->payload.fun.annotations, annotation(arena, (Annotation) { .name = "Leaf" }));
 
         // if we did a longjmp, we might have orphaned a few of those
-        while (alloc_stack_size_now >  entries_count_list(ctx->tmp_alloc_stack)) {
+        while (alloc_stack_size_now < entries_count_list(ctx->tmp_alloc_stack)) {
             struct Dict* orphan = pop_last_list(struct Dict*, ctx->tmp_alloc_stack);
             destroy_dict(orphan);
         }
@@ -356,6 +372,18 @@ static const Node* process(Context* ctx, const Node* node) {
         new->payload.fun.annotations = filter_out_annotation(arena, new->payload.fun.annotations, "MaybeLeaf");
 
         return new;
+    } else if (node->tag == Instruction_IndirectCall_TAG) {
+        const Node* callee = node->payload.indirect_call.callee;
+        if (callee->tag == FnAddr_TAG) {
+            const Node* fn = rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
+            if (lookup_annotation(fn, "Leaf")) {
+                const Node* call = leaf_call(arena, (LeafCall) {
+                        .callee = fn,
+                        .args = rewrite_nodes(&ctx->rewriter, node->payload.indirect_call.args)
+                });
+                return call;
+            }
+        }
     }
 
     if (!ctx->lower)

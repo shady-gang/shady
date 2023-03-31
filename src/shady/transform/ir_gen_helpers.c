@@ -2,6 +2,7 @@
 
 #include "list.h"
 #include "portability.h"
+#include "log.h"
 
 #include "../ir_private.h"
 #include "../type.h"
@@ -108,4 +109,31 @@ const Node* access_decl(Rewriter* rewriter, Module* mod, const char* name) {
         return fn_addr(rewriter->dst_arena, (FnAddr) { .fn = decl });
     else
         return ref_decl(rewriter->dst_arena, (RefDecl) { .decl = decl });
+}
+
+const Node* get_default_zero_value(IrArena* a, const Type* t) {
+    switch (is_type(t)) {
+        case NotAType: error("")
+        case Type_MaskType_TAG:
+        case Type_JoinPointType_TAG: error("TODO");
+        case Type_NoRet_TAG: error("Has no values (let alone a default one!)");
+        case Type_Int_TAG: return int_literal(a, (IntLiteral) { .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed, .value.u64 = 0 });
+        case Type_Float_TAG: return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value.b64 = 0 });
+        case Type_Bool_TAG: return false_lit(a);
+        case Type_FnType_TAG:
+        case Type_BBType_TAG:
+        case Type_LamType_TAG: error("These are symbolic and lack concrete values, so no defaults either.");
+        case Type_PtrType_TAG: error("TODO nullptr constant");
+        case Type_QualifiedType_TAG: return get_default_zero_value(a, t->payload.qualified_type.type);
+        case Type_RecordType_TAG:
+        case Type_ArrType_TAG:
+        case Type_PackType_TAG:
+        case Type_TypeDeclRef_TAG: {
+            Nodes elem_tys = get_composite_type_element_types(t);
+            LARRAY(const Node*, elems, elem_tys.count);
+            for (size_t i = 0; i < elem_tys.count; i++)
+                elems[i] = get_default_zero_value(a, elem_tys.nodes[i]);
+            return composite(a, t, nodes(a, elem_tys.count, elems));
+        }
+    }
 }

@@ -38,7 +38,8 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
         }
         outputs_count = types.count;
     } else {
-         if (provided_types) {
+        assert(outputs_count != SIZE_MAX);
+        if (provided_types) {
             assert(provided_types->count == outputs_count);
             types = *provided_types;
         } else {
@@ -81,6 +82,7 @@ static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool m
     append_list(StackEntry, builder->stack, entry);
     return params;
 }
+
 Nodes bind_instruction_extra(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
     return bind_internal(builder, instruction, false, outputs_count, provided_types, output_names);
 }
@@ -121,21 +123,12 @@ const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
     return terminator;
 }
 
-const Node* yield_values_and_wrap_in_control(BodyBuilder* bb, Nodes values) {
+const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
     IrArena* arena = bb->arena;
     Module* module = bb->module;
-    Nodes types = get_values_types(arena, values);
-    types = strip_qualifiers(arena, types);
-
-    const Type* jp_type = join_point_type(arena, (JoinPointType) { .yield_types = types });
-    const Node* jp_variable = var(arena, qualified_type_helper(jp_type, true), "jp");
-    const Node* terminator = join(arena, (Join) {
-        .join_point = jp_variable,
-        .args = values
-    });
-    const Node* lam = lambda(module, singleton(jp_variable), finish_body(bb, terminator));
-    return control(arena, (Control) {
-        .yield_types = types,
+    const Node* terminator = yield(arena, (Yield) { .args = values });
+    const Node* lam = lambda(module, empty(arena), finish_body(bb, terminator));
+    return block(arena, (Block) {
         .inside = lam,
     });
 }

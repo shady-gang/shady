@@ -14,7 +14,7 @@
 static Nodes annotate_all_types(IrArena* arena, Nodes types, bool uniform_by_default) {
     LARRAY(const Type*, ntypes, types.count);
     for (size_t i = 0; i < types.count; i++) {
-        if (!contains_qualified_type(types.nodes[i]))
+        if (is_data_type(types.nodes[i]))
             ntypes[i] = qualified_type(arena, (QualifiedType) {
                 .type = types.nodes[i],
                 .is_uniform = uniform_by_default,
@@ -135,7 +135,7 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
 
 /// Like get_unqualified_type but won't error out if type wasn't qualified to begin with
 static const Type* remove_uniformity_qualifier(const Node* type) {
-    if (contains_qualified_type(type))
+    if (is_value_type(type))
         return get_unqualified_type(type);
     return type;
 }
@@ -246,6 +246,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
 
             return composite(dst_arena, elem_type, nmembers);
         }
+        case Value_AntiQuote_TAG: error("TODO");
     }
 }
 
@@ -377,8 +378,37 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
         case lea_op: {
             assert(old_operands.count >= 2);
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
-            for (size_t i = 1; i < old_operands.count; i++) {
+            new_inputs_scratch[1] = infer(ctx, old_operands.nodes[1], NULL);
+            for (size_t i = 2; i < old_operands.count; i++) {
                 new_inputs_scratch[i] = infer(ctx, old_operands.nodes[i], /*int32_type(dst_arena)*/ NULL);
+            }
+
+            const Type* base_datatype = remove_uniformity_qualifier(new_inputs_scratch[0]->type);
+            assert(base_datatype->tag == PtrType_TAG);
+            AddressSpace as = deconstruct_pointer_type(&base_datatype);
+            const IntLiteral* lit = resolve_to_literal(new_inputs_scratch[1]);
+            if (!lit || lit->value.u64 != 0 && base_datatype->tag != ArrType_TAG) {
+                warn_print("LEA used on a pointer to a non-array type!\n");
+                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                const Node* cast_base = first(bind_instruction(bb, prim_op(dst_arena, (PrimOp) {
+                    .op = reinterpret_op,
+                    .type_arguments = singleton(ptr_type(dst_arena, (PtrType) {
+                        .address_space = as,
+                        .pointed_type = arr_type(dst_arena, (ArrType) {
+                            .element_type = base_datatype,
+                            .size = NULL
+                        }),
+                    })),
+                    .operands = singleton(new_inputs_scratch[0]),
+                })));
+                Nodes final_lea_ops = mk_nodes(dst_arena, cast_base, new_inputs_scratch[1], int32_literal(dst_arena, 0));
+                final_lea_ops = concat_nodes(dst_arena, final_lea_ops, nodes(dst_arena, old_operands.count - 2, new_inputs_scratch + 2));
+                const Node* rslt = first(bind_instruction(bb, prim_op(dst_arena, (PrimOp) {
+                        .op = lea_op,
+                        .type_arguments = empty(dst_arena),
+                        .operands = final_lea_ops
+                })));
+                return yield_values_and_wrap_in_block(bb, singleton(rslt));
             }
             goto skip_input_types;
         }
@@ -551,6 +581,19 @@ static const Node* _infer_control(Context* ctx, const Node* node, const Type* ex
     });
 }
 
+static const Node* _infer_block(Context* ctx, const Node* node, const Type* expected_type) {
+    assert(node->tag == Block_TAG);
+    IrArena* arena = ctx->rewriter.dst_arena;
+
+    const Node* olam = node->payload.block.inside;
+
+    const Node* nlam = lambda(ctx->rewriter.dst_module, empty(arena), infer(ctx, get_abstraction_body(olam), NULL));
+
+    return control(ctx->rewriter.dst_arena, (Control) {
+        .inside = nlam
+    });
+}
+
 static const Node* _infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return _infer_primop(ctx, node, expected_type);
@@ -560,6 +603,7 @@ static const Node* _infer_instruction(Context* ctx, const Node* node, const Type
         case Loop_TAG:         return _infer_loop  (ctx, node, expected_type);
         case Match_TAG:        error("TODO")
         case Control_TAG:      return _infer_control(ctx, node, expected_type);
+        case Block_TAG:        return _infer_block  (ctx, node, expected_type);
         case NotAnInstruction: error("not an instruction");
     }
     SHADY_UNREACHABLE;
@@ -669,6 +713,15 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             for (size_t i = 0; i < old_args->count; i++)
                 new_args[i] = infer(ctx, old_args->nodes[i], (*expected_types).nodes[i]);
             return merge_break(ctx->rewriter.dst_arena, (MergeBreak) {
+                .args = nodes(ctx->rewriter.dst_arena, old_args->count, new_args)
+            });
+        }
+        case Yield_TAG: {
+            const Nodes* old_args = &node->payload.yield.args;
+            LARRAY(const Node*, new_args, old_args->count);
+            for (size_t i = 0; i < old_args->count; i++)
+                new_args[i] = infer(ctx, old_args->nodes[i], NULL);
+            return yield(ctx->rewriter.dst_arena, (Yield) {
                 .args = nodes(ctx->rewriter.dst_arena, old_args->count, new_args)
             });
         }

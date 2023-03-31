@@ -42,27 +42,6 @@ String format_string(IrArena* arena, const char* str, ...);
 String unique_name(IrArena* arena, const char* start);
 String name_type_safe(IrArena*, const Type*);
 
-//////////////////////////////// IR Arena ////////////////////////////////
-
-typedef struct {
-    bool name_bound;
-    bool check_types;
-    bool allow_fold;
-    bool is_simt;
-    /// Selects which type the subgroup intrinsic primops use to manipulate masks
-    enum {
-        /// Uses the MaskType
-        SubgroupMaskAbstract,
-        /// Uses a 64-bit integer
-        SubgroupMaskInt64
-    } subgroup_mask_representation;
-} ArenaConfig;
-
-ArenaConfig default_arena_config();
-
-IrArena* new_ir_arena(ArenaConfig);
-void destroy_ir_arena(IrArena*);
-
 //////////////////////////////// Modules ////////////////////////////////
 
 typedef struct Module_ Module;
@@ -80,6 +59,34 @@ Nodes get_module_declarations(const Module*);
 #include "primops.h"
 #include "grammar.h"
 
+//////////////////////////////// IR Arena ////////////////////////////////
+
+typedef struct {
+    bool name_bound;
+    bool check_types;
+    bool allow_fold;
+    bool is_simt;
+
+    /// Selects which type the subgroup intrinsic primops use to manipulate masks
+    enum {
+        /// Uses the MaskType
+        SubgroupMaskAbstract,
+        /// Uses a 64-bit integer
+        SubgroupMaskInt64
+    } subgroup_mask_representation;
+
+    struct {
+        IntSizes ptr_size;
+        /// The base type for emulated memory
+        IntSizes word_size;
+    } memory;
+} ArenaConfig;
+
+ArenaConfig default_arena_config();
+
+IrArena* new_ir_arena(ArenaConfig);
+void destroy_ir_arena(IrArena*);
+
 //////////////////////////////// Getters ////////////////////////////////
 
 /// Get the name out of a global variable, function or constant
@@ -90,7 +97,7 @@ const IntLiteral* resolve_to_literal(const Node*);
 int64_t get_int_literal_value(const Node*, bool sign_extend);
 const char* get_string_literal(IrArena*, const Node*);
 
-static inline bool is_physical_as(AddressSpace as) { return as <= AsGlobalPhysical; }
+static inline bool is_physical_as(AddressSpace as) { return as <= PhysicalAddressSpacesEnd; }
 
 /// Returns true if variables in that address space can contain different data for threads in the same subgroup
 bool is_addr_space_uniform(IrArena*, AddressSpace);
@@ -162,7 +169,7 @@ void bind_variables(BodyBuilder*, Nodes vars, Nodes values);
 
 const Node* finish_body(BodyBuilder*, const Node* terminator);
 void cancel_body(BodyBuilder*);
-const Node* yield_values_and_wrap_in_control(BodyBuilder*, Nodes);
+const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
 
 const Type* int8_type(IrArena* arena);
 const Type* int16_type(IrArena* arena);

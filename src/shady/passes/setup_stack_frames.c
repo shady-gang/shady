@@ -45,7 +45,7 @@ static void collect_allocas(VContext* vctx, const Node* node) {
 
         const Node* slot = first(bind_instruction_named(vctx->builder, prim_op(arena, (PrimOp) {
             .op = lea_op,
-            .operands = mk_nodes(arena, vctx->context->entry_base_stack_ptr, int32_literal(arena, bytes_to_i32_cells(layout.size_in_bytes))) }), (String []) { "stack_slot" }));
+            .operands = mk_nodes(arena, vctx->context->entry_base_stack_ptr, uint32_literal(arena, layout.size_in_bytes)) }), (String []) { "stack_slot" }));
         const Node* ptr_t = ptr_type(arena, (PtrType) { .pointed_type = element_type, .address_space = as });
         slot = gen_reinterpret_cast(vctx->builder, ptr_t, slot);
 
@@ -85,6 +85,8 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             if (node->payload.fun.body)
                 fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
+            else
+                cancel_body(bb);
             return fun;
         }
         case Return_TAG: {

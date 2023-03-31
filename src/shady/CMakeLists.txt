@@ -33,7 +33,9 @@ set(SHADY_SOURCES
     passes/lower_continuations.c
     passes/lower_callf.c
     passes/lower_stack.c
+    passes/lower_lea.c
     passes/lower_physical_ptrs.c
+    passes/lower_memory_layout.c
     passes/lower_tailcalls.c
     passes/lower_mask.c
     passes/setup_stack_frames.c
@@ -47,6 +49,9 @@ set(SHADY_SOURCES
     passes/opt_restructure.c
     passes/reconvergence_heuristics.c
     passes/simt2d.c
+
+    passes/lower_entrypoint_args.c
+    passes/spirv_map_entrypoint_args.c
 )
 
 add_library(shady SHARED ${SHADY_SOURCES})
@@ -58,4 +63,3 @@ add_subdirectory(emit)
 target_link_libraries(shady PUBLIC "api")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:builtin_code>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:common>")
-target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:murmur3>")

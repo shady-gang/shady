@@ -4,20 +4,18 @@ For the front-end mode, we can easily extend this by redefining `VALUE` as an ar
 
 ```
 
-VAR := IDENTIFIER
-
-VALUE := VAR
+VALUE := VAR_ID
        | LITERAL
        | tuple ( VALUES )
        | array (TYPE) ( [VALUES] )
 
 VALUES := VALUE [, VALUES]
 
-DECL := const [TYPE] IDENTIFIER = VALUE; // constant definition
-        fn IDENTIFIER Q_TYPES PARAMS FN_BODY
-        var ADDRESS_SPACE TYPE IDENTIFIER;
+DECL := const [DATA_TYPE] IDENTIFIER = VALUE; // constant definition
+        fn IDENTIFIER VALUE_TYPES PARAMS FN_BODY
+        var ADDRESS_SPACE POINTABLE_TYPE IDENTIFIER;
 
-PARAM := Q_TYPE VAR
+PARAM := VALUE_TYPE VAR_ID
 PARAMS := ( [PARAM [(, PARAM)+]] )
 
 LOOP_PARAM := TYPE VAR = VALUE
@@ -30,9 +28,7 @@ LAMBDA := lambda PARAMS TERMINATOR
 
 CALLEE := (DECL | VALUE) // calls can be direct or indirect
 
-TYPE_ARGS: `[` TYPE [(, TYPE)+] `]`
-
-INSTRUCTION := PRIMOP [TYPE_ARGS] VALUES                    // primop
+INSTRUCTION := PRIMOP `[` DATA_TYPES `]` (VALUES)                    // primop
              | call (VALUES) VALUES               // call
              | if TYPES (VALUE)               // structured if construct, can be defined to yield values
                    then LAMBDA
@@ -63,19 +59,19 @@ TERMINATOR := unreachable;                           // use as a placeholder if 
             | break VALUES;                           // Structured break
 
 // things that have a non-opaque representation in memory
-TYPE := int | float | ptr P_TYPE | struct { (TYPE IDENTIFIER;)* }
+DATA_TYPE := int | float | ptr POINTABLE_TYPE | struct { (TYPE IDENTIFIER;)* }
+DATA_TYPES: `[` DATA_TYPE [(, DATA_TYPE)+] `]`
 
-// such types can be pointed to by pointers
-P_TYPE := DATA_TYPE | fn RET_TYPE ( [QTYPE [(, QTYPE)+]] )
+VARIANCE_QUALIFIER = uniform | varying
+VALUE_TYPE = VARIANCE_QUALIFIER D_TYPE
+VALUE_TYPES = VALUE_TYPE [(, VALUE_TYPE)*]
 
-// types with uniformity info
-VARIANCE_Q = uniform | varying
-QTYPE = VARIANCE_Q TYPE
-Q_TYPES = Q_TYPE [(, Q_TYPE)*]
+POINTABLE_TYPE := DATA_TYPE
+                | fn RET_TYPE ( [VALUE_TYPE [(, VALUE_TYPE)+]] )
 
-// optionally qualified types, the type inference can figure those out
-MQTYPE = [VARIANCE_Q] TYPE
-MQ_TYPES = MQ_TYPE [(, MQ_TYPE)*]
+OPAQUE_TYPE := POINTABLE_TYPE
+             | texture
+             | sampler
 
 ```
 

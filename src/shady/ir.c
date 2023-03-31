@@ -4,7 +4,6 @@
 
 #include "list.h"
 #include "dict.h"
-#include "murmur3.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -205,14 +204,7 @@ const char* unique_name(IrArena* arena, const char* str) {
 }
 
 KeyHash hash_nodes(Nodes* nodes) {
-    uint32_t out[4];
-    MurmurHash3_x64_128((nodes)->nodes, (int) (sizeof(Node*) * (nodes)->count), 0x1234567, &out);
-    uint32_t final = 0;
-    final ^= out[0];
-    final ^= out[1];
-    final ^= out[2];
-    final ^= out[3];
-    return final;
+    return hash_murmur(nodes->nodes, sizeof(const Node*) * nodes->count);
 }
 
 bool compare_nodes(Nodes* a, Nodes* b) {
@@ -223,14 +215,7 @@ bool compare_nodes(Nodes* a, Nodes* b) {
 }
 
 KeyHash hash_strings(Strings* strings) {
-    uint32_t out[4];
-    MurmurHash3_x64_128(strings->strings, (int) (sizeof(const char*) * strings->count), 0x1234567, &out);
-    uint32_t final = 0;
-    final ^= out[0];
-    final ^= out[1];
-    final ^= out[2];
-    final ^= out[3];
-    return final;
+    return hash_murmur(strings->strings, sizeof(char*) * strings->count);
 }
 
 bool compare_strings(Strings* a, Strings* b) {
@@ -238,14 +223,7 @@ bool compare_strings(Strings* a, Strings* b) {
 }
 
 KeyHash hash_string(const char** string) {
-    uint32_t out[4];
-    MurmurHash3_x64_128(*string, (int) strlen(*string), 0x1234567, &out);
-    uint32_t final = 0;
-    final ^= out[0];
-    final ^= out[1];
-    final ^= out[2];
-    final ^= out[3];
-    return final;
+    return hash_murmur(*string, strlen(*string));
 }
 
 bool compare_string(const char** a, const char** b) {

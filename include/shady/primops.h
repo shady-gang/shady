@@ -64,6 +64,12 @@ P(1, alloca_subgroup)     \
 P(0, load)                \
 P(1, store)               \
 P(0, lea)                 \
+P(1, memcpy)              \
+
+#define LAYOUT_PRIMOPS(P) \
+P(0, size_of)             \
+P(0, align_of)            \
+P(0, offset_of)           \
 
 #define SUBGROUP_INTRINSICS_PRIMOPS(P) \
 P(0, subgroup_elect_first)             \
@@ -94,6 +100,7 @@ CMP_PRIMOPS(P)                  \
 MATH_PRIMOPS(P)                 \
 SHIFT_PRIMOPS(P)                \
 MEMORY_PRIMOPS(P)               \
+LAYOUT_PRIMOPS(P)               \
 P(0, select)                    \
 P(0, convert)                   \
 P(0, reinterpret)               \

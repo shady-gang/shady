@@ -1,4 +1,5 @@
 #include "clang_ast.h"
+#include "json-c/json.h"
 
 #include <assert.h>
 #include <string.h>

@@ -6,6 +6,8 @@
 #include "../../ir_private.h"
 #include "../../analysis/scope.h"
 
+#include "../../compile.h"
+
 #include "emit_spv.h"
 #include "emit_spv_builtins.h"
 
@@ -32,6 +34,7 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
         case Variable_TAG: error("tried to emit a variable: but all variables should be emitted by enclosing scope or preceding instructions !");
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG:
+        case Value_AntiQuote_TAG:
         case Value_FnAddr_TAG: error("Should be lowered away earlier!");
         case IntLiteral_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
@@ -226,6 +229,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             spvb_branch(basic_block_builder, merge_targets.break_target);
             return;
         }
+        case Terminator_Yield_TAG: error("Should be eliminated by the compiler");
         case Unreachable_TAG: {
             spvb_unreachable(basic_block_builder);
             return;
@@ -475,7 +479,21 @@ bool compare_node(Node**, Node**);
 KeyHash hash_string(const char** string);
 bool compare_string(const char** a, const char** b);
 
+static Module* run_backend_specific_passes(CompilerConfig* config, Module* mod) {
+    IrArena* old_arena = get_module_arena(mod);
+    ArenaConfig aconfig = old_arena->config;
+    Module* old_mod = mod;
+    IrArena* tmp_arena = NULL;
+
+    RUN_PASS(lower_entrypoint_args)
+    RUN_PASS(spirv_map_entrypoint_args)
+
+    return mod;
+}
+
 void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output) {
+    IrArena* initial_arena = get_module_arena(mod);
+    mod = run_backend_specific_passes(config, mod);
     IrArena* arena = get_module_arena(mod);
     struct List* words = new_list(uint32_t);
 
@@ -532,4 +550,7 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
 
     destroy_dict(emitter.extended_instruction_sets);
     destroy_list(words);
+
+    if (initial_arena != arena)
+        destroy_ir_arena(arena);
 }

@@ -70,7 +70,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     // compute the high side, without forgetting the carry bit
                     const Node* hi = first(bind_instruction(builder, prim_op(arena, (PrimOp) { .op = add_op, .operands = nodes(arena, 2, his)})));
                                 hi = first(bind_instruction(builder, prim_op(arena, (PrimOp) { .op = add_op, .operands = mk_nodes(arena, hi, low_and_carry.nodes[1])})));
-                    yield_values_and_wrap_in_control(builder, singleton(tuple(arena, mk_nodes(arena, lo, hi))));
+                    yield_values_and_wrap_in_block(builder, singleton(tuple(arena, mk_nodes(arena, lo, hi))));
                 } break;
                 default: break;
             }

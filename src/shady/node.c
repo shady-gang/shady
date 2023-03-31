@@ -3,7 +3,6 @@
 #include "ir_private.h"
 #include "portability.h"
 
-#include "murmur3.h"
 #include "dict.h"
 
 #include <string.h>
@@ -190,24 +189,13 @@ const Node* get_let_instruction(const Node* let) {
         default: assert(false);
     }
 }
+
 const Node* get_let_tail(const Node* let) {
     switch (let->tag) {
         case Let_TAG: return let->payload.let.tail;
         case LetMut_TAG: return let->payload.let_mut.tail;
         default: assert(false);
     }
-}
-
-KeyHash hash_murmur(const void* data, size_t size) {
-    int32_t out[4];
-    MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);
-
-    uint32_t final = 0;
-    final ^= out[0];
-    final ^= out[1];
-    final ^= out[2];
-    final ^= out[3];
-    return final;
 }
 
 KeyHash hash_node(Node** pnode) {

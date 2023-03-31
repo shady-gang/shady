@@ -110,7 +110,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
         case Bool_TAG:
         case MaskType_TAG:
         case Float_TAG:
-            return true;
+            return supertype->payload.float_type.width == type->payload.float_type.width;
     }
     SHADY_UNREACHABLE;
 }
@@ -207,6 +207,8 @@ String name_type_safe(IrArena* arena, const Type* t) {
 
 /// Is this a type that a value in the language can have ?
 bool is_value_type(const Type* type) {
+    //if (type->tag == RecordType_TAG && type->payload.record_type.special == MultipleReturn)
+    //    return true;
     if (type->tag != QualifiedType_TAG)
         return false;
     return is_data_type(get_unqualified_type(type));
@@ -249,7 +251,7 @@ bool is_data_type(const Type* type) {
 
 const Type* check_type_join_point_type(IrArena* arena, JoinPointType type) {
     for (size_t i = 0; i < type.yield_types.count; i++) {
-        assert(!contains_qualified_type(type.yield_types.nodes[i]));
+        assert(is_data_type(type.yield_types.nodes[i]));
     }
     return NULL;
 }
@@ -257,7 +259,8 @@ const Type* check_type_join_point_type(IrArena* arena, JoinPointType type) {
 const Type* check_type_record_type(IrArena* arena, RecordType type) {
     assert(type.names.count == 0 || type.names.count == type.members.count);
     for (size_t i = 0; i < type.members.count; i++) {
-        assert((type.special == MultipleReturn) == contains_qualified_type(type.members.nodes[i]));
+        // member types are value types iff this is a return tuple
+        assert((type.special == MultipleReturn) == is_value_type(type.members.nodes[i]));
     }
     return NULL;
 }
@@ -350,11 +353,16 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
         case Constant_TAG: break;
         default: error("You can only use RefDecl on a global or a constant. See FnAddr for taking addresses of functions.")
     }
-    assert(!contains_qualified_type(t));
+    assert(t->tag != QualifiedType_TAG && "decl types may not be qualified");
     return qualified_type(arena, (QualifiedType) {
         .type = t,
         .is_uniform = true,
     });
+}
+
+const Type* check_type_anti_quote(IrArena* arena, AntiQuote payload) {
+    assert(is_instruction(payload.instruction));
+    return payload.instruction->type;
 }
 
 bool can_do_arithm(const Type* t) {
@@ -653,6 +661,40 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = curr_ptr_type
             });
         }
+        case memcpy_op: {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 3);
+            const Type* dst_t = prim_op.operands.nodes[0]->type;
+            deconstruct_qualified_type(&dst_t);
+            assert(dst_t->tag == PtrType_TAG);
+            const Type* src_t = prim_op.operands.nodes[1]->type;
+            deconstruct_qualified_type(&src_t);
+            assert(src_t->tag == PtrType_TAG);
+            const Type* cnt_t = prim_op.operands.nodes[2]->type;
+            deconstruct_qualified_type(&cnt_t);
+            assert(cnt_t->tag == Int_TAG);
+            return unit_type(arena);
+        }
+        case align_of_op:
+        case size_of_op: {
+            assert(prim_op.type_arguments.count == 1);
+            assert(prim_op.operands.count == 0);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = true,
+                .type = int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false })
+            });
+        }
+        case offset_of_op: {
+            assert(prim_op.type_arguments.count == 1);
+            assert(prim_op.operands.count == 1);
+            const Type* optype = first(prim_op.operands)->type;
+            bool uniform = deconstruct_qualified_type(&optype);
+            assert(uniform && optype->tag == Int_TAG);
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = true,
+                .type = int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false })
+            });
+        }
         case reinterpret_op: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);
@@ -855,13 +897,13 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case get_stack_pointer_uniform_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 0);
-            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_pointer_uniform_op, .type = int32_type(arena) });
+            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_pointer_uniform_op, .type = uint32_type(arena) });
         }
         case get_stack_base_op:
         case get_stack_base_uniform_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 0);
-            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = NULL }), .address_space = prim_op.op == get_stack_base_op ? AsPrivatePhysical : AsSubgroupPhysical});
+            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = uint8_type(arena), .size = NULL }), .address_space = prim_op.op == get_stack_base_op ? AsPrivatePhysical : AsSubgroupPhysical});
             return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_base_uniform_op, .type = ptr });
         }
         case set_stack_pointer_op:
@@ -871,7 +913,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool is_uniform = prim_op.op == set_stack_pointer_uniform_op;
             if (is_uniform)
                 assert(is_qualified_type_uniform(prim_op.operands.nodes[0]->type));
-            assert(get_unqualified_type(prim_op.operands.nodes[0]->type) == int32_type(arena));
+            assert(get_unqualified_type(prim_op.operands.nodes[0]->type) == uint32_type(arena));
             return unit_type(arena);
         }
         case push_stack_uniform_op:
@@ -953,14 +995,14 @@ const Type* check_type_indirect_call(IrArena* arena, IndirectCall call) {
     return wrap_multiple_yield_types(arena, check_value_call(call.callee, argument_types));
 }
 
-static void ensure_yield_types_are_datatypes(const Nodes* yield_types) {
+static void ensure_types_are_data_types(const Nodes* yield_types) {
     for (size_t i = 0; i < yield_types->count; i++) {
         assert(is_data_type(yield_types->nodes[i]));
     }
 }
 
 const Type* check_type_if_instr(IrArena* arena, If if_instr) {
-    ensure_yield_types_are_datatypes(&if_instr.yield_types);
+    ensure_types_are_data_types(&if_instr.yield_types);
     if (get_unqualified_type(if_instr.condition->type) != bool_type(arena))
         error("condition of an if should be bool");
     // TODO check the contained Merge instrs
@@ -971,21 +1013,21 @@ const Type* check_type_if_instr(IrArena* arena, If if_instr) {
 }
 
 const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
-    ensure_yield_types_are_datatypes(&loop_instr.yield_types);
+    ensure_types_are_data_types(&loop_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
     return wrap_multiple_yield_types(arena, add_qualifiers(arena, loop_instr.yield_types, false));
 }
 
 const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
-    ensure_yield_types_are_datatypes(&match_instr.yield_types);
+    ensure_types_are_data_types(&match_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
     return wrap_multiple_yield_types(arena, add_qualifiers(arena, match_instr.yield_types, false));
 }
 
 const Type* check_type_control(IrArena* arena, Control control) {
-    ensure_yield_types_are_datatypes(&control.yield_types);
+    ensure_types_are_data_types(&control.yield_types);
     // TODO check it then !
     assert(is_anonymous_lambda(control.inside));
     const Node* join_point = first(control.inside->payload.anon_lam.params);
@@ -1001,6 +1043,32 @@ const Type* check_type_control(IrArena* arena, Control control) {
     }
 
     return wrap_multiple_yield_types(arena, add_qualifiers(arena, join_point_yield_types, false));
+}
+
+const Type* check_type_block(IrArena* arena, Block payload) {
+    assert(is_anonymous_lambda(payload.inside));
+    assert(payload.inside->payload.anon_lam.params.count == 0);
+
+    const Node* lam = payload.inside;
+    const Node* yield_instr = NULL;
+    while (true) {
+        assert(lam->tag == AnonLambda_TAG);
+        const Node* terminator = lam->payload.anon_lam.body;
+        switch (terminator->tag) {
+            case Let_TAG: {
+                lam = terminator->payload.let.tail;
+                continue;
+            }
+            case Yield_TAG:
+                yield_instr = terminator;
+                break;
+            default: assert(false);
+        }
+        break;
+    }
+
+    Nodes yield_values = yield_instr->payload.yield.args;
+    return wrap_multiple_yield_types(arena, get_values_types(arena, yield_values));
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
@@ -1102,6 +1170,11 @@ const Type* check_type_merge_continue(IrArena* arena, MergeContinue mc) {
 }
 
 const Type* check_type_merge_break(IrArena* arena, MergeBreak mc) {
+    // TODO check it
+    return noret_type(arena);
+}
+
+const Type* check_type_yield(IrArena* arena, SHADY_UNUSED Yield payload) {
     // TODO check it
     return noret_type(arena);
 }

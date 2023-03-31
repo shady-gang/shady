@@ -6,9 +6,16 @@
 #include "transform/internal_constants.h"
 #include "portability.h"
 #include "ir_private.h"
+#include "util.h"
+
+#include <stdbool.h>
 
 #ifdef C_PARSER_PRESENT
 #include "../clang-ast/clang_ast.h"
+#endif
+
+#ifdef SPV_PARSER_PRESENT
+#include "../spirv/s2s.h"
 #endif
 
 #define KiB * 1024
@@ -33,6 +40,11 @@ CompilerConfig default_compiler_config() {
 ArenaConfig default_arena_config() {
     return (ArenaConfig) {
         .is_simt = true,
+
+        .memory = {
+            .word_size = IntTy32,
+            .ptr_size = IntTy64,
+        }
     };
 }
 
@@ -84,8 +96,11 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(lower_subgroup_ops)
     RUN_PASS(lower_stack)
+
+    RUN_PASS(lower_lea)
     RUN_PASS(lower_physical_ptrs)
     RUN_PASS(lower_subgroup_vars)
+    RUN_PASS(lower_memory_layout)
 
     RUN_PASS(lower_int)
 
@@ -99,41 +114,51 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
 #undef mod
 
-char* read_file(const char* filename);
-
 CompilationResult parse_files(CompilerConfig* config, size_t num_files, const char** file_names, const char** files_contents, Module* mod) {
     ParserConfig pconfig = {
         .front_end = config->allow_frontend_syntax
     };
 
-    LARRAY(const char*, read_files, num_files);
-    for (size_t i = 0; i < num_files; i++)
-        read_files[i] = NULL;
-
     for (size_t i = 0; i < num_files; i++) {
-        const char* file_contents;
-
-        if (files_contents) {
-            file_contents = files_contents[i];
-        } else {
-            assert(file_names);
-            read_files[i] = read_file(file_names[i]);
-            file_contents = read_files[i];
-
-            if (file_contents == NULL) {
-                error_print("file does not exist\n");
-                exit(InputFileDoesNotExist);
-            }
-        }
-
-        debugv_print("Parsing: \n%s\n", file_contents);
-
+        if (file_names && string_ends_with(file_names[i], ".c")) {
 #ifdef C_PARSER_PRESENT
-        if (file_names && string_ends_with(file_names[i], ".c"))
             parse_c_file(file_names[i], mod);
-        else
+#else
+            assert(false && "C front-end missing in this version");
 #endif
-        parse(pconfig, file_contents, mod);
+        } else if (file_names && string_ends_with(file_names[i], ".spv")) {
+#ifdef SPV_PARSER_PRESENT
+            size_t size;
+            unsigned char* data;
+            bool ok = read_file(file_names[i], &size, &data);
+            assert(ok);
+            parse_spirv_into_shady(mod, size, (uint32_t*) data);
+#else
+            assert(false && "SPIR-V front-end missing in this version");
+#endif
+        } else {
+            const char* file_contents;
+
+            if (files_contents) {
+                file_contents = files_contents[i];
+            } else {
+                assert(file_names);
+                bool ok = read_file(file_names[i], NULL, &file_contents);
+                assert(ok);
+
+                if (file_contents == NULL) {
+                    error_print("file does not exist\n");
+                    exit(InputFileDoesNotExist);
+                }
+            }
+
+            debugv_print("Parsing: \n%s\n", file_contents);
+
+            parse(pconfig, file_contents, mod);
+
+            if (!files_contents)
+                free((void*) file_contents);
+        }
     }
 
     if (config->dynamic_scheduling) {
@@ -143,7 +168,6 @@ CompilationResult parse_files(CompilerConfig* config, size_t num_files, const ch
 
     // Free the read files
     for (size_t i = 0; i < num_files; i++)
-        free((void*) read_files[i]);
 
     return CompilationNoError;
 }
