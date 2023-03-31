@@ -147,15 +147,15 @@ void shutdown_runtime(Runtime* runtime) {
     if (!runtime) return;
 
     // TODO force wait outstanding dispatches ?
-    for (size_t i = 0; i < entries_count_list(runtime->programs); i++) {
-        unload_program(read_list(Program*, runtime->programs)[i]);
-    }
-    destroy_list(runtime->programs);
-
     for (size_t i = 0; i < entries_count_list(runtime->devices); i++) {
         shutdown_device(read_list(Device*, runtime->devices)[i]);
     }
     destroy_list(runtime->devices);
+
+    for (size_t i = 0; i < entries_count_list(runtime->programs); i++) {
+        unload_program(read_list(Program*, runtime->programs)[i]);
+    }
+    destroy_list(runtime->programs);
 
     if (runtime->debug_messenger)
         runtime->instance_exts.debug_utils.vkDestroyDebugUtilsMessengerEXT(runtime->instance, runtime->debug_messenger, NULL);

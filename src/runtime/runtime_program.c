@@ -275,7 +275,7 @@ void destroy_specialized_program(SpecProgram* spec) {
     vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
     free(spec->entrypoint.arg_offset);
     free(spec->spirv_bytes);
-    if (spec->module != spec->base->generic_program)
+    if (get_module_arena(spec->module) != get_module_arena(spec->base->generic_program))
         destroy_ir_arena(get_module_arena(spec->module));
     free(spec);
 }
