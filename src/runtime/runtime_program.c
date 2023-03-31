@@ -119,14 +119,14 @@ static bool compile_specialized_program(SpecProgram* spec) {
     Module* new_mod;
     emit_spirv(&config, spec->module, &spec->spirv_size, &spec->spirv_bytes, &new_mod);
     if (new_mod != spec->module) {
-        destroy_ir_arena(spec->arena);
-        spec->arena = get_module_arena(new_mod);
+        if (spec->module != spec->base->generic_program)
+            destroy_ir_arena(get_module_arena(spec->module));
         spec->module = new_mod;
     }
 
     if (spec->base->runtime->config.dump_spv) {
         String module_name = get_module_name(spec->module);
-        String file_name = format_string(spec->arena, "%s.spv", module_name);
+        String file_name = format_string(get_module_arena(spec->module), "%s.spv", module_name);
         write_file(file_name, spec->spirv_size, (unsigned char*)spec->spirv_bytes);
     }
 
@@ -135,11 +135,11 @@ static bool compile_specialized_program(SpecProgram* spec) {
 
 static SpecProgram* create_specialized_program(Program* program, Device* device) {
     SpecProgram* spec_program = calloc(1, sizeof(SpecProgram));
+    if (!spec_program)
+        return NULL;
+
     spec_program->base = program;
     spec_program->device = device;
-
-    ArenaConfig arena_config = default_arena_config();
-    spec_program->arena = new_ir_arena(arena_config);
     spec_program->module = program->generic_program;
 
     CHECK(compile_specialized_program(spec_program), return NULL);
@@ -163,8 +163,7 @@ void destroy_specialized_program(SpecProgram* spec) {
     vkDestroyPipelineLayout(spec->device->device, spec->layout, NULL);
     vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
     free(spec->spirv_bytes);
-    destroy_ir_arena(spec->arena);
-    assert(spec->arena != get_module_arena(spec->module));
-    destroy_ir_arena(get_module_arena(spec->module));
+    if (spec->module != spec->base->generic_program)
+        destroy_ir_arena(get_module_arena(spec->module));
     free(spec);
 }

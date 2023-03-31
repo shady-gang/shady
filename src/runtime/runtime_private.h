@@ -152,7 +152,6 @@ struct SpecProgram_ {
     Program* base;
     Device* device;
 
-    IrArena* arena;
     Module* module;
 
     size_t spirv_size;
