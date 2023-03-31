@@ -63,7 +63,8 @@ static bool create_vk_pipeline(SpecProgram* program) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT,
         .requiredSubgroupSize = program->device->caps.subgroup_size.max
     };
-    if (program->device->caps.supported_extensions[ShadySupportsEXTsubgroup_size_control]) {
+    if (program->device->caps.supported_extensions[ShadySupportsEXTsubgroup_size_control] &&
+       (program->device->caps.extended_properties.subgroup_size_control.requiredSubgroupSizeStages & VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)) {
         append_pnext((VkBaseOutStructure*) &stage_create_info, &pipeline_shader_stage_required_subgroup_size_create_info_ext);
     }
 
