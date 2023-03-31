@@ -183,7 +183,8 @@ String name_type_safe(IrArena* arena, const Type* t) {
                 return format_string(arena, "i%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
             else
                 return format_string(arena, "u%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
-        case Type_Float_TAG: return "float";
+        case Type_Float_TAG:
+            return format_string(arena, "f%s", ((String[]) { "16", "32", "64" })[t->payload.float_type.width]);
         case Type_Bool_TAG: return "bool";
         case Type_RecordType_TAG: break;
         case Type_FnType_TAG: break;
