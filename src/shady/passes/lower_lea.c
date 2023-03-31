@@ -50,8 +50,8 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
         ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset});
     }
 
-    for (size_t i = 2; i < n_indices; i++) {
-        assert(ptr->tag == PtrType_TAG);
+    for (size_t i = 0; i < n_indices; i++) {
+        assert(pointer_type->tag == PtrType_TAG);
         const Type* pointed_type = pointer_type->payload.ptr_type.pointed_type;
         switch (pointed_type->tag) {
             case ArrType_TAG: {
@@ -59,7 +59,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
                 const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
-                const Node* new_index = convert_offset(bb, emulated_ptr_t, rewrite_node(&ctx->rewriter, indices[i]));
+                const Node* new_index = convert_offset(bb, emulated_ptr_t, indices[i]);
                 const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) {new_index, element_t_size});
 
                 ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset });
@@ -79,7 +79,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
             case RecordType_TAG: {
                 Nodes member_types = pointed_type->payload.record_type.members;
 
-                const IntLiteral* selector_value = resolve_to_literal(rewrite_node(&ctx->rewriter, indices[i]));
+                const IntLiteral* selector_value = resolve_to_literal(indices[i]);
                 assert(selector_value && "selector value must be known for LEA into a record");
                 size_t n = selector_value->value.u64;
                 assert(n < member_types.count);
