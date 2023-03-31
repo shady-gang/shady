@@ -1,0 +1,9 @@
+@EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1)
+fn main() {
+    push_stack[i32](6);
+    push_stack[i32](9);
+    val x = pop_stack[i32]();
+    val y = pop_stack[i32]();
+    debug_printf("hi %d %d", x, y);
+    return ();
+}
