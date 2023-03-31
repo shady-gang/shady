@@ -4,6 +4,8 @@
 #include "log.h"
 #include "portability.h"
 
+#include "../type.h"
+
 #include <assert.h>
 
 size_t get_record_layout(const CompilerConfig* config, IrArena* arena, const Node* record_type, FieldLayout* fields) {
@@ -43,7 +45,7 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
         }
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,
-            .size_in_bytes = type->payload.int_type.width == IntTy64 ? 8 : 4,
+            .size_in_bytes = get_type_bitwidth(type) / 8,
         };
         case Float_TAG:   return (TypeMemLayout) {
             .type = type,
