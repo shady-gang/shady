@@ -148,15 +148,23 @@ struct Program_ {
     Module* generic_program;
 };
 
+typedef struct EntryPointInfo_ {
+    size_t num_args;
+    const size_t* arg_offset;
+    const size_t* arg_size;
+    size_t args_size;
+} EntryPointInfo;
+
 struct SpecProgram_ {
     Program* base;
     Device* device;
 
-    IrArena* arena;
     Module* module;
 
     size_t spirv_size;
     char* spirv_bytes;
+
+    EntryPointInfo entrypoint;
 
     VkPipeline pipeline;
     VkPipelineLayout layout;

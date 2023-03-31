@@ -49,6 +49,8 @@ void parse_common_args(int* pargc, char** argv) {
 
     bool help = false;
     for (int i = 1; i < argc; i++) {
+        if (argv[i] == NULL)
+            continue;
         if (strcmp(argv[i], "--log-level") == 0) {
             argv[i] = NULL;
             i++;
@@ -94,6 +96,8 @@ void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv)
 
     bool help = false;
     for (int i = 1; i < argc; i++) {
+        if (argv[i] == NULL)
+            continue;
         if (strcmp(argv[i], "--no-dynamic-scheduling") == 0) {
             config->dynamic_scheduling = false;
         } else if (strcmp(argv[i], "--simt2d") == 0) {
@@ -125,6 +129,8 @@ void parse_input_files(struct List* list, int* pargc, char** argv) {
     int argc = *pargc;
 
     for (int i = 1; i < argc; i++) {
+        if (argv[i] == NULL)
+            continue;
         append_list(const char*, list, argv[i]);
         argv[i] = NULL;
     }

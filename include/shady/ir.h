@@ -258,7 +258,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
 
 //////////////////////////////// Emission ////////////////////////////////
 
-void emit_spirv(CompilerConfig* config, Module*, size_t* output_size, char** output);
+void emit_spirv(CompilerConfig* config, Module*, size_t* output_size, char** output, Module** new_mod);
 
 typedef enum {
     C,
@@ -273,7 +273,7 @@ typedef struct {
     bool allow_compound_literals;
 } CEmitterConfig;
 
-void emit_c(CEmitterConfig config, Module*, size_t* output_size, char** output);
+void emit_c(CEmitterConfig config, Module*, size_t* output_size, char** output, Module** new_mod);
 
 void dump_cfg(FILE* file, Module*);
 void dump_module(Module*);
