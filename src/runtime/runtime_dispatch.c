@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef enum { DispatchCompute } DispatchType;
 
@@ -16,9 +17,8 @@ struct Dispatch_ {
     VkFence done_fence;
 };
 
-Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, int dimz, int extra_args_count, SHADY_UNUSED void** extra_args) {
+Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, int dimz, int args_count, void** args) {
     assert(program && device);
-    assert(extra_args_count == 0 && "TODO");
 
     Dispatch* dispatch = calloc(1, sizeof(Dispatch));
     dispatch->type = DispatchCompute;
@@ -40,6 +40,18 @@ Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, in
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         .pInheritanceInfo = NULL
     }), return NULL);
+
+    EntryPointInfo entrypoint_info = dispatch->src->entrypoint;
+    if (entrypoint_info.args_size) {
+        assert(args_count == entrypoint_info.num_args && "number of arguments must match number of entrypoint arguments");
+
+        size_t push_constant_buffer_size = entrypoint_info.args_size;
+        LARRAY(unsigned char, push_constant_buffer, push_constant_buffer_size);
+        for (int i = 0; i < entrypoint_info.num_args; ++i)
+            memcpy(push_constant_buffer + entrypoint_info.arg_offset[i], args[i], entrypoint_info.arg_size[i]);
+
+        vkCmdPushConstants(dispatch->cmd_buf, dispatch->src->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push_constant_buffer_size, push_constant_buffer);
+    }
 
     vkCmdBindPipeline(dispatch->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, dispatch->src->pipeline);
     vkCmdDispatch(dispatch->cmd_buf, dimx, dimy, dimz);
