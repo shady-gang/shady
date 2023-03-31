@@ -27,6 +27,7 @@ struct PrinterCtx_ {
     Printer* printer;
     const Node* fn;
     Scope* scope;
+    long int min_rpo;
     PrintConfig config;
 };
 
@@ -207,7 +208,12 @@ static void print_abs_body(PrinterCtx* ctx, const Node* block) {
 
     if (ctx->scope != NULL) {
         const CFNode* dominator = scope_lookup(ctx->scope, block);
-        print_dominated_bbs(ctx, dominator);
+        if (ctx->min_rpo < ((long int) dominator->rpo_index)) {
+            size_t save_rpo = ctx->min_rpo;
+            ctx->min_rpo = dominator->rpo_index;
+            print_dominated_bbs(ctx, dominator);
+            ctx->min_rpo = save_rpo;
+        }
     }
 }
 
@@ -237,6 +243,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     if (node->arena->config.name_bound) {
         Scope* scope = new_scope(node);
         ctx->scope = scope;
+        ctx->min_rpo = -1;
         ctx->fn = node;
         print_abs_body(ctx, node);
         destroy_scope(scope);
