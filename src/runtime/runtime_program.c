@@ -6,11 +6,9 @@
 #include "list.h"
 
 #include <stdlib.h>
-#include <string.h>
 
 Program* load_program(Runtime* runtime, const char* program_src) {
-    Program* program = malloc(sizeof(Program));
-    memset(program, 0, sizeof(Program));
+    Program* program = calloc(1, sizeof(Program));
     program->runtime = runtime;
 
     CompilerConfig config = default_compiler_config();
