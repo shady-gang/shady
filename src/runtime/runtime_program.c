@@ -105,9 +105,6 @@ static CompilerConfig get_compiler_config_for_device(Device* device) {
         config.hacks.spv_shuffle_instead_of_broadcast_first = true;
     }
 
-    config.logging.skip_generated = true;
-    config.logging.skip_builtin = true;
-
     return config;
 }
 

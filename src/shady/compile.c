@@ -34,6 +34,12 @@ CompilerConfig default_compiler_config() {
             .major = 1,
             .minor = 4
         },
+
+        .logging = {
+            // most of the time, we are not interested in seeing generated/builtin code in the debug output
+            .skip_builtin = true,
+            .skip_generated = true,
+        }
     };
 }
 

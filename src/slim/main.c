@@ -107,10 +107,6 @@ int main(int argc, char** argv) {
     };
     args.config.allow_frontend_syntax = true;
 
-    // most of the time, we are not interested in seeing generated/builtin code in the debug output
-    args.config.logging.skip_builtin = true;
-    args.config.logging.skip_generated = true;
-
     parse_slim_arguments(&args, &argc, argv);
     parse_common_args(&argc, argv);
     parse_compiler_config_args(&args.config, &argc, argv);
