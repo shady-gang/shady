@@ -50,6 +50,7 @@ RewritePass lower_generic_ptrs;
 RewritePass lower_physical_ptrs;
 /// Replaces size_of, offset_of etc with their exact values
 RewritePass lower_memory_layout;
+RewritePass lower_memcpy;
 
 // Subgroup stuff
 

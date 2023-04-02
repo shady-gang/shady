@@ -37,6 +37,7 @@ set(SHADY_SOURCES
     passes/lower_physical_ptrs.c
     passes/lower_generic_ptrs.c
     passes/lower_memory_layout.c
+    passes/lower_memcpy.c
     passes/lower_tailcalls.c
     passes/lower_mask.c
     passes/setup_stack_frames.c

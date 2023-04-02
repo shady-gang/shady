@@ -97,7 +97,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     aconfig.subgroup_mask_representation = SubgroupMaskInt64;
     RUN_PASS(lower_mask)
-
+    RUN_PASS(lower_memcpy)
     RUN_PASS(lower_subgroup_ops)
     RUN_PASS(lower_stack)
 
