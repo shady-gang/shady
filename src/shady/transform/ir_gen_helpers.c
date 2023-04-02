@@ -111,6 +111,32 @@ const Node* access_decl(Rewriter* rewriter, Module* mod, const char* name) {
         return ref_decl(rewriter->dst_arena, (RefDecl) { .decl = decl });
 }
 
+const Node* convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
+    const Type* src_type = get_unqualified_type(src->type);
+    assert(src_type->tag == Int_TAG);
+    assert(dst_type->tag == Int_TAG);
+
+    // first convert to final bitsize then bitcast
+    const Type* extended_src_t = int_type(bb->arena, (Int) { .width = dst_type->payload.int_type.width, .is_signed = src_type->payload.int_type.is_signed });
+    const Node* val = src;
+    val = gen_primop_e(bb, convert_op, singleton(extended_src_t), singleton(val));
+    val = gen_primop_e(bb, reinterpret_op, singleton(dst_type), singleton(val));
+    return val;
+}
+
+const Node* convert_int_extend_according_to_dst_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
+    const Type* src_type = get_unqualified_type(src->type);
+    assert(src_type->tag == Int_TAG);
+    assert(dst_type->tag == Int_TAG);
+
+    // first bitcast then convert to final bitsize
+    const Type* reinterpreted_src_t = int_type(bb->arena, (Int) { .width = src_type->payload.int_type.width, .is_signed = dst_type->payload.int_type.is_signed });
+    const Node* val = src;
+    val = gen_primop_e(bb, reinterpret_op, singleton(reinterpreted_src_t), singleton(val));
+    val = gen_primop_e(bb, convert_op, singleton(dst_type), singleton(val));
+    return val;
+}
+
 const Node* get_default_zero_value(IrArena* a, const Type* t) {
     switch (is_type(t)) {
         case NotAType: error("")

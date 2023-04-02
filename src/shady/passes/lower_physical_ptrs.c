@@ -95,7 +95,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 const Node* value = gen_load(bb, logical_ptr);
                 // cast into the appropriate width and throw other bits away
                 // note: folding gets rid of identity casts
-                value = gen_primop_e(bb, reinterpret_op, singleton(element_type), singleton(value));
+                value = convert_int_extend_according_to_dst_t(bb, element_type, value);
                 if (config->printf_trace.memory_accesses)
                     bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(bb->arena, string_lit(bb->arena, (StringLiteral) { .string = "loaded: %u at %lu as=%d" }),
                         value, base_offset, int32_literal(bb->arena, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
@@ -160,7 +160,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
         case Int_TAG: des_int: {
             // First bitcast to unsigned so we always get zero-extension and not sign-extension afterwards
             const Type* element_t_unsigned = int_type(bb->arena, (Int) { .width = element_type->payload.int_type.width, .is_signed = false});
-            const Node* unsigned_value = gen_primop_e(bb, reinterpret_op, singleton(element_t_unsigned), singleton(value));
+            const Node* unsigned_value = convert_int_extend_according_to_src_t(bb, element_t_unsigned, value);
             if (element_type->payload.int_type.width != IntTy64) {
                 value = unsigned_value;
                 value = gen_primop_e(bb, convert_op, singleton(uint32_type(bb->arena)), singleton(value));

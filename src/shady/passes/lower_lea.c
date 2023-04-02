@@ -14,20 +14,6 @@ typedef struct {
     Rewriter rewriter;
 } Context;
 
-// Widens the offset to match the desired type
-static const Node* convert_offset(BodyBuilder* bb, const Type* dst_type, const Node* src) {
-    const Type* src_type = get_unqualified_type(src->type);
-    assert(src_type->tag == Int_TAG);
-    assert(dst_type->tag == Int_TAG);
-
-    // first convert to final bitsize then bitcast
-    const Type* extended_src_t = int_type(bb->arena, (Int) { .width = dst_type->payload.int_type.width, .is_signed = src_type->payload.int_type.is_signed });
-    const Node* val = src;
-    val = gen_primop_e(bb, convert_op, singleton(extended_src_t), singleton(val));
-    val = gen_primop_e(bb, reinterpret_op, singleton(dst_type), singleton(val));
-    return val;
-}
-
 static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset, size_t n_indices, const Node** indices) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
@@ -44,7 +30,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
         const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
-        const Node* new_offset = convert_offset(bb, emulated_ptr_t, offset);
+        const Node* new_offset = convert_int_extend_according_to_src_t(bb, emulated_ptr_t, offset);
         const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) { new_offset, element_t_size});
 
         ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset});
@@ -59,7 +45,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
                 const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
-                const Node* new_index = convert_offset(bb, emulated_ptr_t, indices[i]);
+                const Node* new_index = convert_int_extend_according_to_src_t(bb, emulated_ptr_t, indices[i]);
                 const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) {new_index, element_t_size});
 
                 ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset });
