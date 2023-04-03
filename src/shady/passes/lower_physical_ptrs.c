@@ -216,11 +216,11 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
     }
 }
 
-static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool uniform, bool ser, AddressSpace as) {
+static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool uniform_address, bool ser, AddressSpace as) {
     assert(is_as_emulated(ctx, as));
     struct Dict* cache;
 
-    if (uniform)
+    if (uniform_address)
         cache = ser ? ctx->serialisation_uniform[as] : ctx->deserialisation_uniform[as];
     else
         cache = ser ? ctx->serialisation_varying[as] : ctx->deserialisation_varying[as];
@@ -232,16 +232,16 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     IrArena* arena = ctx->rewriter.dst_arena;
 
     const Type* emulated_ptr_type = int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false });
-    const Node* address_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform, .type = emulated_ptr_type }), "ptr");
+    const Node* address_param = var(arena, qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform_address, .type = emulated_ptr_type }), "ptr");
 
-    const Type* input_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || uniform, .type = element_type });
+    const Type* input_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || (uniform_address && is_addr_space_uniform(arena, as) && false), .type = element_type });
     const Node* value_param = ser ? var(arena, input_value_t, "value") : NULL;
     Nodes params = ser ? mk_nodes(arena, address_param, value_param) : singleton(address_param);
 
-    const Type* return_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || (uniform && is_addr_space_uniform(arena, as)), .type = element_type });
+    const Type* return_value_t = qualified_type(arena, (QualifiedType) { .is_uniform = !arena->config.is_simt || (uniform_address && is_addr_space_uniform(arena, as)), .type = element_type });
     Nodes return_ts = ser ? empty(arena) : singleton(return_value_t);
 
-    String name = format_string(arena, "generated_%s_as%d_%s_%s", ser ? "store" : "load", as, uniform ? "uniform" : "varying", name_type_safe(arena, element_type));
+    String name = format_string(arena, "generated_%s_as%d_%s_%s", ser ? "store" : "load", as, uniform_address ? "uniform" : "varying", name_type_safe(arena, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(arena, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 

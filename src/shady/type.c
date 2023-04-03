@@ -151,7 +151,6 @@ size_t get_type_bitwidth(const Type* t) {
     return SIZE_MAX;
 }
 
-/// Does the same point value refer to the same memory, across the invocations in a subgroup ?
 bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     switch (as) {
         case AsFunctionLogical:

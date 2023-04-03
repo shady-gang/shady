@@ -99,7 +99,8 @@ const char* get_string_literal(IrArena*, const Node*);
 
 static inline bool is_physical_as(AddressSpace as) { return as <= PhysicalAddressSpacesEnd; }
 
-/// Returns true if variables in that address space can contain different data for threads in the same subgroup
+/// Returns false iff pointers in that address space can contain different data at the same address
+/// (amongst threads in the same subgroup)
 bool is_addr_space_uniform(IrArena*, AddressSpace);
 
 const Node* lookup_annotation(const Node* decl, const char* name);
