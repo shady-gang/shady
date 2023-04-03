@@ -68,8 +68,8 @@ static const Node* process(Context* ctx, const Node* old) {
 
                     const Node* index = var(a, qualified_type_helper(uint32_type(a), false), "memcpy_i");
                     BodyBuilder* loop_bb = begin_body(m);
-                    const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, empty(a)));
-                    gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, empty(a)), loaded_word);
+                    const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, singleton(uint32_literal(a, 0))));
+                    gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, singleton(uint32_literal(a, 0))), loaded_word);
                     bind_instruction(loop_bb, if_instr(a, (If) {
                         .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, index, num_in_bytes)),
                         .yield_types = empty(a),
