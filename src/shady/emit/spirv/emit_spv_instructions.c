@@ -413,14 +413,27 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
     SpvId inspectee = emit_value(emitter, *bb_builder, match.inspect);
 
     SpvId default_id = spvb_fresh_id(emitter->file_builder);
-    LARRAY(SpvId, literals_and_cases, match.cases.count * 2);
+
+    const Type* inspectee_t = match.inspect->type;
+    deconstruct_qualified_type(&inspectee_t);
+    assert(inspectee_t->tag == Int_TAG);
+    size_t literal_width = inspectee_t->payload.int_type.width == IntTy64 ? 2 : 1;
+    size_t literal_case_entry_size = literal_width + 1;
+    LARRAY(uint32_t, literals_and_cases, match.cases.count * literal_case_entry_size);
+    error_print("cases_count: %d\n", match.cases.count);
     for (size_t i = 0; i < match.cases.count; i++) {
-        literals_and_cases[i * 2 + 0] = (SpvId) (uint32_t) get_int_literal_value(match.literals.nodes[i], true);
-        literals_and_cases[i * 2 + 1] = spvb_fresh_id(emitter->file_builder);
+        uint64_t value = (uint64_t) get_int_literal_value(match.literals.nodes[i], false);
+        if (inspectee_t->payload.int_type.width == IntTy64) {
+            literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) (value & 0xFFFFFFFF);
+            literals_and_cases[i * literal_case_entry_size + 1] = (SpvId) (uint32_t) (value >> 32);
+        } else {
+            literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) value;
+        }
+        literals_and_cases[i * literal_case_entry_size + literal_width] = spvb_fresh_id(emitter->file_builder);
     }
 
     spvb_selection_merge(*bb_builder, join_bb_id, 0);
-    spvb_switch(*bb_builder, inspectee, default_id, match.cases.count, literals_and_cases);
+    spvb_switch(*bb_builder, inspectee, default_id, match.cases.count * literal_case_entry_size, literals_and_cases);
 
     // When 'join' is codegen'd, these will be filled with the values given to it
     BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
@@ -438,7 +451,7 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
     merge_targets_branches.join_phis = join_phis;
 
     for (size_t i = 0; i < match.cases.count; i++) {
-        BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * 2 + 1]);
+        BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * literal_case_entry_size + literal_width]);
         const Node* case_body = match.cases.nodes[i];
         assert(is_anonymous_lambda(case_body));
         spvb_add_bb(fn_builder, case_bb);
