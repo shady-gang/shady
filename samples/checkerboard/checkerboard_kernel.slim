@@ -1,0 +1,4 @@
+@EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main(uniform i32 a0, uniform f32 a1) {
+    debug_printf("hi %d %f", a0, a1);
+    return ();
+}

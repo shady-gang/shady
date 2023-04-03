@@ -24,6 +24,11 @@ if (BUILD_TESTING)
   add_subdirectory(test)
 endif()
 
+set(BUILD_SAMPLES ON CACHE BOOL Whether to build built-in demo applications)
+if (BUILD_SAMPLES)
+  add_subdirectory(samples)
+endif()
+
 include(CMakePackageConfigHelpers)
 
 install(TARGETS api EXPORT shady_export_set)
