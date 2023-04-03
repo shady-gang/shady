@@ -20,22 +20,23 @@ static const Node* force_to_be_type(Context* ctx, const Node* node);
 static const Node* rewrite_value(Context* ctx, const Node* node) {
     Context ctx2 = *ctx;
     ctx2.rewriter.rewrite_fn = (RewriteFn) force_to_be_value;
-    return rewrite_node(&ctx2.rewriter, node);
+    return ctx2.rewriter.rewrite_fn(&ctx2.rewriter, node);
 }
 
 static const Node* rewrite_type(Context* ctx, const Node* node) {
     Context ctx2 = *ctx;
     ctx2.rewriter.rewrite_fn = (RewriteFn) force_to_be_type;
-    return rewrite_node(&ctx2.rewriter, node);
+    return ctx2.rewriter.rewrite_fn(&ctx2.rewriter, node);
 }
 
 static const Node* rewrite_something(Context* ctx, const Node* node) {
     Context ctx2 = *ctx;
     ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
-    return rewrite_node(&ctx2.rewriter, node);
+    return ctx2.rewriter.rewrite_fn(&ctx2.rewriter, node);
 }
 
 static const Node* force_to_be_value(Context* ctx, const Node* node) {
+    if (node == NULL) return NULL;
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
     const Node* let_bound;
@@ -48,14 +49,15 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
         case Function_TAG: {
             return fn_addr(ctx->rewriter.dst_arena, (FnAddr) { .fn = rewrite_something(ctx, node) });
         }
+        case Variable_TAG: return find_processed(&ctx->rewriter, node);
         // All instructions are let-bound properly
         // TODO: generalize further
         case PrimOp_TAG: {
             assert(ctx->bb);
             let_bound = prim_op(dst_arena, (PrimOp) {
                 .op = node->payload.prim_op.op,
-                .operands = rewrite_nodes_generic(&ctx->rewriter, (RewriteFn) rewrite_value, node->payload.prim_op.operands),
-                .type_arguments = rewrite_nodes_generic(&ctx->rewriter, (RewriteFn) rewrite_something, node->payload.prim_op.type_arguments),
+                .operands = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.prim_op.operands, (RewriteFn) rewrite_value),
+                .type_arguments = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.prim_op.type_arguments, (RewriteFn) rewrite_something /* TODO: rewire_type ? */),
             });
             break;
         }
@@ -67,7 +69,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
 
             let_bound = indirect_call(dst_arena, (IndirectCall) {
                 .callee = ncallee,
-                .args = rewrite_nodes_generic(&ctx->rewriter, (RewriteFn) rewrite_value, oargs),
+                .args = rewrite_nodes_with_fn(&ctx->rewriter, oargs, (RewriteFn) rewrite_value),
             });
             break;
         }
@@ -79,7 +81,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
 
             let_bound = leaf_call(dst_arena, (LeafCall) {
                 .callee = ncallee,
-                .args = rewrite_nodes_generic(&ctx->rewriter, (RewriteFn) rewrite_value, oargs),
+                .args = rewrite_nodes_with_fn(&ctx->rewriter, oargs, (RewriteFn) rewrite_value),
             });
             break;
         }
@@ -95,6 +97,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
 }
 
 static const Node* force_to_be_type(Context* ctx, const Node* node) {
+    if (node == NULL) return NULL;
     switch (node->tag) {
         case NominalType_TAG: {
             return type_decl_ref(ctx->rewriter.dst_arena, (TypeDeclRef) {
@@ -163,6 +166,8 @@ void normalize(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
         .bb = NULL,
     };
 
+    ctx.rewriter.config.search_map = false;
+    ctx.rewriter.config.write_map = false;
     ctx.rewriter.rewrite_field_type.rewrite_value = (RewriteFn) rewrite_value;
     ctx.rewriter.rewrite_field_type.rewrite_type = (RewriteFn) rewrite_type;
 
