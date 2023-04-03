@@ -1,8 +1,7 @@
 const i32 WIDTH = 256;
 const i32 HEIGHT = 256;
 
-@EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main(uniform u64 buf) {
-    val p = reinterpret[ptr global [u32]](buf);
+@EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main(uniform ptr global [u32] p) {
     val thread_id = global_id();
     val x = reinterpret[i32](thread_id#0);
     val y = reinterpret[i32](thread_id#1);
