@@ -61,6 +61,9 @@ main(int argc, char **argv)
     assert(device);
 
     Buffer* buf = import_buffer_host(device, &img, sizeof(*img));
+    uint64_t buf_addr = get_buffer_pointer(buf);
+
+    info_print("Device-side address is: %zu\n", buf_addr);
 
     Program* program = load_program(runtime, checkerboard_kernel_src);
 

@@ -163,5 +163,13 @@ void destroy_buffer(Buffer* buffer) {
         vkFreeMemory(buffer->device->device, buffer->memory, NULL);
 }
 
+VkDeviceAddress get_buffer_pointer(Buffer* buf) {
+    return vkGetBufferDeviceAddress(buf->device->device, &(VkBufferDeviceAddressInfo) {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .pNext = NULL,
+        .buffer = buf->buffer
+    }) + buf->offset;
+}
+
 bool copy_into_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size);
 bool copy_from_buffer(Buffer* src, size_t buffer_offset, void* dst, size_t size);
