@@ -208,14 +208,15 @@ static const Type* accept_unqualified_type(ctxparams) {
     } else if (config.front_end && accept_token(ctx, lsbracket_tok)) {
         const Type* elem_type = accept_unqualified_type(ctx);
         assert(elem_type);
-        // TODO unsized arrays ?
-        expect(accept_token(ctx, semi_tok));
-        const Node* expr = accept_value(ctx);
-        expect(expr);
+        const Node* size = NULL;
+        if(accept_token(ctx, semi_tok)) {
+            size = accept_value(ctx);
+            expect(size);
+        }
         expect(accept_token(ctx, rsbracket_tok));
         return arr_type(arena, (ArrType) {
             .element_type = elem_type,
-            .size = expr
+            .size = size
         });
     } else if (accept_token(ctx, struct_tok)) {
         expect(accept_token(ctx, lbracket_tok));

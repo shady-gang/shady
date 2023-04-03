@@ -790,6 +790,10 @@ void spvb_set_version(struct SpvFileBuilder* file_builder, uint8_t major, uint8_
     file_builder->version.minor = minor;
 }
 
+void spvb_set_addressing_model(struct SpvFileBuilder* file_builder, SpvAddressingModel model) {
+    file_builder->addressing_model = model;
+}
+
 void spvb_finish(struct SpvFileBuilder* file_builder, SpvSectionBuilder output) {
     merge_sections(output, file_builder);
 

@@ -28,18 +28,18 @@ saveppm(const char *fname, int w, int h, unsigned char *img)
     fclose(fp);
 }
 
-#define WIDTH        1024
-#define HEIGHT       1024
+#define WIDTH        256
+#define HEIGHT       256
 
 int
 main(int argc, char **argv)
 {
-    unsigned char *img = (unsigned char *) malloc(WIDTH * HEIGHT * 3);
+    int32_t* img32 = malloc(sizeof(int32_t) * WIDTH * HEIGHT * 3);
     for (size_t i = 0; i < WIDTH; i++) {
         for (size_t j = 0; j < HEIGHT; j++) {
-            img[j * WIDTH * 3 + i * 3 + 0] = 255;
-            img[j * WIDTH * 3 + i * 3 + 1] = 0;
-            img[j * WIDTH * 3 + i * 3 + 2] = 255;
+            img32[j * WIDTH * 3 + i * 3 + 0] = 255;
+            img32[j * WIDTH * 3 + i * 3 + 1] = 0;
+            img32[j * WIDTH * 3 + i * 3 + 2] = 255;
         }
     }
 
@@ -60,16 +60,23 @@ main(int argc, char **argv)
     Device* device = get_device(runtime, 0);
     assert(device);
 
-    Buffer* buf = import_buffer_host(device, &img, sizeof(*img));
+    Buffer* buf = import_buffer_host(device, &img32, sizeof(*img32));
     uint64_t buf_addr = get_buffer_pointer(buf);
 
     info_print("Device-side address is: %zu\n", buf_addr);
 
     Program* program = load_program(runtime, checkerboard_kernel_src);
 
-    uint32_t a0 = 42;
-    float a1 = 42.0f;
-    wait_completion(launch_kernel(program, device, 1, 1, 1, 2, (void*[]) { &a0, &a1 }));
+    wait_completion(launch_kernel(program, device, 1, 1, 1, 1, (void*[]) { &buf_addr }));
+
+    unsigned char *img = (unsigned char *) malloc(WIDTH * HEIGHT * 3);
+    for (size_t i = 0; i < WIDTH; i++) {
+        for (size_t j = 0; j < HEIGHT; j++) {
+            img[j * WIDTH * 3 + i * 3 + 0] = img32[j * WIDTH * 3 + i * 3 + 0];
+            img[j * WIDTH * 3 + i * 3 + 1] = img32[j * WIDTH * 3 + i * 3 + 1];
+            img[j * WIDTH * 3 + i * 3 + 2] = img32[j * WIDTH * 3 + i * 3 + 2];
+        }
+    }
 
     shutdown_runtime(runtime);
     saveppm("ao.ppm", WIDTH, HEIGHT, img);

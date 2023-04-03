@@ -501,6 +501,7 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
 
     FileBuilder file_builder = spvb_begin();
     spvb_set_version(file_builder, config->target_spirv_version.major, config->target_spirv_version.minor);
+    spvb_set_addressing_model(file_builder, SpvAddressingModelPhysicalStorageBuffer64);
 
     Emitter emitter = {
         .module = mod,

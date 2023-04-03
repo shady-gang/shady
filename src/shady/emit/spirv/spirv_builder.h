@@ -80,6 +80,7 @@ SpvId spvb_extended_import(struct SpvFileBuilder* file_builder, const char* name
 
 struct SpvFileBuilder* spvb_begin();
 void spvb_set_version(struct SpvFileBuilder* file_builder, uint8_t major, uint8_t minor);
+void spvb_set_addressing_model(struct SpvFileBuilder* file_builder, SpvAddressingModel model);
 void spvb_finish(struct SpvFileBuilder*, SpvSectionBuilder output);
 
 struct SpvFnBuilder* spvb_begin_fn(struct SpvFileBuilder*, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type);

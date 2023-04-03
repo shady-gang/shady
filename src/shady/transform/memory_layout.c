@@ -42,6 +42,7 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
             case AsPrivatePhysical:
             case AsSubgroupPhysical:
             case AsSharedPhysical:
+            case AsGlobalPhysical:
             case AsGeneric: return get_mem_layout(config, arena, int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false }));
             default: error_print("as: %d", type->payload.ptr_type.address_space); error("unhandled address space")
         }
