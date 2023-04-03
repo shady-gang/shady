@@ -4,6 +4,7 @@
 #include "shady/ir.h"
 #include "spirv/unified1/spirv.h"
 
+#define u32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = uint32_type(arena) })
 #define i32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = int32_type(arena) })
 #define i32vec4_type(arena) pack_type(arena, (PackType) { .width = 4, .element_type = int32_type(arena) })
 
@@ -21,7 +22,7 @@ BUILTIN(Input,  InvocationId,              int32_type(arena)   )\
 BUILTIN(Input,  InstanceIndex,             int32_type(arena)   )\
 BUILTIN(Input,  LocalInvocationId,         i32vec3_type(arena) )\
 BUILTIN(Input,  LocalInvocationIndex,      int32_type(arena)   )\
-BUILTIN(Input,  GlobalInvocationId,        i32vec3_type(arena) )\
+BUILTIN(Input,  GlobalInvocationId,        u32vec3_type(arena) )\
 BUILTIN(Input,  WorkgroupId,               i32vec3_type(arena) )\
 BUILTIN(Input,  WorkgroupSize,             i32vec3_type(arena) )\
 BUILTIN(Input,  NumSubgroups,              int32_type(arena)   )\

@@ -945,7 +945,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = false,
-                .type = pack_type(arena, (PackType) { .element_type = int32_type(arena), .width = 3 })
+                .type = pack_type(arena, (PackType) { .element_type = uint32_type(arena), .width = 3 })
             });
         }
         // Stack stuff

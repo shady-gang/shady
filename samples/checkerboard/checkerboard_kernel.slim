@@ -1,10 +1,20 @@
+const i32 WIDTH = 256;
+const i32 HEIGHT = 256;
+
 @EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main(uniform u64 buf) {
     val p = reinterpret[ptr global [u32]](buf);
-    val i_again = reinterpret[u64](lea(p, (subgroup_local_id() * 3 + 0)));
-    debug_printf("hi %lu %lu", buf, i_again);
-    *p#(subgroup_local_id() * 3 + 0) = 0;
-    *p#(subgroup_local_id() * 3 + 1) = 0;
-    *p#(subgroup_local_id() * 3 + 2) = 0;
+    val thread_id = global_id();
+    val x = reinterpret[i32](thread_id#0);
+    val y = reinterpret[i32](thread_id#1);
+    if (((x / 16) % 2) == ((y / 16) % 2)) {
+        *p#(((y * HEIGHT) + x) * 3 + 0) = 0;
+        *p#(((y * HEIGHT) + x) * 3 + 1) = 0;
+        *p#(((y * HEIGHT) + x) * 3 + 2) = 0;
+    } else {
+        *p#(((y * HEIGHT) + x) * 3 + 0) = 255;
+        *p#(((y * HEIGHT) + x) * 3 + 1) = 255;
+        *p#(((y * HEIGHT) + x) * 3 + 2) = 0;
+    }
     //*p#0 = 42;
     return ();
 }
