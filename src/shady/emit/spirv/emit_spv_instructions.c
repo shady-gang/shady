@@ -4,6 +4,7 @@
 #include "portability.h"
 
 #include "../../type.h"
+#include "../../transform/memory_layout.h"
 
 #include <assert.h>
 
@@ -272,19 +273,46 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             return;
         }
         case load_op: {
-            assert(get_unqualified_type(first(args)->type)->tag == PtrType_TAG);
-            const Type* elem_type = get_unqualified_type(first(args)->type)->payload.ptr_type.pointed_type;
+            const Type* ptr_type = first(args)->type;
+            deconstruct_qualified_type(&ptr_type);
+            assert(ptr_type->tag == PtrType_TAG);
+            const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
+
+            size_t operands_count = 0;
+            uint32_t operands[2];
+            if (ptr_type->payload.ptr_type.address_space == AsGlobalPhysical) {
+                // TODO only do this in VK mode ?
+                TypeMemLayout layout = get_mem_layout(emitter->configuration, emitter->arena, elem_type);
+                operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
+                operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
+                operands_count += 2;
+            }
+
             SpvId eptr = emit_value(emitter, bb_builder, first(args));
-            SpvId result = spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, 0, NULL);
+            SpvId result = spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, operands_count, operands);
             assert(results_count == 1);
             results[0] = result;
             return;
         }
         case store_op: {
-            assert(get_unqualified_type(first(args)->type)->tag == PtrType_TAG);
+            const Type* ptr_type = first(args)->type;
+            deconstruct_qualified_type(&ptr_type);
+            assert(ptr_type->tag == PtrType_TAG);
+            const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
+
+            size_t operands_count = 0;
+            uint32_t operands[2];
+            if (ptr_type->payload.ptr_type.address_space == AsGlobalPhysical) {
+                // TODO only do this in VK mode ?
+                TypeMemLayout layout = get_mem_layout(emitter->configuration, emitter->arena, elem_type);
+                operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
+                operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
+                operands_count += 2;
+            }
+
             SpvId eptr = emit_value(emitter, bb_builder, first(args));
             SpvId eval = emit_value(emitter, bb_builder, args.nodes[1]);
-            spvb_store(bb_builder, eval, eptr, 0, NULL);
+            spvb_store(bb_builder, eval, eptr, operands_count, operands);
             assert(results_count == 0);
             return;
         }
