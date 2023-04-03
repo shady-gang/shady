@@ -37,6 +37,7 @@ struct Rewriter_ {
         bool write_map;
     } config;
     struct Dict* map;
+    struct Dict* decls_map;
 };
 
 Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn);
@@ -63,5 +64,6 @@ const Node* search_processed(const Rewriter*, const Node*);
 const Node* find_processed(const Rewriter*, const Node*);
 void register_processed(Rewriter*, const Node*, const Node*);
 void register_processed_list(Rewriter*, Nodes, Nodes);
+void clear_processed_non_decls(Rewriter*);
 
 #endif
