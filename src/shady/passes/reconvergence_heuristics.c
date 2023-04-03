@@ -33,9 +33,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
         ctx->current_fn = node;
     }
 
-    const Node* restructure = lookup_annotation(ctx->current_fn, "Restructure");
-    if (!restructure)
+    if (!ctx->current_fn || !lookup_annotation(ctx->current_fn, "Restructure")) {
+        debugv_print("No restructuring here\n");
         return recreate_node_identity(&ctx->rewriter, node);
+    }
 
     if (is_function(node)) {
         if (ctx->current_scope) {
