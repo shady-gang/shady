@@ -55,6 +55,7 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
     const Node* patched_ptr = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, nptr, sign_extension_patch));
     const Type* dst_ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = get_addr_space_from_tag(tag) });
     const Node* reinterpreted_ptr = gen_reinterpret_cast(bb, dst_ptr_t, patched_ptr);
+    return reinterpreted_ptr;
 }
 
 static const Node* process(Context* ctx, const Node* old) {
