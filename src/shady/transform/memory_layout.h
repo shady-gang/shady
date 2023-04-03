@@ -5,6 +5,7 @@
 typedef struct {
     const Type* type;
     size_t size_in_bytes;
+    size_t alignment_in_bytes;
 } TypeMemLayout;
 
 typedef struct {

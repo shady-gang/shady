@@ -24,10 +24,13 @@ static const Node* process(Context* ctx, const Node* old) {
                 case size_of_op: {
                     const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
                     TypeMemLayout layout = get_mem_layout(ctx->config, a, t);
-                    const Node* byte_size = int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = layout.size_in_bytes });
-                    return quote(a, singleton(byte_size));
+                    return quote(a, singleton(int_literal(a, (IntLiteral) {.width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = layout.size_in_bytes})));
                 }
-                case align_of_op: error("TODO");
+                case align_of_op: {
+                    const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
+                    TypeMemLayout layout = get_mem_layout(ctx->config, a, t);
+                    return quote(a, singleton(int_literal(a, (IntLiteral) {.width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = layout.alignment_in_bytes})));
+                }
                 case offset_of_op: {
                     const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
                     const Node* n = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands));
