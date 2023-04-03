@@ -16,6 +16,9 @@
 Y(vkCreateDebugUtilsMessengerEXT) \
 Y(vkDestroyDebugUtilsMessengerEXT) \
 
+#define external_memory_host_fns(Y) \
+Y(vkGetMemoryHostPointerPropertiesEXT) \
+
 #define INSTANCE_EXTENSIONS(X) \
 X(0, EXT, debug_utils,                debug_utils_fns) \
 X(0, KHR, portability_enumeration,          empty_fns) \
@@ -30,7 +33,7 @@ X(0, KHR, spirv_1_4,                      empty_fns) \
 X(0, KHR, portability_subset,             empty_fns) \
 X(0, KHR, shader_subgroup_extended_types, empty_fns) \
 X(0, EXT, external_memory,                empty_fns) \
-X(0, EXT, external_memory_host,           empty_fns) \
+X(1, EXT, external_memory_host,           external_memory_host_fns) \
 X(0, EXT, subgroup_size_control,          empty_fns) \
 
 #define E(is_required, prefix, name, _) ShadySupports##prefix##name,
