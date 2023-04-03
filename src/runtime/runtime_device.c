@@ -201,6 +201,19 @@ bool cmp_programs(Device** pldevice, Device** prdevice) {
     return *pldevice == *prdevice;
 }
 
+static void obtain_device_pointers(Device* device) {
+#define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetDeviceProcAddr(device->device, #fn_name);
+#define X(_, prefix, name, fns) \
+        device->extensions.name.enabled = device->caps.supported_extensions[ShadySupports##prefix##name]; \
+        if (device->extensions.name.enabled) { \
+            SHADY_UNUSED struct S_##name* ext = &device->extensions.name; \
+            fns(Y) \
+        }
+    DEVICE_EXTENSIONS(X)
+#undef Y
+#undef X
+}
+
 static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
     Device* device = calloc(1, sizeof(Device));
     device->runtime = runtime;
@@ -242,6 +255,9 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     device->specialized_programs = new_dict(Program*, SpecProgram*, (HashFn) hash_program, (CmpFn) cmp_programs);
 
     vkGetDeviceQueue(device->device, device->caps.compute_queue_family, 0, &device->compute_queue);
+
+    obtain_device_pointers(device);
+
     return device;
 
     delete_device:
