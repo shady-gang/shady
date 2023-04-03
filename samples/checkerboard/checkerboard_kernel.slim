@@ -1,7 +1,10 @@
 @EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main(uniform u64 buf) {
     val p = reinterpret[ptr global [u32]](buf);
-    val i_again = reinterpret[u64](buf);
+    val i_again = reinterpret[u64](lea(p, (subgroup_local_id() * 3 + 0)));
     debug_printf("hi %lu %lu", buf, i_again);
     *p#(subgroup_local_id() * 3 + 0) = 0;
+    *p#(subgroup_local_id() * 3 + 1) = 0;
+    *p#(subgroup_local_id() * 3 + 2) = 0;
+    //*p#0 = 42;
     return ();
 }

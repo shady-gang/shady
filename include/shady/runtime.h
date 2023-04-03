@@ -34,7 +34,8 @@ Buffer* allocate_buffer_device(Device*, size_t);
 Buffer* import_buffer_host(Device*, void*, size_t);
 void destroy_buffer(Buffer*);
 
-uint64_t get_buffer_pointer(Buffer* buf);
+void* get_buffer_host_pointer(Buffer* buf);
+uint64_t get_buffer_device_pointer(Buffer* buf);
 
 bool copy_into_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size);
 bool copy_from_buffer(Buffer* src, size_t buffer_offset, void* dst, size_t size);
