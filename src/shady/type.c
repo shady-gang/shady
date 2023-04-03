@@ -216,13 +216,21 @@ bool is_data_type(const Type* type) {
         case Type_Int_TAG:
         case Type_Float_TAG:
         case Type_Bool_TAG:
-        case Type_PtrType_TAG:
-        case Type_ArrType_TAG:
-        case Type_PackType_TAG:
             return true;
-        // multi-return record types are the results of instructions, but are not values themselves
-        case Type_RecordType_TAG:
+        case Type_PtrType_TAG:
+            return true;
+        case Type_ArrType_TAG:
+            // array types _must_ be sized to be real data types
+            return type->payload.arr_type.size != NULL;
+        case Type_PackType_TAG:
+            return is_data_type(type->payload.pack_type.element_type);
+        case Type_RecordType_TAG: {
+            for (size_t i = 0; i < type->payload.record_type.members.count; i++)
+                if (!is_data_type(type->payload.record_type.members.nodes[i]))
+                    return false;
+            // multi-return record types are the results of instructions, but are not values themselves
             return type->payload.record_type.special == NotSpecial;
+        }
         case Type_TypeDeclRef_TAG:
             return !get_nominal_type_body(type) || is_data_type(get_nominal_type_body(type));
         // qualified types are not data types because that information is only meant for values
