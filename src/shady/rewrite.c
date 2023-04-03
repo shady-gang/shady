@@ -35,7 +35,7 @@ Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn) {
             .search_map = true,
             //.write_map = true,
         },
-        .processed = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node)
+        .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
 }
 
@@ -46,7 +46,7 @@ Rewriter create_importer(Module* src, Module* dst) {
 static const Node* recreate_node_substitutions_only(Rewriter* rewriter, const Node* node) {
     if (!node) return NULL;
     assert(rewriter->dst_arena == rewriter->src_arena);
-    const Node* found = rewriter->processed ? search_processed(rewriter, node) : NULL;
+    const Node* found = rewriter->map ? search_processed(rewriter, node) : NULL;
     if (found)
         return found;
 
@@ -68,8 +68,8 @@ Rewriter create_substituter(Module* module) {
 }
 
 void destroy_rewriter(Rewriter* r) {
-    assert(r->processed);
-    destroy_dict(r->processed);
+    assert(r->map);
+    destroy_dict(r->map);
 }
 
 const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteFn fn) {
@@ -78,7 +78,7 @@ const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteFn
         return NULL;
     const Node* found = NULL;
     if (rewriter->config.search_map) {
-        assert(rewriter->processed);
+        assert(rewriter->map);
         found = search_processed(rewriter, node);
     }
     if (found)
@@ -88,7 +88,7 @@ const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteFn
     if (is_declaration(node))
         return rewritten;
     if (rewriter->config.write_map) {
-        assert(rewriter->processed);
+        assert(rewriter->map);
         register_processed(rewriter, node, rewritten);
     }
     return rewritten;
@@ -114,8 +114,8 @@ Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteFn fn) {
 }
 
 const Node* search_processed(const Rewriter* ctx, const Node* old) {
-    assert(ctx->processed && "this rewriter has no processed cache");
-    const Node** found = find_value_dict(const Node*, const Node*, ctx->processed, old);
+    assert(ctx->map && "this rewriter has no processed cache");
+    const Node** found = find_value_dict(const Node*, const Node*, ctx->map, old);
     return found ? *found : NULL;
 }
 
@@ -141,8 +141,8 @@ void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
         error("The same node got processed twice !");
     }
 #endif
-    assert(ctx->processed && "this rewriter has no processed cache");
-    bool r = insert_dict_and_get_result(const Node*, const Node*, ctx->processed, old, new);
+    assert(ctx->map && "this rewriter has no processed cache");
+    bool r = insert_dict_and_get_result(const Node*, const Node*, ctx->map, old, new);
     assert(r);
 }
 
@@ -276,7 +276,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     assert(node->arena == rewriter->src_arena);
 
     // TODO redundant ?
-    const Node* already_done_before = rewriter->processed ? search_processed(rewriter, node) : NULL;
+    const Node* already_done_before = rewriter->map ? search_processed(rewriter, node) : NULL;
     if (already_done_before)
         return already_done_before;
 

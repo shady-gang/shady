@@ -36,7 +36,7 @@ struct Rewriter_ {
         bool search_map;
         bool write_map;
     } config;
-    struct Dict* processed;
+    struct Dict* map;
 };
 
 Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn);
