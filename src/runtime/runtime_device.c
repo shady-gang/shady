@@ -132,8 +132,8 @@ static bool fill_device_features(DeviceCaps* caps) {
         append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.subgroup_extended_types);
     }
 
-    if (caps->supported_extensions[ShadySupportsEXTbuffer_device_address] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
-        caps->features.buffer_device_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT;
+    if (caps->supported_extensions[ShadySupportsKHRbuffer_device_address] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
+        caps->features.buffer_device_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
         append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.buffer_device_address);
     }
 

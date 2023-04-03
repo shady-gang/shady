@@ -23,7 +23,7 @@ X(1, KHR, get_physical_device_properties2,  empty_fns) \
 
 #define DEVICE_EXTENSIONS(X) \
 X(0, EXT, descriptor_indexing,            empty_fns) \
-X(0, EXT, buffer_device_address,          empty_fns) \
+X(1, KHR, buffer_device_address,          empty_fns) \
 X(1, KHR, storage_buffer_storage_class,   empty_fns) \
 X(0, KHR, shader_non_semantic_info,       empty_fns) \
 X(0, KHR, spirv_1_4,                      empty_fns) \
@@ -105,7 +105,7 @@ typedef struct {
     struct {
         VkPhysicalDeviceFeatures2 base;
         VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR subgroup_extended_types;
-        VkPhysicalDeviceBufferDeviceAddressFeaturesEXT buffer_device_address;
+        VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address;
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroup_size_control;
     } features;
     struct {
