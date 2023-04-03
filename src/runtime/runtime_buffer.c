@@ -38,11 +38,14 @@ struct Buffer_ {
     bool imported;
     VkBuffer buffer;
     VkDeviceMemory memory;
+    size_t offset;
 };
 
 static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t size) {
     Buffer* buffer = calloc(sizeof(Buffer), 1);
+    buffer->device = device;
     buffer->imported = imported_ptr != NULL;
+    buffer->offset = 0;
 
     VkBufferCreateInfo buffer_create_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -51,11 +54,9 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
         .flags = 0,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /** we basically want all the usages ! */
     };
-    if (device->caps.features.buffer_device_address.bufferDeviceAddress)
-        buffer_create_info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_EXT;
-    CHECK_VK(vkCreateBuffer(device->device, &buffer_create_info, NULL, &buffer->buffer), goto bail_out);
+
     VkMemoryAllocateInfo allocation_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = NULL,
@@ -63,21 +64,49 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
         .memoryTypeIndex = 0 /* set later */,
     };
 
-    VkImportMemoryHostPointerInfoEXT import_host_ptr_info = {
-        .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT,
-        .pNext = NULL,
-        .pHostPointer = imported_ptr,
-        .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT
-    };
+    VkExternalMemoryBufferCreateInfo ext_memory_buffer_create_info;
+    VkImportMemoryHostPointerInfoEXT import_host_ptr_info;
+    size_t memory_bind_offset = 0;
 
     if (imported_ptr) {
+        // align the bugger first ...
+        size_t desired_alignment = device->caps.extended_properties.external_memory_host.minImportedHostPointerAlignment;
+        size_t unaligned_addr = (size_t) imported_ptr;
+        size_t aligned_addr = (unaligned_addr / desired_alignment) * desired_alignment;
+        assert(unaligned_addr >= aligned_addr);
+        buffer->offset = unaligned_addr - aligned_addr;
+
+        size_t unaligned_end = unaligned_addr + size;
+        assert(unaligned_end >= aligned_addr);
+        size_t aligned_end = ((unaligned_end + desired_alignment - 1) / desired_alignment) * desired_alignment;
+        assert(aligned_end >= unaligned_end);
+        size_t aligned_size = aligned_end - aligned_addr;
+        assert(aligned_size >= size);
+        assert(aligned_size % desired_alignment == 0);
+
+        allocation_info.allocationSize = aligned_size;
+
         VkMemoryHostPointerPropertiesEXT host_ptr_properties = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT,
             .pNext = NULL
         };
-        CHECK_VK(device->extensions.external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, imported_ptr, &host_ptr_properties), return NULL);
+        CHECK_VK(device->extensions.external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, (void*) aligned_addr, &host_ptr_properties), return NULL);
         allocation_info.memoryTypeIndex = find_suitable_memory_type(device, host_ptr_properties.memoryTypeBits, AllocHostVisible);
+
+        import_host_ptr_info = (VkImportMemoryHostPointerInfoEXT) {
+            .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT,
+            .pNext = NULL,
+            .pHostPointer = (void*) aligned_addr,
+            .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT
+        };
         append_pnext((VkBaseOutStructure*) &allocation_info, &import_host_ptr_info);
+
+        ext_memory_buffer_create_info = (VkExternalMemoryBufferCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+            .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT,
+            .pNext = NULL,
+        };
+        append_pnext((VkBaseOutStructure*) &buffer_create_info, &ext_memory_buffer_create_info);
     } else {
         VkBufferMemoryRequirementsInfo2 buf_mem_requirements = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
@@ -92,6 +121,7 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
         allocation_info.memoryTypeIndex = find_suitable_memory_type(device, mem_requirements.memoryRequirements.memoryTypeBits, AllocDeviceLocal);
     }
 
+    // Add extra allocation flags
     VkMemoryAllocateFlagsInfo allocate_flags =  {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
         .pNext = NULL,
@@ -100,11 +130,18 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
     };
     if (device->caps.features.buffer_device_address.bufferDeviceAddress)
         allocate_flags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-
     append_pnext((VkBaseOutStructure*) &allocation_info, &allocate_flags);
 
+    // allocate memory
     CHECK_VK(vkAllocateMemory(device->device, &allocation_info, NULL, &buffer->memory), goto bail_out);
-    vkBindBufferMemory(device->device, buffer->buffer, buffer->memory, 0);
+
+    // create buffer to use that memory
+    if (device->caps.features.buffer_device_address.bufferDeviceAddress)
+        buffer_create_info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_EXT;
+    CHECK_VK(vkCreateBuffer(device->device, &buffer_create_info, NULL, &buffer->buffer), goto bail_out);
+
+    // bind the two together
+    CHECK_VK(vkBindBufferMemory(device->device, buffer->buffer, buffer->memory, memory_bind_offset), goto bail_out);
     return buffer;
 
     bail_out:

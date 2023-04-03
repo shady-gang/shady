@@ -108,6 +108,11 @@ static bool fill_extended_device_properties(DeviceCaps* caps) {
         append_pnext((VkBaseOutStructure*) &dp, &caps->extended_properties.subgroup_size_control);
     }
 
+    if (caps->supported_extensions[ShadySupportsEXTexternal_memory_host]) {
+        caps->extended_properties.external_memory_host.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT;
+        append_pnext((VkBaseOutStructure*) &dp, &caps->extended_properties.external_memory_host);
+    }
+
     vkGetPhysicalDeviceProperties2(caps->physical_device, &dp);
 
     if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
