@@ -89,9 +89,7 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
         }
         case QualifiedType_TAG: return get_mem_layout(config, arena, type->payload.qualified_type.type);
         case TypeDeclRef_TAG: return get_mem_layout(config, arena, type->payload.type_decl_ref.decl->payload.nom_type.body);
-        case RecordType_TAG: {
-            return get_record_layout(config, arena, type, NULL);
-        }
+        case RecordType_TAG: return get_record_layout(config, arena, type, NULL);
         default: error("not a known type");
     }
 }
