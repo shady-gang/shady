@@ -40,9 +40,9 @@ struct Buffer_ {
     VkDeviceMemory memory;
 };
 
-Buffer* allocate_buffer_device(Device* device, size_t size) {
+static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t size) {
     Buffer* buffer = calloc(sizeof(Buffer), 1);
-    buffer->imported = false;
+    buffer->imported = imported_ptr != NULL;
 
     VkBufferCreateInfo buffer_create_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -54,16 +54,43 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
     };
     if (device->caps.features.buffer_device_address.bufferDeviceAddress)
-        buffer_create_info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        buffer_create_info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_EXT;
     CHECK_VK(vkCreateBuffer(device->device, &buffer_create_info, NULL, &buffer->buffer), goto bail_out);
-
-    VkBufferMemoryRequirementsInfo2 buf_mem_requirements = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
+    VkMemoryAllocateInfo allocation_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = NULL,
-        .buffer = buffer->buffer
+        .allocationSize = (VkDeviceSize) size, // the driver might want padding !
+        .memoryTypeIndex = 0 /* set later */,
     };
-    VkMemoryRequirements2 mem_requirements;
-    vkGetBufferMemoryRequirements2(device->device, &buf_mem_requirements, &mem_requirements);
+
+    VkImportMemoryHostPointerInfoEXT import_host_ptr_info = {
+        .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT,
+        .pNext = NULL,
+        .pHostPointer = imported_ptr,
+        .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT
+    };
+
+    if (imported_ptr) {
+        VkMemoryHostPointerPropertiesEXT host_ptr_properties = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT,
+            .pNext = NULL
+        };
+        CHECK_VK(device->extensions.external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, imported_ptr, &host_ptr_properties), return NULL);
+        allocation_info.memoryTypeIndex = find_suitable_memory_type(device, host_ptr_properties.memoryTypeBits, AllocHostVisible);
+        append_pnext((VkBaseOutStructure*) &allocation_info, &import_host_ptr_info);
+    } else {
+        VkBufferMemoryRequirementsInfo2 buf_mem_requirements = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
+            .pNext = NULL,
+            .buffer = buffer->buffer
+        };
+        VkMemoryRequirements2 mem_requirements = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+            .pNext = NULL,
+        };
+        vkGetBufferMemoryRequirements2(device->device, &buf_mem_requirements, &mem_requirements);
+        allocation_info.memoryTypeIndex = find_suitable_memory_type(device, mem_requirements.memoryRequirements.memoryTypeBits, AllocDeviceLocal);
+    }
 
     VkMemoryAllocateFlagsInfo allocate_flags =  {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
@@ -73,15 +100,10 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
     };
     if (device->caps.features.buffer_device_address.bufferDeviceAddress)
         allocate_flags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-    VkMemoryAllocateInfo allocation_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = NULL,
-        .allocationSize = (VkDeviceSize) size, // the driver might want padding !
-        .memoryTypeIndex = find_suitable_memory_type(device, mem_requirements.memoryRequirements.memoryTypeBits, AllocDeviceLocal),
-    };
+
     append_pnext((VkBaseOutStructure*) &allocation_info, &allocate_flags);
 
-    vkAllocateMemory(device->device, &allocation_info, NULL, &buffer->memory);
+    CHECK_VK(vkAllocateMemory(device->device, &allocation_info, NULL, &buffer->memory), goto bail_out);
     vkBindBufferMemory(device->device, buffer->buffer, buffer->memory, 0);
     return buffer;
 
@@ -90,10 +112,12 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
     return NULL;
 }
 
-#pragma GCC diagnostic ignored "-Wunused-parameter"
+Buffer* allocate_buffer_device(Device* device, size_t size) {
+    return create_buffer_internal(device, NULL, size);
+}
 
 Buffer* import_buffer_host(Device* device, void* ptr, size_t size) {
-    error("TODO");
+    return create_buffer_internal(device, ptr, size);
 }
 
 void destroy_buffer(Buffer* buffer) {
