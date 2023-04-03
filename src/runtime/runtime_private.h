@@ -114,6 +114,7 @@ typedef struct {
     struct {
         VkPhysicalDeviceSubgroupProperties subgroup;
         VkPhysicalDeviceSubgroupSizeControlPropertiesEXT subgroup_size_control;
+        VkPhysicalDeviceExternalMemoryHostPropertiesEXT external_memory_host;
     } extended_properties;
     struct {
         bool is_moltenvk;
