@@ -49,14 +49,17 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,
             .size_in_bytes = get_type_bitwidth(type) / 8,
+            .alignment_in_bytes = type->payload.int_type.width == IntTy64 ? 8 : 4,
         };
         case Float_TAG:   return (TypeMemLayout) {
             .type = type,
-            .size_in_bytes = 4,
+            .size_in_bytes = get_type_bitwidth(type),
+            .alignment_in_bytes = type->payload.float_type.width == FloatTy64 ? 8 : 4,
         };
         case Bool_TAG:   return (TypeMemLayout) {
             .type = type,
             .size_in_bytes = 4,
+            .alignment_in_bytes = 4,
         };
         case ArrType_TAG: {
             const Node* size = type->payload.arr_type.size;
@@ -65,15 +68,24 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
             TypeMemLayout element_layout = get_mem_layout(config, arena, type->payload.arr_type.element_type);
             return (TypeMemLayout) {
                 .type = type,
-                .size_in_bytes = actual_size * element_layout.size_in_bytes
+                .size_in_bytes = actual_size * element_layout.size_in_bytes,
+                .alignment_in_bytes = element_layout.alignment_in_bytes
             };
         }
         case QualifiedType_TAG: return get_mem_layout(config, arena, type->payload.qualified_type.type);
         case TypeDeclRef_TAG: return get_mem_layout(config, arena, type->payload.type_decl_ref.decl->payload.nom_type.body);
         case RecordType_TAG: {
+            LARRAY(FieldLayout, fields, type->payload.record_type.members.count);
+            size_t size = get_record_layout(config, arena, type, fields);
+            size_t max_align = 0;
+            for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
+                if (fields->mem_layout.alignment_in_bytes > max_align)
+                    max_align = fields->mem_layout.alignment_in_bytes;
+            }
             return (TypeMemLayout) {
                 .type = type,
-                .size_in_bytes = get_record_layout(config, arena, type, NULL),
+                .size_in_bytes = size,
+                .alignment_in_bytes = max_align,
             };
         }
         default: error("not a known type");
