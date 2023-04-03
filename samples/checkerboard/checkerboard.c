@@ -60,6 +60,8 @@ main(int argc, char **argv)
     Device* device = get_device(runtime, 0);
     assert(device);
 
+    Buffer* buf = import_buffer_host(device, &img, sizeof(*img));
+
     Program* program = load_program(runtime, checkerboard_kernel_src);
 
     uint32_t a0 = 42;
