@@ -138,7 +138,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG: {
             Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
@@ -150,7 +150,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* new = basic_block(a, (Node*) rewrite_node(&ctx->rewriter, node->payload.basic_block.fn), recreate_variables(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
             register_processed(&ctx->rewriter, node, new);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new->payload.basic_block.params);
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
@@ -160,7 +160,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case AnonLambda_TAG: {
             Nodes new_params = recreate_variables(&ctx->rewriter, node->payload.anon_lam.params);
             register_processed_list(&ctx->rewriter, node->payload.anon_lam.params, new_params);
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;

@@ -205,7 +205,7 @@ static void toplevel_to_shady(ClangAst* ast, json_object* decl) {
                 params[param_i++] = var(ast->arena, type, param_name);
             } else if (strcmp(body_kind, "CompoundStmt") == 0) {
                 assert(param_i == params_count);
-                BodyBuilder* bb = begin_body(ast->mod);
+                BodyBuilder* bb = begin_body(ast->arena);
                 body = stmt_to_shady(ast, bb, sub_decl);
                 if (!body)
                     body = finish_body(bb, unreachable(ast->arena)); // TODO

@@ -749,7 +749,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             Node* block = basic_block(parser->arena, parser->fun, params, bb_name);
             parser->defs[result].node = block;
 
-            BodyBuilder* bb = begin_body(parser->mod);
+            BodyBuilder* bb = begin_body(parser->arena);
             parser->current_block.builder = bb;
             parser->current_block.finished = NULL;
             while (parser->current_block.builder) {

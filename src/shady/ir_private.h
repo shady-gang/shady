@@ -33,7 +33,6 @@ void register_decl_module(Module*, Node*);
 void destroy_module(Module* m);
 
 struct BodyBuilder_ {
-    Module* module;
     IrArena* arena;
     struct List* stack;
 };

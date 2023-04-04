@@ -63,7 +63,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 case add_op: if (should_convert(ctx, first(old_nodes)->type)) {
                     Nodes new_nodes = rewrite_nodes(&ctx->rewriter, old_nodes);
                     // TODO: convert into and then out of unsigned
-                    BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
+                    BodyBuilder* builder = begin_body(arena);
                     extract_low_hi_halves_list(builder, new_nodes, lows, his);
                     Nodes low_and_carry = bind_instruction(builder, prim_op(arena, (PrimOp) { .op = add_carry_op, .operands = nodes(arena, 2, lows)}));
                     const Node* lo = first(low_and_carry);

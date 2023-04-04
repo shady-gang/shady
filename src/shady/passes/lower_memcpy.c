@@ -40,7 +40,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 case memcpy_op: {
                     const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
 
-                    BodyBuilder* bb = begin_body(m);
+                    BodyBuilder* bb = begin_body(a);
                     Nodes old_ops = old->payload.prim_op.operands;
 
                     const Node* dst_addr = rewrite_node(&ctx->rewriter, old_ops.nodes[0]);
@@ -67,7 +67,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Node* num_in_bytes = gen_conversion(bb, uint32_type(a), bytes_to_words(ctx, bb, num));
 
                     const Node* index = var(a, qualified_type_helper(uint32_type(a), false), "memcpy_i");
-                    BodyBuilder* loop_bb = begin_body(m);
+                    BodyBuilder* loop_bb = begin_body(a);
                     const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, singleton(uint32_literal(a, 0))));
                     gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, singleton(uint32_literal(a, 0))), loaded_word);
                     bind_instruction(loop_bb, if_instr(a, (If) {

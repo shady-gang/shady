@@ -31,7 +31,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     return prim_op(arena, (PrimOp) { .op = subgroup_ballot_op, .type_arguments = empty(arena), .operands = singleton(true_lit(ctx->rewriter.dst_arena)) });
                 // extract the relevant bit
                 case mask_is_thread_active_op: {
-                    BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                    BodyBuilder* bb = begin_body(arena);
                     const Node* mask = rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
                     const Node* index = rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
                     index = gen_conversion(bb, get_actual_mask_type(ctx->rewriter.dst_arena), index);

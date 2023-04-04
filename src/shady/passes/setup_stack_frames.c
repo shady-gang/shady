@@ -68,7 +68,7 @@ static const Node* process(Context* ctx, const Node* node) {
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
 
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* bb = begin_body(arena);
             if (!ctx2.disable_lowering) {
                 ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(arena, (PrimOp) { .op = get_stack_pointer_op } ), (String []) { format_string(arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
                 ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
@@ -90,7 +90,7 @@ static const Node* process(Context* ctx, const Node* node) {
             return fun;
         }
         case Return_TAG: {
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* bb = begin_body(arena);
             if (!ctx->disable_lowering) {
                 assert(ctx->entry_stack_offset);
                 // Restore SP before calling exit

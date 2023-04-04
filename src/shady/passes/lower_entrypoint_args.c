@@ -60,7 +60,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
 static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const Node* arg_struct) {
     IrArena* a = ctx->rewriter.dst_arena;
 
-    BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* bb = begin_body(a);
 
     Nodes params = old_entry_point->payload.fun.params;
 
