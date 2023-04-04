@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
 
     int32_t a0 = 42;
     uint64_t a1 = get_buffer_device_pointer(buffer);
-    wait_completion(launch_kernel(program, device, 1, 1, 1, 2, (void*[]) { &a0, &a1 }));
+    wait_completion(launch_kernel(program, device, "main", 1, 1, 1, 2, (void*[]) { &a0, &a1 }));
 
     destroy_buffer(buffer);
 
