@@ -29,6 +29,7 @@ list(APPEND BASIC_TESTS test/c/include.c)
 
 list(APPEND BASIC_TESTS samples/fib.slim)
 list(APPEND BASIC_TESTS samples/hello_world.slim)
+list(APPEND BASIC_TESTS samples/aobench.slim)
 
 foreach(T IN LISTS BASIC_TESTS)
     add_test(NAME ${T} COMMAND slim ${PROJECT_SOURCE_DIR}/${T} -o test.spv)
