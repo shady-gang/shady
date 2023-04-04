@@ -86,6 +86,11 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, zero});
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
+            case AsGlobalPhysical: {
+                const Type* ptr_int_t = int_type(bb->arena, (Int) {.width = bb->arena->config.memory.ptr_size, .is_signed = false });
+                const Node* unsigned_int = gen_deserialisation(ctx, bb, ptr_int_t, arr, base_offset);
+                return gen_reinterpret_cast(bb, element_type, unsigned_int);
+            }
             default: error("TODO")
         }
         case Int_TAG: ser_int: {
@@ -155,6 +160,11 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
             case AsProgramCode: goto des_int;
+            case AsGlobalPhysical: {
+                const Type* ptr_int_t = int_type(bb->arena, (Int) {.width = bb->arena->config.memory.ptr_size, .is_signed = false });
+                const Node* unsigned_value = gen_primop_e(bb, reinterpret_op, singleton(ptr_int_t), singleton(value));
+                return gen_serialisation(ctx, bb, ptr_int_t, arr, base_offset, unsigned_value);
+            }
             default: error("TODO")
         }
         case Int_TAG: des_int: {
