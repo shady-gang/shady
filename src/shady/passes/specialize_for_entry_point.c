@@ -51,7 +51,10 @@ static const Node* process(Context* ctx, const Node* node) {
                     wg_size[0] = get_int_literal_value(rewrite_node(&ctx->rewriter, ctx->old_wg_size.nodes[0]), false);
                     wg_size[1] = get_int_literal_value(rewrite_node(&ctx->rewriter, ctx->old_wg_size.nodes[1]), false);
                     wg_size[2] = get_int_literal_value(rewrite_node(&ctx->rewriter, ctx->old_wg_size.nodes[2]), false);
-                    ncnst->payload.constant.value = uint32_literal(a, (wg_size[0] * wg_size[1] * wg_size[2]) / ctx->sg_size);
+                    uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / ctx->sg_size;
+                    if (subgroups_per_wg == 0)
+                        subgroups_per_wg = 1; // uh-oh
+                    ncnst->payload.constant.value = uint32_literal(a, subgroups_per_wg);
                 }
             }
             return ncnst;
