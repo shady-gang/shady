@@ -1,0 +1,21 @@
+
+type T = struct {
+    f32 x;
+    f32 y;
+};
+
+@EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1)
+fn main() {
+    var [i32; 3] A = composite [i32; 3](0, 0, 0);
+    A#0 = 17;
+    A#1 = 23;
+    A#2 = 42;
+
+    debug_printf("Value i32: %d\n", A#2);
+
+    var [T; 3] B = composite [T; 3](composite T(3, 2), composite T(7, 8), composite T(6, 5));
+    
+    debug_printf("Value Vec: %d\n", B#2#1);
+
+    return ();
+}
