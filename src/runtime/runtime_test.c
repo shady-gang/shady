@@ -13,8 +13,8 @@
 #include <assert.h>
 
 static const char* default_shader =
-"@EntryPoint(\"compute\") @WorkgroupSize(32, 1, 1) fn main() {\n"
-"    debug_printf(\"hi\");"
+"@EntryPoint(\"compute\") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main(uniform i32 a0, uniform f32 a1) {\n"
+"    debug_printf(\"hi %d %f\", a0, a1);"
 "    return ();\n"
 "}";
 
@@ -30,6 +30,8 @@ static void parse_runtime_arguments(int* pargc, char** argv, Args* args) {
 
     bool help = false;
     for (int i = 1; i < argc; i++) {
+        if (argv[i] == NULL)
+            continue;
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             continue;
@@ -99,6 +101,10 @@ int main(int argc, char* argv[]) {
         shader = default_shader;
 
     Program* program = load_program(runtime, shader);
-    wait_completion(launch_kernel(program, device, 1, 1, 1, 0, NULL));
+
+    uint32_t a0 = 42;
+    float a1 = 42.0f;
+    wait_completion(launch_kernel(program, device, 1, 1, 1, 2, (void*[]) { &a0, &a1 }));
+
     shutdown_runtime(runtime);
 }

@@ -23,12 +23,15 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
     IrArena* dst_arena = ctx->rewriter.dst_arena;
+    Module* m = ctx->rewriter.dst_module;
 
     if (old->tag == Function_TAG) {
         Context ctx2 = *ctx;
         ctx2.disable_lowering = lookup_annotation(old, "Leaf");
         ctx2.return_jp = NULL;
         Node* fun = NULL;
+
+        BodyBuilder* bb = begin_body(m);
         if (!ctx2.disable_lowering) {
             Nodes oparams = get_abstraction_params(old);
             Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
@@ -38,9 +41,14 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             const Type* jp_type = join_point_type(dst_arena, (JoinPointType) {
                 .yield_types = strip_qualifiers(dst_arena, rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
             });
-            const Node* jp_variable = var(dst_arena, qualified_type_helper(jp_type, true), "return_jp");
-            nparams = append_nodes(dst_arena, nparams, jp_variable);
-            ctx2.return_jp = jp_variable;
+
+            if (lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
+                ctx2.return_jp = gen_primop_e(bb, default_join_point_op, empty(dst_arena), empty(dst_arena));
+            } else {
+                const Node* jp_variable = var(dst_arena, qualified_type_helper(jp_type, true), "return_jp");
+                nparams = append_nodes(dst_arena, nparams, jp_variable);
+                ctx2.return_jp = jp_variable;
+            }
 
             Nodes nannots = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
             fun = function(ctx->rewriter.dst_module, nparams, get_abstraction_name(old), nannots, empty(dst_arena));
@@ -48,7 +56,10 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             register_processed(&ctx->rewriter, old, fun);
         } else
             fun = recreate_decl_header_identity(&ctx->rewriter, old);
-        fun->payload.fun.body = rewrite_node(&ctx2.rewriter, old->payload.fun.body);
+        if (old->payload.fun.body)
+            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
+        else
+            cancel_body(bb);
         return fun;
     }
 

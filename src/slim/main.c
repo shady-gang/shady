@@ -118,10 +118,6 @@ int main(int argc, char** argv) {
     };
     args.config.allow_frontend_syntax = true;
 
-    // most of the time, we are not interested in seeing generated/builtin code in the debug output
-    args.config.logging.skip_builtin = true;
-    args.config.logging.skip_generated = true;
-
     parse_slim_arguments(&args, &argc, argv);
     parse_common_args(&argc, argv);
     parse_compiler_config_args(&args.config, &argc, argv);
@@ -186,18 +182,18 @@ int main(int argc, char** argv) {
         char* output_buffer;
         switch (args.target) {
             case TgtAuto: SHADY_UNREACHABLE;
-            case TgtSPV: emit_spirv(&args.config, mod, &output_size, &output_buffer); break;
+            case TgtSPV: emit_spirv(&args.config, mod, &output_size, &output_buffer, NULL); break;
             case TgtC:
                 args.c_emitter_config.dialect = C;
-                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer);
+                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
             case TgtGLSL:
                 args.c_emitter_config.dialect = GLSL;
-                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer);
+                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
             case TgtISPC:
                 args.c_emitter_config.dialect = ISPC;
-                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer);
+                emit_c(args.c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
         }
         fwrite(output_buffer, output_size, 1, f);

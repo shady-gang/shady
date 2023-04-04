@@ -70,11 +70,6 @@ SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
     }
 }
 
-inline static size_t round_up(size_t a, size_t b) {
-    size_t divided = (a + b - 1) / b;
-    return divided * b;
-}
-
 void emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
     switch (type->tag) {
         case RecordType_TAG: {
@@ -85,15 +80,11 @@ void emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
             spvb_struct_type(emitter->file_builder, id, member_types.count, members);
             if (type->payload.record_type.special == DecorateBlock) {
                 spvb_decorate(emitter->file_builder, id, SpvDecorationBlock, 0, NULL);
-                uint32_t offset = 0;
-                for (size_t i = 0; i < member_types.count; i++) {
-                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationOffset, 1, (uint32_t[]) { offset });
-                    // Don't compute the offset after the final member, as that one might be unsized !
-                    if (i + 1 < member_types.count) {
-                        TypeMemLayout mem_layout = get_mem_layout(emitter->configuration, emitter->arena, member_types.nodes[i]);
-                        offset = round_up(offset + (uint32_t) mem_layout.size_in_bytes, 4);
-                    }
-                }
+            }
+            LARRAY(FieldLayout, fields, member_types.count);
+            get_record_layout(emitter->configuration, emitter->arena, type, fields);
+            for (size_t i = 0; i < member_types.count; i++) {
+                spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationOffset, 1, (uint32_t[]) { fields[i].offset_in_bytes });
             }
             break;
         }

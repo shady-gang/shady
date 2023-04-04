@@ -157,7 +157,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             const Node* cached = search_processed(rewriter, idom->node);
             if (cached)
-                remove_dict(const Node*, rewriter->processed, idom->node);
+                remove_dict(const Node*, is_declaration(idom->node) ? rewriter->decls_map : rewriter->map, idom->node);
             for (size_t i = 0; i < old_params.count; i++) {
                 assert(!search_processed(rewriter, old_params.nodes[i]));
             }
@@ -166,7 +166,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             const Node* inner_terminator = recreate_node_identity(rewriter, node);
 
-            remove_dict(const Node*, rewriter->processed, idom->node);
+            remove_dict(const Node*, is_declaration(idom->node) ? rewriter->decls_map : rewriter->map, idom->node);
             if (cached)
                 register_processed(rewriter, idom->node, cached);
 
@@ -294,7 +294,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             const Node* cached = search_processed(rewriter, exiting_node->node);
             if (cached)
-                remove_dict(const Node*, rewriter->processed, exiting_node->node);
+                remove_dict(const Node*, is_declaration(exiting_node->node) ? rewriter->decls_map : rewriter->map, exiting_node->node);
             for (size_t i = 0; i < old_params.count; i++) {
                 assert(!search_processed(rewriter, old_params.nodes[i]));
             }
@@ -317,7 +317,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             assert(is_abstraction(new_node));
 
-            remove_dict(const Node*, rewriter->processed, exiting_node->node);
+            remove_dict(const Node*, is_declaration(exiting_node->node) ? rewriter->decls_map : rewriter->map, exiting_node->node);
             if (cached)
                 register_processed(rewriter, exiting_node->node, cached);
 

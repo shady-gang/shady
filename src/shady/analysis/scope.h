@@ -11,6 +11,7 @@ typedef enum {
     IfBodyEdge,
     MatchBodyEdge,
     LoopBodyEdge,
+    BlockBodyEdge,
 } CFEdgeType;
 
 typedef struct {

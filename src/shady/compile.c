@@ -34,6 +34,12 @@ CompilerConfig default_compiler_config() {
             .major = 1,
             .minor = 4
         },
+
+        .logging = {
+            // most of the time, we are not interested in seeing generated/builtin code in the debug output
+            .skip_builtin = true,
+            .skip_generated = true,
+        }
     };
 }
 
@@ -93,11 +99,12 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     aconfig.subgroup_mask_representation = SubgroupMaskInt64;
     RUN_PASS(lower_mask)
-
+    RUN_PASS(lower_memcpy)
     RUN_PASS(lower_subgroup_ops)
     RUN_PASS(lower_stack)
 
     RUN_PASS(lower_lea)
+    RUN_PASS(lower_generic_ptrs)
     RUN_PASS(lower_physical_ptrs)
     RUN_PASS(lower_subgroup_vars)
     RUN_PASS(lower_memory_layout)

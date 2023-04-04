@@ -4,6 +4,7 @@
 #include "portability.h"
 
 #include "../../type.h"
+#include "../../transform/memory_layout.h"
 
 #include <assert.h>
 
@@ -272,19 +273,46 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             return;
         }
         case load_op: {
-            assert(get_unqualified_type(first(args)->type)->tag == PtrType_TAG);
-            const Type* elem_type = get_unqualified_type(first(args)->type)->payload.ptr_type.pointed_type;
+            const Type* ptr_type = first(args)->type;
+            deconstruct_qualified_type(&ptr_type);
+            assert(ptr_type->tag == PtrType_TAG);
+            const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
+
+            size_t operands_count = 0;
+            uint32_t operands[2];
+            if (ptr_type->payload.ptr_type.address_space == AsGlobalPhysical) {
+                // TODO only do this in VK mode ?
+                TypeMemLayout layout = get_mem_layout(emitter->configuration, emitter->arena, elem_type);
+                operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
+                operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
+                operands_count += 2;
+            }
+
             SpvId eptr = emit_value(emitter, bb_builder, first(args));
-            SpvId result = spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, 0, NULL);
+            SpvId result = spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, operands_count, operands);
             assert(results_count == 1);
             results[0] = result;
             return;
         }
         case store_op: {
-            assert(get_unqualified_type(first(args)->type)->tag == PtrType_TAG);
+            const Type* ptr_type = first(args)->type;
+            deconstruct_qualified_type(&ptr_type);
+            assert(ptr_type->tag == PtrType_TAG);
+            const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
+
+            size_t operands_count = 0;
+            uint32_t operands[2];
+            if (ptr_type->payload.ptr_type.address_space == AsGlobalPhysical) {
+                // TODO only do this in VK mode ?
+                TypeMemLayout layout = get_mem_layout(emitter->configuration, emitter->arena, elem_type);
+                operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
+                operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
+                operands_count += 2;
+            }
+
             SpvId eptr = emit_value(emitter, bb_builder, first(args));
             SpvId eval = emit_value(emitter, bb_builder, args.nodes[1]);
-            spvb_store(bb_builder, eval, eptr, 0, NULL);
+            spvb_store(bb_builder, eval, eptr, operands_count, operands);
             assert(results_count == 0);
             return;
         }
@@ -379,7 +407,7 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
     for (size_t i = 0; i < yield_types.count; i++) {
         assert(if_instr.if_false && "Ifs with yield types need false branches !");
         SpvId phi_id = spvb_fresh_id(emitter->file_builder);
-        SpvId type = emit_type(emitter, get_unqualified_type(yield_types.nodes[i]));
+        SpvId type = emit_type(emitter, yield_types.nodes[i]);
         struct Phi* phi = spvb_add_phi(join_bb, type, phi_id);
         join_phis[i] = phi;
         results[i] = phi_id;
@@ -405,29 +433,53 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
 }
 
 static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match, size_t results_count, SHADY_UNUSED SpvId results[]) {
-    assert(match.yield_types.count == 0 && "TODO use phis");
-    assert(results_count == match.yield_types.count);
-
-    SpvId next_id = spvb_fresh_id(emitter->file_builder);
+    Nodes yield_types = match.yield_types;
+    assert(yield_types.count == results_count);
+    SpvId join_bb_id = spvb_fresh_id(emitter->file_builder);
 
     assert(get_unqualified_type(match.inspect->type)->tag == Int_TAG);
     SpvId inspectee = emit_value(emitter, *bb_builder, match.inspect);
 
     SpvId default_id = spvb_fresh_id(emitter->file_builder);
-    LARRAY(SpvId, literals_and_cases, match.cases.count * 2);
+
+    const Type* inspectee_t = match.inspect->type;
+    deconstruct_qualified_type(&inspectee_t);
+    assert(inspectee_t->tag == Int_TAG);
+    size_t literal_width = inspectee_t->payload.int_type.width == IntTy64 ? 2 : 1;
+    size_t literal_case_entry_size = literal_width + 1;
+    LARRAY(uint32_t, literals_and_cases, match.cases.count * literal_case_entry_size);
+    error_print("cases_count: %d\n", match.cases.count);
     for (size_t i = 0; i < match.cases.count; i++) {
-        literals_and_cases[i * 2 + 0] = (SpvId) (uint32_t) get_int_literal_value(match.literals.nodes[i], true);
-        literals_and_cases[i * 2 + 1] = spvb_fresh_id(emitter->file_builder);
+        uint64_t value = (uint64_t) get_int_literal_value(match.literals.nodes[i], false);
+        if (inspectee_t->payload.int_type.width == IntTy64) {
+            literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) (value & 0xFFFFFFFF);
+            literals_and_cases[i * literal_case_entry_size + 1] = (SpvId) (uint32_t) (value >> 32);
+        } else {
+            literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) value;
+        }
+        literals_and_cases[i * literal_case_entry_size + literal_width] = spvb_fresh_id(emitter->file_builder);
     }
 
-    spvb_selection_merge(*bb_builder, next_id, 0);
-    spvb_switch(*bb_builder, inspectee, default_id, match.cases.count, literals_and_cases);
+    spvb_selection_merge(*bb_builder, join_bb_id, 0);
+    spvb_switch(*bb_builder, inspectee, default_id, match.cases.count * literal_case_entry_size, literals_and_cases);
+
+    // When 'join' is codegen'd, these will be filled with the values given to it
+    BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
+    LARRAY(struct Phi*, join_phis, yield_types.count);
+    for (size_t i = 0; i < yield_types.count; i++) {
+        SpvId phi_id = spvb_fresh_id(emitter->file_builder);
+        SpvId type = emit_type(emitter, yield_types.nodes[i]);
+        struct Phi* phi = spvb_add_phi(join_bb, type, phi_id);
+        join_phis[i] = phi;
+        results[i] = phi_id;
+    }
 
     MergeTargets merge_targets_branches = *merge_targets;
-    merge_targets_branches.join_target = next_id;
+    merge_targets_branches.join_target = join_bb_id;
+    merge_targets_branches.join_phis = join_phis;
 
     for (size_t i = 0; i < match.cases.count; i++) {
-        BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * 2 + 1]);
+        BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * literal_case_entry_size + literal_width]);
         const Node* case_body = match.cases.nodes[i];
         assert(is_anonymous_lambda(case_body));
         spvb_add_bb(fn_builder, case_bb);
@@ -438,9 +490,8 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
     spvb_add_bb(fn_builder, default_bb);
     emit_terminator(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case->payload.anon_lam.body);
 
-    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
-    spvb_add_bb(fn_builder, next);
-    *bb_builder = next;
+    spvb_add_bb(fn_builder, join_bb);
+    *bb_builder = join_bb;
 }
 
 static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Loop loop_instr, size_t results_count, SpvId results[]) {

@@ -16,9 +16,11 @@ bool is_data_type(const Type*);
 
 size_t get_type_bitwidth(const Type* t);
 
-bool can_do_arithm(const Type* t);
-bool can_do_bitstuff(const Type* t);
-bool can_be_compared(bool ordered, const Type* t);
+bool is_arithm_type(const Type*);
+bool is_shiftable_type(const Type*);
+bool has_boolean_ops(const Type*);
+bool is_comparable_type(const Type*);
+bool is_ordered_type(const Type*);
 
 #define DEFINE_NODE_CHECK_FN_1_1(struct_name, short_name) const Type* check_type_##short_name(IrArena*, struct_name);
 #define DEFINE_NODE_CHECK_FN_1_0(struct_name, short_name) const Type* check_type_##short_name(IrArena*);

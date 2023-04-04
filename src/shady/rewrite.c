@@ -22,16 +22,21 @@ Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn) {
         .dst_module = dst,
         .rewrite_fn = fn,
         .rewrite_field_type = {
-            .rewrite_type = rewrite_node,
-            .rewrite_value = rewrite_node,
-            .rewrite_instruction = rewrite_node,
-            .rewrite_terminator = rewrite_node,
-            .rewrite_decl = rewrite_node,
-            .rewrite_anon_lambda = rewrite_node,
-            .rewrite_basic_block = rewrite_node,
-            .rewrite_annotation = rewrite_node,
+            .rewrite_type = fn,
+            .rewrite_value = fn,
+            .rewrite_instruction = fn,
+            .rewrite_terminator = fn,
+            .rewrite_decl = fn,
+            .rewrite_anon_lambda = fn,
+            .rewrite_basic_block = fn,
+            .rewrite_annotation = fn,
         },
-        .processed = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node)
+        .config = {
+            .search_map = true,
+            //.write_map = true,
+        },
+        .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
 }
 
@@ -42,9 +47,6 @@ Rewriter create_importer(Module* src, Module* dst) {
 static const Node* recreate_node_substitutions_only(Rewriter* rewriter, const Node* node) {
     if (!node) return NULL;
     assert(rewriter->dst_arena == rewriter->src_arena);
-    const Node* found = rewriter->processed ? search_processed(rewriter, node) : NULL;
-    if (found)
-        return found;
 
     if (is_declaration(node))
         return node;
@@ -64,16 +66,33 @@ Rewriter create_substituter(Module* module) {
 }
 
 void destroy_rewriter(Rewriter* r) {
-    assert(r->processed);
-    destroy_dict(r->processed);
+    assert(r->map);
+    destroy_dict(r->map);
+    destroy_dict(r->decls_map);
+}
+
+const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteFn fn) {
+    assert(rewriter->rewrite_fn);
+    if (!node)
+        return NULL;
+    const Node* found = NULL;
+    if (rewriter->config.search_map) {
+        found = search_processed(rewriter, node);
+    }
+    if (found)
+        return found;
+
+    const Node* rewritten = fn(rewriter, node);
+    if (is_declaration(node))
+        return rewritten;
+    if (rewriter->config.write_map) {
+        register_processed(rewriter, node, rewritten);
+    }
+    return rewritten;
 }
 
 const Node* rewrite_node(Rewriter* rewriter, const Node* node) {
-    assert(rewriter->rewrite_fn);
-    if (node)
-        return rewriter->rewrite_fn(rewriter, node);
-    else
-        return NULL;
+    return rewrite_node_with_fn(rewriter, node, rewriter->rewrite_fn);
 }
 
 Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
@@ -84,9 +103,17 @@ Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
     return nodes(rewriter->dst_arena, count, arr);
 }
 
+Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteFn fn) {
+    LARRAY(const Node*, arr, values.count);
+    for (size_t i = 0; i < values.count; i++)
+        arr[i] = rewrite_node_with_fn(rewriter, values.nodes[i], fn);
+    return nodes(rewriter->dst_arena, values.count, arr);
+}
+
 const Node* search_processed(const Rewriter* ctx, const Node* old) {
-    assert(ctx->processed && "this rewriter has no processed cache");
-    const Node** found = find_value_dict(const Node*, const Node*, ctx->processed, old);
+    struct Dict* map = is_declaration(old) ? ctx->decls_map : ctx->map;
+    assert(map && "this rewriter has no processed cache");
+    const Node** found = find_value_dict(const Node*, const Node*, map, old);
     return found ? *found : NULL;
 }
 
@@ -112,8 +139,9 @@ void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
         error("The same node got processed twice !");
     }
 #endif
-    assert(ctx->processed && "this rewriter has no processed cache");
-    bool r = insert_dict_and_get_result(const Node*, const Node*, ctx->processed, old, new);
+    struct Dict* map = is_declaration(old) ? ctx->decls_map : ctx->map;
+    assert(map && "this rewriter has no processed cache");
+    bool r = insert_dict_and_get_result(const Node*, const Node*, map, old, new);
     assert(r);
 }
 
@@ -123,17 +151,14 @@ void register_processed_list(Rewriter* rewriter, Nodes old, Nodes new) {
         register_processed(rewriter, old.nodes[i], new.nodes[i]);
 }
 
+void clear_processed_non_decls(Rewriter* rewriter) {
+    clear_dict(rewriter->map);
+}
+
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 #pragma GCC diagnostic error "-Wswitch"
-
-Nodes rewrite_nodes_generic(Rewriter* rewriter, RewriteFn fn, Nodes values) {
-    LARRAY(const Node*, arr, values.count);
-    for (size_t i = 0; i < values.count; i++)
-        arr[i] = fn(rewriter, values.nodes[i]);
-    return nodes(rewriter->dst_arena, values.count, arr);
-}
 
 #define rewrite_type rewriter->rewrite_field_type.rewrite_type
 #define rewrite_value rewriter->rewrite_field_type.rewrite_value
@@ -148,13 +173,13 @@ void rewrite_module(Rewriter* rewriter) {
     Nodes old_decls = get_module_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
         if (old_decls.nodes[i]->tag == NominalType_TAG) continue;
-        rewrite_decl(rewriter, old_decls.nodes[i]);
+        rewrite_node_with_fn(rewriter, old_decls.nodes[i], rewrite_decl);
     }
 }
 
 const Node* recreate_variable(Rewriter* rewriter, const Node* old) {
     assert(old->tag == Variable_TAG);
-    return var(rewriter->dst_arena, rewrite_type(rewriter, old->payload.var.type), old->payload.var.name);
+    return var(rewriter->dst_arena, rewrite_node_with_fn(rewriter, old->payload.var.type, rewrite_type), old->payload.var.name);
 }
 
 Nodes recreate_variables(Rewriter* rewriter, Nodes old) {
@@ -168,29 +193,36 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
     switch (is_declaration(old)) {
         case GlobalVariable_TAG: {
+            Nodes new_annotations = rewrite_nodes_with_fn(rewriter, old->payload.global_variable.annotations, rewrite_annotation);
+            const Node* ntype = rewrite_node_with_fn(rewriter, old->payload.global_variable.type, rewrite_type);
             new = global_var(rewriter->dst_module,
-                             rewrite_nodes_generic(rewriter, rewrite_annotation, old->payload.global_variable.annotations),
-                             rewrite_type(rewriter, old->payload.global_variable.type),
+                             new_annotations,
+                             ntype,
                              old->payload.global_variable.name,
                              old->payload.global_variable.address_space);
             break;
         }
         case Constant_TAG: {
+            Nodes new_annotations = rewrite_nodes_with_fn(rewriter, old->payload.constant.annotations, rewrite_annotation);
+            const Node* ntype = rewrite_node_with_fn(rewriter, old->payload.constant.type_hint, rewrite_type);
             new = constant(rewriter->dst_module,
-                           rewrite_nodes_generic(rewriter, rewrite_annotation, old->payload.constant.annotations),
-                           rewrite_type(rewriter, old->payload.constant.type_hint),
+                           new_annotations,
+                           ntype,
                            old->payload.constant.name);
             break;
         }
         case Function_TAG: {
+            Nodes new_annotations = rewrite_nodes_with_fn(rewriter, old->payload.fun.annotations, rewrite_annotation);
             Nodes new_params = recreate_variables(rewriter, old->payload.fun.params);
-            new = function(rewriter->dst_module, new_params, old->payload.fun.name, rewrite_nodes_generic(rewriter, rewrite_annotation, old->payload.fun.annotations), rewrite_nodes_generic(rewriter, rewrite_type, old->payload.fun.return_types));
+            Nodes nyield_types = rewrite_nodes_with_fn(rewriter, old->payload.fun.return_types, rewrite_type);
+            new = function(rewriter->dst_module, new_params, old->payload.fun.name, new_annotations, nyield_types);
             assert(new && new->tag == Function_TAG);
             register_processed_list(rewriter, old->payload.fun.params, new->payload.fun.params);
             break;
         }
         case NominalType_TAG: {
-            new = nominal_type(rewriter->dst_module, rewrite_nodes_generic(rewriter, rewrite_annotation, old->payload.nom_type.annotations), old->payload.nom_type.name);
+            Nodes new_annotations = rewrite_nodes_with_fn(rewriter, old->payload.nom_type.annotations, rewrite_annotation);
+            new = nominal_type(rewriter->dst_module, new_annotations, old->payload.nom_type.name);
             break;
         }
         case NotADecl: error("not a decl");
@@ -204,21 +236,21 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
     assert(is_declaration(new));
     switch (is_declaration(old)) {
         case GlobalVariable_TAG: {
-            new->payload.global_variable.init = rewrite_value(rewriter, old->payload.global_variable.init);
+            new->payload.global_variable.init = rewrite_node_with_fn(rewriter, old->payload.global_variable.init, rewrite_value);
             break;
         }
         case Constant_TAG: {
-            new->payload.constant.value     = rewrite_value(rewriter, old->payload.constant.value);
+            new->payload.constant.value = rewrite_node_with_fn(rewriter, old->payload.constant.value, rewrite_value);
             // TODO check type now ?
             break;
         }
         case Function_TAG: {
             assert(new->payload.fun.body == NULL);
-            new->payload.fun.body = rewrite_terminator(rewriter, old->payload.fun.body);
+            new->payload.fun.body = rewrite_node_with_fn(rewriter, old->payload.fun.body, rewrite_terminator);
             break;
         }
         case NominalType_TAG: {
-            new->payload.nom_type.body = rewrite_type(rewriter, old->payload.nom_type.body);
+            new->payload.nom_type.body = rewrite_node_with_fn(rewriter, old->payload.nom_type.body, rewrite_type);
             break;
         }
         case NotADecl: error("not a decl");
@@ -246,27 +278,22 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
 
     assert(node->arena == rewriter->src_arena);
 
-    // TODO redundant ?
-    const Node* already_done_before = rewriter->processed ? search_processed(rewriter, node) : NULL;
-    if (already_done_before)
-        return already_done_before;
-
     IrArena* arena = rewriter->dst_arena;
     #define REWRITE_FIELD_POD(t, n) .n = old_payload.n,
-    #define REWRITE_FIELD_TYPE(t, n) .n = rewrite_type(rewriter, old_payload.n),
-    #define REWRITE_FIELD_TYPES(t, n) .n = rewrite_nodes_generic(rewriter, rewrite_type, old_payload.n),
-    #define REWRITE_FIELD_VALUE(t, n) .n = rewrite_value(rewriter, old_payload.n),
-    #define REWRITE_FIELD_VALUES(t, n) .n = rewrite_nodes_generic(rewriter, rewrite_value, old_payload.n),
-    #define REWRITE_FIELD_INSTRUCTION(t, n) .n = rewrite_instruction(rewriter, old_payload.n),
-    #define REWRITE_FIELD_TERMINATOR(t, n) .n = rewrite_terminator(rewriter, old_payload.n),
-    #define REWRITE_FIELD_DECL(t, n) .n = rewrite_decl(rewriter, old_payload.n),
-    #define REWRITE_FIELD_ANON_LAMBDA(t, n) .n = rewrite_anon_lambda(rewriter, old_payload.n),
-    #define REWRITE_FIELD_ANON_LAMBDAS(t, n) .n = rewrite_nodes_generic(rewriter, rewrite_anon_lambda, old_payload.n),
-    #define REWRITE_FIELD_BASIC_BLOCK(t, n) .n = rewrite_basic_block(rewriter, old_payload.n),
-    #define REWRITE_FIELD_BASIC_BLOCKS(t, n) .n = rewrite_nodes_generic(rewriter, rewrite_basic_block, old_payload.n),
+    #define REWRITE_FIELD_TYPE(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_type),
+    #define REWRITE_FIELD_TYPES(t, n) .n = rewrite_nodes_with_fn(rewriter, old_payload.n, rewrite_type),
+    #define REWRITE_FIELD_VALUE(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_value),
+    #define REWRITE_FIELD_VALUES(t, n) .n = rewrite_nodes_with_fn(rewriter, old_payload.n, rewrite_value),
+    #define REWRITE_FIELD_INSTRUCTION(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_instruction),
+    #define REWRITE_FIELD_TERMINATOR(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_terminator),
+    #define REWRITE_FIELD_DECL(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_decl),
+    #define REWRITE_FIELD_ANON_LAMBDA(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_anon_lambda),
+    #define REWRITE_FIELD_ANON_LAMBDAS(t, n) .n = rewrite_nodes_with_fn(rewriter, old_payload.n, rewrite_anon_lambda),
+    #define REWRITE_FIELD_BASIC_BLOCK(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_basic_block),
+    #define REWRITE_FIELD_BASIC_BLOCKS(t, n) .n = rewrite_nodes_with_fn(rewriter, old_payload.n, rewrite_basic_block),
     #define REWRITE_FIELD_STRING(t, n) .n = string(arena, old_payload.n),
     #define REWRITE_FIELD_STRINGS(t, n) .n = import_strings(arena, old_payload.n),
-    #define REWRITE_FIELD_ANNOTATIONS(t, n) .n = rewrite_nodes_generic(rewriter, rewrite_annotation, old_payload.n),
+    #define REWRITE_FIELD_ANNOTATIONS(t, n) .n = rewrite_nodes_with_fn(rewriter, old_payload.n, rewrite_annotation),
     switch (node->tag) {
         case InvalidNode_TAG:   assert(false);
         #define REWRITE_FIELD(hash, ft, t, n) REWRITE_FIELD_##ft(t, n)
@@ -285,9 +312,13 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             return new;
         }
         case Variable_TAG: error("variables should be recreated as part of decl handling");
-        case Composite_TAG: return composite(arena, rewrite_type(rewriter, node->payload.composite.type), rewrite_nodes_generic(rewriter, rewrite_value, node->payload.composite.contents));
+        case Composite_TAG: {
+            const Type* ntype = rewrite_node_with_fn(rewriter, node->payload.composite.type, rewrite_type);
+            Nodes nvalues = rewrite_nodes_with_fn(rewriter, node->payload.composite.contents, rewrite_value);
+            return composite(arena, ntype, nvalues);
+        }
         case Let_TAG: {
-            const Node* instruction = rewrite_instruction(rewriter, node->payload.let.instruction);
+            const Node* instruction = rewrite_node_with_fn(rewriter, node->payload.let.instruction, rewrite_instruction);
             if (arena->config.check_types && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
                 Nodes old_params = node->payload.let.tail->payload.anon_lam.params;
                 Nodes new_args = instruction->payload.prim_op.operands;
@@ -299,22 +330,24 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             if (arena->config.check_types)
                 tail = rebind_results(rewriter, instruction, node->payload.let.tail);
             else
-                tail = rewrite_anon_lambda(rewriter, node->payload.let.tail);
+                tail = rewrite_node_with_fn(rewriter, node->payload.let.tail, rewrite_anon_lambda);
             return let(arena, instruction, tail);
         }
         case LetMut_TAG: error("De-sugar this by hand")
         case AnonLambda_TAG: {
             Nodes params = recreate_variables(rewriter, node->payload.anon_lam.params);
             register_processed_list(rewriter, node->payload.anon_lam.params, params);
-            return lambda(rewriter->dst_module, params, rewrite_terminator(rewriter, node->payload.anon_lam.body));
+            const Node* nterminator = rewrite_node_with_fn(rewriter, node->payload.anon_lam.body, rewrite_terminator);
+            return lambda(rewriter->dst_module, params, nterminator);
         }
         case BasicBlock_TAG: {
             Nodes params = recreate_variables(rewriter, node->payload.basic_block.params);
             register_processed_list(rewriter, node->payload.basic_block.params, params);
-            const Node* fn = rewrite_decl(rewriter, node->payload.basic_block.fn);
+            const Node* fn = rewrite_node_with_fn(rewriter, node->payload.basic_block.fn, rewrite_decl);
             Node* bb = basic_block(arena, (Node*) fn, params, node->payload.basic_block.name);
             register_processed(rewriter, node, bb);
-            bb->payload.basic_block.body = rewrite_terminator(rewriter, node->payload.basic_block.body);
+            const Node* nterminator = rewrite_node_with_fn(rewriter, node->payload.basic_block.body, rewrite_terminator);
+            bb->payload.basic_block.body = nterminator;
             return bb;
         }
     }

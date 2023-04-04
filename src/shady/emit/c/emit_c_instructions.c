@@ -273,6 +273,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case get_stack_pointer_uniform_op:
         case set_stack_pointer_op:
         case set_stack_pointer_uniform_op: error("Stack operations need to be lowered.");
+        case default_join_point_op:
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
         case subgroup_reduce_sum_op: {
             CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));

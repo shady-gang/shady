@@ -6,7 +6,6 @@
 #include "../rewrite.h"
 #include "../type.h"
 #include "../transform/ir_gen_helpers.h"
-#include "../transform/memory_layout.h"
 
 typedef struct {
     Rewriter rewriter;

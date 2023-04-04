@@ -151,14 +151,6 @@ size_t get_type_bitwidth(const Type* t) {
     return SIZE_MAX;
 }
 
-/// Oracle of what casts are legal
-static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
-    assert(is_type(src_type) && is_type(dst_type));
-    assert(get_type_bitwidth(src_type) == get_type_bitwidth(dst_type));
-    return true;
-}
-
-/// Does the same point value refer to the same memory, across the invocations in a subgroup ?
 bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     switch (as) {
         case AsFunctionLogical:
@@ -190,7 +182,8 @@ String name_type_safe(IrArena* arena, const Type* t) {
                 return format_string(arena, "i%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
             else
                 return format_string(arena, "u%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
-        case Type_Float_TAG: return "float";
+        case Type_Float_TAG:
+            return format_string(arena, "f%s", ((String[]) { "16", "32", "64" })[t->payload.float_type.width]);
         case Type_Bool_TAG: return "bool";
         case Type_RecordType_TAG: break;
         case Type_FnType_TAG: break;
@@ -222,13 +215,21 @@ bool is_data_type(const Type* type) {
         case Type_Int_TAG:
         case Type_Float_TAG:
         case Type_Bool_TAG:
-        case Type_PtrType_TAG:
-        case Type_ArrType_TAG:
-        case Type_PackType_TAG:
             return true;
-        // multi-return record types are the results of instructions, but are not values themselves
-        case Type_RecordType_TAG:
+        case Type_PtrType_TAG:
+            return true;
+        case Type_ArrType_TAG:
+            // array types _must_ be sized to be real data types
+            return type->payload.arr_type.size != NULL;
+        case Type_PackType_TAG:
+            return is_data_type(type->payload.pack_type.element_type);
+        case Type_RecordType_TAG: {
+            for (size_t i = 0; i < type->payload.record_type.members.count; i++)
+                if (!is_data_type(type->payload.record_type.members.nodes[i]))
+                    return false;
+            // multi-return record types are the results of instructions, but are not values themselves
             return type->payload.record_type.special == NotSpecial;
+        }
         case Type_TypeDeclRef_TAG:
             return !get_nominal_type_body(type) || is_data_type(get_nominal_type_body(type));
         // qualified types are not data types because that information is only meant for values
@@ -244,6 +245,72 @@ bool is_data_type(const Type* type) {
         case NotAType:
             return false;
     }
+}
+
+bool is_arithm_type(const Type* t) {
+    return t->tag == Int_TAG || t->tag == Float_TAG;
+}
+
+bool is_shiftable_type(const Type* t) {
+    return t->tag == Int_TAG || t->tag == MaskType_TAG;
+}
+
+bool has_boolean_ops(const Type* t) {
+    return t->tag == Int_TAG || t->tag == Bool_TAG || t->tag == MaskType_TAG;
+}
+
+bool is_comparable_type(const Type* t) {
+    return true; // TODO this is fine to allow, but we'll need to lower it for composite and native ptr types !
+}
+
+bool is_ordered_type(const Type* t) {
+    return is_arithm_type(t);
+}
+
+static bool is_transparent_pointer_type(const Type* t) {
+    if (t->tag != PtrType_TAG)
+        return false;
+    AddressSpace as = t->payload.ptr_type.address_space;
+    // it's illegal to reinterpret from/into a Generic pointer because they have a tag
+    return is_physical_as(as);
+}
+
+/// Oracle of what casts are legal
+static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
+    assert(is_data_type(src_type) && is_data_type(dst_type));
+    assert(get_type_bitwidth(src_type) == get_type_bitwidth(dst_type));
+    if (!(is_arithm_type(src_type) || src_type->tag == MaskType_TAG || is_transparent_pointer_type(src_type)))
+        return false;
+    if (!(is_arithm_type(dst_type) || dst_type->tag == MaskType_TAG || is_transparent_pointer_type(dst_type)))
+        return false;
+    if (is_transparent_pointer_type(src_type) && is_transparent_pointer_type(dst_type)) {
+        AddressSpace src_as = src_type->payload.ptr_type.address_space;
+        AddressSpace dst_as = dst_type->payload.ptr_type.address_space;
+        // either both pointers need to be in the generic address space, and we're only casting the element type, OR neither can be
+        if ((src_as == AsGeneric) != (dst_as == AsGeneric))
+            return false;
+    }
+    return true;
+}
+
+/// Oracle of what casts are legal
+static bool is_conversion_legal(const Type* src_type, const Type* dst_type) {
+    assert(is_data_type(src_type) && is_data_type(dst_type));
+    if (!(is_arithm_type(src_type) || is_transparent_pointer_type(src_type) && get_type_bitwidth(src_type) == get_type_bitwidth(dst_type)))
+        return false;
+    if (!(is_arithm_type(dst_type) || is_transparent_pointer_type(dst_type) && get_type_bitwidth(src_type) == get_type_bitwidth(dst_type)))
+        return false;
+    if (is_transparent_pointer_type(src_type) && is_transparent_pointer_type(dst_type)) {
+        AddressSpace src_as = src_type->payload.ptr_type.address_space;
+        AddressSpace dst_as = dst_type->payload.ptr_type.address_space;
+        // exactly one of the pointers needs to be in the generic address space
+        if ((src_as == AsGeneric) == (dst_as == AsGeneric))
+            return false;
+        // element types have to match (use reinterpret_cast for changing it)
+        if (src_type->payload.ptr_type.pointed_type != dst_type->payload.ptr_type.pointed_type)
+            return false;
+    }
+    return true;
 }
 
 #pragma GCC diagnostic push
@@ -365,20 +432,6 @@ const Type* check_type_anti_quote(IrArena* arena, AntiQuote payload) {
     return payload.instruction->type;
 }
 
-bool can_do_arithm(const Type* t) {
-    return t->tag == Int_TAG || t->tag == Float_TAG;
-}
-
-bool can_do_bitstuff(const Type* t) {
-    return t->tag == Int_TAG || t->tag == Bool_TAG || t->tag == MaskType_TAG;
-}
-
-bool can_be_compared(bool ordered, const Type* t) {
-    if (ordered)
-        return can_do_arithm(t);
-    return true; // TODO this is fine to allow, but we'll need to lower it for composite and native ptr types !
-}
-
 const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     for (size_t i = 0; i < prim_op.type_arguments.count; i++) {
         const Node* ta = prim_op.type_arguments.nodes[i];
@@ -405,7 +458,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
 
             const Type* type = first(prim_op.operands)->type;
-            assert(can_do_arithm(get_maybe_packed_type_element(get_unqualified_type(type))));
+            assert(is_arithm_type(get_maybe_packed_type_element(get_unqualified_type(type))));
             return type;
         }
         case rshift_arithm_op:
@@ -446,7 +499,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 bool operand_uniform = deconstruct_qualified_type(&operand_type);
 
-                assert(can_do_arithm(get_maybe_packed_type_element(operand_type)));
+                assert(is_arithm_type(get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
@@ -465,7 +518,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
 
             const Type* type = first(prim_op.operands)->type;
-            assert(can_do_bitstuff(get_maybe_packed_type_element(get_unqualified_type(type))));
+            assert(has_boolean_ops(get_maybe_packed_type_element(get_unqualified_type(type))));
             return type;
         }
         case or_op:
@@ -481,7 +534,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 bool operand_uniform = deconstruct_qualified_type(&operand_type);
 
-                assert(can_do_bitstuff(get_maybe_packed_type_element(operand_type)));
+                assert(has_boolean_ops(get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
@@ -506,7 +559,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 bool operand_uniform = deconstruct_qualified_type(&operand_type);
 
-                assert(can_be_compared(ordered, get_maybe_packed_type_element(operand_type)));
+                assert((ordered ? is_ordered_type : is_comparable_type)(get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
@@ -695,22 +748,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false })
             });
         }
-        case reinterpret_op: {
-            assert(prim_op.type_arguments.count == 1);
-            assert(prim_op.operands.count == 1);
-            const Node* source = prim_op.operands.nodes[0];
-            const Type* src_type = source->type;
-            bool src_uniform = deconstruct_qualified_type(&src_type);
-
-            const Type* target_type = prim_op.type_arguments.nodes[0];
-            assert(is_data_type(target_type));
-            assert(is_reinterpret_cast_legal(src_type, target_type));
-
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = src_uniform,
-                .type = target_type
-            });
-        }
         case select_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 3);
@@ -791,17 +828,36 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = current_type
             });
         }
+        case reinterpret_op: {
+            assert(prim_op.type_arguments.count == 1);
+            assert(prim_op.operands.count == 1);
+            const Node* source = first(prim_op.operands);
+            const Type* src_type = source->type;
+            bool src_uniform = deconstruct_qualified_type(&src_type);
+
+            const Type* dst_type = first(prim_op.type_arguments);
+            assert(is_data_type(dst_type));
+            assert(is_reinterpret_cast_legal(src_type, dst_type));
+
+            return qualified_type(arena, (QualifiedType) {
+                .is_uniform = src_uniform,
+                .type = dst_type
+            });
+        }
         case convert_op: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);
-            const Type* dst_type = prim_op.type_arguments.nodes[0];
-            assert(is_data_type(dst_type));
+            const Node* source = first(prim_op.operands);
+            const Type* src_type = source->type;
+            bool src_uniform = deconstruct_qualified_type(&src_type);
 
-            const Type* src_type = prim_op.operands.nodes[0]->type;
-            bool is_uniform = deconstruct_qualified_type(&src_type);
+            const Type* dst_type = first(prim_op.type_arguments);
+            assert(is_data_type(dst_type));
+            assert(is_conversion_legal(src_type, dst_type));
+
             // TODO check the conversion is legal
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = is_uniform,
+                .is_uniform = src_uniform,
                 .type = dst_type
             });
         }
@@ -856,6 +912,11 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(is_qualified_type_uniform(join_point->type));
             return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = prim_op.type_arguments }), .is_uniform = true });
         }
+        case default_join_point_op: {
+            assert(prim_op.operands.count == 0);
+            assert(prim_op.type_arguments.count == 0);
+            return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = empty(arena) }), .is_uniform = true });
+        }
         // Invocation ID and compute kernel stuff
         case subgroup_local_id_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -889,7 +950,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = false,
-                .type = pack_type(arena, (PackType) { .element_type = int32_type(arena), .width = 3 })
+                .type = pack_type(arena, (PackType) { .element_type = uint32_type(arena), .width = 3 })
             });
         }
         // Stack stuff

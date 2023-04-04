@@ -36,7 +36,9 @@ set(SHADY_SOURCES
     passes/lower_stack.c
     passes/lower_lea.c
     passes/lower_physical_ptrs.c
+    passes/lower_generic_ptrs.c
     passes/lower_memory_layout.c
+    passes/lower_memcpy.c
     passes/lower_tailcalls.c
     passes/lower_mask.c
     passes/setup_stack_frames.c
@@ -57,6 +59,14 @@ set(SHADY_SOURCES
 
 add_library(shady SHARED ${SHADY_SOURCES})
 set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+if (WIN32)
+    if (MSVC)
+        target_link_options(shady PUBLIC /STACK:33554432)
+    else()
+        target_link_options(shady PUBLIC -Wl,--stack,33554432)
+    endif()
+endif()
 
 add_subdirectory(builtin)
 add_subdirectory(emit)

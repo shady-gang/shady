@@ -183,6 +183,8 @@ static AddressSpace expect_ptr_address_space(ctxparams) {
         case global_tok:  next_token(tokenizer); return AsGlobalPhysical;
         case private_tok: next_token(tokenizer); return AsPrivatePhysical;
         case shared_tok:  next_token(tokenizer); return AsSharedPhysical;
+        case subgroup_tok:  next_token(tokenizer); return AsSubgroupPhysical;
+        case generic_tok:  next_token(tokenizer); return AsGeneric;
         default: error("expected address space qualifier");
     }
     SHADY_UNREACHABLE;
@@ -206,15 +208,15 @@ static const Type* accept_unqualified_type(ctxparams) {
     } else if (config.front_end && accept_token(ctx, lsbracket_tok)) {
         const Type* elem_type = accept_unqualified_type(ctx);
         assert(elem_type);
-        const Node* expr = NULL;
-        if (accept_token(ctx, semi_tok)) {
-            expr = accept_value(ctx);
-            expect(expr);
+        const Node* size = NULL;
+        if(accept_token(ctx, semi_tok)) {
+            size = accept_value(ctx);
+            expect(size);
         }
         expect(accept_token(ctx, rsbracket_tok));
         return arr_type(arena, (ArrType) {
             .element_type = elem_type,
-            .size = expr
+            .size = size
         });
     } else if (accept_token(ctx, struct_tok)) {
         expect(accept_token(ctx, lbracket_tok));

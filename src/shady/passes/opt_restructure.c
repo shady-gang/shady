@@ -97,9 +97,9 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         DFSStackEntry dfs_entry = { .parent = ctx->dfs_stack, .old = dst, .containing_control = ctx->control_stack };
         ctx2.dfs_stack = &dfs_entry;
         
-        struct Dict* tmp_processed = clone_dict(ctx->rewriter.processed);
+        struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);
         append_list(struct Dict*, ctx->tmp_alloc_stack, tmp_processed);
-        ctx2.rewriter.processed = tmp_processed;
+        ctx2.rewriter.map = tmp_processed;
         for (size_t i = 0; i < oargs.count; i++) {
             nparams[i] = var(arena, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
             register_processed(&ctx2.rewriter, oparams.nodes[i], nparams[i]);
@@ -341,7 +341,7 @@ static const Node* process(Context* ctx, const Node* node) {
         bool is_leaf = false;
         if (is_builtin || !node->payload.fun.body || !lookup_annotation(node, "MaybeLeaf") || setjmp(ctx2.bail)) {
             ctx2.lower = false;
-            ctx2.rewriter.processed = ctx->rewriter.processed;
+            ctx2.rewriter.map = ctx->rewriter.map;
             if (node->payload.fun.body)
                 new->payload.fun.body = rewrite_node(&ctx2.rewriter, node->payload.fun.body);
             // builtin functions are always considered leaf functions
@@ -353,9 +353,9 @@ static const Node* process(Context* ctx, const Node* node) {
             bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ptr, int32_literal(arena, 0)) }));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
-            struct Dict* tmp_processed = clone_dict(ctx->rewriter.processed);
+            struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);
             append_list(struct Dict*, ctx->tmp_alloc_stack, tmp_processed);
-            ctx2.rewriter.processed = tmp_processed;
+            ctx2.rewriter.map = tmp_processed;
             new->payload.fun.body = finish_body(bb, structure(&ctx2, node, unreachable(arena)));
             is_leaf = true;
         }

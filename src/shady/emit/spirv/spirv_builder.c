@@ -319,13 +319,12 @@ void spvb_branch_conditional(struct SpvBasicBlockBuilder* bb_builder, SpvId cond
     ref_id(false_target);
 }
 
-void spvb_switch(struct SpvBasicBlockBuilder* bb_builder, SpvId selector, SpvId default_target, size_t targets_count, SpvId* targets) {
-    op(SpvOpSwitch, 3 + targets_count * 2);
+void spvb_switch(struct SpvBasicBlockBuilder* bb_builder, SpvId selector, SpvId default_target, size_t targets_and_literals_size, SpvId* targets_and_literals) {
+    op(SpvOpSwitch, 3 + targets_and_literals_size);
     ref_id(selector);
     ref_id(default_target);
-    for (size_t i = 0; i < targets_count; i++) {
-        literal_int(targets[i * 2]);
-        ref_id(targets[i * 2 + 1]);
+    for (size_t i = 0; i < targets_and_literals_size; i++) {
+        literal_int(targets_and_literals[i]);
     }
 }
 
@@ -789,6 +788,10 @@ struct SpvFileBuilder* spvb_begin() {
 void spvb_set_version(struct SpvFileBuilder* file_builder, uint8_t major, uint8_t minor) {
     file_builder->version.major = major;
     file_builder->version.minor = minor;
+}
+
+void spvb_set_addressing_model(struct SpvFileBuilder* file_builder, SpvAddressingModel model) {
+    file_builder->addressing_model = model;
 }
 
 void spvb_finish(struct SpvFileBuilder* file_builder, SpvSectionBuilder output) {

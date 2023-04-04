@@ -83,6 +83,15 @@ static void eat_whitespace_and_comments(Tokenizer* tokenizer) {
                     break;
                 tokenizer->pos++;
             }
+        } else if (tokenizer->pos + 4 <= tokenizer->source_size && tokenizer->source[tokenizer->pos] == '/' && tokenizer->source[tokenizer->pos + 1] == '*') {
+            tokenizer->pos += 3;
+            while (tokenizer->pos < tokenizer->source_size) {
+                if (tokenizer->source[tokenizer->pos] == '/' && tokenizer->source[tokenizer->pos - 1] == '*') {
+                    tokenizer->pos++;
+                    break;
+                }
+                tokenizer->pos++;
+            }
         } else
             break;
     }

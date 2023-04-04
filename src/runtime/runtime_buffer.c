@@ -38,11 +38,15 @@ struct Buffer_ {
     bool imported;
     VkBuffer buffer;
     VkDeviceMemory memory;
+    size_t offset;
+    void* host_ptr;
 };
 
-Buffer* allocate_buffer_device(Device* device, size_t size) {
+static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t size) {
     Buffer* buffer = calloc(sizeof(Buffer), 1);
-    buffer->imported = false;
+    buffer->device = device;
+    buffer->imported = imported_ptr != NULL;
+    buffer->offset = 0;
 
     VkBufferCreateInfo buffer_create_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -51,20 +55,89 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
         .flags = 0,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /** we basically want all the usages ! */
     };
+
+    VkExternalMemoryBufferCreateInfo ext_memory_buffer_create_info;
+    if (imported_ptr) {
+        // align the bugger first ...
+        size_t desired_alignment = device->caps.extended_properties.external_memory_host.minImportedHostPointerAlignment;
+        size_t unaligned_addr = (size_t) imported_ptr;
+        size_t aligned_addr = (unaligned_addr / desired_alignment) * desired_alignment;
+        assert(unaligned_addr >= aligned_addr);
+        buffer->offset = unaligned_addr - aligned_addr;
+        warn_print("desired alignment = %zu, offset = %zu\n", desired_alignment, buffer->offset);
+
+        size_t unaligned_end = unaligned_addr + size;
+        assert(unaligned_end >= aligned_addr);
+        size_t aligned_end = ((unaligned_end + desired_alignment - 1) / desired_alignment) * desired_alignment;
+        assert(aligned_end >= unaligned_end);
+        size_t aligned_size = aligned_end - aligned_addr;
+        assert(aligned_size >= size);
+        assert(aligned_size % desired_alignment == 0);
+        warn_print("unaligned start %zu end %zu\n", unaligned_addr, unaligned_end);
+        warn_print("aligned start %zu end %zu\n", aligned_addr, aligned_end);
+
+        imported_ptr = (void*) aligned_addr;
+        size = aligned_size;
+
+        ext_memory_buffer_create_info = (VkExternalMemoryBufferCreateInfo) {
+                .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+                .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT,
+                .pNext = NULL,
+        };
+        append_pnext((VkBaseOutStructure*) &buffer_create_info, &ext_memory_buffer_create_info);
+    }
+
+    // create buffer to use that memory
     if (device->caps.features.buffer_device_address.bufferDeviceAddress)
-        buffer_create_info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        buffer_create_info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_EXT;
     CHECK_VK(vkCreateBuffer(device->device, &buffer_create_info, NULL, &buffer->buffer), goto bail_out);
 
-    VkBufferMemoryRequirementsInfo2 buf_mem_requirements = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
+    VkMemoryAllocateInfo allocation_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = NULL,
-        .buffer = buffer->buffer
+        .allocationSize = (VkDeviceSize) size, // the driver might want padding !
+        .memoryTypeIndex = 0 /* set later */,
     };
-    VkMemoryRequirements2 mem_requirements;
-    vkGetBufferMemoryRequirements2(device->device, &buf_mem_requirements, &mem_requirements);
 
+    VkImportMemoryHostPointerInfoEXT import_host_ptr_info;
+    size_t memory_bind_offset = 0;
+
+    if (imported_ptr) {
+        VkMemoryHostPointerPropertiesEXT host_ptr_properties = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT,
+            .pNext = NULL
+        };
+        CHECK_VK(device->extensions.external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, (void*) imported_ptr, &host_ptr_properties), return NULL);
+        uint32_t memory_type_index = find_suitable_memory_type(device, host_ptr_properties.memoryTypeBits, AllocHostVisible);
+        VkPhysicalDeviceMemoryProperties device_memory_properties;
+        vkGetPhysicalDeviceMemoryProperties(device->caps.physical_device, &device_memory_properties);
+        warn_print("memory type index: %d heap: %d\n", memory_type_index, device_memory_properties.memoryTypes[memory_type_index].heapIndex);
+        allocation_info.memoryTypeIndex = memory_type_index;
+
+        import_host_ptr_info = (VkImportMemoryHostPointerInfoEXT) {
+            .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT,
+            .pNext = NULL,
+            .pHostPointer = (void*) imported_ptr,
+            .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT
+        };
+        append_pnext((VkBaseOutStructure*) &allocation_info, &import_host_ptr_info);
+    } else {
+        VkBufferMemoryRequirementsInfo2 buf_mem_requirements = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
+            .pNext = NULL,
+            .buffer = buffer->buffer
+        };
+        VkMemoryRequirements2 mem_requirements = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+            .pNext = NULL,
+        };
+        vkGetBufferMemoryRequirements2(device->device, &buf_mem_requirements, &mem_requirements);
+        allocation_info.memoryTypeIndex = find_suitable_memory_type(device, mem_requirements.memoryRequirements.memoryTypeBits, AllocDeviceLocal);
+    }
+
+    // Add extra allocation flags
     VkMemoryAllocateFlagsInfo allocate_flags =  {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
         .pNext = NULL,
@@ -73,16 +146,18 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
     };
     if (device->caps.features.buffer_device_address.bufferDeviceAddress)
         allocate_flags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-    VkMemoryAllocateInfo allocation_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = NULL,
-        .allocationSize = (VkDeviceSize) size, // the driver might want padding !
-        .memoryTypeIndex = find_suitable_memory_type(device, mem_requirements.memoryRequirements.memoryTypeBits, AllocDeviceLocal),
-    };
     append_pnext((VkBaseOutStructure*) &allocation_info, &allocate_flags);
 
-    vkAllocateMemory(device->device, &allocation_info, NULL, &buffer->memory);
-    vkBindBufferMemory(device->device, buffer->buffer, buffer->memory, 0);
+    // allocate memory
+    CHECK_VK(vkAllocateMemory(device->device, &allocation_info, NULL, &buffer->memory), goto bail_out);
+
+    // bind the two together
+    CHECK_VK(vkBindBufferMemory(device->device, buffer->buffer, buffer->memory, memory_bind_offset), goto bail_out);
+
+    //if (imported_ptr) {
+    //    CHECK_VK(vkMapMemory(device->device, buffer->memory, 0, size, 0, &buffer->host_ptr), goto bail_out);
+    //}
+
     return buffer;
 
     bail_out:
@@ -90,16 +165,29 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
     return NULL;
 }
 
-#pragma GCC diagnostic ignored "-Wunused-parameter"
+Buffer* allocate_buffer_device(Device* device, size_t size) {
+    return create_buffer_internal(device, NULL, size);
+}
 
 Buffer* import_buffer_host(Device* device, void* ptr, size_t size) {
-    error("TODO");
+    return create_buffer_internal(device, ptr, size);
 }
 
 void destroy_buffer(Buffer* buffer) {
     vkDestroyBuffer(buffer->device->device, buffer->buffer, NULL);
-    if (!buffer->imported)
-        vkFreeMemory(buffer->device->device, buffer->memory, NULL);
+    vkFreeMemory(buffer->device->device, buffer->memory, NULL);
+}
+
+VkDeviceAddress get_buffer_device_pointer(Buffer* buf) {
+    return vkGetBufferDeviceAddress(buf->device->device, &(VkBufferDeviceAddressInfo) {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .pNext = NULL,
+        .buffer = buf->buffer
+    }) + buf->offset;
+}
+
+void* get_buffer_host_pointer(Buffer* buf) {
+    return ((char*) buf->host_ptr) + buf->offset;
 }
 
 bool copy_into_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size);

@@ -16,6 +16,9 @@
 Y(vkCreateDebugUtilsMessengerEXT) \
 Y(vkDestroyDebugUtilsMessengerEXT) \
 
+#define external_memory_host_fns(Y) \
+Y(vkGetMemoryHostPointerPropertiesEXT) \
+
 #define INSTANCE_EXTENSIONS(X) \
 X(0, EXT, debug_utils,                debug_utils_fns) \
 X(0, KHR, portability_enumeration,          empty_fns) \
@@ -23,14 +26,14 @@ X(1, KHR, get_physical_device_properties2,  empty_fns) \
 
 #define DEVICE_EXTENSIONS(X) \
 X(0, EXT, descriptor_indexing,            empty_fns) \
-X(0, EXT, buffer_device_address,          empty_fns) \
+X(1, KHR, buffer_device_address,          empty_fns) \
 X(1, KHR, storage_buffer_storage_class,   empty_fns) \
 X(0, KHR, shader_non_semantic_info,       empty_fns) \
 X(0, KHR, spirv_1_4,                      empty_fns) \
 X(0, KHR, portability_subset,             empty_fns) \
 X(0, KHR, shader_subgroup_extended_types, empty_fns) \
 X(0, EXT, external_memory,                empty_fns) \
-X(0, EXT, external_memory_host,           empty_fns) \
+X(1, EXT, external_memory_host,           external_memory_host_fns) \
 X(0, EXT, subgroup_size_control,          empty_fns) \
 
 #define E(is_required, prefix, name, _) ShadySupports##prefix##name,
@@ -105,12 +108,13 @@ typedef struct {
     struct {
         VkPhysicalDeviceFeatures2 base;
         VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR subgroup_extended_types;
-        VkPhysicalDeviceBufferDeviceAddressFeaturesEXT buffer_device_address;
+        VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address;
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroup_size_control;
     } features;
     struct {
         VkPhysicalDeviceSubgroupProperties subgroup;
         VkPhysicalDeviceSubgroupSizeControlPropertiesEXT subgroup_size_control;
+        VkPhysicalDeviceExternalMemoryHostPropertiesEXT external_memory_host;
     } extended_properties;
     struct {
         bool is_moltenvk;
@@ -148,15 +152,23 @@ struct Program_ {
     Module* generic_program;
 };
 
+typedef struct EntryPointInfo_ {
+    size_t num_args;
+    const size_t* arg_offset;
+    const size_t* arg_size;
+    size_t args_size;
+} EntryPointInfo;
+
 struct SpecProgram_ {
     Program* base;
     Device* device;
 
-    IrArena* arena;
     Module* module;
 
     size_t spirv_size;
     char* spirv_bytes;
+
+    EntryPointInfo entrypoint;
 
     VkPipeline pipeline;
     VkPipelineLayout layout;

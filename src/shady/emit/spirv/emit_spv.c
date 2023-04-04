@@ -3,9 +3,9 @@
 #include "log.h"
 #include "portability.h"
 
-#include "../../ir_private.h"
 #include "../../analysis/scope.h"
-
+#include "../../ir_private.h"
+#include "../../type.h"
 #include "../../compile.h"
 
 #include "emit_spv.h"
@@ -277,8 +277,13 @@ static void emit_function(Emitter* emitter, const Node* node) {
 
     Nodes params = node->payload.fun.params;
     for (size_t i = 0; i < params.count; i++) {
-        SpvId param_id = spvb_parameter(fn_builder, emit_type(emitter, params.nodes[i]->payload.var.type));
+        const Type* param_type = params.nodes[i]->payload.var.type;
+        SpvId param_id = spvb_parameter(fn_builder, emit_type(emitter, param_type));
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
+        deconstruct_qualified_type(&param_type);
+        if (param_type->tag == PtrType_TAG && param_type->payload.ptr_type.address_space == AsGlobalPhysical) {
+            spvb_decorate(emitter->file_builder, param_id, SpvDecorationAliased, 0, NULL);
+        }
     }
 
     if (node->payload.fun.body) {
@@ -338,6 +343,7 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
             SpvId init = 0;
             if (gvar->init)
                 init = emit_value(emitter, NULL, gvar->init);
+            assert(!is_physical_as(gvar->address_space));
             SpvStorageClass storage_class = emit_addr_space(gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), storage_class, false, init);
 
@@ -491,14 +497,16 @@ static Module* run_backend_specific_passes(CompilerConfig* config, Module* mod) 
     return mod;
 }
 
-void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output) {
+void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
     IrArena* initial_arena = get_module_arena(mod);
     mod = run_backend_specific_passes(config, mod);
     IrArena* arena = get_module_arena(mod);
+
     struct List* words = new_list(uint32_t);
 
     FileBuilder file_builder = spvb_begin();
     spvb_set_version(file_builder, config->target_spirv_version.major, config->target_spirv_version.minor);
+    spvb_set_addressing_model(file_builder, SpvAddressingModelPhysicalStorageBuffer64);
 
     Emitter emitter = {
         .module = mod,
@@ -551,6 +559,8 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
     destroy_dict(emitter.extended_instruction_sets);
     destroy_list(words);
 
-    if (initial_arena != arena)
+    if (new_mod)
+        *new_mod = mod;
+    else if (initial_arena != arena)
         destroy_ir_arena(arena);
 }

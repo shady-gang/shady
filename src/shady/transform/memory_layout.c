@@ -4,22 +4,39 @@
 #include "log.h"
 #include "portability.h"
 
+#include "../type.h"
+
 #include <assert.h>
 
-size_t get_record_layout(const CompilerConfig* config, IrArena* arena, const Node* record_type, FieldLayout* fields) {
+inline static size_t round_up(size_t a, size_t b) {
+    size_t divided = (a + b - 1) / b;
+    return divided * b;
+}
+
+TypeMemLayout get_record_layout(const CompilerConfig* config, IrArena* arena, const Node* record_type, FieldLayout* fields) {
     assert(record_type->tag == RecordType_TAG);
-    size_t total_size = 0;
+
+    size_t offset = 0;
+    size_t max_align = 0;
+
     Nodes member_types = record_type->payload.record_type.members;
     for (size_t i = 0; i < member_types.count; i++) {
         TypeMemLayout member_layout = get_mem_layout(config, arena, member_types.nodes[i]);
+        offset = round_up(offset, member_layout.alignment_in_bytes);
         if (fields) {
             fields[i].mem_layout = member_layout;
-            fields[i].offset_in_bytes = total_size;
+            fields[i].offset_in_bytes = offset;
         }
-        // TODO implement alignment rules ?
-        total_size += member_layout.size_in_bytes;
+        offset += member_layout.size_in_bytes;
+        if (member_layout.alignment_in_bytes > max_align)
+            max_align = member_layout.alignment_in_bytes;
     }
-    return total_size;
+
+    return (TypeMemLayout) {
+        .type = record_type,
+        .size_in_bytes = round_up(offset, max_align),
+        .alignment_in_bytes = max_align,
+    };
 }
 
 size_t get_record_field_offset_in_bytes(const CompilerConfig* c, IrArena* a, const Type* t, size_t i) {
@@ -36,22 +53,28 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
     switch (type->tag) {
         case FnType_TAG:  error("Functions have an opaque memory representation");
         case PtrType_TAG: switch (type->payload.ptr_type.address_space) {
-            case AsProgramCode: return get_mem_layout(config, arena, int32_type(arena));
-            case AsPrivatePhysical: return get_mem_layout(config, arena, int32_type(arena));
-            case AsSubgroupPhysical: return get_mem_layout(config, arena, int32_type(arena));
+            case AsProgramCode:
+            case AsPrivatePhysical:
+            case AsSubgroupPhysical:
+            case AsSharedPhysical:
+            case AsGlobalPhysical:
+            case AsGeneric: return get_mem_layout(config, arena, int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false }));
             default: error_print("as: %d", type->payload.ptr_type.address_space); error("unhandled address space")
         }
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,
-            .size_in_bytes = type->payload.int_type.width == IntTy64 ? 8 : 4,
+            .size_in_bytes = get_type_bitwidth(type) / 8,
+            .alignment_in_bytes = type->payload.int_type.width == IntTy64 ? 8 : 4,
         };
         case Float_TAG:   return (TypeMemLayout) {
             .type = type,
-            .size_in_bytes = 4,
+            .size_in_bytes = get_type_bitwidth(type),
+            .alignment_in_bytes = type->payload.float_type.width == FloatTy64 ? 8 : 4,
         };
         case Bool_TAG:   return (TypeMemLayout) {
             .type = type,
             .size_in_bytes = 4,
+            .alignment_in_bytes = 4,
         };
         case ArrType_TAG: {
             const Node* size = type->payload.arr_type.size;
@@ -60,17 +83,13 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
             TypeMemLayout element_layout = get_mem_layout(config, arena, type->payload.arr_type.element_type);
             return (TypeMemLayout) {
                 .type = type,
-                .size_in_bytes = actual_size * element_layout.size_in_bytes
+                .size_in_bytes = actual_size * element_layout.size_in_bytes,
+                .alignment_in_bytes = element_layout.alignment_in_bytes
             };
         }
         case QualifiedType_TAG: return get_mem_layout(config, arena, type->payload.qualified_type.type);
         case TypeDeclRef_TAG: return get_mem_layout(config, arena, type->payload.type_decl_ref.decl->payload.nom_type.body);
-        case RecordType_TAG: {
-            return (TypeMemLayout) {
-                .type = type,
-                .size_in_bytes = get_record_layout(config, arena, type, NULL),
-            };
-        }
+        case RecordType_TAG: return get_record_layout(config, arena, type, NULL);
         default: error("not a known type");
     }
 }

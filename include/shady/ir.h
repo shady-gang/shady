@@ -99,7 +99,8 @@ const char* get_string_literal(IrArena*, const Node*);
 
 static inline bool is_physical_as(AddressSpace as) { return as <= PhysicalAddressSpacesEnd; }
 
-/// Returns true if variables in that address space can contain different data for threads in the same subgroup
+/// Returns false iff pointers in that address space can contain different data at the same address
+/// (amongst threads in the same subgroup)
 bool is_addr_space_uniform(IrArena*, AddressSpace);
 
 const Node* lookup_annotation(const Node* decl, const char* name);
@@ -235,6 +236,7 @@ typedef struct CompilerConfig_ {
         bool stack_accesses;
         bool god_function;
         bool stack_size;
+        bool subgroup_ops;
     } printf_trace;
 
     struct {
@@ -257,7 +259,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
 
 //////////////////////////////// Emission ////////////////////////////////
 
-void emit_spirv(CompilerConfig* config, Module*, size_t* output_size, char** output);
+void emit_spirv(CompilerConfig* config, Module*, size_t* output_size, char** output, Module** new_mod);
 
 typedef enum {
     C,
@@ -272,7 +274,7 @@ typedef struct {
     bool allow_compound_literals;
 } CEmitterConfig;
 
-void emit_c(CEmitterConfig config, Module*, size_t* output_size, char** output);
+void emit_c(CEmitterConfig config, Module*, size_t* output_size, char** output, Module** new_mod);
 
 void dump_cfg(FILE* file, Module*);
 void dump_loop_trees(FILE* output, Module* mod);

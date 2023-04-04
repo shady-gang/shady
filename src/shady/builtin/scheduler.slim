@@ -25,11 +25,16 @@ fn builtin_init_scheduler() {
     scheduler_vector#(subgroup_local_id()) = tree_node1;
     active_branch = tree_node1;
 
+    actual_subgroup_size = subgroup_reduce_sum(u32 1);
+}
+
+@Builtin @DisablePass("lower_cf_instrs") @DisablePass("setup_stack_frames") @Leaf
+fn builtin_entry_join_point uniform JoinPoint() {
+    val init_mask = subgroup_active_mask();
+
     val tree_node0 = composite TreeNode(init_mask, 0);
     val jp = composite JoinPoint(tree_node0, 0);
-    push_stack[JoinPoint](jp);
-
-    actual_subgroup_size = subgroup_reduce_sum(u32 1);
+    return (jp);
 }
 
 @Builtin @DisablePass("lower_cf_instrs") @Leaf

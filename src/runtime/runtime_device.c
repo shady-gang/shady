@@ -108,6 +108,11 @@ static bool fill_extended_device_properties(DeviceCaps* caps) {
         append_pnext((VkBaseOutStructure*) &dp, &caps->extended_properties.subgroup_size_control);
     }
 
+    if (caps->supported_extensions[ShadySupportsEXTexternal_memory_host]) {
+        caps->extended_properties.external_memory_host.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT;
+        append_pnext((VkBaseOutStructure*) &dp, &caps->extended_properties.external_memory_host);
+    }
+
     vkGetPhysicalDeviceProperties2(caps->physical_device, &dp);
 
     if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
@@ -132,8 +137,8 @@ static bool fill_device_features(DeviceCaps* caps) {
         append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.subgroup_extended_types);
     }
 
-    if (caps->supported_extensions[ShadySupportsEXTbuffer_device_address] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
-        caps->features.buffer_device_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT;
+    if (caps->supported_extensions[ShadySupportsKHRbuffer_device_address] || caps->base_properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
+        caps->features.buffer_device_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
         append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.buffer_device_address);
     }
 
@@ -201,6 +206,19 @@ bool cmp_programs(Device** pldevice, Device** prdevice) {
     return *pldevice == *prdevice;
 }
 
+static void obtain_device_pointers(Device* device) {
+#define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetDeviceProcAddr(device->device, #fn_name);
+#define X(_, prefix, name, fns) \
+        device->extensions.name.enabled = device->caps.supported_extensions[ShadySupports##prefix##name]; \
+        if (device->extensions.name.enabled) { \
+            SHADY_UNUSED struct S_##name* ext = &device->extensions.name; \
+            fns(Y) \
+        }
+    DEVICE_EXTENSIONS(X)
+#undef Y
+#undef X
+}
+
 static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
     Device* device = calloc(1, sizeof(Device));
     device->runtime = runtime;
@@ -242,6 +260,9 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     device->specialized_programs = new_dict(Program*, SpecProgram*, (HashFn) hash_program, (CmpFn) cmp_programs);
 
     vkGetDeviceQueue(device->device, device->caps.compute_queue_family, 0, &device->compute_queue);
+
+    obtain_device_pointers(device);
+
     return device;
 
     delete_device:

@@ -14,20 +14,6 @@ typedef struct {
     Rewriter rewriter;
 } Context;
 
-// Widens the offset to match the desired type
-static const Node* convert_offset(BodyBuilder* bb, const Type* dst_type, const Node* src) {
-    const Type* src_type = get_unqualified_type(src->type);
-    assert(src_type->tag == Int_TAG);
-    assert(dst_type->tag == Int_TAG);
-
-    // first convert to final bitsize then bitcast
-    const Type* extended_src_t = int_type(bb->arena, (Int) { .width = dst_type->payload.int_type.width, .is_signed = src_type->payload.int_type.is_signed });
-    const Node* val = src;
-    val = gen_primop_e(bb, convert_op, singleton(extended_src_t), singleton(val));
-    val = gen_primop_e(bb, reinterpret_op, singleton(dst_type), singleton(val));
-    return val;
-}
-
 static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset, size_t n_indices, const Node** indices) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
@@ -44,14 +30,14 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
         const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
-        const Node* new_offset = convert_offset(bb, emulated_ptr_t, offset);
+        const Node* new_offset = convert_int_extend_according_to_src_t(bb, emulated_ptr_t, offset);
         const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) { new_offset, element_t_size});
 
         ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset});
     }
 
-    for (size_t i = 2; i < n_indices; i++) {
-        assert(ptr->tag == PtrType_TAG);
+    for (size_t i = 0; i < n_indices; i++) {
+        assert(pointer_type->tag == PtrType_TAG);
         const Type* pointed_type = pointer_type->payload.ptr_type.pointed_type;
         switch (pointed_type->tag) {
             case ArrType_TAG: {
@@ -59,7 +45,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
                 const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
-                const Node* new_index = convert_offset(bb, emulated_ptr_t, rewrite_node(&ctx->rewriter, indices[i]));
+                const Node* new_index = convert_int_extend_according_to_src_t(bb, emulated_ptr_t, indices[i]);
                 const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) {new_index, element_t_size});
 
                 ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset });
@@ -79,7 +65,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
             case RecordType_TAG: {
                 Nodes member_types = pointed_type->payload.record_type.members;
 
-                const IntLiteral* selector_value = resolve_to_literal(rewrite_node(&ctx->rewriter, indices[i]));
+                const IntLiteral* selector_value = resolve_to_literal(indices[i]);
                 assert(selector_value && "selector value must be known for LEA into a record");
                 size_t n = selector_value->value.u64;
                 assert(n < member_types.count);

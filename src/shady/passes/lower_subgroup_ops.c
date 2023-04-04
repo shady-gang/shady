@@ -55,7 +55,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
 
                 TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
 
-                const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = int32_literal(arena, 2) });
+                const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = NULL });
 
                 const Node* varying_top_of_stack = gen_primop_e(builder, get_stack_base_op, empty(arena), empty(arena));
                 const Type* varying_raw_ptr_t = ptr_type(arena, (PtrType) { .address_space = AsPrivatePhysical, .pointed_type = local_arr_ty });
@@ -75,6 +75,9 @@ static const Node* process_let(Context* ctx, const Node* old) {
                     const Node* input = gen_load(builder, varying_logical_addr);
 
                     const Node* partial_result = gen_primop_ce(builder, subgroup_broadcast_first_op, 1, (const Node* []) { input });
+
+                    if (ctx->config->printf_trace.subgroup_ops)
+                        gen_primop(builder, debug_printf_op, empty(arena), mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = "partial_result %d"}), partial_result));
 
                     const Node* uniform_logical_addr = gen_lea(builder, uniform_raw_ptr, int32_literal(arena, 0), nodes(arena, 1, (const Node* []) {int32_literal(arena, j) }));
                     gen_store(builder, uniform_logical_addr, partial_result);

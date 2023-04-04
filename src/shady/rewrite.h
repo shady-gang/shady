@@ -7,8 +7,12 @@ typedef struct Rewriter_ Rewriter;
 
 typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
 
+const Node* rewrite_node(Rewriter*, const Node*);
+const Node* rewrite_node_with_fn(Rewriter*, const Node*, RewriteFn);
+
 /// Applies the rewriter to all nodes in the collection
 Nodes rewrite_nodes(Rewriter*, Nodes);
+Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteFn fn);
 
 Strings import_strings(IrArena*, Strings);
 
@@ -28,7 +32,12 @@ struct Rewriter_ {
     IrArena* dst_arena;
     Module* src_module;
     Module* dst_module;
-    struct Dict* processed;
+    struct {
+        bool search_map;
+        bool write_map;
+    } config;
+    struct Dict* map;
+    struct Dict* decls_map;
 };
 
 Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn);
@@ -37,10 +46,6 @@ Rewriter create_substituter(Module* arena);
 void destroy_rewriter(Rewriter*);
 
 void rewrite_module(Rewriter*);
-
-Nodes rewrite_nodes_generic(Rewriter* rewriter, RewriteFn fn, Nodes values);
-
-const Node* rewrite_node(Rewriter*, const Node*);
 
 /// Rewrites a node using the rewriter to provide the node and type operands
 const Node* recreate_node_identity(Rewriter*, const Node*);
@@ -59,5 +64,6 @@ const Node* search_processed(const Rewriter*, const Node*);
 const Node* find_processed(const Rewriter*, const Node*);
 void register_processed(Rewriter*, const Node*, const Node*);
 void register_processed_list(Rewriter*, Nodes, Nodes);
+void clear_processed_non_decls(Rewriter*);
 
 #endif
