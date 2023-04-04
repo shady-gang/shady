@@ -51,10 +51,27 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
     const Node* tail = node->payload.let.tail;
     switch (instruction->tag) {
         case PrimOp_TAG: {
-            if (instruction->payload.prim_op.op == quote_op) {
-                //return reduce_beta(tail, instruction->payload.prim_op.operands);
+            BodyBuilder* bb = begin_body(arena);
+            Nodes operands = instruction->payload.prim_op.operands;
+            LARRAY(const Node*, noperands, operands.count);
+            bool modified = false;
+            for (size_t i = 0; i < operands.count; i++) {
+                noperands[i] = operands.nodes[i];
+                if (operands.nodes[i]->tag == AntiQuote_TAG) {
+                    noperands[i] = first(bind_instruction(bb, operands.nodes[i]->payload.anti_quote.instruction));
+                    modified = true;
+                }
             }
-            break;
+            if (!modified) {
+                break;
+            }
+            Nodes results = bind_instruction(bb, prim_op(arena, (PrimOp) {
+                .op = instruction->payload.prim_op.op,
+                .operands = nodes(arena, operands.count, noperands),
+                .type_arguments = instruction->payload.prim_op.type_arguments,
+            }));
+            instruction = yield_values_and_wrap_in_block(bb, results);
+            return let(arena, instruction, tail);
         }
         case Block_TAG: {
             // follow the terminator of the block until we hit a yield()
