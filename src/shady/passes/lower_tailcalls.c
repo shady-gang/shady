@@ -58,7 +58,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     BodyBuilder* builder = begin_body(ctx2.rewriter.dst_module);
 
     bind_instruction(builder, leaf_call(dst_arena, (LeafCall) { .callee = ctx->init_fn, .args = empty(dst_arena) }));
-    bind_instruction(builder, leaf_call(dst_arena, (LeafCall) { .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_init_scheduler"), .args = empty(dst_arena) }));
+    bind_instruction(builder, leaf_call(dst_arena, (LeafCall) { .callee = find_or_process_decl(&ctx->rewriter, "builtin_init_scheduler"), .args = empty(dst_arena) }));
 
     // shove the arguments on the stack
     for (size_t i = rewritten_params.count - 1; i < rewritten_params.count; i--) {
@@ -66,7 +66,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     }
 
     // Initialise next_fn/next_mask to the entry function
-    const Node* jump_fn = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_fork");
+    const Node* jump_fn = access_decl(&ctx->rewriter, "builtin_fork");
     assert(jump_fn->tag == FnAddr_TAG);
     jump_fn = jump_fn->payload.fn_addr.fn;
     bind_instruction(builder, leaf_call(dst_arena, (LeafCall) { .callee = jump_fn, .args = singleton(lower_fn_addr(ctx, old)) }));
@@ -141,20 +141,20 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
         case JoinPointType_TAG: return type_decl_ref(dst_arena, (TypeDeclRef) {
-            .decl = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "JoinPoint"),
+            .decl = find_or_process_decl(&ctx->rewriter, "JoinPoint"),
         });
         case PrimOp_TAG: {
             switch (old->payload.prim_op.op) {
                 case create_joint_point_op: {
                     const Node* join_destination = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands));
                     return leaf_call(dst_arena, (LeafCall) {
-                        .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_create_control_point"),
+                        .callee = find_or_process_decl(&ctx->rewriter, "builtin_create_control_point"),
                         .args = mk_nodes(dst_arena, join_destination)
                     });
                 }
                 case default_join_point_op: {
                     return leaf_call(dst_arena, (LeafCall) {
-                        .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_entry_join_point"),
+                        .callee = find_or_process_decl(&ctx->rewriter, "builtin_entry_join_point"),
                         .args = empty(dst_arena)
                     });
                 }
@@ -169,7 +169,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
 
             const Node* call = leaf_call(dst_arena, (LeafCall) {
-                .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_fork"),
+                .callee = find_or_process_decl(&ctx->rewriter, "builtin_fork"),
                 .args = nodes(dst_arena, 1, (const Node*[]) { target })
             });
             bind_instruction(bb, call);
@@ -187,7 +187,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* tree_node = gen_primop_e(bb, extract_op, empty(dst_arena), mk_nodes(dst_arena, jp, int32_literal(dst_arena, 0)));
 
             const Node* call = leaf_call(dst_arena, (LeafCall) {
-                .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_join"),
+                .callee = find_or_process_decl(&ctx->rewriter, "builtin_join"),
                 .args = mk_nodes(dst_arena, dst, tree_node)
             });
             bind_instruction(bb, call);
@@ -214,8 +214,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     BodyBuilder* loop_body_builder = begin_body(ctx->rewriter.dst_module);
 
-    const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, ctx->rewriter.src_module, "next_fn"));
-    const Node* get_active_branch_fn = access_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_get_active_branch");
+    const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, "next_fn"));
+    const Node* get_active_branch_fn = access_decl(&ctx->rewriter, "builtin_get_active_branch");
     assert(get_active_branch_fn->tag == FnAddr_TAG);
     get_active_branch_fn = get_active_branch_fn->payload.fn_addr.fn;
     const Node* next_mask = first(bind_instruction(loop_body_builder, leaf_call(dst_arena, (LeafCall) { .callee = get_active_branch_fn, .args = empty(dst_arena) })));

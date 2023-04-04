@@ -92,8 +92,8 @@ const Node* gen_lea(BodyBuilder* instructions, const Node* base, const Node* off
     return gen_primop_ce(instructions, lea_op, 2 + selectors.count, ops);
 }
 
-const Node* find_or_process_decl(Rewriter* rewriter, Module* mod, const char* name) {
-    Nodes old_decls = get_module_declarations(mod);
+const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
+    Nodes old_decls = get_module_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
         if (strcmp(get_decl_name(decl), name) == 0) {
@@ -103,8 +103,8 @@ const Node* find_or_process_decl(Rewriter* rewriter, Module* mod, const char* na
     assert(false);
 }
 
-const Node* access_decl(Rewriter* rewriter, Module* mod, const char* name) {
-    const Node* decl = find_or_process_decl(rewriter, mod, name);
+const Node* access_decl(Rewriter* rewriter, const char* name) {
+    const Node* decl = find_or_process_decl(rewriter, name);
     if (decl->tag == Function_TAG)
         return fn_addr(rewriter->dst_arena, (FnAddr) { .fn = decl });
     else
