@@ -301,17 +301,21 @@ static const Node* process_node(Context* ctx, const Node* node) {
             register_processed(rewriter, exiting_node->node, pre_join);
 
             Node* new_node;
+            Nodes outer_lambda_args;
             if (is_function(node)) {
                 const Node* new_terminator = rewrite_node(rewriter, node->payload.fun.body);
                 new_node = basic_block(arena, fn, exit_args, "loop");
                 new_node->payload.basic_block.body = new_terminator;
             } else if (is_basic_block(node)) {
                 new_node = (Node*) recreate_node_identity(rewriter, node);
-                assert(is_abstraction(new_node));
             } else {
-                //Anonymous lambdas can probably hit this as well?
-                assert(false);
+                Node* new_lam = (Node*) recreate_node_identity(rewriter, node);
+                outer_lambda_args = new_lam->payload.anon_lam.params;
+                new_node = basic_block(arena, fn, exit_args, "loop");
+                new_node->payload.basic_block.body = (Node*) new_lam->payload.anon_lam.body;
             }
+
+            assert(is_abstraction(new_node));
 
             remove_dict(const Node*, rewriter->processed, exiting_node->node);
             if (cached)
@@ -345,6 +349,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 Node* loop_cont = basic_block(arena, fn, exit_args, "loop");
                 loop_cont->payload.basic_block.body = empty_let;
                 result = loop_cont;
+            } else {
+                const Node* outer_lam = lambda(rewriter->dst_module, outer_lambda_args, empty_let);
+                result = outer_lam;
             }
 
             assert(is_abstraction(result));
