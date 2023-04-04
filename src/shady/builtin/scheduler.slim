@@ -94,7 +94,7 @@ fn builtin_yield(uniform u32 resume_target) {
     if (subgroup_elect_first()) {
         // bump the cursor
         // TODO bump it in a smarter way
-        scheduler_cursor = (scheduler_cursor + u32 1) % SUBGROUP_SIZE;
+        scheduler_cursor = (scheduler_cursor + u32 1) % actual_subgroup_size;
         leaf_call(builtin_find_schedulable_leaf)();
     }
 }
