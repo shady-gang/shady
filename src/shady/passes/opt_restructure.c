@@ -110,7 +110,7 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         Node* inner_exit_ladder_bb = basic_block(arena, ctx->fn, empty(arena), unique_name(arena, "exit_ladder_inline_me"));
 
         // Just jumps to the actual ladder
-        const Node* exit_ladder_trampoline = lambda(ctx2.rewriter.dst_module, empty(arena), jump(arena, (Jump) { .target = inner_exit_ladder_bb, .args = empty(arena) }));
+        const Node* exit_ladder_trampoline = lambda(ctx2.rewriter.dst_arena, empty(arena), jump(arena, (Jump) { .target = inner_exit_ladder_bb, .args = empty(arena) }));
 
         const Node* structured = structure(&ctx2, dst, let(arena, unit(arena), exit_ladder_trampoline));
         assert(is_terminator(structured));
@@ -119,7 +119,7 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         pop_list_impl(ctx->tmp_alloc_stack);
 
         if (dfs_entry.loop_header) {
-            const Node* body = lambda(ctx->rewriter.dst_module, nodes(arena, oargs.count, nparams), structured);
+            const Node* body = lambda(ctx->rewriter.dst_arena, nodes(arena, oargs.count, nparams), structured);
             bind_instruction(bb, loop_instr(arena, (Loop) {
                 .body = body,
                 .initial_args = rewrite_nodes(&ctx->rewriter, oargs),
@@ -154,7 +154,7 @@ static const Node* rebuild_let(Context* ctx, const Node* old_let, const Node* ne
 
     Nodes rewritten_params = recreate_variables(&ctx->rewriter, otail_params);
     register_processed_list(&ctx->rewriter, otail_params, rewritten_params);
-    const Node* structured_lam = lambda(ctx->rewriter.dst_module, rewritten_params, structure(ctx, old_tail, exit_ladder));
+    const Node* structured_lam = lambda(ctx->rewriter.dst_arena, rewritten_params, structure(ctx, old_tail, exit_ladder));
     return let(arena, new_instruction, structured_lam);
 }
 
@@ -241,7 +241,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     const Node* level_value = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = load_op, .operands = singleton(ctx->level_ptr) })));
                     const Node* guard = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = eq_op, .operands = mk_nodes(arena, level_value, int32_literal(arena, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
                     const Node* true_body = structure(ctx, old_tail, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
-                    const Node* if_true_lam = lambda(ctx->rewriter.dst_module, empty(arena), true_body);
+                    const Node* if_true_lam = lambda(ctx->rewriter.dst_arena, empty(arena), true_body);
                     bind_instruction(bb2, if_instr(arena, (If) {
                         .condition = guard,
                         .yield_types = empty(arena),
@@ -249,7 +249,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                         .if_false = NULL
                     }));
 
-                    const Node* tail_lambda = lambda(ctx->rewriter.dst_module, empty(arena), finish_body(bb2, exit_ladder));
+                    const Node* tail_lambda = lambda(ctx->rewriter.dst_arena, empty(arena), finish_body(bb2, exit_ladder));
                     return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(arena, unit(arena), tail_lambda)));
                 }
             }
@@ -266,11 +266,11 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
 
             BodyBuilder* if_true_bb = begin_body(ctx->rewriter.dst_module);
             const Node* true_body = handle_bb_callsite(ctx, if_true_bb, abs, body->payload.branch.true_target, body->payload.branch.args, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
-            const Node* if_true_lam = lambda(ctx->rewriter.dst_module, empty(ctx->rewriter.dst_arena), true_body);
+            const Node* if_true_lam = lambda(ctx->rewriter.dst_arena, empty(ctx->rewriter.dst_arena), true_body);
 
             BodyBuilder* if_false_bb = begin_body(ctx->rewriter.dst_module);
             const Node* false_body = handle_bb_callsite(ctx, if_false_bb, abs, body->payload.branch.false_target, body->payload.branch.args, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
-            const Node* if_false_lam = lambda(ctx->rewriter.dst_module, empty(ctx->rewriter.dst_arena), false_body);
+            const Node* if_false_lam = lambda(ctx->rewriter.dst_arena, empty(ctx->rewriter.dst_arena), false_body);
 
             const Node* instr = if_instr(arena, (If) {
                 .condition = condition,
@@ -278,7 +278,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 .if_true = if_true_lam,
                 .if_false = if_false_lam,
             });
-            const Node* post_merge_lam = lambda(ctx->rewriter.dst_module, empty(ctx->rewriter.dst_arena), exit_ladder);
+            const Node* post_merge_lam = lambda(ctx->rewriter.dst_arena, empty(ctx->rewriter.dst_arena), exit_ladder);
             return let(ctx->rewriter.dst_arena, instr, post_merge_lam);
         }
         case Switch_TAG: {

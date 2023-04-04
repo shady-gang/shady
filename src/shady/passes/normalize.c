@@ -152,7 +152,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
 
             const Node* new_body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.anon_lam.body));
-            return lambda(ctx->rewriter.dst_module, new_params, new_body);
+            return lambda(ctx->rewriter.dst_arena, new_params, new_body);
         }
         default: break;
     }

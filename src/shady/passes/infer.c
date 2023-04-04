@@ -276,7 +276,7 @@ static const Node* _infer_anonymous_lambda(Context* ctx, const Node* node, const
     }
 
     const Node* new_body = infer(&body_context, node->payload.anon_lam.body, NULL);
-    return lambda(ctx->rewriter.dst_module, nodes(arena, inferred_arg_type.count, nparams), new_body);
+    return lambda(ctx->rewriter.dst_arena, nodes(arena, inferred_arg_type.count, nparams), new_body);
 }
 
 static const Node* _infer_basic_block(Context* ctx, const Node* node) {
@@ -573,7 +573,7 @@ static const Node* _infer_control(Context* ctx, const Node* node, const Type* ex
     const Node* jp = var(arena, jpt, ojp->payload.var.name);
     register_processed(&ctx->rewriter, ojp, jp);
 
-    const Node* nlam = lambda(ctx->rewriter.dst_module, singleton(jp), infer(&joinable_ctx, get_abstraction_body(olam), NULL));
+    const Node* nlam = lambda(ctx->rewriter.dst_arena, singleton(jp), infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 
     return control(ctx->rewriter.dst_arena, (Control) {
         .yield_types = yield_types,
@@ -587,7 +587,7 @@ static const Node* _infer_block(Context* ctx, const Node* node, const Type* expe
 
     const Node* olam = node->payload.block.inside;
 
-    const Node* nlam = lambda(ctx->rewriter.dst_module, empty(arena), infer(ctx, get_abstraction_body(olam), NULL));
+    const Node* nlam = lambda(ctx->rewriter.dst_arena, empty(arena), infer(ctx, get_abstraction_body(olam), NULL));
 
     return control(ctx->rewriter.dst_arena, (Control) {
         .inside = nlam
