@@ -3,9 +3,9 @@
 #include "log.h"
 #include "portability.h"
 
-#include "../../ir_private.h"
 #include "../../analysis/scope.h"
-
+#include "../../ir_private.h"
+#include "../../type.h"
 #include "../../compile.h"
 
 #include "emit_spv.h"
@@ -277,8 +277,13 @@ static void emit_function(Emitter* emitter, const Node* node) {
 
     Nodes params = node->payload.fun.params;
     for (size_t i = 0; i < params.count; i++) {
-        SpvId param_id = spvb_parameter(fn_builder, emit_type(emitter, params.nodes[i]->payload.var.type));
+        const Type* param_type = params.nodes[i]->payload.var.type;
+        SpvId param_id = spvb_parameter(fn_builder, emit_type(emitter, param_type));
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
+        deconstruct_qualified_type(&param_type);
+        if (param_type->tag == PtrType_TAG && param_type->payload.ptr_type.address_space == AsGlobalPhysical) {
+            spvb_decorate(emitter->file_builder, param_id, SpvDecorationAliased, 0, NULL);
+        }
     }
 
     if (node->payload.fun.body) {
