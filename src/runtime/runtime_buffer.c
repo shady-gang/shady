@@ -97,7 +97,7 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
     VkMemoryAllocateInfo allocation_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = NULL,
-        .allocationSize = (VkDeviceSize) size, // the driver might want padding !
+        .allocationSize =  0 /* set later */,
         .memoryTypeIndex = 0 /* set later */,
     };
 
@@ -114,6 +114,7 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
         VkPhysicalDeviceMemoryProperties device_memory_properties;
         vkGetPhysicalDeviceMemoryProperties(device->caps.physical_device, &device_memory_properties);
         warn_print("memory type index: %d heap: %d\n", memory_type_index, device_memory_properties.memoryTypes[memory_type_index].heapIndex);
+        allocation_info.allocationSize = (VkDeviceSize) size;
         allocation_info.memoryTypeIndex = memory_type_index;
 
         import_host_ptr_info = (VkImportMemoryHostPointerInfoEXT) {
@@ -134,6 +135,7 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
             .pNext = NULL,
         };
         vkGetBufferMemoryRequirements2(device->device, &buf_mem_requirements, &mem_requirements);
+        allocation_info.allocationSize = mem_requirements.memoryRequirements.size;
         allocation_info.memoryTypeIndex = find_suitable_memory_type(device, mem_requirements.memoryRequirements.memoryTypeBits, AllocDeviceLocal);
     }
 
