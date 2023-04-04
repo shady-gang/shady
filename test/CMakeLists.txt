@@ -20,6 +20,7 @@ list(APPEND BASIC_TESTS test/math.slim)
 list(APPEND BASIC_TESTS test/comments.slim)
 list(APPEND BASIC_TESTS test/generic_ptrs1.slim)
 list(APPEND BASIC_TESTS test/generic_ptrs2.slim)
+list(APPEND BASIC_TESTS test/subgroup_var.slim)
 
 list(APPEND BASIC_C_TESTS test/c/simple1.c)
 list(APPEND BASIC_C_TESTS test/c/simple2.c)
