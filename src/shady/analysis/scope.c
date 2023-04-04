@@ -241,6 +241,7 @@ Scope* new_scope_impl(const Node* entry, bool flipped) {
         .arena = arena,
         .entry = entry_node,
         .size = entries_count_list(context.contents),
+        .flipped = flipped,
         .contents = context.contents,
         .map = context.nodes,
         .rpo = NULL

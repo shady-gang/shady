@@ -40,7 +40,7 @@ struct CFNode_ {
     // set by compute_domtree
     CFNode* idom;
 
-    /** @brief All Nodes strictly dominated by this CFNode.
+    /** @brief All Nodes directly dominated by this CFNode.
      *
      * @ref List of @ref CFNode*
      */
@@ -51,13 +51,18 @@ typedef struct Arena_ Arena;
 typedef struct Scope_ {
     Arena* arena;
     size_t size;
+    bool flipped;
 
     /**
-     * List of @ref CFNode*
+     * @ref List of @ref CFNode*
      */
     struct List* contents;
 
+    /**
+     * @ref Dict from const @ref Node* to @ref CFNode*
+     */
     struct Dict* map;
+
     CFNode* entry;
     // set by compute_rpo
     CFNode** rpo;
