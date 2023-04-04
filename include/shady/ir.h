@@ -212,8 +212,6 @@ typedef struct CompilerConfig_ {
     uint32_t per_thread_stack_size;
     uint32_t per_subgroup_stack_size;
 
-    uint32_t subgroup_size;
-
     struct {
         uint8_t major;
         uint8_t minor;
@@ -247,6 +245,7 @@ typedef struct CompilerConfig_ {
     } logging;
 
     struct {
+        uint32_t subgroup_size;
         String entry_point;
     } specialization;
 } CompilerConfig;
