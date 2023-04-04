@@ -73,13 +73,13 @@ static const Node* process(Context* ctx, const Node* old) {
                     bind_instruction(loop_bb, if_instr(a, (If) {
                         .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, index, num_in_bytes)),
                         .yield_types = empty(a),
-                        .if_true = lambda(m, empty(a), merge_continue(a, (MergeContinue) { .args = singleton(gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)))) })),
-                        .if_false = lambda(m, empty(a), merge_break(a, (MergeBreak) { .args = empty(a) }))
+                        .if_true = lambda(a, empty(a), merge_continue(a, (MergeContinue) { .args = singleton(gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)))) })),
+                        .if_false = lambda(a, empty(a), merge_break(a, (MergeBreak) { .args = empty(a) }))
                     }));
 
                     bind_instruction(bb, loop_instr(a, (Loop) {
                         .yield_types = empty(a),
-                        .body = lambda(m, singleton(index), finish_body(loop_bb, unreachable(a))),
+                        .body = lambda(a, singleton(index), finish_body(loop_bb, unreachable(a))),
                         .initial_args = singleton(uint32_literal(a, 0))
                     }));
                     return yield_values_and_wrap_in_block(bb, empty(a));

@@ -172,16 +172,6 @@ Nodes get_abstraction_params(const Node* abs) {
     }
 }
 
-Module* get_abstraction_module(const Node* abs) {
-    assert(is_abstraction(abs));
-    switch (abs->tag) {
-        case Function_TAG: return abs->payload.fun.module;
-        case BasicBlock_TAG: return abs->payload.basic_block.fn->payload.fun.module;
-        case AnonLambda_TAG: return abs->payload.anon_lam.module;
-        default: assert(false);
-    }
-}
-
 const Node* get_let_instruction(const Node* let) {
     switch (let->tag) {
         case Let_TAG: return let->payload.let.instruction;

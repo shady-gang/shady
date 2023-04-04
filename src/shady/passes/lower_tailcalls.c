@@ -104,7 +104,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 if (old->payload.fun.body) {
                     const Node* nbody = rewrite_node(&ctx->rewriter, old->payload.fun.body);
                     if (entry_point_annotation) {
-                        const Node* lam = lambda(ctx->rewriter.dst_module, empty(dst_arena), nbody);
+                        const Node* lam = lambda(ctx->rewriter.dst_arena, empty(dst_arena), nbody);
                         nbody = let(dst_arena, leaf_call(dst_arena, (LeafCall) {.callee = ctx->init_fn, .args = empty(dst_arena)}), lam);
                     }
                     fun->payload.fun.body = nbody;
@@ -245,7 +245,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
         const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, empty(dst_arena), mk_nodes(dst_arena, iterations_count_param, int32_literal(dst_arena, ctx->config->shader_diagnostics.max_top_iterations)));
-        const Node* bail_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena), break_terminator);
+        const Node* bail_true_lam = lambda(ctx->rewriter.dst_arena, empty(dst_arena), break_terminator);
         const Node* bail_if = if_instr(dst_arena, (If) {
             .condition = bail_condition,
             .if_true = bail_true_lam,
@@ -263,7 +263,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     BodyBuilder* zero_if_case_builder = begin_body(ctx->rewriter.dst_module);
     if (ctx->config->printf_trace.god_function)
         bind_instruction(zero_if_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: kill thread %d\n" }), local_id) }));
-    const Node* zero_if_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena), finish_body(zero_if_case_builder, break_terminator));
+    const Node* zero_if_true_lam = lambda(ctx->rewriter.dst_arena, empty(dst_arena), finish_body(zero_if_case_builder, break_terminator));
     const Node* zero_if_instruction = if_instr(dst_arena, (If) {
         .condition = should_run,
         .if_true = zero_if_true_lam,
@@ -274,7 +274,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     if (ctx->config->printf_trace.god_function)
         bind_instruction(zero_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d escaped death!\n" }), local_id) }));
 
-    const Node* zero_case_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), finish_body(zero_case_builder, continue_terminator));
+    const Node* zero_case_lam = lambda(ctx->rewriter.dst_arena, nodes(dst_arena, 0, NULL), finish_body(zero_case_builder, continue_terminator));
     const Node* zero_lit = uint32_literal(dst_arena, 0);
     append_list(const Node*, literals, zero_lit);
     append_list(const Node*, cases, zero_case_lam);
@@ -295,7 +295,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, 0, NULL)
             }));
-            const Node* if_true_lam = lambda(ctx->rewriter.dst_module, empty(dst_arena), finish_body(if_builder, merge_selection(dst_arena, (MergeSelection) { .args = nodes(dst_arena, 0, NULL) })));
+            const Node* if_true_lam = lambda(ctx->rewriter.dst_arena, empty(dst_arena), finish_body(if_builder, merge_selection(dst_arena, (MergeSelection) { .args = nodes(dst_arena, 0, NULL) })));
             const Node* if_instruction = if_instr(dst_arena, (If) {
                 .condition = should_run,
                 .if_true = if_true_lam,
@@ -305,14 +305,14 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
             bind_instruction(case_builder, if_instruction);
-            const Node* case_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), finish_body(case_builder, continue_terminator));
+            const Node* case_lam = lambda(ctx->rewriter.dst_arena, nodes(dst_arena, 0, NULL), finish_body(case_builder, continue_terminator));
 
             append_list(const Node*, literals, fn_lit);
             append_list(const Node*, cases, case_lam);
         }
     }
 
-    const Node* default_case_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 0, NULL), unreachable(dst_arena));
+    const Node* default_case_lam = lambda(ctx->rewriter.dst_arena, nodes(dst_arena, 0, NULL), unreachable(dst_arena));
 
     bind_instruction(loop_body_builder, match_instr(dst_arena, (Match) {
         .yield_types = nodes(dst_arena, 0, NULL),
@@ -325,7 +325,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     destroy_list(literals);
     destroy_list(cases);
 
-    const Node* loop_inside_lam = lambda(ctx->rewriter.dst_module, count_iterations ? singleton(iterations_count_param) : nodes(dst_arena, 0, NULL), finish_body(loop_body_builder, unreachable(dst_arena)));
+    const Node* loop_inside_lam = lambda(ctx->rewriter.dst_arena, count_iterations ? singleton(iterations_count_param) : nodes(dst_arena, 0, NULL), finish_body(loop_body_builder, unreachable(dst_arena)));
 
     const Node* the_loop = loop_instr(dst_arena, (Loop) {
         .yield_types = nodes(dst_arena, 0, NULL),

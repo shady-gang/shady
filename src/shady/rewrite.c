@@ -268,7 +268,7 @@ static const Node* rebind_results(Rewriter* rewriter, const Node* ninstruction, 
         register_processed(rewriter, oparams.nodes[i], new_params[i]);
     }
     const Node* nbody = rewrite_node(rewriter, olam->payload.anon_lam.body);
-    const Node* tail = lambda(rewriter->dst_module, nodes(rewriter->dst_arena, oparams.count, new_params), nbody);
+    const Node* tail = lambda(rewriter->dst_arena, nodes(rewriter->dst_arena, oparams.count, new_params), nbody);
     return tail;
 }
 
@@ -338,7 +338,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             Nodes params = recreate_variables(rewriter, node->payload.anon_lam.params);
             register_processed_list(rewriter, node->payload.anon_lam.params, params);
             const Node* nterminator = rewrite_node_with_fn(rewriter, node->payload.anon_lam.body, rewrite_terminator);
-            return lambda(rewriter->dst_module, params, nterminator);
+            return lambda(rewriter->dst_arena, params, nterminator);
         }
         case BasicBlock_TAG: {
             Nodes params = recreate_variables(rewriter, node->payload.basic_block.params);

@@ -117,7 +117,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     .target = ncallee,
                     .args = nargs,
                 });
-                const Node* control_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 1, (const Node*[]) { jp }), control_body);
+                const Node* control_lam = lambda(ctx->rewriter.dst_arena, nodes(dst_arena, 1, (const Node*[]) { jp }), control_body);
                 new_instruction = control(dst_arena, (Control) { .yield_types = strip_qualifiers(dst_arena, returned_types), .inside = control_lam });
             }
 
