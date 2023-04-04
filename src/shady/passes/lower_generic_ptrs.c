@@ -85,7 +85,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         // cast _into_ generic
                         AddressSpace src_as = old_src_t->payload.ptr_type.address_space;
                         size_t tag = get_tag_for_addr_space(src_as);
-                        BodyBuilder* bb = begin_body(m);
+                        BodyBuilder* bb = begin_body(a);
                         const Node* src_ptr = rewrite_node(&ctx->rewriter, old_src);
                         const Node* generic_ptr = gen_reinterpret_cast(bb, generic_ptr_type, src_ptr);
                         const Node* ptr_mask = size_t_literal(ctx, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
@@ -114,7 +114,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         LARRAY(const Node*, cases, max_tag);
                         for (size_t tag = 0; tag < max_tag; tag++) {
                             literals[tag] = size_t_literal(ctx, tag);
-                            BodyBuilder* case_bb = begin_body(m);
+                            BodyBuilder* case_bb = begin_body(a);
                             const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, nptr, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type));
                             const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
                             cases[tag] = lambda(a, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
@@ -122,7 +122,7 @@ static const Node* process(Context* ctx, const Node* old) {
                             })));
                         }
 
-                        BodyBuilder* bb = begin_body(m);
+                        BodyBuilder* bb = begin_body(a);
                         //          extracted_tag = nptr >> (64 - 2), for example
                         const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, nptr, size_t_literal(ctx, get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
@@ -147,7 +147,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         LARRAY(const Node*, cases, max_tag);
                         for (size_t tag = 0; tag < max_tag; tag++) {
                             literals[tag] = size_t_literal(ctx, tag);
-                            BodyBuilder* case_bb = begin_body(m);
+                            BodyBuilder* case_bb = begin_body(a);
                             const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, nptr, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type));
                             gen_store(case_bb, reinterpreted_ptr, rewrite_node(&ctx->rewriter, old->payload.prim_op.operands.nodes[1]));
                             cases[tag] = lambda(a, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
@@ -155,7 +155,7 @@ static const Node* process(Context* ctx, const Node* old) {
                             })));
                         }
 
-                        BodyBuilder* bb = begin_body(m);
+                        BodyBuilder* bb = begin_body(a);
                         //          extracted_tag = nptr >> (64 - 2), for example
                         const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, nptr, size_t_literal(ctx, get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)));
 

@@ -41,7 +41,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
         PrimOp payload = old_instruction->payload.prim_op;
         switch (payload.op) {
             case subgroup_broadcast_first_op: {
-                BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
+                BodyBuilder* builder = begin_body(arena);
                 const Node* varying_value = rewrite_node(&ctx->rewriter, payload.operands.nodes[0]);
                 const Type* element_type = get_unqualified_type(varying_value->type);
 

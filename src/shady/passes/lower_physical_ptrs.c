@@ -255,7 +255,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(arena, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
-    BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* bb = begin_body(arena);
     const Node* address = bytes_to_words(ctx, bb, address_param);
     const Node* base = ref_decl(arena, (RefDecl) { .decl = *get_emulated_as_word_array(ctx, as) });
     if (ser) {
@@ -290,7 +290,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 assert(ptr_type->tag == PtrType_TAG);
                 if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                     break;
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                BodyBuilder* bb = begin_body(arena);
 
                 const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
                 const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
@@ -369,7 +369,7 @@ static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t
 
         // we need to compute the actual pointer by getting the offset and dividing it
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
-        BodyBuilder* bb = begin_body(m);
+        BodyBuilder* bb = begin_body(a);
         const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(size_t_literal(ctx,  members_count)));
         // const Node* offset_in_words = bytes_to_words(ctx, bb, offset);
         cnst->payload.constant.value = anti_quote(a, (AntiQuote) {
@@ -408,7 +408,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as, Addre
     collect_globals_into_record_type(ctx, global_struct_t, as);
 
     // compute the size
-    BodyBuilder* bb = begin_body(m);
+    BodyBuilder* bb = begin_body(a);
     const Node* size_of = gen_primop_e(bb, size_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), empty(a));
     const Node* size_in_words = bytes_to_words(ctx, bb, size_of);
 
