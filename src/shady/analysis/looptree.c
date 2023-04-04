@@ -16,6 +16,10 @@ typedef struct {
 typedef struct {
     Scope* s;
     State* states;
+
+    /**
+     * @ref List of @ref CFNode*
+     */
     struct List* stack;
 } LoopTreeBuilder;
 
@@ -32,25 +36,14 @@ LTNode* new_lf_node(int type, LTNode* parent, int depth, struct List* cf_nodes) 
     return n;
 }
 
-static int visit(LoopTreeBuilder* ltb, const CFNode* n, int counter) {
-    // debug_print("visiting %s \n", get_abstraction_name(n->node));
-    // add n to the 'set'
-    ltb->states[n->rpo_index].in_set = true;
-    // set the numbers
-    ltb->states[n->rpo_index].dfs = counter;
-    ltb->states[n->rpo_index].low_link = counter;
-    // push it
-    append_list(const CFNode*, ltb->stack, n);
-    return counter + 1;
-}
+#define shady_min(a, b) (((a) < (b)) ? (a) : (b))
 
-static bool is_head(LoopTreeBuilder* ltb, const CFNode* n) { return ltb->states[n->rpo_index].is_head; }
-static bool in_set(LoopTreeBuilder* ltb, const CFNode* n) { return ltb->states[n->rpo_index].in_set; }
-static bool in_scc(LoopTreeBuilder* ltb, const CFNode* n) { return ltb->states[n->rpo_index].in_scc; }
-static bool on_stack(LoopTreeBuilder* ltb, const CFNode* n) { return ltb->states[n->rpo_index].on_stack; }
-
-static size_t* lowlink(LoopTreeBuilder* ltb, const CFNode* n) { return &ltb->states[n->rpo_index].low_link; }
-static size_t* dfs(LoopTreeBuilder* ltb, const CFNode* n) { return &ltb->states[n->rpo_index].dfs; }
+#define is_head(ltb, n) ltb->states[n->rpo_index].is_head
+#define in_set(ltb, n) ltb->states[n->rpo_index].in_set
+#define in_scc(ltb, n) ltb->states[n->rpo_index].in_scc
+#define on_stack(ltb, n) ltb->states[n->rpo_index].on_stack
+#define lowlink(ltb, n) ltb->states[n->rpo_index].low_link
+#define dfs(ltb, n) ltb->states[n->rpo_index].dfs
 
 static bool is_leaf(LoopTreeBuilder* ltb, const CFNode* n, size_t num) {
     if (num == 1) {
@@ -66,7 +59,18 @@ static bool is_leaf(LoopTreeBuilder* ltb, const CFNode* n, size_t num) {
     return false;
 }
 
-static size_t shady_min(size_t a, size_t b) { if (a < b) return a; return b; }
+static int visit(LoopTreeBuilder* ltb, const CFNode* n, int counter) {
+    // debug_print("visiting %s \n", get_abstraction_name(n->node));
+    // add n to the 'set'
+    in_set(ltb, n) = true;
+    // set the numbers
+    ltb->states[n->rpo_index].dfs = counter;
+    ltb->states[n->rpo_index].low_link = counter;
+    // push it
+    append_list(const CFNode*, ltb->stack, n);
+    on_stack(ltb, n) = true;
+    return counter + 1;
+}
 
 static int walk_scc(LoopTreeBuilder* ltb, const CFNode* cur, LTNode* parent, int depth, int scc_counter) {
     scc_counter = visit(ltb, cur, scc_counter);
@@ -76,22 +80,23 @@ static int walk_scc(LoopTreeBuilder* ltb, const CFNode* cur, LTNode* parent, int
         CFNode* succ = succe.dst;
         if (is_head(ltb, succ))
             continue; // this is a backedge
-        else if (!in_set(ltb, succ)) {
+        if (!in_set(ltb, succ)) {
             scc_counter = walk_scc(ltb, succ, parent, depth, scc_counter);
-            *lowlink(ltb, cur) = shady_min(*lowlink(ltb, cur), *lowlink(ltb, succ));
-        } else if (on_stack(ltb, succ))
-            *lowlink(ltb, cur) = shady_min(*lowlink(ltb, cur), *lowlink(ltb, succ));
+            lowlink(ltb, cur) = shady_min(lowlink(ltb, cur), lowlink(ltb, succ));
+        } else if (on_stack(ltb, succ)) {
+            lowlink(ltb, cur) = shady_min(lowlink(ltb, cur), lowlink(ltb, succ));
+        }
     }
 
     // root of SCC
-    if (*lowlink(ltb, cur) == *dfs(ltb, cur)) {
+    if (lowlink(ltb, cur) == dfs(ltb, cur)) {
         struct List* heads = new_list(const CFNode*);
 
         // mark all cf_nodes in current SCC (all cf_nodes from back to cur on the stack) as 'in_scc'
         size_t num = 0, e = entries_count_list(ltb->stack);
         size_t b = e - 1;
         do {
-            ltb->states[read_list(const CFNode*, ltb->stack)[b]->rpo_index].in_scc = true;
+            in_scc(ltb, read_list(const CFNode*, ltb->stack)[b]) = true;
             ++num;
         } while (read_list(const CFNode*, ltb->stack)[b--] != cur);
 
@@ -109,6 +114,7 @@ static int walk_scc(LoopTreeBuilder* ltb, const CFNode* cur, LTNode* parent, int
                     // but do not yet mark them globally as head -- we are still running through the SCC
                     if (!in_scc(ltb, pred)) {
                         append_list(const CFNode*, heads, n);
+                        break;
                     }
                 }
             }
@@ -123,8 +129,8 @@ static int walk_scc(LoopTreeBuilder* ltb, const CFNode* cur, LTNode* parent, int
 
         // reset in_scc and on_stack flags
         for (size_t i = b; i != e; ++i) {
-            ltb->states[read_list(const CFNode*, ltb->stack)[i]->rpo_index].in_scc = false;
-            ltb->states[read_list(const CFNode*, ltb->stack)[i]->rpo_index].on_stack = false;
+            in_scc(ltb, read_list(const CFNode*, ltb->stack)[i]) = false;
+            on_stack(ltb, read_list(const CFNode*, ltb->stack)[i]) = false;
         }
 
         // pop whole SCC
@@ -141,20 +147,19 @@ static void clear_set(LoopTreeBuilder* ltb) {
         ltb->states[i].in_set = false;
 }
 
-static void recurse(LoopTreeBuilder* ltb, LTNode* parent, const CFNode** heads, size_t heads_count, int depth) {
+static void recurse(LoopTreeBuilder* ltb, LTNode* parent, struct List* heads, int depth) {
     assert(parent->type == LF_HEAD);
     size_t cur_new_child = 0;
-    for (size_t i = 0; i < heads_count; i++) {
-        const CFNode* head = heads[i];
+    for (size_t i = 0; i < entries_count_list(heads); i++) {
+        const CFNode* head = read_list(const CFNode*, heads)[i];
         clear_set(ltb);
-        // clear_dict(ltb->set);
         walk_scc(ltb, head, parent, depth, 0);
 
         for (size_t e = entries_count_list(parent->lf_children); cur_new_child != e; ++cur_new_child) {
             struct List* new_child_nodes = read_list(LTNode*, parent->lf_children)[cur_new_child]->cf_nodes;
             for (size_t j = 0; j < entries_count_list(new_child_nodes); j++) {
                 CFNode* head2 = read_list(CFNode*, new_child_nodes)[j];
-                ltb->states[head2->rpo_index].is_head = true;
+                is_head(ltb, head2) = true;
             }
         }
     }
@@ -162,7 +167,7 @@ static void recurse(LoopTreeBuilder* ltb, LTNode* parent, const CFNode** heads, 
     for (size_t i = 0; i < entries_count_list(parent->lf_children); i++) {
         LTNode* node = read_list(LTNode*, parent->lf_children)[i];
         if (node->type == LF_HEAD)
-            recurse(ltb, node, read_list(const CFNode*, node->cf_nodes), entries_count_list(node->cf_nodes), depth + 1);
+            recurse(ltb, node, node->cf_nodes, depth + 1);
     }
 }
 
@@ -171,6 +176,7 @@ LoopTree* build_loop_tree(Scope* s) {
     for (size_t i = 0; i < s->size; i++) {
         states[i] = (State) {
             .in_scc = false,
+            .is_head = false,
             .on_stack = false,
             .in_set = false,
             .low_link = -1,
@@ -187,7 +193,10 @@ LoopTree* build_loop_tree(Scope* s) {
     struct List* empty_list = new_list(CFNode*);
     lt->root = new_lf_node(LF_HEAD, NULL, 0, empty_list);
     const CFNode* entry = s->entry;
-    recurse(&ltb, lt->root, &entry, 1, 1);
+    struct List* global_heads = new_list(const CFNode*);
+    append_list(const CFNode*, global_heads, entry);
+    recurse(&ltb, lt->root, global_heads, 1);
+    destroy_list(global_heads);
     destroy_list(ltb.stack);
     return lt;
 }
@@ -217,7 +226,8 @@ static void dump_lt_node(FILE* f, const LTNode* n) {
             fprintf(f, "label = \"%s\";\n", "LoopHead");
         }
     } else {
-        //fprintf(f, "label = \"%s\";\n", "Leaf");
+        fprintf(f, "subgraph cluster_%d {\n", extra_uniqueness++);
+        fprintf(f, "label = \"%s\";\n", "Leaf");
     }
 
     for (size_t i = 0; i < entries_count_list(n->cf_nodes); i++) {
@@ -230,7 +240,7 @@ static void dump_lt_node(FILE* f, const LTNode* n) {
         dump_lt_node(f, child);
     }
 
-    if (n->type == LF_HEAD)
+    //if (n->type == LF_HEAD)
         fprintf(f, "}\n");
 }
 
@@ -249,7 +259,7 @@ void dump_loop_trees(FILE* output, Module* mod) {
     fprintf(output, "digraph G {\n");
     struct List* scopes = build_scopes(mod);
     for (size_t i = 0; i < entries_count_list(scopes); i++) {
-        Scope* scope = &read_list(Scope, scopes)[i];
+        Scope* scope = read_list(Scope*, scopes)[i];
         LoopTree* lt = build_loop_tree(scope);
         dump_loop_tree(output, lt);
         destroy_loop_tree(lt);

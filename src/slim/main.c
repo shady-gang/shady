@@ -103,8 +103,6 @@ static void parse_slim_arguments(SlimConfig* args, int* pargc, char** argv) {
     pack_remaining_args(pargc, argv);
 }
 
-void dump_loop_trees(FILE* output, Module* mod);
-
 int main(int argc, char** argv) {
     platform_specific_terminal_init_extras();
 
