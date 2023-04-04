@@ -18,7 +18,6 @@ static const Node* process(Context* ctx, const Node* node) {
     if (found) return found;
 
     IrArena* a = ctx->rewriter.dst_arena;
-    Module* m = ctx->rewriter.dst_module;
 
     switch (node->tag) {
         case PtrType_TAG: {

@@ -198,8 +198,8 @@ static bool create_vk_pipeline(SpecProgram* program) {
 static CompilerConfig get_compiler_config_for_device(Device* device) {
     CompilerConfig config = default_compiler_config();
 
-    config.subgroup_size = device->caps.subgroup_size.max;
-    assert(config.subgroup_size > 0);
+    assert(device->caps.subgroup_size.max > 0);
+    config.specialization.subgroup_size = device->caps.subgroup_size.max;
     // config.per_thread_stack_size = ...
 
     config.target_spirv_version.major = device->caps.spirv_version.major;

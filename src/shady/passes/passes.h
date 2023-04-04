@@ -79,6 +79,7 @@ RewritePass opt_restructurize;
 RewritePass lower_entrypoint_args;
 
 RewritePass spirv_map_entrypoint_args;
+RewritePass specialize_for_entry_point;
 
 #define SHADY_PASSES_H
 

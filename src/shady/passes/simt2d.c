@@ -93,7 +93,7 @@ static const Node* process(Context* ctx, const Node* node) {
 void simt2d(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
-        .width = config->subgroup_size,
+        .width = config->specialization.subgroup_size,
         .mask = NULL,
     };
 
