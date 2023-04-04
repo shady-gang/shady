@@ -27,7 +27,17 @@ struct LTNode_ {
 
 typedef struct {
     LTNode* root;
+
+    /**
+     * @ref Dict from const @ref Node* to @ref LTNode*
+     */
+    struct Dict* map;
 } LoopTree;
+
+/**
+ * Returns the leaf for this node.
+ */
+LTNode* looptree_lookup(LoopTree*, const Node* block);
 
 static void destroy_lt_node(LTNode* n);
 void destroy_loop_tree(LoopTree* lt);

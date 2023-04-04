@@ -23,6 +23,9 @@ typedef struct {
     struct List* stack;
 } LoopTreeBuilder;
 
+KeyHash hash_node(const Node**);
+bool compare_node(const Node**, const Node**);
+
 LTNode* new_lf_node(int type, LTNode* parent, int depth, struct List* cf_nodes) {
     LTNode* n = calloc(sizeof(LTNode), 1);
     n->parent = parent;
@@ -171,6 +174,25 @@ static void recurse(LoopTreeBuilder* ltb, LTNode* parent, struct List* heads, in
     }
 }
 
+static void build_map_recursive(struct Dict* map, LTNode* n) {
+    if (n->type == LF_LEAF) {
+        assert(entries_count_list(n->cf_nodes) == 1);
+        const Node* node = read_list(CFNode*, n->cf_nodes)[0]->node;
+        insert_dict(const Node*, LTNode*, map, node, n);
+    } else {
+        for (size_t i = 0; i < entries_count_list(n->lf_children); i++) {
+            LTNode* child = read_list(LTNode*, n->lf_children)[i];
+            build_map_recursive(map, child);
+        }
+    }
+}
+
+LTNode* looptree_lookup(LoopTree* lt, const Node* block) {
+    LTNode** found = find_value_dict(const Node*, LTNode*, lt->map, block);
+    if (found) return *found;
+    assert(false);
+}
+
 LoopTree* build_loop_tree(Scope* s) {
     LARRAY(State, states, s->size);
     for (size_t i = 0; i < s->size; i++) {
@@ -198,6 +220,10 @@ LoopTree* build_loop_tree(Scope* s) {
     recurse(&ltb, lt->root, global_heads, 1);
     destroy_list(global_heads);
     destroy_list(ltb.stack);
+
+    lt->map = new_dict(const Node*, LTNode*, (HashFn) hash_node, (CmpFn) compare_node);
+    build_map_recursive(lt->map, lt->root);
+
     return lt;
 }
 
