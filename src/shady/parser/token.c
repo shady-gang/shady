@@ -134,12 +134,13 @@ Token next_token(Tokenizer* tokenizer) {
         while (in_bounds(tokenizer, token_size) && is_digit(slice[token_size])) {
             token_size++;
         }
-        if (slice[token_size] == 'e')
+        if (slice[token_size] == 'e') {
             token_size++;
-        if (slice[token_size] == '-' || slice[token_size] == '+')
-            token_size++;
-        while (in_bounds(tokenizer, token_size) && is_digit(slice[token_size])) {
-            token_size++;
+            if (slice[token_size] == '-' || slice[token_size] == '+')
+                token_size++;
+            while (in_bounds(tokenizer, token_size) && is_digit(slice[token_size])) {
+                token_size++;
+            }
         }
         if (slice[token_size] == 'f')
             token_size++;
