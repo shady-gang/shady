@@ -1,0 +1,77 @@
+@Restructure
+fn exitingloop_controlblock varying i32(varying bool b) {
+    jump(pre_entry)();
+
+    cont pre_entry() {
+        jump(entry)();
+    }
+
+    cont entry() {
+        jump (loop_body)();
+    }
+
+    cont loop_body() {
+        branch(b, loop_continue, loop_exit)();
+    }
+
+    cont loop_continue() {
+        jump (entry)();
+    }
+
+    cont loop_exit() {
+        jump (exit)();
+    }
+
+    cont exit() {
+        return (0);
+    }
+}
+
+@Restructure
+fn exitingloop_function varying i32(varying bool b) {
+    jump(entry)();
+
+    cont entry() {
+        jump (loop_body)();
+    }
+
+    cont loop_body() {
+        branch(b, loop_continue, loop_exit)();
+    }
+
+    cont loop_continue() {
+        jump (entry)();
+    }
+
+    cont loop_exit() {
+        jump (exit)();
+    }
+
+    cont exit() {
+        return (0);
+    }
+}
+
+@Restructure
+fn exitingloop_values varying i32(varying i32 n) {
+    var i32 r = n + 0;
+    var i32 k = 0;
+
+    jump(entry)();
+
+    cont entry() {
+        val loop_cond = (r > 0);
+
+        branch(loop_cond, loop_body, loop_exit)();
+    }
+
+    cont loop_body() {
+        k = k + r;
+        r = r - 1;
+        jump (entry)();
+    }
+
+    cont loop_exit() {
+        return (k);
+    }
+}

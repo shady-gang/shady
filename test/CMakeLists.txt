@@ -16,6 +16,10 @@ list(APPEND BASIC_TESTS test/float.slim)
 list(APPEND BASIC_TESTS test/fn_decl.slim)
 list(APPEND BASIC_TESTS test/math.slim)
 
+list(APPEND BASIC_TESTS test/create_control_1.slim)
+list(APPEND BASIC_TESTS test/create_control_2.slim)
+list(APPEND BASIC_TESTS test/create_control_loop.slim)
+
 list(APPEND BASIC_TESTS test/c/simple1.c)
 list(APPEND BASIC_TESTS test/c/simple2.c)
 list(APPEND BASIC_TESTS test/c/simple3.c)
