@@ -94,21 +94,21 @@ String get_decl_name(const Node* node) {
 }
 
 int64_t get_int_literal_value(const Node* node, bool sign_extend) {
-    assert(node->tag == IntLiteral_TAG);
+    const IntLiteral* literal = resolve_to_literal(node);
     if (sign_extend) {
-        switch (node->payload.int_literal.width) {
-            case IntTy8:  return (int64_t) node->payload.int_literal.value.i8;
-            case IntTy16: return (int64_t) node->payload.int_literal.value.i16;
-            case IntTy32: return (int64_t) node->payload.int_literal.value.i32;
-            case IntTy64: return           node->payload.int_literal.value.i64;
+        switch (literal->width) {
+            case IntTy8:  return (int64_t) literal->value.i8;
+            case IntTy16: return (int64_t) literal->value.i16;
+            case IntTy32: return (int64_t) literal->value.i32;
+            case IntTy64: return           literal->value.i64;
             default: assert(false);
         }
     } else {
-        switch (node->payload.int_literal.width) {
-            case IntTy8:  return (int64_t) ((uint64_t) (node->payload.int_literal.value.u8 ));
-            case IntTy16: return (int64_t) ((uint64_t) (node->payload.int_literal.value.u16));
-            case IntTy32: return (int64_t) ((uint64_t) (node->payload.int_literal.value.u32));
-            case IntTy64: return                        node->payload.int_literal.value.i64  ;
+        switch (literal->width) {
+            case IntTy8:  return (int64_t) ((uint64_t) (literal->value.u8 ));
+            case IntTy16: return (int64_t) ((uint64_t) (literal->value.u16));
+            case IntTy32: return (int64_t) ((uint64_t) (literal->value.u32));
+            case IntTy64: return                        literal->value.i64  ;
             default: assert(false);
         }
     }
@@ -118,6 +118,7 @@ const IntLiteral* resolve_to_literal(const Node* node) {
     while (true) {
         switch (node->tag) {
             case Constant_TAG:   return resolve_to_literal(node->payload.constant.value);
+            case RefDecl_TAG:    return resolve_to_literal(node->payload.ref_decl.decl);
             case IntLiteral_TAG: return &node->payload.int_literal;
             default: return NULL;
         }
@@ -126,6 +127,8 @@ const IntLiteral* resolve_to_literal(const Node* node) {
 
 const char* get_string_literal(IrArena* arena, const Node* node) {
     switch (node->tag) {
+        case Constant_TAG:   return get_string_literal(arena, node->payload.constant.value);
+        case RefDecl_TAG:    return get_string_literal(arena, node->payload.ref_decl.decl);
         case StringLiteral_TAG: return node->payload.string_lit.string;
         case Composite_TAG: {
             Nodes contents = node->payload.composite.contents;
