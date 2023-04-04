@@ -14,7 +14,7 @@ typedef struct {
 typedef struct Runtime_  Runtime;
 typedef struct Device_   Device;
 typedef struct Program_  Program;
-typedef struct Dispatch_ Dispatch;
+typedef struct Commands_ Commands;
 typedef struct Buffer_   Buffer;
 
 Runtime* initialize_runtime(RuntimeConfig config);
@@ -27,8 +27,8 @@ const char* get_device_name(Device*);
 Device* get_an_device(Runtime*);
 
 Program* load_program(Runtime*, const char* program_src);
-Dispatch* launch_kernel(Program*, Device*, int dimx, int dimy, int dimz, int args_count, void** args);
-bool wait_completion(Dispatch*);
+Commands* launch_kernel(Program*, Device*, int dimx, int dimy, int dimz, int args_count, void** args);
+bool wait_completion(Commands*);
 
 Buffer* allocate_buffer_device(Device*, size_t);
 Buffer* import_buffer_host(Device*, void*, size_t);
