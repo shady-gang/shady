@@ -127,7 +127,7 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
     const Node* old_lam = node->payload.let.tail;
     assert(old_lam && is_anonymous_lambda(old_lam));
 
-    BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* bb = begin_body(dst_arena);
 
     Nodes initial_values = bind_instruction_extra(bb, ninstruction, old_lam->payload.anon_lam.params.count, NULL, NULL);
     Nodes old_params = old_lam->payload.anon_lam.params;

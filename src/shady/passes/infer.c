@@ -389,7 +389,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             const IntLiteral* lit = resolve_to_literal(new_inputs_scratch[1]);
             if ((!lit || lit->value.u64) != 0 && base_datatype->tag != ArrType_TAG) {
                 warn_print("LEA used on a pointer to a non-array type!\n");
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                BodyBuilder* bb = begin_body(dst_arena);
                 const Node* cast_base = first(bind_instruction(bb, prim_op(dst_arena, (PrimOp) {
                     .op = reinterpret_op,
                     .type_arguments = singleton(ptr_type(dst_arena, (PtrType) {

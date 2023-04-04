@@ -15,11 +15,10 @@ typedef struct {
     bool mut;
 } StackEntry;
 
-BodyBuilder* begin_body(Module* mod) {
+BodyBuilder* begin_body(IrArena* arena) {
     BodyBuilder* builder = malloc(sizeof(BodyBuilder));
     *builder = (BodyBuilder) {
-        .module = mod,
-        .arena = get_module_arena(mod),
+        .arena = arena,
         .stack = new_list(StackEntry),
     };
     return builder;
@@ -126,7 +125,6 @@ const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
 
 const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
     IrArena* arena = bb->arena;
-    Module* module = bb->module;
     const Node* terminator = yield(arena, (Yield) { .args = values });
     const Node* lam = lambda(arena, empty(arena), finish_body(bb, terminator));
     return block(arena, (Block) {

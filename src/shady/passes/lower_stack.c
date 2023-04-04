@@ -48,7 +48,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push, boo
     Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(arena, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
-    BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* bb = begin_body(arena);
 
     TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
     const Node* element_size = uint32_literal(arena, layout.size_in_bytes);
@@ -112,14 +112,14 @@ static const Node* process_let(Context* ctx, const Node* node) {
         switch (oprim_op->op) {
             case get_stack_pointer_op:
             case get_stack_pointer_uniform_op: {
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                BodyBuilder* bb = begin_body(arena);
                 bool uniform = oprim_op->op == get_stack_pointer_uniform_op;
                 const Node* sp = gen_load(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer);
                 return finish_body(bb, let(arena, quote_single(arena, sp), tail));
             }
             case set_stack_pointer_op:
             case set_stack_pointer_uniform_op: {
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                BodyBuilder* bb = begin_body(arena);
                 bool uniform = oprim_op->op == set_stack_pointer_uniform_op;
                 const Node* val = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
                 gen_store(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer, val);
@@ -127,7 +127,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             }
             case get_stack_base_uniform_op:
             case get_stack_base_op: {
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                BodyBuilder* bb = begin_body(arena);
                 const Node* stack_pointer = oprim_op->op == get_stack_base_op ? ctx->stack_pointer : ctx->uniform_stack_pointer;
                 const Node* stack_size = gen_load(bb, stack_pointer);
                 const Node* stack_base_ptr = gen_lea(bb, oprim_op->op == get_stack_base_op ? ctx->stack : ctx->uniform_stack, stack_size, empty(arena));
@@ -143,7 +143,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             case push_stack_uniform_op:
             case pop_stack_op:
             case pop_stack_uniform_op: {
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                BodyBuilder* bb = begin_body(arena);
                 const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
                 TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
                 const Node* element_size = uint32_literal(arena, layout.size_in_bytes);
@@ -176,7 +176,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
     if (old->tag == Function_TAG && strcmp(get_abstraction_name(old), "generated_init") == 0) {
         Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
-        BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+        BodyBuilder* bb = begin_body(arena);
 
         // Make sure to zero-init the stack pointers
         // TODO isn't this redundant with thoose things having an initial value already ?

@@ -801,7 +801,7 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
 static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminator) {
     assert(fn->tag == Function_TAG);
     expect(accept_token(ctx, lbracket_tok));
-    BodyBuilder* bb = begin_body(mod);
+    BodyBuilder* bb = begin_body(arena);
 
     while (true) {
         if (!accept_non_terminator_instr(ctx, bb, fn))

@@ -96,7 +96,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             const Node* inner_control_body = rewrite_node(&join_context.rewriter, old_loop_body->payload.anon_lam.body);
             const Node* inner_control_lam = lambda(ctx->rewriter.dst_arena, nodes(arena, 1, (const Node*[]) {continue_point }), inner_control_body);
 
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* bb = begin_body(arena);
             const Node* inner_control = control(arena, (Control) {
                 .yield_types = param_types,
                 .inside = inner_control_lam,

@@ -55,7 +55,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     Nodes rewritten_params = recreate_variables(&ctx2.rewriter, old->payload.fun.params);
     Node* new_entry_pt = function(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), nodes(dst_arena, 0, NULL));
 
-    BodyBuilder* builder = begin_body(ctx2.rewriter.dst_module);
+    BodyBuilder* builder = begin_body(dst_arena);
 
     bind_instruction(builder, leaf_call(dst_arena, (LeafCall) { .callee = ctx->init_fn, .args = empty(dst_arena) }));
     bind_instruction(builder, leaf_call(dst_arena, (LeafCall) { .callee = find_or_process_decl(&ctx->rewriter, "builtin_init_scheduler"), .args = empty(dst_arena) }));
@@ -125,7 +125,7 @@ static const Node* process(Context* ctx, const Node* old) {
             if (entry_point_annotation)
                 lift_entry_point(ctx, old, fun);
 
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* bb = begin_body(dst_arena);
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
@@ -164,7 +164,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case TailCall_TAG: {
             //if (ctx->disable_lowering)
             //    return recreate_node_identity(&ctx->rewriter, old);
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* bb = begin_body(dst_arena);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.tail_call.args));
             const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
 
@@ -179,7 +179,7 @@ static const Node* process(Context* ctx, const Node* old) {
             //if (ctx->disable_lowering)
             //    return recreate_node_identity(&ctx->rewriter, old);
 
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* bb = begin_body(dst_arena);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
 
             const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
@@ -212,7 +212,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     assert((*ctx->top_dispatcher_fn)->tag == Function_TAG);
     IrArena* dst_arena = ctx->rewriter.dst_arena;
 
-    BodyBuilder* loop_body_builder = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* loop_body_builder = begin_body(dst_arena);
 
     const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, "next_fn"));
     const Node* get_active_branch_fn = access_decl(&ctx->rewriter, "builtin_get_active_branch");
@@ -259,8 +259,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     struct List* cases = new_list(const Node*);
 
     // Build 'zero' case (exits the program)
-    BodyBuilder* zero_case_builder = begin_body(ctx->rewriter.dst_module);
-    BodyBuilder* zero_if_case_builder = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* zero_case_builder = begin_body(dst_arena);
+    BodyBuilder* zero_if_case_builder = begin_body(dst_arena);
     if (ctx->config->printf_trace.god_function)
         bind_instruction(zero_if_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: kill thread %d\n" }), local_id) }));
     const Node* zero_if_true_lam = lambda(ctx->rewriter.dst_arena, empty(dst_arena), finish_body(zero_if_case_builder, break_terminator));
@@ -288,7 +288,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             const Node* fn_lit = lower_fn_addr(ctx, decl);
 
-            BodyBuilder* if_builder = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* if_builder = begin_body(dst_arena);
             if (ctx->config->printf_trace.god_function)
                 bind_instruction(if_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d will run fn %d with mask = %x %b\n" }), local_id, fn_lit, next_mask, should_run) }));
             bind_instruction(if_builder, leaf_call(dst_arena, (LeafCall) {
@@ -303,7 +303,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .yield_types = empty(dst_arena),
             });
 
-            BodyBuilder* case_builder = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* case_builder = begin_body(dst_arena);
             bind_instruction(case_builder, if_instruction);
             const Node* case_lam = lambda(ctx->rewriter.dst_arena, nodes(dst_arena, 0, NULL), finish_body(case_builder, continue_terminator));
 
@@ -333,7 +333,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         .body = loop_inside_lam
     });
 
-    BodyBuilder* dispatcher_body_builder = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* dispatcher_body_builder = begin_body(dst_arena);
     bind_instruction(dispatcher_body_builder, the_loop);
     if (ctx->config->printf_trace.god_function)
         bind_instruction(dispatcher_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: end of top\n" })) }));
