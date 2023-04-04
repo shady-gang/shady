@@ -1,0 +1,15 @@
+
+// trivial function that does nothing
+@EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1)
+fn main() {
+    /*this is an inline comment without padded space*/
+    val nine = 9;
+    // this is a line comment
+    debug_printf("Nine: %d", /* this is an inline comment at an arbitrary place */ nine);
+    /*
+    this is a
+    multiline
+    comment
+    */
+    return ();
+}
