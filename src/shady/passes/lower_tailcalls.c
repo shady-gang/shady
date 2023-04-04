@@ -53,7 +53,6 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     IrArena* dst_arena = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
     Nodes rewritten_params = recreate_variables(&ctx2.rewriter, old->payload.fun.params);
-    rewritten_params = empty(dst_arena);
     Node* new_entry_pt = function(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), nodes(dst_arena, 0, NULL));
 
     BodyBuilder* builder = begin_body(ctx2.rewriter.dst_module);
@@ -145,13 +144,22 @@ static const Node* process(Context* ctx, const Node* old) {
             .decl = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "JoinPoint"),
         });
         case PrimOp_TAG: {
-            if (old->payload.prim_op.op != create_joint_point_op)
-                return recreate_node_identity(&ctx->rewriter, old);
-            const Node* join_destination = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands));
-            return leaf_call(dst_arena, (LeafCall) {
-                .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_create_control_point"),
-                .args = mk_nodes(dst_arena, join_destination)
-            });
+            switch (old->payload.prim_op.op) {
+                case create_joint_point_op: {
+                    const Node* join_destination = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands));
+                    return leaf_call(dst_arena, (LeafCall) {
+                        .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_create_control_point"),
+                        .args = mk_nodes(dst_arena, join_destination)
+                    });
+                }
+                case default_join_point_op: {
+                    return leaf_call(dst_arena, (LeafCall) {
+                        .callee = find_or_process_decl(&ctx->rewriter, ctx->rewriter.src_module, "builtin_entry_join_point"),
+                        .args = empty(dst_arena)
+                    });
+                }
+                default: return recreate_node_identity(&ctx->rewriter, old);
+            }
         }
         case TailCall_TAG: {
             //if (ctx->disable_lowering)

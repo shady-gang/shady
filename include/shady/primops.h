@@ -113,6 +113,7 @@ SUBGROUP_INTRINSICS_PRIMOPS(P)  \
 STACK_PRIMOPS(P)                \
 SYNTAX_SUGAR_OPS(P)             \
 P(1, create_joint_point)        \
+P(1, default_join_point)        \
 P(0, empty_mask)                \
 P(0, mask_is_thread_active)     \
 
