@@ -212,8 +212,7 @@ void lower_stack(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) 
     });
     const Type* stack_counter_t = uint32_type(dst_arena);
 
-    // TODO add a @Synthetic annotation to tag those
-    Nodes annotations = nodes(dst_arena, 0, NULL);
+    Nodes annotations = mk_nodes(dst_arena, annotation(dst_arena, (Annotation) { .name = "Generated" }));
 
     // Arrays for the stacks
     Node* stack_decl = global_var(dst, annotations, stack_arr_type, "stack", AsPrivatePhysical);
