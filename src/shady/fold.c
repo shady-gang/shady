@@ -45,23 +45,6 @@ static bool is_one(const Node* node) {
     return false;
 }
 
-/// Substitutes the parameters for the arguments in the function body
-static const Node* reduce_beta(const Node* fn, Nodes args) {
-    assert(is_abstraction(fn));
-    Nodes params = get_abstraction_params(fn);
-    const Node* body = get_abstraction_body(fn);
-    assert(body);
-
-    assert(params.count == args.count);
-    Rewriter r = create_substituter(get_abstraction_module(fn));
-    for (size_t i = 0; i < args.count; i++)
-        register_processed(&r, params.nodes[i], args.nodes[i]);
-    const Node* specialized = rewrite_node(&r, body);
-    assert(specialized);
-    destroy_rewriter(&r);
-    return specialized;
-}
-
 static const Node* fold_let(IrArena* arena, const Node* node) {
     assert(node->tag == Let_TAG);
     const Node* instruction = node->payload.let.instruction;
@@ -109,7 +92,7 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
                             for (size_t i = 0; i < depth; i++) {
                                 const Node* olet = lets[depth - 1 - i];
                                 const Node* olam = get_let_tail(olet);
-                                const Node* nlam = lambda(get_abstraction_module(olam), get_abstraction_params(olam), acc);
+                                const Node* nlam = lambda(arena, get_abstraction_params(olam), acc);
                                 acc = let(arena, get_let_instruction(olet), nlam);
                             }
                             free(lets);

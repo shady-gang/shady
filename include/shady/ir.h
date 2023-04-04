@@ -117,7 +117,6 @@ Nodes filter_out_annotation(IrArena*, Nodes, const char* name);
 String get_abstraction_name(const Node* abs);
 const Node* get_abstraction_body(const Node*);
 Nodes get_abstraction_params(const Node*);
-Module* get_abstraction_module(const Node*);
 
 const Node* get_let_instruction(const Node* let);
 const Node* get_let_tail(const Node* let);
@@ -148,7 +147,7 @@ Node* global_var  (Module*, Nodes annotations, const Type*, String, AddressSpace
 Type* nominal_type(Module*, Nodes annotations, String name);
 
 Node* basic_block (IrArena*, Node* function, Nodes params, const char* name);
-const Node* lambda(Module*, Nodes params, const Node* body);
+const Node* lambda(IrArena*, Nodes params, const Node* body);
 
 const Node* let(IrArena* arena, const Node* instruction, const Node* tail);
 const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail);

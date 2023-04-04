@@ -117,7 +117,7 @@ static const Node* process(Context* ctx, const Node* old) {
                             BodyBuilder* case_bb = begin_body(m);
                             const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, nptr, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type));
                             const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
-                            cases[tag] = lambda(m, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
+                            cases[tag] = lambda(a, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
                                 .args = singleton(loaded_value),
                             })));
                         }
@@ -131,7 +131,7 @@ static const Node* process(Context* ctx, const Node* old) {
                             .yield_types = singleton(result_t),
                             .literals = nodes(a, max_tag, literals),
                             .cases = nodes(a, max_tag, cases),
-                            .default_case = lambda(m, empty(a), unreachable(a)),
+                            .default_case = lambda(a, empty(a), unreachable(a)),
                         })));
                         return yield_values_and_wrap_in_block(bb, singleton(loaded_value));
                     }
@@ -150,7 +150,7 @@ static const Node* process(Context* ctx, const Node* old) {
                             BodyBuilder* case_bb = begin_body(m);
                             const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, nptr, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type));
                             gen_store(case_bb, reinterpreted_ptr, rewrite_node(&ctx->rewriter, old->payload.prim_op.operands.nodes[1]));
-                            cases[tag] = lambda(m, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
+                            cases[tag] = lambda(a, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
                                     .args = empty(a),
                             })));
                         }
@@ -164,7 +164,7 @@ static const Node* process(Context* ctx, const Node* old) {
                                 .yield_types = empty(a),
                                 .literals = nodes(a, max_tag, literals),
                                 .cases = nodes(a, max_tag, cases),
-                                .default_case = lambda(m, empty(a), unreachable(a)),
+                                .default_case = lambda(a, empty(a), unreachable(a)),
                         }));
                         return yield_values_and_wrap_in_block(bb, empty(a));
                     }

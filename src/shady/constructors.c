@@ -225,25 +225,21 @@ Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
     return create_node_helper(arena, node);
 }
 
-const Node* lambda(Module* module, Nodes params, const Node* body) {
-    assert(!module->sealed);
+const Node* lambda(IrArena* a, Nodes params, const Node* body) {
     AnonLambda payload = {
-        .module = module,
         .params = params,
         .body = body,
     };
 
-    IrArena* arena = get_module_arena(module);
-
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
-        .arena = arena,
-        .type = arena->config.check_types ? check_type_anon_lam(arena, payload) : NULL,
+        .arena = a,
+        .type = a->config.check_types ? check_type_anon_lam(a, payload) : NULL,
         .tag = AnonLambda_TAG,
         .payload.anon_lam = payload
     };
-    return create_node_helper(arena, node);
+    return create_node_helper(a, node);
 }
 
 Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {

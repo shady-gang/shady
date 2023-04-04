@@ -61,7 +61,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
                 Context inline_context = *ctx;
                 register_processed_list(&inline_context.rewriter, oparams, nparams);
-                const Node* lam = lambda(ctx->rewriter.dst_module, nparams, rewrite_node(&ctx->rewriter, old_tgt->payload.basic_block.body));
+                const Node* lam = lambda(ctx->rewriter.dst_arena, nparams, rewrite_node(&ctx->rewriter, old_tgt->payload.basic_block.body));
                 Nodes args = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
                 return let(arena, quote(arena, args), lam);
             }
@@ -84,7 +84,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Node* nbody = rewrite_node(&inline_context.rewriter, dst_fn->payload.fun.body);
                     destroy_scope(scope);
 
-                    const Node* lam = lambda(ctx->rewriter.dst_module, nparams, nbody);
+                    const Node* lam = lambda(ctx->rewriter.dst_arena, nparams, nbody);
                     Nodes args = rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
                     return let(arena, quote(arena, args), lam);
                 }
