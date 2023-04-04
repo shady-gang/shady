@@ -228,10 +228,11 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         iterations_count_param = var(dst_arena, qualified_type(dst_arena, (QualifiedType) { .type = int32_type(dst_arena), .is_uniform = true }), "iterations");
 
     if (ctx->config->printf_trace.god_function) {
+        const Node* sid = gen_primop_e(loop_body_builder, subgroup_id_op, empty(dst_arena), empty(dst_arena));
         if (count_iterations)
-            bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, lid=%d iteration=%d next_fn=%d next_mask=%lx\n" }), local_id, iterations_count_param, next_function, next_mask) }));
+            bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, thread:%d:%d iteration=%d next_fn=%d next_mask=%lx\n" }), sid, local_id, iterations_count_param, next_function, next_mask) }));
         else
-            bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, lid=%d next_fn=%d next_mask=%x\n" }), local_id, next_function, next_mask) }));
+            bind_instruction(loop_body_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: top loop, thread:%d:%d next_fn=%d next_mask=%x\n" }), sid, local_id, next_function, next_mask) }));
     }
 
     const Node* iteration_count_plus_one = NULL;
@@ -261,8 +262,10 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     // Build 'zero' case (exits the program)
     BodyBuilder* zero_case_builder = begin_body(dst_arena);
     BodyBuilder* zero_if_case_builder = begin_body(dst_arena);
-    if (ctx->config->printf_trace.god_function)
-        bind_instruction(zero_if_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: kill thread %d\n" }), local_id) }));
+    if (ctx->config->printf_trace.god_function) {
+        const Node* sid = gen_primop_e(loop_body_builder, subgroup_id_op, empty(dst_arena), empty(dst_arena));
+        bind_instruction(zero_if_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: kill thread %d:%d\n" }), sid, local_id) }));
+    }
     const Node* zero_if_true_lam = lambda(ctx->rewriter.dst_arena, empty(dst_arena), finish_body(zero_if_case_builder, break_terminator));
     const Node* zero_if_instruction = if_instr(dst_arena, (If) {
         .condition = should_run,
@@ -271,8 +274,10 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         .yield_types = empty(dst_arena),
     });
     bind_instruction(zero_case_builder, zero_if_instruction);
-    if (ctx->config->printf_trace.god_function)
-        bind_instruction(zero_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d escaped death!\n" }), local_id) }));
+    if (ctx->config->printf_trace.god_function) {
+        const Node* sid = gen_primop_e(loop_body_builder, subgroup_id_op, empty(dst_arena), empty(dst_arena));
+        bind_instruction(zero_case_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d:%d escaped death!\n" }), sid, local_id) }));
+    }
 
     const Node* zero_case_lam = lambda(ctx->rewriter.dst_arena, nodes(dst_arena, 0, NULL), finish_body(zero_case_builder, continue_terminator));
     const Node* zero_lit = uint32_literal(dst_arena, 0);
@@ -289,8 +294,10 @@ void generate_top_level_dispatch_fn(Context* ctx) {
             const Node* fn_lit = lower_fn_addr(ctx, decl);
 
             BodyBuilder* if_builder = begin_body(dst_arena);
-            if (ctx->config->printf_trace.god_function)
-                bind_instruction(if_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d will run fn %d with mask = %x %b\n" }), local_id, fn_lit, next_mask, should_run) }));
+            if (ctx->config->printf_trace.god_function) {
+                const Node* sid = gen_primop_e(loop_body_builder, subgroup_id_op, empty(dst_arena), empty(dst_arena));
+                bind_instruction(if_builder, prim_op(dst_arena, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(dst_arena, string_lit(dst_arena, (StringLiteral) { .string = "trace: thread %d:%d will run fn %d with mask = %x %b\n" }), sid, local_id, fn_lit, next_mask, should_run) }));
+            }
             bind_instruction(if_builder, leaf_call(dst_arena, (LeafCall) {
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, 0, NULL)
