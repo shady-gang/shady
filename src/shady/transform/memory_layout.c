@@ -8,20 +8,35 @@
 
 #include <assert.h>
 
-size_t get_record_layout(const CompilerConfig* config, IrArena* arena, const Node* record_type, FieldLayout* fields) {
+inline static size_t round_up(size_t a, size_t b) {
+    size_t divided = (a + b - 1) / b;
+    return divided * b;
+}
+
+TypeMemLayout get_record_layout(const CompilerConfig* config, IrArena* arena, const Node* record_type, FieldLayout* fields) {
     assert(record_type->tag == RecordType_TAG);
-    size_t total_size = 0;
+
+    size_t offset = 0;
+    size_t max_align = 0;
+
     Nodes member_types = record_type->payload.record_type.members;
     for (size_t i = 0; i < member_types.count; i++) {
         TypeMemLayout member_layout = get_mem_layout(config, arena, member_types.nodes[i]);
+        offset = round_up(offset, member_layout.alignment_in_bytes);
         if (fields) {
             fields[i].mem_layout = member_layout;
-            fields[i].offset_in_bytes = total_size;
+            fields[i].offset_in_bytes = offset;
         }
-        // TODO implement alignment rules ?
-        total_size += member_layout.size_in_bytes;
+        offset += member_layout.size_in_bytes;
+        if (member_layout.alignment_in_bytes > max_align)
+            max_align = member_layout.alignment_in_bytes;
     }
-    return total_size;
+
+    return (TypeMemLayout) {
+        .type = record_type,
+        .size_in_bytes = round_up(offset, max_align),
+        .alignment_in_bytes = max_align,
+    };
 }
 
 size_t get_record_field_offset_in_bytes(const CompilerConfig* c, IrArena* a, const Type* t, size_t i) {
@@ -74,20 +89,7 @@ TypeMemLayout get_mem_layout(const CompilerConfig* config, IrArena* arena, const
         }
         case QualifiedType_TAG: return get_mem_layout(config, arena, type->payload.qualified_type.type);
         case TypeDeclRef_TAG: return get_mem_layout(config, arena, type->payload.type_decl_ref.decl->payload.nom_type.body);
-        case RecordType_TAG: {
-            LARRAY(FieldLayout, fields, type->payload.record_type.members.count);
-            size_t size = get_record_layout(config, arena, type, fields);
-            size_t max_align = 0;
-            for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
-                if (fields->mem_layout.alignment_in_bytes > max_align)
-                    max_align = fields->mem_layout.alignment_in_bytes;
-            }
-            return (TypeMemLayout) {
-                .type = type,
-                .size_in_bytes = size,
-                .alignment_in_bytes = max_align,
-            };
-        }
+        case RecordType_TAG: return get_record_layout(config, arena, type, NULL);
         default: error("not a known type");
     }
 }
