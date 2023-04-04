@@ -246,6 +246,10 @@ typedef struct CompilerConfig_ {
     struct {
         bool skip_generated, skip_builtin;
     } logging;
+
+    struct {
+        String entry_point;
+    } specialization;
 } CompilerConfig;
 
 CompilerConfig default_compiler_config();

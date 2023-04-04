@@ -27,7 +27,7 @@ const char* get_device_name(Device*);
 Device* get_an_device(Runtime*);
 
 Program* load_program(Runtime*, const char* program_src);
-Dispatch* launch_kernel(Program*, Device*, int dimx, int dimy, int dimz, int args_count, void** args);
+Dispatch* launch_kernel(Program*, Device*, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args);
 bool wait_completion(Dispatch*);
 
 Buffer* allocate_buffer_device(Device*, size_t);

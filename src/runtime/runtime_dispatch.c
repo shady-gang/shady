@@ -17,12 +17,12 @@ struct Dispatch_ {
     VkFence done_fence;
 };
 
-Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, int dimz, int args_count, void** args) {
+Dispatch* launch_kernel(Program* program, Device* device, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
     assert(program && device);
 
     Dispatch* dispatch = calloc(1, sizeof(Dispatch));
     dispatch->type = DispatchCompute;
-    dispatch->src = get_specialized_program(program, device);
+    dispatch->src = get_specialized_program(program, entry_point, device);
 
     debug_print("Dispatching kernel on %s\n", device->caps.base_properties.deviceName);
 

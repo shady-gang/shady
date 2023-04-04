@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
 
     uint32_t a0 = 42;
     float a1 = 42.0f;
-    wait_completion(launch_kernel(program, device, 1, 1, 1, 2, (void*[]) { &a0, &a1 }));
+    wait_completion(launch_kernel(program, device, "main", 1, 1, 1, 2, (void*[]) { &a0, &a1 }));
 
     shutdown_runtime(runtime);
 }
