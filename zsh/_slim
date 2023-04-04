@@ -5,6 +5,7 @@ _arguments \
   "--target[Target format]:<target>:(c glsl ispc spirv)" \
   {-o,--output}"[Output file]::_files -/" \
   "--dump-cfg[Dumps the control flow graph of the final IR]::_files -/" \
+  "--dump-loop-tree[Dumps the loop trees of the final IR]::_files -/" \
   "--dump-ir[Dumps the final IR]::_files -/" \
   "--log-level:lvl:(debug debugv debugvv info warn error)" \
   "--print-builtin[Includes builtin-in functions in the debug output]" \
