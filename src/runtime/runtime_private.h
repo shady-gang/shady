@@ -150,6 +150,17 @@ struct Device_ {
 
 bool probe_devices(Runtime* runtime);
 
+struct Commands_ {
+    Device* device;
+    VkCommandBuffer cmd_buf;
+    VkFence done_fence;
+    bool submitted;
+};
+
+Commands* begin_commands(Device* device);
+bool submit_commands(Commands* commands);
+void destroy_commands(Commands* commands);
+
 struct Program_ {
     Runtime* runtime;
 
