@@ -80,11 +80,11 @@ void emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
             spvb_struct_type(emitter->file_builder, id, member_types.count, members);
             if (type->payload.record_type.special == DecorateBlock) {
                 spvb_decorate(emitter->file_builder, id, SpvDecorationBlock, 0, NULL);
-                LARRAY(FieldLayout, fields, member_types.count);
-                get_record_layout(&emitter->configuration, emitter->arena, type, fields);
-                for (size_t i = 0; i < member_types.count; i++) {
-                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationOffset, 1, (uint32_t[]) { fields[i].offset_in_bytes });
-                }
+            }
+            LARRAY(FieldLayout, fields, member_types.count);
+            get_record_layout(emitter->configuration, emitter->arena, type, fields);
+            for (size_t i = 0; i < member_types.count; i++) {
+                spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationOffset, 1, (uint32_t[]) { fields[i].offset_in_bytes });
             }
             break;
         }
