@@ -126,6 +126,11 @@ typedef struct {
     } implementation;
 } DeviceCaps;
 
+typedef struct {
+    Program* base;
+    String entry_point;
+} SpecProgramKey;
+
 struct Device_ {
     Runtime* runtime;
     DeviceCaps caps;
@@ -165,7 +170,7 @@ struct Program_ {
     Runtime* runtime;
 
     IrArena* arena;
-    Module* generic_program;
+    Module* module;
 };
 
 typedef struct EntryPointInfo_ {
@@ -176,10 +181,10 @@ typedef struct EntryPointInfo_ {
 } EntryPointInfo;
 
 struct SpecProgram_ {
-    Program* base;
+    SpecProgramKey key;
     Device* device;
 
-    Module* module;
+    Module* specialized_module;
 
     size_t spirv_size;
     char* spirv_bytes;
@@ -193,7 +198,7 @@ struct SpecProgram_ {
 void unload_program(Program*);
 void shutdown_device(Device*);
 
-SpecProgram* get_specialized_program(Program*, Device*);
+SpecProgram* get_specialized_program(Program*, String ep, Device*);
 void destroy_specialized_program(SpecProgram*);
 
 static inline void append_pnext(VkBaseOutStructure* s, void* n) {

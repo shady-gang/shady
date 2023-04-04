@@ -7,10 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-Command* launch_kernel(Program* program, Device* device, int dimx, int dimy, int dimz, int args_count, void** args) {
+Command* launch_kernel(Program* program, Device* device, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
     assert(program && device);
 
-    SpecProgram* prog = get_specialized_program(program, device);
+    SpecProgram* prog = get_specialized_program(program, entry_point, device);
 
     debug_print("Dispatching kernel on %s\n", device->caps.properties.base.properties.deviceName);
 

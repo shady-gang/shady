@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 
     Program* program = load_program(runtime, checkerboard_kernel_src);
 
-    wait_completion(launch_kernel(program, device, 16, 16, 1, 1, (void*[]) { &buf_addr }));
+    wait_completion(launch_kernel(program, device, "main", 16, 16, 1, 1, (void*[]) { &buf_addr }));
 
     info_print("data %d\n", (int) img[0]);
 

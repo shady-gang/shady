@@ -198,12 +198,12 @@ static bool get_physical_device_caps(SHADY_UNUSED Runtime* runtime, VkPhysicalDe
     return false;
 }
 
-KeyHash hash_program(Program** pdevice) {
-    return hash_murmur(*pdevice, sizeof(Device*));
+KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
+    return hash_murmur(ptr, sizeof(SpecProgramKey));
 }
 
-bool cmp_programs(Device** pldevice, Device** prdevice) {
-    return *pldevice == *prdevice;
+bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
+    return memcmp(a, b, sizeof(SpecProgramKey)) == 0;
 }
 
 static void obtain_device_pointers(Device* device) {
@@ -257,7 +257,7 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
     }, NULL, &device->cmd_pool), goto delete_device);
 
-    device->specialized_programs = new_dict(Program*, SpecProgram*, (HashFn) hash_program, (CmpFn) cmp_programs);
+    device->specialized_programs = new_dict(SpecProgramKey, SpecProgram*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys);
 
     vkGetDeviceQueue(device->device, device->caps.compute_queue_family, 0, &device->compute_queue);
 
@@ -306,9 +306,9 @@ bool probe_devices(Runtime* runtime) {
 
 void shutdown_device(Device* device) {
     size_t i = 0;
-    Program* p;
+    SpecProgramKey k;
     SpecProgram* sp;
-    while (dict_iter(device->specialized_programs, &i, &p, &sp)) {
+    while (dict_iter(device->specialized_programs, &i, &k, &sp)) {
         destroy_specialized_program(sp);
     }
     destroy_dict(device->specialized_programs);
