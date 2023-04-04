@@ -92,7 +92,7 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
     // create buffer to use that memory
     if (device->caps.features.buffer_device_address.bufferDeviceAddress)
         buffer_create_info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_EXT;
-    CHECK_VK(vkCreateBuffer(device->device, &buffer_create_info, NULL, &buffer->buffer), goto bail_out);
+    CHECK_VK(vkCreateBuffer(device->device, &buffer_create_info, NULL, &buffer->buffer), goto err_post_obj_create);
 
     VkMemoryAllocateInfo allocation_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -109,7 +109,7 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
             .sType = VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT,
             .pNext = NULL
         };
-        CHECK_VK(device->extensions.EXT_external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, (void*) imported_ptr, &host_ptr_properties), return NULL);
+        CHECK_VK(device->extensions.EXT_external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, (void*) imported_ptr, &host_ptr_properties), goto err_post_buffer_create);
         uint32_t memory_type_index = find_suitable_memory_type(device, host_ptr_properties.memoryTypeBits, AllocHostVisible);
         VkPhysicalDeviceMemoryProperties device_memory_properties;
         vkGetPhysicalDeviceMemoryProperties(device->caps.physical_device, &device_memory_properties);
@@ -151,18 +151,22 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
     append_pnext((VkBaseOutStructure*) &allocation_info, &allocate_flags);
 
     // allocate memory
-    CHECK_VK(vkAllocateMemory(device->device, &allocation_info, NULL, &buffer->memory), goto bail_out);
+    CHECK_VK(vkAllocateMemory(device->device, &allocation_info, NULL, &buffer->memory), goto err_post_buffer_create);
 
     // bind the two together
-    CHECK_VK(vkBindBufferMemory(device->device, buffer->buffer, buffer->memory, memory_bind_offset), goto bail_out);
+    CHECK_VK(vkBindBufferMemory(device->device, buffer->buffer, buffer->memory, memory_bind_offset), goto err_post_mem_alloc);
 
     //if (imported_ptr) {
-    //    CHECK_VK(vkMapMemory(device->device, buffer->memory, 0, size, 0, &buffer->host_ptr), goto bail_out);
+    //    CHECK_VK(vkMapMemory(device->device, buffer->memory, 0, size, 0, &buffer->host_ptr), goto err_post_mem_alloc);
     //}
 
     return buffer;
 
-    bail_out:
+err_post_mem_alloc:
+    vkFreeMemory(buffer->device->device, buffer->memory, NULL);
+err_post_buffer_create:
+    vkDestroyBuffer(buffer->device->device, buffer->buffer, NULL);
+err_post_obj_create:
     free(buffer);
     return NULL;
 }
