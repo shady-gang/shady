@@ -20,15 +20,15 @@ SpvId spvb_fresh_id(SpvbFileBuilder*);
 
 void spvb_set_version(SpvbFileBuilder*, uint8_t major, uint8_t minor);
 void spvb_set_addressing_model(SpvbFileBuilder*, SpvAddressingModel model);
-void spvb_entry_point(SpvbFileBuilder*, SpvExecutionModel execution_model, SpvId entry_point, String name, size_t interface_elements_count, SpvId interface_elements[]);
-void spvb_execution_mode(SpvbFileBuilder*, SpvId entry_point, SpvExecutionMode execution_mode, size_t payloads_count, uint32_t payloads[]);
 void spvb_capability(SpvbFileBuilder*, SpvCapability cap);
 void spvb_extension(SpvbFileBuilder*, String name);
 SpvId spvb_extended_import(SpvbFileBuilder*, String name);
+void spvb_entry_point(SpvbFileBuilder*, SpvExecutionModel execution_model, SpvId entry_point, String name, size_t interface_elements_count, SpvId interface_elements[]);
+void spvb_execution_mode(SpvbFileBuilder*, SpvId entry_point, SpvExecutionMode execution_mode, size_t payloads_count, uint32_t payloads[]);
 
 // Debug info
-void spvb_name(SpvbFileBuilder*, SpvId id, const char* str);
 SpvId spvb_debug_string(SpvbFileBuilder*, const char* string);
+void spvb_name(SpvbFileBuilder*, SpvId id, const char* str);
 
 // Decorations
 void spvb_decorate(SpvbFileBuilder*, SpvId target, SpvDecoration decoration, size_t extras_count, uint32_t extras[]);
@@ -54,11 +54,11 @@ SpvId spvb_global_variable(SpvbFileBuilder*, SpvId id, SpvId type, SpvStorageCla
 
 // Function building stuff
 SpvbFnBuilder* spvb_begin_fn(SpvbFileBuilder*, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type);
+SpvId fn_ret_type_id(SpvbFnBuilder*);
 SpvId spvb_parameter(SpvbFnBuilder* fn_builder, SpvId param_type);
 SpvId spvb_local_variable(SpvbFnBuilder* fn_builder, SpvId type, SpvStorageClass storage_class);
 void spvb_declare_function(SpvbFileBuilder*, SpvbFnBuilder* fn_builder);
 void spvb_define_function(SpvbFileBuilder*, SpvbFnBuilder* fn_builder);
-SpvId fn_ret_type_id(SpvbFnBuilder*);
 
 SpvbBasicBlockBuilder* spvb_begin_bb(SpvbFnBuilder*, SpvId label);
 /// Actually adds the basic block to the function
