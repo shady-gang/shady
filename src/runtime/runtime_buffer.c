@@ -254,20 +254,20 @@ void free_staging_buffer(Device* device) {
     }
 }
 
-static Commands* submit_buffer_copy(Device* device, VkBuffer src, size_t src_offset, VkBuffer dst, size_t dst_offset, size_t size) {
-    Commands* commands = begin_commands(device);
+static Command* submit_buffer_copy(Device* device, VkBuffer src, size_t src_offset, VkBuffer dst, size_t dst_offset, size_t size) {
+    Command* commands = begin_command(device);
     if (!commands)
         return NULL;
 
     vkCmdCopyBuffer(commands->cmd_buf, src, dst, 1, (VkBufferCopy[]) { { .srcOffset = src_offset, .dstOffset = dst_offset, .size = size } });
 
-    if (!submit_commands(commands))
+    if (!submit_command(commands))
         goto err_post_commands_create;
 
     return commands;
 
 err_post_commands_create:
-    destroy_commands(commands);
+    destroy_command(commands);
     return NULL;
 }
 

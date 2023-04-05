@@ -7,15 +7,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-Commands* launch_kernel(Program* program, Device* device, int dimx, int dimy, int dimz, int args_count, void** args) {
+Command* launch_kernel(Program* program, Device* device, int dimx, int dimy, int dimz, int args_count, void** args) {
     assert(program && device);
 
     SpecProgram* prog = get_specialized_program(program, device);
 
     debug_print("Dispatching kernel on %s\n", device->caps.properties.base.properties.deviceName);
 
-    Commands* commands = begin_commands(device);
-    if (!commands)
+    Command* cmd = begin_command(device);
+    if (!cmd)
         return NULL;
 
     EntryPointInfo entrypoint_info = prog->entrypoint;
@@ -27,25 +27,25 @@ Commands* launch_kernel(Program* program, Device* device, int dimx, int dimy, in
         for (int i = 0; i < entrypoint_info.num_args; ++i)
             memcpy(push_constant_buffer + entrypoint_info.arg_offset[i], args[i], entrypoint_info.arg_size[i]);
 
-        vkCmdPushConstants(commands->cmd_buf, prog->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push_constant_buffer_size, push_constant_buffer);
+        vkCmdPushConstants(cmd->cmd_buf, prog->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push_constant_buffer_size, push_constant_buffer);
     }
 
-    vkCmdBindPipeline(commands->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->pipeline);
-    vkCmdDispatch(commands->cmd_buf, dimx, dimy, dimz);
+    vkCmdBindPipeline(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->pipeline);
+    vkCmdDispatch(cmd->cmd_buf, dimx, dimy, dimz);
 
-    if (!submit_commands(commands))
+    if (!submit_command(cmd))
         goto err_post_commands_create;
 
-    return commands;
+    return cmd;
 
 err_post_commands_create:
-    destroy_commands(commands);
+    destroy_command(cmd);
     return NULL;
 }
 
-Commands* begin_commands(Device* device) {
-    Commands* commands = calloc(1, sizeof(Commands));
-    commands->device = device;
+Command* begin_command(Device* device) {
+    Command* cmd = calloc(1, sizeof(Command));
+    cmd->device = device;
 
     CHECK_VK(vkAllocateCommandBuffers(device->device, &(VkCommandBufferAllocateInfo) {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -53,61 +53,61 @@ Commands* begin_commands(Device* device) {
         .commandPool = device->cmd_pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1
-    }, &commands->cmd_buf), goto err_post_commands_create);
+    }, &cmd->cmd_buf), goto err_post_commands_create);
 
-    CHECK_VK(vkBeginCommandBuffer(commands->cmd_buf, &(VkCommandBufferBeginInfo) {
+    CHECK_VK(vkBeginCommandBuffer(cmd->cmd_buf, &(VkCommandBufferBeginInfo) {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .pNext = NULL,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         .pInheritanceInfo = NULL
     }), goto err_post_cmd_buf_create);
 
-    return commands;
+    return cmd;
 
 err_post_cmd_buf_create:
-    vkFreeCommandBuffers(device, device->cmd_pool, 1, &commands->cmd_buf);
+    vkFreeCommandBuffers(device, device->cmd_pool, 1, &cmd->cmd_buf);
 err_post_commands_create:
-    free(commands);
+    free(cmd);
     return NULL;
 }
 
-bool submit_commands(Commands* commands) {
-    CHECK_VK(vkEndCommandBuffer(commands->cmd_buf), return false);
+bool submit_command(Command* cmd) {
+    CHECK_VK(vkEndCommandBuffer(cmd->cmd_buf), return false);
 
-    CHECK_VK(vkCreateFence(commands->device->device, &(VkFenceCreateInfo) {
+    CHECK_VK(vkCreateFence(cmd->device->device, &(VkFenceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0
-    }, NULL, &commands->done_fence), return false);
+    }, NULL, &cmd->done_fence), return false);
 
-    CHECK_VK(vkQueueSubmit(commands->device->compute_queue, 1, &(VkSubmitInfo) {
+    CHECK_VK(vkQueueSubmit(cmd->device->compute_queue, 1, &(VkSubmitInfo) {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = NULL,
         .waitSemaphoreCount = 0,
         .commandBufferCount = 1,
-        .pCommandBuffers = (VkCommandBuffer[]) { commands->cmd_buf },
+        .pCommandBuffers = (VkCommandBuffer[]) { cmd->cmd_buf },
         .signalSemaphoreCount = 0
-    }, commands->done_fence), goto err_post_fence_create);
+    }, cmd->done_fence), goto err_post_fence_create);
 
-    commands->submitted = true;
+    cmd->submitted = true;
 
     return true;
 
 err_post_fence_create:
-    vkDestroyFence(commands->device->device, commands->done_fence, NULL);
+    vkDestroyFence(cmd->device->device, cmd->done_fence, NULL);
     return false;
 }
 
-bool wait_completion(Commands* commands) {
-    assert(commands->submitted && "Commands must be submitted before they can be waited on");
-    CHECK_VK(vkWaitForFences(commands->device->device, 1, (VkFence[]) { commands->done_fence }, true, UINT32_MAX), return false);
-    destroy_commands(commands);
+bool wait_completion(Command* cmd) {
+    assert(cmd->submitted && "Command must be submitted before they can be waited on");
+    CHECK_VK(vkWaitForFences(cmd->device->device, 1, (VkFence[]) { cmd->done_fence }, true, UINT32_MAX), return false);
+    destroy_command(cmd);
     return true;
 }
 
-void destroy_commands(Commands* commands) {
-    if (commands->submitted)
-        vkDestroyFence(commands->device->device, commands->done_fence, NULL);
-    vkFreeCommandBuffers(commands->device->device, commands->device->cmd_pool, 1, &commands->cmd_buf);
-    free(commands);
+void destroy_command(Command* cmd) {
+    if (cmd->submitted)
+        vkDestroyFence(cmd->device->device, cmd->done_fence, NULL);
+    vkFreeCommandBuffers(cmd->device->device, cmd->device->cmd_pool, 1, &cmd->cmd_buf);
+    free(cmd);
 }
