@@ -71,7 +71,7 @@ main(int argc, char **argv)
 
     Program* program = load_program(runtime, checkerboard_kernel_src);
 
-    wait_completion(launch_kernel(program, device, 256 / 64, 256, 1, 1, (void*[]) { &buf_addr }));
+    wait_completion(launch_kernel(program, device, 16, 16, 1, 1, (void*[]) { &buf_addr }));
     // info_print("Host-side address is: (old = %zu, new = %zu)\n", (size_t) img32, (size_t) get_buffer_host_pointer(buf));
     // img32 = get_buffer_host_pointer(buf);
 
