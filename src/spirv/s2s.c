@@ -72,6 +72,7 @@ typedef struct {
     Module* mod;
     IrArena* arena;
 
+    String entry_point;
     Node* fun;
     size_t fun_arg_i;
 
@@ -482,6 +483,10 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpSource:
         case SpvOpSourceExtension:
             break;
+        case SpvOpEntryPoint: {
+            parser->entry_point = "compute";
+            break;
+        }
         case SpvOpDecorate:
         case SpvOpMemberDecorate: {
             SpvDef payload = { Literals };
@@ -682,7 +687,18 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 instruction_offset += s;
             }
 
-            Node* fun = function(parser->mod, nodes(parser->arena, params_count, params), get_name(parser, result), empty(parser->arena), t->payload.fn_type.return_types);
+            Nodes annotations = empty(parser->arena);
+            if (parser->entry_point) {
+                append_nodes(parser->arena, annotations, annotation_value(parser->arena, (AnnotationValue) {
+                    .name = "EntryPoint",
+                    .value = string_lit(parser->arena, (StringLiteral) { "compute" })
+                }));
+                parser->entry_point = NULL;
+            }
+            String name = get_name(parser, result);
+            if (!name)
+                name = unique_name(parser->arena, "function");
+            Node* fun = function(parser->mod, nodes(parser->arena, params_count, params), name, annotations, t->payload.fn_type.return_types);
             parser->defs[result].type = Decl;
             parser->defs[result].node = fun;
             Node* old_fun = parser->fun;
