@@ -126,24 +126,12 @@ typedef struct {
     } implementation;
 } DeviceCaps;
 
-typedef struct StagingBuffer_ {
-    void* ptr;
-    VkBuffer buffer;
-    VkDeviceMemory memory;
-    size_t size;
-} StagingBuffer;
-
-bool resize_staging_buffer(Device* device, size_t size);
-void free_staging_buffer(Device* device);
-
 struct Device_ {
     Runtime* runtime;
     DeviceCaps caps;
     VkDevice device;
     VkCommandPool cmd_pool;
     VkQueue compute_queue;
-
-    StagingBuffer staging_buffer;
 
     struct {
     #define Y(fn_name) PFN_##fn_name fn_name;
