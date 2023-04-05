@@ -13,8 +13,8 @@
 #include <assert.h>
 
 static const char* default_shader =
-"@EntryPoint(\"compute\") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main(uniform i32 a0, uniform f32 a1) {\n"
-"    debug_printf(\"hi %d %f\", a0, a1);"
+"@EntryPoint(\"compute\") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main(uniform i32 a, uniform ptr global i32 b) {\n"
+"    debug_printf(\"hi %d %p\", a, b);"
 "    return ();\n"
 "}";
 
@@ -100,11 +100,14 @@ int main(int argc, char* argv[]) {
     if (!shader)
         shader = default_shader;
 
+    Buffer* buffer = allocate_buffer_device(device, sizeof(stuff));
     Program* program = load_program(runtime, shader);
 
-    uint32_t a0 = 42;
-    float a1 = 42.0f;
+    int32_t a0 = 42;
+    uint64_t a1 = get_buffer_device_pointer(buffer);
     wait_completion(launch_kernel(program, device, 1, 1, 1, 2, (void*[]) { &a0, &a1 }));
+
+    destroy_buffer(buffer);
 
     shutdown_runtime(runtime);
 }
