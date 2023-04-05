@@ -6,9 +6,9 @@
 
 #include "spirv_builder.h"
 
-typedef struct SpvFileBuilder* FileBuilder;
-typedef struct SpvFnBuilder* FnBuilder;
-typedef struct SpvBasicBlockBuilder* BBBuilder;
+typedef SpvbFileBuilder* FileBuilder;
+typedef SpvbFnBuilder* FnBuilder;
+typedef SpvbBasicBlockBuilder* BBBuilder;
 
 typedef struct Emitter_ {
     Module* module;
@@ -24,7 +24,7 @@ typedef struct Emitter_ {
     struct Dict* extended_instruction_sets;
 } Emitter;
 
-typedef struct Phi** Phis;
+typedef SpvbPhi** Phis;
 
 typedef struct {
     SpvId continue_target, break_target, join_target;

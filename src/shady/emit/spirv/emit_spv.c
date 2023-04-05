@@ -142,7 +142,7 @@ static void add_branch_phis(Emitter* emitter, FnBuilder fn_builder, SpvId src_id
     struct List* phis = spbv_get_phis(dst_builder);
     assert(entries_count_list(phis) == count);
     for (size_t i = 0; i < count; i++) {
-        struct Phi* phi = read_list(struct Phi*, phis)[i];
+        SpvbPhi* phi = read_list(SpvbPhi*, phis)[i];
         spvb_add_phi_source(phi, src_id, args[i]);
     }
 }

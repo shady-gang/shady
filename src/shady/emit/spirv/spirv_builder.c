@@ -8,21 +8,21 @@
 #include <stdlib.h>
 #include <assert.h>
 
-typedef struct List* SpvSectionBuilder;
+typedef struct List* SpvbSectionBuilder;
 
-struct PhiOp {
+typedef struct {
     SpvId basic_block;
     SpvId value;
-};
+} SpvbPhiSrc;
 
-struct Phi {
+struct SpvbPhi_ {
     SpvId type;
     SpvId value;
     struct List* preds;
 };
 
-struct SpvFnBuilder {
-    struct SpvFileBuilder* file_builder;
+struct SpvbFnBuilder_ {
+    SpvbFileBuilder* file_builder;
     SpvId function_id;
 
     SpvId fn_type;
@@ -30,19 +30,19 @@ struct SpvFnBuilder {
     struct List* bbs;
 
     // Contains OpFunctionParams
-    SpvSectionBuilder header;
-    SpvSectionBuilder variables;
+    SpvbSectionBuilder header;
+    SpvbSectionBuilder variables;
 };
 
-struct SpvBasicBlockBuilder {
-    struct SpvFnBuilder* fn_builder;
+struct SpvbBasicBlockBuilder_ {
+    SpvbFnBuilder* fn_builder;
     struct List* section_data;
 
     struct List* phis;
     SpvId label;
 };
 
-struct SpvFileBuilder {
+struct SpvbFileBuilder_ {
     SpvAddressingModel addressing_model;
     SpvMemoryModel memory_model;
 
@@ -54,21 +54,21 @@ struct SpvFileBuilder {
     } version;
 
     // Ordered as per https://www.khronos.org/registry/spir-v/specs/unified1/SPIRV.pdf#subsection.2.4
-    SpvSectionBuilder capabilities;
-    SpvSectionBuilder extensions;
-    SpvSectionBuilder ext_inst_import;
-    SpvSectionBuilder entry_points;
-    SpvSectionBuilder execution_modes;
-    SpvSectionBuilder debug_string_source;
-    SpvSectionBuilder debug_names;
-    SpvSectionBuilder debug_module_processed;
-    SpvSectionBuilder annotations;
-    SpvSectionBuilder types_constants;
-    SpvSectionBuilder fn_decls;
-    SpvSectionBuilder fn_defs;
+    SpvbSectionBuilder capabilities;
+    SpvbSectionBuilder extensions;
+    SpvbSectionBuilder ext_inst_import;
+    SpvbSectionBuilder entry_points;
+    SpvbSectionBuilder execution_modes;
+    SpvbSectionBuilder debug_string_source;
+    SpvbSectionBuilder debug_names;
+    SpvbSectionBuilder debug_module_processed;
+    SpvbSectionBuilder annotations;
+    SpvbSectionBuilder types_constants;
+    SpvbSectionBuilder fn_decls;
+    SpvbSectionBuilder fn_defs;
 };
 
-SpvId spvb_fresh_id(struct SpvFileBuilder* file_builder) {
+SpvId spvb_fresh_id(SpvbFileBuilder* file_builder) {
     return file_builder->bound++;
 }
 
@@ -79,25 +79,25 @@ inline static int div_roundup(int a, int b) {
         return (a / b) + 1;
 }
 
-inline static void output_word(SpvSectionBuilder data, uint32_t word) {
+inline static void output_word(SpvbSectionBuilder data, uint32_t word) {
     append_list(uint32_t, data, word);
 }
 
 #define op(opcode, size) op_(target_data, opcode, size)
-inline static void op_(SpvSectionBuilder data, SpvOp op, int ops_size) {
+inline static void op_(SpvbSectionBuilder data, SpvOp op, int ops_size) {
     uint32_t lower = op & 0xFFFFu;
     uint32_t upper = (ops_size << 16) & 0xFFFF0000u;
     output_word(data, lower | upper);
 }
 
 #define ref_id(i) ref_id_(target_data, i)
-inline static void ref_id_(SpvSectionBuilder data, SpvId id) {
+inline static void ref_id_(SpvbSectionBuilder data, SpvId id) {
     assert(id != 0);
     output_word(data, id);
 }
 
 #define literal_name(str) literal_name_(target_data, str)
-inline static void literal_name_(SpvSectionBuilder data, const char* str) {
+inline static void literal_name_(SpvbSectionBuilder data, const char* str) {
     int i = 0;
     uint32_t cword = 0;
     while (str[0] != '\0') {
@@ -115,12 +115,12 @@ inline static void literal_name_(SpvSectionBuilder data, const char* str) {
 }
 
 #define literal_int(i) literal_int_(target_data, i)
-inline static void literal_int_(SpvSectionBuilder data, uint32_t i) {
+inline static void literal_int_(SpvbSectionBuilder data, uint32_t i) {
     output_word(data, i);
 }
 
 #define copy_section(section) copy_section_(target_data, section)
-inline static void copy_section_(SpvSectionBuilder target, SpvSectionBuilder source) {
+inline static void copy_section_(SpvbSectionBuilder target, SpvbSectionBuilder source) {
     for (size_t i = 0; i < source->elements_count; i++)
         literal_int_(target, read_list(uint32_t, source)[i]);
 }
@@ -129,7 +129,7 @@ inline static void copy_section_(SpvSectionBuilder target, SpvSectionBuilder sou
 // We use this macro to save us some typing
 #define target_data bb_builder->section_data
 
-SpvId spvb_undef(struct SpvBasicBlockBuilder* bb_builder, SpvId type) {
+SpvId spvb_undef(SpvbBasicBlockBuilder* bb_builder, SpvId type) {
     op(SpvOpUndef, 3);
     ref_id(type);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
@@ -137,7 +137,7 @@ SpvId spvb_undef(struct SpvBasicBlockBuilder* bb_builder, SpvId type) {
     return id;
 }
 
-SpvId spvb_composite(struct SpvBasicBlockBuilder* bb_builder, SpvId aggregate_t, size_t elements_count, SpvId elements[]) {
+SpvId spvb_composite(SpvbBasicBlockBuilder* bb_builder, SpvId aggregate_t, size_t elements_count, SpvId elements[]) {
     op(SpvOpCompositeConstruct, 3u + elements_count);
     ref_id(aggregate_t);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
@@ -147,7 +147,7 @@ SpvId spvb_composite(struct SpvBasicBlockBuilder* bb_builder, SpvId aggregate_t,
     return id;
 }
 
-SpvId spvb_select(struct SpvBasicBlockBuilder* bb_builder, SpvId type, SpvId condition, SpvId if_true, SpvId if_false) {
+SpvId spvb_select(SpvbBasicBlockBuilder* bb_builder, SpvId type, SpvId condition, SpvId if_true, SpvId if_false) {
     op(SpvOpSelect, 6);
     ref_id(type);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
@@ -158,7 +158,7 @@ SpvId spvb_select(struct SpvBasicBlockBuilder* bb_builder, SpvId type, SpvId con
     return id;
 }
 
-SpvId spvb_extract(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId composite, size_t indices_count, uint32_t indices[]) {
+SpvId spvb_extract(SpvbBasicBlockBuilder* bb_builder, SpvId target_type, SpvId composite, size_t indices_count, uint32_t indices[]) {
     op(SpvOpCompositeExtract, 4u + indices_count);
     ref_id(target_type);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
@@ -169,7 +169,7 @@ SpvId spvb_extract(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, S
     return id;
 }
 
-SpvId spvb_insert(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId object, SpvId composite, size_t indices_count, uint32_t indices[]) {
+SpvId spvb_insert(SpvbBasicBlockBuilder* bb_builder, SpvId target_type, SpvId object, SpvId composite, size_t indices_count, uint32_t indices[]) {
     op(SpvOpCompositeInsert, 5 + indices_count);
     ref_id(target_type);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
@@ -181,7 +181,7 @@ SpvId spvb_insert(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, Sp
     return id;
 }
 
-SpvId spvb_vector_extract_dynamic(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId vector, SpvId index) {
+SpvId spvb_vector_extract_dynamic(SpvbBasicBlockBuilder* bb_builder, SpvId target_type, SpvId vector, SpvId index) {
     op(SpvOpVectorExtractDynamic, 5);
     ref_id(target_type);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
@@ -191,7 +191,7 @@ SpvId spvb_vector_extract_dynamic(struct SpvBasicBlockBuilder* bb_builder, SpvId
     return id;
 }
 
-SpvId spvb_vector_insert_dynamic(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId vector, SpvId component, SpvId index) {
+SpvId spvb_vector_insert_dynamic(SpvbBasicBlockBuilder* bb_builder, SpvId target_type, SpvId vector, SpvId component, SpvId index) {
     op(SpvOpVectorInsertDynamic, 6);
     ref_id(target_type);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
@@ -202,7 +202,7 @@ SpvId spvb_vector_insert_dynamic(struct SpvBasicBlockBuilder* bb_builder, SpvId 
     return id;
 }
 
-SpvId spvb_access_chain(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId element, size_t indices_count, SpvId indices[]) {
+SpvId spvb_access_chain(SpvbBasicBlockBuilder* bb_builder, SpvId target_type, SpvId element, size_t indices_count, SpvId indices[]) {
     op(SpvOpAccessChain, 4 + indices_count);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(target_type);
@@ -213,7 +213,7 @@ SpvId spvb_access_chain(struct SpvBasicBlockBuilder* bb_builder, SpvId target_ty
     return id;
 }
 
-SpvId spvb_ptr_access_chain(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId base, SpvId element, size_t indices_count, SpvId indices[]) {
+SpvId spvb_ptr_access_chain(SpvbBasicBlockBuilder* bb_builder, SpvId target_type, SpvId base, SpvId element, size_t indices_count, SpvId indices[]) {
     op(SpvOpPtrAccessChain, 5 + indices_count);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(target_type);
@@ -225,7 +225,7 @@ SpvId spvb_ptr_access_chain(struct SpvBasicBlockBuilder* bb_builder, SpvId targe
     return id;
 }
 
-SpvId spvb_load(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvId pointer, size_t operands_count, uint32_t operands[]) {
+SpvId spvb_load(SpvbBasicBlockBuilder* bb_builder, SpvId target_type, SpvId pointer, size_t operands_count, uint32_t operands[]) {
     op(SpvOpLoad, 4 + operands_count);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(target_type);
@@ -236,7 +236,7 @@ SpvId spvb_load(struct SpvBasicBlockBuilder* bb_builder, SpvId target_type, SpvI
     return id;
 }
 
-void spvb_store(struct SpvBasicBlockBuilder* bb_builder, SpvId value, SpvId pointer, size_t operands_count, uint32_t operands[]) {
+void spvb_store(SpvbBasicBlockBuilder* bb_builder, SpvId value, SpvId pointer, size_t operands_count, uint32_t operands[]) {
     op(SpvOpStore, 3 + operands_count);
     ref_id(pointer);
     ref_id(value);
@@ -244,7 +244,7 @@ void spvb_store(struct SpvBasicBlockBuilder* bb_builder, SpvId value, SpvId poin
         literal_int(operands[i]);
 }
 
-SpvId spvb_op(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, size_t operands_count, SpvId operands[]) {
+SpvId spvb_op(SpvbBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, size_t operands_count, SpvId operands[]) {
     op(op, 3 + operands_count);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -254,7 +254,7 @@ SpvId spvb_op(struct SpvBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_ty
     return id;
 }
 
-SpvId spvb_elect(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope) {
+SpvId spvb_elect(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope) {
     op(SpvOpGroupNonUniformElect, 4);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -263,7 +263,7 @@ SpvId spvb_elect(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, Spv
     return id;
 }
 
-SpvId spvb_ballot(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId predicate, SpvId scope) {
+SpvId spvb_ballot(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId predicate, SpvId scope) {
     op(SpvOpGroupNonUniformBallot, 5);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -273,7 +273,7 @@ SpvId spvb_ballot(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, Sp
     return id;
 }
 
-SpvId spvb_broadcast_first(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope) {
+SpvId spvb_broadcast_first(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope) {
     op(SpvOpGroupNonUniformBroadcastFirst, 5);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -283,7 +283,7 @@ SpvId spvb_broadcast_first(struct SpvBasicBlockBuilder* bb_builder, SpvId result
     return id;
 }
 
-SpvId spvb_shuffle(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope, SpvId value, SpvId id) {
+SpvId spvb_shuffle(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope, SpvId value, SpvId id) {
     op(SpvOpGroupNonUniformShuffle, 6);
     SpvId rid = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -294,7 +294,7 @@ SpvId spvb_shuffle(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, S
     return rid;
 }
 
-SpvId spvb_non_uniform_iadd(struct SpvBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope, SpvGroupOperation group_op, SpvId* cluster_size) {
+SpvId spvb_non_uniform_iadd(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope, SpvGroupOperation group_op, SpvId* cluster_size) {
     op(SpvOpGroupNonUniformIAdd, cluster_size ? 7 : 6);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -307,19 +307,19 @@ SpvId spvb_non_uniform_iadd(struct SpvBasicBlockBuilder* bb_builder, SpvId resul
     return id;
 }
 
-void spvb_branch(struct SpvBasicBlockBuilder* bb_builder, SpvId target) {
+void spvb_branch(SpvbBasicBlockBuilder* bb_builder, SpvId target) {
     op(SpvOpBranch, 2);
     ref_id(target);
 }
 
-void spvb_branch_conditional(struct SpvBasicBlockBuilder* bb_builder, SpvId condition, SpvId true_target, SpvId false_target) {
+void spvb_branch_conditional(SpvbBasicBlockBuilder* bb_builder, SpvId condition, SpvId true_target, SpvId false_target) {
     op(SpvOpBranchConditional, 4);
     ref_id(condition);
     ref_id(true_target);
     ref_id(false_target);
 }
 
-void spvb_switch(struct SpvBasicBlockBuilder* bb_builder, SpvId selector, SpvId default_target, size_t targets_and_literals_size, SpvId* targets_and_literals) {
+void spvb_switch(SpvbBasicBlockBuilder* bb_builder, SpvId selector, SpvId default_target, size_t targets_and_literals_size, SpvId* targets_and_literals) {
     op(SpvOpSwitch, 3 + targets_and_literals_size);
     ref_id(selector);
     ref_id(default_target);
@@ -328,13 +328,13 @@ void spvb_switch(struct SpvBasicBlockBuilder* bb_builder, SpvId selector, SpvId 
     }
 }
 
-void spvb_selection_merge(struct SpvBasicBlockBuilder* bb_builder, SpvId merge_bb, SpvSelectionControlMask selection_control) {
+void spvb_selection_merge(SpvbBasicBlockBuilder* bb_builder, SpvId merge_bb, SpvSelectionControlMask selection_control) {
     op(SpvOpSelectionMerge, 3);
     ref_id(merge_bb);
     literal_int(selection_control);
 }
 
-void spvb_loop_merge(struct SpvBasicBlockBuilder* bb_builder, SpvId merge_bb, SpvId continue_bb, SpvLoopControlMask loop_control, size_t loop_control_ops_count, uint32_t loop_control_ops[]) {
+void spvb_loop_merge(SpvbBasicBlockBuilder* bb_builder, SpvId merge_bb, SpvId continue_bb, SpvLoopControlMask loop_control, size_t loop_control_ops_count, uint32_t loop_control_ops[]) {
     op(SpvOpLoopMerge, 4 + loop_control_ops_count);
     ref_id(merge_bb);
     ref_id(continue_bb);
@@ -344,7 +344,7 @@ void spvb_loop_merge(struct SpvBasicBlockBuilder* bb_builder, SpvId merge_bb, Sp
         literal_int(loop_control_ops[i]);
 }
 
-SpvId spvb_call(struct SpvBasicBlockBuilder* bb_builder, SpvId return_type, SpvId callee, size_t arguments_count, SpvId arguments[]) {
+SpvId spvb_call(SpvbBasicBlockBuilder* bb_builder, SpvId return_type, SpvId callee, size_t arguments_count, SpvId arguments[]) {
     op(SpvOpFunctionCall, 4u + arguments_count);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(return_type);
@@ -355,7 +355,7 @@ SpvId spvb_call(struct SpvBasicBlockBuilder* bb_builder, SpvId return_type, SpvI
     return id;
 }
 
-SpvId spvb_ext_instruction(struct SpvBasicBlockBuilder* bb_builder, SpvId return_type, SpvId set, uint32_t instruction, size_t arguments_count, SpvId arguments[]) {
+SpvId spvb_ext_instruction(SpvbBasicBlockBuilder* bb_builder, SpvId return_type, SpvId set, uint32_t instruction, size_t arguments_count, SpvId arguments[]) {
     op(SpvOpExtInst, 5 + arguments_count);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(return_type);
@@ -367,23 +367,23 @@ SpvId spvb_ext_instruction(struct SpvBasicBlockBuilder* bb_builder, SpvId return
     return id;
 }
 
-void spvb_return_void(struct SpvBasicBlockBuilder* bb_builder) {
+void spvb_return_void(SpvbBasicBlockBuilder* bb_builder) {
     op(SpvOpReturn, 1);
 }
 
-void spvb_return_value(struct SpvBasicBlockBuilder* bb_builder, SpvId value) {
+void spvb_return_value(SpvbBasicBlockBuilder* bb_builder, SpvId value) {
     op(SpvOpReturnValue, 2);
     ref_id(value);
 }
 
-void spvb_unreachable(struct SpvBasicBlockBuilder* bb_builder) {
+void spvb_unreachable(SpvbBasicBlockBuilder* bb_builder) {
     op(SpvOpUnreachable, 1);
 }
 
 #undef target_data
 #define target_data fn_builder->header
 
-SpvId spvb_parameter(struct SpvFnBuilder* fn_builder, SpvId param_type) {
+SpvId spvb_parameter(SpvbFnBuilder* fn_builder, SpvId param_type) {
     op(SpvOpFunctionParameter, 3);
     SpvId id = spvb_fresh_id(fn_builder->file_builder);
     ref_id(param_type);
@@ -394,7 +394,7 @@ SpvId spvb_parameter(struct SpvFnBuilder* fn_builder, SpvId param_type) {
 #undef target_data
 #define target_data fn_builder->variables
 
-SpvId spvb_local_variable(struct SpvFnBuilder* fn_builder, SpvId type, SpvStorageClass storage_class) {
+SpvId spvb_local_variable(SpvbFnBuilder* fn_builder, SpvId type, SpvStorageClass storage_class) {
     op(SpvOpVariable, 4);
     ref_id(type);
     SpvId id = spvb_fresh_id(fn_builder->file_builder);
@@ -406,7 +406,7 @@ SpvId spvb_local_variable(struct SpvFnBuilder* fn_builder, SpvId type, SpvStorag
 #undef target_data
 #define target_data file_builder->debug_names
 
-void spvb_name(struct SpvFileBuilder* file_builder, SpvId id, const char* str) {
+void spvb_name(SpvbFileBuilder* file_builder, SpvId id, const char* str) {
     assert(id < file_builder->bound);
     op(SpvOpName, 2 + div_roundup(strlen(str) + 1, 4));
     ref_id(id);
@@ -416,14 +416,14 @@ void spvb_name(struct SpvFileBuilder* file_builder, SpvId id, const char* str) {
 #undef target_data
 #define target_data file_builder->types_constants
 
-SpvId spvb_bool_type(struct SpvFileBuilder* file_builder) {
+SpvId spvb_bool_type(SpvbFileBuilder* file_builder) {
     op(SpvOpTypeBool, 2);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
     return id;
 }
 
-SpvId spvb_int_type(struct SpvFileBuilder* file_builder, int width, bool signed_) {
+SpvId spvb_int_type(SpvbFileBuilder* file_builder, int width, bool signed_) {
     op(SpvOpTypeInt, 4);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
@@ -432,7 +432,7 @@ SpvId spvb_int_type(struct SpvFileBuilder* file_builder, int width, bool signed_
     return id;
 }
 
-SpvId spvb_float_type(struct SpvFileBuilder* file_builder, int width) {
+SpvId spvb_float_type(SpvbFileBuilder* file_builder, int width) {
     op(SpvOpTypeFloat, 3);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
@@ -440,14 +440,14 @@ SpvId spvb_float_type(struct SpvFileBuilder* file_builder, int width) {
     return id;
 }
 
-SpvId spvb_void_type(struct SpvFileBuilder* file_builder) {
+SpvId spvb_void_type(SpvbFileBuilder* file_builder) {
     op(SpvOpTypeVoid, 2);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
     return id;
 }
 
-SpvId spvb_ptr_type(struct SpvFileBuilder* file_builder, SpvStorageClass storage_class, SpvId element_type) {
+SpvId spvb_ptr_type(SpvbFileBuilder* file_builder, SpvStorageClass storage_class, SpvId element_type) {
     op(SpvOpTypePointer, 4);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
@@ -456,7 +456,7 @@ SpvId spvb_ptr_type(struct SpvFileBuilder* file_builder, SpvStorageClass storage
     return id;
 }
 
-SpvId spvb_array_type(struct SpvFileBuilder* file_builder, SpvId element_type, SpvId dim) {
+SpvId spvb_array_type(SpvbFileBuilder* file_builder, SpvId element_type, SpvId dim) {
     op(SpvOpTypeArray, 4);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
@@ -465,7 +465,7 @@ SpvId spvb_array_type(struct SpvFileBuilder* file_builder, SpvId element_type, S
     return id;
 }
 
-SpvId spvb_runtime_array_type(struct SpvFileBuilder* file_builder, SpvId element_type) {
+SpvId spvb_runtime_array_type(SpvbFileBuilder* file_builder, SpvId element_type) {
     op(SpvOpTypeRuntimeArray, 3);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
@@ -473,7 +473,7 @@ SpvId spvb_runtime_array_type(struct SpvFileBuilder* file_builder, SpvId element
     return id;
 }
 
-SpvId spvb_fn_type(struct SpvFileBuilder* file_builder, size_t args_count, SpvId args_types[], SpvId codom) {
+SpvId spvb_fn_type(SpvbFileBuilder* file_builder, size_t args_count, SpvId args_types[], SpvId codom) {
     op(SpvOpTypeFunction, 3 + args_count);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
@@ -483,7 +483,7 @@ SpvId spvb_fn_type(struct SpvFileBuilder* file_builder, size_t args_count, SpvId
     return id;
 }
 
-SpvId spvb_struct_type(struct SpvFileBuilder* file_builder, SpvId id, size_t members_count, SpvId members[]) {
+SpvId spvb_struct_type(SpvbFileBuilder* file_builder, SpvId id, size_t members_count, SpvId members[]) {
     op(SpvOpTypeStruct, 2 + members_count);
     ref_id(id);
     for (size_t i = 0; i < members_count; i++)
@@ -491,7 +491,7 @@ SpvId spvb_struct_type(struct SpvFileBuilder* file_builder, SpvId id, size_t mem
     return id;
 }
 
-SpvId spvb_vector_type(struct SpvFileBuilder* file_builder, SpvId component_type, uint32_t dim) {
+SpvId spvb_vector_type(SpvbFileBuilder* file_builder, SpvId component_type, uint32_t dim) {
     op(SpvOpTypeVector, 4);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
@@ -500,13 +500,13 @@ SpvId spvb_vector_type(struct SpvFileBuilder* file_builder, SpvId component_type
     return id;
 }
 
-void spvb_bool_constant(struct SpvFileBuilder* file_builder, SpvId result, SpvId type, bool value) {
+void spvb_bool_constant(SpvbFileBuilder* file_builder, SpvId result, SpvId type, bool value) {
     op(value ? SpvOpConstantTrue : SpvOpConstantFalse, 3);
     ref_id(type);
     ref_id(result);
 }
 
-void spvb_constant(struct SpvFileBuilder* file_builder, SpvId result, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]) {
+void spvb_constant(SpvbFileBuilder* file_builder, SpvId result, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]) {
     op(SpvOpConstant, 3 + bit_pattern_size);
     ref_id(type);
     ref_id(result);
@@ -514,7 +514,7 @@ void spvb_constant(struct SpvFileBuilder* file_builder, SpvId result, SpvId type
         literal_int(bit_pattern[i]);
 }
 
-SpvId spvb_constant_composite(struct SpvFileBuilder* file_builder, SpvId type, size_t ops_count, SpvId ops[]) {
+SpvId spvb_constant_composite(SpvbFileBuilder* file_builder, SpvId type, size_t ops_count, SpvId ops[]) {
     op(SpvOpConstantComposite, 3 + ops_count);
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(type);
@@ -524,7 +524,7 @@ SpvId spvb_constant_composite(struct SpvFileBuilder* file_builder, SpvId type, s
     return id;
 }
 
-SpvId spvb_global_variable(struct SpvFileBuilder* file_builder, SpvId id, SpvId type, SpvStorageClass storage_class, bool has_initializer, SpvId initializer) {
+SpvId spvb_global_variable(SpvbFileBuilder* file_builder, SpvId id, SpvId type, SpvStorageClass storage_class, bool has_initializer, SpvId initializer) {
     op(SpvOpVariable, has_initializer ? 5 : 4);
     ref_id(type);
     ref_id(id);
@@ -537,7 +537,7 @@ SpvId spvb_global_variable(struct SpvFileBuilder* file_builder, SpvId id, SpvId 
 #undef target_data
 #define target_data file_builder->annotations
 
-void spvb_decorate(struct SpvFileBuilder* file_builder, SpvId target, SpvDecoration decoration, size_t extras_count, uint32_t extras[]) {
+void spvb_decorate(SpvbFileBuilder* file_builder, SpvId target, SpvDecoration decoration, size_t extras_count, uint32_t extras[]) {
     op(SpvOpDecorate, 3 + extras_count);
     ref_id(target);
     literal_int(decoration);
@@ -545,7 +545,7 @@ void spvb_decorate(struct SpvFileBuilder* file_builder, SpvId target, SpvDecorat
         literal_int(extras[i]);
 }
 
-void spvb_decorate_member(struct SpvFileBuilder* file_builder, SpvId target, uint32_t member, SpvDecoration decoration, size_t extras_count, uint32_t extras[]) {
+void spvb_decorate_member(SpvbFileBuilder* file_builder, SpvId target, uint32_t member, SpvDecoration decoration, size_t extras_count, uint32_t extras[]) {
     op(SpvOpMemberDecorate, 4 + extras_count);
     ref_id(target);
     literal_int(member);
@@ -557,7 +557,7 @@ void spvb_decorate_member(struct SpvFileBuilder* file_builder, SpvId target, uin
 #undef target_data
 #define target_data file_builder->debug_string_source
 
-SpvId spvb_debug_string(struct SpvFileBuilder* file_builder, const char* string) {
+SpvId spvb_debug_string(SpvbFileBuilder* file_builder, const char* string) {
     op(SpvOpString, 2 + div_roundup(strlen(string) + 1, 4));
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
@@ -568,7 +568,7 @@ SpvId spvb_debug_string(struct SpvFileBuilder* file_builder, const char* string)
 #undef target_data
 #define target_data file_builder->fn_decls
 
-void spvb_declare_function(struct SpvFileBuilder* file_builder, struct SpvFnBuilder* fn_builder) {
+void spvb_declare_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_builder) {
     op(SpvOpFunction, 5);
     ref_id(fn_builder->fn_ret_type);
     ref_id(fn_builder->function_id);
@@ -591,7 +591,7 @@ void spvb_declare_function(struct SpvFileBuilder* file_builder, struct SpvFnBuil
 #undef target_data
 #define target_data file_builder->fn_defs
 
-void spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuilder* fn_builder) {
+void spvb_define_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_builder) {
     op(SpvOpFunction, 5);
     ref_id(fn_builder->fn_ret_type);
     ref_id(fn_builder->function_id);
@@ -604,7 +604,7 @@ void spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuild
     bool first = true;
     for (size_t i = 0; i < fn_builder->bbs->elements_count; i++) {
         op(SpvOpLabel, 2);
-        struct SpvBasicBlockBuilder* bb = read_list(struct SpvBasicBlockBuilder*, fn_builder->bbs)[i];
+        SpvbBasicBlockBuilder* bb = read_list(SpvbBasicBlockBuilder*, fn_builder->bbs)[i];
         ref_id(bb->label);
 
         if (first) {
@@ -614,14 +614,14 @@ void spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuild
         }
 
         for (size_t j = 0; j < bb->phis->elements_count; j++) {
-            struct Phi* phi = read_list(struct Phi*, bb->phis)[j];
+            SpvbPhi* phi = read_list(SpvbPhi*, bb->phis)[j];
 
             op(SpvOpPhi, 3 + 2 * phi->preds->elements_count);
             ref_id(phi->type);
             ref_id(phi->value);
             assert(phi->preds->elements_count != 0);
             for (size_t k = 0; k < phi->preds->elements_count; k++) {
-                struct PhiOp* pred = &read_list(struct PhiOp, phi->preds)[k];
+                SpvbPhiSrc* pred = &read_list(SpvbPhiSrc, phi->preds)[k];
                 ref_id(pred->value);
                 ref_id(pred->basic_block);
             }
@@ -648,7 +648,7 @@ void spvb_define_function(struct SpvFileBuilder* file_builder, struct SpvFnBuild
 #undef target_data
 #define target_data file_builder->entry_points
 
-void spvb_entry_point(struct SpvFileBuilder* file_builder, SpvExecutionModel execution_model, SpvId entry_point, const char* name, size_t interface_elements_count, SpvId interface_elements[]) {
+void spvb_entry_point(SpvbFileBuilder* file_builder, SpvExecutionModel execution_model, SpvId entry_point, const char* name, size_t interface_elements_count, SpvId interface_elements[]) {
     op(SpvOpEntryPoint, 3 + div_roundup(strlen(name) + 1, 4) + interface_elements_count);
     literal_int(execution_model);
     ref_id(entry_point);
@@ -660,7 +660,7 @@ void spvb_entry_point(struct SpvFileBuilder* file_builder, SpvExecutionModel exe
 #undef target_data
 #define target_data file_builder->execution_modes
 
-void spvb_execution_mode(struct SpvFileBuilder* file_builder, SpvId entry_point, SpvExecutionMode execution_mode, size_t payloads_count, uint32_t payloads[]) {
+void spvb_execution_mode(SpvbFileBuilder* file_builder, SpvId entry_point, SpvExecutionMode execution_mode, size_t payloads_count, uint32_t payloads[]) {
     op(SpvOpExecutionMode, 3 + payloads_count);
     ref_id(entry_point);
     literal_int(execution_mode);
@@ -671,7 +671,7 @@ void spvb_execution_mode(struct SpvFileBuilder* file_builder, SpvId entry_point,
 #undef target_data
 #define target_data file_builder->capabilities
 
-void spvb_capability(struct SpvFileBuilder* file_builder, SpvCapability cap) {
+void spvb_capability(SpvbFileBuilder* file_builder, SpvCapability cap) {
     op(SpvOpCapability, 2);
     literal_int(cap);
 }
@@ -679,7 +679,7 @@ void spvb_capability(struct SpvFileBuilder* file_builder, SpvCapability cap) {
 #undef target_data
 #define target_data file_builder->extensions
 
-void spvb_extension(struct SpvFileBuilder* file_builder, const char* name) {
+void spvb_extension(SpvbFileBuilder* file_builder, const char* name) {
     op(SpvOpExtension, 1 + div_roundup(strlen(name) + 1, 4));
     literal_name(name);
 }
@@ -687,7 +687,7 @@ void spvb_extension(struct SpvFileBuilder* file_builder, const char* name) {
 #undef target_data
 #define target_data file_builder->ext_inst_import
 
-SpvId spvb_extended_import(struct SpvFileBuilder* file_builder, const char* name) {
+SpvId spvb_extended_import(SpvbFileBuilder* file_builder, const char* name) {
     op(SpvOpExtInstImport, 2 + div_roundup(strlen(name) + 1, 4));
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
@@ -710,31 +710,31 @@ SpvId spvb_extended_import(struct SpvFileBuilder* file_builder, const char* name
 #undef target_data
 #define target_data final_output
 
-struct Phi* spvb_add_phi(struct SpvBasicBlockBuilder* bb_builder, SpvId type, SpvId id) {
-    struct Phi* phi = malloc(sizeof(struct Phi));
-    phi->preds = new_list(struct PhiOp);
+SpvbPhi* spvb_add_phi(SpvbBasicBlockBuilder* bb_builder, SpvId type, SpvId id) {
+    SpvbPhi* phi = malloc(sizeof(SpvbPhi));
+    phi->preds = new_list(SpvbPhiSrc);
     phi->value = id;
     phi->type = type;
-    append_list(struct Phi*, bb_builder->phis, phi);
+    append_list(SpvbPhi*, bb_builder->phis, phi);
     return phi;
 }
 
-void spvb_add_phi_source(struct Phi* phi, SpvId source_block, SpvId value) {
-    struct PhiOp op = { .value = value, .basic_block = source_block };
-    append_list(struct Phi, phi->preds, op);
+void spvb_add_phi_source(SpvbPhi* phi, SpvId source_block, SpvId value) {
+    SpvbPhiSrc op = { .value = value, .basic_block = source_block };
+    append_list(SpvbPhi, phi->preds, op);
 }
 
-struct List* spbv_get_phis(struct SpvBasicBlockBuilder* bb_builder) {
+struct List* spbv_get_phis(SpvbBasicBlockBuilder* bb_builder) {
     return bb_builder->phis;
 }
 
-SpvId get_block_builder_id(struct SpvBasicBlockBuilder* basic_block_builder) {
+SpvId get_block_builder_id(SpvbBasicBlockBuilder* basic_block_builder) {
     return basic_block_builder->label;
 }
 
 #define SHADY_GENERATOR_MAGIC_NUMBER 35
 
-inline static void merge_sections(SpvSectionBuilder final_output, struct SpvFileBuilder* file_builder) {
+inline static void merge_sections(SpvbSectionBuilder final_output, SpvbFileBuilder* file_builder) {
     literal_int(SpvMagicNumber);
     uint32_t version_tag = 0;
     version_tag |= ((uint32_t) file_builder->version.major) << 16;
@@ -763,11 +763,11 @@ inline static void merge_sections(SpvSectionBuilder final_output, struct SpvFile
     copy_section(file_builder->fn_defs);
 }
 
-void spvb_build_function(struct SpvFileBuilder* file_builder);
+void spvb_build_function(SpvbFileBuilder* file_builder);
 
-struct SpvFileBuilder* spvb_begin() {
-    struct SpvFileBuilder* file_builder = (struct SpvFileBuilder*) malloc(sizeof(struct SpvFileBuilder));
-    *file_builder = (struct SpvFileBuilder) {
+SpvbFileBuilder* spvb_begin() {
+    SpvbFileBuilder* file_builder = (SpvbFileBuilder*) malloc(sizeof(SpvbFileBuilder));
+    *file_builder = (SpvbFileBuilder) {
         .bound = 1,
         .capabilities = new_list(uint32_t),
         .extensions = new_list(uint32_t),
@@ -785,16 +785,16 @@ struct SpvFileBuilder* spvb_begin() {
     return file_builder;
 }
 
-void spvb_set_version(struct SpvFileBuilder* file_builder, uint8_t major, uint8_t minor) {
+void spvb_set_version(SpvbFileBuilder* file_builder, uint8_t major, uint8_t minor) {
     file_builder->version.major = major;
     file_builder->version.minor = minor;
 }
 
-void spvb_set_addressing_model(struct SpvFileBuilder* file_builder, SpvAddressingModel model) {
+void spvb_set_addressing_model(SpvbFileBuilder* file_builder, SpvAddressingModel model) {
     file_builder->addressing_model = model;
 }
 
-void spvb_finish(struct SpvFileBuilder* file_builder, SpvSectionBuilder output) {
+void spvb_finish(SpvbFileBuilder* file_builder, SpvbSectionBuilder output) {
     merge_sections(output, file_builder);
 
     destroy_list(file_builder->fn_defs);
@@ -813,35 +813,35 @@ void spvb_finish(struct SpvFileBuilder* file_builder, SpvSectionBuilder output) 
     free(file_builder);
 }
 
-struct SpvFnBuilder* spvb_begin_fn(struct SpvFileBuilder* file_builder, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type) {
-    struct SpvFnBuilder* fnb = (struct SpvFnBuilder*) malloc(sizeof(struct SpvFnBuilder));
-    *fnb = (struct SpvFnBuilder) {
+SpvbFnBuilder* spvb_begin_fn(SpvbFileBuilder* file_builder, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type) {
+    SpvbFnBuilder* fnb = (SpvbFnBuilder*) malloc(sizeof(SpvbFnBuilder));
+    *fnb = (SpvbFnBuilder) {
         .function_id = fn_id,
         .fn_type = fn_type,
         .fn_ret_type = fn_ret_type,
         .file_builder = file_builder,
-        .bbs = new_list(struct SpvBasicBlockBuilder*),
+        .bbs = new_list(SpvbBasicBlockBuilder*),
         .variables = new_list(uint32_t),
         .header = new_list(uint32_t),
     };
     return fnb;
 }
 
-struct SpvBasicBlockBuilder* spvb_begin_bb(struct SpvFnBuilder* fn_builder, SpvId label) {
-    struct SpvBasicBlockBuilder* bbb = (struct SpvBasicBlockBuilder*) malloc(sizeof(struct SpvBasicBlockBuilder));
-    *bbb = (struct SpvBasicBlockBuilder) {
+SpvbBasicBlockBuilder* spvb_begin_bb(SpvbFnBuilder* fn_builder, SpvId label) {
+    SpvbBasicBlockBuilder* bbb = (SpvbBasicBlockBuilder*) malloc(sizeof(SpvbBasicBlockBuilder));
+    *bbb = (SpvbBasicBlockBuilder) {
         .fn_builder = fn_builder,
         .label = label,
-        .phis = new_list(struct Phi*),
+        .phis = new_list(SpvbPhi*),
         .section_data = new_list(uint32_t)
     };
     return bbb;
 }
 
-void spvb_add_bb(struct SpvFnBuilder* fn_builder, struct SpvBasicBlockBuilder* bb_builder) {
-    append_list(struct SpvBasicBlockBuilder*, fn_builder->bbs, bb_builder);
+void spvb_add_bb(SpvbFnBuilder* fn_builder, SpvbBasicBlockBuilder* bb_builder) {
+    append_list(SpvbBasicBlockBuilder*, fn_builder->bbs, bb_builder);
 }
 
-SpvId fn_ret_type_id(struct SpvFnBuilder* fnb){
+SpvId fn_ret_type_id(SpvbFnBuilder* fnb){
     return fnb->fn_ret_type;
 }
