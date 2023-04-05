@@ -133,6 +133,21 @@ static bool fill_device_features(DeviceCaps* caps) {
         append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.subgroup_size_control);
     }
 
+    if (caps->supported_extensions[ShadySupportsKHR_shader_float16_int8]) {
+        caps->features.float_16_int8.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR;
+        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.float_16_int8);
+    }
+
+    if (caps->supported_extensions[ShadySupportsKHR_8bit_storage]) {
+        caps->features.storage8.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR;
+        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.storage8);
+    }
+
+    if (caps->supported_extensions[ShadySupportsKHR_16bit_storage]) {
+        caps->features.storage16.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR;
+        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.storage16);
+    }
+
     vkGetPhysicalDeviceFeatures2(caps->physical_device, &caps->features.base);
 
     return true;

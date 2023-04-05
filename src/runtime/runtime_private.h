@@ -35,6 +35,9 @@ X(0, KHR_shader_subgroup_extended_types, empty_fns) \
 X(0, EXT_external_memory,                empty_fns) \
 X(1, EXT_external_memory_host,           external_memory_host_fns) \
 X(0, EXT_subgroup_size_control,          empty_fns) \
+X(0, KHR_shader_float16_int8,            empty_fns) \
+X(0, KHR_8bit_storage,                   empty_fns) \
+X(0, KHR_16bit_storage,                  empty_fns) \
 
 #define E(is_required, name, _) ShadySupports##name,
 typedef enum {
@@ -108,6 +111,9 @@ typedef struct {
         VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR subgroup_extended_types;
         VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address;
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroup_size_control;
+        VkPhysicalDeviceShaderFloat16Int8Features float_16_int8;
+        VkPhysicalDevice8BitStorageFeatures storage8;
+        VkPhysicalDevice16BitStorageFeatures storage16;
     } features;
     struct {
         VkPhysicalDeviceProperties2 base;
