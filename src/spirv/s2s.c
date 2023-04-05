@@ -807,6 +807,11 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->fun_arg_i++;
             break;
         }
+        case SpvOpCopyObject: {
+            parser->defs[result].type = Value;
+            parser->defs[result].node = get_def_ssa_value(parser, instruction[3]);
+            break;
+        }
         case SpvOpConvertFToU:
         case SpvOpConvertFToS:
         case SpvOpConvertUToF:
