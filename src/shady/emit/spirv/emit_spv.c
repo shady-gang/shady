@@ -502,8 +502,6 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
     mod = run_backend_specific_passes(config, mod);
     IrArena* arena = get_module_arena(mod);
 
-    struct List* words = new_list(uint32_t);
-
     FileBuilder file_builder = spvb_begin();
     spvb_set_version(file_builder, config->target_spirv_version.major, config->target_spirv_version.minor);
     spvb_set_addressing_model(file_builder, SpvAddressingModelPhysicalStorageBuffer64);
@@ -546,18 +544,12 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
     if (emitter.configuration->hacks.spv_shuffle_instead_of_broadcast_first)
         spvb_capability(file_builder, SpvCapabilityGroupNonUniformShuffle);
 
-    spvb_finish(file_builder, words);
+    *output_size = spvb_finish(file_builder, output);
 
     // cleanup the emitter
     destroy_dict(emitter.node_ids);
     destroy_dict(emitter.bb_builders);
-
-    *output_size = words->elements_count * sizeof(uint32_t);
-    *output = malloc(*output_size);
-    memcpy(*output, words->alloc, *output_size);
-
     destroy_dict(emitter.extended_instruction_sets);
-    destroy_list(words);
 
     if (new_mod)
         *new_mod = mod;
