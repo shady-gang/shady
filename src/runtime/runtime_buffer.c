@@ -2,6 +2,8 @@
 
 #include "log.h"
 
+#include <string.h>
+
 typedef enum {
     AllocDeviceLocal,
     AllocHostVisible
@@ -252,3 +254,42 @@ void free_staging_buffer(Device* device) {
     }
 }
 
+static Commands* submit_buffer_copy(Device* device, VkBuffer src, size_t src_offset, VkBuffer dst, size_t dst_offset, size_t size) {
+    Commands* commands = begin_commands(device);
+    if (!commands)
+        return NULL;
+
+    vkCmdCopyBuffer(commands->cmd_buf, src, dst, 1, (VkBufferCopy[]) { { .srcOffset = src_offset, .dstOffset = dst_offset, .size = size } });
+
+    if (!submit_commands(commands))
+        goto err_post_commands_create;
+
+    return commands;
+
+err_post_commands_create:
+    destroy_commands(commands);
+    return NULL;
+}
+
+bool copy_to_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size) {
+    Device* device = dst->device;
+
+    if (!resize_staging_buffer(device, size))
+        return false;
+
+    memcpy(device->staging_buffer.ptr, src, size);
+    return wait_completion(submit_buffer_copy(device, device->staging_buffer.buffer, 0, dst->buffer, buffer_offset, size));
+}
+
+bool copy_from_buffer(Buffer* src, size_t buffer_offset, void* dst, size_t size) {
+    Device* device = src->device;
+
+    if (!resize_staging_buffer(device, size))
+        return false;
+
+    if (!wait_completion(submit_buffer_copy(device, src->buffer, buffer_offset, device->staging_buffer.buffer, 0, size)))
+       return false;
+
+    memcpy(dst, device->staging_buffer.ptr, size);
+    return true;
+}

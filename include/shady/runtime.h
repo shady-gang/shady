@@ -37,7 +37,7 @@ void destroy_buffer(Buffer*);
 void* get_buffer_host_pointer(Buffer* buf);
 uint64_t get_buffer_device_pointer(Buffer* buf);
 
-bool copy_into_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size);
+bool copy_to_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size);
 bool copy_from_buffer(Buffer* src, size_t buffer_offset, void* dst, size_t size);
 
 #endif
