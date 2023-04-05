@@ -1,6 +1,7 @@
 #include "spirv_builder.h"
 
 #include "list.h"
+#include "growy.h"
 
 #include <string.h>
 #include <stddef.h>
@@ -8,7 +9,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-typedef struct List* SpvbSectionBuilder;
+typedef Growy* SpvbSectionBuilder;
 
 typedef struct {
     SpvId basic_block;
@@ -36,7 +37,7 @@ struct SpvbFnBuilder_ {
 
 struct SpvbBasicBlockBuilder_ {
     SpvbFnBuilder* fn_builder;
-    struct List* section_data;
+    SpvbSectionBuilder section_data;
 
     struct List* phis;
     SpvId label;
@@ -80,7 +81,7 @@ inline static int div_roundup(int a, int b) {
 }
 
 inline static void output_word(SpvbSectionBuilder data, uint32_t word) {
-    append_list(uint32_t, data, word);
+    growy_append_bytes(data, sizeof(uint32_t), (char*) &word);
 }
 
 #define op(opcode, size) op_(target_data, opcode, size)
@@ -121,8 +122,7 @@ inline static void literal_int_(SpvbSectionBuilder data, uint32_t i) {
 
 #define copy_section(section) copy_section_(target_data, section)
 inline static void copy_section_(SpvbSectionBuilder target, SpvbSectionBuilder source) {
-    for (size_t i = 0; i < source->elements_count; i++)
-        literal_int_(target, read_list(uint32_t, source)[i]);
+    growy_append_bytes(target, growy_size(source), growy_data(source));
 }
 
 // It is tiresome to pass the context over and over again. Let's not !
@@ -583,8 +583,8 @@ void spvb_declare_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_buil
     op(SpvOpFunctionEnd, 1);
 
     destroy_list(fn_builder->bbs);
-    destroy_list(fn_builder->header);
-    destroy_list(fn_builder->variables);
+    destroy_growy(fn_builder->header);
+    destroy_growy(fn_builder->variables);
     free(fn_builder);
 }
 
@@ -633,15 +633,15 @@ void spvb_define_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_build
         copy_section(bb->section_data);
 
         destroy_list(bb->phis);
-        destroy_list(bb->section_data);
+        destroy_growy(bb->section_data);
         free(bb);
     }
 
     op(SpvOpFunctionEnd, 1);
 
     destroy_list(fn_builder->bbs);
-    destroy_list(fn_builder->header);
-    destroy_list(fn_builder->variables);
+    destroy_growy(fn_builder->header);
+    destroy_growy(fn_builder->variables);
     free(fn_builder);
 }
 
@@ -708,7 +708,6 @@ SpvId spvb_extended_import(SpvbFileBuilder* file_builder, const char* name) {
 }*/
 
 #undef target_data
-#define target_data final_output
 
 SpvbPhi* spvb_add_phi(SpvbBasicBlockBuilder* bb_builder, SpvId type, SpvId id) {
     SpvbPhi* phi = malloc(sizeof(SpvbPhi));
@@ -734,7 +733,9 @@ SpvId get_block_builder_id(SpvbBasicBlockBuilder* basic_block_builder) {
 
 #define SHADY_GENERATOR_MAGIC_NUMBER 35
 
-inline static void merge_sections(SpvbSectionBuilder final_output, SpvbFileBuilder* file_builder) {
+#define target_data final_output
+
+inline static void merge_sections(SpvbFileBuilder* file_builder, SpvbSectionBuilder final_output) {
     literal_int(SpvMagicNumber);
     uint32_t version_tag = 0;
     version_tag |= ((uint32_t) file_builder->version.major) << 16;
@@ -769,18 +770,18 @@ SpvbFileBuilder* spvb_begin() {
     SpvbFileBuilder* file_builder = (SpvbFileBuilder*) malloc(sizeof(SpvbFileBuilder));
     *file_builder = (SpvbFileBuilder) {
         .bound = 1,
-        .capabilities = new_list(uint32_t),
-        .extensions = new_list(uint32_t),
-        .ext_inst_import = new_list(uint32_t),
-        .entry_points = new_list(uint32_t),
-        .execution_modes = new_list(uint32_t),
-        .debug_string_source = new_list(uint32_t),
-        .debug_names = new_list(uint32_t),
-        .debug_module_processed = new_list(uint32_t),
-        .annotations = new_list(uint32_t),
-        .types_constants = new_list(uint32_t),
-        .fn_decls = new_list(uint32_t),
-        .fn_defs = new_list(uint32_t),
+        .capabilities = new_growy(),
+        .extensions = new_growy(),
+        .ext_inst_import = new_growy(),
+        .entry_points = new_growy(),
+        .execution_modes = new_growy(),
+        .debug_string_source = new_growy(),
+        .debug_names = new_growy(),
+        .debug_module_processed = new_growy(),
+        .annotations = new_growy(),
+        .types_constants = new_growy(),
+        .fn_decls = new_growy(),
+        .fn_defs = new_growy(),
     };
     return file_builder;
 }
@@ -794,23 +795,29 @@ void spvb_set_addressing_model(SpvbFileBuilder* file_builder, SpvAddressingModel
     file_builder->addressing_model = model;
 }
 
-void spvb_finish(SpvbFileBuilder* file_builder, SpvbSectionBuilder output) {
-    merge_sections(output, file_builder);
+size_t spvb_finish(SpvbFileBuilder* file_builder, char** output) {
+    Growy* g = new_growy();
+    merge_sections(file_builder, g);
 
-    destroy_list(file_builder->fn_defs);
-    destroy_list(file_builder->fn_decls);
-    destroy_list(file_builder->types_constants);
-    destroy_list(file_builder->annotations);
-    destroy_list(file_builder->debug_module_processed);
-    destroy_list(file_builder->debug_names);
-    destroy_list(file_builder->debug_string_source);
-    destroy_list(file_builder->execution_modes);
-    destroy_list(file_builder->entry_points);
-    destroy_list(file_builder->ext_inst_import);
-    destroy_list(file_builder->extensions);
-    destroy_list(file_builder->capabilities);
+    destroy_growy(file_builder->fn_defs);
+    destroy_growy(file_builder->fn_decls);
+    destroy_growy(file_builder->types_constants);
+    destroy_growy(file_builder->annotations);
+    destroy_growy(file_builder->debug_module_processed);
+    destroy_growy(file_builder->debug_names);
+    destroy_growy(file_builder->debug_string_source);
+    destroy_growy(file_builder->execution_modes);
+    destroy_growy(file_builder->entry_points);
+    destroy_growy(file_builder->ext_inst_import);
+    destroy_growy(file_builder->extensions);
+    destroy_growy(file_builder->capabilities);
 
     free(file_builder);
+
+    size_t s = growy_size(g);
+    assert(s % 4 == 0);
+    *output = growy_deconstruct(g);
+    return s;
 }
 
 SpvbFnBuilder* spvb_begin_fn(SpvbFileBuilder* file_builder, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type) {
@@ -821,8 +828,8 @@ SpvbFnBuilder* spvb_begin_fn(SpvbFileBuilder* file_builder, SpvId fn_id, SpvId f
         .fn_ret_type = fn_ret_type,
         .file_builder = file_builder,
         .bbs = new_list(SpvbBasicBlockBuilder*),
-        .variables = new_list(uint32_t),
-        .header = new_list(uint32_t),
+        .variables = new_growy(),
+        .header = new_growy(),
     };
     return fnb;
 }
@@ -833,7 +840,7 @@ SpvbBasicBlockBuilder* spvb_begin_bb(SpvbFnBuilder* fn_builder, SpvId label) {
         .fn_builder = fn_builder,
         .label = label,
         .phis = new_list(SpvbPhi*),
-        .section_data = new_list(uint32_t)
+        .section_data = new_growy()
     };
     return bbb;
 }

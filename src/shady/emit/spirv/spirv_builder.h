@@ -6,8 +6,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct List* SpvbSectionBuilder;
-
 typedef struct SpvbBasicBlockBuilder_ SpvbBasicBlockBuilder;
 typedef struct SpvbFnBuilder_ SpvbFnBuilder;
 typedef struct SpvbFileBuilder_ SpvbFileBuilder;
@@ -16,7 +14,7 @@ typedef struct SpvbPhi_ SpvbPhi;
 typedef const char* String;
 
 SpvbFileBuilder* spvb_begin();
-void spvb_finish(SpvbFileBuilder*, SpvbSectionBuilder output);
+size_t spvb_finish(SpvbFileBuilder*, char** pwords);
 
 SpvId spvb_fresh_id(SpvbFileBuilder*);
 
