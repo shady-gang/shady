@@ -196,5 +196,59 @@ void* get_buffer_host_pointer(Buffer* buf) {
     return ((char*) buf->host_ptr) + buf->offset;
 }
 
-bool copy_into_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size);
-bool copy_from_buffer(Buffer* src, size_t buffer_offset, void* dst, size_t size);
+bool resize_staging_buffer(Device* device, size_t size) {
+    if (size <= device->staging_buffer.size)
+        return true;
+
+    VkBufferCreateInfo buffer_create_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = NULL,
+        .size = size,
+        .flags = 0,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+    };
+    CHECK_VK(vkCreateBuffer(device->device, &buffer_create_info, NULL, &device->staging_buffer.buffer), return false);
+
+    VkBufferMemoryRequirementsInfo2 buf_mem_requirements = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
+        .pNext = NULL,
+        .buffer = device->staging_buffer.buffer
+    };
+    VkMemoryRequirements2 mem_requirements = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+        .pNext = NULL,
+    };
+    vkGetBufferMemoryRequirements2(device->device, &buf_mem_requirements, &mem_requirements);
+
+    VkMemoryAllocateInfo allocation_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = NULL,
+        .allocationSize = mem_requirements.memoryRequirements.size,
+        .memoryTypeIndex = find_suitable_memory_type(device, mem_requirements.memoryRequirements.memoryTypeBits, AllocHostVisible)
+    };
+    CHECK_VK(vkAllocateMemory(device->device, &allocation_info, NULL, &device->staging_buffer.memory), goto err_post_buffer_create);
+
+    CHECK_VK(vkBindBufferMemory(device->device, device->staging_buffer.buffer, device->staging_buffer.memory, 0), goto err_post_mem_alloc);
+
+    CHECK_VK(vkMapMemory(device->device, device->staging_buffer.memory, 0, size, 0, &device->staging_buffer.ptr), goto err_post_mem_alloc);
+
+    device->staging_buffer.size = size;
+
+    return true;
+
+err_post_mem_alloc:
+    vkFreeMemory(device, device->staging_buffer.memory, NULL);
+err_post_buffer_create:
+    vkDestroyBuffer(device, device->staging_buffer.buffer, NULL);
+    return false;
+}
+
+void free_staging_buffer(Device* device) {
+    if (device->staging_buffer.size) {
+        vkDestroyBuffer(device->device, device->staging_buffer.buffer, NULL);
+        vkFreeMemory(device->device, device->staging_buffer.memory, NULL);
+    }
+}
+

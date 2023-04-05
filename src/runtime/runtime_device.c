@@ -311,6 +311,7 @@ void shutdown_device(Device* device) {
         destroy_specialized_program(sp);
     }
     destroy_dict(device->specialized_programs);
+    free_staging_buffer(device);
     vkDestroyCommandPool(device->device, device->cmd_pool, NULL);
     vkDestroyDevice(device->device, NULL);
     free(device);
