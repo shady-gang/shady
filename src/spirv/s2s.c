@@ -599,6 +599,15 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             });
             break;
         }
+        case SpvOpTypeVector: {
+            parser->defs[result].type = Typ;
+            const Type* element_t = get_def_type(parser, instruction[2]);
+            parser->defs[result].node = pack_type(parser->arena, (PackType) {
+                .element_type = element_t,
+                .width = instruction[3],
+            });
+            break;
+        }
         case SpvOpConstant: {
             parser->defs[result].type = Value;
             const Type* t = get_def_type(parser, result_t);
