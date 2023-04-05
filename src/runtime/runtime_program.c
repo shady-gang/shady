@@ -135,7 +135,7 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
 }
 
 static bool extract_layout(SpecProgram* program) {
-    if (program->entrypoint.args_size > program->device->caps.base_properties.limits.maxPushConstantsSize) {
+    if (program->entrypoint.args_size > program->device->caps.properties.base.properties.limits.maxPushConstantsSize) {
         error_print("EntryPointArgs exceed available push constant space\n");
         return false;
     }
@@ -179,7 +179,7 @@ static bool create_vk_pipeline(SpecProgram* program) {
         .requiredSubgroupSize = program->device->caps.subgroup_size.max
     };
     if (program->device->caps.supported_extensions[ShadySupportsEXTsubgroup_size_control] &&
-       (program->device->caps.extended_properties.subgroup_size_control.requiredSubgroupSizeStages & VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)) {
+       (program->device->caps.properties.subgroup_size_control.requiredSubgroupSizeStages & VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)) {
         append_pnext((VkBaseOutStructure*) &stage_create_info, &pipeline_shader_stage_required_subgroup_size_create_info_ext);
     }
 
@@ -214,7 +214,7 @@ static CompilerConfig get_compiler_config_for_device(Device* device) {
         warn_print("Hack: MoltenVK says they supported subgroup extended types, but it's a lie. 64-bit types are unaccounted for !\n");
         config.lower.emulate_subgroup_ops_extended_types = true;
     }
-    if (device->caps.base_properties.vendorID == 0x10de) {
+    if (device->caps.properties.base.properties.vendorID == 0x10de) {
         warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
         config.hacks.spv_shuffle_instead_of_broadcast_first = true;
     }

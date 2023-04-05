@@ -61,7 +61,7 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
     VkExternalMemoryBufferCreateInfo ext_memory_buffer_create_info;
     if (imported_ptr) {
         // align the bugger first ...
-        size_t desired_alignment = device->caps.extended_properties.external_memory_host.minImportedHostPointerAlignment;
+        size_t desired_alignment = device->caps.properties.external_memory_host.minImportedHostPointerAlignment;
         size_t unaligned_addr = (size_t) imported_ptr;
         size_t aligned_addr = (unaligned_addr / desired_alignment) * desired_alignment;
         assert(unaligned_addr >= aligned_addr);

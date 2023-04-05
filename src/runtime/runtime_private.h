@@ -94,8 +94,6 @@ typedef struct {
 
     bool supported_extensions[ShadySupportedDeviceExtensionsCount];
 
-    VkPhysicalDeviceProperties base_properties;
-
     uint32_t compute_queue_family;
 
     struct {
@@ -112,10 +110,11 @@ typedef struct {
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroup_size_control;
     } features;
     struct {
+        VkPhysicalDeviceProperties2 base;
         VkPhysicalDeviceSubgroupProperties subgroup;
         VkPhysicalDeviceSubgroupSizeControlPropertiesEXT subgroup_size_control;
         VkPhysicalDeviceExternalMemoryHostPropertiesEXT external_memory_host;
-    } extended_properties;
+    } properties;
     struct {
         bool is_moltenvk;
     } implementation;
