@@ -100,7 +100,11 @@ int main(int argc, char* argv[]) {
     if (!shader)
         shader = default_shader;
 
+    int32_t stuff[] = { 42, 42, 42, 42 };
     Buffer* buffer = allocate_buffer_device(device, sizeof(stuff));
+    copy_to_buffer(buffer, 0, stuff, sizeof(stuff));
+    copy_from_buffer(buffer, 0, stuff, sizeof(stuff));
+
     Program* program = load_program(runtime, shader);
 
     int32_t a0 = 42;
