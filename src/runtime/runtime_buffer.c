@@ -109,7 +109,7 @@ static Buffer* create_buffer_internal(Device* device, void* imported_ptr, size_t
             .sType = VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT,
             .pNext = NULL
         };
-        CHECK_VK(device->extensions.external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, (void*) imported_ptr, &host_ptr_properties), return NULL);
+        CHECK_VK(device->extensions.EXT_external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, (void*) imported_ptr, &host_ptr_properties), return NULL);
         uint32_t memory_type_index = find_suitable_memory_type(device, host_ptr_properties.memoryTypeBits, AllocHostVisible);
         VkPhysicalDeviceMemoryProperties device_memory_properties;
         vkGetPhysicalDeviceMemoryProperties(device->caps.physical_device, &device_memory_properties);

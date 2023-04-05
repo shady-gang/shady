@@ -48,7 +48,7 @@ static void figure_out_spirv_version(DeviceCaps* caps) {
     caps->spirv_version.major = 1;
     if (major == 1 && minor <= 1) {
         // Vulkan 1.1 offers no clear guarantees of supported SPIR-V versions. There is an ext for 1.4 ...
-        if (caps->supported_extensions[ShadySupportsKHRspirv_1_4]) {
+        if (caps->supported_extensions[ShadySupportsKHR_spirv_1_4]) {
             caps->spirv_version.minor = 4;
         } else {
             // but there is no way to signal support for spv at or below 1.3, so we just hope 1.3 works out.
@@ -89,19 +89,19 @@ static bool fill_device_properties(DeviceCaps* caps) {
     caps->properties.subgroup.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
     append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.subgroup);
 
-    if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
+    if (caps->supported_extensions[ShadySupportsEXT_subgroup_size_control] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
         caps->properties.subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES_EXT;
         append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.subgroup_size_control);
     }
 
-    if (caps->supported_extensions[ShadySupportsEXTexternal_memory_host]) {
+    if (caps->supported_extensions[ShadySupportsEXT_external_memory_host]) {
         caps->properties.external_memory_host.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT;
         append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.external_memory_host);
     }
 
     vkGetPhysicalDeviceProperties2(caps->physical_device, &caps->properties.base);
 
-    if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
+    if (caps->supported_extensions[ShadySupportsEXT_subgroup_size_control] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
         caps->subgroup_size.max = caps->properties.subgroup_size_control.maxSubgroupSize;
         caps->subgroup_size.min = caps->properties.subgroup_size_control.minSubgroupSize;
     } else {
@@ -118,17 +118,17 @@ static bool fill_device_features(DeviceCaps* caps) {
         .pNext = NULL,
     };
 
-    if (caps->supported_extensions[ShadySupportsKHRshader_subgroup_extended_types] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
+    if (caps->supported_extensions[ShadySupportsKHR_shader_subgroup_extended_types] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
         caps->features.subgroup_extended_types.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR;
         append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.subgroup_extended_types);
     }
 
-    if (caps->supported_extensions[ShadySupportsKHRbuffer_device_address] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
+    if (caps->supported_extensions[ShadySupportsKHR_buffer_device_address] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
         caps->features.buffer_device_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
         append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.buffer_device_address);
     }
 
-    if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control]) {
+    if (caps->supported_extensions[ShadySupportsEXT_subgroup_size_control]) {
         caps->features.subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT;
         append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.subgroup_size_control);
     }
@@ -192,8 +192,8 @@ bool cmp_programs(Device** pldevice, Device** prdevice) {
 
 static void obtain_device_pointers(Device* device) {
 #define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetDeviceProcAddr(device->device, #fn_name);
-#define X(_, prefix, name, fns) \
-        device->extensions.name.enabled = device->caps.supported_extensions[ShadySupports##prefix##name]; \
+#define X(_, name, fns) \
+        device->extensions.name.enabled = device->caps.supported_extensions[ShadySupports##name]; \
         if (device->extensions.name.enabled) { \
             SHADY_UNUSED struct S_##name* ext = &device->extensions.name; \
             fns(Y) \
