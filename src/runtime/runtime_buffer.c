@@ -2,8 +2,6 @@
 
 #include "log.h"
 
-#include <string.h>
-
 typedef enum {
     AllocDeviceLocal,
     AllocHostVisible
@@ -274,22 +272,35 @@ err_post_commands_create:
 bool copy_to_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size) {
     Device* device = dst->device;
 
-    if (!resize_staging_buffer(device, size))
+    Buffer* src_buf = import_buffer_host(device, src, size);
+    if (!src_buf)
         return false;
 
-    memcpy(device->staging_buffer.ptr, src, size);
-    return wait_completion(submit_buffer_copy(device, device->staging_buffer.buffer, 0, dst->buffer, buffer_offset, size));
+    if (!wait_completion(submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
+        goto err_post_buffer_import;
+
+    destroy_buffer(src_buf);
+    return true;
+
+err_post_buffer_import:
+    destroy_buffer(src_buf);
+    return false;
 }
 
 bool copy_from_buffer(Buffer* src, size_t buffer_offset, void* dst, size_t size) {
     Device* device = src->device;
 
-    if (!resize_staging_buffer(device, size))
+    Buffer* dst_buf = import_buffer_host(device, dst, size);
+    if (!dst_buf)
         return false;
 
-    if (!wait_completion(submit_buffer_copy(device, src->buffer, buffer_offset, device->staging_buffer.buffer, 0, size)))
-       return false;
+    if (!wait_completion(submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
+        goto err_post_buffer_import;
 
-    memcpy(dst, device->staging_buffer.ptr, size);
+    destroy_buffer(dst_buf);
     return true;
+
+err_post_buffer_import:
+    destroy_buffer(dst_buf);
+    return false;
 }
