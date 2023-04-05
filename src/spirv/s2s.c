@@ -864,6 +864,20 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }), 1, NULL, NULL));
             break;
         }
+        case SpvOpCompositeExtract: {
+            int num_indices = size - 4;
+            LARRAY(const Node*, ops, 1 + num_indices);
+            ops[0] = get_def_ssa_value(parser, instruction[3]);
+            for (size_t i = 0; i < num_indices; i++)
+                ops[1 + i] = int32_literal(parser->arena, instruction[4 + i]);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                    .op = extract_op,
+                    .type_arguments = empty(parser->arena),
+                    .operands = nodes(parser->arena, 1 + num_indices, ops)
+            }), 1, NULL, NULL));
+            break;
+        }
         case SpvOpLoad: {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             parser->defs[result].type = Value;
