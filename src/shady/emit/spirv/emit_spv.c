@@ -534,15 +534,10 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
         spvb_capability(file_builder, SpvCapabilityLinkage);
 
     spvb_capability(file_builder, SpvCapabilityShader);
-    spvb_capability(file_builder, SpvCapabilityInt64);
     spvb_capability(file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
     spvb_capability(file_builder, SpvCapabilityGroupNonUniform);
     spvb_capability(file_builder, SpvCapabilityGroupNonUniformBallot);
     spvb_capability(file_builder, SpvCapabilityGroupNonUniformArithmetic);
-
-    // TODO track capabilities properly
-    if (emitter.configuration->hacks.spv_shuffle_instead_of_broadcast_first)
-        spvb_capability(file_builder, SpvCapabilityGroupNonUniformShuffle);
 
     *output_size = spvb_finish(file_builder, output);
 

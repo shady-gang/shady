@@ -237,6 +237,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 SpvId local_id;
                 emit_primop(emitter, fn_builder, bb_builder, prim_op(emitter->arena, (PrimOp) { .op = subgroup_local_id_op }), 1, &local_id);
                 result = spvb_shuffle(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), scope_subgroup, emit_value(emitter, bb_builder, first(args)), local_id);
+                spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
             } else {
                 result = spvb_broadcast_first(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
             }

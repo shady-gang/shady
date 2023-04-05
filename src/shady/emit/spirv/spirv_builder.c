@@ -2,6 +2,7 @@
 
 #include "list.h"
 #include "growy.h"
+#include "dict.h"
 
 #include <string.h>
 #include <stddef.h>
@@ -89,6 +90,8 @@ struct SpvbFileBuilder_ {
     SpvbSectionBuilder types_constants;
     SpvbSectionBuilder fn_decls;
     SpvbSectionBuilder fn_defs;
+
+    struct Dict* capabilities_set;
 };
 
 static KeyHash hash_u32(uint32_t* p) { return hash_murmur(&p, sizeof(uint32_t)); }
@@ -110,6 +113,8 @@ SpvbFileBuilder* spvb_begin() {
         .types_constants = new_growy(),
         .fn_decls = new_growy(),
         .fn_defs = new_growy(),
+
+        .capabilities_set = new_set(SpvCapability, (HashFn) hash_u32, (CmpFn) compare_u32s),
     };
     return file_builder;
 }
@@ -187,8 +192,10 @@ void spvb_set_addressing_model(SpvbFileBuilder* file_builder, SpvAddressingModel
 
 #define target_data file_builder->capabilities
 void spvb_capability(SpvbFileBuilder* file_builder, SpvCapability cap) {
-    op(SpvOpCapability, 2);
-    literal_int(cap);
+    if (insert_set_get_result(SpvCapability, file_builder->capabilities_set, cap)) {
+        op(SpvOpCapability, 2);
+        literal_int(cap);
+    }
 }
 #undef target_data
 
