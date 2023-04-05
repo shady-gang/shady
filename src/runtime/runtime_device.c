@@ -65,7 +65,7 @@ static void figure_out_spirv_version(DeviceCaps* caps) {
     debug_print("Using SPIR-V version %d.%d, on Vulkan %d.%d\n", caps->spirv_version.major, caps->spirv_version.minor, major, minor);
 }
 
-static bool fill_basic_device_properties(DeviceCaps* caps) {
+static bool fill_device_properties(DeviceCaps* caps) {
     vkGetPhysicalDeviceProperties2(caps->physical_device, &caps->properties.base);
 
     if (caps->properties.base.properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0)) {
@@ -86,29 +86,20 @@ static bool fill_basic_device_properties(DeviceCaps* caps) {
     caps->implementation.is_moltenvk = true;
 #endif
 
-    return true;
-}
-
-static bool fill_extended_device_properties(DeviceCaps* caps) {
-    VkPhysicalDeviceProperties2 dp = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-        .pNext = NULL
-    };
-
     caps->properties.subgroup.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
-    append_pnext((VkBaseOutStructure*) &dp, &caps->properties.subgroup);
+    append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.subgroup);
 
     if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
         caps->properties.subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES_EXT;
-        append_pnext((VkBaseOutStructure*) &dp, &caps->properties.subgroup_size_control);
+        append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.subgroup_size_control);
     }
 
     if (caps->supported_extensions[ShadySupportsEXTexternal_memory_host]) {
         caps->properties.external_memory_host.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT;
-        append_pnext((VkBaseOutStructure*) &dp, &caps->properties.external_memory_host);
+        append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.external_memory_host);
     }
 
-    vkGetPhysicalDeviceProperties2(caps->physical_device, &dp);
+    vkGetPhysicalDeviceProperties2(caps->physical_device, &caps->properties.base);
 
     if (caps->supported_extensions[ShadySupportsEXTsubgroup_size_control] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
         caps->subgroup_size.max = caps->properties.subgroup_size_control.maxSubgroupSize;
@@ -178,9 +169,7 @@ static bool get_physical_device_caps(SHADY_UNUSED Runtime* runtime, VkPhysicalDe
     memset(out, 0, sizeof(DeviceCaps));
     out->physical_device = physical_device;
 
-    if (!fill_basic_device_properties(out))
-        goto fail;
-    if (!fill_extended_device_properties(out))
+    if (!fill_device_properties(out))
         goto fail;
     if (!fill_device_features(out))
         goto fail;
