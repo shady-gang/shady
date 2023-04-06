@@ -36,6 +36,7 @@ foreach(T IN LISTS BASIC_TESTS)
     add_test(NAME ${T} COMMAND slim ${PROJECT_SOURCE_DIR}/${T} -o test.spv)
 endforeach()
 
-if(NOT json-c_FOUND)
+find_program(CLANG_EXE "clang")
+if((NOT TARGET shady_clang) OR (NOT CLANG_EXE))
     set_tests_properties(${BASIC_C_TESTS} PROPERTIES DISABLED TRUE)
 endif()
