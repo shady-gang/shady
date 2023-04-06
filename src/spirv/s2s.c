@@ -73,6 +73,7 @@ typedef struct {
     IrArena* arena;
 
     String entry_point;
+    String entry_point_name;
     Node* fun;
     size_t fun_arg_i;
 
@@ -485,6 +486,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             break;
         case SpvOpEntryPoint: {
             parser->entry_point = "compute";
+            parser->entry_point_name = (const char*) &instruction[3];
             break;
         }
         case SpvOpExecutionMode:
@@ -698,13 +700,18 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 instruction_offset += s;
             }
 
+            String name = get_name(parser, result);
+            if (!name)
+                name = unique_name(parser->arena, "function");
+
             Nodes annotations = empty(parser->arena);
             if (parser->entry_point) {
                 annotations = append_nodes(parser->arena, annotations, annotation_value(parser->arena, (AnnotationValue) {
                     .name = "EntryPoint",
                     .value = string_lit(parser->arena, (StringLiteral) { "compute" })
                 }));
-                parser->entry_point = NULL;
+
+                name = parser->entry_point_name;
 
                 SpvDeco* wg_size_dec = find_decoration(parser, result, -2, SpvExecutionModeLocalSize);
                 assert(wg_size_dec && wg_size_dec->payload.literals.count == 3 && "we require kernels decorated with a workgroup size");
@@ -716,10 +723,11 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                         int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
                         int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
                 }));
+
+                parser->entry_point = NULL;
+                parser->entry_point_name = NULL;
             }
-            String name = get_name(parser, result);
-            if (!name)
-                name = unique_name(parser->arena, "function");
+
             Node* fun = function(parser->mod, nodes(parser->arena, params_count, params), name, annotations, t->payload.fn_type.return_types);
             parser->defs[result].type = Decl;
             parser->defs[result].node = fun;
