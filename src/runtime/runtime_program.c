@@ -191,9 +191,6 @@ static bool create_vk_pipeline(SpecProgram* program) {
         .pSpecializationInfo = NULL
     };
 
-    if (program->device->caps.features.subgroup_size_control.computeFullSubgroups)
-        stage_create_info.flags |= VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT_EXT;
-
     VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT pipeline_shader_stage_required_subgroup_size_create_info_ext = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT,
         .requiredSubgroupSize = program->device->caps.subgroup_size.max
