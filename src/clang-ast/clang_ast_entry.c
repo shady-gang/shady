@@ -19,15 +19,15 @@ void parse_c_file(const char* filename, Module* mod) {
         error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
 
     Growy* g = new_growy();
-    growy_append(g, "clang");
-    growy_append(g, " -Xclang -ast-dump=json");
-    growy_append(g, " -c");
+    growy_append_string_literal(g, "clang");
+    growy_append_string_literal(g, " -Xclang -ast-dump=json");
+    growy_append_string_literal(g, " -c");
 
-    growy_append(g, " \"");
+    growy_append_string_literal(g, " \"");
     growy_append_bytes(g, strlen(filename), filename);
-    growy_append(g, "\"");
+    growy_append_string_literal(g, "\"");
 
-    growy_append(g, "\0");
+    growy_append_string_literal(g, "\0");
     char* arg_string = growy_deconstruct(g);
 
     debug_print("built command: %s\n", arg_string);
@@ -43,7 +43,7 @@ void parse_c_file(const char* filename, Module* mod) {
             break;
         growy_append_bytes(json_bytes, read, buf);
     }
-    growy_append(json_bytes, "\0");
+    growy_append_string_literal(json_bytes, "\0");
     char* json_string = growy_deconstruct(json_bytes);
 
     debugv_print("json: %s\n", json_string);

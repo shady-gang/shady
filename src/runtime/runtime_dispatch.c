@@ -7,6 +7,42 @@
 #include <stdlib.h>
 #include <string.h>
 
+static void bind_program_resources(Command* cmd, SpecProgram* prog) {
+    LARRAY(VkWriteDescriptorSet, write_descriptor_sets, prog->resources.num_resources);
+    size_t write_descriptor_sets_count = 0;
+
+    LARRAY(VkDescriptorSet, bind_sets, prog->resources.num_resources);
+    size_t bind_sets_count = 0;
+
+    for (size_t i = 0; i < prog->resources.num_resources; i++) {
+        ProgramResourceInfo* resource = prog->resources.resources[i];
+        if (resource->is_bound) {
+            write_descriptor_sets[write_descriptor_sets_count++] = (VkWriteDescriptorSet) {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = NULL,
+                .descriptorType = as_to_descriptor_type(resource->as),
+                .descriptorCount = 1,
+                .dstSet = prog->sets[resource->set],
+                .dstBinding = resource->binding,
+                .pBufferInfo = &(VkDescriptorBufferInfo) {
+                    .buffer = resource->buffer->buffer,
+                    .offset = resource->buffer->offset,
+                    .range = resource->buffer->size - resource->buffer->offset,
+                }
+            };
+        }
+    }
+
+    vkUpdateDescriptorSets(prog->device->device, write_descriptor_sets_count, write_descriptor_sets, 0, NULL);
+
+    for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++) {
+        bind_sets[set] = prog->sets[set];
+    }
+    bind_sets_count = MAX_DESCRIPTOR_SETS;
+
+    vkCmdBindDescriptorSets(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->layout, 0, bind_sets_count, bind_sets, 0, NULL);
+}
+
 Command* launch_kernel(Program* program, Device* device, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
     assert(program && device);
 
@@ -31,6 +67,7 @@ Command* launch_kernel(Program* program, Device* device, String entry_point, int
     }
 
     vkCmdBindPipeline(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->pipeline);
+    bind_program_resources(cmd, prog);
     vkCmdDispatch(cmd->cmd_buf, dimx, dimy, dimz);
 
     if (!submit_command(cmd))
