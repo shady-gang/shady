@@ -80,6 +80,7 @@ RewritePass lower_entrypoint_args;
 
 RewritePass spirv_map_entrypoint_args;
 RewritePass specialize_for_entry_point;
+RewritePass spirv_lift_globals_ssbo;
 
 #define SHADY_PASSES_H
 
