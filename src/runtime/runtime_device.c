@@ -66,6 +66,7 @@ static void figure_out_spirv_version(DeviceCaps* caps) {
 }
 
 static bool fill_device_properties(DeviceCaps* caps) {
+    caps->properties.base.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
     vkGetPhysicalDeviceProperties2(caps->physical_device, &caps->properties.base);
 
     if (caps->properties.base.properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0)) {
