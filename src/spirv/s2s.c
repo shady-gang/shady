@@ -689,7 +689,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
 
             Nodes annotations = empty(parser->arena);
             if (parser->entry_point) {
-                append_nodes(parser->arena, annotations, annotation_value(parser->arena, (AnnotationValue) {
+                annotations = append_nodes(parser->arena, annotations, annotation_value(parser->arena, (AnnotationValue) {
                     .name = "EntryPoint",
                     .value = string_lit(parser->arena, (StringLiteral) { "compute" })
                 }));
