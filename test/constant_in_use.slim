@@ -1,0 +1,11 @@
+
+const i32 NINE = 9;
+const i32 TEN = 10;
+
+// trivial function that does nothing
+@EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1)
+fn main() {
+    val x = NINE;
+    debug_printf("Value: %d\n", x);
+    return ();
+}

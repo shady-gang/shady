@@ -101,7 +101,6 @@ NODES(NODE_CTOR)
 #undef NODE_CTOR
 
 const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
-    assert(is_instruction(instruction));
     Let payload = {
         .instruction = instruction,
         .tail = tail,
@@ -137,7 +136,6 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
 }
 
 const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail) {
-    assert(is_instruction(instruction));
     LetMut payload = {
         .instruction = instruction,
         .tail = tail,

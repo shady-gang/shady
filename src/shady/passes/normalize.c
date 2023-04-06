@@ -113,12 +113,26 @@ static const Node* force_to_be_type(Context* ctx, const Node* node) {
     }
 }
 
+static const Node* force_to_be_instruction(Context* ctx, const Node* node) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    if (node == NULL) return NULL;
+
+    if (is_instruction(node))
+        return rewrite_something(ctx, node);
+
+    const Node* val = force_to_be_value(ctx, node);
+
+    return quote(a, singleton(val));
+}
+
 static const Node* process_node(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
 
     const Node* already_done = search_processed(&ctx->rewriter, node);
     if (already_done)
         return already_done;
+
+    IrArena* a = ctx->rewriter.dst_arena;
 
     // add a builder to each abstraction...
     switch (node->tag) {
@@ -133,7 +147,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case BasicBlock_TAG: {
-            Node* new = basic_block(ctx->rewriter.dst_arena, (Node*) rewrite_node(&ctx->rewriter, node->payload.basic_block.fn), recreate_variables(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
+            Node* new = basic_block(a, (Node*) rewrite_node(&ctx->rewriter, node->payload.basic_block.fn), recreate_variables(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
             register_processed(&ctx->rewriter, node, new);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new->payload.basic_block.params);
             BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
@@ -170,6 +184,7 @@ void normalize(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     ctx.rewriter.config.write_map = false;
     ctx.rewriter.rewrite_field_type.rewrite_value = (RewriteFn) rewrite_value;
     ctx.rewriter.rewrite_field_type.rewrite_type = (RewriteFn) rewrite_type;
+    ctx.rewriter.rewrite_field_type.rewrite_instruction = (RewriteFn) force_to_be_instruction;
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
