@@ -493,6 +493,7 @@ static Module* run_backend_specific_passes(CompilerConfig* config, Module* mod) 
 
     RUN_PASS(lower_entrypoint_args)
     RUN_PASS(spirv_map_entrypoint_args)
+    RUN_PASS(spirv_lift_globals_ssbo)
 
     return mod;
 }

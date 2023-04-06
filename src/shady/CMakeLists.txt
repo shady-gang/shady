@@ -54,6 +54,7 @@ set(SHADY_SOURCES
 
     passes/lower_entrypoint_args.c
     passes/spirv_map_entrypoint_args.c
+    passes/spirv_lift_globals_ssbo.c
 )
 
 add_library(shady SHARED ${SHADY_SOURCES})
