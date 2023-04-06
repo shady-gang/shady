@@ -156,6 +156,16 @@ struct Device_ {
 
 bool probe_devices(Runtime* runtime);
 
+struct Buffer_ {
+    Device* device;
+    bool imported;
+    VkBuffer buffer;
+    VkDeviceMemory memory;
+    size_t offset;
+    size_t size;
+    void* host_ptr;
+};
+
 struct Command_ {
     Device* device;
     VkCommandBuffer cmd_buf;
@@ -183,30 +193,30 @@ typedef struct {
 
 typedef struct ProgramResourceInfo_ ProgramResourceInfo;
 struct ProgramResourceInfo_ {
-    enum { ProgResConstant, ProgResConstants } type;
-    AddressSpace as;
+    bool is_bound;
     int set, binding;
-    union {
-        struct {
-            size_t number;
-        } constants;
-        struct {
-            ProgramResourceInfo* parent;
-            size_t size;
-            char* default_data;
-        } constant;
-        struct {
-            size_t size;
-        } scratch;
-    };
+
+    ProgramResourceInfo* parent;
+    size_t offset;
+
+    bool host_owned;
+    char* host_ptr;
+
+    AddressSpace as;
+    size_t size;
+    Buffer* buffer;
+
+    char* default_data;
 };
 
 typedef struct {
     size_t num_resources;
-    ProgramResourceInfo* resources;
+    ProgramResourceInfo** resources;
 } ProgramResourcesInfo;
 
 #define MAX_DESCRIPTOR_SETS 8
+
+VkDescriptorType as_to_descriptor_type(AddressSpace as);
 
 struct SpecProgram_ {
     SpecProgramKey key;
@@ -223,8 +233,14 @@ struct SpecProgram_ {
 
     VkPipeline pipeline;
     VkPipelineLayout layout;
-    VkDescriptorSetLayout set_layouts[MAX_DESCRIPTOR_SETS];
     VkShaderModule shader_module;
+
+    VkDescriptorSetLayout set_layouts[MAX_DESCRIPTOR_SETS];
+    size_t required_descriptor_counts_count;
+    VkDescriptorPoolSize required_descriptor_counts[16];
+
+    VkDescriptorPool descriptor_pool;
+    VkDescriptorSet sets[MAX_DESCRIPTOR_SETS];
 };
 void unload_program(Program*);
 void shutdown_device(Device*);

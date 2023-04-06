@@ -33,15 +33,6 @@ static uint32_t find_suitable_memory_type(Device* device, uint32_t memory_type_b
     assert(false && "Unable to find a suitable memory type");
 }
 
-struct Buffer_ {
-    Device* device;
-    bool imported;
-    VkBuffer buffer;
-    VkDeviceMemory memory;
-    size_t offset;
-    void* host_ptr;
-};
-
 Buffer* allocate_buffer_device(Device* device, size_t size) {
     if (!device->caps.features.buffer_device_address.bufferDeviceAddress) {
         error_print("device buffers require VK_KHR_buffer_device_address\n");
@@ -53,6 +44,7 @@ Buffer* allocate_buffer_device(Device* device, size_t size) {
     buffer->imported = true;
     buffer->offset = 0;
     buffer->host_ptr = NULL;
+    buffer->size = size;
 
     VkBufferCreateInfo buffer_create_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -134,6 +126,7 @@ Buffer* import_buffer_host(Device* device, void* ptr, size_t size) {
     debug_print("aligned start %zu end %zu\n", aligned_addr, aligned_end);
 
     buffer->host_ptr = (void*) aligned_addr;
+    buffer->size = aligned_size;
 
     VkBufferCreateInfo buffer_create_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,

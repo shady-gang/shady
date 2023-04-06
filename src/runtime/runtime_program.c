@@ -12,6 +12,7 @@
 #include "../shady/transform/memory_layout.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 static Program* load_program_internal(Runtime* runtime, const char* program_src, const char* program_path) {
     Program* program = calloc(1, sizeof(Program));
@@ -152,16 +153,27 @@ static bool extract_parameters_info(SpecProgram* program) {
     return true;
 }
 
+static void register_required_descriptors(SpecProgram* program, VkDescriptorSetLayoutBinding* binding) {
+    assert(binding->descriptorCount > 0);
+    size_t i = 0;
+    while (program->required_descriptor_counts[i].descriptorCount > 0 && program->required_descriptor_counts[i].type != binding->descriptorType) { i++; }
+    if (program->required_descriptor_counts[i].descriptorCount == 0) {
+        program->required_descriptor_counts[i].type = binding->descriptorType;
+        program->required_descriptor_counts_count++;
+    }
+    program->required_descriptor_counts[i].descriptorCount += binding->descriptorCount;
+}
+
 static void add_binding(VkDescriptorSetLayoutCreateInfo* layout_create_info, Growy** bindings_lists, int set, VkDescriptorSetLayoutBinding binding) {
     if (bindings_lists[set] == NULL) {
         bindings_lists[set] = new_growy();
         layout_create_info[set].pBindings = (const VkDescriptorSetLayoutBinding*) growy_data(bindings_lists[set]);
     }
     layout_create_info[set].bindingCount += 1;
-    growy_append(bindings_lists[set], binding);
+    growy_append_object(bindings_lists[set], binding);
 }
 
-static VkDescriptorType as_to_descriptor_type(AddressSpace as) {
+VkDescriptorType as_to_descriptor_type(AddressSpace as) {
     switch (as) {
         case AsGLUniformBufferObject: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         case AsGLShaderStorageBufferObject: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -172,6 +184,7 @@ static VkDescriptorType as_to_descriptor_type(AddressSpace as) {
 static bool extract_resources_layout(SpecProgram* program, VkDescriptorSetLayout layouts[]) {
     VkDescriptorSetLayoutCreateInfo layout_create_infos[MAX_DESCRIPTOR_SETS] = { 0 };
     Growy* bindings_lists[MAX_DESCRIPTOR_SETS] = { 0 };
+    Growy* resources = new_growy();
 
     Nodes decls = get_module_declarations(program->specialized_module);
     for (size_t i = 0; i < decls.count; i++) {
@@ -191,28 +204,33 @@ static bool extract_resources_layout(SpecProgram* program, VkDescriptorSetLayout
 
             ProgramResourceInfo* res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
             *res_info = (ProgramResourceInfo) {
-                .type = ProgResConstants,
+                .is_bound = true,
                 .as = as,
                 .set = set,
-                .binding = binding
+                .binding = binding,
+                .host_owned = true,
             };
+            growy_append_object(resources, res_info);
+            program->resources.num_resources++;
 
             const Type* struct_t = decl->payload.global_variable.type;
             assert(struct_t->tag == RecordType_TAG && struct_t->payload.record_type.special == DecorateBlock);
 
-            res_info->constants.number = struct_t->payload.record_type.members.count;
-            for (size_t j = 0; j < res_info->constants.number; j++) {
+            for (size_t j = 0; j < struct_t->payload.record_type.members.count; j++) {
                 const Type* member_t = struct_t->payload.record_type.members.nodes[j];
                 TypeMemLayout layout = get_mem_layout(program->specialized_module->arena, member_t);
 
                 ProgramResourceInfo* constant_res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
                 *constant_res_info = (ProgramResourceInfo) {
-                    .type = ProgResConstant,
-                    .constant = {
-                        .parent = res_info,
-                    },
+                    .parent = res_info,
+                    .as = as,
                 };
-                constant_res_info->constant.size = layout.size_in_bytes;
+                growy_append_object(resources, constant_res_info);
+                program->resources.num_resources++;
+
+                constant_res_info->size = layout.size_in_bytes;
+                constant_res_info->offset = res_info->size;
+                res_info->size += sizeof(void*);
 
                 // TODO initial value
             }
@@ -220,10 +238,11 @@ static bool extract_resources_layout(SpecProgram* program, VkDescriptorSetLayout
             VkDescriptorSetLayoutBinding vk_binding = {
                 .binding = binding,
                 .descriptorType = as_to_descriptor_type(as),
-                .descriptorCount = res_info->constants.number,
+                .descriptorCount = 1,
                 .stageFlags = VK_SHADER_STAGE_ALL,
                 .pImmutableSamplers = NULL,
             };
+            register_required_descriptors(program, &vk_binding);
             add_binding(layout_create_infos, bindings_lists, set, vk_binding);
         }
     }
@@ -238,6 +257,8 @@ static bool extract_resources_layout(SpecProgram* program, VkDescriptorSetLayout
             destroy_growy(bindings_lists[set]);
         }
     }
+
+    program->resources.resources = (ProgramResourceInfo**) growy_deconstruct(resources);
 
     return true;
 }
@@ -353,6 +374,56 @@ static bool compile_specialized_program(SpecProgram* spec) {
     return true;
 }
 
+static bool allocate_sets(SpecProgram* program) {
+    VkDescriptorPoolCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = MAX_DESCRIPTOR_SETS,
+        .pNext = NULL,
+        .flags = 0,
+        .poolSizeCount = program->required_descriptor_counts_count,
+        .pPoolSizes = program->required_descriptor_counts
+    };
+    CHECK_VK(vkCreateDescriptorPool(program->device->device, &create_info, NULL, &program->descriptor_pool), return false);
+
+    VkDescriptorSetAllocateInfo allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = NULL,
+        .pSetLayouts = program->set_layouts,
+        .descriptorPool = program->descriptor_pool,
+        .descriptorSetCount = MAX_DESCRIPTOR_SETS,
+    };
+    CHECK_VK(vkAllocateDescriptorSets(program->device->device, &allocate_info, program->sets), return false);
+
+    return true;
+}
+
+static bool prepare_resources(SpecProgram* program) {
+    for (size_t i = 0; i < program->resources.num_resources; i++) {
+        ProgramResourceInfo* resource = program->resources.resources[i];
+
+        if (resource->host_owned) {
+#if 1
+            resource->host_ptr = aligned_alloc(program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment, resource->size);
+#else
+            resource->host_ptr = malloc(resource->size)
+#endif
+            resource->buffer = import_buffer_host(program->device, resource->host_ptr, resource->size);
+        } else {
+            resource->buffer = allocate_buffer_device(program->device, resource->size);
+        }
+
+        // TODO: initial data!
+
+        if (resource->parent) {
+            assert(resource->parent->host_ptr);
+            char* parent = resource->parent->host_ptr;
+            *((uint64_t*) (parent + resource->offset)) = get_buffer_device_pointer(resource->buffer);
+        }
+    }
+
+    return true;
+}
+
 static SpecProgram* create_specialized_program(SpecProgramKey key, Device* device) {
     SpecProgram* spec_program = calloc(1, sizeof(SpecProgram));
     if (!spec_program)
@@ -366,6 +437,8 @@ static SpecProgram* create_specialized_program(SpecProgramKey key, Device* devic
     CHECK(compile_specialized_program(spec_program), return NULL);
     CHECK(extract_layout(spec_program),              return NULL);
     CHECK(create_vk_pipeline(spec_program),          return NULL);
+    CHECK(allocate_sets(spec_program),               return NULL);
+    CHECK(prepare_resources(spec_program),           return NULL);
     return spec_program;
 }
 
@@ -391,5 +464,6 @@ void destroy_specialized_program(SpecProgram* spec) {
     if (get_module_arena(spec->specialized_module) != get_module_arena(spec->key.base->module))
         destroy_ir_arena(get_module_arena(spec->specialized_module));
     destroy_arena(spec->arena);
+    free(spec->resources.resources);
     free(spec);
 }
