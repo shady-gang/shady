@@ -5,7 +5,6 @@
 #include "list.h"
 #include "dict.h"
 
-#include "../transform/memory_layout.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include "../rewrite.h"
@@ -50,8 +49,8 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push, boo
 
     BodyBuilder* bb = begin_body(arena);
 
-    TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
-    const Node* element_size = uint32_literal(arena, layout.size_in_bytes);
+    const Node* element_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(arena));
+    element_size = gen_conversion(bb, uint32_type(arena), element_size);
 
     // TODO somehow annotate the uniform guys as uniform
     const Node* stack_pointer = uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer;
@@ -145,8 +144,6 @@ static const Node* process_let(Context* ctx, const Node* node) {
             case pop_stack_uniform_op: {
                 BodyBuilder* bb = begin_body(arena);
                 const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
-                TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
-                const Node* element_size = uint32_literal(arena, layout.size_in_bytes);
 
                 bool push = oprim_op->op == push_stack_op || oprim_op->op == push_stack_uniform_op;
                 bool uniform = oprim_op->op == push_stack_uniform_op || oprim_op->op == pop_stack_uniform_op;

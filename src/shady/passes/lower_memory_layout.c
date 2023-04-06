@@ -5,11 +5,11 @@
 #include "../type.h"
 
 #include "log.h"
+#include "portability.h"
 #include <assert.h>
 
 typedef struct {
     Rewriter rewriter;
-    CompilerConfig* config;
 } Context;
 
 static const Node* process(Context* ctx, const Node* old) {
@@ -23,12 +23,12 @@ static const Node* process(Context* ctx, const Node* old) {
             switch (old->payload.prim_op.op) {
                 case size_of_op: {
                     const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
-                    TypeMemLayout layout = get_mem_layout(ctx->config, a, t);
+                    TypeMemLayout layout = get_mem_layout(a, t);
                     return quote(a, singleton(int_literal(a, (IntLiteral) {.width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = layout.size_in_bytes})));
                 }
                 case align_of_op: {
                     const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
-                    TypeMemLayout layout = get_mem_layout(ctx->config, a, t);
+                    TypeMemLayout layout = get_mem_layout(a, t);
                     return quote(a, singleton(int_literal(a, (IntLiteral) {.width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = layout.alignment_in_bytes})));
                 }
                 case offset_of_op: {
@@ -37,7 +37,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     const IntLiteral* literal = resolve_to_literal(n);
                     assert(literal);
                     t = get_maybe_nominal_type_body(t);
-                    uint64_t offset_in_bytes = (uint64_t) get_record_field_offset_in_bytes(ctx->config, a, t, literal->value.u64);
+                    uint64_t offset_in_bytes = (uint64_t) get_record_field_offset_in_bytes(a, t, literal->value.u64);
                     const Node* offset_literal = int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = offset_in_bytes });
                     return quote(a, singleton(offset_literal));
                 }
@@ -51,7 +51,7 @@ static const Node* process(Context* ctx, const Node* old) {
     return recreate_node_identity(&ctx->rewriter, old);
 }
 
-void lower_memory_layout(CompilerConfig* config, Module* src, Module* dst) {
+void lower_memory_layout(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process)
     };

@@ -283,7 +283,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             uint32_t operands[2];
             if (ptr_type->payload.ptr_type.address_space == AsGlobalPhysical) {
                 // TODO only do this in VK mode ?
-                TypeMemLayout layout = get_mem_layout(emitter->configuration, emitter->arena, elem_type);
+                TypeMemLayout layout = get_mem_layout(emitter->arena, elem_type);
                 operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
                 operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
                 operands_count += 2;
@@ -305,7 +305,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             uint32_t operands[2];
             if (ptr_type->payload.ptr_type.address_space == AsGlobalPhysical) {
                 // TODO only do this in VK mode ?
-                TypeMemLayout layout = get_mem_layout(emitter->configuration, emitter->arena, elem_type);
+                TypeMemLayout layout = get_mem_layout(emitter->arena, elem_type);
                 operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
                 operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
                 operands_count += 2;

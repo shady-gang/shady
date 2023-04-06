@@ -129,7 +129,7 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
     IrArena* a = get_module_arena(mod);
 
     LARRAY(FieldLayout, fields, num_args);
-    get_record_layout(config, a, args_struct_type, fields);
+    get_record_layout(a, args_struct_type, fields);
 
     size_t* offset_size_buffer = calloc(1, 2 * num_args * sizeof(size_t));
     if (!offset_size_buffer) {
