@@ -4,6 +4,7 @@
 #include "portability.h"
 #include "dict.h"
 #include "list.h"
+#include "growy.h"
 
 #include "../common/arena.h"
 #include "../common/util.h"
@@ -151,16 +152,107 @@ static bool extract_parameters_info(SpecProgram* program) {
     return true;
 }
 
+static void add_binding(VkDescriptorSetLayoutCreateInfo* layout_create_info, Growy** bindings_lists, int set, VkDescriptorSetLayoutBinding binding) {
+    if (bindings_lists[set] == NULL) {
+        bindings_lists[set] = new_growy();
+        layout_create_info[set].pBindings = (const VkDescriptorSetLayoutBinding*) growy_data(bindings_lists[set]);
+    }
+    layout_create_info[set].bindingCount += 1;
+    growy_append(bindings_lists[set], binding);
+}
+
+static VkDescriptorType as_to_descriptor_type(AddressSpace as) {
+    switch (as) {
+        case AsGLUniformBufferObject: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        case AsGLShaderStorageBufferObject: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        default: error("No mapping to a descriptor type");
+    }
+}
+
+static bool extract_resources_layout(SpecProgram* program, VkDescriptorSetLayout layouts[]) {
+    VkDescriptorSetLayoutCreateInfo layout_create_infos[MAX_DESCRIPTOR_SETS] = { 0 };
+    Growy* bindings_lists[MAX_DESCRIPTOR_SETS] = { 0 };
+
+    Nodes decls = get_module_declarations(program->specialized_module);
+    for (size_t i = 0; i < decls.count; i++) {
+        const Node* decl = decls.nodes[i];
+        if (decl->tag != GlobalVariable_TAG) continue;
+
+        if (lookup_annotation(decl, "Constants")) {
+            AddressSpace as = decl->payload.global_variable.address_space;
+            switch (as) {
+                case AsGLShaderStorageBufferObject:
+                case AsGLUniformBufferObject: break;
+                default: continue;
+            }
+
+            int set = get_int_literal_value(get_annotation_value(lookup_annotation(decl, "DescriptorSet")), false);
+            int binding = get_int_literal_value(get_annotation_value(lookup_annotation(decl, "DescriptorBinding")), false);
+
+            ProgramResourceInfo* res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
+            *res_info = (ProgramResourceInfo) {
+                .type = ProgResConstants,
+                .as = as,
+                .set = set,
+                .binding = binding
+            };
+
+            const Type* struct_t = decl->payload.global_variable.type;
+            assert(struct_t->tag == RecordType_TAG && struct_t->payload.record_type.special == DecorateBlock);
+
+            res_info->constants.number = struct_t->payload.record_type.members.count;
+            for (size_t j = 0; j < res_info->constants.number; j++) {
+                const Type* member_t = struct_t->payload.record_type.members.nodes[j];
+                TypeMemLayout layout = get_mem_layout(program->specialized_module->arena, member_t);
+
+                ProgramResourceInfo* constant_res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
+                *constant_res_info = (ProgramResourceInfo) {
+                    .type = ProgResConstant,
+                    .constant = {
+                        .parent = res_info,
+                    },
+                };
+                constant_res_info->constant.size = layout.size_in_bytes;
+
+                // TODO initial value
+            }
+
+            VkDescriptorSetLayoutBinding vk_binding = {
+                .binding = binding,
+                .descriptorType = as_to_descriptor_type(as),
+                .descriptorCount = res_info->constants.number,
+                .stageFlags = VK_SHADER_STAGE_ALL,
+                .pImmutableSamplers = NULL,
+            };
+            add_binding(layout_create_infos, bindings_lists, set, vk_binding);
+        }
+    }
+
+    for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++) {
+        layouts[set] = NULL;
+        layout_create_infos[set].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layout_create_infos[set].flags = 0;
+        layout_create_infos[set].pNext = NULL;
+        vkCreateDescriptorSetLayout(program->device->device, &layout_create_infos[set], NULL, &layouts[set]);
+        if (bindings_lists[set] != NULL) {
+            destroy_growy(bindings_lists[set]);
+        }
+    }
+
+    return true;
+}
+
 static bool extract_layout(SpecProgram* program) {
-    extract_parameters_info(program);
+    CHECK(extract_parameters_info(program), return false);
     if (program->parameters.args_size > program->device->caps.properties.base.properties.limits.maxPushConstantsSize) {
         error_print("EntryPointArgs exceed available push constant space\n");
         return false;
     }
-
     VkPushConstantRange push_constant_ranges[1] = {
         { .offset = 0, .size = program->parameters.args_size, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT}
     };
+
+    CHECK(extract_resources_layout(program, program->set_layouts), return false);
 
     CHECK_VK(vkCreatePipelineLayout(program->device->device, &(VkPipelineLayoutCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -168,7 +260,8 @@ static bool extract_layout(SpecProgram* program) {
         .flags = 0,
         .pushConstantRangeCount = program->parameters.args_size ? sizeof(push_constant_ranges) / sizeof(push_constant_ranges[0]) : 0,
         .pPushConstantRanges = push_constant_ranges,
-        .setLayoutCount = 0
+        .setLayoutCount = MAX_DESCRIPTOR_SETS,
+        .pSetLayouts = program->set_layouts,
     }, NULL, &program->layout), return false);
     return true;
 }
@@ -268,6 +361,7 @@ static SpecProgram* create_specialized_program(SpecProgramKey key, Device* devic
     spec_program->key = key;
     spec_program->device = device;
     spec_program->specialized_module = key.base->module;
+    spec_program->arena = new_arena();
 
     CHECK(compile_specialized_program(spec_program), return NULL);
     CHECK(extract_layout(spec_program),              return NULL);
@@ -288,11 +382,14 @@ SpecProgram* get_specialized_program(Program* program, String entry_point, Devic
 
 void destroy_specialized_program(SpecProgram* spec) {
     vkDestroyPipeline(spec->device->device, spec->pipeline, NULL);
+    for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++)
+        vkDestroyDescriptorSetLayout(spec->device->device, spec->set_layouts[set], NULL);
     vkDestroyPipelineLayout(spec->device->device, spec->layout, NULL);
     vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
     free(spec->parameters.arg_offset);
     free(spec->spirv_bytes);
     if (get_module_arena(spec->specialized_module) != get_module_arena(spec->key.base->module))
         destroy_ir_arena(get_module_arena(spec->specialized_module));
+    destroy_arena(spec->arena);
     free(spec);
 }

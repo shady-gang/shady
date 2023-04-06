@@ -5,6 +5,7 @@
 #include "shady/ir.h"
 
 #include "portability.h"
+#include "arena.h"
 
 #include "vulkan/vulkan.h"
 
@@ -180,9 +181,37 @@ typedef struct {
     size_t args_size;
 } ProgramParamsInfo;
 
+typedef struct ProgramResourceInfo_ ProgramResourceInfo;
+struct ProgramResourceInfo_ {
+    enum { ProgResConstant, ProgResConstants } type;
+    AddressSpace as;
+    int set, binding;
+    union {
+        struct {
+            size_t number;
+        } constants;
+        struct {
+            ProgramResourceInfo* parent;
+            size_t size;
+            char* default_data;
+        } constant;
+        struct {
+            size_t size;
+        } scratch;
+    };
+};
+
+typedef struct {
+    size_t num_resources;
+    ProgramResourceInfo* resources;
+} ProgramResourcesInfo;
+
+#define MAX_DESCRIPTOR_SETS 8
+
 struct SpecProgram_ {
     SpecProgramKey key;
     Device* device;
+    Arena* arena;
 
     Module* specialized_module;
 
@@ -190,9 +219,11 @@ struct SpecProgram_ {
     char* spirv_bytes;
 
     ProgramParamsInfo parameters;
+    ProgramResourcesInfo resources;
 
     VkPipeline pipeline;
     VkPipelineLayout layout;
+    VkDescriptorSetLayout set_layouts[MAX_DESCRIPTOR_SETS];
     VkShaderModule shader_module;
 };
 void unload_program(Program*);
