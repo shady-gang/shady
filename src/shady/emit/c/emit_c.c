@@ -434,8 +434,10 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     break;
                 case AsProgramCode:
                     break;
-                case AsFunctionLogical:
-                case AsPushConstant: error("These only make sense for SPIR-V !")
+                case AsGLUniformBufferObject:
+                case AsGLShaderStorageBufferObject:
+                case AsSPVFunctionLogical:
+                case AsVKPushConstant: error("These only make sense for SPIR-V !")
                 case NumAddressSpaces: error("");
             }
 

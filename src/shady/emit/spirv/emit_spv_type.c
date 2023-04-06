@@ -17,23 +17,25 @@ bool compare_node(Node**, Node**);
 
 SpvStorageClass emit_addr_space(AddressSpace address_space) {
     switch(address_space) {
-        case AsGlobalLogical:   return SpvStorageClassStorageBuffer;
-        case AsSharedLogical:   return SpvStorageClassWorkgroup;
-        case AsPrivateLogical:  return SpvStorageClassPrivate;
-        case AsFunctionLogical: return SpvStorageClassFunction;
+        case AsGlobalLogical:                return SpvStorageClassStorageBuffer;
+        case AsSharedLogical:                return SpvStorageClassWorkgroup;
+        case AsPrivateLogical:               return SpvStorageClassPrivate;
+        case AsSPVFunctionLogical:           return SpvStorageClassFunction;
+        case AsGlobalPhysical:               return SpvStorageClassPhysicalStorageBuffer;
+        case AsInput:                        return SpvStorageClassInput;
+        case AsOutput:                       return SpvStorageClassOutput;
+        case AsVKPushConstant:               return SpvStorageClassPushConstant;
+        case AsGLShaderStorageBufferObject:  return SpvStorageClassStorageBuffer;
+        case AsGLUniformBufferObject:        return SpvStorageClassUniform;
 
-        case AsGeneric: error("not implemented");
-        case AsGlobalPhysical: return SpvStorageClassPhysicalStorageBuffer;
+        case AsExternal:
+        case AsGeneric:
+        case AsSubgroupLogical:
+        case AsProgramCode:
         case AsSharedPhysical:
         case AsSubgroupPhysical:
         case AsPrivatePhysical: error("This should have been lowered before");
-
-        case AsInput: return SpvStorageClassInput;
-        case AsOutput: return SpvStorageClassOutput;
-
-        case AsExternal: error("not implemented");
-        case AsPushConstant: return SpvStorageClassPushConstant;
-        default: SHADY_NOT_IMPLEM;
+        case NumAddressSpaces: error("These are not usable address spaces")
     }
 }
 

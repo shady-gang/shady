@@ -178,9 +178,12 @@ typedef enum AddressSpace_ {
     // SPIR-V specific address spaces
 
     /// Maps to Vulkan push constants
-    AsPushConstant,
-    /// Weird nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)
-    AsFunctionLogical,
+    AsVKPushConstant,
+    /// Weird SPIR-V nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)
+    AsSPVFunctionLogical,
+
+    AsGLShaderStorageBufferObject,
+    AsGLUniformBufferObject,
 
     NumAddressSpaces,
 } AddressSpace;
