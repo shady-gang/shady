@@ -124,13 +124,15 @@ Token next_token(Tokenizer* tokenizer) {
                 token_size++;
             } else break;
         }
-    } else if (is_digit(slice[0])) {
+    } else if (is_digit(slice[0]) || (slice[0] == '-') && in_bounds(tokenizer, token_size + 1) && is_digit(slice[1])) {
         token.tag = dec_lit_tok;
 
         if (slice[0] == '0' && slice[1] == 'x') {
             token.tag = hex_lit_tok;
             token_size += 2;
             // slice = &slice[2];
+        } else if (slice[0] == '-') {
+            token_size++;
         }
 
         while (in_bounds(tokenizer, token_size) && is_digit(slice[token_size])) {
@@ -140,6 +142,14 @@ Token next_token(Tokenizer* tokenizer) {
             token_size++;
         while (in_bounds(tokenizer, token_size) && is_digit(slice[token_size])) {
             token_size++;
+        }
+        if (slice[token_size] == 'e') {
+            token_size++;
+            if (slice[token_size] == '-' || slice[token_size] == '+')
+                token_size++;
+            while (in_bounds(tokenizer, token_size) && is_digit(slice[token_size])) {
+                token_size++;
+            }
         }
         if (slice[token_size] == 'f')
             token_size++;
