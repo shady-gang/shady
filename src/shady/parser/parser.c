@@ -106,25 +106,54 @@ static const Type* accept_numerical_type(ctxparams) {
     return NULL;
 }
 
-static const Node* accept_value(ctxparams) {
+static const Node* accept_numerical_literal(ctxparams) {
     const Type* num_type = accept_numerical_type(ctx);
+
+    bool negate = accept_token(ctx, minus_tok);
+
     Token tok = curr_token(tokenizer);
     size_t size = tok.end - tok.start;
-    if (num_type) {
-        switch (tok.tag) {
-            case hex_lit_tok:
-            case dec_lit_tok: {
-                next_token(tokenizer);
-                return constrained(arena, (ConstrainedValue) {
-                    .type = num_type,
-                    .value = untyped_number(arena, (UntypedNumber) {
-                            .plaintext = string_sized(arena, (int) size, &contents[tok.start])
-                    })
-                });
-            }
-            default: error("primtype literal")
+    String str = string_sized(arena, (int) size, &contents[tok.start]);
+
+    switch (tok.tag) {
+        case hex_lit_tok:
+            if (negate)
+                error("hexadecimal literals can't start with '-'");
+        case dec_lit_tok: {
+            next_token(tokenizer);
+            break;
+        }
+        default: {
+            if (negate || num_type)
+                error("expected numerical literal");
+            return NULL;
         }
     }
+
+    if (negate) // add back the - in front
+        str = format_string(arena, "-%s", str);
+
+    const Node* n = untyped_number(arena, (UntypedNumber) {
+            .plaintext = str
+    });
+
+    if (num_type)
+        n = constrained(arena, (ConstrainedValue) {
+            .type = num_type,
+            .value = n
+        });
+
+    return n;
+}
+
+static const Node* accept_value(ctxparams) {
+    Token tok = curr_token(tokenizer);
+    size_t size = tok.end - tok.start;
+
+    const Node* number = accept_numerical_literal(ctx);
+    if (number)
+        return number;
+
     switch (tok.tag) {
         case identifier_tok: {
             const char* id = string_sized(arena, (int) size, &contents[tok.start]);
