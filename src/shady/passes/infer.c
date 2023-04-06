@@ -619,9 +619,9 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             Nodes annotated_types = get_variables_types(arena, otail->payload.anon_lam.params);
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(arena, annotated_types));
             Nodes inferred_yield_types = unwrap_multiple_yield_types(arena, inferred_instruction->type);
-            // for (size_t i = 0; i < inferred_yield_types.count; i++) {
-            //     assert(is_value_type(inferred_yield_types.nodes[i]));
-            // }
+            for (size_t i = 0; i < inferred_yield_types.count; i++) {
+                assert(is_value_type(inferred_yield_types.nodes[i]));
+            }
             const Node* inferred_tail = infer(ctx, otail, wrap_multiple_yield_types(arena, inferred_yield_types));
             return let(arena, inferred_instruction, inferred_tail);
         }

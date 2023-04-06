@@ -71,8 +71,9 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
 }
 
 static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool mut, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
-    if (is_value(instruction)) // TODO: nuke
-        instruction = quote_single(builder->arena, instruction);
+    if (builder->arena->config.check_types) {
+        assert(is_instruction(instruction));
+    }
     Nodes params = create_output_variables(builder->arena, instruction, outputs_count, provided_types, output_names);
     StackEntry entry = {
         .instr = instruction,
