@@ -320,7 +320,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         case alloca_logical_op: {
             const Type* elem_type = first(type_arguments);
             SpvId result = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
-                .address_space = AsFunctionLogical,
+                .address_space = AsSPVFunctionLogical,
                 .pointed_type = elem_type
             })), SpvStorageClassFunction);
             assert(results_count == 1);

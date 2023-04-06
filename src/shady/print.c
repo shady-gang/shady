@@ -73,27 +73,29 @@ static void print_address_space_prefix(PrinterCtx* ctx, AddressSpace as, bool ex
 static void print_address_space(PrinterCtx* ctx, AddressSpace as) {
     printf(BLUE);
     switch (as) {
-        case AsGeneric:             printf("generic"); break;
+        case AsGeneric:                  printf("generic"); break;
 
         case AsPrivateLogical:
-        case AsPrivatePhysical:     printf("private"); break;
+        case AsPrivatePhysical:          printf("private"); break;
 
         case AsSubgroupLogical:
-        case AsSubgroupPhysical:   printf("subgroup"); break;
+        case AsSubgroupPhysical:        printf("subgroup"); break;
 
         case AsSharedLogical:
-        case AsSharedPhysical:       printf("shared"); break;
+        case AsSharedPhysical:            printf("shared"); break;
 
         case AsGlobalLogical:
-        case AsGlobalPhysical:       printf("global"); break;
+        case AsGlobalPhysical:            printf("global"); break;
 
-        case AsInput:                 printf("input"); break;
-        case AsOutput:               printf("output"); break;
-        case AsExternal:           printf("external"); break;
-        case AsProgramCode:    printf("program_code"); break;
+        case AsInput:                      printf("input"); break;
+        case AsOutput:                    printf("output"); break;
+        case AsExternal:                printf("external"); break;
+        case AsProgramCode:         printf("program_code"); break;
 
-        case AsFunctionLogical:    printf("function"); break;
-        case AsPushConstant:  printf("push_constant"); break;
+        case AsSPVFunctionLogical:      printf("function"); break;
+        case AsVKPushConstant:     printf("push_constant"); break;
+        case AsGLShaderStorageBufferObject: printf("ssbo"); break;
+        case AsGLUniformBufferObject:        printf("ubo"); break;
         case NumAddressSpaces: error("");
     }
     printf(RESET);
