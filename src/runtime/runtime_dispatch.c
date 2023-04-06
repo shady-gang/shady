@@ -18,7 +18,7 @@ Command* launch_kernel(Program* program, Device* device, String entry_point, int
     if (!cmd)
         return NULL;
 
-    EntryPointInfo entrypoint_info = prog->entrypoint;
+    ProgramParamsInfo entrypoint_info = prog->parameters;
     if (entrypoint_info.args_size) {
         assert(args_count == entrypoint_info.num_args && "number of arguments must match number of entrypoint arguments");
 

@@ -51,12 +51,12 @@ void unload_program(Program* program) {
     free(program);
 }
 
-static bool extract_entrypoint_info(const CompilerConfig* config, const Module* mod, EntryPointInfo* info) {
-    Nodes decls = get_module_declarations(mod);
+static bool extract_parameters_info(SpecProgram* program) {
+    Nodes decls = get_module_declarations(program->specialized_module);
 
     const Node* args_struct_annotation;
     const Node* args_struct_type = NULL;
-    const Node* entrypoint = NULL;
+    const Node* entry_point_function = NULL;
 
     for (int i = 0; i < decls.count; ++i) {
         const Node* node = decls.nodes[i];
@@ -87,12 +87,12 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
                         return false;
                     }
 
-                    if (entrypoint) {
+                    if (entry_point_function) {
                         error_print("there cannot be more than one EntryPoint\n");
                         return false;
                     }
 
-                    entrypoint = node;
+                    entry_point_function = node;
                 }
                 break;
             }
@@ -100,13 +100,13 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
         }
     }
 
-    if (!entrypoint) {
+    if (!entry_point_function) {
         error_print("could not find EntryPoint\n");
         return false;
     }
 
     if (!args_struct_type) {
-        *info = (EntryPointInfo) { 0 };
+        program->parameters = (ProgramParamsInfo) { .num_args = 0 };
         return true;
     }
 
@@ -114,7 +114,7 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
         error_print("EntryPointArgs annotation must contain exactly one value\n");
         return false;
     }
-    if (args_struct_annotation->payload.annotation_value.value != entrypoint) {
+    if (args_struct_annotation->payload.annotation_value.value != entry_point_function) {
         error_print("EntryPointArgs annotation refers to different EntryPoint\n");
         return false;
     }
@@ -126,7 +126,7 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
         return false;
     }
 
-    IrArena* a = get_module_arena(mod);
+    IrArena* a = get_module_arena(program->specialized_module);
 
     LARRAY(FieldLayout, fields, num_args);
     get_record_layout(a, args_struct_type, fields);
@@ -144,28 +144,29 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
         sizes[i] = fields[i].mem_layout.size_in_bytes;
     }
 
-    info->num_args = num_args;
-    info->arg_offset = offsets;
-    info->arg_size = sizes;
-    info->args_size = offsets[num_args - 1] + sizes[num_args - 1];
+    program->parameters.num_args = num_args;
+    program->parameters.arg_offset = offsets;
+    program->parameters.arg_size = sizes;
+    program->parameters.args_size = offsets[num_args - 1] + sizes[num_args - 1];
     return true;
 }
 
 static bool extract_layout(SpecProgram* program) {
-    if (program->entrypoint.args_size > program->device->caps.properties.base.properties.limits.maxPushConstantsSize) {
+    extract_parameters_info(program);
+    if (program->parameters.args_size > program->device->caps.properties.base.properties.limits.maxPushConstantsSize) {
         error_print("EntryPointArgs exceed available push constant space\n");
         return false;
     }
 
     VkPushConstantRange push_constant_ranges[1] = {
-        { .offset = 0, .size = program->entrypoint.args_size, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT}
+        { .offset = 0, .size = program->parameters.args_size, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT}
     };
 
     CHECK_VK(vkCreatePipelineLayout(program->device->device, &(VkPipelineLayoutCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .pushConstantRangeCount = program->entrypoint.args_size ? sizeof(push_constant_ranges) / sizeof(push_constant_ranges[0]) : 0,
+        .pushConstantRangeCount = program->parameters.args_size ? sizeof(push_constant_ranges) / sizeof(push_constant_ranges[0]) : 0,
         .pPushConstantRanges = push_constant_ranges,
         .setLayoutCount = 0
     }, NULL, &program->layout), return false);
@@ -256,7 +257,7 @@ static bool compile_specialized_program(SpecProgram* spec) {
         write_file(file_name, spec->spirv_size, (unsigned char*)spec->spirv_bytes);
     }
 
-    return extract_entrypoint_info(&config, spec->specialized_module, &spec->entrypoint);
+    return true;
 }
 
 static SpecProgram* create_specialized_program(SpecProgramKey key, Device* device) {
@@ -289,7 +290,7 @@ void destroy_specialized_program(SpecProgram* spec) {
     vkDestroyPipeline(spec->device->device, spec->pipeline, NULL);
     vkDestroyPipelineLayout(spec->device->device, spec->layout, NULL);
     vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
-    free(spec->entrypoint.arg_offset);
+    free(spec->parameters.arg_offset);
     free(spec->spirv_bytes);
     if (get_module_arena(spec->specialized_module) != get_module_arena(spec->key.base->module))
         destroy_ir_arena(get_module_arena(spec->specialized_module));

@@ -173,12 +173,12 @@ struct Program_ {
     Module* module;
 };
 
-typedef struct EntryPointInfo_ {
+typedef struct {
     size_t num_args;
     const size_t* arg_offset;
     const size_t* arg_size;
     size_t args_size;
-} EntryPointInfo;
+} ProgramParamsInfo;
 
 struct SpecProgram_ {
     SpecProgramKey key;
@@ -189,7 +189,7 @@ struct SpecProgram_ {
     size_t spirv_size;
     char* spirv_bytes;
 
-    EntryPointInfo entrypoint;
+    ProgramParamsInfo parameters;
 
     VkPipeline pipeline;
     VkPipelineLayout layout;
