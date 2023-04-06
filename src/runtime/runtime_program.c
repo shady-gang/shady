@@ -413,6 +413,10 @@ static bool prepare_resources(SpecProgram* program) {
         }
 
         // TODO: initial data!
+        // if (!resource->host_owned)
+        char* zeroes = calloc(1, resource->size);
+        copy_to_buffer(resource->buffer, 0, zeroes, resource->size);
+        free(zeroes);
 
         if (resource->parent) {
             assert(resource->parent->host_ptr);

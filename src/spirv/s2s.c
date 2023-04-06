@@ -1090,6 +1090,36 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                             .operands = mk_nodes(parser->arena, instr, args[2])
                         });
                         break;
+                    case OpenCLstd_Floor:
+                        instr = prim_op(parser->arena, (PrimOp) {
+                            .op = floor_op,
+                        .operands = singleton(args[0])
+                        });
+                        break;
+                    case OpenCLstd_Sqrt:
+                        instr = prim_op(parser->arena, (PrimOp) {
+                            .op = sqrt_op,
+                            .operands = singleton(args[0])
+                        });
+                        break;
+                    case OpenCLstd_Fabs:
+                        instr = prim_op(parser->arena, (PrimOp) {
+                            .op = abs_op,
+                            .operands = singleton(args[0])
+                        });
+                        break;
+                    case OpenCLstd_Sin:
+                        instr = prim_op(parser->arena, (PrimOp) {
+                            .op = sin_op,
+                            .operands = singleton(args[0])
+                        });
+                        break;
+                    case OpenCLstd_Cos:
+                        instr = prim_op(parser->arena, (PrimOp) {
+                            .op = cos_op,
+                            .operands = singleton(args[0])
+                        });
+                        break;
                     default: error("unhandled extended instruction %d in set '%s'", ext_instr, set);
                 }
             } else {

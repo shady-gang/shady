@@ -96,6 +96,8 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             operator_str = "<<";
             break;
         // MATH OPS
+        case sin_op:
+        case cos_op:
         case abs_op:
         case sign_op:
         case floor_op:
