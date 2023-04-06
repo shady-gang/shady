@@ -13,8 +13,10 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 
 // TODO: reserve real decoration IDs
 typedef enum {
-    ShdDecorationName = 999999,
-    ShdDecorationMemberName = 999998,
+    ShdDecorationName           = 999999,
+    ShdDecorationMemberName     = 999998,
+    ShdDecorationEntryPointType = 999997,
+    ShdDecorationEntryPointName = 999996,
 } ShdDecoration;
 
 #include "log.h"
@@ -72,8 +74,7 @@ typedef struct {
     Module* mod;
     IrArena* arena;
 
-    String entry_point;
-    String entry_point_name;
+    bool is_entry_pt;
     Node* fun;
     size_t fun_arg_i;
 
@@ -207,8 +208,7 @@ AddressSpace convert_storage_class(SpvStorageClass class) {
         case SpvStorageClassStorageBuffer:
             error("TODO");
         case SpvStorageClassUniformConstant:
-        case SpvStorageClassUniform:
-            error("TODO");
+        case SpvStorageClassUniform:               return AsGlobalPhysical; // TODO: should probably depend on CL/VK flavours!
         case SpvStorageClassCallableDataKHR:
         case SpvStorageClassIncomingCallableDataKHR:
         case SpvStorageClassRayPayloadKHR:
@@ -485,8 +485,22 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpSourceExtension:
             break;
         case SpvOpEntryPoint: {
-            parser->entry_point = "compute";
-            parser->entry_point_name = (const char*) &instruction[3];
+            add_decoration(parser, instruction[2], (SpvDeco) {
+                .decoration = ShdDecorationEntryPointType,
+                .member = -1,
+                .payload = {
+                    .type = Str,
+                    .str = "compute"
+                },
+            });
+            add_decoration(parser, instruction[2], (SpvDeco) {
+                .decoration = ShdDecorationEntryPointName,
+                .member = -1,
+                .payload = {
+                    .type = Str,
+                    .str = (const char*) &instruction[3],
+                },
+            });
             break;
         }
         case SpvOpExecutionMode:
@@ -663,12 +677,6 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             break;
         }
         case SpvOpVariable: {
-            if (find_decoration(parser, result, -1, SpvDecorationBuiltIn)) {
-                parser->defs[result].type = Builtin;
-                break;
-            }
-
-            parser->defs[result].type = Decl;
             String name = get_name(parser, result);
             name = name ? name : unique_name(parser->arena, "global_variable");
 
@@ -678,40 +686,58 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             assert(as == as2);
             assert(is_data_type(contents_t));
 
-            Node* global = global_var(parser->mod, empty(parser->arena), contents_t, name, as);
-            parser->defs[result].node = global;
+            if (parser->fun) {
+                const Node* ptr = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                    .op = alloca_op,
+                    .type_arguments = singleton(contents_t),
+                    .operands = empty(parser->arena)
+                }), 1, NULL, NULL));
 
-            if (size == 5)
-                global->payload.global_variable.init = get_def_ssa_value(parser, instruction[4]);
+                parser->defs[result].type = Value;
+                parser->defs[result].node = ptr;
+
+                if (size == 5)
+                    bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                        .op = store_op,
+                        .type_arguments = empty(parser->arena),
+                        .operands = mk_nodes(parser->arena, ptr, get_def_ssa_value(parser, instruction[4]))
+                    }), 1, NULL, NULL);
+            } else {
+                if (find_decoration(parser, result, -1, SpvDecorationBuiltIn)) {
+                    parser->defs[result].type = Builtin;
+                    break;
+                }
+
+                parser->defs[result].type = Decl;
+                Node* global = global_var(parser->mod, empty(parser->arena), contents_t, name, as);
+                parser->defs[result].node = global;
+
+                if (size == 5)
+                    global->payload.global_variable.init = get_def_ssa_value(parser, instruction[4]);
+            }
             break;
         }
         case SpvOpFunction: {
             const Type* t = get_def_type(parser, instruction[4]);
             assert(t && t->tag == FnType_TAG);
 
-            size_t params_count = t->payload.fn_type.param_types.count;
-            LARRAY(const Node*, params, params_count);
-
-            for (size_t i = 0; ((parser->words + instruction_offset)[0] & 0xFFFF) == SpvOpFunctionParameter; i++) {
-                size_t s = parse_spv_instruction_at(parser, instruction_offset);
-                assert(s > 0);
-                params[i] = get_def_ssa_value(parser, get_result_defined_at(parser, instruction_offset));
-                size += s;
-                instruction_offset += s;
-            }
-
             String name = get_name(parser, result);
             if (!name)
                 name = unique_name(parser->arena, "function");
 
             Nodes annotations = empty(parser->arena);
-            if (parser->entry_point) {
+            SpvDeco* entry_point_type = find_decoration(parser, result, -1, ShdDecorationEntryPointType);
+            parser->is_entry_pt = entry_point_type;
+            if (entry_point_type) {
                 annotations = append_nodes(parser->arena, annotations, annotation_value(parser->arena, (AnnotationValue) {
                     .name = "EntryPoint",
-                    .value = string_lit(parser->arena, (StringLiteral) { "compute" })
+                    .value = string_lit(parser->arena, (StringLiteral) { entry_point_type->payload.str })
                 }));
 
-                name = parser->entry_point_name;
+                SpvDeco* entry_point_name = find_decoration(parser, result, -1, ShdDecorationEntryPointName);
+                assert(entry_point_name);
+
+                name = entry_point_name->payload.str;
 
                 SpvDeco* wg_size_dec = find_decoration(parser, result, -2, SpvExecutionModeLocalSize);
                 assert(wg_size_dec && wg_size_dec->payload.literals.count == 3 && "we require kernels decorated with a workgroup size");
@@ -723,9 +749,17 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                         int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
                         int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
                 }));
+            }
 
-                parser->entry_point = NULL;
-                parser->entry_point_name = NULL;
+            size_t params_count = t->payload.fn_type.param_types.count;
+            LARRAY(const Node*, params, params_count);
+
+            for (size_t i = 0; ((parser->words + instruction_offset)[0] & 0xFFFF) == SpvOpFunctionParameter; i++) {
+                size_t s = parse_spv_instruction_at(parser, instruction_offset);
+                assert(s > 0);
+                params[i] = get_def_ssa_value(parser, get_result_defined_at(parser, instruction_offset));
+                size += s;
+                instruction_offset += s;
             }
 
             Node* fun = function(parser->mod, nodes(parser->arena, params_count, params), name, annotations, t->payload.fn_type.return_types);
@@ -763,7 +797,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].type = Value;
             String param_name = get_name(parser, result);
             param_name = param_name ? param_name : format_string(parser->arena, "param%d", parser->fun_arg_i);
-            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), parser->entry_point), param_name);
+            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), parser->is_entry_pt), param_name);
             break;
         }
         case SpvOpLabel: {
