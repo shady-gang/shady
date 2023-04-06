@@ -40,7 +40,7 @@ typedef struct {
 typedef struct SpvDeco_ SpvDeco;
 
 typedef struct {
-    enum { Nothing, Forward, Str, Typ, Decl, BB, Value, Literals } type;
+    enum { Nothing, Forward, Str, Typ, Decl, BB, Value, Literals, Builtin } type;
     union {
         size_t instruction_offset;
         const Node* node;
@@ -661,6 +661,11 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             break;
         }
         case SpvOpVariable: {
+            if (find_decoration(parser, result, -1, SpvDecorationBuiltIn)) {
+                parser->defs[result].type = Builtin;
+                break;
+            }
+
             parser->defs[result].type = Decl;
             String name = get_name(parser, result);
             name = name ? name : unique_name(parser->arena, "global_variable");
@@ -912,6 +917,38 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             break;
         }
         case SpvOpLoad: {
+            SpvDeco* builtin = find_decoration(parser, instruction[3], -1, SpvDecorationBuiltIn);
+            if (builtin) {
+                switch (*builtin->payload.literals.data) {
+                    case SpvBuiltInGlobalInvocationId: {
+                        parser->defs[result].type = Value;
+                        const Node* r = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                            .op = global_id_op,
+                            .type_arguments = empty(parser->arena),
+                            .operands = empty(parser->arena)
+                        }), 1, NULL, NULL));
+                        const Type* t = get_def_type(parser, result_t);
+                        assert(t->tag == PackType_TAG);
+                        const Node* gid[3];
+                        for (size_t i = 0; i < 3; i++) {
+                            gid[i] = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                                .op = extract_op,
+                                .type_arguments = empty(parser->arena),
+                                .operands = mk_nodes(parser->arena, r, int32_literal(parser->arena, i)),
+                            }), 1, NULL, NULL));
+                            gid[i] = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                                .op = convert_op,
+                                .type_arguments = singleton(t->payload.pack_type.element_type),
+                                .operands = singleton(gid[i]),
+                            }), 1, NULL, NULL));
+                        }
+                        parser->defs[result].node = composite(parser->arena, t, mk_nodes(parser->arena, gid[0], gid[1], gid[2]));
+                        break;
+                    }
+                    default: error("unsupported builtin")
+                }
+                break;
+            }
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             parser->defs[result].type = Value;
             parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
