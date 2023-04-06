@@ -25,14 +25,16 @@ struct LTNode_ {
     struct List* lf_children;
 };
 
-typedef struct {
+typedef struct LoopTree_ LoopTree;
+
+struct LoopTree_ {
     LTNode* root;
 
     /**
      * @ref Dict from const @ref Node* to @ref LTNode*
      */
     struct Dict* map;
-} LoopTree;
+};
 
 /**
  * Returns the leaf for this node.

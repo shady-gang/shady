@@ -1,4 +1,5 @@
 #include "scope.h"
+#include "looptree.h"
 #include "log.h"
 
 #include "list.h"
@@ -28,6 +29,7 @@ bool compare_node(const Node**, const Node**);
 typedef struct {
     Arena* arena;
     const Node* entry;
+    LoopTree* lt;
     struct Dict* nodes;
     struct List* queue;
     struct List* contents;
@@ -60,8 +62,32 @@ static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
     return new;
 }
 
+static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
+    LTNode* lt_node = looptree_lookup(lt, block);
+    assert(lt_node);
+    LTNode* parent = lt_node->parent;
+    assert(parent);
+
+    while (parent) {
+        if (entries_count_list(parent->cf_nodes) != 1)
+            return false;
+
+        if (read_list(CFNode*, parent->cf_nodes)[0]->node == entry)
+            return true;
+
+        parent = parent->parent;
+    }
+
+    return false;
+}
+
 /// Adds an edge to somewhere inside a basic block
 static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type) {
+    if (ctx->lt && !in_loop(ctx->lt, ctx->entry, dst))
+        return;
+    if (ctx->lt && dst == ctx->entry)
+        return;
+
     CFNode* src_node = get_or_enqueue(ctx, src);
     CFNode* dst_node = get_or_enqueue(ctx, dst);
     CFEdge edge = {
@@ -219,13 +245,14 @@ static void flip_scope(Scope* scope) {
 }
 
 
-Scope* new_scope_impl(const Node* entry, bool flipped) {
+Scope* new_scope_impl(const Node* entry, LoopTree* lt, bool flipped) {
     assert(is_abstraction(entry));
     Arena* arena = new_arena();
 
     ScopeBuildContext context = {
         .arena = arena,
         .entry = entry,
+        .lt = lt,
         .nodes = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
         .queue = new_list(CFNode*),
         .contents = new_list(CFNode*),

@@ -74,20 +74,27 @@ typedef struct Scope_ {
  */
 struct List* build_scopes(Module*);
 
+typedef struct LoopTree_ LoopTree;
+
 /** Construct the scope stating in Node.
  */
-Scope* new_scope_impl(const Node* entry, bool flipped);
+Scope* new_scope_impl(const Node* entry, LoopTree* lt, bool flipped);
+
+#define new_scope_lt(node, lt) new_scope_impl(node, lt, false);
+#define new_scope_lt_flipped(node, lt) new_scope_impl(node, lt, true);
+
+Scope* new_scope_lt_impl(const Node* entry, LoopTree* lt, bool flipped);
 
 /** Construct the scope stating in Node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  */
-#define new_scope(node) new_scope_impl(node, false);
+#define new_scope(node) new_scope_impl(node, NULL, false);
 
 /** Construct the scope stating in Node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  * This scope will contain post dominance information instead of regular dominance!
  */
-#define new_scope_flipped(node) new_scope_impl(node, true);
+#define new_scope_flipped(node) new_scope_impl(node, NULL, true);
 
 CFNode* scope_lookup(Scope*, const Node* block);
 void compute_rpo(Scope*);
