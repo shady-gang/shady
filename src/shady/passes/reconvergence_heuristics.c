@@ -22,6 +22,38 @@ typedef struct Context_ {
     LoopTree* current_looptree;
 } Context;
 
+static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
+    LTNode* lt_node = looptree_lookup(lt, block);
+    assert(lt_node);
+    LTNode* parent = lt_node->parent;
+    assert(parent);
+
+    while (parent) {
+        if (entries_count_list(parent->cf_nodes) != 1)
+            return false;
+
+        if (read_list(CFNode*, parent->cf_nodes)[0]->node == entry)
+            return true;
+
+        parent = parent->parent;
+    }
+
+    return false;
+}
+
+//TODO: This is massively inefficient.
+static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode* block, struct List* exiting_nodes) {
+    if (!in_loop(lt, entry->node, block->node)) {
+        append_list(CFNode*, exiting_nodes, block);
+        return;
+    }
+
+    for (size_t i = 0; i < entries_count_list(block->dominates); i++) {
+        const CFNode* target = read_list(CFNode*, block->dominates)[i];
+        gather_exiting_nodes(lt, entry, target, exiting_nodes);
+    }
+}
+
 static const Node* process_node(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
 
@@ -65,40 +97,48 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
 
         CFNode* cfnode = scope_lookup(ctx->back_scope, ctx->current_abstraction);
-        CFNode* idom = cfnode->idom;
 
-        if(!idom->node) {
-            error("Degenerate case: there is no immediate post dominator for this branch.");
-        }
+        CFNode* idom = NULL;
 
-        LTNode* lt_node = looptree_lookup(ctx->current_looptree, ctx->current_abstraction);
-        CFNode* current_node = scope_lookup(ctx->fwd_scope, ctx->current_abstraction);
+        LTNode* current_loop = looptree_lookup(ctx->current_looptree, ctx->current_abstraction)->parent;
+        assert(current_loop);
 
-        assert(lt_node);
-        assert(current_node);
+        if (entries_count_list(current_loop->cf_nodes)) {
+            bool leaves_loop = false;
+            CFNode* current_node = scope_lookup(ctx->fwd_scope, ctx->current_abstraction);
+            for (size_t i = 0; i < entries_count_list(current_node->succ_edges); i++) {
+                CFEdge edge = read_list(CFEdge, current_node->succ_edges)[i];
+                LTNode* lt_target = looptree_lookup(ctx->current_looptree, edge.dst->node);
 
-        bool leaves_loop = false;
-
-        for (size_t i = 0; i < entries_count_list(current_node->succ_edges); i++) {
-            CFEdge edge = read_list(CFEdge, current_node->succ_edges)[i];
-            LTNode* lt_target = looptree_lookup(ctx->current_looptree, edge.dst->node);
-
-            if (lt_target->parent != lt_node->parent) {
-                //TODO: I do not trust ipostdom to be correct. Seems to work for simple examples though.
-                assert(edge.dst->node == idom->node);
-                assert(lt_target->parent->depth == lt_node->parent->depth - 1 && "only one break at a time RN");
-
-                leaves_loop = true;
-                break;
+                if (lt_target->parent != current_loop) {
+                    leaves_loop = true;
+                    break;
+                }
             }
+
+            if (!leaves_loop) {
+                const Node* current_loop_head = read_list(CFNode*, current_loop->cf_nodes)[0]->node;
+                Scope* loop_scope = new_scope_lt_flipped(current_loop_head, ctx->current_looptree);
+                idom = scope_lookup(loop_scope, ctx->current_abstraction)->idom;
+                destroy_scope(loop_scope);
+            }
+        } else {
+            idom = cfnode->idom;
         }
 
-        Node* fn = (Node*) find_processed(rewriter, ctx->current_fn);
-
-        if (leaves_loop) {
-            //Branches leaving loops are not handled here. Recreate a direct copy.
+        if(!idom || !idom->node) {
             result = recreate_node_identity(&ctx->rewriter, node);
         } else {
+            LTNode* lt_node = looptree_lookup(ctx->current_looptree, ctx->current_abstraction);
+            LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, idom->node);
+            CFNode* current_node = scope_lookup(ctx->fwd_scope, ctx->current_abstraction);
+
+            assert(lt_node);
+            assert(idom_lt_node);
+            assert(current_node);
+
+            Node* fn = (Node*) find_processed(rewriter, ctx->current_fn);
+
             //Regular if/then/else case. Control flow joins at the immediate post dominator.
             Nodes yield_types;
             Nodes exit_args;
@@ -202,52 +242,28 @@ static const Node* process_node(Context* ctx, const Node* node) {
             ctx->current_looptree = build_loop_tree(ctx->fwd_scope);
         }
 
-        bool enters_loop = false;
-        const Node* loop_entry = NULL;
-
         CFNode* current_node = scope_lookup(ctx->fwd_scope, node);
         LTNode* lt_node = looptree_lookup(ctx->current_looptree, node);
 
-        assert(lt_node);
         assert(current_node);
+        assert(lt_node);
 
-        for (size_t i = 0; i < entries_count_list(current_node->succ_edges); i++) {
-            CFEdge edge = read_list(CFEdge, current_node->succ_edges)[i];
-            LTNode* lt_target = looptree_lookup(ctx->current_looptree, edge.dst->node);
-
-            if (lt_target->parent != lt_node->parent) {
-                if(lt_target->parent->depth == lt_node->parent->depth + 1) {
-                    enters_loop = true;
-                    loop_entry = edge.dst->node;
-                }
-            }
+        bool is_loop_entry = false;
+        const CFNode* loop_entry_node = NULL;
+        if (entries_count_list(lt_node->parent->cf_nodes) == 1) {
+            loop_entry_node = read_list(CFNode*, lt_node->parent->cf_nodes)[0];
+            const Node* loop_header = loop_entry_node->node;
+            is_loop_entry = loop_header == node;
         }
 
-        if (enters_loop) {
-            CFNode* loop_entry_node = scope_lookup(ctx->fwd_scope, loop_entry);
+        if (is_loop_entry) {
+            struct List * exiting_nodes = new_list(CFNode*);
+            gather_exiting_nodes(ctx->current_looptree, loop_entry_node, loop_entry_node, exiting_nodes);
+            assert(entries_count_list(exiting_nodes) == 1); //This can potentially be fixed by finding the imediate post dominator of all exits.
 
-            CFNode* exiting_node = NULL;
+            const CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[0];
 
-            for (size_t i = loop_entry_node->rpo_index + 1; i < ctx->fwd_scope->size; i++) {
-                CFNode* node = ctx->fwd_scope->rpo[i];
-
-                for (size_t j = 0; j < entries_count_list(node->succ_edges); j++) {
-                    CFNode* dst = read_list(CFEdge, node->succ_edges)[j].dst;
-                    LTNode* check_node = looptree_lookup(ctx->current_looptree, dst->node);
-
-                    if (check_node->parent == lt_node->parent) {
-                        exiting_node = dst;
-                        break;
-                    }
-                }
-
-                if (exiting_node)
-                    break;
-            }
-
-            assert(exiting_node);
-
-
+            destroy_list(exiting_nodes);
 
             Nodes yield_types;
             Nodes exit_args;
@@ -273,89 +289,95 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 assert(false && "TODO");
             }
 
-            Node* fn = NULL;
+            assert(!is_function(node));
+            Node* fn = (Node*) find_processed(rewriter, ctx->current_fn);
 
-            if (is_function(node)) {
-                fn = recreate_decl_header_identity(rewriter, node);
-            } else {
-                fn = (Node*) find_processed(rewriter, ctx->current_fn);
-            }
-
-            const Node* join_token = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
+            const Node* join_token_exit = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
                         .yield_types = yield_types
-                        }), true), "jp");
+                        }), true), "jp_exit");
+            const Node* join_token_continue = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
+                        .yield_types = yield_types
+                        }), true), "jp_continue");
 
-            Node* pre_join = basic_block(arena, fn, exit_args, "exit");
-            pre_join->payload.basic_block.body = join(arena, (Join) {
-                    .join_point = join_token,
+            Node* pre_join_exit = basic_block(arena, fn, exit_args, "exit");
+            pre_join_exit->payload.basic_block.body = join(arena, (Join) {
+                    .join_point = join_token_exit,
+                    .args = exit_args
+                    });
+            Node* pre_join_continue = basic_block(arena, fn, exit_args, "continue");
+            pre_join_continue->payload.basic_block.body = join(arena, (Join) {
+                    .join_point = join_token_continue,
                     .args = exit_args
                     });
 
-            const Node* cached = search_processed(rewriter, exiting_node->node);
-            if (cached)
+            const Node* cached_exit = search_processed(rewriter, exiting_node->node);
+            if (cached_exit)
                 remove_dict(const Node*, is_declaration(exiting_node->node) ? rewriter->decls_map : rewriter->map, exiting_node->node);
             for (size_t i = 0; i < old_params.count; i++) {
                 assert(!search_processed(rewriter, old_params.nodes[i]));
             }
-            register_processed(rewriter, exiting_node->node, pre_join);
+            register_processed(rewriter, exiting_node->node, pre_join_exit);
 
-            Node* new_node;
-            Nodes outer_lambda_args;
-            if (is_function(node)) {
-                const Node* new_terminator = rewrite_node(rewriter, node->payload.fun.body);
-                new_node = basic_block(arena, fn, exit_args, "loop");
-                new_node->payload.basic_block.body = new_terminator;
-            } else if (is_basic_block(node)) {
-                new_node = (Node*) recreate_node_identity(rewriter, node);
-            } else {
-                Node* new_lam = (Node*) recreate_node_identity(rewriter, node);
-                outer_lambda_args = new_lam->payload.anon_lam.params;
-                new_node = basic_block(arena, fn, exit_args, "loop");
-                new_node->payload.basic_block.body = (Node*) new_lam->payload.anon_lam.body;
+            const Node* cached_entry = search_processed(rewriter, loop_entry_node->node);
+            if (cached_entry)
+                remove_dict(const Node*, is_declaration(loop_entry_node->node) ? rewriter->decls_map : rewriter->map, loop_entry_node->node);
+            for (size_t i = 0; i < old_params.count; i++) {
+                assert(!search_processed(rewriter, old_params.nodes[i]));
             }
+            register_processed(rewriter, loop_entry_node->node, pre_join_continue);
 
-            assert(is_abstraction(new_node));
+            const Node* new_terminator = rewrite_node(rewriter, node->payload.basic_block.body);
+            Node* loop_inner = basic_block(arena, fn, exit_args, "loop_inner");
+            loop_inner->payload.basic_block.body = new_terminator;
 
             remove_dict(const Node*, is_declaration(exiting_node->node) ? rewriter->decls_map : rewriter->map, exiting_node->node);
-            if (cached)
-                register_processed(rewriter, exiting_node->node, cached);
+            if (cached_exit)
+                register_processed(rewriter, exiting_node->node, cached_exit);
+
+            remove_dict(const Node*, is_declaration(loop_entry_node->node) ? rewriter->decls_map : rewriter->map, loop_entry_node->node);
+            if (cached_entry)
+                register_processed(rewriter, loop_entry_node->node, cached_entry);
 
             const Node* inner_terminator = jump(arena, (Jump) {
-                    .target = new_node,
+                    .target = loop_inner,
                     .args = lambda_args
                     });
 
-            const Node* control_inner = lambda(rewriter->dst_module, singleton(join_token), inner_terminator);
-            const Node* new_target = control (arena, (Control) {
-                    .inside = control_inner,
+            const Node* control_inner_lambda = lambda(rewriter->dst_module, singleton(join_token_continue), inner_terminator);
+            const Node* inner_control = control (arena, (Control) {
+                    .inside = control_inner_lambda,
+                    .yield_types = yield_types
+                    });
+
+            Node* loop_outer = basic_block(arena, fn, exit_args, "loop_outer");
+            const Node* loop_terminator = jump(arena, (Jump) {
+                    .target = loop_outer,
+                    .args = lambda_args
+                    });
+
+            const Node* anon_lam = lambda(rewriter->dst_module, lambda_args, loop_terminator);
+            const Node* inner_control_let = let(arena, inner_control, anon_lam);
+
+            loop_outer->payload.basic_block.body = inner_control_let;
+
+            const Node* control_outer_lambda = lambda(rewriter->dst_module, singleton(join_token_exit), loop_terminator);
+            const Node* outer_control = control (arena, (Control) {
+                    .inside = control_outer_lambda,
                     .yield_types = yield_types
                     });
 
             const Node* recreated_exit = rewrite_node(rewriter, exiting_node->node);
-
             const Node* outer_terminator = jump(arena, (Jump) {
                     .target = recreated_exit,
                     .args = lambda_args
                     });
 
-            const Node* anon_lam = lambda(rewriter->dst_module, lambda_args, outer_terminator);
-            const Node* empty_let = let(arena, new_target, anon_lam);
+            const Node* anon_lam_exit = lambda(rewriter->dst_module, lambda_args, outer_terminator);
+            const Node* outer_control_let = let(arena, outer_control, anon_lam_exit);
 
-            if (is_function(node)) {
-                fn->payload.fun.body = empty_let;
-                result = fn;
-            } else if (is_basic_block(node)) {
-                Node* loop_cont = basic_block(arena, fn, exit_args, "loop");
-                loop_cont->payload.basic_block.body = empty_let;
-                result = loop_cont;
-            } else {
-                const Node* outer_lam = lambda(rewriter->dst_module, outer_lambda_args, empty_let);
-                result = outer_lam;
-            }
-
-            assert(is_abstraction(result));
-
-            //assert(false && "EOF");
+            Node* loop_container = basic_block(arena, fn, exit_args, node->payload.basic_block.name);
+            loop_container->payload.basic_block.body = outer_control_let;
+            result = loop_container;
         } else {
             result = recreate_node_identity(&ctx->rewriter, node);
         }
