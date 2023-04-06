@@ -152,7 +152,7 @@ static bool fill_device_features(DeviceCaps* caps) {
     vkGetPhysicalDeviceFeatures2(caps->physical_device, &caps->features.base);
 
     if (!caps->features.subgroup_size_control.computeFullSubgroups) {
-        warn_print("Potentially broken behaviour on device %s because it does not support computeFullSubgroups", caps->base_properties.deviceName);
+        warn_print("Potentially broken behaviour on device %s because it does not support computeFullSubgroups", caps->properties.base.properties.deviceName);
         // TODO just outright reject such devices ?
     }
 
