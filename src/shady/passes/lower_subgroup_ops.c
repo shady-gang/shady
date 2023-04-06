@@ -53,7 +53,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
                     break;
                 }
 
-                TypeMemLayout layout = get_mem_layout(ctx->config, arena, element_type);
+                TypeMemLayout layout = get_mem_layout(arena, element_type);
 
                 const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = NULL });
 

@@ -41,11 +41,11 @@ static void collect_allocas(VContext* vctx, const Node* node) {
         }
 
         const Type* element_type = rewrite_node(&vctx->context->rewriter, node->payload.prim_op.type_arguments.nodes[0]);
-        TypeMemLayout layout = get_mem_layout(vctx->context->config, arena, element_type);
+        const Node* element_size = gen_primop_e(vctx->builder, size_of_op, singleton(element_type), empty(arena));
 
         const Node* slot = first(bind_instruction_named(vctx->builder, prim_op(arena, (PrimOp) {
             .op = lea_op,
-            .operands = mk_nodes(arena, vctx->context->entry_base_stack_ptr, uint32_literal(arena, layout.size_in_bytes)) }), (String []) { "stack_slot" }));
+            .operands = mk_nodes(arena, vctx->context->entry_base_stack_ptr, element_size) }), (String []) { "stack_slot" }));
         const Node* ptr_t = ptr_type(arena, (PtrType) { .pointed_type = element_type, .address_space = as });
         slot = gen_reinterpret_cast(vctx->builder, ptr_t, slot);
 
