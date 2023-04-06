@@ -6,6 +6,8 @@ typedef void (RewritePass)(CompilerConfig* config, Module* src_module, Module* d
 
 // Boring, regular compiler stuff
 
+RewritePass import;
+
 /// Removes all Unresolved nodes and replaces them with the appropriate decl/value
 RewritePass bind_program;
 /// Enforces the grammar, notably by let-binding any intermediary result

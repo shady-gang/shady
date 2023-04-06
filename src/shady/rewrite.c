@@ -40,31 +40,6 @@ Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn) {
     };
 }
 
-Rewriter create_importer(Module* src, Module* dst) {
-    return create_rewriter(src, dst, recreate_node_identity);
-}
-
-static const Node* recreate_node_substitutions_only(Rewriter* rewriter, const Node* node) {
-    if (!node) return NULL;
-    assert(rewriter->dst_arena == rewriter->src_arena);
-
-    if (is_declaration(node))
-        return node;
-    if (node->tag == Variable_TAG)
-        return node;
-    if (node->tag == BasicBlock_TAG && !node->payload.basic_block.body) {
-    // if (node->tag == BasicBlock_TAG) {
-        // ((Node*) node)->payload.basic_block.body = rewrite_node(rewriter, node->payload.basic_block.body);
-        register_processed(rewriter, node, node);
-        return node;
-    }
-    return recreate_node_identity(rewriter, node);
-}
-
-Rewriter create_substituter(Module* module) {
-    return create_rewriter(module, module, recreate_node_substitutions_only);
-}
-
 void destroy_rewriter(Rewriter* r) {
     assert(r->map);
     destroy_dict(r->map);
