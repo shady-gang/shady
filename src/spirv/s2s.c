@@ -676,6 +676,16 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].node = get_default_zero_value(parser->arena, element_t);
             break;
         }
+        case SpvOpConstantFalse: {
+            parser->defs[result].type = Value;
+            parser->defs[result].node = false_lit(parser->arena);
+            break;
+        }
+        case SpvOpConstantTrue: {
+            parser->defs[result].type = Value;
+            parser->defs[result].node = true_lit(parser->arena);
+            break;
+        }
         case SpvOpVariable: {
             String name = get_name(parser, result);
             name = name ? name : unique_name(parser->arena, "global_variable");
