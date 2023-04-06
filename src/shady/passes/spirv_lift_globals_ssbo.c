@@ -76,12 +76,14 @@ void spirv_lift_globals_ssbo(SHADY_UNUSED CompilerConfig* config, Module* src, M
         lifted_globals_count++;
     }
 
-    const Type* lifted_globals_struct_t = record_type(a, (RecordType) {
-        .members = nodes(a, lifted_globals_count, member_tys),
-        .names = strings(a, lifted_globals_count, member_names),
-    });
-
-    ctx.lifted_globals_decl = global_var(dst, annotations, lifted_globals_struct_t, "lifted_globals", AsGLShaderStorageBufferObject);
+    if (lifted_globals_count > 0) {
+        const Type* lifted_globals_struct_t = record_type(a, (RecordType) {
+            .members = nodes(a, lifted_globals_count, member_tys),
+            .names = strings(a, lifted_globals_count, member_names),
+            .special = DecorateBlock
+        });
+        ctx.lifted_globals_decl = global_var(dst, annotations, lifted_globals_struct_t, "lifted_globals", AsGLShaderStorageBufferObject);
+    }
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
