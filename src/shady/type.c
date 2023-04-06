@@ -1128,6 +1128,7 @@ const Type* check_type_block(IrArena* arena, Block payload) {
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
+    assert(is_instruction(let.instruction));
     assert(is_anonymous_lambda(let.tail));
     Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
     Nodes param_types = get_variables_types(arena, let.tail->payload.anon_lam.params);
