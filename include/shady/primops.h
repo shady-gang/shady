@@ -44,6 +44,8 @@ P(0, round)             \
 P(0, fract)             \
 P(0, abs)               \
 P(0, sign)              \
+P(0, sin)               \
+P(0, cos)               \
 
 #define STACK_PRIMOPS(P) \
 P(1, push_stack)                \

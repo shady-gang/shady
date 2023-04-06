@@ -573,6 +573,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case ceil_op:
         case round_op:
         case fract_op:
+        case sin_op:
+        case cos_op:
         {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
