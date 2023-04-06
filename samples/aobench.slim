@@ -141,10 +141,16 @@ fn orthoBasis(varying ptr private [Vec; 3] basis, varying Vec n) {
 }
 
 
+fn drand48 f32() {
+    // TODO RNG
+    return (1.0);
+}
+
 fn ambient_occlusion Vec(varying Isect isect) {
-    //val ntheta = NAO_SAMPLES;
-    //val nphi   = NAO_SAMPLES;
+    val ntheta = 8; //NAO_SAMPLES;
+    val nphi   = 8; //NAO_SAMPLES;
     val eps = 0.0001;
+    val M_PI = 3.14159265358979323846;
 
     var Vec p = composite Vec(0, 0, 0);
 
@@ -152,12 +158,11 @@ fn ambient_occlusion Vec(varying Isect isect) {
     p#1 = isect#1#1 + eps * isect#2#1;
     p#2 = isect#1#2 + eps * isect#2#2;
 
-    //var [Vec; 3] basis = composite [Vec; 3](Vec(0, 0, 0), Vec(0, 0, 0), Vec(0, 0, 0));
+    //var [Vec; 3] basis = composite [Vec; 3](composite Vec(0, 0, 0), composite Vec(0, 0, 0), composite Vec(0, 0, 0));
     //orthoBasis(basis, isect#2);
 
     var f32 occlusion = 0.0;
 
-    /*
     val j0 = 0;
     val i0 = 0;
 
@@ -172,33 +177,33 @@ fn ambient_occlusion Vec(varying Isect isect) {
                 val theta = sqrt(drand48());
                 val phi   = 2.0 * M_PI * drand48();
 
-                val x = cos(phi) * theta;
-                val y = sin(phi) * theta;
+                //val x = cos(phi) * theta;
+                //val y = sin(phi) * theta;
                 val z = sqrt(1.0 - theta * theta);
 
                 // local -> global
-                val rx = x * basis#0#0 + y * basis#1#0 + z * basis#2#0;
-                val ry = x * basis#0#1 + y * basis#1#1 + z * basis#2#1;
-                val rz = x * basis#0#2 + y * basis#1#2 + z * basis#2#2;
+                //val rx = x * basis#0#0 + y * basis#1#0 + z * basis#2#0;
+                //val ry = x * basis#0#1 + y * basis#1#1 + z * basis#2#1;
+                //val rz = x * basis#0#2 + y * basis#1#2 + z * basis#2#2;
 
-                var ray = composite Ray(composite Vec(0, 0, 0), composite Vec(0, 0, 0));
+                var Ray ray = composite Ray(composite Vec(0, 0, 0), composite Vec(0, 0, 0));
 
                 ray#0 = p;
-                ray#1#0 = rx;
-                ray#1#1 = ry;
-                ray#1#2 = rz;
+                //ray#1#0 = rx;
+                //ray#1#1 = ry;
+                //ray#1#2 = rz;
 
-                var occIsect = composite Isect(0.0, composite Vec(0, 0, 0), composite Vec(0, 0, 0), 0);
+                var Isect occIsect = composite Isect(0.0, composite Vec(0, 0, 0), composite Vec(0, 0, 0), 0);
                 occIsect#0 = 1.0e+17;
                 occIsect#3 = 0;
 
-                ray_sphere_intersect(&occIsect, ray, spheres#0);
-                ray_sphere_intersect(&occIsect, ray, spheres#1);
-                ray_sphere_intersect(&occIsect, ray, spheres#2);
-                ray_plane_intersect (&occIsect, ray, plane);
+                //ray_sphere_intersect(&occIsect, ray, spheres#0);
+                //ray_sphere_intersect(&occIsect, ray, spheres#1);
+                //ray_sphere_intersect(&occIsect, ray, spheres#2);
+                //ray_plane_intersect (&occIsect, ray, plane);
 
                 if (occIsect#3 == 1) {
-                    occlusion += 1.0;
+                    occlusion = occlusion + 1.0;
                 }
 
                 // end loop body
@@ -217,13 +222,12 @@ fn ambient_occlusion Vec(varying Isect isect) {
 
     val s = convert[f32](ntheta * nphi);
     occlusion = (s - occlusion) / s;
-    */
 
     return (composite Vec(occlusion, occlusion, occlusion));
 }
 
-/*
-fn clamp u8(f32 f)
+
+fn clamp u8(varying f32 f)
 {
     var i32 i = convert[i32](f * 255.5);
 
@@ -233,7 +237,9 @@ fn clamp u8(f32 f)
     return (convert[u8](i));
 }
 
-fn render_pixel f32(i32 x, i32 y, i32 w, i32 h, i32 nsubsamples, varying ptr private u8 img, varying ptr private f32 fimg) {
+
+
+fn render_pixel (varying i32 x, varying i32 y, varying i32 w, varying i32 h, varying i32 nsubsamples, varying ptr private u8 img, varying ptr private f32 fimg) {
 
     val v0 = 0;
     val u0 = 0;
@@ -248,8 +254,8 @@ fn render_pixel f32(i32 x, i32 y, i32 w, i32 h, i32 nsubsamples, varying ptr pri
             if (inner) {
                 // begin loop body
 
-                val px =  (x + (u / (f32)nsubsamples) - (w / 2.0)) / (w / 2.0);
-                val py = -(y + (v / (f32)nsubsamples) - (h / 2.0)) / (h / 2.0);
+                val px =  (convert[f32](x) + (convert[f32](u) / convert[f32](nsubsamples)) - (convert[f32](w) / 2.0)) / (convert[f32](w) / 2.0);
+                val py = -(convert[f32](y) + (convert[f32](v) / convert[f32](nsubsamples)) - (convert[f32](h) / 2.0)) / (convert[f32](h) / 2.0);
 
                 var Ray ray = composite Ray(composite Vec(0, 0, 0), composite Vec(0, 0, 0));
 
@@ -262,14 +268,14 @@ fn render_pixel f32(i32 x, i32 y, i32 w, i32 h, i32 nsubsamples, varying ptr pri
                 ray#1#2 = -1.0;
                 ray#1 = vnormalize(ray#1);
 
-                var isect = composite Isect(0, composite Vec(0,0,0), composite Vec(0,0,0), 0);
+                var Isect isect = composite Isect(0, composite Vec(0,0,0), composite Vec(0,0,0), 0);
                 isect#0 = 1.0e+17;
                 isect#3 = 0;
 
-                ray_sphere_intersect(&isect, ray, spheres#0);
-                ray_sphere_intersect(&isect, ray, spheres#1);
-                ray_sphere_intersect(&isect, ray, spheres#2);
-                ray_plane_intersect (&isect, ray, plane);
+                //ray_sphere_intersect(&isect, ray, spheres#0);
+                //ray_sphere_intersect(&isect, ray, spheres#1);
+                //ray_sphere_intersect(&isect, ray, spheres#2);
+                //ray_plane_intersect(&isect, ray, plane);
 
                 if (isect#3 == 1) {
                     val col = ambient_occlusion(isect);
@@ -302,7 +308,6 @@ fn render_pixel f32(i32 x, i32 y, i32 w, i32 h, i32 nsubsamples, varying ptr pri
     //(*img)#(off + 2) = clamp((*fimg)#(off + 2));
 }
 
-*/
 
 @EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main() {
     debug_printf("Hello World");
