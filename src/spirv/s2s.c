@@ -487,6 +487,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->entry_point = "compute";
             break;
         }
+        case SpvOpExecutionMode:
         case SpvOpDecorate:
         case SpvOpMemberDecorate: {
             SpvDef payload = { Literals };
@@ -494,10 +495,15 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             int data_offset = op == SpvOpMemberDecorate ? 4 : 3;
             payload.literals.count = size - data_offset;
             payload.literals.data = instruction + data_offset;
+            int member = -1;
+            if (op == SpvOpExecutionMode)
+                member = -2;
+            else if (op == SpvOpMemberDecorate)
+                member = instruction[3];
             SpvDeco deco = {
-                    .payload = payload,
-                    .member = op == SpvOpMemberDecorate ? (int) instruction[3] : -1,
-                    .decoration = instruction[data_offset - 1]
+                .payload = payload,
+                .member = member,
+                .decoration = instruction[data_offset - 1]
             };
             add_decoration(parser, target, deco);
             break;
@@ -694,6 +700,17 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .value = string_lit(parser->arena, (StringLiteral) { "compute" })
                 }));
                 parser->entry_point = NULL;
+
+                SpvDeco* wg_size_dec = find_decoration(parser, result, -2, SpvExecutionModeLocalSize);
+                assert(wg_size_dec && wg_size_dec->payload.literals.count == 3 && "we require kernels decorated with a workgroup size");
+
+                annotations = append_nodes(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
+                    .name = "WorkgroupSize",
+                    .values = mk_nodes(parser->arena,
+                        int32_literal(parser->arena, wg_size_dec->payload.literals.data[0]),
+                        int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
+                        int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
+                }));
             }
             String name = get_name(parser, result);
             if (!name)
@@ -733,7 +750,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].type = Value;
             String param_name = get_name(parser, result);
             param_name = param_name ? param_name : format_string(parser->arena, "param%d", parser->fun_arg_i);
-            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), false), param_name);
+            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), parser->entry_point), param_name);
             break;
         }
         case SpvOpLabel: {
