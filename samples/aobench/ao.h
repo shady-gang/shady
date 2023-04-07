@@ -1,6 +1,6 @@
 #define WIDTH        256
 #define HEIGHT       256
-#define NSUBSAMPLES  2
+#define NSUBSAMPLES  1
 #define NAO_SAMPLES  8
 
 typedef float Scalar;

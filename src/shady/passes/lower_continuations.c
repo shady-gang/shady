@@ -58,10 +58,11 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     if (found)
         return *found;
 
-    String name = is_basic_block(cont) ? get_abstraction_name(cont) : given_name;
+    IrArena* arena = ctx->rewriter.dst_arena;
     Nodes oparams = get_abstraction_params(cont);
     const Node* obody = get_abstraction_body(cont);
-    IrArena* arena = ctx->rewriter.dst_arena;
+
+    String name = is_basic_block(cont) ? format_string(arena, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(arena, "given_name");
 
     // Compute the live stuff we'll need
     Scope* scope = new_scope(cont);

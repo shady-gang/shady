@@ -25,7 +25,7 @@ CompilerConfig default_compiler_config() {
     return (CompilerConfig) {
         .allow_frontend_syntax = false,
         .dynamic_scheduling = true,
-        .per_thread_stack_size = 1 KiB,
+        .per_thread_stack_size = 4 KiB,
         .per_subgroup_stack_size = 1 KiB,
 
         .target_spirv_version = {
