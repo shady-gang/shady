@@ -21,7 +21,7 @@ kernel void aobench_kernel(global unsigned char* out) {
     auto x = get_global_id(0);
     auto y = get_global_id(1);
 
-    render_pixel(&ctx, x, y, WIDTH, HEIGHT, 1, out);
+    render_pixel(&ctx, x, y, WIDTH, HEIGHT, NSUBSAMPLES, out);
     /*if (((x / 16) % 2) == ((y / 16) % 2)) {
         out[((y * HEIGHT) + x) * 3 + 0] = x;
         out[((y * HEIGHT) + x) * 3 + 1] = y;
