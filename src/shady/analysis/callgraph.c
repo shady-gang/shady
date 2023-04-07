@@ -14,14 +14,12 @@
 KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
-KeyHash hash_cgnode(CGNode** n) {
-    const Node* fn = (*n)->fn;
-    if (!fn) return 0;
-    return hash_node(&fn);
+KeyHash hash_cgedge(CGEdge* n) {
+    return hash_murmur(n, sizeof(CGEdge));
 
 }
-bool compare_cgnode(CGNode** a, CGNode** b) {
-    return (*a)->fn == (*b)->fn;
+bool compare_cgedge(CGEdge* a, CGEdge* b) {
+    return (a)->src_fn == (b)->src_fn && (a)->instr == (b)->instr;
 }
 
 static CGNode* analyze_fn(CallGraph* graph, const Node* fn);
@@ -29,7 +27,8 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn);
 typedef struct {
     Visitor visitor;
     CallGraph* graph;
-    CGNode* node;
+    CGNode* root;
+    const Node* abs;
 } CGVisitor;
 
 static const Node* ignore_immediate_fn_addr(const Node* node) {
@@ -39,34 +38,65 @@ static const Node* ignore_immediate_fn_addr(const Node* node) {
     return node;
 }
 
+static void visit_callsite(CGVisitor* visitor, const Node* callee, const Node* instr) {
+    assert(callee->tag == Function_TAG);
+    CGNode* target = analyze_fn(visitor->graph, callee);
+    // Immediate recursion
+    if (target == visitor->root)
+        visitor->root->is_recursive = true;
+    CGEdge edge = {
+        .src_fn = visitor->root,
+        .dst_fn = target,
+        .instr = instr,
+        .abs = visitor->abs,
+    };
+    dump_node(instr);
+    insert_set_get_result(CGEdge, visitor->root->callees, edge);
+    insert_set_get_result(CGEdge, target->callers, edge);
+}
+
 static void visit_node(CGVisitor* visitor, const Node* node) {
+    assert(is_abstraction(visitor->abs));
     switch (node->tag) {
         case Function_TAG: {
-            CGNode* target = analyze_fn(visitor->graph, node);
-            // Immediate recursion
-            if (target == visitor->node)
-                visitor->node->is_recursive = true;
-            insert_set_get_result(CGNode*, visitor->node->callees, target);
-            insert_set_get_result(CGNode*, target->callers, visitor->node);
+            assert(false);
+            break;
+        }
+        case BasicBlock_TAG:
+        case AnonLambda_TAG: {
+            const Node* old_abs = visitor->abs;
+            visit_children(&visitor->visitor, node);
+            visitor->abs = old_abs;
             break;
         }
         case FnAddr_TAG: {
             CGNode* callee_node = analyze_fn(visitor->graph, node->payload.fn_addr.fn);
             callee_node->is_address_captured = true;
-            visit_node(visitor, node->payload.fn_addr.fn);
+            break;
+        }
+        case LeafCall_TAG: {
+            const Node* callee = node->payload.indirect_call.callee;
+            visit_callsite(visitor, callee, node);
+            visit_nodes(&visitor->visitor, node->payload.leaf_call.args);
             break;
         }
         case IndirectCall_TAG: {
             const Node* callee = node->payload.indirect_call.callee;
             callee = ignore_immediate_fn_addr(callee);
-            visit_node(visitor, callee);
+            if (callee->tag == Function_TAG)
+                visit_callsite(visitor, callee, node);
+            else
+                visit_node(visitor, callee);
             visit_nodes(&visitor->visitor, node->payload.indirect_call.args);
             break;
         }
         case TailCall_TAG: {
             const Node* callee = node->payload.tail_call.target;
             callee = ignore_immediate_fn_addr(callee);
-            visit_node(visitor, callee);
+            if (callee->tag == Function_TAG)
+                visit_callsite(visitor, callee, node);
+            else
+                visit_node(visitor, callee);
             visit_nodes(&visitor->visitor, node->payload.tail_call.args);
             break;
         }
@@ -81,8 +111,8 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
         return *found;
     CGNode* new = calloc(1, sizeof(CGNode));
     new->fn = fn;
-    new->callees = new_set(CGNode*, (HashFn) hash_cgnode, (CmpFn) compare_cgnode);
-    new->callers = new_set(CGNode*, (HashFn) hash_cgnode, (CmpFn) compare_cgnode);
+    new->callees = new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
+    new->callers = new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
     new->tarjan.index = -1;
     insert_dict_and_get_key(const Node*, CGNode*, graph->fn2cgn, fn, new);
 
@@ -92,7 +122,8 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
             .visit_fn = (VisitFn) visit_node
         },
         .graph = graph,
-        .node = new,
+        .root = new,
+        .abs = fn,
     };
 
     if (fn)
@@ -127,20 +158,20 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
     // Consider successors of v
     {
         size_t iter = 0;
-        CGNode* w;
+        CGEdge e;
         debugvv_print(" has %d successors\n", entries_count_dict(v->callees));
-        while (dict_iter(v->callees, &iter, &w, NULL)) {
-            debugvv_print("  %s\n", w->fn->payload.fun.name);
-            if (w->tarjan.index == -1) {
+        while (dict_iter(v->callees, &iter, &e, NULL)) {
+            debugvv_print("  %s\n", e.dst_fn->fn->payload.fun.name);
+            if (e.dst_fn->tarjan.index == -1) {
                 // Successor w has not yet been visited; recurse on it
-                strongconnect(w, index, stack);
-                v->tarjan.lowlink = min(v->tarjan.lowlink, w->tarjan.lowlink);
-            } else if (w->tarjan.on_stack) {
+                strongconnect(e.dst_fn, index, stack);
+                v->tarjan.lowlink = min(v->tarjan.lowlink, e.dst_fn->tarjan.lowlink);
+            } else if (e.dst_fn->tarjan.on_stack) {
                 // Successor w is in stack S and hence in the current SCC
                 // If w is not on stack, then (v, w) is an edge pointing to an SCC already found and must be ignored
                 // Note: The next line may look odd - but is correct.
                 // It says w.index not w.lowlink; that is deliberate and from the original paper
-                v->tarjan.lowlink = min(v->tarjan.lowlink, w->tarjan.index);
+                v->tarjan.lowlink = min(v->tarjan.lowlink, e.dst_fn->tarjan.index);
             }
         }
     }

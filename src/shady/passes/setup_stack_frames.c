@@ -81,7 +81,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     .builder = bb,
                 };
                 if (node->payload.fun.body)
-                        visit_children(&vctx.visitor, node->payload.fun.body);
+                    collect_allocas(&vctx, node);
             }
             if (node->payload.fun.body)
                 fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));

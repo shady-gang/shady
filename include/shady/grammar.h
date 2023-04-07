@@ -359,13 +359,13 @@ MkField(1, VALUES, Nodes, initial_args)
 typedef struct Control_ Control;
 #define Control_Fields(MkField) \
 MkField(1, TYPES, Nodes, yield_types) \
-MkField(1, TERMINATOR, const Node*, inside)
+MkField(1, ANON_LAMBDA, const Node*, inside)
 
 /// Structured "block" construct
 /// used as a helper block to insert multiple instructions in place of one
 typedef struct Block_ Block;
 #define Block_Fields(MkField) \
-MkField(1, TERMINATOR, const Node*, inside)
+MkField(1, ANON_LAMBDA, const Node*, inside)
 
 //////////////////////////////// Terminators ////////////////////////////////
 
