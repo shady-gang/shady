@@ -46,9 +46,9 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     }
 
     size_t iter = 0;
-    CGNode* n;
-    while (dict_iter(fn_node->callees, &iter, &n, NULL)) {
-        if (!is_leaf_fn(ctx, n)) {
+    CGEdge e;
+    while (dict_iter(fn_node->callees, &iter, &e, NULL)) {
+        if (!is_leaf_fn(ctx, e.dst_fn)) {
             info->is_leaf = false;
             info->done = true;
         }

@@ -53,25 +53,33 @@ void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
 #define VISIT_FIELD_VARIABLES(t, n) visit_values(payload.n);
 #define VISIT_FIELD_INSTRUCTION(t, n) visit_instruction(payload.n);
 #define VISIT_FIELD_TERMINATOR(t, n) visit_terminator(payload.n);
-#define VISIT_FIELD_ANON_LAMBDA(t, n) visit_anon_lambda(payload.n);
-#define VISIT_FIELD_ANON_LAMBDAS(t, n) visit_anon_lambdas(payload.n);
+#define VISIT_FIELD_ANON_LAMBDA(t, n) if (visitor->visit_cf_targets) visit_anon_lambda(payload.n);
+#define VISIT_FIELD_ANON_LAMBDAS(t, n) if (visitor->visit_cf_targets) visit_anon_lambdas(payload.n);
 
 #define VISIT_FIELD_DECL(t, n) if (visitor->visit_referenced_decls) visit_decl(payload.n);
 
-#define VISIT_FIELD_BASIC_BLOCK(t, n) if (visitor->visit_continuations) visit_basic_block(payload.n);
-#define VISIT_FIELD_BASIC_BLOCKS(t, n) if (visitor->visit_continuations) visit_basic_blocks(payload.n);
+#define VISIT_FIELD_BASIC_BLOCK(t, n) if (visitor->visit_cf_targets) visit_basic_block(payload.n);
+#define VISIT_FIELD_BASIC_BLOCKS(t, n) if (visitor->visit_cf_targets) visit_basic_blocks(payload.n);
 
 void visit_children(Visitor* visitor, const Node* node) {
     if (!node_type_has_payload[node->tag])
         return;
 
-    if (node->tag == Function_TAG) {
-        visit_nodes(visitor, node->payload.fun.params);
-        visit_nodes(visitor, node->payload.fun.return_types);
-        if (node->payload.fun.body)
-            visit_node(visitor, node->payload.fun.body);
-        if (visitor->visit_fn_scope_rpo)
-            visit_fn_blocks_except_head(visitor, node);
+    switch (node->tag) {
+        case Function_TAG: {
+            visit_nodes(visitor, node->payload.fun.params);
+            visit_nodes(visitor, node->payload.fun.return_types);
+            if (node->payload.fun.body)
+                visit_node(visitor, node->payload.fun.body);
+            if (visitor->visit_fn_scope_rpo)
+                visit_fn_blocks_except_head(visitor, node);
+            return;
+        }
+        case Variable_TAG: {
+            visit_node(visitor, node->payload.var.type);
+            return;
+        }
+        default: break;
     }
 
     switch(node->tag) {

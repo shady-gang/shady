@@ -5,6 +5,13 @@
 
 typedef struct CGNode_ CGNode;
 
+typedef struct {
+    CGNode* src_fn;
+    CGNode* dst_fn;
+    const Node* abs;
+    const Node* instr;
+} CGEdge;
+
 struct CGNode_ {
     const Node* fn;
     struct Dict* callers;

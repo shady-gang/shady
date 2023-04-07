@@ -39,7 +39,7 @@ static void verify_same_arena(Module* mod) {
             // not because we might miss nodes in a well-formed program (we shouldn't)
             // but rather because we might in a program that isn't.
             .visit_referenced_decls = true,
-            .visit_continuations = true,
+            .visit_cf_targets = true,
         },
         .arena = arena,
         .once = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
