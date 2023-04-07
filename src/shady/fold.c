@@ -63,6 +63,7 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
                 }
             }
             if (!modified) {
+                cancel_body(bb);
                 break;
             }
             Nodes results = bind_instruction(bb, prim_op(arena, (PrimOp) {
