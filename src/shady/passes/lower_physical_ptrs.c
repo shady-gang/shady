@@ -83,7 +83,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
         case Bool_TAG: {
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
             const Node* value = gen_load(bb, logical_ptr);
-            return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, zero});
+            return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, int_literal(bb->arena, (IntLiteral) { .value.u64 = 0, .width = bb->arena->config.memory.word_size })});
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
             case AsGlobalPhysical: {
@@ -153,8 +153,9 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
     switch (element_type->tag) {
         case Bool_TAG: {
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
-            const Node* one = size_t_literal(ctx, 1);
-            const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one, zero });
+            const Node* zero_b = int_literal(bb->arena, (IntLiteral) { .value.u64 = 1, .width = bb->arena->config.memory.word_size });
+            const Node* one_b = int_literal(bb->arena, (IntLiteral) { .value.u64 = 0, .width = bb->arena->config.memory.word_size });
+            const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one_b, zero_b });
             gen_store(bb, logical_ptr, int_value);
             return;
         }
