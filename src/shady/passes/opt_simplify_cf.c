@@ -57,6 +57,10 @@ static FnInliningCriteria get_inlining_heuristic(CGNode* fn_node) {
     if (crit.num_inlineable_calls == 1)
         crit.can_be_inlined = true;
 
+    // avoid inlining recursive things
+    if (fn_node->is_address_captured || fn_node->is_recursive)
+        crit.can_be_inlined = false;
+
     // it can be eliminated if it can be inlined, and all the calls are inlineable calls ...
     if (crit.num_calls == crit.num_inlineable_calls && crit.can_be_inlined)
         crit.can_be_eliminated = true;
@@ -75,12 +79,12 @@ static const Node* inline_call(Context* ctx, const Node* oabs, Nodes nargs) {
     Context inline_context = *ctx;
     inline_context.rewriter.map = clone_dict(inline_context.rewriter.map);
     Nodes oparams = get_abstraction_params(oabs);
-    register_processed_list(&ctx->rewriter, oparams, nargs);
+    register_processed_list(&inline_context.rewriter, oparams, nargs);
 
     if (oabs->tag == Function_TAG)
         inline_context.scope = new_scope(oabs);
 
-    const Node* nbody = rewrite_node(&ctx->rewriter, get_abstraction_body(oabs));
+    const Node* nbody = rewrite_node(&inline_context.rewriter, get_abstraction_body(oabs));
 
     if (oabs->tag == Function_TAG)
         destroy_scope(inline_context.scope);
