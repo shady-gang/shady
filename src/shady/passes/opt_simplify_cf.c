@@ -57,7 +57,7 @@ static FnInliningCriteria get_inlining_heuristic(CGNode* fn_node) {
     if (crit.num_inlineable_calls == 1)
         crit.can_be_inlined = true;
 
-    // avoid inlining recursive things
+    // avoid inlining recursive things for now
     if (fn_node->is_address_captured || fn_node->is_recursive)
         crit.can_be_inlined = false;
 
@@ -73,11 +73,12 @@ static FnInliningCriteria get_inlining_heuristic(CGNode* fn_node) {
 }
 
 /// inlines the abstraction with supplied arguments
-static const Node* inline_call(Context* ctx, const Node* oabs, Nodes nargs) {
+static const Node* inline_call(Context* ctx, const Node* oabs, Nodes nargs, bool separate_scope) {
     assert(is_abstraction(oabs));
 
     Context inline_context = *ctx;
-    inline_context.rewriter.map = clone_dict(inline_context.rewriter.map);
+    if (separate_scope)
+        inline_context.rewriter.map = clone_dict(inline_context.rewriter.map);
     Nodes oparams = get_abstraction_params(oabs);
     register_processed_list(&inline_context.rewriter, oparams, nargs);
 
@@ -89,7 +90,8 @@ static const Node* inline_call(Context* ctx, const Node* oabs, Nodes nargs) {
     if (oabs->tag == Function_TAG)
         destroy_scope(inline_context.scope);
 
-    destroy_dict(inline_context.rewriter.map);
+    if (separate_scope)
+        destroy_dict(inline_context.rewriter.map);
 
     assert(is_terminator(nbody));
     return nbody;
@@ -134,11 +136,11 @@ static const Node* process(Context* ctx, const Node* node) {
             assert(cfnode);
             size_t preds_count = entries_count_list(cfnode->pred_edges);
             assert(preds_count > 0 && "this CFG looks broken");
-            // if (preds_count == 1) {
-            //     debugv_print("Inlining jump to %s\n", get_abstraction_name(otarget));
-            //     Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
-            //     return inline_call(ctx, otarget, nargs);
-            // }
+            if (preds_count == 1) {
+                debugv_print("Inlining jump to %s\n", get_abstraction_name(otarget));
+                Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
+                return inline_call(ctx, otarget, nargs, false);
+            }
             return recreate_node_identity(&ctx->rewriter, node);
         }
         case IndirectCall_TAG:
@@ -159,7 +161,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Node* join_point = var(arena, qualified_type_helper(jp_type, true), format_string(arena, "inlined_return_%s", get_abstraction_name(ocallee)));
                     insert_dict_and_get_result(const Node*, const Node*, ctx->inlined_return_sites, ocallee, join_point);
 
-                    const Node* nbody = inline_call(ctx, ocallee, nargs);
+                    const Node* nbody = inline_call(ctx, ocallee, nargs, true);
 
                     remove_dict(const Node*, ctx->inlined_return_sites, ocallee);
 
@@ -186,7 +188,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     debugv_print("Inlining tail call to %s\n", get_abstraction_name(ocallee));
                     Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
 
-                    return inline_call(ctx, ocallee, nargs);
+                    return inline_call(ctx, ocallee, nargs, true);
                 }
             }
             return recreate_node_identity(&ctx->rewriter, node);
