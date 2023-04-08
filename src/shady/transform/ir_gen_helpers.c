@@ -92,6 +92,14 @@ const Node* gen_lea(BodyBuilder* instructions, const Node* base, const Node* off
     return gen_primop_ce(instructions, lea_op, 2 + selectors.count, ops);
 }
 
+const Node* gen_extract(BodyBuilder* instructions, const Node* base, Nodes selectors) {
+    LARRAY(const Node*, ops, 1 + selectors.count);
+    ops[0] = base;
+    for (size_t i = 0; i < selectors.count; i++)
+        ops[1 + i] = selectors.nodes[i];
+    return gen_primop_ce(instructions, extract_op, 1 + selectors.count, ops);
+}
+
 const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
     Nodes old_decls = get_module_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {

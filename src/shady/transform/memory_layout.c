@@ -87,6 +87,15 @@ TypeMemLayout get_mem_layout(IrArena* arena, const Type* type) {
                 .alignment_in_bytes = element_layout.alignment_in_bytes
             };
         }
+        case PackType_TAG: {
+            size_t width = type->payload.pack_type.width;
+            TypeMemLayout element_layout = get_mem_layout(arena, type->payload.pack_type.element_type);
+            return (TypeMemLayout) {
+                .type = type,
+                .size_in_bytes = width * element_layout.size_in_bytes /* TODO Vulkan vec3 -> vec4 alignment rules ? */,
+                .alignment_in_bytes = element_layout.alignment_in_bytes
+            };
+        }
         case QualifiedType_TAG: return get_mem_layout(arena, type->payload.qualified_type.type);
         case TypeDeclRef_TAG: return get_mem_layout(arena, type->payload.type_decl_ref.decl->payload.nom_type.body);
         case RecordType_TAG: return get_record_layout(arena, type, NULL);
