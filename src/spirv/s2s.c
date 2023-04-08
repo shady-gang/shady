@@ -974,13 +974,45 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             ops[0] = get_def_ssa_value(parser, instruction[3]);
             ops[1] = get_def_ssa_value(parser, instruction[4]);
             for (size_t i = 0; i < num_indices; i++)
-                ops[1 + i] = int32_literal(parser->arena, instruction[5 + i]);
+                ops[2 + i] = int32_literal(parser->arena, instruction[5 + i]);
             parser->defs[result].type = Value;
             parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = insert_op,
                     .type_arguments = empty(parser->arena),
-                    .operands = nodes(parser->arena, 1 + num_indices, ops)
+                    .operands = nodes(parser->arena, 2 + num_indices, ops)
             }), 1, NULL, NULL));
+            break;
+        }
+        case SpvOpVectorShuffle: {
+            const Node* src_a = get_def_ssa_value(parser, instruction[3]);
+            const Node* src_b = get_def_ssa_value(parser, instruction[4]);
+
+            const Type* src_a_t = src_a->type;
+            deconstruct_qualified_type(&src_a_t);
+            assert(src_a_t->tag == PackType_TAG);
+            size_t num_components_a = src_a_t->payload.pack_type.width;
+
+            int num_components = size - 5;
+            LARRAY(const Node*, components, num_components);
+            for (size_t i = 0; i < num_components; i++) {
+                size_t index = instruction[5 + i];
+                const Node* src = src_a;
+                if (index >= num_components_a) {
+                    index -= num_components_a;
+                    src = src_b;
+                }
+                components[i] = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                    .op = extract_op,
+                    .type_arguments = empty(parser->arena),
+                    .operands = mk_nodes(parser->arena, src, int32_literal(parser->arena, index))
+                }), 1, NULL, NULL));
+            }
+
+            parser->defs[result].type = Value;
+            parser->defs[result].node = composite(parser->arena, pack_type(parser->arena, (PackType) {
+                    .element_type = src_a_t->payload.pack_type.element_type,
+                    .width = num_components,
+                }), nodes(parser->arena, num_components, components));
             break;
         }
         case SpvOpLoad: {
