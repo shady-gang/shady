@@ -7,11 +7,15 @@ typedef float Scalar;
 
 #define M_PI 3.14159f
 
+#ifdef _MSC_VER
+#include <math.h>
+#else
 Scalar sqrtf(Scalar);
 Scalar floorf(Scalar);
 Scalar fabsf(Scalar);
 Scalar sinf(Scalar);
 Scalar cosf(Scalar);
+#endif
 
 typedef struct _vec
 {
