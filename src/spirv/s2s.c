@@ -968,6 +968,21 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }), 1, NULL, NULL));
             break;
         }
+        case SpvOpCompositeInsert: {
+            int num_indices = size - 5;
+            LARRAY(const Node*, ops, 2 + num_indices);
+            ops[0] = get_def_ssa_value(parser, instruction[3]);
+            ops[1] = get_def_ssa_value(parser, instruction[4]);
+            for (size_t i = 0; i < num_indices; i++)
+                ops[1 + i] = int32_literal(parser->arena, instruction[5 + i]);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                    .op = insert_op,
+                    .type_arguments = empty(parser->arena),
+                    .operands = nodes(parser->arena, 1 + num_indices, ops)
+            }), 1, NULL, NULL));
+            break;
+        }
         case SpvOpLoad: {
             SpvDeco* builtin = find_decoration(parser, instruction[3], -1, SpvDecorationBuiltIn);
             if (builtin) {

@@ -262,17 +262,27 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             results[0] = result;
             return;
         }
+        case insert_op:
         case extract_op: {
+            assert(results_count == 1);
+            bool insert = the_op.op == insert_op;
+
             const Node* src_value = first(args);
             const Type* result_t = instr->type;
-            LARRAY(uint32_t, arr, args.count - 1);
-            for (size_t i = 0; i < args.count - 1; i++) {
-                arr[i] = get_int_literal_value(args.nodes[i + 1], false);
+            size_t indices_start = insert ? 2 : 1;
+            size_t indices_count = args.count - indices_start;
+
+            assert(args.count > indices_start);
+            LARRAY(uint32_t, indices, indices_count);
+            for (size_t i = 0; i < indices_count; i++) {
+                // TODO: fallback to Dynamic variants transparently
+                indices[i] = get_int_literal_value(args.nodes[i + indices_start], false);
             }
-            assert(args.count > 1);
-            SpvId result = spvb_extract(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, src_value), args.count - 1, arr);
-            assert(results_count == 1);
-            results[0] = result;
+
+            if (insert)
+                results[0] = spvb_extract(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, src_value), indices_count, indices);
+            else
+                results[0] = spvb_insert(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, src_value), emit_value(emitter, bb_builder, args.nodes[1]), indices_count, indices);
             return;
         }
         case load_op: {
