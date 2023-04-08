@@ -222,6 +222,7 @@ typedef struct CompilerConfig_ {
         bool emulate_subgroup_ops_extended_types;
         bool simt_to_explicit_simd;
         bool int64;
+        bool decay_ptrs;
     } lower;
 
     struct {

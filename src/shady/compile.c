@@ -107,6 +107,10 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_subgroup_vars)
     RUN_PASS(lower_memory_layout)
 
+    if (config->lower.decay_ptrs) {
+        RUN_PASS(lower_decay_ptrs)
+    }
+
     RUN_PASS(lower_int)
 
     if (config->lower.simt_to_explicit_simd) {
