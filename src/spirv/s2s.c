@@ -43,6 +43,7 @@ typedef struct SpvDeco_ SpvDeco;
 
 typedef struct {
     enum { Nothing, Forward, Str, Typ, Decl, BB, Value, Literals, Builtin } type;
+    const Type* result_type;
     union {
         size_t instruction_offset;
         const Node* node;
@@ -431,6 +432,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         } else if (parser->defs[result].type != Forward) {
             return SIZE_MAX;
         }
+
+        if (has_type)
+            parser->defs[result].result_type = get_def_type(parser, result_t);
     }
 
     instruction_offset += size;
@@ -971,8 +975,8 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpCompositeInsert: {
             int num_indices = size - 5;
             LARRAY(const Node*, ops, 2 + num_indices);
-            ops[0] = get_def_ssa_value(parser, instruction[3]);
-            ops[1] = get_def_ssa_value(parser, instruction[4]);
+            ops[0] = get_def_ssa_value(parser, instruction[4]);
+            ops[1] = get_def_ssa_value(parser, instruction[3]);
             for (size_t i = 0; i < num_indices; i++)
                 ops[2 + i] = int32_literal(parser->arena, instruction[5 + i]);
             parser->defs[result].type = Value;
@@ -987,8 +991,8 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             const Node* src_a = get_def_ssa_value(parser, instruction[3]);
             const Node* src_b = get_def_ssa_value(parser, instruction[4]);
 
-            const Type* src_a_t = src_a->type;
-            deconstruct_qualified_type(&src_a_t);
+            const Type* src_a_t = get_definition_by_id(parser, instruction[3])->result_type;
+            // deconstruct_qualified_type(&src_a_t);
             assert(src_a_t->tag == PackType_TAG);
             size_t num_components_a = src_a_t->payload.pack_type.width;
 

@@ -784,7 +784,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             size_t indices_start = prim_op.op == insert_op ? 2 : 1;
 
-            for (size_t i = 1; i < prim_op.operands.count; i++) {
+            for (size_t i = indices_start; i < prim_op.operands.count; i++) {
                 assert(is_data_type(current_type));
 
                 // Check index is valid !
