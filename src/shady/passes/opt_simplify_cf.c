@@ -134,11 +134,11 @@ static const Node* process(Context* ctx, const Node* node) {
             assert(cfnode);
             size_t preds_count = entries_count_list(cfnode->pred_edges);
             assert(preds_count > 0 && "this CFG looks broken");
-            if (preds_count == 1) {
-                debugv_print("Inlining jump to %s\n", get_abstraction_name(otarget));
-                Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
-                return inline_call(ctx, otarget, nargs);
-            }
+            // if (preds_count == 1) {
+            //     debugv_print("Inlining jump to %s\n", get_abstraction_name(otarget));
+            //     Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
+            //     return inline_call(ctx, otarget, nargs);
+            // }
             return recreate_node_identity(&ctx->rewriter, node);
         }
         case IndirectCall_TAG:
