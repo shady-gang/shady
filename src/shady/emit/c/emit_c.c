@@ -541,15 +541,18 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 static Module* run_backend_specific_passes(SHADY_UNUSED CEmitterConfig* econfig, Module* mod) {
-    // CompilerConfig* config = econfig->config;
-    // IrArena* old_arena = get_module_arena(mod);
-    // ArenaConfig aconfig = old_arena->config;
-    // Module* old_mod;
-    // IrArena* tmp_arena = NULL;
-    // if (econfig->simt2d) {
-    //     aconfig.is_simt = false;
-    //     RUN_PASS(simt2d)
-    // }
+    CompilerConfig* config = econfig->config;
+    IrArena* old_arena = get_module_arena(mod);
+    ArenaConfig aconfig = old_arena->config;
+    Module* old_mod;
+    IrArena* tmp_arena = NULL;
+    if (econfig->dialect == ISPC) {
+        RUN_PASS(lower_vec_arr)
+    }
+    if (config->lower.simt_to_explicit_simd) {
+        aconfig.is_simt = false;
+        RUN_PASS(simt2d)
+    }
     return mod;
 }
 
