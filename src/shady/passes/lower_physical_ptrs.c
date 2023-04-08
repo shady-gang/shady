@@ -143,6 +143,16 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             }
             return composite(bb->arena, element_type, nodes(bb->arena, member_types.count, loaded));
         }
+        case PackType_TAG: {
+            size_t components_count = element_type->payload.pack_type.width;
+            LARRAY(const Node*, components, components_count);
+            const Node* offset = base_offset;
+            for (size_t i = 0; i < components_count; i++) {
+                components[i] = gen_deserialisation(ctx, bb, element_type->payload.pack_type.element_type, arr, offset);
+                offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, offset, gen_primop_e(bb, size_of_op, singleton(element_type), empty(bb->arena))));
+            }
+            return composite(bb->arena, element_type, nodes(bb->arena, components_count, components));
+        }
         default: error("TODO");
     }
 }
@@ -221,6 +231,15 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             const Node* nom = element_type->payload.type_decl_ref.decl;
             assert(nom && nom->tag == NominalType_TAG);
             gen_serialisation(ctx, bb, nom->payload.nom_type.body, arr, base_offset, value);
+            return;
+        }
+        case PackType_TAG: {
+            size_t components_count = element_type->payload.pack_type.width;
+            const Node* offset = base_offset;
+            for (size_t i = 0; i < components_count; i++) {
+                gen_serialisation(ctx, bb, element_type->payload.pack_type.element_type, arr, offset, gen_extract(bb, value, singleton(int32_literal(bb->arena, i))));
+                offset = gen_primop_e(bb, add_op, empty(bb->arena), mk_nodes(bb->arena, offset, gen_primop_e(bb, size_of_op, singleton(element_type), empty(bb->arena))));
+            }
             return;
         }
         default: error("TODO");

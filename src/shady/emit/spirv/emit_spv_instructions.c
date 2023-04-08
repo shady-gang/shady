@@ -31,6 +31,9 @@ typedef enum {
 static OperandClass classify_operand_type(const Type* type) {
     assert(is_type(type) && is_data_type(type));
 
+    if (type->tag == PackType_TAG)
+        return classify_operand_type(type->payload.pack_type.element_type);
+
     switch (type->tag) {
         case Int_TAG:     return type->payload.int_type.is_signed ? Signed : Unsigned;
         case Bool_TAG:    return Logical;
@@ -185,18 +188,20 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                     results[0] = emitted_args[0];
                     return;
                 }
+
+                Nodes results_ts = unwrap_multiple_yield_types(emitter->arena, instr->type);
+                SpvId result_t = results_ts.count >= 1 ? emit_type(emitter, instr->type) : spvb_void_type(emitter->file_builder);
+
                 assert(opcode != SpvOpMax);
 
                 if (entry.extended_set) {
                     SpvId set_id = get_extended_instruction_set(emitter, entry.extended_set);
-                    const Type* result_t = get_result_t(emitter, entry, args, type_arguments);
 
-                    SpvId result = spvb_ext_instruction(bb_builder, emit_type(emitter, result_t), set_id, opcode, args.count, emitted_args);
+                    SpvId result = spvb_ext_instruction(bb_builder, result_t, set_id, opcode, args.count, emitted_args);
                     if (results_count == 1)
                         results[0] = result;
                 } else {
-                    const Type* result_t = get_result_t(emitter, entry, args, type_arguments);
-                    SpvId result = spvb_op(bb_builder, opcode, emit_type(emitter, result_t), args.count, emitted_args);
+                    SpvId result = spvb_op(bb_builder, opcode, result_t, args.count, emitted_args);
                     if (results_count == 1)
                         results[0] = result;
                 }
@@ -279,10 +284,10 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 indices[i] = get_int_literal_value(args.nodes[i + indices_start], false);
             }
 
-            if (insert)
+            if (!insert)
                 results[0] = spvb_extract(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, src_value), indices_count, indices);
             else
-                results[0] = spvb_insert(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, src_value), emit_value(emitter, bb_builder, args.nodes[1]), indices_count, indices);
+                results[0] = spvb_insert(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, args.nodes[1]), emit_value(emitter, bb_builder, src_value), indices_count, indices);
             return;
         }
         case load_op: {
