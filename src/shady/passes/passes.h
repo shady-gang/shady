@@ -67,6 +67,7 @@ RewritePass lower_mask;
 
 /// Emulates unsupported integer datatypes and operations
 RewritePass lower_int;
+RewritePass lower_vec_arr;
 
 // Optimisation passes
 
