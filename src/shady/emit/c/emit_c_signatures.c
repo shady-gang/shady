@@ -168,6 +168,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                     emitted = "double";
                     break;
             }
+            break;
         case Type_RecordType_TAG: {
             if (type->payload.record_type.members.count == 0) {
                 emitted = "void";

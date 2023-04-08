@@ -404,7 +404,6 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     }
                     break;
                 case AsGlobalPhysical:
-                    assert(false);
                 case AsPrivatePhysical:
                 case AsPrivateLogical:
                     address_space_prefix = "";

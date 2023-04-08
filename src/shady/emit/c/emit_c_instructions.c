@@ -205,7 +205,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             final_expression = format_string(emitter->arena, "(%s) ? (%s) : (%s)", condition, l, r);
             break;
         }
-        case convert_op: error("TODO");
+        case convert_op:
         case reinterpret_op: {
             assert(outputs.count == 1);
             CTerm src = emit_value(emitter, p, first(prim_op->operands));
@@ -213,17 +213,15 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             const Type* dst_type = first(prim_op->type_arguments);
             if (emitter->config.dialect == GLSL) {
                 if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
-                    CType t = emit_type(emitter, prim_op->type_arguments.nodes[0], NULL);
+                    CType t = emit_type(emitter, dst_type, NULL);
                     outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s(%s)", t, to_cvalue(emitter, src)));
                     outputs.binding[0] = NoBinding;
                 } else
                     assert(false);
-            } else if (src_type->tag == PtrType_TAG && dst_type->tag == PtrType_TAG) {
-                CType t = emit_type(emitter, prim_op->type_arguments.nodes[0], NULL);
+            } else {
+                CType t = emit_type(emitter, dst_type, NULL);
                 outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "((%s) %s)", t, to_cvalue(emitter, src)));
                 outputs.binding[0] = NoBinding;
-            } else {
-                assert(false);
             }
             return;
         }
