@@ -227,9 +227,16 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             }
             return;
         }
+        case insert_op:
         case extract_dynamic_op:
         case extract_op: {
             CValue acc = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
+            bool insert = prim_op->op == insert_op;
+
+            if (insert) {
+                final_expression = unique_name(arena, "modified");
+                print(p, "\n%s = %s;", c_emit_type(emitter, first(prim_op->operands)->type, final_expression), acc);
+            }
 
             const Type* t = get_unqualified_type(first(prim_op->operands)->type);
             for (size_t i = 1; i < prim_op->operands.count; i++) {
@@ -260,6 +267,11 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     default:
                     case NotAType: error("Must be a type");
                 }
+            }
+
+            if (insert) {
+                print(p, "\n%s = %s;", acc, to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1])));
+                break;
             }
 
             final_expression = acc;

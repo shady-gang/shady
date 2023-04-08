@@ -108,6 +108,7 @@ P(0, convert)                   \
 P(0, reinterpret)               \
 P(0, extract)                   \
 P(0, extract_dynamic)           \
+P(0, insert)                    \
 P(1, debug_printf)              \
 COMPUTE_INTRINSICS_PRIMOPS(P)   \
 SUBGROUP_INTRINSICS_PRIMOPS(P)  \

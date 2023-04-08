@@ -772,14 +772,17 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             return qualified_type_helper(maybe_packed_type_helper(alternatives_types[0], width), alternatives_all_uniform && condition_uniform);
         }
+        case insert_op:
         case extract_dynamic_op:
         case extract_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count >= 2);
-            const Type* source = prim_op.operands.nodes[0];
+            const Node* source = first(prim_op.operands);
 
             const Type* current_type = source->type;
             bool is_uniform = deconstruct_qualified_type(&current_type);
+
+            size_t indices_start = prim_op.op == insert_op ? 2 : 1;
 
             for (size_t i = 1; i < prim_op.operands.count; i++) {
                 assert(is_data_type(current_type));
@@ -825,6 +828,18 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                     default: error("Not a valid type to extract from")
                 }
             }
+
+            if (prim_op.op == insert_op) {
+                const Node* inserted_data = prim_op.operands.nodes[1];
+                const Type* inserted_data_type = inserted_data->type;
+                is_uniform &= deconstruct_qualified_type(&inserted_data_type);
+                assert(is_subtype(current_type, inserted_data_type) && "inserting data into a composite, but it doesn't match the target and indices");
+                return qualified_type(arena, (QualifiedType) {
+                    .is_uniform = is_uniform,
+                    .type = get_unqualified_type(source->type),
+                });
+            }
+
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = is_uniform,
                 .type = current_type
