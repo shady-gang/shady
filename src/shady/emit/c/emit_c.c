@@ -32,6 +32,35 @@ CAddr deref_term(Emitter* e, CTerm term) {
     assert(false);
 }
 
+// TODO: utf8
+static bool is_legal_c_identifier_char(char c) {
+    if (c >= '0' && c <= '9')
+        return true;
+    if (c >= 'a' && c <= 'z')
+        return true;
+    if (c >= 'A' && c <= 'Z')
+        return true;
+    if (c == '_')
+        return true;
+    return false;
+}
+
+String legalize_c_identifier(Emitter* e, String src) {
+    size_t len = strlen(src);
+    LARRAY(char, dst, len + 1);
+    size_t i;
+    for (i = 0; i < len; i++) {
+        char c = src[i];
+        if (is_legal_c_identifier_char(c))
+            dst[i] = c;
+        else
+            dst[i] = '_';
+    }
+    dst[i] = '\0';
+    // TODO: collision handling using a dict
+    return string(e->arena, dst);
+}
+
 #include <ctype.h>
 
 static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* block_printer, Printer* p, Growy* g, const Node* t, Nodes c) {
@@ -180,7 +209,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             break;
         }
         case Value_FnAddr_TAG: {
-            emitted = get_decl_name(value->payload.fn_addr.fn);
+            emitted = legalize_c_identifier(emitter, get_decl_name(value->payload.fn_addr.fn));
             emitted = format_string(emitter->arena, "&%s", emitted);
             break;
         }
@@ -236,7 +265,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                     case LetMutBinding: mut = true;
                     case LetBinding: {
                         assert((mut || has_result) && "unbound results are only allowed when creating a mutable local variable");
-                        String bind_to = format_string(emitter->arena, "%s_%d", tail_params.nodes[i]->payload.var.name, fresh_id(emitter->arena));
+                        String bind_to = format_string(emitter->arena, "%s_%d", legalize_c_identifier(emitter, tail_params.nodes[i]->payload.var.name), fresh_id(emitter->arena));
 
                         String prefix = "";
                         String center = bind_to;
@@ -377,7 +406,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
     CType* found2 = lookup_existing_type(emitter, decl);
     if (found2) return;
 
-    const char* name = get_decl_name(decl);
+    const char* name = legalize_c_identifier(emitter, get_decl_name(decl));
     const Type* decl_type = decl->type;
     const char* decl_center = name;
     CTerm emit_as;
@@ -461,11 +490,11 @@ void emit_decl(Emitter* emitter, const Node* decl) {
         case Function_TAG: {
             emit_as = term_from_cvalue(name);
             register_emitted(emitter, decl, emit_as);
-            String head = emit_fn_head(emitter, decl->type, get_abstraction_name(decl), decl);
+            String head = emit_fn_head(emitter, decl->type, name, decl);
             const Node* body = decl->payload.fun.body;
             if (body) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
-                    const char* param_name = format_string(emitter->arena, "%s_%d", decl->payload.fun.params.nodes[i]->payload.var.name, decl->payload.fun.params.nodes[i]->payload.var.id);
+                    const char* param_name = format_string(emitter->arena, "%s_%d", legalize_c_identifier(emitter, decl->payload.fun.params.nodes[i]->payload.var.name), decl->payload.fun.params.nodes[i]->payload.var.id);
                     register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 
@@ -506,7 +535,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             return;
         }
         case NominalType_TAG: {
-            CType emitted = decl->payload.nom_type.name;
+            CType emitted = name;
             register_emitted_type(emitter, decl, emitted);
             switch (emitter->config.dialect) {
                 case ISPC:

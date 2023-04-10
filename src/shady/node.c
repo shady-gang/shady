@@ -95,6 +95,7 @@ String get_decl_name(const Node* node) {
 
 int64_t get_int_literal_value(const Node* node, bool sign_extend) {
     const IntLiteral* literal = resolve_to_literal(node);
+    assert(literal);
     if (sign_extend) {
         switch (literal->width) {
             case IntTy8:  return (int64_t) literal->value.i8;
