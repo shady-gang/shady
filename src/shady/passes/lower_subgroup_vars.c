@@ -48,7 +48,13 @@ static const Node* process(Context* ctx, const Node* node) {
 
                 Node* new = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations), atype, node->payload.global_variable.name, AsSharedLogical);
                 register_processed(&ctx->rewriter, node, new);
-                new->payload.global_variable.init = rewrite_node(&ctx->rewriter, node->payload.global_variable.init);
+
+                if (node->payload.global_variable.init) {
+                    new->payload.global_variable.init = fill(a, (Fill) {
+                        .type = atype,
+                        .value = rewrite_node(&ctx->rewriter, node->payload.global_variable.init)
+                    });
+                }
                 return new;
             }
             break;
