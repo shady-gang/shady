@@ -386,6 +386,7 @@ const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
 }
 
 const Type* check_type_composite(IrArena* arena, Composite composite) {
+    assert(is_data_type(composite.type));
     Nodes expected_member_types = get_composite_type_element_types(composite.type);
     bool is_uniform = true;
     assert(composite.contents.count == expected_member_types.count);
@@ -397,6 +398,18 @@ const Type* check_type_composite(IrArena* arena, Composite composite) {
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = is_uniform,
         .type = composite.type
+    });
+}
+
+const Type* check_type_fill(IrArena* arena, Fill payload) {
+    assert(is_data_type(payload.type));
+    const Node* element_t = get_fill_type_element_type(payload.type);
+    const Node* value_t = payload.value->type;
+    bool u = deconstruct_qualified_type(&value_t);
+    assert(is_subtype(element_t, value_t));
+    return qualified_type(arena, (QualifiedType) {
+        .is_uniform = u,
+        .type = payload.type
     });
 }
 

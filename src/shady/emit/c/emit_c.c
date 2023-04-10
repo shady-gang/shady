@@ -156,6 +156,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             destroy_printer(p);
             break;
         }
+        case Value_Fill_TAG: error("lower me")
         case Value_StringLiteral_TAG: {
             Growy* g = new_growy();
             Printer* p = open_growy_as_printer(g);

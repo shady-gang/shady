@@ -439,6 +439,18 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             print_args_list(ctx, node->payload.composite.contents);
             break;
         }
+        case Value_Fill_TAG: {
+            const Type* type = node->payload.fill.type;
+            printf(BBLUE);
+            printf("fill");
+            printf(RESET);
+            printf(" ");
+            print_node(type);
+            printf("(");
+            print_node(node->payload.fill.value);
+            printf(")");
+            break;
+        }
         case Value_RefDecl_TAG: {
             printf(BYELLOW);
             printf((char*) get_decl_name(node->payload.ref_decl.decl));
