@@ -106,6 +106,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_memory_layout)
 
     RUN_PASS(lower_int)
+    RUN_PASS(lower_fill)
 
     if (config->lower.simt_to_explicit_simd) {
         aconfig.is_simt = false;
