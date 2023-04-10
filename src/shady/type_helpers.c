@@ -228,3 +228,11 @@ Nodes get_composite_type_element_types(const Type* type) {
         default: error("Not a composite type !")
     }
 }
+
+const Node* get_fill_type_element_type(const Type* composite_t) {
+    switch (composite_t->tag) {
+        case ArrType_TAG:  return composite_t->payload.arr_type.element_type;
+        case PackType_TAG: return composite_t->payload.pack_type.element_type;
+        default: error("fill values need to be either array or pack types")
+    }
+}

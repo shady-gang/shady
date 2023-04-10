@@ -246,6 +246,21 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
 
             return composite(dst_arena, elem_type, nmembers);
         }
+        case Value_Fill_TAG: {
+            const Node* composite_t = infer(ctx, node->payload.fill.type, NULL);
+            assert(composite_t);
+            bool uniform = false;
+            if (composite_t && expected_type) {
+                assert(is_subtype(get_unqualified_type(expected_type), composite_t));
+            } else if (expected_type) {
+                uniform = deconstruct_qualified_type(&composite_t);
+                composite_t = expected_type;
+            }
+            assert(composite_t);
+            const Node* element_t = get_fill_type_element_type(composite_t);
+            const Node* value = infer(ctx, node->payload.fill.value, qualified_type(dst_arena, (QualifiedType) { .is_uniform = uniform, .type = element_t }));
+            return fill(dst_arena, (Fill) { .type = composite_t, .value = value });
+        }
         case Value_AntiQuote_TAG: error("TODO");
     }
 }

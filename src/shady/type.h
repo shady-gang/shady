@@ -85,5 +85,6 @@ const Type* get_maybe_nominal_type_body(const Type*);
 
 // Composite type helpers
 Nodes get_composite_type_element_types(const Type*);
+const Node* get_fill_type_element_type(const Type*);
 
 #endif
