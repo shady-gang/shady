@@ -343,22 +343,20 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             }
             break;
         }
-        case subgroup_id_op:
         case subgroup_local_id_op: {
             switch (emitter->config.dialect) {
                 case ISPC: final_expression = "programIndex"; break;
                 case C: error("TODO");
-                case GLSL: error("TODO");
+                case GLSL: final_expression = "gl_SubgroupInvocationID"; break;
             }
             break;
         }
-        case workgroup_id_op:
-        case workgroup_local_id_op:
-        case workgroup_num_op:
-        case workgroup_size_op:
-        case global_id_op: {
-            error("TODO")
-        }
+        case subgroup_id_op:        final_expression = "gl_SubgroupID";         break;
+        case workgroup_id_op:       final_expression = "gl_WorkGroupID";        break;
+        case workgroup_local_id_op: final_expression = "gl_LocalInvocationID";  break;
+        case workgroup_num_op:      final_expression = "gl_NumWorkGroups";      break;
+        case workgroup_size_op:     final_expression = "gl_WorkGroupSize";      break;
+        case global_id_op:          final_expression = "gl_GlobalInvocationID"; break;
         case empty_mask_op:
         case mask_is_thread_active_op: error("lower_me");
         case debug_printf_op: {
