@@ -584,6 +584,9 @@ static Module* run_backend_specific_passes(SHADY_UNUSED CEmitterConfig* econfig,
     Module* old_mod;
     IrArena* tmp_arena = NULL;
     if (econfig->dialect == ISPC) {
+        RUN_PASS(lower_workgroups)
+    }
+    if (econfig->dialect != GLSL) {
         RUN_PASS(lower_vec_arr)
     }
     if (config->lower.simt_to_explicit_simd) {
