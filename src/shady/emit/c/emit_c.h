@@ -58,6 +58,8 @@ void emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
 
 CTerm emit_value(Emitter* emitter, Printer*, const Node* value);
 
+String legalize_c_identifier(Emitter*, String);
+
 typedef enum { NoBinding, LetBinding, LetMutBinding } InstrResultBinding;
 
 typedef struct {
