@@ -122,7 +122,8 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                         { "uint32", "int32" },
                         { "uint64", "int64" },
                     };
-                    return ispc_int_types[type->payload.int_type.width][type->payload.int_type.is_signed];
+                    emitted = ispc_int_types[type->payload.int_type.width][type->payload.int_type.is_signed];
+                    break;
                 }
                 case C: {
                     const char* c_classic_int_types[4][2] = {
@@ -137,7 +138,8 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                             { "uint32_t", "int32_t" },
                             { "uint64_t", "int64_t" },
                     };
-                    return (emitter->config.explicitly_sized_types ? c_explicit_int_sizes : c_classic_int_types)[type->payload.int_type.width][type->payload.int_type.is_signed];
+                    emitted = (emitter->config.explicitly_sized_types ? c_explicit_int_sizes : c_classic_int_types)[type->payload.int_type.width][type->payload.int_type.is_signed];
+                    break;
                 }
                 case GLSL:
                     switch (type->payload.int_type.width) {

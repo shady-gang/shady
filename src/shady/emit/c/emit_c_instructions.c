@@ -48,7 +48,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     IrArena* arena = emitter->arena;
     const PrimOp* prim_op = &node->payload.prim_op;
     enum {
-        Infix, Prefix
+        Infix, Prefix, Call
     } m = Infix;
     String operator_str = NULL;
     CValue final_expression = NULL;
@@ -96,17 +96,20 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             operator_str = "<<";
             break;
         // MATH OPS
-        case sin_op:
-        case cos_op:
-        case abs_op:
-        case sign_op:
-        case floor_op:
-        case ceil_op:
-        case round_op:
-        case fract_op:
-        case sqrt_op:
-        case inv_sqrt_op: error("TODO");
-        case alloca_op:
+        case sin_op:      m = Call; operator_str = "sin"; break;
+        case cos_op:      m = Call; operator_str = "cos"; break;
+        case abs_op:      m = Call; operator_str = "abs"; break;
+        case floor_op:    m = Call; operator_str = "floor"; break;
+        case ceil_op:     m = Call; operator_str = "ceil"; break;
+        case round_op:    m = Call; operator_str = "round"; break;
+        case fract_op:    m = Call; operator_str = "fract"; break;
+        case sqrt_op:     m = Call; operator_str = "sqrt"; break;
+        case inv_sqrt_op: m = Call; operator_str = "rsqrt"; break;
+        case sign_op: {
+            CValue src = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
+            outputs.results[0] = term_from_cvalue(format_string(arena, "(%s > 0 ? 1 : -1)", src));
+            break;
+        } case alloca_op:
         case alloca_subgroup_op: error("Lower me");
         case alloca_logical_op: {
             assert(outputs.count == 1);
@@ -399,7 +402,12 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             CTerm operand = emit_value(emitter, p, prim_op->operands.nodes[0]);
             outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s%s", operator_str, to_cvalue(emitter, operand)));
             break;
-        } default: assert(false);
+        }
+        case Call: {
+            CTerm operand = emit_value(emitter, p, prim_op->operands.nodes[0]);
+            outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s(%s)", operator_str, to_cvalue(emitter, operand)));
+            break;
+        }
     }
 }
 
