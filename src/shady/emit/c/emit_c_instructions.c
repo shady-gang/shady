@@ -124,8 +124,18 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             return;
         }
         case store_op: {
-            CAddr dereferenced = deref_term(emitter, emit_value(emitter, p, first(prim_op->operands)));
-            CValue cvalue = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+            const Node* addr = first(prim_op->operands);
+            const Node* value = prim_op->operands.nodes[1];
+            const Type* addr_type = addr->type;
+            bool addr_uniform = deconstruct_qualified_type(&addr_type);
+            bool value_uniform = is_qualified_type_uniform(value->type);
+            assert(addr_type->tag == PtrType_TAG);
+            CAddr dereferenced = deref_term(emitter, emit_value(emitter, p, addr));
+            CValue cvalue = to_cvalue(emitter, emit_value(emitter, p, value));
+            // ISPC lets you broadcast to a uniform address space iff the address is non-uniform, otherwise we need to do this
+            if (emitter->config.dialect == ISPC && addr_uniform && is_addr_space_uniform(arena, addr_type->payload.ptr_type.address_space) && !value_uniform)
+                cvalue = format_string(emitter->arena, "extract(%s, count_trailing_zeros(lanemask()))", cvalue);
+
             print(p, "\n%s = %s;", dereferenced, cvalue);
             return;
         } case lea_op: {

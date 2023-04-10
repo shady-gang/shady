@@ -479,6 +479,9 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 address_space_prefix = "";
             }
 
+            if (emitter->config.dialect == ISPC && is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space))
+                decl_center = format_string(emitter->arena, "uniform %s", decl_center);
+
             register_emitted(emitter, decl, emit_as);
             if (decl->payload.global_variable.init) {
                 print(emitter->fn_defs, "\n%s%s = %s;", address_space_prefix, emit_type(emitter, decl_type, decl_center), to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init)));
