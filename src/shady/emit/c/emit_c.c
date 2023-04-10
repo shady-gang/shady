@@ -553,6 +553,8 @@ static Module* run_backend_specific_passes(SHADY_UNUSED CEmitterConfig* econfig,
         aconfig.is_simt = false;
         RUN_PASS(simt2d)
     }
+    // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
+    RUN_PASS(eliminate_constants)
     return mod;
 }
 
