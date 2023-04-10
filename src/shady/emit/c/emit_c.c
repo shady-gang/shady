@@ -157,6 +157,10 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             switch (emitter->config.dialect) {
                 no_compound_literals:
                 case ISPC: {
+                    // arrays need double the brackets
+                    if (type->tag == ArrType_TAG)
+                        emitted = format_string(emitter->arena, "{ %s }", emitted);
+
                     if (block_printer) {
                         String tmp = unique_name(emitter->arena, "composite");
                         print(block_printer, "\n%s = { %s };", emit_type(emitter, value->type, tmp), emitted);

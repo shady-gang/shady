@@ -262,7 +262,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     }
                     case Type_ArrType_TAG:
                     case Type_PackType_TAG: {
-                        acc = format_string(emitter->arena, "(%s[%s])", acc, to_cvalue(emitter, emit_value(emitter, p, index)));
+                        acc = format_string(emitter->arena, "(%s.arr[%s])", acc, to_cvalue(emitter, emit_value(emitter, p, index)));
                         break;
                     }
                     default:
