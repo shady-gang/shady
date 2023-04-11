@@ -100,6 +100,8 @@ CFNode* scope_lookup(Scope*, const Node* block);
 void compute_rpo(Scope*);
 void compute_domtree(Scope*);
 
+CFNode* least_common_ancestor(CFNode* i, CFNode* j);
+
 void destroy_scope(Scope*);
 
 /**
