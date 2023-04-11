@@ -119,7 +119,7 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
              Node* ngvar = global_var(ctx->rewriter.dst_module, infer_nodes(ctx, old_gvar->annotations), imported_ty, old_gvar->name, old_gvar->address_space);
              register_processed(&ctx->rewriter, node, ngvar);
 
-             ngvar->payload.global_variable.init = infer(ctx, old_gvar->init, NULL);
+             ngvar->payload.global_variable.init = infer(ctx, old_gvar->init, qualified_type_helper(imported_ty, true));
              return ngvar;
         }
         case Decl_NominalType_TAG: {
