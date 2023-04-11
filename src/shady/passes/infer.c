@@ -696,15 +696,16 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
                 .args = new_args
             });
         }
-        case MergeSelection_TAG: {
+        case Terminator_Yield_TAG: {
             const Nodes* expected_types = ctx->merge_types;
+            // TODO: block nodes should set merge types
             assert(expected_types && "Merge terminator found but we're not within a suitable if instruction !");
-            const Nodes* old_args = &node->payload.merge_selection.args;
+            const Nodes* old_args = &node->payload.yield.args;
             assert(expected_types->count == old_args->count);
             LARRAY(const Node*, new_args, old_args->count);
             for (size_t i = 0; i < old_args->count; i++)
                 new_args[i] = infer(ctx, old_args->nodes[i], (*expected_types).nodes[i]);
-            return merge_selection(ctx->rewriter.dst_arena, (MergeSelection) {
+            return yield(ctx->rewriter.dst_arena, (Yield) {
                 .args = nodes(ctx->rewriter.dst_arena, old_args->count, new_args)
             });
         }
@@ -729,15 +730,6 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             for (size_t i = 0; i < old_args->count; i++)
                 new_args[i] = infer(ctx, old_args->nodes[i], (*expected_types).nodes[i]);
             return merge_break(ctx->rewriter.dst_arena, (MergeBreak) {
-                .args = nodes(ctx->rewriter.dst_arena, old_args->count, new_args)
-            });
-        }
-        case Yield_TAG: {
-            const Nodes* old_args = &node->payload.yield.args;
-            LARRAY(const Node*, new_args, old_args->count);
-            for (size_t i = 0; i < old_args->count; i++)
-                new_args[i] = infer(ctx, old_args->nodes[i], NULL);
-            return yield(ctx->rewriter.dst_arena, (Yield) {
                 .args = nodes(ctx->rewriter.dst_arena, old_args->count, new_args)
             });
         }

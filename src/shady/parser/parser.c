@@ -496,7 +496,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             const Node* condition = accept_operand(ctx);
             expect(condition);
             expect(accept_token(ctx, rpar_tok));
-            const Node* merge = config.front_end ? merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }) : NULL;
+            const Node* merge = config.front_end ? yield(arena, (Yield) { .args = nodes(arena, 0, NULL) }) : NULL;
 
             const Node* if_true = lambda(arena, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
 
@@ -755,10 +755,10 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
                 .args = args
             });
         }
-        case merge_tok: {
+        case yield_tok: {
             next_token(tokenizer);
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
-            return merge_selection(arena, (MergeSelection) {
+            return yield(arena, (Yield) {
                 .args = args
             });
         }

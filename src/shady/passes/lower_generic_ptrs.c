@@ -117,7 +117,7 @@ static const Node* process(Context* ctx, const Node* old) {
                             BodyBuilder* case_bb = begin_body(a);
                             const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, nptr, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type));
                             const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
-                            cases[tag] = lambda(a, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
+                            cases[tag] = lambda(a, empty(a), finish_body(case_bb, yield(a, (Yield) {
                                 .args = singleton(loaded_value),
                             })));
                         }
@@ -150,7 +150,7 @@ static const Node* process(Context* ctx, const Node* old) {
                             BodyBuilder* case_bb = begin_body(a);
                             const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, nptr, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type));
                             gen_store(case_bb, reinterpreted_ptr, rewrite_node(&ctx->rewriter, old->payload.prim_op.operands.nodes[1]));
-                            cases[tag] = lambda(a, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
+                            cases[tag] = lambda(a, empty(a), finish_body(case_bb, yield(a, (Yield) {
                                     .args = empty(a),
                             })));
                         }

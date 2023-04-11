@@ -286,7 +286,6 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
         case NotATerminator: assert(false);
         case LetMut_TAG:
         case Join_TAG: error("this must be lowered away!");
-        case Terminator_Yield_TAG: error("Should be eliminated by the compiler");
         case Jump_TAG:
         case Branch_TAG:
         case Switch_TAG:
@@ -380,8 +379,8 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             }
             break;
         }
-        case MergeSelection_TAG: {
-            Nodes args = terminator->payload.merge_selection.args;
+        case Yield_TAG: {
+            Nodes args = terminator->payload.yield.args;
             Phis phis = emitter->phis.selection;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)

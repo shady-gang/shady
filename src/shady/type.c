@@ -1100,6 +1100,12 @@ static void ensure_types_are_data_types(const Nodes* yield_types) {
     }
 }
 
+static void ensure_types_are_value_types(const Nodes* yield_types) {
+    for (size_t i = 0; i < yield_types->count; i++) {
+        assert(is_value_type(yield_types->nodes[i]));
+    }
+}
+
 const Type* check_type_if_instr(IrArena* arena, If if_instr) {
     ensure_types_are_data_types(&if_instr.yield_types);
     if (get_unqualified_type(if_instr.condition->type) != bool_type(arena))
@@ -1145,10 +1151,11 @@ const Type* check_type_control(IrArena* arena, Control control) {
 }
 
 const Type* check_type_block(IrArena* arena, Block payload) {
+    ensure_types_are_value_types(&payload.yield_types);
     assert(is_anonymous_lambda(payload.inside));
     assert(payload.inside->payload.anon_lam.params.count == 0);
 
-    const Node* lam = payload.inside;
+    /*const Node* lam = payload.inside;
     const Node* yield_instr = NULL;
     while (true) {
         assert(lam->tag == AnonLambda_TAG);
@@ -1166,8 +1173,8 @@ const Type* check_type_block(IrArena* arena, Block payload) {
         break;
     }
 
-    Nodes yield_values = yield_instr->payload.yield.args;
-    return wrap_multiple_yield_types(arena, get_values_types(arena, yield_values));
+    Nodes yield_values = yield_instr->payload.yield.args;*/
+    return wrap_multiple_yield_types(arena, payload.yield_types);
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
@@ -1256,11 +1263,6 @@ const Type* check_type_join(IrArena* arena, Join join) {
 }
 
 const Type* check_type_unreachable(IrArena* arena) {
-    return noret_type(arena);
-}
-
-const Type* check_type_merge_selection(IrArena* arena, MergeSelection mc) {
-    // TODO check it
     return noret_type(arena);
 }
 

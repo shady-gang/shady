@@ -213,8 +213,8 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         case LetMut_TAG:
         case TailCall_TAG:
         case Join_TAG: error("Lower me");
-        case MergeSelection_TAG: {
-            Nodes args = terminator->payload.merge_selection.args;
+        case Terminator_Yield_TAG: {
+            Nodes args = terminator->payload.yield.args;
             for (size_t i = 0; i < args.count; i++)
                 spvb_add_phi_source(merge_targets.join_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, basic_block_builder, args.nodes[i]));
             spvb_branch(basic_block_builder, merge_targets.join_target);
@@ -234,7 +234,6 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             spvb_branch(basic_block_builder, merge_targets.break_target);
             return;
         }
-        case Terminator_Yield_TAG: error("Should be eliminated by the compiler");
         case Unreachable_TAG: {
             spvb_unreachable(basic_block_builder);
             return;

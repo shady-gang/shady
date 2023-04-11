@@ -128,6 +128,7 @@ const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
     const Node* terminator = yield(arena, (Yield) { .args = values });
     const Node* lam = lambda(arena, empty(arena), finish_body(bb, terminator));
     return block(arena, (Block) {
+        .yield_types = get_values_types(arena, values),
         .inside = lam,
     });
 }

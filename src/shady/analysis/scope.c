@@ -133,7 +133,6 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
         case Join_TAG: {
             break;
         }
-        case MergeSelection_TAG:
         case MergeContinue_TAG:
         case MergeBreak_TAG:
         case Yield_TAG: {
