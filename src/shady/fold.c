@@ -7,28 +7,30 @@
 
 #include <assert.h>
 
-const Node* resolve_known_vars(const Node* node, bool stop_at_values) {
+/*const Node* resolve_known_vars(const Node* node, bool stop_at_values) {
     if (node->tag == Variable_TAG) {
-        const Node* instr = node->payload.var.instruction;
-        if (instr) {
-            switch (instr->type->tag) {
-                case RecordType_TAG: {
-                    // TODO handle tuples
-                    return node;
-                }
-                default: {
-                    assert(node->payload.var.output == 0);
-                    if (!stop_at_values || is_value(instr))
-                        return resolve_known_vars(instr, stop_at_values);
+        const Node* abs = node->payload.var.abs;
+        if (abs->tag == AnonLambda_TAG && abs->payload.anon_lam.usage) {
+            if (instr) {
+                switch (instr->type->tag) {
+                    case RecordType_TAG: {
+                        // TODO handle tuples
+                        return node;
+                    }
+                    default: {
+                        assert(node->payload.var.output == 0);
+                        if (!stop_at_values || is_value(instr))
+                            return resolve_known_vars(instr, stop_at_values);
+                    }
                 }
             }
         }
     }
     return node;
-}
+}*/
 
 static bool is_zero(const Node* node) {
-    node = resolve_known_vars(node, false);
+    //node = resolve_known_vars(node, false);
     if (node->tag == IntLiteral_TAG) {
         if (get_int_literal_value(node, false) == 0)
             return true;
@@ -37,7 +39,7 @@ static bool is_zero(const Node* node) {
 }
 
 static bool is_one(const Node* node) {
-    node = resolve_known_vars(node, false);
+    //node = resolve_known_vars(node, false);
     if (node->tag == IntLiteral_TAG) {
         if (get_int_literal_value(node, false) == 1)
             return true;
@@ -110,7 +112,13 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
                             for (size_t i = 0; i < depth; i++) {
                                 const Node* olet = lets[depth - 1 - i];
                                 const Node* olam = get_let_tail(olet);
-                                const Node* nlam = lambda(arena, get_abstraction_params(olam), acc);
+                                assert(olam->tag == AnonLambda_TAG);
+                                Nodes params = get_abstraction_params(olam);
+                                for (size_t j = 0; j < params.count; j++) {
+                                    // recycle the params by setting their abs value to NULL
+                                    *((Node**) &(params.nodes[j]->payload.var.abs)) = NULL;
+                                }
+                                const Node* nlam = lambda(arena, params, acc);
                                 acc = let(arena, get_let_instruction(olet), nlam);
                             }
                             free(lets);

@@ -42,6 +42,7 @@ void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
 #define visit_basic_block(n) visit_node(visitor, n)
 #define visit_basic_blocks(ns) visit_nodes(visitor, ns)
 
+#define VISIT_FIELD_SCRATCH(t, n)
 #define VISIT_FIELD_POD(t, n)
 #define VISIT_FIELD_STRING(t, n)
 #define VISIT_FIELD_STRINGS(t, n)

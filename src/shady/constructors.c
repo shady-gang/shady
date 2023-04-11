@@ -11,6 +11,7 @@
 
 Strings import_strings(IrArena*, Strings);
 
+#define VISIT_FIELD_SCRATCH(t, n)
 #define VISIT_FIELD_POD(t, n)
 #define VISIT_FIELD_STRING(t, n) payload->n = string(arena, payload->n);
 #define VISIT_FIELD_STRINGS(t, n) payload->n = import_strings(arena, payload->n);
@@ -41,8 +42,11 @@ static void intern_strings(IrArena* arena, Node* node) {
     }
 }
 
-static Node* create_node_helper(IrArena* arena, Node node) {
+static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     intern_strings(arena, &node);
+
+    if (pfresh)
+        *pfresh = false;
 
     Node* ptr = &node;
     Node** found = find_key_dict(Node*, arena->node_set, ptr);
@@ -69,6 +73,9 @@ static Node* create_node_helper(IrArena* arena, Node node) {
     *alloc = node;
     insert_set_get_result(const Node*, arena->node_set, alloc);
 
+    if (pfresh)
+        *pfresh = true;
+
     return alloc;
 }
 
@@ -92,7 +99,7 @@ static Node* create_node_helper(IrArena* arena, Node node) {
         .tag = struct_name##_TAG,                                                                                                                     \
         SET_PAYLOAD_##has_payload(short_name)                                                                                                         \
     };                                                                                                                                                \
-    return create_node_helper(arena, node);                                                                                                           \
+    return create_node_helper(arena, node, NULL);                                                                                                           \
 }
 
 #define NODE_CTOR_0(has_typing_fn, has_payload, struct_name, short_name)
@@ -114,7 +121,7 @@ const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
         .tag = Let_TAG,
         .payload.let = payload
     };
-    return create_node_helper(arena, node);
+    return create_node_helper(arena, node, NULL);
 }
 
 const Node* var(IrArena* arena, const Type* type, const char* name) {
@@ -132,7 +139,7 @@ const Node* var(IrArena* arena, const Type* type, const char* name) {
         .tag = Variable_TAG,
         .payload.var = variable
     };
-    return create_node_helper(arena, node);
+    return create_node_helper(arena, node, NULL);
 }
 
 const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail) {
@@ -149,7 +156,7 @@ const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail) {
         .tag = LetMut_TAG,
         .payload.let_mut = payload
     };
-    return create_node_helper(arena, node);
+    return create_node_helper(arena, node, NULL);
 }
 
 const Node* composite(IrArena* arena, const Type* elem_type, Nodes contents) {
@@ -166,7 +173,7 @@ const Node* composite(IrArena* arena, const Type* elem_type, Nodes contents) {
         .tag = Composite_TAG,
         .payload.composite = c
     };
-    return create_node_helper(arena, node);
+    return create_node_helper(arena, node, NULL);
 }
 
 const Node* tuple(IrArena* arena, Nodes contents) {
@@ -200,8 +207,17 @@ Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, N
         .tag = Function_TAG,
         .payload.fun = payload
     };
-    Node* fn = create_node_helper(arena, node);
+    Node* fn = create_node_helper(arena, node, NULL);
     register_decl_module(mod, fn);
+
+    for (size_t i = 0; i < params.count; i++) {
+        Node* param = (Node*) params.nodes[i];
+        assert(param->tag == Variable_TAG);
+        assert(!param->payload.var.abs);
+        param->payload.var.abs = fn;
+        param->payload.var.pindex = i;
+    }
+
     return fn;
 }
 
@@ -222,7 +238,18 @@ Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
         .tag = BasicBlock_TAG,
         .payload.basic_block = payload
     };
-    return create_node_helper(arena, node);
+
+    Node* bb = create_node_helper(arena, node, NULL);
+
+    for (size_t i = 0; i < params.count; i++) {
+        Node* param = (Node*) params.nodes[i];
+        assert(param->tag == Variable_TAG);
+        assert(!param->payload.var.abs);
+        param->payload.var.abs = bb;
+        param->payload.var.pindex = i;
+    }
+
+    return bb;
 }
 
 const Node* lambda(IrArena* a, Nodes params, const Node* body) {
@@ -239,7 +266,21 @@ const Node* lambda(IrArena* a, Nodes params, const Node* body) {
         .tag = AnonLambda_TAG,
         .payload.anon_lam = payload
     };
-    return create_node_helper(a, node);
+
+    bool fresh;
+    const Node* lam = create_node_helper(a, node, &fresh);
+
+    if (fresh) {
+        for (size_t i = 0; i < params.count; i++) {
+            Node* param = (Node*) params.nodes[i];
+            assert(param->tag == Variable_TAG);
+            assert(!param->payload.var.abs);
+            param->payload.var.abs = lam;
+            param->payload.var.pindex = i;
+        }
+    }
+
+    return lam;
 }
 
 Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
@@ -258,7 +299,7 @@ Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
         .tag = Constant_TAG,
         .payload.constant = cnst
     };
-    Node* decl = create_node_helper(arena, node);
+    Node* decl = create_node_helper(arena, node, NULL);
     register_decl_module(mod, decl);
     return decl;
 }
@@ -281,7 +322,7 @@ Node* global_var(Module* mod, Nodes annotations, const Type* type, const char* n
         .tag = GlobalVariable_TAG,
         .payload.global_variable = gvar
     };
-    Node* decl = create_node_helper(arena, node);
+    Node* decl = create_node_helper(arena, node, NULL);
     register_decl_module(mod, decl);
     return decl;
 }
@@ -303,7 +344,7 @@ Type* nominal_type(Module* mod, Nodes annotations, String name) {
         .tag = NominalType_TAG,
         .payload.nom_type = payload
     };
-    Node* decl = create_node_helper(arena, node);
+    Node* decl = create_node_helper(arena, node, NULL);
     register_decl_module(mod, decl);
     return decl;
 }

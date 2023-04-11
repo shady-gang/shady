@@ -254,6 +254,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     assert(node->arena == rewriter->src_arena);
 
     IrArena* arena = rewriter->dst_arena;
+    #define REWRITE_FIELD_SCRATCH(t, n)
     #define REWRITE_FIELD_POD(t, n) .n = old_payload.n,
     #define REWRITE_FIELD_TYPE(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_type),
     #define REWRITE_FIELD_TYPES(t, n) .n = rewrite_nodes_with_fn(rewriter, old_payload.n, rewrite_type),
@@ -313,7 +314,9 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             Nodes params = recreate_variables(rewriter, node->payload.anon_lam.params);
             register_processed_list(rewriter, node->payload.anon_lam.params, params);
             const Node* nterminator = rewrite_node_with_fn(rewriter, node->payload.anon_lam.body, rewrite_terminator);
-            return lambda(rewriter->dst_arena, params, nterminator);
+            const Node* nlam = lambda(rewriter->dst_arena, params, nterminator);
+            register_processed(rewriter, node, nlam);
+            return nlam;
         }
         case BasicBlock_TAG: {
             Nodes params = recreate_variables(rewriter, node->payload.basic_block.params);

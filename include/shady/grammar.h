@@ -242,8 +242,8 @@ typedef struct Variable_ Variable;
 MkField(1, TYPE, const Type*, type) \
 MkField(1, POD, VarId, id) \
 MkField(1, STRING, String, name) \
-MkField(0, INSTRUCTION, const Node*, instruction) \
-MkField(0, POD, unsigned, output)
+MkField(0, SCRATCH, const Node*, abs) \
+MkField(0, SCRATCH, unsigned, pindex)
 
 typedef struct ConstrainedValue_ ConstrainedValue;
 #define ConstrainedValue_Fields(MkField) \

@@ -62,10 +62,10 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
         vars[i] = (Node*) var(arena, types.nodes[i], var_name);
     }
 
-    for (size_t i = 0; i < outputs_count; i++) {
-        vars[i]->payload.var.instruction = value;
-        vars[i]->payload.var.output = i;
-    }
+    // for (size_t i = 0; i < outputs_count; i++) {
+    //     vars[i]->payload.var.instruction = value;
+    //     vars[i]->payload.var.output = i;
+    // }
     return nodes(arena, outputs_count, (const Node**) vars);
 }
 
