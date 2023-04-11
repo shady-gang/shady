@@ -302,7 +302,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .callee = find_processed(&ctx->rewriter, decl),
                 .args = nodes(dst_arena, 0, NULL)
             }));
-            const Node* if_true_lam = lambda(ctx->rewriter.dst_arena, empty(dst_arena), finish_body(if_builder, merge_selection(dst_arena, (MergeSelection) { .args = nodes(dst_arena, 0, NULL) })));
+            const Node* if_true_lam = lambda(ctx->rewriter.dst_arena, empty(dst_arena), finish_body(if_builder, yield(dst_arena, (Yield) { .args = nodes(dst_arena, 0, NULL) })));
             const Node* if_instruction = if_instr(dst_arena, (If) {
                 .condition = should_run,
                 .if_true = if_true_lam,

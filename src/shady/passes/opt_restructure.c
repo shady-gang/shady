@@ -166,7 +166,6 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
     switch (is_terminator(body)) {
         case NotATerminator:
         case LetMut_TAG: assert(false);
-        case Terminator_Yield_TAG: error("Should be eliminated by the compiler");
         case Let_TAG: {
             const Node* old_tail = get_let_tail(body);
             Nodes otail_params = get_abstraction_params(old_tail);
@@ -240,7 +239,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     // Wrap the tail in a guarded if, to handle 'far' joins
                     const Node* level_value = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = load_op, .operands = singleton(ctx->level_ptr) })));
                     const Node* guard = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = eq_op, .operands = mk_nodes(arena, level_value, int32_literal(arena, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
-                    const Node* true_body = structure(ctx, old_tail, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
+                    const Node* true_body = structure(ctx, old_tail, yield(arena, (Yield) { .args = empty(arena) }));
                     const Node* if_true_lam = lambda(ctx->rewriter.dst_arena, empty(arena), true_body);
                     bind_instruction(bb2, if_instr(arena, (If) {
                         .condition = guard,
@@ -265,11 +264,11 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
             const Node* condition = rewrite_node(&ctx->rewriter, body->payload.branch.branch_condition);
 
             BodyBuilder* if_true_bb = begin_body(arena);
-            const Node* true_body = handle_bb_callsite(ctx, if_true_bb, abs, body->payload.branch.true_target, body->payload.branch.args, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
+            const Node* true_body = handle_bb_callsite(ctx, if_true_bb, abs, body->payload.branch.true_target, body->payload.branch.args, yield(arena, (Yield) { .args = empty(arena) }));
             const Node* if_true_lam = lambda(ctx->rewriter.dst_arena, empty(ctx->rewriter.dst_arena), true_body);
 
             BodyBuilder* if_false_bb = begin_body(arena);
-            const Node* false_body = handle_bb_callsite(ctx, if_false_bb, abs, body->payload.branch.false_target, body->payload.branch.args, merge_selection(arena, (MergeSelection) { .args = empty(arena) }));
+            const Node* false_body = handle_bb_callsite(ctx, if_false_bb, abs, body->payload.branch.false_target, body->payload.branch.args, yield(arena, (Yield) { .args = empty(arena) }));
             const Node* if_false_lam = lambda(ctx->rewriter.dst_arena, empty(ctx->rewriter.dst_arena), false_body);
 
             const Node* instr = if_instr(arena, (If) {
@@ -307,7 +306,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
 
         case Terminator_MergeBreak_TAG:
         case Terminator_MergeContinue_TAG:
-        case Terminator_MergeSelection_TAG: error("Only control nodes are tolerated here.")
+        case Yield_TAG: error("Only control nodes are tolerated here.")
     }
 }
 

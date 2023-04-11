@@ -709,14 +709,13 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf(RESET);
             printf(";");
             break;
-        case MergeSelection_TAG:
         case MergeContinue_TAG:
         case MergeBreak_TAG:
         case Terminator_Yield_TAG:
             printf(BGREEN);
             printf("%s", node_tags[node->tag]);
             printf(RESET);
-            print_args_list(ctx, node->payload.merge_selection.args);
+            print_args_list(ctx, node->payload.yield.args);
             printf(";");
             break;
     }

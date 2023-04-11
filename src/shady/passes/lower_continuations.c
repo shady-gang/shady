@@ -175,7 +175,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                 BodyBuilder* case_builder = begin_body(arena);
                 add_spill_instrs(ctx, case_builder, lifted->save_values);
-                const Node* case_body = finish_body(case_builder, merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }));
+                const Node* case_body = finish_body(case_builder, yield(arena, (Yield) { .args = nodes(arena, 0, NULL) }));
                 cases[i] = lambda(arena, nodes(arena, 0, NULL), case_body);
             }
 

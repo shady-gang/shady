@@ -55,7 +55,7 @@ TOKEN(false, "false") \
 TOKEN(if, "if") \
 TOKEN(else, "else") \
 TEXT_TOKEN(control) \
-TEXT_TOKEN(merge) \
+TEXT_TOKEN(yield) \
 TEXT_TOKEN(loop) \
 TOKEN(continue, "continue") \
 TOKEN(break, "break") \

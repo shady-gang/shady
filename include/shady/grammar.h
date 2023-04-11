@@ -59,7 +59,6 @@ N(1, 1, 1, Jump, jump) \
 N(1, 1, 1, Branch, branch) \
 N(1, 1, 1, Switch, br_switch) \
 N(1, 1, 1, Join, join) \
-N(1, 1, 1, MergeSelection, merge_selection) \
 N(1, 1, 1, MergeContinue, merge_continue) \
 N(1, 1, 1, MergeBreak, merge_break) \
 N(1, 1, 1, Yield, yield) \
@@ -359,6 +358,13 @@ MkField(1, VALUES, Nodes, literals) \
 MkField(1, ANON_LAMBDAS, Nodes, cases) \
 MkField(1, ANON_LAMBDA, const Node*, default_case)
 
+/// Structured "block" construct
+/// used as a helper block to insert multiple instructions in place of one
+typedef struct Block_ Block;
+#define Block_Fields(MkField) \
+MkField(1, TYPES, Nodes, yield_types) \
+MkField(1, ANON_LAMBDA, const Node*, inside)
+
 /// Structured "loop" construct
 typedef struct Loop_ Loop;
 #define Loop_Fields(MkField) \
@@ -370,12 +376,6 @@ MkField(1, VALUES, Nodes, initial_args)
 typedef struct Control_ Control;
 #define Control_Fields(MkField) \
 MkField(1, TYPES, Nodes, yield_types) \
-MkField(1, ANON_LAMBDA, const Node*, inside)
-
-/// Structured "block" construct
-/// used as a helper block to insert multiple instructions in place of one
-typedef struct Block_ Block;
-#define Block_Fields(MkField) \
 MkField(1, ANON_LAMBDA, const Node*, inside)
 
 //////////////////////////////// Terminators ////////////////////////////////
@@ -432,8 +432,8 @@ MkField(1, VALUES, Nodes, args)
 // These terminators are used in conjunction with structured constructs, they are used inside their bodies to yield a value
 // Using those terminators outside an appropriate structured construct is illegal
 
-typedef struct MergeSelection_ MergeSelection;
-#define MergeSelection_Fields(MkField) \
+typedef struct Yield_ Yield;
+#define Yield_Fields(MkField) \
 MkField(1, VALUES, Nodes, args)
 
 typedef struct MergeContinue_ MergeContinue;
@@ -442,10 +442,6 @@ MkField(1, VALUES, Nodes, args)
 
 typedef struct MergeBreak_ MergeBreak;
 #define MergeBreak_Fields(MkField) \
-MkField(1, VALUES, Nodes, args)
-
-typedef struct Yield_ Yield;
-#define Yield_Fields(MkField) \
 MkField(1, VALUES, Nodes, args)
 
 //////////////////////////////// Decls ////////////////////////////////

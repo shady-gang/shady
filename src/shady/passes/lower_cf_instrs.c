@@ -153,12 +153,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Let_TAG: return process_let(ctx, node);
-        case MergeSelection_TAG: {
+        case Yield_TAG: {
             const Node* jp = ctx->join_points.join_point_selection_merge;
             assert(jp);
             return join(dst_arena, (Join) {
                 .join_point = jp,
-                .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_selection.args),
+                .args = rewrite_nodes(&ctx->rewriter, node->payload.yield.args),
             });
         }
         case MergeContinue_TAG: {
