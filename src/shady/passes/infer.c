@@ -218,6 +218,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
         case StringLiteral_TAG: return string_lit(dst_arena, (StringLiteral) { .string = string(dst_arena, node->payload.string_lit.string )});
         case RefDecl_TAG:
         case FnAddr_TAG: return recreate_node_identity(&ctx->rewriter, node);
+        case Value_Undef_TAG: return recreate_node_identity(&ctx->rewriter, node);
         case Value_Composite_TAG: {
             const Node* elem_type = infer(ctx, node->payload.composite.type, NULL);
             bool uniform = false;

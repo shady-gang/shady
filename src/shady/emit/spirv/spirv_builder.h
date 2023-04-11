@@ -47,6 +47,7 @@ SpvId spvb_struct_type(SpvbFileBuilder*, SpvId id, size_t members_count, SpvId m
 SpvId spvb_vector_type(SpvbFileBuilder*, SpvId component_type, uint32_t dim);
 
 // Constants and global variables
+SpvId spvb_undef(SpvbFileBuilder*, SpvId type);
 void spvb_bool_constant(SpvbFileBuilder*, SpvId result, SpvId type, bool value);
 void spvb_constant(SpvbFileBuilder*, SpvId result, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]);
 SpvId spvb_constant_composite(SpvbFileBuilder*, SpvId type, size_t ops_count, SpvId ops[]);
@@ -72,7 +73,6 @@ struct List* spbv_get_phis(SpvbBasicBlockBuilder*);
 
 // Normal instructions
 SpvId spvb_op(SpvbBasicBlockBuilder*, SpvOp op, SpvId result_type, size_t operands_count, SpvId operands[]);
-SpvId spvb_undef(SpvbBasicBlockBuilder*, SpvId type);
 SpvId spvb_composite(SpvbBasicBlockBuilder*, SpvId aggregate_t, size_t elements_count, SpvId elements[]);
 SpvId spvb_select(SpvbBasicBlockBuilder*, SpvId type, SpvId condition, SpvId if_true, SpvId if_false);
 SpvId spvb_extract(SpvbBasicBlockBuilder*, SpvId target_type, SpvId composite, size_t indices_count, uint32_t indices[]);

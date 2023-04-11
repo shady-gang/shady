@@ -429,6 +429,15 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf("\"%s\"", node->payload.string_lit.string);
             printf(RESET);
             break;
+        case Value_Undef_TAG: {
+            const Type* type = node->payload.undef.type;
+            printf(BBLUE);
+            printf("undef");
+            printf(RESET);
+            printf(" ");
+            print_node(type);
+            break;
+        }
         case Value_Composite_TAG: {
             const Type* type = node->payload.composite.type;
             printf(BBLUE);

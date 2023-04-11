@@ -98,6 +98,47 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
     }
 }
 
+static bool has_forward_declarations(CDialect dialect) {
+    switch (dialect) {
+        case C: return true;
+        case GLSL: // no global variable forward declarations in GLSL
+        case ISPC: // ISPC seems to share this quirk
+            return false;
+    }
+}
+
+static void emit_global_variable_definition(Emitter* emitter, String prefix, String decl_center, const Type* type, bool uniform, bool constant, String init) {
+    // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
+    switch (emitter->config.dialect) {
+        // ISPC defaults to varying, even for constants... yuck
+        case ISPC:
+            if (uniform)
+                decl_center = format_string(emitter->arena, "uniform %s", decl_center);
+            else
+                decl_center = format_string(emitter->arena, "varying %s", decl_center);
+            break;
+        case C:
+            if (constant)
+                decl_center = format_string(emitter->arena, "const %s", decl_center);
+            break;
+        case GLSL:
+            if (constant)
+                prefix = format_string(emitter->arena, "%s %s", "const", prefix);
+            break;
+    }
+
+    if (init)
+        print(emitter->fn_defs, "\n%s%s = %s;", prefix, emit_type(emitter, type, decl_center), init);
+    else
+        print(emitter->fn_defs, "\n%s%s;", prefix, emit_type(emitter, type, decl_center));
+
+    if (!has_forward_declarations(emitter->config.dialect) || !init)
+        return;
+
+    String declaration = emit_type(emitter, type, decl_center);
+    print(emitter->fn_decls, "\n%s;", declaration);
+}
+
 CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
     CTerm* found = lookup_existing_term(emitter, value);
     if (found) return *found;
@@ -132,6 +173,12 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             break;
         case Value_True_TAG: return term_from_cvalue("true");
         case Value_False_TAG: return term_from_cvalue("false");
+        case Value_Undef_TAG: {
+            String name = unique_name(emitter->arena, "undef");
+            emit_global_variable_definition(emitter, "", name, value->payload.undef.type, true, true, NULL);
+            emitted = name;
+            break;
+        }
         case Value_Composite_TAG: {
             const Type* type = value->payload.composite.type;
             Nodes elements = value->payload.composite.contents;
@@ -399,15 +446,6 @@ String emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
     return printer_growy_unwrap(p);
 }
 
-static bool has_forward_declarations(CDialect dialect) {
-    switch (dialect) {
-        case C: return true;
-        case GLSL: // no global variable forward declarations in GLSL
-        case ISPC: // ISPC seems to share this quirk
-            return false;
-    }
-}
-
 void emit_decl(Emitter* emitter, const Node* decl) {
     assert(is_declaration(decl));
 
@@ -440,13 +478,15 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                             address_space_prefix = "shared ";
                             break;
                         case ISPC:
-                            address_space_prefix = "uniform ";
+                            address_space_prefix = "";
                             break;
                     }
                     break;
-                case AsGlobalPhysical:
                 case AsPrivatePhysical:
                 case AsPrivateLogical:
+                    address_space_prefix = "";
+                case AsGlobalLogical:
+                case AsGlobalPhysical:
                     address_space_prefix = "";
                     break;
                 case AsSharedPhysical:
@@ -458,22 +498,16 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                             address_space_prefix = "shared ";
                             break;
                         case ISPC:
-                            // that's wrong but close enough for debugging a single subgroup
-                            address_space_prefix = "uniform ";
+                            // ISPC doesn't really know what "shared" is
                             break;
                     }
-                    break;
-                case AsGlobalLogical:
-                    break;
-                    break;
-                case AsInput:
-                    break;
-                case AsOutput:
                     break;
                 case AsExternal:
                     address_space_prefix = "extern ";
                     break;
                 case AsProgramCode:
+                case AsInput:
+                case AsOutput:
                     break;
                 case AsGLUniformBufferObject:
                 case AsGLShaderStorageBufferObject:
@@ -487,11 +521,14 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 address_space_prefix = "";
             }
 
-            if (emitter->config.dialect == ISPC && is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space))
-                decl_center = format_string(emitter->arena, "uniform %s", decl_center);
-
             register_emitted(emitter, decl, emit_as);
-            if (decl->payload.global_variable.init) {
+
+            String init = NULL;
+            if (decl->payload.global_variable.init)
+                init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
+
+            emit_global_variable_definition(emitter, address_space_prefix, decl_center, decl_type, is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space), false, init);
+            /*if (decl->payload.global_variable.init) {
                 print(emitter->fn_defs, "\n%s%s = %s;", address_space_prefix, emit_type(emitter, decl_type, decl_center), to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init)));
 
                 if (!has_forward_declarations(emitter->config.dialect))
@@ -499,7 +536,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             }
 
             String declaration = emit_type(emitter, decl_type, decl_center);
-            print(emitter->fn_decls, "\n%s%s;", address_space_prefix, declaration);
+            print(emitter->fn_decls, "\n%s%s;", address_space_prefix, declaration);*/
             return;
         }
         case Function_TAG: {
@@ -532,21 +569,8 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             emit_as = term_from_cvalue(name);
             register_emitted(emitter, decl, emit_as);
 
-            // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
-            String prefix = "";
-            switch (emitter->config.dialect) {
-                // ISPC defaults to varying, even for constants... yuck
-                case ISPC: decl_center = format_string(emitter->arena, "uniform %s", decl_center); break;
-                case C: decl_center = format_string(emitter->arena, "const %s", decl_center); break;
-                case GLSL: prefix = "const "; break;
-            }
-
-            print(emitter->fn_defs, "\n%s%s = %s;", prefix, emit_type(emitter, decl->type, decl_center), to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.constant.value)));
-            if (!has_forward_declarations(emitter->config.dialect))
-                return;
-
-            String declaration = emit_type(emitter, decl_type, decl_center);
-            print(emitter->fn_decls, "\n%s;", declaration);
+            String init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.constant.value));
+            emit_global_variable_definition(emitter, "", decl_center, decl->type, true, true, init);
             return;
         }
         case NominalType_TAG: {

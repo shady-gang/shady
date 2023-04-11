@@ -413,6 +413,14 @@ const Type* check_type_fill(IrArena* arena, Fill payload) {
     });
 }
 
+const Type* check_type_undef(IrArena* arena, Undef payload) {
+    assert(is_data_type(payload.type));
+    return qualified_type(arena, (QualifiedType) {
+        .is_uniform = true,
+        .type = payload.type
+    });
+}
+
 const Type* check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
     assert(fn_addr.fn->type->tag == FnType_TAG);
     assert(fn_addr.fn->tag == Function_TAG);
