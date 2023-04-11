@@ -81,6 +81,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
             destroy_scope(ctx->back_scope);
             ctx->back_scope = NULL;
         }
+        if (ctx->current_looptree) {
+            destroy_loop_tree(ctx->current_looptree);
+            ctx->current_looptree = NULL;
+        }
     }
 
     const Node* old_abstraction = ctx->current_abstraction;
@@ -459,4 +463,11 @@ void reconvergence_heuristics(SHADY_UNUSED CompilerConfig* config, Module* src, 
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+
+    if (ctx.fwd_scope)
+        destroy_scope(ctx.fwd_scope);
+    if (ctx.back_scope)
+        destroy_scope(ctx.back_scope);
+    if (ctx.current_looptree)
+        destroy_loop_tree(ctx.current_looptree);
 }

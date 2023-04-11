@@ -288,12 +288,20 @@ Scope* new_scope_impl(const Node* entry, LoopTree* lt, bool flipped) {
 }
 
 void destroy_scope(Scope* scope) {
+    bool entry_destroyed = false;
     for (size_t i = 0; i < scope->size; i++) {
         CFNode* node = read_list(CFNode*, scope->contents)[i];
+        entry_destroyed |= node == scope->entry;
         destroy_list(node->pred_edges);
         destroy_list(node->succ_edges);
         if (node->dominates)
             destroy_list(node->dominates);
+    }
+    if (!entry_destroyed) {
+        destroy_list(scope->entry->pred_edges);
+        destroy_list(scope->entry->succ_edges);
+        if (scope->entry->dominates)
+            destroy_list(scope->entry->dominates);
     }
     destroy_dict(scope->map);
     destroy_arena(scope->arena);
