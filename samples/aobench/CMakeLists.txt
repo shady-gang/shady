@@ -4,7 +4,7 @@ find_program(CLANG_EXE "clang")
 find_program(LLVM-SPIRV_EXE "llvm-spirv")
 
 if (CLANG_EXE AND LLVM-SPIRV_EXE)
-    add_custom_command(OUTPUT ao.cl.ll COMMAND clang ARGS ${CMAKE_CURRENT_SOURCE_DIR}/ao.cl -std=clc++2021 -emit-llvm -o ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.ll -c -target spir64-unknown-unknown -O2 DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ao.cl)
+    add_custom_command(OUTPUT ao.cl.ll COMMAND clang ARGS ${CMAKE_CURRENT_SOURCE_DIR}/ao.cl -std=clc++2021 -emit-llvm -o ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.ll -c -target spir64-unknown-unknown -O2 DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ao.cl ${CMAKE_CURRENT_SOURCE_DIR}/ao.c)
     add_custom_command(OUTPUT ao.cl.spv COMMAND llvm-spirv ARGS ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.ll -o ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.spv DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.ll)
 
     find_program(ISPC_EXE "ispc")
