@@ -1177,6 +1177,10 @@ const Type* check_type_block(IrArena* arena, Block payload) {
     return wrap_multiple_yield_types(arena, payload.yield_types);
 }
 
+const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
+    return unit_type(arena);
+}
+
 const Type* check_type_let(IrArena* arena, Let let) {
     assert(is_instruction(let.instruction));
     assert(is_anonymous_lambda(let.tail));
@@ -1282,6 +1286,7 @@ const Type* check_type_yield(IrArena* arena, SHADY_UNUSED Yield payload) {
 }
 
 const Type* check_type_fn_ret(IrArena* arena, Return ret) {
+    // assert(ret.fn);
     // TODO check it then !
     return noret_type(arena);
 }

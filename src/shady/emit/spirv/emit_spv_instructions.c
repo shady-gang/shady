@@ -190,7 +190,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 }
 
                 Nodes results_ts = unwrap_multiple_yield_types(emitter->arena, instr->type);
-                SpvId result_t = results_ts.count >= 1 ? emit_type(emitter, instr->type) : spvb_void_type(emitter->file_builder);
+                SpvId result_t = results_ts.count >= 1 ? emit_type(emitter, instr->type) : emitter->void_t;
 
                 assert(opcode != SpvOpMax);
 
@@ -596,13 +596,16 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
 void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, const Node* instruction, size_t results_count, SpvId results[]) {
     assert(is_instruction(instruction));
 
-    switch (instruction->tag) {
+    switch (is_instruction(instruction)) {
+        case NotAnInstruction: error("");
+        case Instruction_Control_TAG:
+        case Instruction_Block_TAG: error("Should be lowered elsewhere")
         case IndirectCall_TAG: error("SPIR-V does not support indirect function calls. Such instructions need to be lowered away.");
         case LeafCall_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.leaf_call, results_count, results);                 break;
         case PrimOp_TAG:      emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
         case If_TAG:              emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, results_count, results);    break;
         case Match_TAG:        emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
         case Loop_TAG:          emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
-        default: error("Unrecognised instruction %s", node_tags[instruction->tag]);
+        case Comment_TAG: break;
     }
 }
