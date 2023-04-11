@@ -375,24 +375,26 @@ static bool compile_specialized_program(SpecProgram* spec) {
 }
 
 static bool allocate_sets(SpecProgram* program) {
-    VkDescriptorPoolCreateInfo create_info = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = MAX_DESCRIPTOR_SETS,
-        .pNext = NULL,
-        .flags = 0,
-        .poolSizeCount = program->required_descriptor_counts_count,
-        .pPoolSizes = program->required_descriptor_counts
-    };
-    CHECK_VK(vkCreateDescriptorPool(program->device->device, &create_info, NULL, &program->descriptor_pool), return false);
+    if (program->required_descriptor_counts_count > 0) {
+        VkDescriptorPoolCreateInfo create_info = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .maxSets = MAX_DESCRIPTOR_SETS,
+            .pNext = NULL,
+            .flags = 0,
+            .poolSizeCount = program->required_descriptor_counts_count,
+            .pPoolSizes = program->required_descriptor_counts
+        };
+        CHECK_VK(vkCreateDescriptorPool(program->device->device, &create_info, NULL, &program->descriptor_pool), return false);
 
-    VkDescriptorSetAllocateInfo allocate_info = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .pNext = NULL,
-        .pSetLayouts = program->set_layouts,
-        .descriptorPool = program->descriptor_pool,
-        .descriptorSetCount = MAX_DESCRIPTOR_SETS,
-    };
-    CHECK_VK(vkAllocateDescriptorSets(program->device->device, &allocate_info, program->sets), return false);
+        VkDescriptorSetAllocateInfo allocate_info = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .pNext = NULL,
+            .pSetLayouts = program->set_layouts,
+            .descriptorPool = program->descriptor_pool,
+            .descriptorSetCount = MAX_DESCRIPTOR_SETS,
+        };
+        CHECK_VK(vkAllocateDescriptorSets(program->device->device, &allocate_info, program->sets), return false);
+    }
 
     return true;
 }
