@@ -207,6 +207,7 @@ static void print_abs_body(PrinterCtx* ctx, const Node* block) {
 
     print_node(get_abstraction_body(block));
 
+    // TODO: it's likely cleaner to instead print things according to the dominator tree in the first place.
     if (ctx->scope != NULL) {
         const CFNode* dominator = scope_lookup(ctx->scope, block);
         print_dominated_bbs(ctx, dominator);
@@ -237,10 +238,11 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     printf("\n");
 
     if (node->arena->config.name_bound) {
+        PrinterCtx sub_ctx = *ctx;
         Scope* scope = new_scope(node);
-        ctx->scope = scope;
-        ctx->fn = node;
-        print_abs_body(ctx, node);
+        sub_ctx.scope = scope;
+        sub_ctx.fn = node;
+        print_abs_body(&sub_ctx, node);
         destroy_scope(scope);
     } else {
         print_abs_body(ctx, node);
@@ -471,19 +473,28 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf((char*) get_decl_name(node->payload.fn_addr.fn));
             printf(RESET);
             break;
-        case Value_AntiQuote_TAG:
+        case Value_AntiQuote_TAG: {
+            PrinterCtx sub_ctx = *ctx;
+            sub_ctx.scope = NULL;
+            ctx = &sub_ctx;
             printf(BBLUE);
             printf("anti_quote ");
             printf(RESET);
             print_node(node->payload.anti_quote.instruction);
             break;
+        }
     }
 }
 
 static void print_instruction(PrinterCtx* ctx, const Node* node) {
     switch (is_instruction(node)) {
         case NotAnInstruction: assert(false); break;
-        case PrimOp_TAG: {
+        case Instruction_Comment_TAG: {
+            printf(GREY);
+            printf("/* %s */", node->payload.comment.string);
+            printf(RESET);
+            break;
+        } case PrimOp_TAG: {
             printf(GREEN);
             printf("%s", primop_names[node->payload.prim_op.op]);
             printf(RESET);
@@ -727,6 +738,10 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
         return;
     if (ctx->config.skip_builtin && lookup_annotation(node, "Builtin"))
         return;
+
+    PrinterCtx sub_ctx = *ctx;
+    sub_ctx.scope = NULL;
+    ctx = &sub_ctx;
 
     switch (node->tag) {
         case GlobalVariable_TAG: {

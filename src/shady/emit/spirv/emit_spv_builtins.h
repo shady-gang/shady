@@ -29,7 +29,7 @@ BUILTIN(Input,  NumSubgroups,              int32_type(arena)   )\
 BUILTIN(Input,  NumWorkgroups,             int32_type(arena)   )\
 BUILTIN(Output, Position,                  f32vec4_type(arena) )\
 BUILTIN(Input,  PrimitiveId,               int32_type(arena)   )\
-BUILTIN(Input,  SubgroupLocalInvocationId, int32_type(arena)   )\
+BUILTIN(Input,  SubgroupLocalInvocationId, uint32_type(arena)   )\
 BUILTIN(Input,  SubgroupId,                int32_type(arena)   )\
 BUILTIN(Input,  SubgroupSize,              int32_type(arena)   )\
 

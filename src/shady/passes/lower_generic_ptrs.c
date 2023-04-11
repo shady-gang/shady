@@ -86,6 +86,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         AddressSpace src_as = old_src_t->payload.ptr_type.address_space;
                         size_t tag = get_tag_for_addr_space(src_as);
                         BodyBuilder* bb = begin_body(a);
+                        gen_comment(bb, "Generated generic ptr convert");
                         const Node* src_ptr = rewrite_node(&ctx->rewriter, old_src);
                         const Node* generic_ptr = gen_reinterpret_cast(bb, generic_ptr_type, src_ptr);
                         const Node* ptr_mask = size_t_literal(ctx, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
@@ -123,6 +124,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         }
 
                         BodyBuilder* bb = begin_body(a);
+                        gen_comment(bb, "Generated generic ptr store");
                         //          extracted_tag = nptr >> (64 - 2), for example
                         const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, nptr, size_t_literal(ctx, get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
@@ -156,6 +158,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         }
 
                         BodyBuilder* bb = begin_body(a);
+                        gen_comment(bb, "Generated generic ptr store");
                         //          extracted_tag = nptr >> (64 - 2), for example
                         const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, nptr, size_t_literal(ctx, get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)));
 

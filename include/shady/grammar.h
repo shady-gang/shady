@@ -50,6 +50,7 @@ N(1, 1, 1, Match, match_instr) \
 N(1, 1, 1, Loop, loop_instr) \
 N(1, 1, 1, Control, control) \
 N(1, 1, 1, Block, block) \
+N(1, 1, 1, Comment, comment) \
 
 #define TERMINATOR_NODES(N) \
 N(0, 1, 1, Let, let) \
@@ -377,6 +378,11 @@ typedef struct Control_ Control;
 #define Control_Fields(MkField) \
 MkField(1, TYPES, Nodes, yield_types) \
 MkField(1, ANON_LAMBDA, const Node*, inside)
+
+/// Structured "control" construct
+typedef struct Comment_ Comment;
+#define Comment_Fields(MkField) \
+MkField(1, POD, String, string) \
 
 //////////////////////////////// Terminators ////////////////////////////////
 

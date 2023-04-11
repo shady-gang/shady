@@ -100,6 +100,10 @@ const Node* gen_extract(BodyBuilder* instructions, const Node* base, Nodes selec
     return gen_primop_ce(instructions, extract_op, 1 + selectors.count, ops);
 }
 
+void gen_comment(BodyBuilder* bb, String str) {
+    bind_instruction(bb, comment(bb->arena, (Comment) { .string = str }));
+}
+
 const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
     Nodes old_decls = get_module_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
