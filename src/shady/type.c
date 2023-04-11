@@ -164,7 +164,7 @@ bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
 }
 
 const Type* get_actual_mask_type(IrArena* arena) {
-    switch (arena->config.subgroup_mask_representation) {
+    switch (arena->config.specializations.subgroup_mask_representation) {
         case SubgroupMaskAbstract: return mask_type(arena);
         case SubgroupMaskInt64: return uint64_type(arena);
         default: assert(false);
@@ -953,7 +953,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = false,
-                .type = int32_type(arena)
+                .type = uint32_type(arena)
             });
         }
         case subgroup_id_op: {
@@ -961,7 +961,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
-                .type = int32_type(arena)
+                .type = uint32_type(arena)
             });
         }
         case workgroup_id_op:
@@ -971,7 +971,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
-                .type = pack_type(arena, (PackType) { .element_type = int32_type(arena), .width = 3 })
+                .type = pack_type(arena, (PackType) { .element_type = uint32_type(arena), .width = 3 })
             });
         }
         case workgroup_local_id_op:
