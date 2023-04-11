@@ -80,6 +80,7 @@ RewritePass mark_leaf_functions;
 RewritePass opt_simplify_cf;
 RewritePass opt_stack;
 RewritePass opt_restructurize;
+RewritePass lower_switch_btree;
 
 RewritePass lower_entrypoint_args;
 
