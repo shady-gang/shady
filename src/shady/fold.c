@@ -254,5 +254,8 @@ const Node* fold_node(IrArena* arena, const Node* node) {
     if (is_instruction(node)) assert(is_instruction(folded));
     if (is_terminator(node)) assert(is_terminator(folded));
 
+    if (node->type)
+        assert(is_subtype(node->type, folded->type));
+
     return folded;
 }
