@@ -382,7 +382,7 @@ MkField(1, ANON_LAMBDA, const Node*, inside)
 /// Structured "control" construct
 typedef struct Comment_ Comment;
 #define Comment_Fields(MkField) \
-MkField(1, POD, String, string) \
+MkField(1, STRING, String, string) \
 
 //////////////////////////////// Terminators ////////////////////////////////
 
