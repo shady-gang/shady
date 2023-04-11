@@ -41,6 +41,35 @@ void render_host(unsigned char *img, int w, int h, int nsubsamples) {
     }
 }
 
+#ifdef ENABLE_ISPC
+extern void (aobench_kernel)(uint8_t*);
+
+typedef struct {
+    int32_t x, y, z;
+} Vec3i;
+
+int32_t subgroup_id;
+Vec3i global_id;
+Vec3i workgroup_size;
+Vec3i workgroup_num;
+
+void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
+    for (size_t i = 0; i < WIDTH; i++) {
+        for (size_t j = 0; j < HEIGHT; j++) {
+            img[j * WIDTH * 3 + i * 3 + 0] = 255;
+            img[j * WIDTH * 3 + i * 3 + 1] = 0;
+            img[j * WIDTH * 3 + i * 3 + 2] = 255;
+        }
+    }
+
+    for (size_t y = 0; y < h / 16; y++) {
+        for (size_t x = 0; x < w / 16; x++) {
+            aobench_kernel(img);
+        }
+    }
+}
+#endif
+
 void render_device(unsigned char *img, int w, int h, int nsubsamples, String path) {
     for (size_t i = 0; i < WIDTH; i++) {
         for (size_t j = 0; j < HEIGHT; j++) {
@@ -95,8 +124,13 @@ int main(int argc, char **argv) {
     render_host(img, WIDTH, HEIGHT, NSUBSAMPLES);
     saveppm("reference.ppm", WIDTH, HEIGHT, img);
 
-    render_device(img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
-    saveppm("device.ppm", WIDTH, HEIGHT, img);
+#ifdef ENABLE_ISPC
+    render_ispc(img, WIDTH, HEIGHT, NSUBSAMPLES);
+    saveppm("ispc.ppm", WIDTH, HEIGHT, img);
+#endif
+
+    // render_device(img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
+    // saveppm("device.ppm", WIDTH, HEIGHT, img);
 
     free(img);
 

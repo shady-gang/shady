@@ -28,7 +28,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     deconstruct_qualified_type(&t);
                     Node* decl = ctx->globals[node->payload.prim_op.op];
                     if (!decl) {
-                        decl = ctx->globals[node->payload.prim_op.op] = global_var(m, empty(a), t, name, AsGlobalPhysical);
+                        decl = ctx->globals[node->payload.prim_op.op] = global_var(m, empty(a), t, name, AsExternal);
                     }
                     const Node* ref = ref_decl(a, (RefDecl) { .decl = decl });
                     BodyBuilder* bb = begin_body(a);
