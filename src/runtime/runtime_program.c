@@ -397,22 +397,6 @@ static bool allocate_sets(SpecProgram* program) {
     return true;
 }
 
-static void* alloc_aligned(size_t size, size_t alignment) {
-#ifdef _WIN32
-    return _aligned_malloc(size, alignment);
-#else
-    return aligned_alloc(alignment, size);
-#endif
-}
-
-static void free_aligned(void* ptr) {
-#ifdef _WIN32
-    _aligned_free(ptr);
-#else
-    free(ptr);
-#endif
-}
-
 static bool prepare_resources(SpecProgram* program) {
     for (size_t i = 0; i < program->resources.num_resources; i++) {
         ProgramResourceInfo* resource = program->resources.resources[i];
