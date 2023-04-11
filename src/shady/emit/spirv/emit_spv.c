@@ -99,6 +99,10 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
                 break;
             }
         }
+        case Value_Undef_TAG: {
+            new = spvb_undef(emitter->file_builder, emit_type(emitter, node->payload.undef.type));
+            break;
+        }
         case Value_Fill_TAG: error("lower me")
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;

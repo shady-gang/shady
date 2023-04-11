@@ -36,6 +36,7 @@ N(1, 1, 0, False, false_lit) \
 N(1, 1, 1, StringLiteral, string_lit) \
 N(0, 1, 1, Composite, composite) \
 N(1, 1, 1, Fill, fill) \
+N(1, 1, 1, Undef, undef) \
 N(1, 1, 1, FnAddr, fn_addr) \
 N(1, 1, 1, RefDecl, ref_decl) \
 N(1, 1, 1, AntiQuote, anti_quote) \
@@ -298,6 +299,10 @@ typedef struct Fill_ Fill;
 #define Fill_Fields(MkField) \
 MkField(1, TYPE, const Type*, type) \
 MkField(1, VALUE, const Node*, value)
+
+typedef struct Undef_ Undef;
+#define Undef_Fields(MkField) \
+MkField(1, TYPE, const Type*, type)
 
 /// References either a global (yielding a pointer to it), or a constant (yielding a value of the type itself)
 /// Declarations are not values themselves, this node is required to "convert" them.

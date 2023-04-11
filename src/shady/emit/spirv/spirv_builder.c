@@ -393,6 +393,14 @@ SpvId spvb_global_variable(SpvbFileBuilder* file_builder, SpvId id, SpvId type, 
         ref_id(initializer);
     return id;
 }
+
+SpvId spvb_undef(SpvbFileBuilder* file_builder, SpvId type) {
+    op(SpvOpUndef, 3);
+    ref_id(type);
+    SpvId id = spvb_fresh_id(file_builder);
+    ref_id(id);
+    return id;
+}
 #undef target_data
 
 struct SpvbFnBuilder_ {
@@ -583,14 +591,6 @@ struct List* spbv_get_phis(SpvbBasicBlockBuilder* bb_builder) {
 // It is tiresome to pass the context over and over again. Let's not !
 // We use this macro to save us some typing
 #define target_data bb_builder->section_data
-SpvId spvb_undef(SpvbBasicBlockBuilder* bb_builder, SpvId type) {
-    op(SpvOpUndef, 3);
-    ref_id(type);
-    SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
-    ref_id(id);
-    return id;
-}
-
 SpvId spvb_composite(SpvbBasicBlockBuilder* bb_builder, SpvId aggregate_t, size_t elements_count, SpvId elements[]) {
     op(SpvOpCompositeConstruct, 3u + elements_count);
     ref_id(aggregate_t);
