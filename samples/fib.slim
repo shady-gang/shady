@@ -1,11 +1,11 @@
 // trivial function that returns its argument
-fn fib varying i32(varying i32 n) {
-  if (n <= 1) { return (1); }
-  return (indirect_call(fib)(n-1) + indirect_call(fib)(n-2));
+fn fib varying u32(varying u32 n) {
+  if (n <= u32 1) { return (u32 1); }
+  return (indirect_call(fib)(n- u32 1) + indirect_call(fib)(n- u32 2));
 }
 
 @EntryPoint("compute") @WorkgroupSize(64, 1, 1) fn main() {
-    val n = subgroup_local_id() % 16;
+    val n = subgroup_local_id() % u32 16;
     debug_printf("fib(%d) = %d from thread %d:%d", n, fib(n), subgroup_id(), subgroup_local_id());
     return ();
 }

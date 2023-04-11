@@ -8,6 +8,9 @@
 #include <string.h>
 
 static void bind_program_resources(Command* cmd, SpecProgram* prog) {
+    if (prog->resources.num_resources == 0)
+        return;
+
     LARRAY(VkWriteDescriptorSet, write_descriptor_sets, prog->resources.num_resources);
     size_t write_descriptor_sets_count = 0;
 
