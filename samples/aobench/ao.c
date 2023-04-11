@@ -190,8 +190,7 @@ void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
     col->z = occlusion;
 }
 
-unsigned char
-clamp(Scalar f)
+unsigned char aobench_clamp(Scalar f)
 {
     int i = (int)(f * 255.5);
 
@@ -247,13 +246,15 @@ void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigne
         }
     }
 
+    //pixel[1] = 255.f;
+
     pixel[0] /= (Scalar)(nsubsamples * nsubsamples);
     pixel[1] /= (Scalar)(nsubsamples * nsubsamples);
     pixel[2] /= (Scalar)(nsubsamples * nsubsamples);
 
-    img[3 * (y * w + x) + 0] = clamp(pixel[0]);
-    img[3 * (y * w + x) + 1] = clamp(pixel[1]);
-    img[3 * (y * w + x) + 2] = clamp(pixel[2]);
+    img[3 * (y * w + x) + 0] = aobench_clamp(pixel[0]);
+    img[3 * (y * w + x) + 1] = aobench_clamp(pixel[1]);
+    img[3 * (y * w + x) + 2] = aobench_clamp(pixel[2]);
 }
 
 void init_scene(Ctx* ctx)
