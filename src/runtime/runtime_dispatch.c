@@ -7,41 +7,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { DispatchCompute } DispatchType;
-
-struct Dispatch_ {
-    DispatchType type;
-    SpecProgram* src;
-
-    VkCommandBuffer cmd_buf;
-    VkFence done_fence;
-};
-
-Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, int dimz, int args_count, void** args) {
+Command* launch_kernel(Program* program, Device* device, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
     assert(program && device);
 
-    Dispatch* dispatch = calloc(1, sizeof(Dispatch));
-    dispatch->type = DispatchCompute;
-    dispatch->src = get_specialized_program(program, device);
+    SpecProgram* prog = get_specialized_program(program, entry_point, device);
 
-    debug_print("Dispatching kernel on %s\n", device->caps.base_properties.deviceName);
+    debug_print("Dispatching kernel on %s\n", device->caps.properties.base.properties.deviceName);
 
-    CHECK_VK(vkAllocateCommandBuffers(device->device, &(VkCommandBufferAllocateInfo) {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .pNext = NULL,
-        .commandPool = device->cmd_pool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1
-    }, &dispatch->cmd_buf), return NULL);
+    Command* cmd = begin_command(device);
+    if (!cmd)
+        return NULL;
 
-    CHECK_VK(vkBeginCommandBuffer(dispatch->cmd_buf, &(VkCommandBufferBeginInfo) {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .pNext = NULL,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        .pInheritanceInfo = NULL
-    }), return NULL);
-
-    EntryPointInfo entrypoint_info = dispatch->src->entrypoint;
+    EntryPointInfo entrypoint_info = prog->entrypoint;
     if (entrypoint_info.args_size) {
         assert(args_count == entrypoint_info.num_args && "number of arguments must match number of entrypoint arguments");
 
@@ -50,39 +27,87 @@ Dispatch* launch_kernel(Program* program, Device* device, int dimx, int dimy, in
         for (int i = 0; i < entrypoint_info.num_args; ++i)
             memcpy(push_constant_buffer + entrypoint_info.arg_offset[i], args[i], entrypoint_info.arg_size[i]);
 
-        vkCmdPushConstants(dispatch->cmd_buf, dispatch->src->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push_constant_buffer_size, push_constant_buffer);
+        vkCmdPushConstants(cmd->cmd_buf, prog->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push_constant_buffer_size, push_constant_buffer);
     }
 
-    vkCmdBindPipeline(dispatch->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, dispatch->src->pipeline);
-    vkCmdDispatch(dispatch->cmd_buf, dimx, dimy, dimz);
+    vkCmdBindPipeline(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->pipeline);
+    vkCmdDispatch(cmd->cmd_buf, dimx, dimy, dimz);
 
-    CHECK_VK(vkEndCommandBuffer(dispatch->cmd_buf), return NULL);
+    if (!submit_command(cmd))
+        goto err_post_commands_create;
 
-    CHECK_VK(vkCreateFence(device->device, &(VkFenceCreateInfo) {
+    return cmd;
+
+err_post_commands_create:
+    destroy_command(cmd);
+    return NULL;
+}
+
+Command* begin_command(Device* device) {
+    Command* cmd = calloc(1, sizeof(Command));
+    cmd->device = device;
+
+    CHECK_VK(vkAllocateCommandBuffers(device->device, &(VkCommandBufferAllocateInfo) {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = NULL,
+        .commandPool = device->cmd_pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    }, &cmd->cmd_buf), goto err_post_commands_create);
+
+    CHECK_VK(vkBeginCommandBuffer(cmd->cmd_buf, &(VkCommandBufferBeginInfo) {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = NULL,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        .pInheritanceInfo = NULL
+    }), goto err_post_cmd_buf_create);
+
+    return cmd;
+
+err_post_cmd_buf_create:
+    vkFreeCommandBuffers(device, device->cmd_pool, 1, &cmd->cmd_buf);
+err_post_commands_create:
+    free(cmd);
+    return NULL;
+}
+
+bool submit_command(Command* cmd) {
+    CHECK_VK(vkEndCommandBuffer(cmd->cmd_buf), return false);
+
+    CHECK_VK(vkCreateFence(cmd->device->device, &(VkFenceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0
-    }, NULL, &dispatch->done_fence), return NULL);
+    }, NULL, &cmd->done_fence), return false);
 
-    CHECK_VK(vkQueueSubmit(device->compute_queue, 1, &(VkSubmitInfo) {
+    CHECK_VK(vkQueueSubmit(cmd->device->compute_queue, 1, &(VkSubmitInfo) {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = NULL,
         .waitSemaphoreCount = 0,
         .commandBufferCount = 1,
-        .pCommandBuffers = (VkCommandBuffer[]) { dispatch->cmd_buf },
+        .pCommandBuffers = (VkCommandBuffer[]) { cmd->cmd_buf },
         .signalSemaphoreCount = 0
-    }, dispatch->done_fence), return NULL);
+    }, cmd->done_fence), goto err_post_fence_create);
 
-    return dispatch;
+    cmd->submitted = true;
+
+    return true;
+
+err_post_fence_create:
+    vkDestroyFence(cmd->device->device, cmd->done_fence, NULL);
+    return false;
 }
 
-bool wait_completion(Dispatch* dispatch) {
-    VkDevice device = dispatch->src->device->device;
-    CHECK_VK(vkWaitForFences(device, 1, (VkFence[]) { dispatch->done_fence }, true, UINT32_MAX), return false);
-
-    vkDestroyFence(device, dispatch->done_fence, NULL);
-    vkFreeCommandBuffers(device, dispatch->src->device->cmd_pool, 1, &dispatch->cmd_buf);
-
-    free(dispatch);
+bool wait_completion(Command* cmd) {
+    assert(cmd->submitted && "Command must be submitted before they can be waited on");
+    CHECK_VK(vkWaitForFences(cmd->device->device, 1, (VkFence[]) { cmd->done_fence }, true, UINT32_MAX), return false);
+    destroy_command(cmd);
     return true;
+}
+
+void destroy_command(Command* cmd) {
+    if (cmd->submitted)
+        vkDestroyFence(cmd->device->device, cmd->done_fence, NULL);
+    vkFreeCommandBuffers(cmd->device->device, cmd->device->cmd_pool, 1, &cmd->cmd_buf);
+    free(cmd);
 }

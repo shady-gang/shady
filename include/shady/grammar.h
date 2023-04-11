@@ -487,7 +487,6 @@ MkField(1, STRING, String, name)
 /// Most notably, the tails of standard `let` nodes
 typedef struct AnonLambda_ AnonLambda;
 #define AnonLambda_Fields(MkField) \
-MkField(0, POD, Module*, module) \
 MkField(1, VARIABLES, Nodes, params) \
 MkField(1, TERMINATOR, const Node*, body)
 

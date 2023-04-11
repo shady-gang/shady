@@ -28,8 +28,6 @@ CompilerConfig default_compiler_config() {
         .per_thread_stack_size = 1 KiB,
         .per_subgroup_stack_size = 1 KiB,
 
-        .subgroup_size = 32,
-
         .target_spirv_version = {
             .major = 1,
             .minor = 4
@@ -39,6 +37,11 @@ CompilerConfig default_compiler_config() {
             // most of the time, we are not interested in seeing generated/builtin code in the debug output
             .skip_builtin = true,
             .skip_generated = true,
+        },
+
+        .specialization = {
+            .subgroup_size = 8,
+            .entry_point = NULL
         }
     };
 }
@@ -69,9 +72,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(bind_program)
     RUN_PASS(normalize)
 
-    // TODO: do this late
-    patch_constants(config, mod);
-
     RUN_PASS(reconvergence_heuristics)
 
     aconfig.check_types = true;
@@ -95,7 +95,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(lower_tailcalls)
 
-    RUN_PASS(eliminate_constants)
+    // RUN_PASS(eliminate_constants)
 
     aconfig.subgroup_mask_representation = SubgroupMaskInt64;
     RUN_PASS(lower_mask)
@@ -109,12 +109,18 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_subgroup_vars)
     RUN_PASS(lower_memory_layout)
 
+    if (config->lower.decay_ptrs) {
+        RUN_PASS(lower_decay_ptrs)
+    }
+
     RUN_PASS(lower_int)
 
     if (config->lower.simt_to_explicit_simd) {
         aconfig.is_simt = false;
         RUN_PASS(simt2d)
     }
+
+    RUN_PASS(specialize_for_entry_point)
 
     return CompilationNoError;
 }

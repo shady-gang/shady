@@ -127,7 +127,7 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
     const Node* old_lam = node->payload.let.tail;
     assert(old_lam && is_anonymous_lambda(old_lam));
 
-    BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+    BodyBuilder* bb = begin_body(dst_arena);
 
     Nodes initial_values = bind_instruction_extra(bb, ninstruction, old_lam->payload.anon_lam.params.count, NULL, NULL);
     Nodes old_params = old_lam->payload.anon_lam.params;
@@ -279,7 +279,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 add_binding(ctx, false, old_params.nodes[i]->payload.var.name, new_params.nodes[i]);
             register_processed_list(&ctx->rewriter, old_params, new_params);
             const Node* new_body = rewrite_node(&ctx->rewriter, node->payload.anon_lam.body);
-            return lambda(ctx->rewriter.dst_module, new_params, new_body);
+            return lambda(ctx->rewriter.dst_arena, new_params, new_body);
         }
         case LetMut_TAG: return desugar_let_mut(ctx, node);
         case Return_TAG: {

@@ -40,7 +40,7 @@ static const Node* process(Context* ctx, const Node* node) {
             switch (op) {
                 case quote_op: goto rewrite;
                 case alloca_logical_op: {
-                    BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                    BodyBuilder* bb = begin_body(arena);
                     const Node* type = rewrite_node(&ctx->rewriter, first(node->payload.prim_op.type_arguments));
                     LARRAY(const Node*, allocated, ctx->width);
                     for (size_t i = 0; i < ctx->width; i++) {
@@ -93,7 +93,7 @@ static const Node* process(Context* ctx, const Node* node) {
 void simt2d(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
-        .width = config->subgroup_size,
+        .width = config->specialization.subgroup_size,
         .mask = NULL,
     };
 

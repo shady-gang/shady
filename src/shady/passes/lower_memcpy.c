@@ -40,7 +40,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 case memcpy_op: {
                     const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
 
-                    BodyBuilder* bb = begin_body(m);
+                    BodyBuilder* bb = begin_body(a);
                     Nodes old_ops = old->payload.prim_op.operands;
 
                     const Node* dst_addr = rewrite_node(&ctx->rewriter, old_ops.nodes[0]);
@@ -67,19 +67,19 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Node* num_in_bytes = gen_conversion(bb, uint32_type(a), bytes_to_words(ctx, bb, num));
 
                     const Node* index = var(a, qualified_type_helper(uint32_type(a), false), "memcpy_i");
-                    BodyBuilder* loop_bb = begin_body(m);
+                    BodyBuilder* loop_bb = begin_body(a);
                     const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, singleton(uint32_literal(a, 0))));
                     gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, singleton(uint32_literal(a, 0))), loaded_word);
                     bind_instruction(loop_bb, if_instr(a, (If) {
                         .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, index, num_in_bytes)),
                         .yield_types = empty(a),
-                        .if_true = lambda(m, empty(a), merge_continue(a, (MergeContinue) { .args = singleton(gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)))) })),
-                        .if_false = lambda(m, empty(a), merge_break(a, (MergeBreak) { .args = empty(a) }))
+                        .if_true = lambda(a, empty(a), merge_continue(a, (MergeContinue) { .args = singleton(gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)))) })),
+                        .if_false = lambda(a, empty(a), merge_break(a, (MergeBreak) { .args = empty(a) }))
                     }));
 
                     bind_instruction(bb, loop_instr(a, (Loop) {
                         .yield_types = empty(a),
-                        .body = lambda(m, singleton(index), finish_body(loop_bb, unreachable(a))),
+                        .body = lambda(a, singleton(index), finish_body(loop_bb, unreachable(a))),
                         .initial_args = singleton(uint32_literal(a, 0))
                     }));
                     return yield_values_and_wrap_in_block(bb, empty(a));

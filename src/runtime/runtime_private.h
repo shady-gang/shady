@@ -20,23 +20,26 @@ Y(vkDestroyDebugUtilsMessengerEXT) \
 Y(vkGetMemoryHostPointerPropertiesEXT) \
 
 #define INSTANCE_EXTENSIONS(X) \
-X(0, EXT, debug_utils,                debug_utils_fns) \
-X(0, KHR, portability_enumeration,          empty_fns) \
-X(1, KHR, get_physical_device_properties2,  empty_fns) \
+X(0, EXT_debug_utils,                debug_utils_fns) \
+X(0, KHR_portability_enumeration,          empty_fns) \
+X(1, KHR_get_physical_device_properties2,  empty_fns) \
 
 #define DEVICE_EXTENSIONS(X) \
-X(0, EXT, descriptor_indexing,            empty_fns) \
-X(1, KHR, buffer_device_address,          empty_fns) \
-X(1, KHR, storage_buffer_storage_class,   empty_fns) \
-X(0, KHR, shader_non_semantic_info,       empty_fns) \
-X(0, KHR, spirv_1_4,                      empty_fns) \
-X(0, KHR, portability_subset,             empty_fns) \
-X(0, KHR, shader_subgroup_extended_types, empty_fns) \
-X(0, EXT, external_memory,                empty_fns) \
-X(1, EXT, external_memory_host,           external_memory_host_fns) \
-X(0, EXT, subgroup_size_control,          empty_fns) \
+X(0, EXT_descriptor_indexing,            empty_fns) \
+X(1, KHR_buffer_device_address,          empty_fns) \
+X(1, KHR_storage_buffer_storage_class,   empty_fns) \
+X(0, KHR_shader_non_semantic_info,       empty_fns) \
+X(0, KHR_spirv_1_4,                      empty_fns) \
+X(0, KHR_portability_subset,             empty_fns) \
+X(0, KHR_shader_subgroup_extended_types, empty_fns) \
+X(0, EXT_external_memory,                empty_fns) \
+X(1, EXT_external_memory_host,           external_memory_host_fns) \
+X(0, EXT_subgroup_size_control,          empty_fns) \
+X(0, KHR_shader_float16_int8,            empty_fns) \
+X(0, KHR_8bit_storage,                   empty_fns) \
+X(0, KHR_16bit_storage,                  empty_fns) \
 
-#define E(is_required, prefix, name, _) ShadySupports##prefix##name,
+#define E(is_required, name, _) ShadySupports##name,
 typedef enum {
     INSTANCE_EXTENSIONS(E)
     ShadySupportedInstanceExtensionsCount
@@ -47,12 +50,12 @@ typedef enum {
 } ShadySupportedDeviceExtensions;
 #undef E
 
-#define S(is_required, prefix, name, _) "VK_" #prefix "_" #name,
+#define S(is_required, name, _) "VK_" #name,
 SHADY_UNUSED static const char* shady_supported_instance_extensions_names[] = { INSTANCE_EXTENSIONS(S) };
 SHADY_UNUSED static const char* shady_supported_device_extensions_names[] = { DEVICE_EXTENSIONS(S) };
 #undef S
 
-#define R(is_required, _, _1, _2) is_required,
+#define R(is_required, _, _2) is_required,
 SHADY_UNUSED static const bool is_instance_ext_required[] = { INSTANCE_EXTENSIONS(R) };
 SHADY_UNUSED static const bool is_device_ext_required[] = { DEVICE_EXTENSIONS(R) };
 #undef R
@@ -76,7 +79,7 @@ struct Runtime_ {
 
     struct {
     #define Y(fn_name) PFN_##fn_name fn_name;
-    #define X(_, prefix, name, fns) \
+    #define X(_, name, fns) \
         struct S_##name { \
         bool enabled; \
         fns(Y)  \
@@ -94,8 +97,6 @@ typedef struct {
 
     bool supported_extensions[ShadySupportedDeviceExtensionsCount];
 
-    VkPhysicalDeviceProperties base_properties;
-
     uint32_t compute_queue_family;
 
     struct {
@@ -110,16 +111,25 @@ typedef struct {
         VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR subgroup_extended_types;
         VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address;
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroup_size_control;
+        VkPhysicalDeviceShaderFloat16Int8Features float_16_int8;
+        VkPhysicalDevice8BitStorageFeatures storage8;
+        VkPhysicalDevice16BitStorageFeatures storage16;
     } features;
     struct {
+        VkPhysicalDeviceProperties2 base;
         VkPhysicalDeviceSubgroupProperties subgroup;
         VkPhysicalDeviceSubgroupSizeControlPropertiesEXT subgroup_size_control;
         VkPhysicalDeviceExternalMemoryHostPropertiesEXT external_memory_host;
-    } extended_properties;
+    } properties;
     struct {
         bool is_moltenvk;
     } implementation;
 } DeviceCaps;
+
+typedef struct {
+    Program* base;
+    String entry_point;
+} SpecProgramKey;
 
 struct Device_ {
     Runtime* runtime;
@@ -130,7 +140,7 @@ struct Device_ {
 
     struct {
     #define Y(fn_name) PFN_##fn_name fn_name;
-    #define X(_, prefix, name, fns) \
+    #define X(_, name, fns) \
         struct S_##name { \
         bool enabled; \
         fns(Y)  \
@@ -145,11 +155,22 @@ struct Device_ {
 
 bool probe_devices(Runtime* runtime);
 
+struct Command_ {
+    Device* device;
+    VkCommandBuffer cmd_buf;
+    VkFence done_fence;
+    bool submitted;
+};
+
+Command* begin_command(Device* device);
+bool submit_command(Command* commands);
+void destroy_command(Command* commands);
+
 struct Program_ {
     Runtime* runtime;
 
     IrArena* arena;
-    Module* generic_program;
+    Module* module;
 };
 
 typedef struct EntryPointInfo_ {
@@ -160,10 +181,10 @@ typedef struct EntryPointInfo_ {
 } EntryPointInfo;
 
 struct SpecProgram_ {
-    Program* base;
+    SpecProgramKey key;
     Device* device;
 
-    Module* module;
+    Module* specialized_module;
 
     size_t spirv_size;
     char* spirv_bytes;
@@ -177,7 +198,7 @@ struct SpecProgram_ {
 void unload_program(Program*);
 void shutdown_device(Device*);
 
-SpecProgram* get_specialized_program(Program*, Device*);
+SpecProgram* get_specialized_program(Program*, String ep, Device*);
 void destroy_specialized_program(SpecProgram*);
 
 static inline void append_pnext(VkBaseOutStructure* s, void* n) {

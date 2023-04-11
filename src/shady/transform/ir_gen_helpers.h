@@ -22,8 +22,8 @@ const Node* gen_lea(BodyBuilder*, const Node* base, const Node* offset, Nodes se
 
 typedef struct Rewriter_ Rewriter;
 
-const Node* find_or_process_decl(Rewriter*, Module* mod, const char* name);
-const Node* access_decl(Rewriter*, Module* mod, const char* name);
+const Node* find_or_process_decl(Rewriter*, const char* name);
+const Node* access_decl(Rewriter*, const char* name);
 
 const Node* convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src);
 const Node* convert_int_extend_according_to_dst_t(BodyBuilder* bb, const Type* dst_type, const Node* src);

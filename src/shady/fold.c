@@ -45,33 +45,33 @@ static bool is_one(const Node* node) {
     return false;
 }
 
-/// Substitutes the parameters for the arguments in the function body
-static const Node* reduce_beta(const Node* fn, Nodes args) {
-    assert(is_abstraction(fn));
-    Nodes params = get_abstraction_params(fn);
-    const Node* body = get_abstraction_body(fn);
-    assert(body);
-
-    assert(params.count == args.count);
-    Rewriter r = create_substituter(get_abstraction_module(fn));
-    for (size_t i = 0; i < args.count; i++)
-        register_processed(&r, params.nodes[i], args.nodes[i]);
-    const Node* specialized = rewrite_node(&r, body);
-    assert(specialized);
-    destroy_rewriter(&r);
-    return specialized;
-}
-
 static const Node* fold_let(IrArena* arena, const Node* node) {
     assert(node->tag == Let_TAG);
     const Node* instruction = node->payload.let.instruction;
     const Node* tail = node->payload.let.tail;
     switch (instruction->tag) {
         case PrimOp_TAG: {
-            if (instruction->payload.prim_op.op == quote_op) {
-                //return reduce_beta(tail, instruction->payload.prim_op.operands);
+            BodyBuilder* bb = begin_body(arena);
+            Nodes operands = instruction->payload.prim_op.operands;
+            LARRAY(const Node*, noperands, operands.count);
+            bool modified = false;
+            for (size_t i = 0; i < operands.count; i++) {
+                noperands[i] = operands.nodes[i];
+                if (operands.nodes[i]->tag == AntiQuote_TAG) {
+                    noperands[i] = first(bind_instruction(bb, operands.nodes[i]->payload.anti_quote.instruction));
+                    modified = true;
+                }
             }
-            break;
+            if (!modified) {
+                break;
+            }
+            Nodes results = bind_instruction(bb, prim_op(arena, (PrimOp) {
+                .op = instruction->payload.prim_op.op,
+                .operands = nodes(arena, operands.count, noperands),
+                .type_arguments = instruction->payload.prim_op.type_arguments,
+            }));
+            instruction = yield_values_and_wrap_in_block(bb, results);
+            return let(arena, instruction, tail);
         }
         case Block_TAG: {
             // follow the terminator of the block until we hit a yield()
@@ -109,7 +109,7 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
                             for (size_t i = 0; i < depth; i++) {
                                 const Node* olet = lets[depth - 1 - i];
                                 const Node* olam = get_let_tail(olet);
-                                const Node* nlam = lambda(get_abstraction_module(olam), get_abstraction_params(olam), acc);
+                                const Node* nlam = lambda(arena, get_abstraction_params(olam), acc);
                                 acc = let(arena, get_let_instruction(olet), nlam);
                             }
                             free(lets);

@@ -107,10 +107,16 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         case Int_TAG: {
             int width;
             switch (type->payload.int_type.width) {
-                case IntTy8:  width = 8;  break;
-                case IntTy16: width = 16; break;
+                case IntTy8:
+                    spvb_capability(emitter->file_builder, SpvCapabilityInt8);
+                    width = 8;  break;
+                case IntTy16:
+                    spvb_capability(emitter->file_builder, SpvCapabilityInt16);
+                    width = 16; break;
                 case IntTy32: width = 32; break;
-                case IntTy64: width = 64; break;
+                case IntTy64:
+                    spvb_capability(emitter->file_builder, SpvCapabilityInt64);
+                    width = 64; break;
                 default: assert(false);
             }
             new = spvb_int_type(emitter->file_builder, width, type->payload.int_type.is_signed);
@@ -121,9 +127,13 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         } case Float_TAG: {
             int width;
             switch (type->payload.float_type.width) {
-                case FloatTy16: width = 16; break;
+                case FloatTy16:
+                    spvb_capability(emitter->file_builder, SpvCapabilityFloat16);
+                    width = 16; break;
                 case FloatTy32: width = 32; break;
-                case FloatTy64: width = 64; break;
+                case FloatTy64:
+                    spvb_capability(emitter->file_builder, SpvCapabilityFloat64);
+                    width = 64; break;
             }
             new = spvb_float_type(emitter->file_builder, width);
             break;

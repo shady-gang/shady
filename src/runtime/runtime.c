@@ -14,7 +14,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL the_callback(SHADY_UNUSED VkDebugUtilsMess
 }
 
 static bool setup_debug_callback(Runtime* runtime) {
-    CHECK_VK(runtime->instance_exts.debug_utils.vkCreateDebugUtilsMessengerEXT(runtime->instance, &(VkDebugUtilsMessengerCreateInfoEXT) {
+    CHECK_VK(runtime->instance_exts.EXT_debug_utils.vkCreateDebugUtilsMessengerEXT(runtime->instance, &(VkDebugUtilsMessengerCreateInfoEXT) {
         .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
         .pNext = NULL,
         .flags = 0,
@@ -28,7 +28,7 @@ static bool setup_debug_callback(Runtime* runtime) {
 
 static void obtain_instance_pointers(Runtime* runtime) {
     #define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetInstanceProcAddr(runtime->instance, #fn_name);
-    #define X(_, prefix, name, fns) \
+    #define X(_, name, fns) \
         if (runtime->instance_exts.name.enabled) { \
             SHADY_UNUSED struct S_##name* ext = &runtime->instance_exts.name; \
             fns(Y) \
@@ -69,9 +69,9 @@ static bool initialize_vk_instance(Runtime* runtime) {
     for (uint32_t i = 0; i < extensions_count; i++) {
         VkExtensionProperties* extension = &extensions[i];
 
-#define X(is_required, prefix, name, _) \
-        if (strcmp(extension->extensionName, "VK_"#prefix"_"#name) == 0) { \
-            info_print("Enabling instance extension VK_"#prefix"_"#name"\n"); \
+#define X(is_required,  name, _) \
+        if (strcmp(extension->extensionName, "VK_"#name) == 0) { \
+            info_print("Enabling instance extension VK_"#name"\n"); \
             runtime->instance_exts.name.enabled = true; \
             enabled_extensions[enabled_extensions_count++] = extension->extensionName; \
         }
@@ -80,7 +80,7 @@ INSTANCE_EXTENSIONS(X)
     }
 
     VkImageCreateFlagBits instance_flags = 0;
-    if (runtime->instance_exts.portability_enumeration.enabled)
+    if (runtime->instance_exts.KHR_portability_enumeration.enabled)
         instance_flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 
     VkResult err_create_instance = vkCreateInstance(&(VkInstanceCreateInfo) {
@@ -118,7 +118,7 @@ INSTANCE_EXTENSIONS(X)
 
     obtain_instance_pointers(runtime);
 
-    if (runtime->instance_exts.debug_utils.enabled)
+    if (runtime->instance_exts.EXT_debug_utils.enabled)
         assert(setup_debug_callback(runtime));
 
     return true;
@@ -158,7 +158,7 @@ void shutdown_runtime(Runtime* runtime) {
     destroy_list(runtime->programs);
 
     if (runtime->debug_messenger)
-        runtime->instance_exts.debug_utils.vkDestroyDebugUtilsMessengerEXT(runtime->instance, runtime->debug_messenger, NULL);
+        runtime->instance_exts.EXT_debug_utils.vkDestroyDebugUtilsMessengerEXT(runtime->instance, runtime->debug_messenger, NULL);
 
     vkDestroyInstance(runtime->instance, NULL);
     free(runtime);

@@ -209,7 +209,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (cached)
                 register_processed(rewriter, idom->node, cached);
 
-            const Node* control_inner = lambda(rewriter->dst_module, singleton(join_token), inner_terminator);
+            const Node* control_inner = lambda(arena, singleton(join_token), inner_terminator);
             const Node* new_target = control (arena, (Control) {
                     .inside = control_inner,
                     .yield_types = yield_types
@@ -224,7 +224,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                         .args = lambda_args
                         });
 
-                const Node* anon_lam = lambda(rewriter->dst_module, lambda_args, outer_terminator);
+                const Node* anon_lam = lambda(arena, lambda_args, outer_terminator);
                 const Node* empty_let = let(arena, new_target, anon_lam);
 
                 return empty_let;
@@ -343,7 +343,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .args = lambda_args
                     });
 
-            const Node* control_inner_lambda = lambda(rewriter->dst_module, singleton(join_token_continue), inner_terminator);
+            const Node* control_inner_lambda = lambda(arena, singleton(join_token_continue), inner_terminator);
             const Node* inner_control = control (arena, (Control) {
                     .inside = control_inner_lambda,
                     .yield_types = yield_types
@@ -355,12 +355,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .args = lambda_args
                     });
 
-            const Node* anon_lam = lambda(rewriter->dst_module, lambda_args, loop_terminator);
+            const Node* anon_lam = lambda(arena, lambda_args, loop_terminator);
             const Node* inner_control_let = let(arena, inner_control, anon_lam);
 
             loop_outer->payload.basic_block.body = inner_control_let;
 
-            const Node* control_outer_lambda = lambda(rewriter->dst_module, singleton(join_token_exit), loop_terminator);
+            const Node* control_outer_lambda = lambda(arena, singleton(join_token_exit), loop_terminator);
             const Node* outer_control = control (arena, (Control) {
                     .inside = control_outer_lambda,
                     .yield_types = yield_types
@@ -372,7 +372,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .args = lambda_args
                     });
 
-            const Node* anon_lam_exit = lambda(rewriter->dst_module, lambda_args, outer_terminator);
+            const Node* anon_lam_exit = lambda(arena, lambda_args, outer_terminator);
             const Node* outer_control_let = let(arena, outer_control, anon_lam_exit);
 
             Node* loop_container = basic_block(arena, fn, exit_args, node->payload.basic_block.name);

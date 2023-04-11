@@ -5,6 +5,7 @@
 #include "list.h"
 #include "dict.h"
 #include "arena.h"
+#include "../ir_private.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -101,7 +102,7 @@ static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, C
 
 static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction) {
     switch (is_instruction(instruction)) {
-        case NotAnInstruction: error("");
+        case NotAnInstruction: if (instruction->arena->config.check_types) { error("Grammar problem"); } break;
         case Instruction_LeafCall_TAG:
         case Instruction_IndirectCall_TAG:
         case Instruction_PrimOp_TAG: break;
@@ -134,8 +135,7 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     const Node* terminator = get_abstraction_body(abs);
     if (!terminator)
         return;
-    assert(is_terminator(terminator));
-    switch (terminator->tag) {
+    switch (is_terminator(terminator)) {
         case Jump_TAG: {
             const Node* target = terminator->payload.jump.target;
             add_edge(ctx, abs, target, ForwardEdge);
@@ -169,7 +169,7 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
         case TailCall_TAG:
         case Return_TAG:
         case Unreachable_TAG: break;
-        default: error("scope: unhandled terminator");
+        case NotATerminator: if (terminator->arena->config.check_types) { error("Grammar problem"); } break;
     }
 }
 

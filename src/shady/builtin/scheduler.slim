@@ -1,21 +1,21 @@
-type TreeNode = struct {
+@Builtin type TreeNode = struct {
     mask_t threads;
     u32 depth;
 };
 
-type JoinPoint = struct {
+@Builtin type JoinPoint = struct {
     TreeNode node;
     u32 destination;
 };
 
-subgroup u32 actual_subgroup_size;
+@Builtin subgroup u32 actual_subgroup_size;
 
-subgroup u32 scheduler_cursor = 0;
-subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
-subgroup [u32; SUBGROUP_SIZE] resume_at;
+@Builtin subgroup u32 scheduler_cursor = 0;
+@Builtin subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
+@Builtin subgroup [u32; SUBGROUP_SIZE] resume_at;
 
-subgroup u32 next_fn;
-subgroup TreeNode active_branch;
+@Builtin subgroup u32 next_fn;
+@Builtin subgroup TreeNode active_branch;
 
 @Builtin @DisablePass("lower_cf_instrs") @DisablePass("setup_stack_frames") @Leaf
 fn builtin_init_scheduler() {
@@ -94,7 +94,7 @@ fn builtin_yield(uniform u32 resume_target) {
     if (subgroup_elect_first()) {
         // bump the cursor
         // TODO bump it in a smarter way
-        scheduler_cursor = (scheduler_cursor + u32 1) % SUBGROUP_SIZE;
+        scheduler_cursor = (scheduler_cursor + u32 1) % actual_subgroup_size;
         leaf_call(builtin_find_schedulable_leaf)();
     }
 }

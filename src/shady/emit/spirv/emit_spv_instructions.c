@@ -237,6 +237,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 SpvId local_id;
                 emit_primop(emitter, fn_builder, bb_builder, prim_op(emitter->arena, (PrimOp) { .op = subgroup_local_id_op }), 1, &local_id);
                 result = spvb_shuffle(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), scope_subgroup, emit_value(emitter, bb_builder, first(args)), local_id);
+                spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
             } else {
                 result = spvb_broadcast_first(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
             }
@@ -403,12 +404,12 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
 
     // When 'join' is codegen'd, these will be filled with the values given to it
     BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
-    LARRAY(struct Phi*, join_phis, yield_types.count);
+    LARRAY(SpvbPhi*, join_phis, yield_types.count);
     for (size_t i = 0; i < yield_types.count; i++) {
         assert(if_instr.if_false && "Ifs with yield types need false branches !");
         SpvId phi_id = spvb_fresh_id(emitter->file_builder);
         SpvId type = emit_type(emitter, yield_types.nodes[i]);
-        struct Phi* phi = spvb_add_phi(join_bb, type, phi_id);
+        SpvbPhi* phi = spvb_add_phi(join_bb, type, phi_id);
         join_phis[i] = phi;
         results[i] = phi_id;
     }
@@ -465,11 +466,11 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
 
     // When 'join' is codegen'd, these will be filled with the values given to it
     BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
-    LARRAY(struct Phi*, join_phis, yield_types.count);
+    LARRAY(SpvbPhi*, join_phis, yield_types.count);
     for (size_t i = 0; i < yield_types.count; i++) {
         SpvId phi_id = spvb_fresh_id(emitter->file_builder);
         SpvId type = emit_type(emitter, yield_types.nodes[i]);
-        struct Phi* phi = spvb_add_phi(join_bb, type, phi_id);
+        SpvbPhi* phi = spvb_add_phi(join_bb, type, phi_id);
         join_phis[i] = phi;
         results[i] = phi_id;
     }
@@ -520,29 +521,29 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     spvb_name(emitter->file_builder, next_id, "loop_next");
 
     // Wire up the phi nodes for loop exit
-    LARRAY(struct Phi*, loop_break_phis, yield_types.count);
+    LARRAY(SpvbPhi*, loop_break_phis, yield_types.count);
     for (size_t i = 0; i < yield_types.count; i++) {
         SpvId yielded_type = emit_type(emitter, get_unqualified_type(yield_types.nodes[i]));
 
         SpvId break_phi_id = spvb_fresh_id(emitter->file_builder);
-        struct Phi* phi = spvb_add_phi(next, yielded_type, break_phi_id);
+        SpvbPhi* phi = spvb_add_phi(next, yielded_type, break_phi_id);
         loop_break_phis[i] = phi;
         results[i] = break_phi_id;
     }
 
     // Wire up the phi nodes for the loop contents
-    LARRAY(struct Phi*, loop_continue_phis, body_params.count);
+    LARRAY(SpvbPhi*, loop_continue_phis, body_params.count);
     for (size_t i = 0; i < body_params.count; i++) {
         SpvId loop_param_type = emit_type(emitter, get_unqualified_type(body_params.nodes[i]->type));
 
         SpvId continue_phi_id = spvb_fresh_id(emitter->file_builder);
-        struct Phi* continue_phi = spvb_add_phi(continue_builder, loop_param_type, continue_phi_id);
+        SpvbPhi* continue_phi = spvb_add_phi(continue_builder, loop_param_type, continue_phi_id);
         loop_continue_phis[i] = continue_phi;
 
         // To get the actual loop parameter, we make a second phi for the nodes that go into the header
         // We already know the two edges into the header so we immediately add the Phi sources for it.
         SpvId loop_param_id = spvb_fresh_id(emitter->file_builder);
-        struct Phi* loop_param_phi = spvb_add_phi(header_builder, loop_param_type, loop_param_id);
+        SpvbPhi* loop_param_phi = spvb_add_phi(header_builder, loop_param_type, loop_param_id);
         SpvId param_initial_value = emit_value(emitter, *bb_builder, loop_instr.initial_args.nodes[i]);
         spvb_add_phi_source(loop_param_phi, get_block_builder_id(*bb_builder), param_initial_value);
         spvb_add_phi_source(loop_param_phi, get_block_builder_id(continue_builder), continue_phi_id);

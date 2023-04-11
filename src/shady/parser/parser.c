@@ -106,25 +106,54 @@ static const Type* accept_numerical_type(ctxparams) {
     return NULL;
 }
 
-static const Node* accept_value(ctxparams) {
+static const Node* accept_numerical_literal(ctxparams) {
     const Type* num_type = accept_numerical_type(ctx);
+
+    bool negate = accept_token(ctx, minus_tok);
+
     Token tok = curr_token(tokenizer);
     size_t size = tok.end - tok.start;
-    if (num_type) {
-        switch (tok.tag) {
-            case hex_lit_tok:
-            case dec_lit_tok: {
-                next_token(tokenizer);
-                return constrained(arena, (ConstrainedValue) {
-                    .type = num_type,
-                    .value = untyped_number(arena, (UntypedNumber) {
-                            .plaintext = string_sized(arena, (int) size, &contents[tok.start])
-                    })
-                });
-            }
-            default: error("primtype literal")
+    String str = string_sized(arena, (int) size, &contents[tok.start]);
+
+    switch (tok.tag) {
+        case hex_lit_tok:
+            if (negate)
+                error("hexadecimal literals can't start with '-'");
+        case dec_lit_tok: {
+            next_token(tokenizer);
+            break;
+        }
+        default: {
+            if (negate || num_type)
+                error("expected numerical literal");
+            return NULL;
         }
     }
+
+    if (negate) // add back the - in front
+        str = format_string(arena, "-%s", str);
+
+    const Node* n = untyped_number(arena, (UntypedNumber) {
+            .plaintext = str
+    });
+
+    if (num_type)
+        n = constrained(arena, (ConstrainedValue) {
+            .type = num_type,
+            .value = n
+        });
+
+    return n;
+}
+
+static const Node* accept_value(ctxparams) {
+    Token tok = curr_token(tokenizer);
+    size_t size = tok.end - tok.start;
+
+    const Node* number = accept_numerical_literal(ctx);
+    if (number)
+        return number;
+
     switch (tok.tag) {
         case identifier_tok: {
             const char* id = string_sized(arena, (int) size, &contents[tok.start]);
@@ -469,13 +498,13 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect(accept_token(ctx, rpar_tok));
             const Node* merge = config.front_end ? merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }) : NULL;
 
-            const Node* if_true = lambda(mod, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
+            const Node* if_true = lambda(arena, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
 
             // else defaults to an empty body
             bool has_else = accept_token(ctx, else_tok);
             const Node* if_false = NULL;
             if (has_else) {
-                if_false = lambda(mod, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
+                if_false = lambda(arena, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
             }
             return if_instr(arena, (If) {
                 .yield_types = yield_types,
@@ -492,7 +521,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect_parameters(ctx, &parameters, &default_values);
             // by default loops continue forever
             const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
-            const Node* body = lambda(mod, parameters, expect_body(ctx, fn, default_loop_end_behaviour));
+            const Node* body = lambda(arena, parameters, expect_body(ctx, fn, default_loop_end_behaviour));
 
             return loop_instr(arena, (Loop) {
                 .initial_args = default_values,
@@ -510,7 +539,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
                 .yield_types = yield_types,
             }), str);
             expect(accept_token(ctx, rpar_tok));
-            const Node* body = lambda(mod, singleton(param), expect_body(ctx, fn, NULL));
+            const Node* body = lambda(arena, singleton(param), expect_body(ctx, fn, NULL));
             return control(arena, (Control) {
                 .inside = body,
                 .yield_types = yield_types
@@ -664,7 +693,7 @@ static const Node* accept_anonymous_lambda(ctxparams, Node* fn) {
     Nodes params;
     expect_parameters(ctx, &params, NULL);
     const Node* body = expect_body(ctx, fn, NULL);
-    return lambda(mod, params, body);
+    return lambda(arena, params, body);
 }
 
 static const Node* accept_terminator(ctxparams, Node* fn) {
@@ -772,7 +801,7 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
 static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminator) {
     assert(fn->tag == Function_TAG);
     expect(accept_token(ctx, lbracket_tok));
-    BodyBuilder* bb = begin_body(mod);
+    BodyBuilder* bb = begin_body(arena);
 
     while (true) {
         if (!accept_non_terminator_instr(ctx, bb, fn))

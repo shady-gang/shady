@@ -57,20 +57,20 @@ static const Node* process(Context* ctx, const Node* node) {
         case PrimOp_TAG: {
             Op op = node->payload.prim_op.op;
             Nodes old_nodes = node->payload.prim_op.operands;
-            Nodes new_nodes = rewrite_nodes(&ctx->rewriter, old_nodes);
             LARRAY(const Node*, lows, old_nodes.count);
             LARRAY(const Node*, his, old_nodes.count);
             switch(op) {
                 case add_op: if (should_convert(ctx, first(old_nodes)->type)) {
+                    Nodes new_nodes = rewrite_nodes(&ctx->rewriter, old_nodes);
                     // TODO: convert into and then out of unsigned
-                    BodyBuilder* builder = begin_body(ctx->rewriter.dst_module);
+                    BodyBuilder* builder = begin_body(arena);
                     extract_low_hi_halves_list(builder, new_nodes, lows, his);
                     Nodes low_and_carry = bind_instruction(builder, prim_op(arena, (PrimOp) { .op = add_carry_op, .operands = nodes(arena, 2, lows)}));
                     const Node* lo = first(low_and_carry);
                     // compute the high side, without forgetting the carry bit
                     const Node* hi = first(bind_instruction(builder, prim_op(arena, (PrimOp) { .op = add_op, .operands = nodes(arena, 2, his)})));
                                 hi = first(bind_instruction(builder, prim_op(arena, (PrimOp) { .op = add_op, .operands = mk_nodes(arena, hi, low_and_carry.nodes[1])})));
-                    yield_values_and_wrap_in_block(builder, singleton(tuple(arena, mk_nodes(arena, lo, hi))));
+                    return yield_values_and_wrap_in_block(builder, singleton(tuple(arena, mk_nodes(arena, lo, hi))));
                 } break;
                 default: break;
             }

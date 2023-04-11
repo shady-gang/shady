@@ -4,9 +4,9 @@
 #include "shady/ir.h"
 
 #define INTERNAL_CONSTANTS(X) \
-X(SUBGROUP_SIZE, int32_type(arena), uint32_literal(arena, 0), uint32_literal(arena, (int32_t) config->subgroup_size))
+X(SUBGROUP_SIZE, int32_type(arena), uint32_literal(arena, 8)) \
+X(SUBGROUPS_PER_WG, int32_type(arena), uint32_literal(arena, 1)) \
 
-Nodes generate_dummy_constants(CompilerConfig* config, Module*);
-void patch_constants(CompilerConfig* config, Module*);
+void generate_dummy_constants(CompilerConfig* config, Module*);
 
 #endif

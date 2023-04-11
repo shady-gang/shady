@@ -117,7 +117,6 @@ Nodes filter_out_annotation(IrArena*, Nodes, const char* name);
 String get_abstraction_name(const Node* abs);
 const Node* get_abstraction_body(const Node*);
 Nodes get_abstraction_params(const Node*);
-Module* get_abstraction_module(const Node*);
 
 const Node* get_let_instruction(const Node* let);
 const Node* get_let_tail(const Node* let);
@@ -148,13 +147,13 @@ Node* global_var  (Module*, Nodes annotations, const Type*, String, AddressSpace
 Type* nominal_type(Module*, Nodes annotations, String name);
 
 Node* basic_block (IrArena*, Node* function, Nodes params, const char* name);
-const Node* lambda(Module*, Nodes params, const Node* body);
+const Node* lambda(IrArena*, Nodes params, const Node* body);
 
 const Node* let(IrArena* arena, const Node* instruction, const Node* tail);
 const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail);
 
 typedef struct BodyBuilder_ BodyBuilder;
-BodyBuilder* begin_body(Module*);
+BodyBuilder* begin_body(IrArena*);
 
 /// Appends an instruction to the builder, may apply optimisations.
 /// If the arena is typed, returns a list of variables bound to the values yielded by that instruction
@@ -213,8 +212,6 @@ typedef struct CompilerConfig_ {
     uint32_t per_thread_stack_size;
     uint32_t per_subgroup_stack_size;
 
-    uint32_t subgroup_size;
-
     struct {
         uint8_t major;
         uint8_t minor;
@@ -225,6 +222,7 @@ typedef struct CompilerConfig_ {
         bool emulate_subgroup_ops_extended_types;
         bool simt_to_explicit_simd;
         bool int64;
+        bool decay_ptrs;
     } lower;
 
     struct {
@@ -246,6 +244,11 @@ typedef struct CompilerConfig_ {
     struct {
         bool skip_generated, skip_builtin;
     } logging;
+
+    struct {
+        uint32_t subgroup_size;
+        String entry_point;
+    } specialization;
 } CompilerConfig;
 
 CompilerConfig default_compiler_config();

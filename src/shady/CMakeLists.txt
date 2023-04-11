@@ -39,6 +39,7 @@ set(SHADY_SOURCES
     passes/lower_generic_ptrs.c
     passes/lower_memory_layout.c
     passes/lower_memcpy.c
+    passes/lower_decay_ptrs.c
     passes/lower_tailcalls.c
     passes/lower_mask.c
     passes/setup_stack_frames.c
@@ -52,6 +53,7 @@ set(SHADY_SOURCES
     passes/opt_restructure.c
     passes/reconvergence_heuristics.c
     passes/simt2d.c
+    passes/specialize_for_entry_point.c
 
     passes/lower_entrypoint_args.c
     passes/spirv_map_entrypoint_args.c

@@ -21,8 +21,8 @@ Program* load_program(Runtime* runtime, const char* program_src) {
     ArenaConfig arena_config = default_arena_config();
     program->arena = new_ir_arena(arena_config);
     CHECK(program->arena != NULL, return false);
-    program->generic_program = new_module(program->arena, "my_module");
-    CHECK(parse_files(&config, 1, NULL, (const char* []){ program_src }, program->generic_program) == CompilationNoError, return false);
+    program->module = new_module(program->arena, "my_module");
+    CHECK(parse_files(&config, 1, NULL, (const char* []){ program_src }, program->module) == CompilationNoError, return false);
     // TODO split the compilation pipeline into generic and non-generic parts
     append_list(Program*, runtime->programs, program);
     return program;
@@ -135,7 +135,7 @@ static bool extract_entrypoint_info(const CompilerConfig* config, const Module* 
 }
 
 static bool extract_layout(SpecProgram* program) {
-    if (program->entrypoint.args_size > program->device->caps.base_properties.limits.maxPushConstantsSize) {
+    if (program->entrypoint.args_size > program->device->caps.properties.base.properties.limits.maxPushConstantsSize) {
         error_print("EntryPointArgs exceed available push constant space\n");
         return false;
     }
@@ -170,16 +170,20 @@ static bool create_vk_pipeline(SpecProgram* program) {
         .flags = 0,
         .module = program->shader_module,
         .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-        .pName = "main",
+        .pName = program->key.entry_point,
         .pSpecializationInfo = NULL
     };
+
+    if (program->device->caps.features.subgroup_size_control.computeFullSubgroups)
+        stage_create_info.flags |= VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT_EXT;
 
     VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT pipeline_shader_stage_required_subgroup_size_create_info_ext = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT,
         .requiredSubgroupSize = program->device->caps.subgroup_size.max
     };
-    if (program->device->caps.supported_extensions[ShadySupportsEXTsubgroup_size_control] &&
-       (program->device->caps.extended_properties.subgroup_size_control.requiredSubgroupSizeStages & VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)) {
+
+    if (program->device->caps.supported_extensions[ShadySupportsEXT_subgroup_size_control] &&
+       (program->device->caps.properties.subgroup_size_control.requiredSubgroupSizeStages & VK_SHADER_STAGE_COMPUTE_BIT)) {
         append_pnext((VkBaseOutStructure*) &stage_create_info, &pipeline_shader_stage_required_subgroup_size_create_info_ext);
     }
 
@@ -198,8 +202,8 @@ static bool create_vk_pipeline(SpecProgram* program) {
 static CompilerConfig get_compiler_config_for_device(Device* device) {
     CompilerConfig config = default_compiler_config();
 
-    config.subgroup_size = device->caps.subgroup_size.max;
-    assert(config.subgroup_size > 0);
+    assert(device->caps.subgroup_size.max > 0);
+    config.specialization.subgroup_size = device->caps.subgroup_size.max;
     // config.per_thread_stack_size = ...
 
     config.target_spirv_version.major = device->caps.spirv_version.major;
@@ -213,8 +217,10 @@ static CompilerConfig get_compiler_config_for_device(Device* device) {
     if (device->caps.implementation.is_moltenvk) {
         warn_print("Hack: MoltenVK says they supported subgroup extended types, but it's a lie. 64-bit types are unaccounted for !\n");
         config.lower.emulate_subgroup_ops_extended_types = true;
+        warn_print("Hack: MoltenVK does not support pointers to unsized arrays properly.\n");
+        config.lower.decay_ptrs = true;
     }
-    if (device->caps.base_properties.vendorID == 0x10de) {
+    if (device->caps.properties.base.properties.vendorID == 0x10de) {
         warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
         config.hacks.spv_shuffle_instead_of_broadcast_first = true;
     }
@@ -224,34 +230,31 @@ static CompilerConfig get_compiler_config_for_device(Device* device) {
 
 static bool compile_specialized_program(SpecProgram* spec) {
     CompilerConfig config = get_compiler_config_for_device(spec->device);
+    config.specialization.entry_point = spec->key.entry_point;
 
-    CHECK(run_compiler_passes(&config, &spec->module) == CompilationNoError, return false);
+    CHECK(run_compiler_passes(&config, &spec->specialized_module) == CompilationNoError, return false);
 
     Module* new_mod;
-    emit_spirv(&config, spec->module, &spec->spirv_size, &spec->spirv_bytes, &new_mod);
-    if (new_mod != spec->module) {
-        if (spec->module != spec->base->generic_program)
-            destroy_ir_arena(get_module_arena(spec->module));
-        spec->module = new_mod;
-    }
+    emit_spirv(&config, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes, &new_mod);
+    spec->specialized_module = new_mod;
 
-    if (spec->base->runtime->config.dump_spv) {
-        String module_name = get_module_name(spec->module);
-        String file_name = format_string(get_module_arena(spec->module), "%s.spv", module_name);
+    if (spec->key.base->runtime->config.dump_spv) {
+        String module_name = get_module_name(spec->specialized_module);
+        String file_name = format_string(get_module_arena(spec->specialized_module), "%s.spv", module_name);
         write_file(file_name, spec->spirv_size, (unsigned char*)spec->spirv_bytes);
     }
 
-    return extract_entrypoint_info(&config, spec->module, &spec->entrypoint);
+    return extract_entrypoint_info(&config, spec->specialized_module, &spec->entrypoint);
 }
 
-static SpecProgram* create_specialized_program(Program* program, Device* device) {
+static SpecProgram* create_specialized_program(SpecProgramKey key, Device* device) {
     SpecProgram* spec_program = calloc(1, sizeof(SpecProgram));
     if (!spec_program)
         return NULL;
 
-    spec_program->base = program;
+    spec_program->key = key;
     spec_program->device = device;
-    spec_program->module = program->generic_program;
+    spec_program->specialized_module = key.base->module;
 
     CHECK(compile_specialized_program(spec_program), return NULL);
     CHECK(extract_layout(spec_program),              return NULL);
@@ -259,13 +262,14 @@ static SpecProgram* create_specialized_program(Program* program, Device* device)
     return spec_program;
 }
 
-SpecProgram* get_specialized_program(Program* program, Device* device) {
-    SpecProgram** found = find_value_dict(Program*, SpecProgram*, device->specialized_programs, program);
+SpecProgram* get_specialized_program(Program* program, String entry_point, Device* device) {
+    SpecProgramKey key = { .base = program, .entry_point = entry_point };
+    SpecProgram** found = find_value_dict(SpecProgramKey, SpecProgram*, device->specialized_programs, key);
     if (found)
         return *found;
-    SpecProgram* spec = create_specialized_program(program, device);
+    SpecProgram* spec = create_specialized_program(key, device);
     assert(spec);
-    insert_dict(Program*, SpecProgram*, device->specialized_programs, program, spec);
+    insert_dict(SpecProgramKey, SpecProgram*, device->specialized_programs, key, spec);
     return spec;
 }
 
@@ -275,7 +279,7 @@ void destroy_specialized_program(SpecProgram* spec) {
     vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
     free(spec->entrypoint.arg_offset);
     free(spec->spirv_bytes);
-    if (get_module_arena(spec->module) != get_module_arena(spec->base->generic_program))
-        destroy_ir_arena(get_module_arena(spec->module));
+    if (get_module_arena(spec->specialized_module) != get_module_arena(spec->key.base->module))
+        destroy_ir_arena(get_module_arena(spec->specialized_module));
     free(spec);
 }

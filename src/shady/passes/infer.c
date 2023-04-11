@@ -276,7 +276,7 @@ static const Node* _infer_anonymous_lambda(Context* ctx, const Node* node, const
     }
 
     const Node* new_body = infer(&body_context, node->payload.anon_lam.body, NULL);
-    return lambda(ctx->rewriter.dst_module, nodes(arena, inferred_arg_type.count, nparams), new_body);
+    return lambda(ctx->rewriter.dst_arena, nodes(arena, inferred_arg_type.count, nparams), new_body);
 }
 
 static const Node* _infer_basic_block(Context* ctx, const Node* node) {
@@ -389,7 +389,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             const IntLiteral* lit = resolve_to_literal(new_inputs_scratch[1]);
             if ((!lit || lit->value.u64) != 0 && base_datatype->tag != ArrType_TAG) {
                 warn_print("LEA used on a pointer to a non-array type!\n");
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                BodyBuilder* bb = begin_body(dst_arena);
                 const Node* cast_base = first(bind_instruction(bb, prim_op(dst_arena, (PrimOp) {
                     .op = reinterpret_op,
                     .type_arguments = singleton(ptr_type(dst_arena, (PtrType) {
@@ -573,7 +573,7 @@ static const Node* _infer_control(Context* ctx, const Node* node, const Type* ex
     const Node* jp = var(arena, jpt, ojp->payload.var.name);
     register_processed(&ctx->rewriter, ojp, jp);
 
-    const Node* nlam = lambda(ctx->rewriter.dst_module, singleton(jp), infer(&joinable_ctx, get_abstraction_body(olam), NULL));
+    const Node* nlam = lambda(ctx->rewriter.dst_arena, singleton(jp), infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 
     return control(ctx->rewriter.dst_arena, (Control) {
         .yield_types = yield_types,
@@ -587,7 +587,7 @@ static const Node* _infer_block(Context* ctx, const Node* node, const Type* expe
 
     const Node* olam = node->payload.block.inside;
 
-    const Node* nlam = lambda(ctx->rewriter.dst_module, empty(arena), infer(ctx, get_abstraction_body(olam), NULL));
+    const Node* nlam = lambda(ctx->rewriter.dst_arena, empty(arena), infer(ctx, get_abstraction_body(olam), NULL));
 
     return control(ctx->rewriter.dst_arena, (Control) {
         .inside = nlam
@@ -619,9 +619,9 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             Nodes annotated_types = get_variables_types(arena, otail->payload.anon_lam.params);
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(arena, annotated_types));
             Nodes inferred_yield_types = unwrap_multiple_yield_types(arena, inferred_instruction->type);
-            // for (size_t i = 0; i < inferred_yield_types.count; i++) {
-            //     assert(is_value_type(inferred_yield_types.nodes[i]));
-            // }
+            for (size_t i = 0; i < inferred_yield_types.count; i++) {
+                assert(is_value_type(inferred_yield_types.nodes[i]));
+            }
             const Node* inferred_tail = infer(ctx, otail, wrap_multiple_yield_types(arena, inferred_yield_types));
             return let(arena, inferred_instruction, inferred_tail);
         }

@@ -63,7 +63,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 .args = nodes(arena, 0, NULL),
             });
 
-            const Node* control_lam = lambda(ctx->rewriter.dst_module, nodes(arena, 1, (const Node*[]) {join_point }), control_body);
+            const Node* control_lam = lambda(ctx->rewriter.dst_arena, nodes(arena, 1, (const Node*[]) {join_point }), control_body);
             new_instruction = control(arena, (Control) { .yield_types = yield_types, .inside = control_lam });
             break;
         }
@@ -94,9 +94,9 @@ static const Node* process_let(Context* ctx, const Node* node) {
             register_processed_list(&join_context.rewriter, old_loop_body->payload.anon_lam.params, loop_body->payload.basic_block.params);
 
             const Node* inner_control_body = rewrite_node(&join_context.rewriter, old_loop_body->payload.anon_lam.body);
-            const Node* inner_control_lam = lambda(ctx->rewriter.dst_module, nodes(arena, 1, (const Node*[]) {continue_point }), inner_control_body);
+            const Node* inner_control_lam = lambda(ctx->rewriter.dst_arena, nodes(arena, 1, (const Node*[]) {continue_point }), inner_control_body);
 
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+            BodyBuilder* bb = begin_body(arena);
             const Node* inner_control = control(arena, (Control) {
                 .yield_types = param_types,
                 .inside = inner_control_lam,
@@ -110,7 +110,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 .target = loop_body,
                 .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.initial_args),
             });
-            const Node* outer_body = lambda(ctx->rewriter.dst_module, nodes(arena, 1, (const Node*[]) { break_point }), initial_jump);
+            const Node* outer_body = lambda(ctx->rewriter.dst_arena, nodes(arena, 1, (const Node*[]) { break_point }), initial_jump);
             new_instruction = control(arena, (Control) { .yield_types = yield_types, .inside = outer_body });
             break;
         }

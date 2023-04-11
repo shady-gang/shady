@@ -31,7 +31,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         ctx2.return_jp = NULL;
         Node* fun = NULL;
 
-        BodyBuilder* bb = begin_body(m);
+        BodyBuilder* bb = begin_body(dst_arena);
         if (!ctx2.disable_lowering) {
             Nodes oparams = get_abstraction_params(old);
             Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
@@ -72,7 +72,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
             const Node* return_jp = ctx->return_jp;
             if (return_jp) {
-                BodyBuilder* bb = begin_body(ctx->rewriter.dst_module);
+                BodyBuilder* bb = begin_body(dst_arena);
                 return_jp = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) {return_jp});
                 // Join up at the return address instead of returning
                 return finish_body(bb, join(dst_arena, (Join) {
@@ -117,7 +117,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     .target = ncallee,
                     .args = nargs,
                 });
-                const Node* control_lam = lambda(ctx->rewriter.dst_module, nodes(dst_arena, 1, (const Node*[]) { jp }), control_body);
+                const Node* control_lam = lambda(ctx->rewriter.dst_arena, nodes(dst_arena, 1, (const Node*[]) { jp }), control_body);
                 new_instruction = control(dst_arena, (Control) { .yield_types = strip_qualifiers(dst_arena, returned_types), .inside = control_lam });
             }
 

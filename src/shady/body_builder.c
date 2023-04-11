@@ -15,11 +15,10 @@ typedef struct {
     bool mut;
 } StackEntry;
 
-BodyBuilder* begin_body(Module* mod) {
+BodyBuilder* begin_body(IrArena* arena) {
     BodyBuilder* builder = malloc(sizeof(BodyBuilder));
     *builder = (BodyBuilder) {
-        .module = mod,
-        .arena = get_module_arena(mod),
+        .arena = arena,
         .stack = new_list(StackEntry),
     };
     return builder;
@@ -71,8 +70,9 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
 }
 
 static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool mut, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
-    if (is_value(instruction)) // TODO: nuke
-        instruction = quote_single(builder->arena, instruction);
+    if (builder->arena->config.check_types) {
+        assert(is_instruction(instruction));
+    }
     Nodes params = create_output_variables(builder->arena, instruction, outputs_count, provided_types, output_names);
     StackEntry entry = {
         .instr = instruction,
@@ -114,7 +114,7 @@ const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
     size_t stack_size = entries_count_list(builder->stack);
     for (size_t i = stack_size - 1; i < stack_size; i--) {
         StackEntry entry = read_list(StackEntry, builder->stack)[i];
-        const Node* lam = lambda(builder->module, entry.vars, terminator);
+        const Node* lam = lambda(builder->arena, entry.vars, terminator);
         terminator = (entry.mut ? let_mut : let)(builder->arena, entry.instr, lam);
     }
 
@@ -125,9 +125,8 @@ const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
 
 const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
     IrArena* arena = bb->arena;
-    Module* module = bb->module;
     const Node* terminator = yield(arena, (Yield) { .args = values });
-    const Node* lam = lambda(module, empty(arena), finish_body(bb, terminator));
+    const Node* lam = lambda(arena, empty(arena), finish_body(bb, terminator));
     return block(arena, (Block) {
         .inside = lam,
     });
