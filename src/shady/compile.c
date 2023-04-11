@@ -93,7 +93,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(lower_tailcalls)
 
-    aconfig.subgroup_mask_representation = SubgroupMaskInt64;
+    aconfig.specializations.subgroup_mask_representation = SubgroupMaskInt64;
     RUN_PASS(lower_mask)
     RUN_PASS(lower_memcpy)
     RUN_PASS(lower_subgroup_ops)
@@ -112,7 +112,10 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
         RUN_PASS(simt2d)
     }
 
-    RUN_PASS(specialize_for_entry_point)
+    if (config->specialization.entry_point) {
+        specialize_arena_config(&aconfig, mod, config);
+        RUN_PASS(specialize_for_entry_point)
+    }
     RUN_PASS(lower_fill)
 
     return CompilationNoError;

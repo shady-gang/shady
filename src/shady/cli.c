@@ -100,6 +100,18 @@ void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv)
             continue;
         if (strcmp(argv[i], "--no-dynamic-scheduling") == 0) {
             config->dynamic_scheduling = false;
+        } else if (strcmp(argv[i], "--entry-point") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc)
+                error("Missing entry point name");
+            config->specialization.entry_point = argv[i];
+        } else if (strcmp(argv[i], "--subgroup-size") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc)
+                error("Missing subgroup size name");
+            config->specialization.subgroup_size = atoi(argv[i]);
         } else if (strcmp(argv[i], "--simt2d") == 0) {
             config->lower.simt_to_explicit_simd = true;
         } else if (strcmp(argv[i], "--print-builtin") == 0) {
@@ -120,6 +132,8 @@ void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv)
         error_print("  --print-generated                         Includes generated functions in the debug output\n");
         error_print("  --no-dynamic-scheduling                   Disable the built-in dynamic scheduler, restricts code to only leaf functions\n");
         error_print("  --simt2d                                  Emits SIMD code instead of SIMT, only effective with the C backend.\n");
+        error_print("  --entry-point <foo>                       Selects an entry point for the program to be specialized on.\n");
+        error_print("  --subgroup-size N                         Sets the subgroup size the program will be specialized for.\n");
     }
 
     pack_remaining_args(pargc, argv);

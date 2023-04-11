@@ -84,8 +84,10 @@ RewritePass opt_restructurize;
 RewritePass lower_entrypoint_args;
 
 RewritePass spirv_map_entrypoint_args;
-RewritePass specialize_for_entry_point;
 RewritePass spirv_lift_globals_ssbo;
+
+void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* config);
+RewritePass specialize_for_entry_point;
 
 #define SHADY_PASSES_H
 

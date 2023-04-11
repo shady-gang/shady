@@ -67,13 +67,18 @@ typedef struct {
     bool allow_fold;
     bool is_simt;
 
-    /// Selects which type the subgroup intrinsic primops use to manipulate masks
-    enum {
-        /// Uses the MaskType
-        SubgroupMaskAbstract,
-        /// Uses a 64-bit integer
-        SubgroupMaskInt64
-    } subgroup_mask_representation;
+    struct {
+        /// Selects which type the subgroup intrinsic primops use to manipulate masks
+        enum {
+            /// Uses the MaskType
+            SubgroupMaskAbstract,
+            /// Uses a 64-bit integer
+            SubgroupMaskInt64
+        } subgroup_mask_representation;
+
+        uint32_t subgroup_size;
+        uint32_t workgroup_size[3];
+    } specializations;
 
     struct {
         IntSizes ptr_size;
