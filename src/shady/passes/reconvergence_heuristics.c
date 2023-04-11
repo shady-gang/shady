@@ -299,16 +299,41 @@ static const Node* process_node(Context* ctx, const Node* node) {
                         .yield_types = yield_types
                         }), true), "jp_continue");
 
-            Node* pre_join_exit = basic_block(arena, fn, exit_args, "exit");
-            pre_join_exit->payload.basic_block.body = join(arena, (Join) {
+            const Node* pre_join_exit;
+            const Node* pre_join_exit_join = join(arena, (Join) {
                     .join_point = join_token_exit,
                     .args = exit_args
                     });
-            Node* pre_join_continue = basic_block(arena, fn, exit_args, "continue");
-            pre_join_continue->payload.basic_block.body = join(arena, (Join) {
-                    .join_point = join_token_continue,
-                    .args = exit_args
-                    });
+            switch (exiting_node->node->tag) {
+            case BasicBlock_TAG:
+                Node* pre_join_exit_bb = basic_block(arena, fn, exit_args, "exit");
+                pre_join_exit_bb->payload.basic_block.body = pre_join_exit_join;
+                pre_join_exit = pre_join_exit_bb;
+                break;
+            case AnonLambda_TAG:
+                pre_join_exit = lambda(arena, exit_args, pre_join_exit_join);
+                break;
+            default:
+                assert(false);
+            }
+
+            const Node* pre_join_continue;
+            const Node* pre_join_continue_join = join(arena, (Join) {
+                .join_point = join_token_continue,
+                .args = exit_args
+                });
+            switch (loop_entry_node->node->tag) {
+            case BasicBlock_TAG:
+                Node* pre_join_continue_bb = basic_block(arena, fn, exit_args, "continue");
+                pre_join_continue_bb->payload.basic_block.body = pre_join_continue_join;
+                pre_join_continue = pre_join_continue_bb;
+                break;
+            case AnonLambda_TAG:
+                pre_join_continue = lambda(arena, exit_args, pre_join_continue_join);
+                break;
+            default:
+                assert(false);
+            }
 
             const Node* cached_exit = search_processed(rewriter, exiting_node->node);
             if (cached_exit)
@@ -326,7 +351,17 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }
             register_processed(rewriter, loop_entry_node->node, pre_join_continue);
 
-            const Node* new_terminator = rewrite_node(rewriter, node->payload.basic_block.body);
+            const Node* new_terminator;
+            switch (node->tag) {
+            case BasicBlock_TAG:
+                new_terminator = rewrite_node(rewriter, node->payload.basic_block.body);
+                break;
+            case AnonLambda_TAG:
+                new_terminator = rewrite_node(rewriter, node->payload.anon_lam.body);
+                break;
+            default:
+                assert(false);
+            }
             Node* loop_inner = basic_block(arena, fn, exit_args, "loop_inner");
             loop_inner->payload.basic_block.body = new_terminator;
 
@@ -375,8 +410,19 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* anon_lam_exit = lambda(arena, lambda_args, outer_terminator);
             const Node* outer_control_let = let(arena, outer_control, anon_lam_exit);
 
-            Node* loop_container = basic_block(arena, fn, exit_args, node->payload.basic_block.name);
-            loop_container->payload.basic_block.body = outer_control_let;
+            const Node* loop_container;
+            switch (node->tag) {
+            case BasicBlock_TAG:
+                Node* bb = basic_block(arena, fn, exit_args, node->payload.basic_block.name);
+                bb->payload.basic_block.body = outer_control_let;
+                loop_container = bb;
+                break;
+            case AnonLambda_TAG:
+                loop_container = lambda(arena, exit_args, outer_control_let);
+                break;
+            default:
+                assert(false);
+            }
             result = loop_container;
         } else {
             result = recreate_node_identity(&ctx->rewriter, node);
