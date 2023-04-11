@@ -48,9 +48,6 @@ typedef struct {
     int32_t x, y, z;
 } Vec3i;
 
-int32_t subgroup_id;
-Vec3i global_id;
-Vec3i workgroup_size;
 Vec3i workgroup_num;
 
 void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
@@ -62,11 +59,11 @@ void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
         }
     }
 
-    for (size_t y = 0; y < h / 16; y++) {
-        for (size_t x = 0; x < w / 16; x++) {
-            aobench_kernel(img);
-        }
-    }
+    workgroup_num.x = 16;
+    workgroup_num.y = 16;
+    workgroup_num.z = 16;
+
+    aobench_kernel(img);
 }
 #endif
 

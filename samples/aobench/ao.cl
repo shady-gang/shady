@@ -2,9 +2,6 @@
 
 #include "ao.c"
 
-#define WIDTH        256
-#define HEIGHT       256
-
 Scalar sqrtf(Scalar s) { return sqrt(s); }
 Scalar floorf(Scalar s) { return floor(s); }
 Scalar fabsf(Scalar s) { return fabs(s); }
