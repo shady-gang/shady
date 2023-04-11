@@ -49,8 +49,8 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
     first_non_tag_bit = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(ctx, 1)));
     //          needs_sign_extension = first_non_tag_bit == 1
     const Node* needs_sign_extension = gen_primop_e(bb, eq_op, empty(a), mk_nodes(a, nptr, size_t_literal(ctx, 1)));
-    //          sign_extension_patch = needs_sign_extension ? 0 : ((1 << 2) - 1) << (64 - 2)
-    const Node* sign_extension_patch = gen_primop_e(bb, select_op, empty(a), mk_nodes(a, needs_sign_extension, size_t_literal(ctx, 0), size_t_literal(ctx, ((size_t) ((1 << max_tag) - 1)) << (get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth))));
+    //          sign_extension_patch = needs_sign_extension ? ((1 << 2) - 1) << (64 - 2) : 0
+    const Node* sign_extension_patch = gen_primop_e(bb, select_op, empty(a), mk_nodes(a, needs_sign_extension, size_t_literal(ctx, ((size_t) ((1 << max_tag) - 1)) << (get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)), size_t_literal(ctx, 0)));
     //          patched_ptr = nptr | sign_extension_patch
     const Node* patched_ptr = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, nptr, sign_extension_patch));
     const Type* dst_ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = get_addr_space_from_tag(tag) });
