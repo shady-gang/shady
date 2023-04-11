@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -109,7 +110,13 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG: error("lower me");
         case Value_Variable_TAG: error("variables need to be emitted beforehand");
-        case Value_IntLiteral_TAG: emitted = format_string(emitter->arena, "%d", value->payload.int_literal.value.u64); break;
+        case Value_IntLiteral_TAG: {
+            if (value->payload.int_literal.is_signed)
+                emitted = format_string(emitter->arena, "%" PRIi64, value->payload.int_literal.value.i64);
+            else
+                emitted = format_string(emitter->arena, "%" PRIu64, value->payload.int_literal.value.u64);
+            break;
+        }
         case Value_FloatLiteral_TAG:
             switch (value->payload.float_literal.width) {
                 case FloatTy16:
@@ -464,6 +471,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 case AsOutput:
                     break;
                 case AsExternal:
+                    address_space_prefix = "extern ";
                     break;
                 case AsProgramCode:
                     break;
