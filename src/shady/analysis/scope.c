@@ -290,21 +290,28 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
         const Node* body = get_abstraction_body(bb);
         if (!body) continue;
 
+        String color = "black";
+        if (is_anonymous_lambda(bb))
+            color = "green";
+        else if (is_basic_block(bb))
+            color = "blue";
+
+        String label = node_tags[body->tag];
         switch (body->tag) {
-            case Let_TAG: body = body->payload.let.instruction; break;
+            case Let_TAG:
+                body = body->payload.let.instruction;
+                if (body->tag == PrimOp_TAG)
+                    label = format_string(bb->arena, "%s ... = %s (...)", label, primop_names[body->payload.prim_op.op]);
+                else
+                    label = format_string(bb->arena, "%s ... = %s (...)", label, node_tags[body->tag]);
+                break;
             default: break;
         }
-        String label = node_tags[body->tag];
-        if (body->tag == PrimOp_TAG) {
-            label = primop_names[body->payload.prim_op.op];
-        }
-        if (bb->tag == AnonLambda_TAG) {
 
-        } else {
-            // assert(bb->tag == BasicBlock_TAG);
+        if (is_basic_block(bb)) {
             label = format_string(entry->arena, "%s\n%s", get_abstraction_name(bb), label);
         }
-        fprintf(output, "bb_%zu [label=\"%s\"];\n", (size_t) bb, label);
+        fprintf(output, "bb_%zu [label=\"%s\", color=\"%s\"];\n", (size_t) bb, label, color);
     }
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
