@@ -130,7 +130,6 @@ orthoBasis(vec *basis, vec n)
     vnormalize(&basis[1]);
 }
 
-
 void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
 {
     int    i, j;
