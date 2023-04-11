@@ -315,7 +315,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             register_processed_list(rewriter, node->payload.anon_lam.params, params);
             const Node* nterminator = rewrite_node_with_fn(rewriter, node->payload.anon_lam.body, rewrite_terminator);
             const Node* nlam = lambda(rewriter->dst_arena, params, nterminator);
-            register_processed(rewriter, node, nlam);
+            // register_processed(rewriter, node, nlam);
             return nlam;
         }
         case BasicBlock_TAG: {

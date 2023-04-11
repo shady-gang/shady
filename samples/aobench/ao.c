@@ -202,7 +202,9 @@ clamp(Scalar f)
 }
 
 void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigned char* img) {
-    Scalar pixel[3];
+    Scalar pixel[3] = { 0, 0, 0 };
+
+    pixel[2] = 125.f;
 
     int u, v;
     for (v = 0; v < nsubsamples; v++) {
@@ -226,18 +228,21 @@ void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigne
             isect.hit = 0;
 
             ray_sphere_intersect(&isect, &ray, &ctx->spheres[0]);
-            ray_sphere_intersect(&isect, &ray, &ctx->spheres[1]);
-            ray_sphere_intersect(&isect, &ray, &ctx->spheres[2]);
-            ray_plane_intersect (&isect, &ray, &ctx->plane);
+            // ray_sphere_intersect(&isect, &ray, &ctx->spheres[1]);
+            // ray_sphere_intersect(&isect, &ray, &ctx->spheres[2]);
+            // ray_plane_intersect (&isect, &ray, &ctx->plane);
 
-            if (isect.hit) {
-                vec col;
-                ambient_occlusion(ctx, &col, &isect);
+            pixel[0] = isect.t * 0.05f;
+            pixel[1] = isect.t * 0.25f;
+            pixel[2] = 255.f;
 
-                pixel[0] += col.x;
-                pixel[1] += col.y;
-                pixel[2] += col.z;
-            }
+            // if (isect.hit) {
+            //     vec col;
+            //     ambient_occlusion(ctx, &col, &isect);
+            //     pixel[0] += col.x;
+            //     pixel[1] += col.y;
+            //     pixel[2] += col.z;
+            // }
 
         }
     }
