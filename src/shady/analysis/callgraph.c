@@ -147,7 +147,7 @@ static int min(int a, int b) { return a < b ? a : b; }
 
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 static void strongconnect(CGNode* v, int* index, struct List* stack) {
-    debugvv_print("strongconnect(%s) \n", v->fn->payload.fun.name);
+    debugv_print("strongconnect(%s) \n", v->fn->payload.fun.name);
 
     v->tarjan.index = *index;
     v->tarjan.lowlink = *index;
@@ -159,9 +159,9 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
     {
         size_t iter = 0;
         CGEdge e;
-        debugvv_print(" has %d successors\n", entries_count_dict(v->callees));
+        debugv_print(" has %d successors\n", entries_count_dict(v->callees));
         while (dict_iter(v->callees, &iter, &e, NULL)) {
-            debugvv_print("  %s\n", e.dst_fn->fn->payload.fun.name);
+            debugv_print("  %s\n", e.dst_fn->fn->payload.fun.name);
             if (e.dst_fn->tarjan.index == -1) {
                 // Successor w has not yet been visited; recurse on it
                 strongconnect(e.dst_fn, index, stack);

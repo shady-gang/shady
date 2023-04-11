@@ -18,8 +18,8 @@ old_arena = tmp_arena;                                  \
 tmp_arena = new_ir_arena(aconfig);                      \
 mod = new_module(tmp_arena, get_module_name(old_mod));  \
 pass_name(config, old_mod, mod);                        \
-debug_print("After "#pass_name" pass: \n");             \
-log_module(DEBUG, config, mod);                         \
+debugvv_print("After "#pass_name" pass: \n");             \
+log_module(DEBUGVV, config, mod);                         \
 if (SHADY_RUN_VERIFY)                                   \
 verify_module(mod);                                     \
 mod->sealed = true;                                     \
