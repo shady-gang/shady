@@ -15,6 +15,7 @@ typedef struct {
     Rewriter rewriter;
     Scope* scope;
     CallGraph* graph;
+    const Node* old_fun;
     Node* fun;
     bool allow_fn_inlining;
     struct Dict* inlined_return_sites;
@@ -27,10 +28,10 @@ static const Node* ignore_immediate_fn_addr(const Node* node) {
     return node;
 }
 
-static bool is_call_potentially_inlineable(CGEdge edge) {
-    if (lookup_annotation(edge.src_fn->fn, "Leaf"))
+static bool is_call_potentially_inlineable(const Node* src_fn, const Node* dst_fn) {
+    if (lookup_annotation(src_fn, "Leaf"))
         return false;
-    if (lookup_annotation(edge.dst_fn->fn, "NoInline"))
+    if (lookup_annotation(dst_fn, "NoInline"))
         return false;
     return true;
 }
@@ -49,9 +50,11 @@ static FnInliningCriteria get_inlining_heuristic(CGNode* fn_node) {
     size_t i = 0;
     while (dict_iter(fn_node->callers, &i, &e, NULL)) {
         crit.num_calls++;
-        if (is_call_potentially_inlineable(e))
+        if (is_call_potentially_inlineable(e.src_fn->fn, e.dst_fn->fn))
             crit.num_inlineable_calls++;
     }
+
+    debugv_print("%s has %d callers\n", get_abstraction_name(fn_node->fn), crit.num_calls);
 
     // a function can be inlined if it has exactly one inlineable call...
     if (crit.num_inlineable_calls == 1)
@@ -122,9 +125,12 @@ static const Node* process(Context* ctx, const Node* node) {
 
             Context fn_ctx = *ctx;
             Scope* scope = new_scope(node);
+            fn_ctx.rewriter.map = clone_dict(fn_ctx.rewriter.map);
             fn_ctx.scope = scope;
+            fn_ctx.old_fun = node;
             fn_ctx.fun = new;
             recreate_decl_body_identity(&fn_ctx.rewriter, node, new);
+            destroy_dict(fn_ctx.rewriter.map);
             destroy_scope(scope);
             return new;
         }
@@ -137,7 +143,7 @@ static const Node* process(Context* ctx, const Node* node) {
             size_t preds_count = entries_count_list(cfnode->pred_edges);
             assert(preds_count > 0 && "this CFG looks broken");
             if (preds_count == 1) {
-                debugv_print("Inlining jump to %s\n", get_abstraction_name(otarget));
+                debugv_print("Inlining jump to %s inside function %s\n", get_abstraction_name(otarget), get_abstraction_name(ctx->old_fun));
                 Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
                 return inline_call(ctx, otarget, nargs, false);
             }
@@ -151,7 +157,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {
                 CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
-                if (get_inlining_heuristic(fn_node).can_be_inlined) {
+                if (get_inlining_heuristic(fn_node).can_be_inlined && is_call_potentially_inlineable(ctx->old_fun, ocallee)) {
                     debugv_print("Inlining call to %s\n", get_abstraction_name(ocallee));
                     Nodes nargs = rewrite_nodes(&ctx->rewriter, oargs);
 
@@ -201,8 +207,14 @@ static const Node* process(Context* ctx, const Node* node) {
             bb->payload.basic_block.body = process(ctx, node->payload.basic_block.body);
             return bb;
         }
-        default: return recreate_node_identity(&ctx->rewriter, node);
+        default:
+            break;
     }
+
+    const Node* new = recreate_node_identity(&ctx->rewriter, node);
+    if (node->tag == AnonLambda_TAG)
+        register_processed(&ctx->rewriter, node, new);
+    return new;
 }
 
 KeyHash hash_node(const Node**);
