@@ -595,6 +595,12 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             break;
         } case Control_TAG: {
             printf(BGREEN);
+            if (ctx->scope) {
+                const Node* jp = first(node->payload.control.inside->payload.anon_lam.params);
+                Uses* jp_uses = *find_value_dict(const Node*, Uses*, ctx->uses->map, jp);
+                if (!jp_uses->escapes_defining_block)
+                    printf("static ");
+            }
             printf("control");
             printf(RESET);
             print_yield_types(ctx, node->payload.control.yield_types);
