@@ -56,6 +56,9 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     else if (found)
         return *found;
 
+    if (pfresh)
+        *pfresh = true;
+
     if (arena->config.allow_fold) {
         Node* folded = (Node*) fold_node(arena, ptr);
         if (folded != ptr) {
@@ -72,9 +75,6 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     Node* alloc = (Node*) arena_alloc(arena->arena, sizeof(Node));
     *alloc = node;
     insert_set_get_result(const Node*, arena->node_set, alloc);
-
-    if (pfresh)
-        *pfresh = true;
 
     return alloc;
 }
@@ -270,7 +270,7 @@ const Node* lambda(IrArena* a, Nodes params, const Node* body) {
     bool fresh;
     const Node* lam = create_node_helper(a, node, &fresh);
 
-    if (fresh) {
+    if (fresh || true) {
         for (size_t i = 0; i < params.count; i++) {
             Node* param = (Node*) params.nodes[i];
             assert(param->tag == Variable_TAG);

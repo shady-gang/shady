@@ -3,6 +3,7 @@
 
 #include "log.h"
 #include "list.h"
+#include "dict.h"
 #include "growy.h"
 #include "printer.h"
 
@@ -196,8 +197,11 @@ static void print_dominated_bbs(PrinterCtx* ctx, const CFNode* dominator) {
     assert(dominator);
     for (size_t i = 0; i < dominator->dominates->elements_count; i++) {
         const CFNode* cfnode = read_list(const CFNode*, dominator->dominates)[i];
-        if (is_basic_block(cfnode->node))
-            print_basic_block(ctx, cfnode->node);
+        // ignore lambdas that make up basic structural dominance
+        if (find_key_dict(const Node*, dominator->structurally_dominated, cfnode->node))
+            continue;
+        assert(is_basic_block(cfnode->node));
+        print_basic_block(ctx, cfnode->node);
     }
 }
 

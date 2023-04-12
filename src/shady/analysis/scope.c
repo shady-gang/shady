@@ -54,6 +54,7 @@ static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
         .rpo_index = SIZE_MAX,
         .idom = NULL,
         .dominates = NULL,
+        .structurally_dominated = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
     insert_dict(const Node*, CFNode*, ctx->nodes, abs, new);
     append_list(Node*, ctx->queue, new);
@@ -61,12 +62,17 @@ static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
     return new;
 }
 
+static bool is_structural_edge(CFEdgeType edge_type) { return edge_type != ForwardEdge; }
+
 /// Adds an edge to somewhere inside a basic block
 static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type) {
+    assert(!is_function(dst));
+    assert(is_structural_edge(type) == is_anonymous_lambda(dst));
+
     CFNode* src_node = get_or_enqueue(ctx, src);
     CFNode* dst_node = get_or_enqueue(ctx, dst);
     if (is_anonymous_lambda(dst)) {
-        assert(entries_count_list(dst_node->pred_edges) == 0);
+        assert(entries_count_list(dst_node->pred_edges) == 0 && "anonymous lambdas can only be used once");
     }
     CFEdge edge = {
         .type = type,
@@ -77,6 +83,11 @@ static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, C
     append_list(CFEdge, dst_node->pred_edges, edge);
 }
 
+static void add_structural_edge(ScopeBuildContext* ctx, CFNode* parent, const Node* dst, CFEdgeType type) {
+    add_edge(ctx, parent->node, dst, type);
+    insert_set_get_result(const Node*, parent->structurally_dominated, dst);
+}
+
 static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction) {
     switch (is_instruction(instruction)) {
         case NotAnInstruction: if (instruction->arena->config.check_types) { error("Grammar problem"); } break;
@@ -84,23 +95,23 @@ static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const No
         case Instruction_IndirectCall_TAG:
         case Instruction_PrimOp_TAG: break;
         case Instruction_If_TAG:
-            add_edge(ctx, parent->node, instruction->payload.if_instr.if_true, IfBodyEdge);
+            add_structural_edge(ctx, parent, instruction->payload.if_instr.if_true, IfBodyEdge);
             if(instruction->payload.if_instr.if_false)
-                add_edge(ctx, parent->node, instruction->payload.if_instr.if_false, IfBodyEdge);
+                add_structural_edge(ctx, parent, instruction->payload.if_instr.if_false, IfBodyEdge);
             break;
         case Instruction_Match_TAG:
             for (size_t i = 0; i < instruction->payload.match_instr.cases.count; i++)
-                add_edge(ctx, parent->node, instruction->payload.match_instr.cases.nodes[i], MatchBodyEdge);
-            add_edge(ctx, parent->node, instruction->payload.match_instr.default_case, MatchBodyEdge);
+                add_structural_edge(ctx, parent, instruction->payload.match_instr.cases.nodes[i], MatchBodyEdge);
+            add_structural_edge(ctx, parent, instruction->payload.match_instr.default_case, MatchBodyEdge);
             break;
         case Instruction_Loop_TAG:
-            add_edge(ctx, parent->node, instruction->payload.loop_instr.body, LoopBodyEdge);
+            add_structural_edge(ctx, parent, instruction->payload.loop_instr.body, LoopBodyEdge);
             break;
         case Instruction_Control_TAG:
-            add_edge(ctx, parent->node, instruction->payload.control.inside, ControlBodyEdge);
+            add_structural_edge(ctx, parent, instruction->payload.control.inside, ControlBodyEdge);
             break;
         case Instruction_Block_TAG:
-            add_edge(ctx, parent->node, instruction->payload.block.inside, BlockBodyEdge);
+            add_structural_edge(ctx, parent, instruction->payload.block.inside, BlockBodyEdge);
             break;
     }
 }
@@ -130,7 +141,7 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
         case Let_TAG: {
             process_instruction(ctx, node, get_let_instruction(terminator));
             const Node* target = get_let_tail(terminator);
-            add_edge(ctx, abs, target, LetTailEdge);
+            add_structural_edge(ctx, node, target, LetTailEdge);
             break;
         }
         case Join_TAG: {
@@ -193,6 +204,8 @@ void destroy_scope(Scope* scope) {
         destroy_list(node->succ_edges);
         if (node->dominates)
             destroy_list(node->dominates);
+        if (node->structurally_dominated)
+            destroy_dict(node->structurally_dominated);
     }
     destroy_dict(scope->map);
     destroy_arena(scope->arena);

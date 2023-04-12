@@ -31,6 +31,7 @@ struct CFNode_ {
     // set by compute_domtree
     CFNode* idom;
     struct List* dominates;
+    struct Dict* structurally_dominated;
 };
 
 typedef struct Arena_ Arena;

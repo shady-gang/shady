@@ -264,13 +264,6 @@ static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const Scope
     };
 
     emit_terminator(emitter, fn_builder, bb_builder, merge_targets, body);
-
-    // Emit the child nodes
-    /*size_t dom_count = entries_count_list(cf_node->dominates);
-    for (size_t i = 0; i < dom_count; i++) {
-        CFNode* child_node = read_list(CFNode*, cf_node->dominates)[i];
-        emit_basic_block(emitter, fn_builder, scope, child_node);
-    }*/
 }
 
 static void emit_function(Emitter* emitter, const Node* node) {
