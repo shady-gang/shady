@@ -504,7 +504,8 @@ MkField(1, STRING, String, name)
 typedef struct AnonLambda_ AnonLambda;
 #define AnonLambda_Fields(MkField) \
 MkField(1, VARIABLES, Nodes, params) \
-MkField(1, TERMINATOR, const Node*, body)
+MkField(1, TERMINATOR, const Node*, body) \
+MkField(0, SCRATCH, const Node*, structured_construct) \
 
 /// Unbound identifier, obtained by parsing a file
 typedef struct Unbound_ Unbound;

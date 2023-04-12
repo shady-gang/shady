@@ -1,5 +1,6 @@
 #include "ir_private.h"
 #include "analysis/scope.h"
+#include "analysis/uses.h"
 
 #include "log.h"
 #include "list.h"
@@ -28,6 +29,7 @@ struct PrinterCtx_ {
     Printer* printer;
     const Node* fn;
     Scope* scope;
+    ScopeUses* uses;
     PrintConfig config;
 };
 
@@ -102,25 +104,22 @@ static void print_address_space(PrinterCtx* ctx, AddressSpace as) {
     printf(RESET);
 }
 
-static void print_param_list(PrinterCtx* ctx, Nodes vars, const Nodes* defaults) {
+static void print_param_list(PrinterCtx* ctx, Nodes params, const Nodes* defaults) {
     if (defaults != NULL)
-        assert(defaults->count == vars.count);
+        assert(defaults->count == params.count);
     printf("(");
-    for (size_t i = 0; i < vars.count; i++) {
-        if (ctx->config.print_ptrs) printf("%zu::", (size_t)(void*)vars.nodes[i]);
-        const Variable* var = &vars.nodes[i]->payload.var;
-        print_node(var->type);
-        printf(YELLOW);
-        if (ctx->config.reparseable)
-            printf(" %s_%d", var->name, var->id);
-        else
-            printf(" %s~%d", var->name, var->id);
+    for (size_t i = 0; i < params.count; i++) {
+        const Node* param = params.nodes[i];
+        if (ctx->config.print_ptrs) printf("%zu::", (size_t)(void*) param);
+        print_node(param->payload.var.type);
+        printf(" ");
+        print_node(param);
         printf(RESET);
         if (defaults) {
             printf(" = ");
             print_node(defaults->nodes[i]);
         }
-        if (i < vars.count - 1)
+        if (i < params.count - 1)
             printf(", ");
     }
     printf(")");
@@ -230,6 +229,16 @@ static void print_lambda_body(PrinterCtx* ctx, const Node* lam) {
 
 static void print_function(PrinterCtx* ctx, const Node* node) {
     assert(is_function(node));
+
+    PrinterCtx sub_ctx = *ctx;
+    if (node->arena->config.name_bound) {
+        Scope* scope = new_scope(node);
+        sub_ctx.scope = scope;
+        sub_ctx.uses = analyse_uses_scope(sub_ctx.scope);
+        sub_ctx.fn = node;
+    }
+    ctx = &sub_ctx;
+
     print_yield_types(ctx, node->payload.fun.return_types);
     print_param_list(ctx, node->payload.fun.params, NULL);
     if (!node->payload.fun.body) {
@@ -241,19 +250,15 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     indent(ctx->printer);
     printf("\n");
 
-    if (node->arena->config.name_bound) {
-        PrinterCtx sub_ctx = *ctx;
-        Scope* scope = new_scope(node);
-        sub_ctx.scope = scope;
-        sub_ctx.fn = node;
-        print_abs_body(&sub_ctx, node);
-        destroy_scope(scope);
-    } else {
-        print_abs_body(ctx, node);
-    }
+    print_abs_body(ctx, node);
 
     deindent(ctx->printer);
     printf("\n}");
+
+    if (node->arena->config.name_bound) {
+        destroy_uses_scope(sub_ctx.uses);
+        destroy_scope(sub_ctx.scope);
+    }
 }
 
 static void print_annotations(PrinterCtx* ctx, Nodes annotations) {
@@ -379,7 +384,13 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case Variable_TAG:
-            printf(YELLOW);
+            if (ctx->scope) {
+                if ((*find_value_dict(const Node*, Uses*, ctx->uses->map, node))->escapes_defining_block)
+                    printf(MANGENTA);
+                else
+                    printf(YELLOW);
+            } else
+                printf(YELLOW);
             if (ctx->config.reparseable)
                 printf("%s_%d", node->payload.var.name, node->payload.var.id);
             else
@@ -623,12 +634,8 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                             printf(" ");
                             print_node(params.nodes[i]->payload.var.type);
                         }
-                        printf(YELLOW);
-                        printf(" %s", params.nodes[i]->payload.var.name);
-                        if (ctx->config.reparseable)
-                            printf("_%d", params.nodes[i]->payload.var.id);
-                        else
-                            printf("~%d", params.nodes[i]->payload.var.id);
+                        printf(" ");
+                        print_node(params.nodes[i]);
                         printf(RESET);
                     }
                     printf(" = ");
