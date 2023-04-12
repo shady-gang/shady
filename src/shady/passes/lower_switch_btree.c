@@ -40,7 +40,7 @@ TreeNode* skew(TreeNode* t) {
         return t;
     else if (t->children[0]->depth == t->depth) {
         TreeNode* l = t->children[0];
-        t->children[0] = t->children[1];
+        t->children[0] = l->children[1];
         l->children[1] = t;
         return l;
     } else
