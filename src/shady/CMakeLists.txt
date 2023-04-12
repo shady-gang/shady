@@ -21,7 +21,7 @@ set(SHADY_SOURCES
     analysis/free_variables.c
     analysis/verify.c
     analysis/callgraph.c
-        analysis/uses.c
+    analysis/uses.c
 
     transform/memory_layout.c
     transform/ir_gen_helpers.c
@@ -32,7 +32,7 @@ set(SHADY_SOURCES
     passes/normalize.c
     passes/infer.c
     passes/lower_cf_instrs.c
-    passes/lower_continuations.c
+    passes/lift_indirect_targets.c
     passes/lower_callf.c
     passes/lower_stack.c
     passes/lower_lea.c

@@ -78,10 +78,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     aconfig.allow_fold = true;
 
     RUN_PASS(setup_stack_frames)
-    RUN_PASS(mark_leaf_functions)
-
     RUN_PASS(lower_cf_instrs)
-    RUN_PASS(opt_restructurize)
+    RUN_PASS(mark_leaf_functions)
 
     RUN_PASS(lower_callf)
     RUN_PASS(opt_simplify_cf)
@@ -107,6 +105,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(lower_int)
     RUN_PASS(lower_switch_btree)
+    RUN_PASS(opt_restructurize)
 
     if (config->lower.simt_to_explicit_simd) {
         aconfig.is_simt = false;

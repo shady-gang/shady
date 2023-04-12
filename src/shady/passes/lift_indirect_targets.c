@@ -215,7 +215,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 }
 
-void lower_continuations(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+void lift_indirect_targets(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
         .lifted = new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),

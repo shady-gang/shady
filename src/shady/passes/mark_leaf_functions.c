@@ -7,15 +7,22 @@
 #include "../rewrite.h"
 
 #include "../analysis/callgraph.h"
+#include "../analysis/scope.h"
+#include "../analysis/uses.h"
 
 typedef struct {
     Rewriter rewriter;
     CallGraph* graph;
     struct Dict* fns;
+
+    bool is_leaf;
+    Scope* scope;
+    ScopeUses* uses;
 } Context;
 
 typedef struct {
     CGNode* node;
+    // Whether this is a leaf node according to the callgraph
     bool is_leaf;
     bool done;
 } FnInfo;
@@ -42,6 +49,7 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     if (fn_node->is_address_captured || fn_node->is_recursive) {
         info->is_leaf = false;
         info->done = true;
+        debugv_print("Function %s can't be a leaf function because %s.\n", get_abstraction_name(fn_node->fn), fn_node->is_address_captured ? "its address is captured" : "it is recursive" );
         return false;
     }
 
@@ -49,6 +57,7 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     CGEdge e;
     while (dict_iter(fn_node->callees, &iter, &e, NULL)) {
         if (!is_leaf_fn(ctx, e.dst_fn)) {
+            debugv_print("Function %s can't be a leaf function because its callee %s is not a leaf function.\n", get_abstraction_name(fn_node->fn), get_abstraction_name(e.dst_fn->fn));
             info->is_leaf = false;
             info->done = true;
         }
@@ -70,25 +79,68 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Function_TAG: {
+            Context fn_ctx = *ctx;
             CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
+            fn_ctx.is_leaf = is_leaf_fn(ctx, fn_node);
+            fn_ctx.scope = new_scope(node);
+            fn_ctx.uses = analyse_uses_scope(fn_ctx.scope);
+            ctx = &fn_ctx;
+
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-            if (is_leaf_fn(ctx, fn_node)) {
-                // It's MaybeLeaf because beside the call graph, there might be some join point shenanigans going on
-                // opt_restructurize handles the rest
-                annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) {
-                    .name = "MaybeLeaf",
-                }));
-            }
             Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             for (size_t i = 0; i < new->payload.fun.params.count; i++)
                 register_processed(&ctx->rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
             register_processed(&ctx->rewriter, node, new);
-
             recreate_decl_body_identity(&ctx->rewriter, node, new);
+
+            if (fn_ctx.is_leaf) {
+                debugv_print("Function %s is a leaf function!\n", get_abstraction_name(node));
+                new->payload.fun.annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) {
+                        .name = "Leaf",
+                }));
+            }
+
+            destroy_uses_scope(fn_ctx.uses);
+            destroy_scope(fn_ctx.scope);
             return new;
         }
-        default: return recreate_node_identity(&ctx->rewriter, node);
+        case Control_TAG: {
+            const Node* old_jp = first(node->payload.control.inside->payload.anon_lam.params);
+            assert(old_jp->tag == Variable_TAG);
+            Uses* jp_uses = *find_value_dict(const Node*, Uses*, ctx->uses->map, old_jp);
+            if (jp_uses->escapes_defining_block) {
+                debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->scope->entry->node));
+                log_node(DEBUGV, old_jp);
+                debugv_print("escapes its control block, preventing restructuring.\n");
+                ctx->is_leaf = false;
+            }
+            break;
+        }
+        case Join_TAG: {
+            const Node* old_jp = node->payload.join.join_point;
+            // is it associated with a control node ?
+            if (old_jp->tag == Variable_TAG) {
+                const Node* abs = old_jp->payload.var.abs;
+                assert(abs);
+                if (abs->tag == AnonLambda_TAG) {
+                    const Node* structured = abs->payload.anon_lam.structured_construct;
+                    assert(structured);
+                    // this join point is defined by a control - we can be a leaf :)
+                    if (structured->tag == Control_TAG)
+                        break;
+                }
+            }
+            debugv_print("Function %s can't be a leaf function because it joins with ", get_abstraction_name(ctx->scope->entry->node));
+            log_node(DEBUGV, old_jp);
+            debugv_print("which is not bound by a control node within that function.\n");
+            // we join with some random join point; we can't be a leaf :(
+            ctx->is_leaf = false;
+            break;
+        }
+        default:
+            break;
     }
+    return recreate_node_identity(&ctx->rewriter, node);
 }
 
 KeyHash hash_node(Node**);
