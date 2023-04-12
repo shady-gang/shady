@@ -65,6 +65,9 @@ static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
 static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type) {
     CFNode* src_node = get_or_enqueue(ctx, src);
     CFNode* dst_node = get_or_enqueue(ctx, dst);
+    if (is_anonymous_lambda(dst)) {
+        assert(entries_count_list(dst_node->pred_edges) == 0);
+    }
     CFEdge edge = {
         .type = type,
         .src = src_node,
@@ -286,7 +289,8 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
     fprintf(output, "subgraph cluster_%s {\n", get_abstraction_name(entry));
     fprintf(output, "label = \"%s\";\n", get_abstraction_name(entry));
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const Node* bb = read_list(const CFNode*, scope->contents)[i]->node;
+        const CFNode* n = read_list(const CFNode*, scope->contents)[i];
+        const Node* bb = n->node;
         const Node* body = get_abstraction_body(bb);
         if (!body) continue;
 
@@ -311,7 +315,7 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
         if (is_basic_block(bb)) {
             label = format_string(entry->arena, "%s\n%s", get_abstraction_name(bb), label);
         }
-        fprintf(output, "bb_%zu [label=\"%s\", color=\"%s\"];\n", (size_t) bb, label, color);
+        fprintf(output, "bb_%zu [label=\"%s\", color=\"%s\"];\n", (size_t) n, label, color);
     }
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
@@ -321,7 +325,7 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
             CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
             const CFNode* target_node = edge.dst;
             const Node* target_bb = target_node->node;
-            fprintf(output, "bb_%zu -> bb_%zu;\n", (size_t) (bb), (size_t) (target_bb));
+            fprintf(output, "bb_%zu -> bb_%zu;\n", (size_t) (bb_node), (size_t) (target_node));
         }
     }
     fprintf(output, "}\n");
