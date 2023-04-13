@@ -36,7 +36,7 @@ type Ray = struct {
 private [Sphere; 3] spheres;
 private Plane plane;
 
-
+/*
 fn vdot f32(varying Vec v0, varying Vec v1) {
     return (v0#0 * v1#0 + v0#1 * v1#1 + v0#2 * v1#2);
 }
@@ -177,8 +177,8 @@ fn ambient_occlusion Vec(varying Isect isect) {
                 val theta = sqrt(drand48());
                 val phi   = 2.0 * M_PI * drand48();
 
-                //val x = cos(phi) * theta;
-                //val y = sin(phi) * theta;
+                val x = cos(phi) * theta;
+                val y = sin(phi) * theta;
                 val z = sqrt(1.0 - theta * theta);
 
                 // local -> global
@@ -307,10 +307,23 @@ fn render_pixel (varying i32 x, varying i32 y, varying i32 w, varying i32 h, var
     //(*img)#(off + 1) = clamp((*fimg)#(off + 1));
     //(*img)#(off + 2) = clamp((*fimg)#(off + 2));
 }
+*/
 
-
-@EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main() {
+@EntryPoint("compute") @WorkgroupSize(16, 16, 1) fn main(uniform ptr global [u8] p) {
     debug_printf("Hello World");
+
+    val thread_id = global_id();
+    val x = reinterpret[i32](thread_id#0);
+    val y = reinterpret[i32](thread_id#1);
+    if (((x / 16) % 2) == ((y / 16) % 2)) {
+        *p#(((y * HEIGHT) + x) * 3 + 0) = 0;
+        *p#(((y * HEIGHT) + x) * 3 + 1) = 0;
+        *p#(((y * HEIGHT) + x) * 3 + 2) = 0;
+    } else {
+        *p#(((y * HEIGHT) + x) * 3 + 0) = 255;
+        *p#(((y * HEIGHT) + x) * 3 + 1) = 255;
+        *p#(((y * HEIGHT) + x) * 3 + 2) = 0;
+    }
 
 //    val x = workgroup_id() * workgroup_size() + workgroup_local_id();
 //    val y = workgroup_id() * workgroup_size + workgroup_local_id();

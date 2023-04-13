@@ -1,4 +1,4 @@
-add_executable(aobench_host ao_host.c ao_main.c)
+add_executable(aobench_host ao_host.c ao_main.c ao.slim)
 
 find_program(CLANG_EXE "clang")
 find_program(LLVM-SPIRV_EXE "llvm-spirv")
@@ -19,5 +19,8 @@ if (CLANG_EXE AND LLVM-SPIRV_EXE)
     endif()
 
 endif()
+
+add_custom_command(OUTPUT ao.slim.spv COMMAND slim ARGS ${CMAKE_CURRENT_SOURCE_DIR}/ao.slim -o ${CMAKE_CURRENT_BINARY_DIR}/ao.slim.spv DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../ao.slim)
+target_sources(aobench_host PRIVATE ao.slim.spv)
 
 target_link_libraries(aobench_host PRIVATE m shady runtime common)
