@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
     // render_device(img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
     // saveppm("device-cl.ppm", WIDTH, HEIGHT, img);
 
-    // render_device(img, WIDTH, HEIGHT, NSUBSAMPLES, "./aobench.spv");
+    // render_device(img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.slim.spv");
     // saveppm("device-shady.ppm", WIDTH, HEIGHT, img);
 
     free(img);
