@@ -9,6 +9,7 @@
 #include "../transform/ir_gen_helpers.h"
 #include "../analysis/scope.h"
 #include "../analysis/free_variables.h"
+#include "../analysis/uses.h"
 
 #include "list.h"
 #include "dict.h"
@@ -21,6 +22,9 @@ bool compare_node(Node**, Node**);
 
 typedef struct Context_ {
     Rewriter rewriter;
+    Scope* scope;
+    ScopeUses* uses;
+
     struct Dict* lifted;
     bool disable_lowering;
 } Context;
@@ -62,7 +66,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     Nodes oparams = get_abstraction_params(cont);
     const Node* obody = get_abstraction_body(cont);
 
-    String name = is_basic_block(cont) ? format_string(arena, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(arena, "given_name");
+    String name = is_basic_block(cont) ? format_string(arena, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(arena, given_name);
 
     // Compute the live stuff we'll need
     Scope* scope = new_scope(cont);
@@ -145,52 +149,18 @@ static const Node* process_node(Context* ctx, const Node* node) {
          return recreate_node_identity(&ctx->rewriter, node);
 
     switch (node->tag) {
-        // everywhere we might call a basic block, we insert appropriate spilling context
-        case Jump_TAG: {
-            BodyBuilder* bb = begin_body(arena);
-            const Node* otarget = node->payload.jump.target;
-            LiftedCont* lifted = lambda_lift(ctx, otarget, NULL);
+        case Function_TAG: {
+            Context fn_ctx = *ctx;
+            fn_ctx.scope = new_scope(node);
+            fn_ctx.uses = analyse_uses_scope(fn_ctx.scope);
+            ctx = &fn_ctx;
 
-            add_spill_instrs(ctx, bb, lifted->save_values);
+            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
+            recreate_decl_body_identity(&ctx->rewriter, node, new);
 
-            const Node* ncallee = fn_addr(arena, (FnAddr) { .fn = lifted->lifted_fn });
-            assert(ncallee && is_value(ncallee));
-            return finish_body(bb, tail_call(arena, (TailCall) {
-                .target = ncallee,
-                .args = rewrite_nodes(&ctx->rewriter, node->payload.jump.args),
-            }));
-        }
-        case Branch_TAG: {
-            BodyBuilder* bb = begin_body(arena);
-            const Node* ncallee = NULL;
-
-            const Node* otargets[] = { node->payload.branch.true_target, node->payload.branch.false_target };
-            const Node* ntargets[2];
-            const Node* cases[2];
-            for (size_t i = 0; i < 2; i++) {
-                const Node* otarget = otargets[i];
-
-                LiftedCont* lifted = lambda_lift(ctx, otarget, NULL);
-                ntargets[i] = lifted->lifted_fn;
-
-                BodyBuilder* case_builder = begin_body(arena);
-                add_spill_instrs(ctx, case_builder, lifted->save_values);
-                const Node* case_body = finish_body(case_builder, yield(arena, (Yield) { .args = nodes(arena, 0, NULL) }));
-                cases[i] = lambda(arena, nodes(arena, 0, NULL), case_body);
-            }
-
-            // Put the spilling code inside a selection construct
-            const Node* ncondition = rewrite_node(&ctx->rewriter, node->payload.branch.branch_condition);
-            bind_instruction(bb, if_instr(arena, (If) { .condition = ncondition, .if_true = cases[0], .if_false = cases[1], .yield_types = nodes(arena, 0, NULL) }));
-
-            // Make the callee selection a select
-            ncallee = gen_primop_ce(bb, select_op, 3, (const Node* []) { ncondition, fn_addr(arena, (FnAddr) { .fn = ntargets[0] }), fn_addr(arena, (FnAddr) { .fn = ntargets[1] }) });
-
-            assert(ncallee && is_value(ncallee));
-            return finish_body(bb, tail_call(arena, (TailCall) {
-                .target = ncallee,
-                .args = rewrite_nodes(&ctx->rewriter, node->payload.branch.args),
-            }));
+            destroy_uses_scope(ctx->uses);
+            destroy_scope(ctx->scope);
+            return new;
         }
         case Let_TAG: {
             const Node* oinstruction = get_let_instruction(node);

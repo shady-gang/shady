@@ -23,7 +23,7 @@ RewritePass lower_cf_instrs;
 // Control flow lowering strategies
 
 /// Extracts unstructured basic blocks into separate functions (including spilling)
-RewritePass lower_continuations;
+RewritePass lift_indirect_targets;
 /// Emulates uniform jumps within functions using a loop
 RewritePass lower_jumps_loop;
 /// Emulates uniform jumps within functions by applying a structuring transformation

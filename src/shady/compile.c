@@ -84,7 +84,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_callf)
     RUN_PASS(opt_simplify_cf)
 
-    RUN_PASS(lower_continuations)
+    RUN_PASS(lift_indirect_targets)
 
     RUN_PASS(opt_simplify_cf)
     RUN_PASS(opt_stack)
