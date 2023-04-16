@@ -167,16 +167,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (oinstruction->tag == Control_TAG) {
                 const Node* otail = get_let_tail(node);
                 BodyBuilder* bb = begin_body(arena);
-                LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(arena, "let_tail"));
-                // if tail is a BB, add all the context-saving stuff in front
+                LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(arena, format_string(arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
                 add_spill_instrs(ctx, bb, lifted_tail->save_values);
                 const Node* tail_ptr = fn_addr(arena, (FnAddr) { .fn = lifted_tail->lifted_fn });
 
-                LiftedCont* lifted_body = lambda_lift(ctx, oinstruction->payload.control.inside, unique_name(arena, "control_body"));
                 const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
-                add_spill_instrs(ctx, bb, lifted_body->save_values);
-                const Node* lifted_body_ptr = fn_addr(arena, (FnAddr) { .fn = lifted_body->lifted_fn });
-                return finish_body(bb, tail_call(arena, (TailCall) { .target = lifted_body_ptr, .args = singleton(jp) }));
+
+                return finish_body(bb, let(arena, quote(arena, singleton(jp)), rewrite_node(&ctx->rewriter, oinstruction->payload.control.inside)));
             }
 
             return recreate_node_identity(&ctx->rewriter, node);
