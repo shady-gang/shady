@@ -13,14 +13,14 @@ typedef struct {
     CompilerConfig* config;
 } Context;
 
-static bool is_extended_type(SHADY_UNUSED IrArena* arena, const Type* t, bool allow_vectors) {
+static bool is_extended_type(SHADY_UNUSED IrArena* a, const Type* t, bool allow_vectors) {
     switch (t->tag) {
         case Int_TAG: return true;
         // TODO allow 16-bit floats specifically !
         case Float_TAG: return true;
         case PackType_TAG:
             if (allow_vectors)
-                return is_extended_type(arena, t->payload.pack_type.element_type, false);
+                return is_extended_type(a, t->payload.pack_type.element_type, false);
             return false;
         default: return false;
     }
@@ -33,7 +33,7 @@ static size_t bytes_to_i32_cells(size_t size_in_bytes) {
 
 static const Node* process_let(Context* ctx, const Node* old) {
     assert(old->tag == Let_TAG);
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     const Node* tail = rewrite_node(&ctx->rewriter, old->payload.let.tail);
     const Node* old_instruction = old->payload.let.instruction;
 
@@ -41,55 +41,55 @@ static const Node* process_let(Context* ctx, const Node* old) {
         PrimOp payload = old_instruction->payload.prim_op;
         switch (payload.op) {
             case subgroup_broadcast_first_op: {
-                BodyBuilder* builder = begin_body(arena);
+                BodyBuilder* builder = begin_body(a);
                 const Node* varying_value = rewrite_node(&ctx->rewriter, payload.operands.nodes[0]);
                 const Type* element_type = get_unqualified_type(varying_value->type);
 
                 if (element_type->tag == Int_TAG && element_type->payload.int_type.width == IntTy32) {
                     cancel_body(builder);
                     break;
-                } else if (is_extended_type(arena, element_type, true) && !ctx->config->lower.emulate_subgroup_ops_extended_types) {
+                } else if (is_extended_type(a, element_type, true) && !ctx->config->lower.emulate_subgroup_ops_extended_types) {
                     cancel_body(builder);
                     break;
                 }
 
-                TypeMemLayout layout = get_mem_layout(arena, element_type);
+                TypeMemLayout layout = get_mem_layout(a, element_type);
 
-                const Type* local_arr_ty = arr_type(arena, (ArrType) { .element_type = int32_type(arena), .size = NULL });
+                const Type* local_arr_ty = arr_type(a, (ArrType) { .element_type = int32_type(a), .size = NULL });
 
-                const Node* varying_top_of_stack = gen_primop_e(builder, get_stack_base_op, empty(arena), empty(arena));
-                const Type* varying_raw_ptr_t = ptr_type(arena, (PtrType) { .address_space = AsPrivatePhysical, .pointed_type = local_arr_ty });
+                const Node* varying_top_of_stack = gen_primop_e(builder, get_stack_base_op, empty(a), empty(a));
+                const Type* varying_raw_ptr_t = ptr_type(a, (PtrType) { .address_space = AsPrivatePhysical, .pointed_type = local_arr_ty });
                 const Node* varying_raw_ptr = gen_reinterpret_cast(builder, varying_raw_ptr_t, varying_top_of_stack);
-                const Type* varying_typed_ptr_t = ptr_type(arena, (PtrType) { .address_space = AsPrivatePhysical, .pointed_type = element_type });
+                const Type* varying_typed_ptr_t = ptr_type(a, (PtrType) { .address_space = AsPrivatePhysical, .pointed_type = element_type });
                 const Node* varying_typed_ptr = gen_reinterpret_cast(builder, varying_typed_ptr_t, varying_top_of_stack);
 
-                const Node* uniform_top_of_stack = gen_primop_e(builder, get_stack_base_uniform_op, empty(arena), empty(arena));
-                const Type* uniform_raw_ptr_t = ptr_type(arena, (PtrType) { .address_space = AsSubgroupPhysical, .pointed_type = local_arr_ty });
+                const Node* uniform_top_of_stack = gen_primop_e(builder, get_stack_base_uniform_op, empty(a), empty(a));
+                const Type* uniform_raw_ptr_t = ptr_type(a, (PtrType) { .address_space = AsSubgroupPhysical, .pointed_type = local_arr_ty });
                 const Node* uniform_raw_ptr = gen_reinterpret_cast(builder, uniform_raw_ptr_t, uniform_top_of_stack);
-                const Type* uniform_typed_ptr_t = ptr_type(arena, (PtrType) { .address_space = AsSubgroupPhysical, .pointed_type = element_type });
+                const Type* uniform_typed_ptr_t = ptr_type(a, (PtrType) { .address_space = AsSubgroupPhysical, .pointed_type = element_type });
                 const Node* uniform_typed_ptr = gen_reinterpret_cast(builder, uniform_typed_ptr_t, uniform_top_of_stack);
 
                 gen_store(builder, varying_typed_ptr, varying_value);
                 for (int32_t j = 0; j < bytes_to_i32_cells(layout.size_in_bytes); j++) {
-                    const Node* varying_logical_addr = gen_lea(builder, varying_raw_ptr, int32_literal(arena, 0), nodes(arena, 1, (const Node* []) {int32_literal(arena, j) }));
+                    const Node* varying_logical_addr = gen_lea(builder, varying_raw_ptr, int32_literal(a, 0), nodes(a, 1, (const Node* []) {int32_literal(a, j) }));
                     const Node* input = gen_load(builder, varying_logical_addr);
 
                     const Node* partial_result = gen_primop_ce(builder, subgroup_broadcast_first_op, 1, (const Node* []) { input });
 
                     if (ctx->config->printf_trace.subgroup_ops)
-                        gen_primop(builder, debug_printf_op, empty(arena), mk_nodes(arena, string_lit(arena, (StringLiteral) { .string = "partial_result %d"}), partial_result));
+                        gen_primop(builder, debug_printf_op, empty(a), mk_nodes(a, string_lit(a, (StringLiteral) { .string = "partial_result %d"}), partial_result));
 
-                    const Node* uniform_logical_addr = gen_lea(builder, uniform_raw_ptr, int32_literal(arena, 0), nodes(arena, 1, (const Node* []) {int32_literal(arena, j) }));
+                    const Node* uniform_logical_addr = gen_lea(builder, uniform_raw_ptr, int32_literal(a, 0), nodes(a, 1, (const Node* []) {int32_literal(a, j) }));
                     gen_store(builder, uniform_logical_addr, partial_result);
                 }
                 const Node* result = gen_load(builder, uniform_typed_ptr);
-                return finish_body(builder, let(arena, quote_single(arena, result), tail));
+                return finish_body(builder, let(a, quote_single(a, result), tail));
             }
             default: break;
         }
     }
 
-    return let(arena, rewrite_node(&ctx->rewriter, old_instruction), tail);
+    return let(a, rewrite_node(&ctx->rewriter, old_instruction), tail);
 }
 
 static const Node* process(Context* ctx, const Node* node) {

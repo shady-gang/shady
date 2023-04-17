@@ -31,7 +31,7 @@ static const Node* process(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     StackState entry;
     Context child_ctx = *ctx;
 
@@ -74,6 +74,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 case Control_TAG:
                 case Loop_TAG:
                 case If_TAG:
+                case Instruction_Block_TAG:
                 // Leaf calls and indirect calls are not analysed and so they are considered to leak the state
                 // we also need to forget our information about the current state
                 case Instruction_Call_TAG: {
@@ -81,6 +82,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     child_ctx.state = NULL;
                     break;
                 }
+                case Instruction_Comment_TAG: break;
                 case NotAnInstruction: assert(false);
             }
 
@@ -89,17 +91,17 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* ninstruction = NULL;
             if (is_push && !child_ctx.state->leaks) {
                 // replace stack pushes with no-ops
-                ninstruction = unit(arena);
+                ninstruction = unit(a);
             } else if (is_pop) {
                 assert(ctx->state->type == VALUE);
                 const Node* value = ctx->state->value;
-                ninstruction = quote_single(arena, value);
+                ninstruction = quote_single(a, value);
             } else {
                 // if the stack state is observed, or this was an unrelated instruction, leave it alone
                 ninstruction = recreate_node_identity(&ctx->rewriter, old_instruction);
             }
             assert(ninstruction);
-            return let(arena, ninstruction, ntail);
+            return let(a, ninstruction, ntail);
         }
         // Unreachable is assumed to never happen, so it doesn't observe the stack state
         case NotATerminator: break;

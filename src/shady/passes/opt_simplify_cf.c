@@ -101,9 +101,9 @@ static const Node* inline_call(Context* ctx, const Node* oabs, Nodes nargs, bool
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     if (!node) return NULL;
-    assert(arena != node->arena);
+    assert(a != node->arena);
     assert(node->arena == ctx->rewriter.src_arena);
 
     const Node* found = search_processed(&ctx->rewriter, node);
@@ -161,18 +161,18 @@ static const Node* process(Context* ctx, const Node* node) {
                     Nodes nargs = rewrite_nodes(&ctx->rewriter, oargs);
 
                     // Prepare a join point to replace the old function return
-                    Nodes nyield_types = strip_qualifiers(arena, rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
-                    const Type* jp_type = join_point_type(arena, (JoinPointType) { .yield_types = nyield_types });
-                    const Node* join_point = var(arena, qualified_type_helper(jp_type, true), format_string(arena, "inlined_return_%s", get_abstraction_name(ocallee)));
+                    Nodes nyield_types = strip_qualifiers(a, rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
+                    const Type* jp_type = join_point_type(a, (JoinPointType) { .yield_types = nyield_types });
+                    const Node* join_point = var(a, qualified_type_helper(jp_type, true), format_string(a, "inlined_return_%s", get_abstraction_name(ocallee)));
                     insert_dict_and_get_result(const Node*, const Node*, ctx->inlined_return_sites, ocallee, join_point);
 
                     const Node* nbody = inline_call(ctx, ocallee, nargs, true);
 
                     remove_dict(const Node*, ctx->inlined_return_sites, ocallee);
 
-                    return control(arena, (Control) {
+                    return control(a, (Control) {
                         .yield_types = nyield_types,
-                        .inside = lambda(arena, singleton(join_point), nbody)
+                        .inside = lambda(a, singleton(join_point), nbody)
                     });
                 }
             }
@@ -181,7 +181,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Return_TAG: {
             const Node** p_ret_jp = find_value_dict(const Node*, const Node*, ctx->inlined_return_sites, node);
             if (p_ret_jp)
-                return join(arena, (Join) { .join_point = *p_ret_jp, .args = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.args )});
+                return join(a, (Join) { .join_point = *p_ret_jp, .args = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.args )});
             return recreate_node_identity(&ctx->rewriter, node);
         }
         case TailCall_TAG: {
@@ -201,7 +201,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case BasicBlock_TAG: {
             Nodes params = recreate_variables(&ctx->rewriter, node->payload.basic_block.params);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, params);
-            Node* bb = basic_block(arena, (Node*) ctx->fun, params, node->payload.basic_block.name);
+            Node* bb = basic_block(a, (Node*) ctx->fun, params, node->payload.basic_block.name);
             register_processed(&ctx->rewriter, node, bb);
             bb->payload.basic_block.body = process(ctx, node->payload.basic_block.body);
             return bb;

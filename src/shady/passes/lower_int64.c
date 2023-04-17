@@ -37,21 +37,21 @@ static const Node* process(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     switch (node->tag) {
         case Int_TAG:
             if (node->payload.int_type.width == IntTy64 && ctx->config->lower.int64)
-                return record_type(arena, (RecordType) {
-                    .members = mk_nodes(arena, int32_type(arena), int32_type(arena))
+                return record_type(a, (RecordType) {
+                    .members = mk_nodes(a, int32_type(a), int32_type(a))
                 });
             break;
         case IntLiteral_TAG:
             if (node->payload.int_literal.width == IntTy64 && ctx->config->lower.int64) {
                 uint64_t raw = node->payload.int_literal.value.u64;
-                const Node* lower = uint32_literal(arena, (uint32_t) raw);
-                const Node* upper = uint32_literal(arena, (uint32_t) (raw >> 32));
-                return tuple(arena, mk_nodes(arena, lower, upper));
+                const Node* lower = uint32_literal(a, (uint32_t) raw);
+                const Node* upper = uint32_literal(a, (uint32_t) (raw >> 32));
+                return tuple(a, mk_nodes(a, lower, upper));
             }
             break;
         case PrimOp_TAG: {
@@ -63,14 +63,14 @@ static const Node* process(Context* ctx, const Node* node) {
                 case add_op: if (should_convert(ctx, first(old_nodes)->type)) {
                     Nodes new_nodes = rewrite_nodes(&ctx->rewriter, old_nodes);
                     // TODO: convert into and then out of unsigned
-                    BodyBuilder* builder = begin_body(arena);
+                    BodyBuilder* builder = begin_body(a);
                     extract_low_hi_halves_list(builder, new_nodes, lows, his);
-                    Nodes low_and_carry = bind_instruction(builder, prim_op(arena, (PrimOp) { .op = add_carry_op, .operands = nodes(arena, 2, lows)}));
+                    Nodes low_and_carry = bind_instruction(builder, prim_op(a, (PrimOp) { .op = add_carry_op, .operands = nodes(a, 2, lows)}));
                     const Node* lo = first(low_and_carry);
                     // compute the high side, without forgetting the carry bit
-                    const Node* hi = first(bind_instruction(builder, prim_op(arena, (PrimOp) { .op = add_op, .operands = nodes(arena, 2, his)})));
-                                hi = first(bind_instruction(builder, prim_op(arena, (PrimOp) { .op = add_op, .operands = mk_nodes(arena, hi, low_and_carry.nodes[1])})));
-                    return yield_values_and_wrap_in_block(builder, singleton(tuple(arena, mk_nodes(arena, lo, hi))));
+                    const Node* hi = first(bind_instruction(builder, prim_op(a, (PrimOp) { .op = add_op, .operands = nodes(a, 2, his)})));
+                                hi = first(bind_instruction(builder, prim_op(a, (PrimOp) { .op = add_op, .operands = mk_nodes(a, hi, low_and_carry.nodes[1])})));
+                    return yield_values_and_wrap_in_block(builder, singleton(tuple(a, mk_nodes(a, lo, hi))));
                 } break;
                 default: break;
             }

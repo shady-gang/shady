@@ -65,7 +65,7 @@ static DFSStackEntry* encountered_before(Context* ctx, const Node* bb, size_t* p
 static const Node* structure(Context* ctx, const Node* abs, const Node* exit_ladder);
 
 static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node* caller, const Node* dst, Nodes oargs, const Node* exit_ladder) {
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     size_t path_len;
     DFSStackEntry* prior_encounter = encountered_before(ctx, dst, &path_len);
@@ -84,7 +84,7 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
             entry2 = entry2->parent;
         }
         prior_encounter->loop_header = true;
-        return finish_body(bb, merge_continue(arena, (MergeContinue) {
+        return finish_body(bb, merge_continue(a, (MergeContinue) {
             .args = rewrite_nodes(&ctx->rewriter, oargs)
         }));
     } else {
@@ -101,35 +101,35 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         append_list(struct Dict*, ctx->tmp_alloc_stack, tmp_processed);
         ctx2.rewriter.map = tmp_processed;
         for (size_t i = 0; i < oargs.count; i++) {
-            nparams[i] = var(arena, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
+            nparams[i] = var(a, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
             register_processed(&ctx2.rewriter, oparams.nodes[i], nparams[i]);
         }
 
         // We use a basic block for the exit ladder because we don't know what the ladder needs to do ahead of time
         // opt_simplify_cf will later inline this
-        Node* inner_exit_ladder_bb = basic_block(arena, ctx->fn, empty(arena), unique_name(arena, "exit_ladder_inline_me"));
+        Node* inner_exit_ladder_bb = basic_block(a, ctx->fn, empty(a), unique_name(a, "exit_ladder_inline_me"));
 
         // Just jumps to the actual ladder
-        const Node* exit_ladder_trampoline = lambda(ctx2.rewriter.dst_arena, empty(arena), jump(arena, (Jump) { .target = inner_exit_ladder_bb, .args = empty(arena) }));
+        const Node* exit_ladder_trampoline = lambda(a, empty(a), jump(a, (Jump) { .target = inner_exit_ladder_bb, .args = empty(a) }));
 
-        const Node* structured = structure(&ctx2, dst, let(arena, unit(arena), exit_ladder_trampoline));
+        const Node* structured = structure(&ctx2, dst, let(a, unit(a), exit_ladder_trampoline));
         assert(is_terminator(structured));
         // forget we rewrote all that
         destroy_dict(tmp_processed);
         pop_list_impl(ctx->tmp_alloc_stack);
 
         if (dfs_entry.loop_header) {
-            const Node* body = lambda(ctx->rewriter.dst_arena, nodes(arena, oargs.count, nparams), structured);
-            bind_instruction(bb, loop_instr(arena, (Loop) {
+            const Node* body = lambda(a, nodes(a, oargs.count, nparams), structured);
+            bind_instruction(bb, loop_instr(a, (Loop) {
                 .body = body,
                 .initial_args = rewrite_nodes(&ctx->rewriter, oargs),
-                .yield_types = nodes(arena, 0, NULL),
+                .yield_types = nodes(a, 0, NULL),
             }));
             // we decide 'late' what the exit ladder should be
-            inner_exit_ladder_bb->payload.basic_block.body = merge_break(arena, (MergeBreak) { .args = empty(arena) });
+            inner_exit_ladder_bb->payload.basic_block.body = merge_break(a, (MergeBreak) { .args = empty(a) });
             return finish_body(bb, exit_ladder);
         } else {
-            bind_variables(bb, nodes(arena, oargs.count, nparams), rewrite_nodes(&ctx->rewriter, oargs));
+            bind_variables(bb, nodes(a, oargs.count, nparams), rewrite_nodes(&ctx->rewriter, oargs));
             inner_exit_ladder_bb->payload.basic_block.body = exit_ladder;
             return finish_body(bb, structured);
         }
@@ -148,18 +148,18 @@ static ControlEntry* search_containing_control(Context* ctx, const Node* old_tok
 }
 
 static const Node* rebuild_let(Context* ctx, const Node* old_let, const Node* new_instruction, const Node* exit_ladder) {
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     const Node* old_tail = get_let_tail(old_let);
     Nodes otail_params = get_abstraction_params(old_tail);
 
     Nodes rewritten_params = recreate_variables(&ctx->rewriter, otail_params);
     register_processed_list(&ctx->rewriter, otail_params, rewritten_params);
-    const Node* structured_lam = lambda(ctx->rewriter.dst_arena, rewritten_params, structure(ctx, old_tail, exit_ladder));
-    return let(arena, new_instruction, structured_lam);
+    const Node* structured_lam = lambda(a, rewritten_params, structure(ctx, old_tail, exit_ladder));
+    return let(a, new_instruction, structured_lam);
 }
 
 static const Node* structure(Context* ctx, const Node* abs, const Node* exit_ladder) {
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     const Node* body = get_abstraction_body(abs);
     assert(body);
@@ -203,13 +203,13 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     assert(old_control_params.count == 1);
 
                     // Create N temporary variables to hold the join point arguments
-                    BodyBuilder* bb_outer = begin_body(arena);
+                    BodyBuilder* bb_outer = begin_body(a);
                     Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instr->payload.control.yield_types);
                     LARRAY(const Node*, phis, yield_types.count);
                     for (size_t i = 0; i < yield_types.count; i++) {
                         const Type* type = yield_types.nodes[i];
                         assert(is_data_type(type));
-                        phis[i] = first(bind_instruction_named(bb_outer, prim_op(arena, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(type) }), (String []) { "ctrl_phi" }));
+                        phis[i] = first(bind_instruction_named(bb_outer, prim_op(a, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(type) }), (String []) {"ctrl_phi" }));
                     }
 
                     // Create a new context to rewrite the body with
@@ -224,36 +224,36 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     control_ctx.control_stack = &control_entry;
 
                     // Set the depth for threads entering the control body
-                    bind_instruction(bb_outer, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ctx->level_ptr, int32_literal(arena, control_entry.depth)) }));
+                    bind_instruction(bb_outer, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, ctx->level_ptr, int32_literal(a, control_entry.depth)) }));
 
                     // Start building out the tail, first it needs to dereference the phi variables to recover the arguments given to join()
-                    BodyBuilder* bb2 = begin_body(arena);
+                    BodyBuilder* bb2 = begin_body(a);
                     LARRAY(const Node*, phi_values, yield_types.count);
                     for (size_t i = 0; i < yield_types.count; i++) {
-                        phi_values[i] = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = load_op, .operands = singleton(phis[i]) })));
+                        phi_values[i] = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(phis[i]) })));
                         register_processed(&ctx->rewriter, otail_params.nodes[i], phi_values[i]);
                     }
 
                     // Wrap the tail in a guarded if, to handle 'far' joins
-                    const Node* level_value = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = load_op, .operands = singleton(ctx->level_ptr) })));
-                    const Node* guard = first(bind_instruction(bb2, prim_op(arena, (PrimOp) { .op = eq_op, .operands = mk_nodes(arena, level_value, int32_literal(arena, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
-                    const Node* true_body = structure(ctx, old_tail, yield(arena, (Yield) { .args = empty(arena) }));
-                    const Node* if_true_lam = lambda(ctx->rewriter.dst_arena, empty(arena), true_body);
-                    bind_instruction(bb2, if_instr(arena, (If) {
+                    const Node* level_value = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(ctx->level_ptr) })));
+                    const Node* guard = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
+                    const Node* true_body = structure(ctx, old_tail, yield(a, (Yield) { .args = empty(a) }));
+                    const Node* if_true_lam = lambda(a, empty(a), true_body);
+                    bind_instruction(bb2, if_instr(a, (If) {
                         .condition = guard,
-                        .yield_types = empty(arena),
+                        .yield_types = empty(a),
                         .if_true = if_true_lam,
                         .if_false = NULL
                     }));
 
-                    const Node* tail_lambda = lambda(ctx->rewriter.dst_arena, empty(arena), finish_body(bb2, exit_ladder));
-                    return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(arena, unit(arena), tail_lambda)));
+                    const Node* tail_lambda = lambda(a, empty(a), finish_body(bb2, exit_ladder));
+                    return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, unit(a), tail_lambda)));
                 }
             }
             return rebuild_let(ctx, body, recreate_node_identity(&ctx->rewriter, old_instr), exit_ladder);
         }
         case Jump_TAG: {
-            BodyBuilder* bb = begin_body(arena);
+            BodyBuilder* bb = begin_body(a);
             return handle_bb_callsite(ctx, bb, abs, body->payload.jump.target, body->payload.jump.args, exit_ladder);
         }
         // br(cond, true_bb, false_bb, args)
@@ -262,21 +262,21 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         case Branch_TAG: {
             const Node* condition = rewrite_node(&ctx->rewriter, body->payload.branch.branch_condition);
 
-            BodyBuilder* if_true_bb = begin_body(arena);
-            const Node* true_body = handle_bb_callsite(ctx, if_true_bb, abs, body->payload.branch.true_target, body->payload.branch.args, yield(arena, (Yield) { .args = empty(arena) }));
-            const Node* if_true_lam = lambda(ctx->rewriter.dst_arena, empty(ctx->rewriter.dst_arena), true_body);
+            BodyBuilder* if_true_bb = begin_body(a);
+            const Node* true_body = handle_bb_callsite(ctx, if_true_bb, abs, body->payload.branch.true_target, body->payload.branch.args, yield(a, (Yield) { .args = empty(a) }));
+            const Node* if_true_lam = lambda(a, empty(a), true_body);
 
-            BodyBuilder* if_false_bb = begin_body(arena);
-            const Node* false_body = handle_bb_callsite(ctx, if_false_bb, abs, body->payload.branch.false_target, body->payload.branch.args, yield(arena, (Yield) { .args = empty(arena) }));
-            const Node* if_false_lam = lambda(ctx->rewriter.dst_arena, empty(ctx->rewriter.dst_arena), false_body);
+            BodyBuilder* if_false_bb = begin_body(a);
+            const Node* false_body = handle_bb_callsite(ctx, if_false_bb, abs, body->payload.branch.false_target, body->payload.branch.args, yield(a, (Yield) { .args = empty(a) }));
+            const Node* if_false_lam = lambda(a, empty(a), false_body);
 
-            const Node* instr = if_instr(arena, (If) {
+            const Node* instr = if_instr(a, (If) {
                 .condition = condition,
-                .yield_types = empty(arena),
+                .yield_types = empty(a),
                 .if_true = if_true_lam,
                 .if_false = if_false_lam,
             });
-            const Node* post_merge_lam = lambda(ctx->rewriter.dst_arena, empty(ctx->rewriter.dst_arena), exit_ladder);
+            const Node* post_merge_lam = lambda(a, empty(a), exit_ladder);
             return let(ctx->rewriter.dst_arena, instr, post_merge_lam);
         }
         case Switch_TAG: {
@@ -287,12 +287,12 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
             if (!control)
                 longjmp(ctx->bail, 1);
 
-            BodyBuilder* bb = begin_body(arena);
-            bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ctx->level_ptr, int32_literal(arena, control->depth - 1)) }));
+            BodyBuilder* bb = begin_body(a);
+            bind_instruction(bb, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, ctx->level_ptr, int32_literal(a, control->depth - 1)) }));
 
             Nodes args = rewrite_nodes(&ctx->rewriter, body->payload.join.args);
             for (size_t i = 0; i < args.count; i++) {
-                bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, control->phis[i], args.nodes[i]) }));
+                bind_instruction(bb, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, control->phis[i], args.nodes[i]) }));
             }
 
             return finish_body(bb, exit_ladder);
@@ -310,9 +310,9 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     if (!node) return NULL;
-    assert(arena != node->arena);
+    assert(a != node->arena);
     assert(node->arena == ctx->rewriter.src_arena);
 
     const Node* found = search_processed(&ctx->rewriter, node);
@@ -346,15 +346,15 @@ static const Node* process(Context* ctx, const Node* node) {
             is_leaf = is_builtin || !node->payload.fun.body;
         } else {
             ctx2.lower = true;
-            BodyBuilder* bb = begin_body(arena);
-            const Node* ptr = first(bind_instruction_named(bb, prim_op(arena, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(int32_type(arena)) }), (String []) { "cf_depth" }));
-            bind_instruction(bb, prim_op(arena, (PrimOp) { .op = store_op, .operands = mk_nodes(arena, ptr, int32_literal(arena, 0)) }));
+            BodyBuilder* bb = begin_body(a);
+            const Node* ptr = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(int32_type(a)) }), (String []) {"cf_depth" }));
+            bind_instruction(bb, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, ptr, int32_literal(a, 0)) }));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
             struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);
             append_list(struct Dict*, ctx->tmp_alloc_stack, tmp_processed);
             ctx2.rewriter.map = tmp_processed;
-            new->payload.fun.body = finish_body(bb, structure(&ctx2, node, unreachable(arena)));
+            new->payload.fun.body = finish_body(bb, structure(&ctx2, node, unreachable(a)));
             is_leaf = true;
         }
 
@@ -367,7 +367,7 @@ static const Node* process(Context* ctx, const Node* node) {
             destroy_dict(orphan);
         }
 
-        new->payload.fun.annotations = filter_out_annotation(arena, new->payload.fun.annotations, "MaybeLeaf");
+        new->payload.fun.annotations = filter_out_annotation(a, new->payload.fun.annotations, "MaybeLeaf");
 
         return new;
     }
@@ -384,7 +384,6 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 void opt_restructurize(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
-    IrArena* arena = get_module_arena(dst);
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .tmp_alloc_stack = new_list(struct Dict*),

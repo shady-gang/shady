@@ -90,7 +90,9 @@ static const Node* process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
 
-    const Type* emulated_ptr_t = int_type(ctx->rewriter.dst_arena, (Int) { .width = ctx->rewriter.dst_arena->config.memory.ptr_size, .is_signed = false });
+    IrArena* a = ctx->rewriter.dst_arena;
+
+    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
 
     switch (old->tag) {
         case PrimOp_TAG: {
@@ -106,7 +108,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     // Leave logical ptrs alone
                     if (!is_physical_as(old_base_ptr_t->payload.ptr_type.address_space))
                         break;
-                    BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
+                    BodyBuilder* bb = begin_body(a);
                     Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
                     const Node* cast_base = gen_reinterpret_cast(bb, emulated_ptr_t, first(new_ops));
                     const Type* new_base_t = rewrite_node(&ctx->rewriter, old_base_ptr_t);

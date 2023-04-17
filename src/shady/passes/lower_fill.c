@@ -13,6 +13,7 @@ typedef struct {
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
+    IrArena* a = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Fill_TAG: {
             const Type* composite_t = rewrite_node(&ctx->rewriter, node->payload.fill.type);
@@ -22,7 +23,7 @@ static const Node* process(Context* ctx, const Node* node) {
             for (size_t i = 0; i < actual_size; i++) {
                 copies[i] = value;
             }
-            return composite(ctx->rewriter.dst_arena, composite_t, nodes(ctx->rewriter.dst_arena, actual_size, copies));
+            return composite(a, composite_t, nodes(a, actual_size, copies));
         }
         default: break;
     }

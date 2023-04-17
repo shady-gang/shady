@@ -37,24 +37,24 @@ static const Node* rewrite_something(Context* ctx, const Node* node) {
 
 static const Node* force_to_be_value(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     const Node* let_bound;
     switch (node->tag) {
         // All decls map to refdecl/fnaddr
         case Constant_TAG:
         case GlobalVariable_TAG: {
-            return ref_decl(ctx->rewriter.dst_arena, (RefDecl) { rewrite_something(ctx, node) });
+            return ref_decl(a, (RefDecl) { rewrite_something(ctx, node) });
         }
         case Function_TAG: {
-            return fn_addr(ctx->rewriter.dst_arena, (FnAddr) { .fn = rewrite_something(ctx, node) });
+            return fn_addr(a, (FnAddr) { .fn = rewrite_something(ctx, node) });
         }
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
         // All instructions are let-bound properly
         // TODO: generalize further
         case PrimOp_TAG: {
             assert(ctx->bb);
-            let_bound = prim_op(dst_arena, (PrimOp) {
+            let_bound = prim_op(a, (PrimOp) {
                 .op = node->payload.prim_op.op,
                 .operands = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.prim_op.operands, (RewriteFn) rewrite_value),
                 .type_arguments = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.prim_op.type_arguments, (RewriteFn) rewrite_something /* TODO: rewire_type ? */),
@@ -67,7 +67,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
 
             const Node* ncallee = rewrite_value(ctx, node->payload.call.callee);
 
-            let_bound = call(dst_arena, (Call) {
+            let_bound = call(a, (Call) {
                 .callee = ncallee,
                 .args = rewrite_nodes_with_fn(&ctx->rewriter, oargs, (RewriteFn) rewrite_value),
             });
@@ -126,7 +126,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG: {
             Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
+            BodyBuilder* bb = begin_body(a);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
@@ -138,7 +138,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* new = basic_block(a, (Node*) rewrite_node(&ctx->rewriter, node->payload.basic_block.fn), recreate_variables(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
             register_processed(&ctx->rewriter, node, new);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new->payload.basic_block.params);
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
+            BodyBuilder* bb = begin_body(a);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
@@ -148,13 +148,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case AnonLambda_TAG: {
             Nodes new_params = recreate_variables(&ctx->rewriter, node->payload.anon_lam.params);
             register_processed_list(&ctx->rewriter, node->payload.anon_lam.params, new_params);
-            BodyBuilder* bb = begin_body(ctx->rewriter.dst_arena);
+            BodyBuilder* bb = begin_body(a);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
 
             const Node* new_body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.anon_lam.body));
-            return lambda(ctx->rewriter.dst_arena, new_params, new_body);
+            return lambda(a, new_params, new_body);
         }
         default: break;
     }

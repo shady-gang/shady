@@ -40,14 +40,14 @@ typedef struct {
 #pragma GCC diagnostic error "-Wswitch"
 
 static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* spilled_vars) {
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     size_t recover_context_size = entries_count_list(spilled_vars);
     for (size_t i = 0; i < recover_context_size; i++) {
         const Node* ovar = read_list(const Node*, spilled_vars)[i];
         const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
 
-        const Node* save_instruction = prim_op(arena, (PrimOp) {
+        const Node* save_instruction = prim_op(a, (PrimOp) {
             .op = push_stack_op,
             .type_arguments = singleton(get_unqualified_type(nvar->type)),
             .operands = singleton(nvar),
@@ -62,11 +62,11 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     if (found)
         return *found;
 
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     Nodes oparams = get_abstraction_params(cont);
     const Node* obody = get_abstraction_body(cont);
 
-    String name = is_basic_block(cont) ? format_string(arena, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(arena, given_name);
+    String name = is_basic_block(cont) ? format_string(a, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(a, given_name);
 
     // Compute the live stuff we'll need
     Scope* scope = new_scope(cont);
@@ -87,8 +87,8 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     Nodes new_params = recreate_variables(&ctx->rewriter, oparams);
 
     // Keep annotations the same
-    Nodes annotations = nodes(arena, 0, NULL);
-    Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, nodes(arena, 0, NULL));
+    Nodes annotations = nodes(a, 0, NULL);
+    Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, nodes(a, 0, NULL));
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = cont;
@@ -101,20 +101,20 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     register_processed_list(&lifting_ctx.rewriter, oparams, new_params);
 
     // Recover that stuff inside the new body
-    BodyBuilder* builder = begin_body(arena);
+    BodyBuilder* builder = begin_body(a);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
         assert(ovar->tag == Variable_TAG);
 
         const Type* value_type = rewrite_node(&ctx->rewriter, ovar->type);
 
-        const Node* recovered_value = first(bind_instruction_named(builder, prim_op(arena, (PrimOp) {
+        const Node* recovered_value = first(bind_instruction_named(builder, prim_op(a, (PrimOp) {
             .op = pop_stack_op,
             .type_arguments = singleton(get_unqualified_type(value_type))
         }), &ovar->payload.var.name));
 
         if (is_qualified_type_uniform(ovar->type))
-            recovered_value = first(bind_instruction_named(builder, prim_op(arena, (PrimOp) { .op = subgroup_broadcast_first_op, .operands = singleton(recovered_value) }), &ovar->payload.var.name));
+            recovered_value = first(bind_instruction_named(builder, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .operands = singleton(recovered_value) }), &ovar->payload.var.name));
 
         register_processed(&lifting_ctx.rewriter, ovar, recovered_value);
     }
@@ -143,7 +143,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
     }
 
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     if (ctx->disable_lowering)
          return recreate_node_identity(&ctx->rewriter, node);
@@ -171,14 +171,14 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 Uses* jp_uses = *find_value_dict(const Node*, Uses*, ctx->uses->map, old_jp);
                 if (jp_uses->escapes_defining_block) {
                     const Node* otail = get_let_tail(node);
-                    BodyBuilder* bb = begin_body(arena);
-                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(arena, format_string(arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
+                    BodyBuilder* bb = begin_body(a);
+                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string(a, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
                     add_spill_instrs(ctx, bb, lifted_tail->save_values);
-                    const Node* tail_ptr = fn_addr(arena, (FnAddr) {.fn = lifted_tail->lifted_fn});
+                    const Node* tail_ptr = fn_addr(a, (FnAddr) {.fn = lifted_tail->lifted_fn});
 
                     const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
 
-                    return finish_body(bb, let(arena, quote(arena, singleton(jp)), rewrite_node(&ctx->rewriter, oinside)));
+                    return finish_body(bb, let(a, quote(a, singleton(jp)), rewrite_node(&ctx->rewriter, oinside)));
                 }
             }
 

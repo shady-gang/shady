@@ -25,7 +25,7 @@ static const Node* process_node(Context* ctx, const Node* node);
 
 static const Node* process_let(Context* ctx, const Node* node) {
     assert(node->tag == Let_TAG);
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     const Node* old_instruction = node->payload.let.instruction;
     const Node* new_instruction = NULL;
@@ -37,34 +37,34 @@ static const Node* process_let(Context* ctx, const Node* node) {
             bool has_false_branch = old_instruction->payload.if_instr.if_false;
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.if_instr.yield_types);
 
-            const Type* jp_type = qualified_type(arena, (QualifiedType) {
-                .type = join_point_type(arena, (JoinPointType) { .yield_types = yield_types }),
+            const Type* jp_type = qualified_type(a, (QualifiedType) {
+                .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
                 .is_uniform = true,
             });
-            const Node* join_point = var(arena, jp_type, "if_join");
+            const Node* join_point = var(a, jp_type, "if_join");
             Context join_context = *ctx;
             join_context.join_points.join_point_selection_merge = join_point;
 
-            Node* true_block = basic_block(arena, ctx->current_fn, nodes(arena, 0, NULL), unique_name(arena, "if_true"));
+            Node* true_block = basic_block(a, ctx->current_fn, nodes(a, 0, NULL), unique_name(a, "if_true"));
             true_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_true->payload.anon_lam.body);
 
-            Node* flse_block = basic_block(arena, ctx->current_fn, nodes(arena, 0, NULL), unique_name(arena, "if_false"));
+            Node* flse_block = basic_block(a, ctx->current_fn, nodes(a, 0, NULL), unique_name(a, "if_false"));
             if (has_false_branch)
                 flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_false->payload.anon_lam.body);
             else {
                 assert(yield_types.count == 0);
-                flse_block->payload.basic_block.body = join(arena, (Join) { .join_point = join_point, .args = nodes(arena, 0, NULL) });
+                flse_block->payload.basic_block.body = join(a, (Join) { .join_point = join_point, .args = nodes(a, 0, NULL) });
             }
 
-            const Node* control_body = branch(arena, (Branch) {
+            const Node* control_body = branch(a, (Branch) {
                 .branch_condition = rewrite_node(&ctx->rewriter, old_instruction->payload.if_instr.condition),
                 .true_target = true_block,
                 .false_target = flse_block,
-                .args = nodes(arena, 0, NULL),
+                .args = nodes(a, 0, NULL),
             });
 
-            const Node* control_lam = lambda(ctx->rewriter.dst_arena, nodes(arena, 1, (const Node*[]) {join_point }), control_body);
-            new_instruction = control(arena, (Control) { .yield_types = yield_types, .inside = control_lam });
+            const Node* control_lam = lambda(a, nodes(a, 1, (const Node*[]) {join_point }), control_body);
+            new_instruction = control(a, (Control) { .yield_types = yield_types, .inside = control_lam });
             break;
         }
         case Loop_TAG: {
@@ -72,46 +72,46 @@ static const Node* process_let(Context* ctx, const Node* node) {
             assert(is_anonymous_lambda(old_loop_body));
 
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_variables_types(arena, old_loop_body->payload.anon_lam.params));
-            param_types = strip_qualifiers(arena, param_types);
+            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_variables_types(a, old_loop_body->payload.anon_lam.params));
+            param_types = strip_qualifiers(a, param_types);
 
-            const Type* break_jp_type = qualified_type(arena, (QualifiedType) {
-                .type = join_point_type(arena, (JoinPointType) { .yield_types = yield_types }),
+            const Type* break_jp_type = qualified_type(a, (QualifiedType) {
+                .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
                 .is_uniform = true,
             });
-            const Type* continue_jp_type = qualified_type(arena, (QualifiedType) {
-                .type = join_point_type(arena, (JoinPointType) { .yield_types = param_types }),
+            const Type* continue_jp_type = qualified_type(a, (QualifiedType) {
+                .type = join_point_type(a, (JoinPointType) { .yield_types = param_types }),
                 .is_uniform = true,
             });
-            const Node* break_point = var(arena, break_jp_type, "loop_break_point");
-            const Node* continue_point = var(arena, continue_jp_type, "loop_continue_point");
+            const Node* break_point = var(a, break_jp_type, "loop_break_point");
+            const Node* continue_point = var(a, continue_jp_type, "loop_continue_point");
             Context join_context = *ctx;
             join_context.join_points.join_point_loop_break = break_point;
             join_context.join_points.join_point_loop_continue = continue_point;
 
             Nodes new_params = recreate_variables(&ctx->rewriter, old_loop_body->payload.anon_lam.params);
-            Node* loop_body = basic_block(arena, ctx->current_fn, new_params, unique_name(arena, "loop_body"));
+            Node* loop_body = basic_block(a, ctx->current_fn, new_params, unique_name(a, "loop_body"));
             register_processed_list(&join_context.rewriter, old_loop_body->payload.anon_lam.params, loop_body->payload.basic_block.params);
 
             const Node* inner_control_body = rewrite_node(&join_context.rewriter, old_loop_body->payload.anon_lam.body);
-            const Node* inner_control_lam = lambda(ctx->rewriter.dst_arena, nodes(arena, 1, (const Node*[]) {continue_point }), inner_control_body);
+            const Node* inner_control_lam = lambda(a, nodes(a, 1, (const Node*[]) {continue_point }), inner_control_body);
 
-            BodyBuilder* bb = begin_body(arena);
-            const Node* inner_control = control(arena, (Control) {
+            BodyBuilder* bb = begin_body(a);
+            const Node* inner_control = control(a, (Control) {
                 .yield_types = param_types,
                 .inside = inner_control_lam,
             });
             Nodes args = bind_instruction(bb, inner_control);
 
             // TODO let_in_block or use a Jump !
-            loop_body->payload.basic_block.body = finish_body(bb, jump(arena, (Jump) { .target = loop_body, .args = args }));
+            loop_body->payload.basic_block.body = finish_body(bb, jump(a, (Jump) { .target = loop_body, .args = args }));
 
-            const Node* initial_jump = jump(arena, (Jump) {
+            const Node* initial_jump = jump(a, (Jump) {
                 .target = loop_body,
                 .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.initial_args),
             });
-            const Node* outer_body = lambda(ctx->rewriter.dst_arena, nodes(arena, 1, (const Node*[]) { break_point }), initial_jump);
-            new_instruction = control(arena, (Control) { .yield_types = yield_types, .inside = outer_body });
+            const Node* outer_body = lambda(a, nodes(a, 1, (const Node*[]) {break_point }), initial_jump);
+            new_instruction = control(a, (Control) { .yield_types = yield_types, .inside = outer_body });
             break;
         }
         default:
@@ -123,7 +123,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
         new_tail = rewrite_node(&ctx->rewriter, old_tail);
 
     assert(new_instruction && new_tail);
-    return let(arena, new_instruction, new_tail);
+    return let(a, new_instruction, new_tail);
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -131,7 +131,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (already_done)
         return already_done;
 
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     if (node->tag == Function_TAG) {
         Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
@@ -156,7 +156,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Yield_TAG: {
             const Node* jp = ctx->join_points.join_point_selection_merge;
             assert(jp);
-            return join(dst_arena, (Join) {
+            return join(a, (Join) {
                 .join_point = jp,
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.yield.args),
             });
@@ -164,7 +164,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case MergeContinue_TAG: {
             const Node* jp = ctx->join_points.join_point_loop_continue;
             assert(jp);
-            return join(dst_arena, (Join) {
+            return join(a, (Join) {
                 .join_point = jp,
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_continue.args),
             });
@@ -172,7 +172,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case MergeBreak_TAG: {
             const Node* jp = ctx->join_points.join_point_loop_break;
             assert(jp);
-            return join(dst_arena, (Join) {
+            return join(a, (Join) {
                 .join_point = jp,
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_break.args),
             });

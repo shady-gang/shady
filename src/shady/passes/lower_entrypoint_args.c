@@ -14,10 +14,10 @@ typedef struct {
 } Context;
 
 static Node* rewrite_entry_point_fun(Context* ctx, const Node* node) {
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-    Node* fun = function(ctx->rewriter.dst_module, empty(dst_arena), node->payload.fun.name, annotations, empty(dst_arena));
+    Node* fun = function(ctx->rewriter.dst_module, empty(a), node->payload.fun.name, annotations, empty(a));
 
     register_processed(&ctx->rewriter, node, fun);
 

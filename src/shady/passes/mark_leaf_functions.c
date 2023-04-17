@@ -72,7 +72,7 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     if (!node) return NULL;
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
@@ -95,7 +95,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             if (fn_ctx.is_leaf) {
                 debugv_print("Function %s is a leaf function!\n", get_abstraction_name(node));
-                new->payload.fun.annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) {
+                new->payload.fun.annotations = append_nodes(a, annotations, annotation(a, (Annotation) {
                         .name = "Leaf",
                 }));
             }

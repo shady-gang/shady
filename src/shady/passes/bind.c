@@ -83,7 +83,7 @@ static void add_binding(Context* ctx, bool is_var, String name, const Node* node
 
 static const Node* get_node_address(Context* ctx, const Node* node);
 static const Node* get_node_address_safe(Context* ctx, const Node* node) {
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Unbound_TAG: {
             Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
@@ -98,9 +98,9 @@ static const Node* get_node_address_safe(Context* ctx, const Node* node) {
                 if (src_ptr == NULL)
                     return NULL;
                 const Node* index = rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]);
-                return prim_op(dst_arena, (PrimOp) {
+                return prim_op(a, (PrimOp) {
                     .op = lea_op,
-                    .operands = nodes(dst_arena, 3, (const Node* []) { src_ptr, int32_literal(dst_arena, 0), index })
+                    .operands = nodes(a, 3, (const Node* []) {src_ptr, int32_literal(a, 0), index })
                 });
             } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == deref_op) {
                 return rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands));
@@ -120,14 +120,14 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
 
 static const Node* desugar_let_mut(Context* ctx, const Node* node) {
     assert(node->tag == LetMut_TAG);
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     Context body_infer_ctx = *ctx;
     const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.let.instruction);
 
     const Node* old_lam = node->payload.let.tail;
     assert(old_lam && is_anonymous_lambda(old_lam));
 
-    BodyBuilder* bb = begin_body(dst_arena);
+    BodyBuilder* bb = begin_body(a);
 
     Nodes initial_values = bind_instruction_extra(bb, ninstruction, old_lam->payload.anon_lam.params.count, NULL, NULL);
     Nodes old_params = old_lam->payload.anon_lam.params;
@@ -135,15 +135,15 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
         const Node* oparam = old_params.nodes[i];
         const Type* type_annotation = oparam->payload.var.type;
         assert(type_annotation);
-        const Node* alloca = prim_op(dst_arena, (PrimOp) {
+        const Node* alloca = prim_op(a, (PrimOp) {
             .op = alloca_op,
-            .type_arguments = nodes(dst_arena, 1, (const Node* []){ rewrite_node(&ctx->rewriter, type_annotation) }),
-            .operands = nodes(dst_arena, 0, NULL)
+            .type_arguments = nodes(a, 1, (const Node* []){rewrite_node(&ctx->rewriter, type_annotation) }),
+            .operands = nodes(a, 0, NULL)
         });
         const Node* ptr = bind_instruction_extra(bb, alloca, 1, NULL, &oparam->payload.var.name).nodes[0];
-        const Node* store = prim_op(dst_arena, (PrimOp) {
+        const Node* store = prim_op(a, (PrimOp) {
             .op = store_op,
-            .operands = nodes(dst_arena, 2, (const Node* []) { ptr, initial_values.nodes[0] })
+            .operands = nodes(a, 2, (const Node* []) {ptr, initial_values.nodes[0] })
         });
         bind_instruction_extra(bb, store, 0, NULL, NULL);
 
@@ -201,7 +201,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
 }
 
 static const Node* bind_node(Context* ctx, const Node* node) {
-    IrArena* dst_arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     if (node == NULL)
         return NULL;
 
@@ -211,7 +211,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     // in case the node is an l-value, we load it
     const Node* lhs = get_node_address_safe(ctx, node);
     if (lhs) {
-        return prim_op(dst_arena, (PrimOp) {
+        return prim_op(a, (PrimOp) {
                 .op = load_op,
                 .operands = singleton(lhs)
         });
@@ -240,7 +240,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 const Node* old_bb = unbound_blocks.nodes[i];
                 assert(is_basic_block(old_bb));
                 Nodes new_bb_params = recreate_variables(&ctx->rewriter, old_bb->payload.basic_block.params);
-                Node* new_bb = basic_block(ctx->rewriter.dst_arena, (Node*) ctx->current_function, new_bb_params, old_bb->payload.basic_block.name);
+                Node* new_bb = basic_block(a, (Node*) ctx->current_function, new_bb_params, old_bb->payload.basic_block.name);
                 new_bbs[i] = new_bb;
                 add_binding(ctx, false, old_bb->payload.basic_block.name, new_bb);
                 register_processed(&ctx->rewriter, old_bb, new_bb);
@@ -265,7 +265,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case BasicBlock_TAG: {
             assert(is_basic_block(node));
             Nodes new_bb_params = recreate_variables(&ctx->rewriter, node->payload.basic_block.params);
-            Node* new_bb = basic_block(ctx->rewriter.dst_arena, (Node*) ctx->current_function, new_bb_params, node->payload.basic_block.name);
+            Node* new_bb = basic_block(a, (Node*) ctx->current_function, new_bb_params, node->payload.basic_block.name);
             add_binding(ctx, false, node->payload.basic_block.name, new_bb);
             register_processed(&ctx->rewriter, node, new_bb);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new_bb_params);
@@ -279,12 +279,12 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 add_binding(ctx, false, old_params.nodes[i]->payload.var.name, new_params.nodes[i]);
             register_processed_list(&ctx->rewriter, old_params, new_params);
             const Node* new_body = rewrite_node(&ctx->rewriter, node->payload.anon_lam.body);
-            return lambda(ctx->rewriter.dst_arena, new_params, new_body);
+            return lambda(a, new_params, new_body);
         }
         case LetMut_TAG: return desugar_let_mut(ctx, node);
         case Return_TAG: {
             assert(ctx->current_function);
-            return fn_ret(dst_arena, (Return) {
+            return fn_ret(a, (Return) {
                 .fn = ctx->current_function,
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.args)
             });
@@ -294,14 +294,14 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 const Node* target_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);
                 assert(target_ptr);
                 const Node* value = rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]);
-                return prim_op(dst_arena, (PrimOp) {
+                return prim_op(a, (PrimOp) {
                     .op = store_op,
-                    .operands = nodes(dst_arena, 2, (const Node* []) { target_ptr, value })
+                    .operands = nodes(a, 2, (const Node* []) {target_ptr, value })
                 });
             } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == subscript_op) {
-                return prim_op(dst_arena, (PrimOp) {
+                return prim_op(a, (PrimOp) {
                     .op = extract_op,
-                    .operands = mk_nodes(dst_arena, rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[0]), rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]))
+                    .operands = mk_nodes(a, rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[0]), rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]))
                 });
             }
             return recreate_node_identity(&ctx->rewriter, node);

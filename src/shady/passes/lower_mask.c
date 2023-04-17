@@ -18,7 +18,7 @@ static const Node* process(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
-    IrArena* arena = ctx->rewriter.dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
 
     switch (node->tag) {
         case MaskType_TAG: return get_actual_mask_type(ctx->rewriter.dst_arena);
@@ -26,12 +26,12 @@ static const Node* process(Context* ctx, const Node* node) {
             Op op = node->payload.prim_op.op;
             Nodes old_nodes = node->payload.prim_op.operands;
             switch(op) {
-                case empty_mask_op: return quote_single(arena, ctx->zero);
+                case empty_mask_op: return quote_single(a, ctx->zero);
                 case subgroup_active_mask_op: // this is just ballot(true)
-                    return prim_op(arena, (PrimOp) { .op = subgroup_ballot_op, .type_arguments = empty(arena), .operands = singleton(true_lit(ctx->rewriter.dst_arena)) });
+                    return prim_op(a, (PrimOp) { .op = subgroup_ballot_op, .type_arguments = empty(a), .operands = singleton(true_lit(ctx->rewriter.dst_arena)) });
                 // extract the relevant bit
                 case mask_is_thread_active_op: {
-                    BodyBuilder* bb = begin_body(arena);
+                    BodyBuilder* bb = begin_body(a);
                     const Node* mask = rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
                     const Node* index = rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
                     index = gen_conversion(bb, get_actual_mask_type(ctx->rewriter.dst_arena), index);
@@ -55,14 +55,14 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 void lower_mask(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
-    IrArena* arena = dst->arena;
-    const Type* mask_type = get_actual_mask_type(arena);
+    IrArena* a = dst->arena;
+    const Type* mask_type = get_actual_mask_type(a);
     assert(mask_type->tag == Int_TAG);
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
-        .zero = int_literal(arena, (IntLiteral) { .width = mask_type->payload.int_type.width, .value = 0 }),
-        .one = int_literal(arena, (IntLiteral) { .width = mask_type->payload.int_type.width, .value = 1 }),
+        .zero = int_literal(a, (IntLiteral) { .width = mask_type->payload.int_type.width, .value = 0 }),
+        .one = int_literal(a, (IntLiteral) { .width = mask_type->payload.int_type.width, .value = 1 }),
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
