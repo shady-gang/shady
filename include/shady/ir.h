@@ -143,48 +143,49 @@ NODES(NODE_CTOR)
 #undef NODE_CTOR_DECL_1
 
 // type ctor helpers
-const Type* noret_type(IrArena* arena);
+const Type* noret_type(IrArena*);
 
-const Node* unit_type(IrArena* arena);
+const Node* unit_type(IrArena*);
 
-const Type* int8_type(IrArena* arena);
-const Type* int16_type(IrArena* arena);
-const Type* int32_type(IrArena* arena);
-const Type* int64_type(IrArena* arena);
+const Type* int8_type(IrArena*);
+const Type* int16_type(IrArena*);
+const Type* int32_type(IrArena*);
+const Type* int64_type(IrArena*);
 
-const Type* uint8_type(IrArena* arena);
-const Type* uint16_type(IrArena* arena);
-const Type* uint32_type(IrArena* arena);
-const Type* uint64_type(IrArena* arena);
+const Type* uint8_type(IrArena*);
+const Type* uint16_type(IrArena*);
+const Type* uint32_type(IrArena*);
+const Type* uint64_type(IrArena*);
 
-const Type* int8_literal(IrArena* arena,  int8_t i);
-const Type* int16_literal(IrArena* arena, int16_t i);
-const Type* int32_literal(IrArena* arena, int32_t i);
-const Type* int64_literal(IrArena* arena, int64_t i);
+const Type* int8_literal(IrArena*,  int8_t i);
+const Type* int16_literal(IrArena*, int16_t i);
+const Type* int32_literal(IrArena*, int32_t i);
+const Type* int64_literal(IrArena*, int64_t i);
 
-const Type* uint8_literal(IrArena* arena,  uint8_t i);
-const Type* uint16_literal(IrArena* arena, uint16_t i);
-const Type* uint32_literal(IrArena* arena, uint32_t i);
-const Type* uint64_literal(IrArena* arena, uint64_t i);
+const Type* uint8_literal(IrArena*,  uint8_t i);
+const Type* uint16_literal(IrArena*, uint16_t i);
+const Type* uint32_literal(IrArena*, uint32_t i);
+const Type* uint64_literal(IrArena*, uint64_t i);
 
-const Type* fp16_type(IrArena* arena);
-const Type* fp32_type(IrArena* arena);
-const Type* fp64_type(IrArena* arena);
+const Type* fp16_type(IrArena*);
+const Type* fp32_type(IrArena*);
+const Type* fp64_type(IrArena*);
 
 // values
-const Node* var(IrArena* arena, const Type* type, const char* name);
+const Node* var(IrArena*, const Type* type, const char* name);
 
-const Node* tuple(IrArena* arena, Nodes contents);
-const Node* composite(IrArena* arena, const Type*, Nodes contents);
+const Node* tuple(IrArena*, Nodes contents);
+const Node* composite(IrArena*, const Type*, Nodes contents);
+const Node* fn_addr_helper(IrArena*, const Node* fn);
 
 // instructions
 /// Turns a value into an 'instruction' (the enclosing let will be folded away later)
 /// Useful for local rewrites
-const Node* quote_helper(IrArena* arena, Nodes values);
+const Node* quote_helper(IrArena*, Nodes values);
 
 // terminators
-const Node* let(IrArena* arena, const Node* instruction, const Node* tail);
-const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail);
+const Node* let(IrArena*, const Node* instruction, const Node* tail);
+const Node* let_mut(IrArena*, const Node* instruction, const Node* tail);
 
 // decl ctors
 Node* function    (Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);

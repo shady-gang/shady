@@ -174,7 +174,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     BodyBuilder* bb = begin_body(a);
                     LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string(a, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
                     add_spill_instrs(ctx, bb, lifted_tail->save_values);
-                    const Node* tail_ptr = fn_addr(a, (FnAddr) {.fn = lifted_tail->lifted_fn});
+                    const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 
                     const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
 

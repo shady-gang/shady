@@ -150,7 +150,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
                 const Node* fn = gen_fn(ctx, element_type, push, uniform);
                 Nodes args = push ? singleton(rewrite_node(&ctx->rewriter, first(oprim_op->operands))) : empty(a);
-                Nodes results = bind_instruction(bb, call(a, (Call) { .callee = fn_addr(a, (FnAddr) { .fn = fn }), .args = args}));
+                Nodes results = bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = args}));
 
                 if (push)
                     return finish_body(bb, let(a, quote_helper(a, empty(a)), tail));

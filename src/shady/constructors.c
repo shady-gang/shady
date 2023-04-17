@@ -192,7 +192,7 @@ const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail) {
     return create_node_helper(arena, node, NULL);
 }
 
-const Node* composite(IrArena* arena, const Type* elem_type, Nodes contents) {
+const Node* composite(IrArena* a, const Type* elem_type, Nodes contents) {
     Composite c = {
         .type = elem_type,
         .contents = contents,
@@ -201,23 +201,27 @@ const Node* composite(IrArena* arena, const Type* elem_type, Nodes contents) {
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
-        .arena = arena,
-        .type = arena->config.check_types ? check_type_composite(arena, c) : NULL,
+        .arena = a,
+        .type = a->config.check_types ? check_type_composite(a, c) : NULL,
         .tag = Composite_TAG,
         .payload.composite = c
     };
-    return create_node_helper(arena, node, NULL);
+    return create_node_helper(a, node, NULL);
 }
 
-const Node* tuple(IrArena* arena, Nodes contents) {
+const Node* tuple(IrArena* a, Nodes contents) {
     const Type* t = NULL;
-    if (arena->config.check_types) {
+    if (a->config.check_types) {
         // infer the type of the tuple
-        Nodes member_types = get_values_types(arena, contents);
-        t = record_type(arena, (RecordType) {.members = strip_qualifiers(arena, member_types)});
+        Nodes member_types = get_values_types(a, contents);
+        t = record_type(a, (RecordType) {.members = strip_qualifiers(a, member_types)});
     }
 
-    return composite(arena, t, contents);
+    return composite(a, t, contents);
+}
+
+const Node* fn_addr_helper(IrArena* a, const Node* fn) {
+    return fn_addr(a, (FnAddr) { .fn = fn });
 }
 
 Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {

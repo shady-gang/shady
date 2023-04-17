@@ -58,7 +58,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     BodyBuilder* bb = begin_body(a);
 
-    bind_instruction(bb, call(a, (Call) { .callee = fn_addr(a, (FnAddr) { .fn = ctx->init_fn }), .args = empty(a) }));
+    bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, ctx->init_fn), .args = empty(a) }));
     bind_instruction(bb, call(a, (Call) { .callee = access_decl(&ctx->rewriter, "builtin_init_scheduler"), .args = empty(a) }));
 
     // shove the arguments on the stack
@@ -75,7 +75,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     }
 
     bind_instruction(bb, call(a, (Call) {
-        .callee = fn_addr(a, (FnAddr) { .fn = *ctx->top_dispatcher_fn }),
+        .callee = fn_addr_helper(a, *ctx->top_dispatcher_fn),
         .args = nodes(a, 0, NULL)
     }));
 
@@ -104,7 +104,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Node* nbody = rewrite_node(&ctx->rewriter, old->payload.fun.body);
                     if (entry_point_annotation) {
                         const Node* lam = lambda(a, empty(a), nbody);
-                        nbody = let(a, call(a, (Call) { .callee = fn_addr(a, (FnAddr) { .fn = ctx->init_fn }), .args = empty(a)}), lam);
+                        nbody = let(a, call(a, (Call) { .callee = fn_addr_helper(a, ctx->init_fn), .args = empty(a)}), lam);
                     }
                     fun->payload.fun.body = nbody;
                 }
@@ -143,7 +143,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* ocallee = old->payload.call.callee;
             assert(ocallee->tag == FnAddr_TAG);
             return call(a, (Call) {
-                .callee = fn_addr(a, (FnAddr) { .fn = rewrite_node(&ctx->rewriter, ocallee->payload.fn_addr.fn )}),
+                .callee = fn_addr_helper(a, rewrite_node(&ctx->rewriter, ocallee->payload.fn_addr.fn)),
                 .args = rewrite_nodes(&ctx->rewriter, old->payload.call.args),
             });
         }

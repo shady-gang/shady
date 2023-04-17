@@ -47,7 +47,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
             return ref_decl(a, (RefDecl) { rewrite_something(ctx, node) });
         }
         case Function_TAG: {
-            return fn_addr(a, (FnAddr) { .fn = rewrite_something(ctx, node) });
+            return fn_addr_helper(a, rewrite_something(ctx, node));
         }
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
         // All instructions are let-bound properly

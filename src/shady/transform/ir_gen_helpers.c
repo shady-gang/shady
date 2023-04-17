@@ -118,7 +118,7 @@ const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
 const Node* access_decl(Rewriter* rewriter, const char* name) {
     const Node* decl = find_or_process_decl(rewriter, name);
     if (decl->tag == Function_TAG)
-        return fn_addr(rewriter->dst_arena, (FnAddr) { .fn = decl });
+        return fn_addr_helper(rewriter->dst_arena, decl);
     else
         return ref_decl(rewriter->dst_arena, (RefDecl) { .decl = decl });
 }
