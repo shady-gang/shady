@@ -110,7 +110,7 @@ static const Node* force_to_be_instruction(Context* ctx, const Node* node) {
 
     const Node* val = force_to_be_value(ctx, node);
 
-    return quote(a, singleton(val));
+    return quote_helper(a, singleton(val));
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {

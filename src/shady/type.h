@@ -3,8 +3,6 @@
 
 #include "shady/ir.h"
 
-const Type* noret_type(IrArena* arena);
-
 bool is_subtype(const Type* supertype, const Type* type);
 void check_subtype(const Type* supertype, const Type* type);
 

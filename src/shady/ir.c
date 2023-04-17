@@ -98,6 +98,10 @@ Strings strings(IrArena* arena, size_t count, const char* in_strs[])  {
     return strings;
 }
 
+Nodes empty(IrArena* a) {
+    return nodes(a, 0, NULL);
+}
+
 Nodes singleton(const Type* type) {
     IrArena* arena = type->arena;
     const Type* arr[] = { type };

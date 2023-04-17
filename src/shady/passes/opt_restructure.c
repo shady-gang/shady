@@ -112,7 +112,7 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         // Just jumps to the actual ladder
         const Node* exit_ladder_trampoline = lambda(a, empty(a), jump(a, (Jump) { .target = inner_exit_ladder_bb, .args = empty(a) }));
 
-        const Node* structured = structure(&ctx2, dst, let(a, unit(a), exit_ladder_trampoline));
+        const Node* structured = structure(&ctx2, dst, let(a, quote_helper(a, empty(a)), exit_ladder_trampoline));
         assert(is_terminator(structured));
         // forget we rewrote all that
         destroy_dict(tmp_processed);
@@ -247,7 +247,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     }));
 
                     const Node* tail_lambda = lambda(a, empty(a), finish_body(bb2, exit_ladder));
-                    return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, unit(a), tail_lambda)));
+                    return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, quote_helper(a, empty(a)), tail_lambda)));
                 }
             }
             return rebuild_let(ctx, body, recreate_node_identity(&ctx->rewriter, old_instr), exit_ladder);

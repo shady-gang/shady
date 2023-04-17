@@ -28,6 +28,11 @@ Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
     }
 }
 
+bool is_arrow_type(const Node* node) {
+    NodeTag tag = node->tag;
+    return tag == FnType_TAG || tag == BBType_TAG || tag == LamType_TAG;
+}
+
 const Type* get_pointee_type(IrArena* arena, const Type* type) {
     bool qualified = false, uniform = false;
     if (is_value_type(type)) {

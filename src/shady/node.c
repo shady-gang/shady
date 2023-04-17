@@ -146,6 +146,11 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
     }
 }
 
+bool is_abstraction(const Node* node) {
+    NodeTag tag = node->tag;
+    return tag == Function_TAG || tag == BasicBlock_TAG || tag == AnonLambda_TAG;
+}
+
 String get_abstraction_name(const Node* abs) {
     assert(is_abstraction(abs));
     switch (abs->tag) {

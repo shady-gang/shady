@@ -7,6 +7,10 @@
 
 #include <assert.h>
 
+static const Node* quote_single(IrArena* a, const Node* value) {
+    return quote_helper(a, singleton(value));
+}
+
 /*const Node* resolve_known_vars(const Node* node, bool stop_at_values) {
     if (node->tag == Variable_TAG) {
         const Node* abs = node->payload.var.abs;
@@ -107,7 +111,7 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
                         } else {
                             // wrap the original tail with the args of join()
                             assert(is_anonymous_lambda(tail));
-                            const Node* acc = let(arena, quote(arena, terminator->payload.yield.args), tail);
+                            const Node* acc = let(arena, quote_helper(arena, terminator->payload.yield.args), tail);
                             // rebuild the let chain that we traversed
                             for (size_t i = 0; i < depth; i++) {
                                 const Node* olet = lets[depth - 1 - i];
@@ -234,7 +238,7 @@ const Node* fold_node(IrArena* arena, const Node* node) {
             const Node* lam = node->payload.block.inside;
             const Node* term = lam->payload.anon_lam.body;
             if (term->tag == Yield_TAG) {
-                return quote(arena, term->payload.yield.args);
+                return quote_helper(arena, term->payload.yield.args);
             }
             break;
         }

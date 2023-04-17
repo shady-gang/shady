@@ -173,7 +173,7 @@ static const Node* accept_value(ctxparams) {
         case lpar_tok: {
             next_token(tokenizer);
             if (accept_token(ctx, rpar_tok)) {
-                return unit(arena);
+                return quote_helper(arena, empty(arena));
             }
             const Node* atom = config.front_end ? accept_expr(ctx, max_precedence()) : accept_value(ctx);
             assert(atom);

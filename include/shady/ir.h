@@ -27,8 +27,8 @@ typedef struct Strings_ {
 Nodes     nodes(IrArena*, size_t count, const Node*[]);
 Strings strings(IrArena*, size_t count, const char*[]);
 
-#define empty(arena) nodes(arena, 0, NULL)
-Nodes singleton(const Node* type);
+Nodes empty(IrArena*);
+Nodes singleton(const Node*);
 #define mk_nodes(arena, ...) nodes(arena, sizeof((const Node*[]) { __VA_ARGS__ }) / sizeof(const Node*), (const Node*[]) { __VA_ARGS__ })
 
 const Node* first(Nodes nodes);
@@ -36,10 +36,10 @@ const Node* first(Nodes nodes);
 Nodes append_nodes(IrArena*, Nodes, const Node*);
 Nodes concat_nodes(IrArena*, Nodes, Nodes);
 
-String string_sized(IrArena* arena, size_t size, const char* start);
-String string(IrArena* arena, const char* start);
-String format_string(IrArena* arena, const char* str, ...);
-String unique_name(IrArena* arena, const char* start);
+String string_sized(IrArena*, size_t size, const char* start);
+String string(IrArena*, const char*);
+String format_string(IrArena*, const char* str, ...);
+String unique_name(IrArena*, const char* base_name);
 String name_type_safe(IrArena*, const Type*);
 
 //////////////////////////////// Modules ////////////////////////////////
@@ -119,9 +119,10 @@ bool is_annotation(const Node* node);
 String get_annotation_name(const Node* node);
 Nodes filter_out_annotation(IrArena*, Nodes, const char* name);
 
-String get_abstraction_name(const Node* abs);
-const Node* get_abstraction_body(const Node*);
-Nodes get_abstraction_params(const Node*);
+bool        is_abstraction        (const Node*);
+String      get_abstraction_name  (const Node* abs);
+const Node* get_abstraction_body  (const Node* abs);
+Nodes       get_abstraction_params(const Node* abs);
 
 const Node* get_let_instruction(const Node* let);
 const Node* get_let_tail(const Node* let);
@@ -141,40 +142,10 @@ NODES(NODE_CTOR)
 #undef NODE_CTOR_DECL_0
 #undef NODE_CTOR_DECL_1
 
-const Node* var(IrArena* arena, const Type* type, const char* name);
+// type ctor helpers
+const Type* noret_type(IrArena* arena);
 
-const Node* tuple(IrArena* arena, Nodes contents);
-const Node* composite(IrArena* arena, const Type*, Nodes contents);
-
-Node* function    (Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
-Node* constant    (Module*, Nodes annotations, const Type*, const char* name);
-Node* global_var  (Module*, Nodes annotations, const Type*, String, AddressSpace);
-Type* nominal_type(Module*, Nodes annotations, String name);
-
-Node* basic_block (IrArena*, Node* function, Nodes params, const char* name);
-const Node* lambda(IrArena*, Nodes params, const Node* body);
-
-const Node* let(IrArena* arena, const Node* instruction, const Node* tail);
-const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail);
-
-typedef struct BodyBuilder_ BodyBuilder;
-BodyBuilder* begin_body(IrArena*);
-
-/// Appends an instruction to the builder, may apply optimisations.
-/// If the arena is typed, returns a list of variables bound to the values yielded by that instruction
-Nodes bind_instruction(BodyBuilder*, const Node* instruction);
-Nodes bind_instruction_named(BodyBuilder*, const Node* instruction, String const output_names[]);
-
-/// Like append instruction, but you explicitly give it information about any yielded values
-/// ! In untyped arenas, you need to call this because we can't guess how many things are returned without typing info !
-Nodes bind_instruction_extra_mutable(BodyBuilder*, const Node* initial_value, size_t outputs_count, Nodes* provided_types, String const output_names[]);
-Nodes bind_instruction_extra(BodyBuilder*, const Node* initial_value, size_t outputs_count, Nodes* provided_types, String const output_names[]);
-
-void bind_variables(BodyBuilder*, Nodes vars, Nodes values);
-
-const Node* finish_body(BodyBuilder*, const Node* terminator);
-void cancel_body(BodyBuilder*);
-const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
+const Node* unit_type(IrArena* arena);
 
 const Type* int8_type(IrArena* arena);
 const Type* int16_type(IrArena* arena);
@@ -200,14 +171,50 @@ const Type* fp16_type(IrArena* arena);
 const Type* fp32_type(IrArena* arena);
 const Type* fp64_type(IrArena* arena);
 
+// values
+const Node* var(IrArena* arena, const Type* type, const char* name);
+
+const Node* tuple(IrArena* arena, Nodes contents);
+const Node* composite(IrArena* arena, const Type*, Nodes contents);
+
+// instructions
 /// Turns a value into an 'instruction' (the enclosing let will be folded away later)
 /// Useful for local rewrites
-const Node* quote(IrArena* arena, Nodes values);
-/// Overload of quote for single values
-const Node* quote_single(IrArena* arena, const Node* value);
-/// Overload of quote for no values
-const Node* unit(IrArena* arena);
-const Node* unit_type(IrArena* arena);
+const Node* quote_helper(IrArena* arena, Nodes values);
+
+// terminators
+const Node* let(IrArena* arena, const Node* instruction, const Node* tail);
+const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail);
+
+// decl ctors
+Node* function    (Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
+Node* constant    (Module*, Nodes annotations, const Type*, const char* name);
+Node* global_var  (Module*, Nodes annotations, const Type*, String, AddressSpace);
+Type* nominal_type(Module*, Nodes annotations, String name);
+
+// basic blocks, lambdas and their helpers
+Node* basic_block(IrArena*, Node* function, Nodes params, const char* name);
+const Node* lambda(IrArena*, Nodes params, const Node* body);
+
+/// Used to build a chain of let
+typedef struct BodyBuilder_ BodyBuilder;
+BodyBuilder* begin_body(IrArena*);
+
+/// Appends an instruction to the builder, may apply optimisations.
+/// If the arena is typed, returns a list of variables bound to the values yielded by that instruction
+Nodes bind_instruction(BodyBuilder*, const Node* instruction);
+Nodes bind_instruction_named(BodyBuilder*, const Node* instruction, String const output_names[]);
+
+/// Like append instruction, but you explicitly give it information about any yielded values
+/// ! In untyped arenas, you need to call this because we can't guess how many things are returned without typing info !
+Nodes bind_instruction_extra_mutable(BodyBuilder*, const Node* initial_value, size_t outputs_count, Nodes* provided_types, String const output_names[]);
+Nodes bind_instruction_extra(BodyBuilder*, const Node* initial_value, size_t outputs_count, Nodes* provided_types, String const output_names[]);
+
+void bind_variables(BodyBuilder*, Nodes vars, Nodes values);
+
+const Node* finish_body(BodyBuilder*, const Node* terminator);
+void cancel_body(BodyBuilder*);
+const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
 
 //////////////////////////////// Compilation ////////////////////////////////
 

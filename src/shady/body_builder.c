@@ -103,7 +103,7 @@ Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
 
 void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {
     StackEntry entry = {
-        .instr = quote(bb->arena, values),
+        .instr = quote_helper(bb->arena, values),
         .vars = vars,
         .mut = false,
     };

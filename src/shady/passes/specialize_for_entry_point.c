@@ -33,7 +33,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     wg_size[0] = a->config.specializations.workgroup_size[0];
                     wg_size[1] = a->config.specializations.workgroup_size[1];
                     wg_size[2] = a->config.specializations.workgroup_size[2];
-                    return quote(a, singleton(composite(a, t,mk_nodes(a, uint32_literal(a, wg_size[0]), uint32_literal(a, wg_size[1]), uint32_literal(a, wg_size[2]) ))));
+                    return quote_helper(a, singleton(composite(a, t,mk_nodes(a, uint32_literal(a, wg_size[0]), uint32_literal(a, wg_size[1]), uint32_literal(a, wg_size[2]) ))));
                 }
                 default: break;
             }

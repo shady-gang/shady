@@ -49,7 +49,7 @@ static void collect_allocas(VContext* vctx, const Node* node) {
         const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = as });
         slot = gen_reinterpret_cast(vctx->bb, ptr_t, slot);
 
-        register_processed(&vctx->context->rewriter, node, quote_single(a, slot));
+        register_processed(&vctx->context->rewriter, node, quote_helper(a, singleton(slot)));
         return;
     }
 

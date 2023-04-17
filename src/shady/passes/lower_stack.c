@@ -114,7 +114,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 BodyBuilder* bb = begin_body(a);
                 bool uniform = oprim_op->op == get_stack_pointer_uniform_op;
                 const Node* sp = gen_load(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer);
-                return finish_body(bb, let(a, quote_single(a, sp), tail));
+                return finish_body(bb, let(a, quote_helper(a, singleton(sp)), tail));
             }
             case set_stack_pointer_op:
             case set_stack_pointer_uniform_op: {
@@ -122,7 +122,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 bool uniform = oprim_op->op == set_stack_pointer_uniform_op;
                 const Node* val = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
                 gen_store(bb, uniform ? ctx->uniform_stack_pointer : ctx->stack_pointer, val);
-                return finish_body(bb, let(a, unit(a), tail));
+                return finish_body(bb, let(a, quote_helper(a, empty(a)), tail));
             }
             case get_stack_base_uniform_op:
             case get_stack_base_op: {
@@ -136,7 +136,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                     else
                         bind_instruction(bb, prim_op(a, (PrimOp) {.op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) {.string = "trace: uniform stack_size=%d\n"}), stack_size)}));
                 }
-                return finish_body(bb, let(a, quote_single(a, stack_base_ptr), tail));
+                return finish_body(bb, let(a, quote_helper(a, singleton(stack_base_ptr)), tail));
             }
             case push_stack_op:
             case push_stack_uniform_op:
@@ -153,10 +153,10 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 Nodes results = bind_instruction(bb, call(a, (Call) { .callee = fn_addr(a, (FnAddr) { .fn = fn }), .args = args}));
 
                 if (push)
-                    return finish_body(bb, let(a, unit(a), tail));
+                    return finish_body(bb, let(a, quote_helper(a, empty(a)), tail));
 
                 assert(results.count == 1);
-                return finish_body(bb, let(a, quote_single(a, first(results)), tail));
+                return finish_body(bb, let(a, quote_helper(a, results), tail));
             }
             default: break;
         }

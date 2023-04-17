@@ -178,7 +178,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                     const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
 
-                    return finish_body(bb, let(a, quote(a, singleton(jp)), rewrite_node(&ctx->rewriter, oinside)));
+                    return finish_body(bb, let(a, quote_helper(a, singleton(jp)), rewrite_node(&ctx->rewriter, oinside)));
                 }
             }
 

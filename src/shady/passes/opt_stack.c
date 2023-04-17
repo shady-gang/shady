@@ -91,11 +91,11 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* ninstruction = NULL;
             if (is_push && !child_ctx.state->leaks) {
                 // replace stack pushes with no-ops
-                ninstruction = unit(a);
+                ninstruction = quote_helper(a, empty(a));
             } else if (is_pop) {
                 assert(ctx->state->type == VALUE);
                 const Node* value = ctx->state->value;
-                ninstruction = quote_single(a, value);
+                ninstruction = quote_helper(a, singleton(value));
             } else {
                 // if the stack state is observed, or this was an unrelated instruction, leave it alone
                 ninstruction = recreate_node_identity(&ctx->rewriter, old_instruction);

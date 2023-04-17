@@ -83,7 +83,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
                     gen_store(builder, uniform_logical_addr, partial_result);
                 }
                 const Node* result = gen_load(builder, uniform_typed_ptr);
-                return finish_body(builder, let(a, quote_single(a, result), tail));
+                return finish_body(builder, let(a, quote_helper(a, singleton(result)), tail));
             }
             default: break;
         }

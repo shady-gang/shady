@@ -642,16 +642,6 @@ inline static bool is_nominal(const Node* node) {
     return tag == Function_TAG || tag == BasicBlock_TAG || tag == Constant_TAG || tag == Variable_TAG || tag == GlobalVariable_TAG || tag == NominalType_TAG || tag == AnonLambda_TAG;
 }
 
-inline static bool is_arrow_type(const Node* node) {
-    NodeTag tag = node->tag;
-    return tag == FnType_TAG || tag == BBType_TAG || tag == LamType_TAG;
-}
-
-inline static bool is_abstraction(const Node* node) {
-    NodeTag tag = node->tag;
-    return tag == Function_TAG || tag == BasicBlock_TAG || tag == AnonLambda_TAG;
-}
-
 inline static bool is_anonymous_lambda(const Node* node) { return node->tag == AnonLambda_TAG; }
 inline static bool is_basic_block(const Node* node) { return node->tag == BasicBlock_TAG; }
 inline static bool is_function(const Node* node) { return node->tag == Function_TAG; }
