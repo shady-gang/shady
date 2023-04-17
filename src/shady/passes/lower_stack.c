@@ -150,7 +150,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
                 const Node* fn = gen_fn(ctx, element_type, push, uniform);
                 Nodes args = push ? singleton(rewrite_node(&ctx->rewriter, first(oprim_op->operands))) : empty(arena);
-                Nodes results = bind_instruction(bb, leaf_call(arena, (LeafCall) { .callee = fn, .args = args}));
+                Nodes results = bind_instruction(bb, call(arena, (Call) { .callee = fn_addr(arena, (FnAddr) { .fn = fn }), .args = args}));
 
                 if (push)
                     return finish_body(bb, let(arena, unit(arena), tail));

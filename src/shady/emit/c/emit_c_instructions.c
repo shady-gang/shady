@@ -421,10 +421,8 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
 
 static void emit_call(Emitter* emitter, Printer* p, const Node* call, InstructionOutputs outputs) {
     Nodes args;
-    if (call->tag == LeafCall_TAG)
-        args = call->payload.leaf_call.args;
-    else if (call->tag == IndirectCall_TAG)
-        args = call->payload.indirect_call.args;
+    if (call->tag == Call_TAG)
+        args = call->payload.call.args;
     else
         assert(false);
 
@@ -437,11 +435,8 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
     }
 
     CValue callee;
-    if (call->tag == LeafCall_TAG) {
-        emit_decl(emitter, call->payload.leaf_call.callee);
-        callee = to_cvalue(emitter, *lookup_existing_term(emitter, call->payload.leaf_call.callee));
-    } else
-        callee = to_cvalue(emitter, emit_value(emitter, p, call->payload.indirect_call.callee));
+    if (call->tag == Call_TAG)
+        callee = to_cvalue(emitter, emit_value(emitter, p, call->payload.call.callee));
 
     String params = printer_growy_unwrap(paramsp);
 
@@ -576,8 +571,7 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
     switch (is_instruction(instruction)) {
         case NotAnInstruction: assert(false);
         case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
-        case Instruction_LeafCall_TAG:
-        case Instruction_IndirectCall_TAG: emit_call  (emitter, p, instruction, outputs); break;
+        case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;
         case Instruction_If_TAG:           emit_if    (emitter, p, instruction, outputs); break;
         case Instruction_Match_TAG:        emit_match (emitter, p, instruction, outputs); break;
         case Instruction_Loop_TAG:         emit_loop  (emitter, p, instruction, outputs); break;

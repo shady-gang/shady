@@ -149,10 +149,9 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             return recreate_node_identity(&ctx->rewriter, node);
         }
-        case IndirectCall_TAG:
-        case LeafCall_TAG: {
-            const Node* ocallee = node->tag == LeafCall_TAG ? node->payload.leaf_call.callee : node->payload.indirect_call.callee;
-            Nodes oargs = node->tag == LeafCall_TAG ? node->payload.leaf_call.args : node->payload.indirect_call.args;
+        case Call_TAG: {
+            const Node* ocallee = node->payload.call.callee;
+            Nodes oargs = node->payload.call.args;
 
             ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {

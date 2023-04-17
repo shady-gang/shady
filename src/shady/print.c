@@ -518,23 +518,14 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
                 print_ty_args_list(ctx, node->payload.prim_op.type_arguments);
             print_args_list(ctx, node->payload.prim_op.operands);
             break;
-        } case LeafCall_TAG: {
+        } case Call_TAG: {
             printf(GREEN);
-            printf("leaf_call");
+            printf("call");
             printf(RESET);
             printf(" (");
-            print_node(node->payload.leaf_call.callee);
+            print_node(node->payload.call.callee);
             printf(")");
-            print_args_list(ctx, node->payload.leaf_call.args);
-            break;
-        } case IndirectCall_TAG: {
-            printf(GREEN);
-            printf("indirect_call");
-            printf(RESET);
-            printf(" (");
-            print_node(node->payload.indirect_call.callee);
-            printf(")");
-            print_args_list(ctx, node->payload.indirect_call.args);
+            print_args_list(ctx, node->payload.call.args);
             break;
         } case If_TAG: {
             printf(GREEN);

@@ -74,20 +74,14 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             callee_node->is_address_captured = true;
             break;
         }
-        case LeafCall_TAG: {
-            const Node* callee = node->payload.indirect_call.callee;
-            visit_callsite(visitor, callee, node);
-            visit_nodes(&visitor->visitor, node->payload.leaf_call.args);
-            break;
-        }
-        case IndirectCall_TAG: {
-            const Node* callee = node->payload.indirect_call.callee;
+        case Call_TAG: {
+            const Node* callee = node->payload.call.callee;
             callee = ignore_immediate_fn_addr(callee);
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);
             else
                 visit_node(visitor, callee);
-            visit_nodes(&visitor->visitor, node->payload.indirect_call.args);
+            visit_nodes(&visitor->visitor, node->payload.call.args);
             break;
         }
         case TailCall_TAG: {

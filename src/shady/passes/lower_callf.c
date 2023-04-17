@@ -89,9 +89,9 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             const Node* old_tail = get_let_tail(old);
             // we convert calls to tail-calls within a control
             // let(call_indirect(...), ret_fn) to let(control(jp => save(jp); tailcall(...)), ret_fn)
-            if (old_instruction->tag == IndirectCall_TAG) {
+            if (old_instruction->tag == Call_TAG && old_instruction->payload.call.callee->tag != FnAddr_TAG) {
                 // Get the return types from the old callee
-                const Node* ocallee = old_instruction->payload.indirect_call.callee;
+                const Node* ocallee = old_instruction->payload.call.callee;
                 const Type* ocallee_type = ocallee->type;
                 bool callee_uniform = deconstruct_qualified_type(&ocallee_type);
                 ocallee_type = get_pointee_type(dst_arena, ocallee_type);
@@ -100,7 +100,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
                 // Rewrite the callee and its arguments
                 const Node* ncallee = rewrite_node(&ctx->rewriter, ocallee);
-                Nodes nargs = rewrite_nodes(&ctx->rewriter, old_instruction->payload.indirect_call.args);
+                Nodes nargs = rewrite_nodes(&ctx->rewriter, old_instruction->payload.call.args);
 
                 // Create the body of the control that receives the appropriately typed join point
                 const Type* jp_type = qualified_type(dst_arena, (QualifiedType) {

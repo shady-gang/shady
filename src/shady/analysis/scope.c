@@ -91,9 +91,9 @@ static void add_structural_edge(ScopeBuildContext* ctx, CFNode* parent, const No
 static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction) {
     switch (is_instruction(instruction)) {
         case NotAnInstruction: if (instruction->arena->config.check_types) { error("Grammar problem"); } break;
-        case Instruction_LeafCall_TAG:
-        case Instruction_IndirectCall_TAG:
-        case Instruction_PrimOp_TAG: break;
+        case Instruction_Call_TAG:
+        case Instruction_PrimOp_TAG:
+        case Instruction_Comment_TAG: break;
         case Instruction_If_TAG:
             add_structural_edge(ctx, parent, instruction->payload.if_instr.if_true, IfBodyEdge);
             if(instruction->payload.if_instr.if_false)

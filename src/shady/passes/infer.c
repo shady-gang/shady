@@ -464,36 +464,12 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
     });
 }
 
-static const Node* _infer_leaf_call(Context* ctx, const Node* node, const Type* expected_type) {
-    assert(node->tag == LeafCall_TAG);
-
-    const Node* new_callee = infer(ctx, node->payload.leaf_call.callee, NULL);
-    LARRAY(const Node*, new_args, node->payload.leaf_call.args.count);
-
-    const Type* callee_type = new_callee->type;
-    if (callee_type->tag != FnType_TAG)
-        error("Callees must have a function type");
-    if (callee_type->payload.fn_type.param_types.count != node->payload.leaf_call.args.count)
-        error("Mismatched argument counts");
-    for (size_t i = 0; i < node->payload.leaf_call.args.count; i++) {
-        const Node* arg = node->payload.leaf_call.args.nodes[i];
-        assert(arg);
-        new_args[i] = infer(ctx, node->payload.leaf_call.args.nodes[i], callee_type->payload.fn_type.param_types.nodes[i]);
-        assert(new_args[i]->type);
-    }
-
-    return leaf_call(ctx->rewriter.dst_arena, (LeafCall) {
-        .callee = new_callee,
-        .args = nodes(ctx->rewriter.dst_arena, node->payload.leaf_call.args.count, new_args)
-    });
-}
-
 static const Node* _infer_indirect_call(Context* ctx, const Node* node, const Type* expected_type) {
-    assert(node->tag == IndirectCall_TAG);
+    assert(node->tag == Call_TAG);
 
-    const Node* new_callee = infer(ctx, node->payload.indirect_call.callee, NULL);
+    const Node* new_callee = infer(ctx, node->payload.call.callee, NULL);
     assert(is_value(new_callee));
-    LARRAY(const Node*, new_args, node->payload.indirect_call.args.count);
+    LARRAY(const Node*, new_args, node->payload.call.args.count);
 
     const Type* callee_type = get_unqualified_type(new_callee->type);
     if (callee_type->tag != PtrType_TAG)
@@ -502,18 +478,18 @@ static const Node* _infer_indirect_call(Context* ctx, const Node* node, const Ty
 
     if (callee_type->tag != FnType_TAG)
         error("Callees must have a function type");
-    if (callee_type->payload.fn_type.param_types.count != node->payload.indirect_call.args.count)
+    if (callee_type->payload.fn_type.param_types.count != node->payload.call.args.count)
         error("Mismatched argument counts");
-    for (size_t i = 0; i < node->payload.indirect_call.args.count; i++) {
-        const Node* arg = node->payload.indirect_call.args.nodes[i];
+    for (size_t i = 0; i < node->payload.call.args.count; i++) {
+        const Node* arg = node->payload.call.args.nodes[i];
         assert(arg);
-        new_args[i] = infer(ctx, node->payload.indirect_call.args.nodes[i], callee_type->payload.fn_type.param_types.nodes[i]);
+        new_args[i] = infer(ctx, node->payload.call.args.nodes[i], callee_type->payload.fn_type.param_types.nodes[i]);
         assert(new_args[i]->type);
     }
 
-    return indirect_call(ctx->rewriter.dst_arena, (IndirectCall) {
+    return call(ctx->rewriter.dst_arena, (Call) {
         .callee = new_callee,
-        .args = nodes(ctx->rewriter.dst_arena, node->payload.indirect_call.args.count, new_args)
+        .args = nodes(ctx->rewriter.dst_arena, node->payload.call.args.count, new_args)
     });
 }
 
@@ -613,8 +589,7 @@ static const Node* _infer_block(Context* ctx, const Node* node, const Type* expe
 static const Node* _infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return _infer_primop(ctx, node, expected_type);
-        case LeafCall_TAG:     return _infer_leaf_call(ctx, node, expected_type);
-        case IndirectCall_TAG: return _infer_indirect_call(ctx, node, expected_type);
+        case Call_TAG:         return _infer_indirect_call(ctx, node, expected_type);
         case If_TAG:           return _infer_if    (ctx, node, expected_type);
         case Loop_TAG:         return _infer_loop  (ctx, node, expected_type);
         case Match_TAG:        error("TODO")

@@ -413,7 +413,7 @@ static const Node* accept_primary_expr(ctxparams) {
         switch (curr_token(tokenizer).tag) {
             case lpar_tok: {
                 Nodes args = expect_operands(ctx);
-                expr = indirect_call(arena, (IndirectCall) {
+                expr = call(arena, (Call) {
                     .callee = expr,
                     .args = args
                 });
@@ -564,26 +564,14 @@ static const Node* accept_primop(ctxparams) {
     switch (curr_token(tokenizer).tag) {
         /// Only used for IR parsing
         /// Otherwise accept_expression handles this
-        case indirect_call_tok: {
+        case call_tok: {
             next_token(tokenizer);
             expect(accept_token(ctx, lpar_tok));
             const Node* callee = accept_operand(ctx);
             assert(callee);
             expect(accept_token(ctx, rpar_tok));
             Nodes args = expect_operands(ctx);
-            return indirect_call(arena, (IndirectCall) {
-                .callee = callee,
-                .args = args,
-            });
-        }
-        case leaf_call_tok: {
-            next_token(tokenizer);
-            expect(accept_token(ctx, lpar_tok));
-            const Node* callee = accept_operand(ctx);
-            assert(callee);
-            expect(accept_token(ctx, rpar_tok));
-            Nodes args = expect_operands(ctx);
-            return leaf_call(arena, (LeafCall) {
+            return call(arena, (Call) {
                 .callee = callee,
                 .args = args,
             });

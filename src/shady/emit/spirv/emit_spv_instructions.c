@@ -377,8 +377,10 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
     error("unreachable");
 }
 
-static void emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, LeafCall call, size_t results_count, SpvId results[]) {
+static void emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, Call call, size_t results_count, SpvId results[]) {
     const Node* fn = call.callee;
+    assert(fn->tag == FnAddr_TAG);
+    fn = fn->payload.fn_addr.fn;
     SpvId callee = emit_decl(emitter, fn);
 
     const Type* callee_type = call.callee->type;
@@ -600,12 +602,11 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case NotAnInstruction: error("");
         case Instruction_Control_TAG:
         case Instruction_Block_TAG: error("Should be lowered elsewhere")
-        case IndirectCall_TAG: error("SPIR-V does not support indirect function calls. Such instructions need to be lowered away.");
-        case LeafCall_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.leaf_call, results_count, results);                 break;
-        case PrimOp_TAG:      emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
-        case If_TAG:              emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, results_count, results);    break;
-        case Match_TAG:        emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
-        case Loop_TAG:          emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
+        case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.call, results_count, results);                 break;
+        case PrimOp_TAG:              emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
+        case If_TAG:                      emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, results_count, results);    break;
+        case Match_TAG:                emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
+        case Loop_TAG:                  emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
         case Comment_TAG: break;
     }
 }

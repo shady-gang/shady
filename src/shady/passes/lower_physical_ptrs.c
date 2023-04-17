@@ -317,12 +317,12 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, oprim_op->op == store_op, ptr_type->payload.ptr_type.address_space);
 
                 if (oprim_op->op == load_op) {
-                    const Node* result = first(bind_instruction(bb, leaf_call(arena, (LeafCall) { .callee = fn, .args = singleton(pointer_as_offset) })));
+                    const Node* result = first(bind_instruction(bb, call(arena, (Call) { .callee = fn_addr(arena, (FnAddr) { .fn = fn }), .args = singleton(pointer_as_offset) })));
                     return finish_body(bb, let(arena, quote_single(arena, result), tail));
                 } else {
                     const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
 
-                    bind_instruction(bb, leaf_call(arena, (LeafCall) { .callee = fn, .args = mk_nodes(arena, pointer_as_offset, value) }));
+                    bind_instruction(bb, call(arena, (Call) { .callee = fn_addr(arena, (FnAddr) { .fn = fn }), .args = mk_nodes(arena, pointer_as_offset, value) }));
                     return finish_body(bb, let(arena, unit(arena), tail));
                 }
                 SHADY_UNREACHABLE;

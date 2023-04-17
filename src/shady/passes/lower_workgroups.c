@@ -127,7 +127,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 gen_store(bb2, ref_decl(a, (RefDecl) { .decl = get_global_var(ctx, global_id_op) }), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
                 // TODO: write the subgroup ID
 
-                bind_instruction(bb2, leaf_call(a, (LeafCall) { .callee = inner, .args = wparams }));
+                bind_instruction(bb2, call(a, (Call) { .callee = fn_addr(a, (FnAddr) { .fn = inner }), .args = wparams }));
                 const Node* instr = yield_values_and_wrap_in_block(bb2, empty(a));
 
                 // Wrap in 3 loops for iterating over subgroups, then again for workgroups

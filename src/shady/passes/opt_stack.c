@@ -76,8 +76,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 case If_TAG:
                 // Leaf calls and indirect calls are not analysed and so they are considered to leak the state
                 // we also need to forget our information about the current state
-                case LeafCall_TAG:
-                case IndirectCall_TAG: {
+                case Instruction_Call_TAG: {
                     tag_leaks(ctx);
                     child_ctx.state = NULL;
                     break;

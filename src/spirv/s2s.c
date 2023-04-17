@@ -1110,7 +1110,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 args[i] = get_def_ssa_value(parser, instruction[4 + i]);
 
             int rslts_count = get_def_type(parser, result_t) == unit_type(parser->arena) ? 0 : 1;
-            Nodes rslts = bind_instruction_extra(parser->current_block.builder, indirect_call(parser->arena, (IndirectCall) {
+            Nodes rslts = bind_instruction_extra(parser->current_block.builder, call(parser->arena, (Call) {
                 .callee = fn_addr(parser->arena, (FnAddr) { .fn = callee }),
                 .args = nodes(parser->arena, num_args, args)
             }), rslts_count, NULL, NULL);

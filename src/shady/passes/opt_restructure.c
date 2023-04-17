@@ -178,23 +178,20 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 case Instruction_Match_TAG: error("not supposed to exist in IR at this stage");
                 case Instruction_Block_TAG: error("Should be eliminated by the compiler");
                 case Instruction_Comment_TAG:
-                case Instruction_LeafCall_TAG:
                 case Instruction_PrimOp_TAG: {
-                    return rebuild_let(ctx, body, recreate_node_identity(&ctx->rewriter, old_instr), exit_ladder);
+                    break;
                 }
-                case Instruction_IndirectCall_TAG: {
-                    const Node* callee = old_instr->payload.indirect_call.callee;
+                case Instruction_Call_TAG: {
+                    const Node* callee = old_instr->payload.call.callee;
                     if (callee->tag == FnAddr_TAG) {
                         const Node* fn = rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
+                        // leave leaf calls alone
                         if (lookup_annotation(fn, "Leaf")) {
-                            const Node* call = leaf_call(arena, (LeafCall) {
-                                .callee = fn,
-                                .args = rewrite_nodes(&ctx->rewriter, old_instr->payload.indirect_call.args)
-                            });
-                            return rebuild_let(ctx, body, call, exit_ladder);
+                            break;
                         }
                     }
                     // if we don't manage that, give up :(
+                    assert(false); // actually that should not come up.
                     longjmp(ctx->bail, 1);
                 }
                 // let(control(body), tail)
@@ -253,6 +250,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(arena, unit(arena), tail_lambda)));
                 }
             }
+            return rebuild_let(ctx, body, recreate_node_identity(&ctx->rewriter, old_instr), exit_ladder);
         }
         case Jump_TAG: {
             BodyBuilder* bb = begin_body(arena);
@@ -372,18 +370,6 @@ static const Node* process(Context* ctx, const Node* node) {
         new->payload.fun.annotations = filter_out_annotation(arena, new->payload.fun.annotations, "MaybeLeaf");
 
         return new;
-    } else if (node->tag == Instruction_IndirectCall_TAG) {
-        const Node* callee = node->payload.indirect_call.callee;
-        if (callee->tag == FnAddr_TAG) {
-            const Node* fn = rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
-            if (lookup_annotation(fn, "Leaf")) {
-                const Node* call = leaf_call(arena, (LeafCall) {
-                        .callee = fn,
-                        .args = rewrite_nodes(&ctx->rewriter, node->payload.indirect_call.args)
-                });
-                return call;
-            }
-        }
     }
 
     if (!ctx->lower)

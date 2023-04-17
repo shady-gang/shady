@@ -96,17 +96,12 @@ static void visit_instruction(const VisitCtx* ctx, const Node* instruction) {
             }
             visit_values(ctx, instruction->payload.prim_op.operands);
             break;
-        } case Instruction_LeafCall_TAG: {
+        } case Instruction_Call_TAG:{
             VisitCtx ctx2 = *ctx;
             ctx2.use_location = NULL;
-            visit_values(&ctx2, instruction->payload.leaf_call.args);
-            break;
-        } case Instruction_IndirectCall_TAG:{
-            VisitCtx ctx2 = *ctx;
-            ctx2.use_location = NULL;
-            visit_values(&ctx2, instruction->payload.indirect_call.args);
+            visit_values(&ctx2, instruction->payload.call.args);
             ctx2.is_callee = true;
-            visit_value(&ctx2, instruction->payload.indirect_call.callee);
+            visit_value(&ctx2, instruction->payload.call.callee);
             break;
         } case Instruction_If_TAG: {
             visit_value(ctx, instruction->payload.if_instr.condition);

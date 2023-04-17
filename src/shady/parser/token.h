@@ -62,8 +62,7 @@ TOKEN(break, "break") \
 TEXT_TOKEN(jump) \
 TEXT_TOKEN(branch) \
 TEXT_TOKEN(join) \
-TEXT_TOKEN(leaf_call) \
-TEXT_TOKEN(indirect_call) \
+TEXT_TOKEN(call) \
 TOKEN(return, "return") \
 TEXT_TOKEN(unreachable) \
 PRIMOPS(REGISTER_PRIMOP_AS_TOKEN) \

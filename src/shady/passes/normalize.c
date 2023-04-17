@@ -61,25 +61,13 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
             });
             break;
         }
-        case IndirectCall_TAG: {
+        case Call_TAG: {
             assert(ctx->bb);
-            Nodes oargs = node->payload.indirect_call.args;
+            Nodes oargs = node->payload.call.args;
 
-            const Node* ncallee = rewrite_value(ctx, node->payload.indirect_call.callee);
+            const Node* ncallee = rewrite_value(ctx, node->payload.call.callee);
 
-            let_bound = indirect_call(dst_arena, (IndirectCall) {
-                .callee = ncallee,
-                .args = rewrite_nodes_with_fn(&ctx->rewriter, oargs, (RewriteFn) rewrite_value),
-            });
-            break;
-        }
-        case LeafCall_TAG: {
-            assert(ctx->bb);
-            Nodes oargs = node->payload.indirect_call.args;
-
-            const Node* ncallee = rewrite_something(ctx, node->payload.indirect_call.callee);
-
-            let_bound = leaf_call(dst_arena, (LeafCall) {
+            let_bound = call(dst_arena, (Call) {
                 .callee = ncallee,
                 .args = rewrite_nodes_with_fn(&ctx->rewriter, oargs, (RewriteFn) rewrite_value),
             });

@@ -1071,20 +1071,7 @@ static Nodes check_value_call(const Node* callee, Nodes argument_types) {
     return fn_type->return_types;
 }
 
-const Type* check_type_leaf_call(IrArena* arena, LeafCall call) {
-    Nodes args = call.args;
-    for (size_t i = 0; i < args.count; i++) {
-        const Node* argument = args.nodes[i];
-        assert(is_value(argument));
-    }
-    Nodes argument_types = get_values_types(arena, args);
-    assert(is_function(call.callee));
-    assert(call.callee->type->tag == FnType_TAG);
-    check_arguments_types_against_parameters_helper(call.callee->type->payload.fn_type.param_types, argument_types);
-    return wrap_multiple_yield_types(arena, call.callee->payload.fun.return_types);
-}
-
-const Type* check_type_indirect_call(IrArena* arena, IndirectCall call) {
+const Type* check_type_call(IrArena* arena, Call call) {
     Nodes args = call.args;
     for (size_t i = 0; i < args.count; i++) {
         const Node* argument = args.nodes[i];
