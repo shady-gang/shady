@@ -18,16 +18,16 @@ static bool should_convert(Context* ctx, const Type* t) {
     return t->tag == Int_TAG && t->payload.int_type.width == IntTy64 && ctx->config->lower.int64;
 }
 
-static void extract_low_hi_halves(BodyBuilder* builder, const Node* src, const Node** lo, const Node** hi) {
-    *lo = first(bind_instruction(builder, prim_op(builder->arena,
-        (PrimOp) { .op = extract_op, .operands = mk_nodes(builder->arena, src, int32_literal(builder->arena, 0))})));
-    *hi = first(bind_instruction(builder, prim_op(builder->arena,
-        (PrimOp) { .op = extract_op, .operands = mk_nodes(builder->arena, src, int32_literal(builder->arena, 1))})));
+static void extract_low_hi_halves(BodyBuilder* bb, const Node* src, const Node** lo, const Node** hi) {
+    *lo = first(bind_instruction(bb, prim_op(bb->arena,
+        (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, src, int32_literal(bb->arena, 0))})));
+    *hi = first(bind_instruction(bb, prim_op(bb->arena,
+        (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, src, int32_literal(bb->arena, 1))})));
 }
 
-static void extract_low_hi_halves_list(BodyBuilder* builder, Nodes src, const Node** lows, const Node** his) {
+static void extract_low_hi_halves_list(BodyBuilder* bb, Nodes src, const Node** lows, const Node** his) {
     for (size_t i = 0; i < src.count; i++) {
-        extract_low_hi_halves(builder, src.nodes[i], lows, his);
+        extract_low_hi_halves(bb, src.nodes[i], lows, his);
         lows++;
         his++;
     }
@@ -63,14 +63,14 @@ static const Node* process(Context* ctx, const Node* node) {
                 case add_op: if (should_convert(ctx, first(old_nodes)->type)) {
                     Nodes new_nodes = rewrite_nodes(&ctx->rewriter, old_nodes);
                     // TODO: convert into and then out of unsigned
-                    BodyBuilder* builder = begin_body(a);
-                    extract_low_hi_halves_list(builder, new_nodes, lows, his);
-                    Nodes low_and_carry = bind_instruction(builder, prim_op(a, (PrimOp) { .op = add_carry_op, .operands = nodes(a, 2, lows)}));
+                    BodyBuilder* bb = begin_body(a);
+                    extract_low_hi_halves_list(bb, new_nodes, lows, his);
+                    Nodes low_and_carry = bind_instruction(bb, prim_op(a, (PrimOp) { .op = add_carry_op, .operands = nodes(a, 2, lows)}));
                     const Node* lo = first(low_and_carry);
                     // compute the high side, without forgetting the carry bit
-                    const Node* hi = first(bind_instruction(builder, prim_op(a, (PrimOp) { .op = add_op, .operands = nodes(a, 2, his)})));
-                                hi = first(bind_instruction(builder, prim_op(a, (PrimOp) { .op = add_op, .operands = mk_nodes(a, hi, low_and_carry.nodes[1])})));
-                    return yield_values_and_wrap_in_block(builder, singleton(tuple(a, mk_nodes(a, lo, hi))));
+                    const Node* hi = first(bind_instruction(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = nodes(a, 2, his)})));
+                                hi = first(bind_instruction(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = mk_nodes(a, hi, low_and_carry.nodes[1])})));
+                    return yield_values_and_wrap_in_block(bb, singleton(tuple(a, mk_nodes(a, lo, hi))));
                 } break;
                 default: break;
             }

@@ -101,20 +101,20 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     register_processed_list(&lifting_ctx.rewriter, oparams, new_params);
 
     // Recover that stuff inside the new body
-    BodyBuilder* builder = begin_body(a);
+    BodyBuilder* bb = begin_body(a);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
         assert(ovar->tag == Variable_TAG);
 
         const Type* value_type = rewrite_node(&ctx->rewriter, ovar->type);
 
-        const Node* recovered_value = first(bind_instruction_named(builder, prim_op(a, (PrimOp) {
+        const Node* recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) {
             .op = pop_stack_op,
             .type_arguments = singleton(get_unqualified_type(value_type))
         }), &ovar->payload.var.name));
 
         if (is_qualified_type_uniform(ovar->type))
-            recovered_value = first(bind_instruction_named(builder, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .operands = singleton(recovered_value) }), &ovar->payload.var.name));
+            recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .operands = singleton(recovered_value) }), &ovar->payload.var.name));
 
         register_processed(&lifting_ctx.rewriter, ovar, recovered_value);
     }
@@ -124,7 +124,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     destroy_rewriter(&lifting_ctx.rewriter);
 
     assert(is_terminator(substituted));
-    new_fn->payload.fun.body = finish_body(builder, substituted);
+    new_fn->payload.fun.body = finish_body(bb, substituted);
 
     return lifted_cont;
 }

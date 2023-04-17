@@ -26,7 +26,7 @@ typedef struct Context_ {
 typedef struct {
     Visitor visitor;
     Context* context;
-    BodyBuilder* builder;
+    BodyBuilder* bb;
 } VContext;
 
 static void collect_allocas(VContext* vctx, const Node* node) {
@@ -41,13 +41,13 @@ static void collect_allocas(VContext* vctx, const Node* node) {
         }
 
         const Type* element_type = rewrite_node(&vctx->context->rewriter, node->payload.prim_op.type_arguments.nodes[0]);
-        const Node* element_size = gen_primop_e(vctx->builder, size_of_op, singleton(element_type), empty(a));
+        const Node* element_size = gen_primop_e(vctx->bb, size_of_op, singleton(element_type), empty(a));
 
-        const Node* slot = first(bind_instruction_named(vctx->builder, prim_op(a, (PrimOp) {
+        const Node* slot = first(bind_instruction_named(vctx->bb, prim_op(a, (PrimOp) {
             .op = lea_op,
             .operands = mk_nodes(a, vctx->context->entry_base_stack_ptr, element_size) }), (String []) {"stack_slot" }));
         const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = as });
-        slot = gen_reinterpret_cast(vctx->builder, ptr_t, slot);
+        slot = gen_reinterpret_cast(vctx->bb, ptr_t, slot);
 
         register_processed(&vctx->context->rewriter, node, quote_single(a, slot));
         return;
@@ -78,7 +78,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         .visit_fn_scope_rpo = true,
                     },
                     .context = &ctx2,
-                    .builder = bb,
+                    .bb = bb,
                 };
                 if (node->payload.fun.body)
                     collect_allocas(&vctx, node);
@@ -105,7 +105,7 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 }
 
-void  setup_stack_frames(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+void setup_stack_frames(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .config = config,

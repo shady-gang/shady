@@ -56,30 +56,30 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     Nodes rewritten_params = recreate_variables(&ctx2.rewriter, old->payload.fun.params);
     Node* new_entry_pt = function(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), nodes(a, 0, NULL));
 
-    BodyBuilder* builder = begin_body(a);
+    BodyBuilder* bb = begin_body(a);
 
-    bind_instruction(builder, call(a, (Call) { .callee = fn_addr(a, (FnAddr) { .fn = ctx->init_fn }), .args = empty(a) }));
-    bind_instruction(builder, call(a, (Call) { .callee = access_decl(&ctx->rewriter, "builtin_init_scheduler"), .args = empty(a) }));
+    bind_instruction(bb, call(a, (Call) { .callee = fn_addr(a, (FnAddr) { .fn = ctx->init_fn }), .args = empty(a) }));
+    bind_instruction(bb, call(a, (Call) { .callee = access_decl(&ctx->rewriter, "builtin_init_scheduler"), .args = empty(a) }));
 
     // shove the arguments on the stack
     for (size_t i = rewritten_params.count - 1; i < rewritten_params.count; i--) {
-        gen_push_value_stack(builder, rewritten_params.nodes[i]);
+        gen_push_value_stack(bb, rewritten_params.nodes[i]);
     }
 
     // Initialise next_fn/next_mask to the entry function
     const Node* jump_fn = access_decl(&ctx->rewriter, "builtin_fork");
-    bind_instruction(builder, call(a, (Call) { .callee = jump_fn, .args = singleton(lower_fn_addr(ctx, old)) }));
+    bind_instruction(bb, call(a, (Call) { .callee = jump_fn, .args = singleton(lower_fn_addr(ctx, old)) }));
 
     if (!*ctx->top_dispatcher_fn) {
         *ctx->top_dispatcher_fn = function(ctx->rewriter.dst_module, nodes(a, 0, NULL), "top_dispatcher", singleton(annotation(a, (Annotation) { .name = "Generated" })), nodes(a, 0, NULL));
     }
 
-    bind_instruction(builder, call(a, (Call) {
+    bind_instruction(bb, call(a, (Call) {
         .callee = fn_addr(a, (FnAddr) { .fn = *ctx->top_dispatcher_fn }),
         .args = nodes(a, 0, NULL)
     }));
 
-    new_entry_pt->payload.fun.body = finish_body(builder, fn_ret(a, (Return) {
+    new_entry_pt->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
         .fn = NULL,
         .args = nodes(a, 0, NULL)
     }));

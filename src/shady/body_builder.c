@@ -15,19 +15,19 @@ typedef struct {
     bool mut;
 } StackEntry;
 
-BodyBuilder* begin_body(IrArena* arena) {
-    BodyBuilder* builder = malloc(sizeof(BodyBuilder));
-    *builder = (BodyBuilder) {
-        .arena = arena,
+BodyBuilder* begin_body(IrArena* a) {
+    BodyBuilder* bb = malloc(sizeof(BodyBuilder));
+    *bb = (BodyBuilder) {
+        .arena = a,
         .stack = new_list(StackEntry),
     };
-    return builder;
+    return bb;
 }
 
-static Nodes create_output_variables(IrArena* arena, const Node* value, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
+static Nodes create_output_variables(IrArena* a, const Node* value, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
     Nodes types;
-    if (arena->config.check_types) {
-        types = unwrap_multiple_yield_types(arena, value->type);
+    if (a->config.check_types) {
+        types = unwrap_multiple_yield_types(a, value->type);
         if (provided_types) {
             assert(provided_types->count == types.count);
             // Check that the types we got are subtypes of what we care about
@@ -45,7 +45,7 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
             LARRAY(const Type*, nulls, outputs_count);
             for (size_t i = 0; i < outputs_count; i++)
                 nulls[i] = NULL;
-            types = nodes(arena, outputs_count, nulls);
+            types = nodes(a, outputs_count, nulls);
         }
     }
 
@@ -59,46 +59,46 @@ static Nodes create_output_variables(IrArena* arena, const Node* value, size_t o
                 var_name = node_tags[value->tag];
             }
         }
-        vars[i] = (Node*) var(arena, types.nodes[i], var_name);
+        vars[i] = (Node*) var(a, types.nodes[i], var_name);
     }
 
     // for (size_t i = 0; i < outputs_count; i++) {
     //     vars[i]->payload.var.instruction = value;
     //     vars[i]->payload.var.output = i;
     // }
-    return nodes(arena, outputs_count, (const Node**) vars);
+    return nodes(a, outputs_count, (const Node**) vars);
 }
 
-static Nodes bind_internal(BodyBuilder* builder, const Node* instruction, bool mut, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
-    if (builder->arena->config.check_types) {
+static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, bool mut, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
+    if (bb->arena->config.check_types) {
         assert(is_instruction(instruction));
     }
-    Nodes params = create_output_variables(builder->arena, instruction, outputs_count, provided_types, output_names);
+    Nodes params = create_output_variables(bb->arena, instruction, outputs_count, provided_types, output_names);
     StackEntry entry = {
         .instr = instruction,
         .vars = params,
         .mut = mut,
     };
-    append_list(StackEntry, builder->stack, entry);
+    append_list(StackEntry, bb->stack, entry);
     return params;
 }
 
-Nodes bind_instruction_extra(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
-    return bind_internal(builder, instruction, false, outputs_count, provided_types, output_names);
+Nodes bind_instruction_extra(BodyBuilder* bb, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
+    return bind_internal(bb, instruction, false, outputs_count, provided_types, output_names);
 }
 
-Nodes bind_instruction_extra_mutable(BodyBuilder* builder, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
-    return bind_internal(builder, instruction, true, outputs_count, provided_types, output_names);
+Nodes bind_instruction_extra_mutable(BodyBuilder* bb, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
+    return bind_internal(bb, instruction, true, outputs_count, provided_types, output_names);
 }
 
-Nodes bind_instruction_named(BodyBuilder* builder, const Node* instruction, String const output_names[]) {
-    assert(builder->arena->config.check_types);
-    return bind_internal(builder, instruction, false, SIZE_MAX, NULL, output_names);
+Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String const output_names[]) {
+    assert(bb->arena->config.check_types);
+    return bind_internal(bb, instruction, false, SIZE_MAX, NULL, output_names);
 }
 
-Nodes bind_instruction(BodyBuilder* builder, const Node* instruction) {
-    assert(builder->arena->config.check_types);
-    return bind_internal(builder, instruction, false, SIZE_MAX, NULL, NULL);
+Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
+    assert(bb->arena->config.check_types);
+    return bind_internal(bb, instruction, false, SIZE_MAX, NULL, NULL);
 }
 
 void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {
@@ -110,16 +110,16 @@ void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {
     append_list(StackEntry, bb->stack, entry);
 }
 
-const Node* finish_body(BodyBuilder* builder, const Node* terminator) {
-    size_t stack_size = entries_count_list(builder->stack);
+const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
+    size_t stack_size = entries_count_list(bb->stack);
     for (size_t i = stack_size - 1; i < stack_size; i--) {
-        StackEntry entry = read_list(StackEntry, builder->stack)[i];
-        const Node* lam = lambda(builder->arena, entry.vars, terminator);
-        terminator = (entry.mut ? let_mut : let)(builder->arena, entry.instr, lam);
+        StackEntry entry = read_list(StackEntry, bb->stack)[i];
+        const Node* lam = lambda(bb->arena, entry.vars, terminator);
+        terminator = (entry.mut ? let_mut : let)(bb->arena, entry.instr, lam);
     }
 
-    destroy_list(builder->stack);
-    free(builder);
+    destroy_list(bb->stack);
+    free(bb);
     return terminator;
 }
 

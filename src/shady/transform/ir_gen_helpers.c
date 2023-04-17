@@ -75,29 +75,29 @@ const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
     return gen_primop_ce(bb, or_op, 2, (const Node* []) { lo, hi });
 }
 
-const Node* gen_load(BodyBuilder* instructions, const Node* ptr) {
-    return gen_primop_ce(instructions, load_op, 1, (const Node* []) { ptr });
+const Node* gen_load(BodyBuilder* bb, const Node* ptr) {
+    return gen_primop_ce(bb, load_op, 1, (const Node* []) {ptr });
 }
 
 void gen_store(BodyBuilder* instructions, const Node* ptr, const Node* value) {
     gen_primop_c(instructions, store_op, 2, (const Node* []) { ptr, value });
 }
 
-const Node* gen_lea(BodyBuilder* instructions, const Node* base, const Node* offset, Nodes selectors) {
+const Node* gen_lea(BodyBuilder* bb, const Node* base, const Node* offset, Nodes selectors) {
     LARRAY(const Node*, ops, 2 + selectors.count);
     ops[0] = base;
     ops[1] = offset;
     for (size_t i = 0; i < selectors.count; i++)
         ops[2 + i] = selectors.nodes[i];
-    return gen_primop_ce(instructions, lea_op, 2 + selectors.count, ops);
+    return gen_primop_ce(bb, lea_op, 2 + selectors.count, ops);
 }
 
-const Node* gen_extract(BodyBuilder* instructions, const Node* base, Nodes selectors) {
+const Node* gen_extract(BodyBuilder* bb, const Node* base, Nodes selectors) {
     LARRAY(const Node*, ops, 1 + selectors.count);
     ops[0] = base;
     for (size_t i = 0; i < selectors.count; i++)
         ops[1 + i] = selectors.nodes[i];
-    return gen_primop_ce(instructions, extract_op, 1 + selectors.count, ops);
+    return gen_primop_ce(bb, extract_op, 1 + selectors.count, ops);
 }
 
 void gen_comment(BodyBuilder* bb, String str) {
