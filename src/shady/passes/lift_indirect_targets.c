@@ -165,15 +165,21 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Let_TAG: {
             const Node* oinstruction = get_let_instruction(node);
             if (oinstruction->tag == Control_TAG) {
-                const Node* otail = get_let_tail(node);
-                BodyBuilder* bb = begin_body(arena);
-                LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(arena, format_string(arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
-                add_spill_instrs(ctx, bb, lifted_tail->save_values);
-                const Node* tail_ptr = fn_addr(arena, (FnAddr) { .fn = lifted_tail->lifted_fn });
+                const Node* oinside = oinstruction->payload.control.inside;
+                assert(is_anonymous_lambda(oinside));
+                const Node* old_jp = first(get_abstraction_params(oinside));
+                Uses* jp_uses = *find_value_dict(const Node*, Uses*, ctx->uses->map, old_jp);
+                if (jp_uses->escapes_defining_block) {
+                    const Node* otail = get_let_tail(node);
+                    BodyBuilder* bb = begin_body(arena);
+                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(arena, format_string(arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
+                    add_spill_instrs(ctx, bb, lifted_tail->save_values);
+                    const Node* tail_ptr = fn_addr(arena, (FnAddr) {.fn = lifted_tail->lifted_fn});
 
-                const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
+                    const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
 
-                return finish_body(bb, let(arena, quote(arena, singleton(jp)), rewrite_node(&ctx->rewriter, oinstruction->payload.control.inside)));
+                    return finish_body(bb, let(arena, quote(arena, singleton(jp)), rewrite_node(&ctx->rewriter, oinside)));
+                }
             }
 
             return recreate_node_identity(&ctx->rewriter, node);
