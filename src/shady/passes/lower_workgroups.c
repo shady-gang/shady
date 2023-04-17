@@ -57,7 +57,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 case workgroup_num_op:
                 case workgroup_size_op:
                 case global_id_op: {
-                    const Node* ref = ref_decl(a, (RefDecl) { .decl = get_global_var(ctx, node->payload.prim_op.op) });
+                    const Node* ref = ref_decl_helper(a,  get_global_var(ctx, node->payload.prim_op.op));
                     return prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(ref) });
                 }
                 default: break;
@@ -84,7 +84,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 inner->payload.fun.body = recreate_node_identity(&ctx->rewriter, node->payload.fun.body);
 
                 BodyBuilder* bb = begin_body(a);
-                const Node* workgroup_num_vec3 = gen_load(bb, ref_decl(a, (RefDecl) { .decl = get_global_var(ctx, workgroup_num_op) }));
+                const Node* workgroup_num_vec3 = gen_load(bb, ref_decl_helper(a, get_global_var(ctx, workgroup_num_op)));
 
                 // prepare variables for iterating over workgroups
                 String names[] = { "gx", "gy", "gz" };
@@ -112,19 +112,19 @@ static const Node* process(Context* ctx, const Node* node) {
 
                 BodyBuilder* bb2 = begin_body(a);
                 // write the workgroup ID
-                gen_store(bb2, ref_decl(a, (RefDecl) { .decl = get_global_var(ctx, workgroup_id_op) }), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
+                gen_store(bb2, ref_decl_helper(a, get_global_var(ctx, workgroup_id_op)), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
                 // write the local ID
                 const Node* local_id[3];
                 // local_id[0] = SUBGROUP_SIZE * subgroup_id[0] + subgroup_local_id
                 local_id[0] = gen_primop_e(bb2, add_op, empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, empty(a), mk_nodes(a, uint32_literal(a, a->config.specializations.subgroup_size), subgroup_id[0])), gen_primop_e(bb2, subgroup_local_id_op, empty(a), empty(a))));
                 local_id[1] = subgroup_id[1];
                 local_id[2] = subgroup_id[2];
-                gen_store(bb2, ref_decl(a, (RefDecl) { .decl = get_global_var(ctx, workgroup_local_id_op) }), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
+                gen_store(bb2, ref_decl_helper(a, get_global_var(ctx, workgroup_local_id_op)), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
                 // write the global ID
                 const Node* global_id[3];
                 for (int dim = 0; dim < 3; dim++)
                     global_id[dim] = gen_primop_e(bb2, add_op, empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, empty(a), mk_nodes(a, uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
-                gen_store(bb2, ref_decl(a, (RefDecl) { .decl = get_global_var(ctx, global_id_op) }), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
+                gen_store(bb2, ref_decl_helper(a, get_global_var(ctx, global_id_op)), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
                 // TODO: write the subgroup ID
 
                 bind_instruction(bb2, call(a, (Call) { .callee = fn_addr_helper(a, inner), .args = wparams }));

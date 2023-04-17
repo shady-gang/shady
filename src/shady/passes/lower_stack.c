@@ -231,10 +231,10 @@ void lower_stack(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) 
         .pop_uniforms = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .pop = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
 
-        .stack = ref_decl(a, (RefDecl) { .decl = stack_decl }),
-        .stack_pointer = ref_decl(a, (RefDecl) { .decl = stack_ptr_decl }),
-        .uniform_stack = ref_decl(a, (RefDecl) { .decl = uniform_stack_decl }),
-        .uniform_stack_pointer = ref_decl(a, (RefDecl) { .decl = uniform_stack_ptr_decl }),
+        .stack = ref_decl_helper(a, stack_decl),
+        .stack_pointer = ref_decl_helper(a, stack_ptr_decl),
+        .uniform_stack = ref_decl_helper(a, uniform_stack_decl),
+        .uniform_stack_pointer = ref_decl_helper(a, uniform_stack_ptr_decl),
     };
 
     rewrite_module(&ctx.rewriter);

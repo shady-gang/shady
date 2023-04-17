@@ -224,6 +224,10 @@ const Node* fn_addr_helper(IrArena* a, const Node* fn) {
     return fn_addr(a, (FnAddr) { .fn = fn });
 }
 
+const Node* ref_decl_helper(IrArena* a, const Node* decl) {
+    return ref_decl(a, (RefDecl) { .decl = decl });
+}
+
 Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
     assert(!mod->sealed);
     IrArena* arena = mod->arena;

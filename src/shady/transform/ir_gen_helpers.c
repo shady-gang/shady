@@ -120,7 +120,7 @@ const Node* access_decl(Rewriter* rewriter, const char* name) {
     if (decl->tag == Function_TAG)
         return fn_addr_helper(rewriter->dst_arena, decl);
     else
-        return ref_decl(rewriter->dst_arena, (RefDecl) { .decl = decl });
+        return ref_decl_helper(rewriter->dst_arena, decl);
 }
 
 const Node* convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {

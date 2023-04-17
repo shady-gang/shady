@@ -44,7 +44,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
         // All decls map to refdecl/fnaddr
         case Constant_TAG:
         case GlobalVariable_TAG: {
-            return ref_decl(a, (RefDecl) { rewrite_something(ctx, node) });
+            return ref_decl_helper(a, rewrite_something(ctx, node));
         }
         case Function_TAG: {
             return fn_addr_helper(a, rewrite_something(ctx, node));

@@ -279,7 +279,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
 
     BodyBuilder* bb = begin_body(a);
     const Node* address = bytes_to_words(ctx, bb, address_param);
-    const Node* base = ref_decl(a, (RefDecl) { .decl = *get_emulated_as_word_array(ctx, as) });
+    const Node* base = ref_decl_helper(a, *get_emulated_as_word_array(ctx, as));
     if (ser) {
         gen_serialisation(ctx, bb, element_type, base, address, value_param);
         fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .fn = fun, .args = empty(a) }));

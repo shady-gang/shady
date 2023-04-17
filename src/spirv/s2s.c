@@ -160,7 +160,7 @@ const Type* get_def_ssa_value(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
     const Node* n = def->node;
     if (is_declaration(n))
-        n = ref_decl(parser->arena, (RefDecl) { .decl = n });
+        n = ref_decl_helper(parser->arena, n);
     assert(n && (is_value(n) || is_instruction(n)));
     return n;
 }

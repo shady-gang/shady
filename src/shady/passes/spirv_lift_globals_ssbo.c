@@ -24,7 +24,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobalPhysical)
                 break;
             BodyBuilder* bb = begin_body(a);
-            const Node* ptr_addr = gen_lea(bb, ref_decl(a, (RefDecl) { .decl = ctx->lifted_globals_decl}), int32_literal(a, 0), singleton(rewrite_node(&ctx->rewriter, odecl)));
+            const Node* ptr_addr = gen_lea(bb, ref_decl_helper(a, ctx->lifted_globals_decl), int32_literal(a, 0), singleton(rewrite_node(&ctx->rewriter, odecl)));
             const Node* ptr = gen_load(bb, ptr_addr);
             return anti_quote(a, (AntiQuote) { .instruction = yield_values_and_wrap_in_block(bb, singleton(ptr)) });
         }

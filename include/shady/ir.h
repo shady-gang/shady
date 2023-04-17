@@ -177,6 +177,7 @@ const Node* var(IrArena*, const Type* type, const char* name);
 const Node* tuple(IrArena*, Nodes contents);
 const Node* composite(IrArena*, const Type*, Nodes contents);
 const Node* fn_addr_helper(IrArena*, const Node* fn);
+const Node* ref_decl_helper(IrArena*, const Node* decl);
 
 // instructions
 /// Turns a value into an 'instruction' (the enclosing let will be folded away later)
