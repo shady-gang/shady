@@ -78,5 +78,4 @@ add_subdirectory(builtin)
 add_subdirectory(emit)
 
 target_link_libraries(shady PUBLIC "api")
-target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:builtin_code>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:common>")
