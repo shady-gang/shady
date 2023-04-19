@@ -262,8 +262,6 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, "next_fn"));
     const Node* get_active_branch_fn = access_decl(&ctx->rewriter, "builtin_get_active_branch");
-    assert(get_active_branch_fn->tag == FnAddr_TAG);
-    get_active_branch_fn = get_active_branch_fn->payload.fn_addr.fn;
     const Node* next_mask = first(bind_instruction(loop_body_builder, call(a, (Call) { .callee = get_active_branch_fn, .args = empty(a) })));
     const Node* local_id = gen_primop_e(loop_body_builder, subgroup_local_id_op, empty(a), empty(a));
     const Node* should_run = gen_primop_e(loop_body_builder, mask_is_thread_active_op, empty(a), mk_nodes(a, next_mask, local_id));
@@ -345,7 +343,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 bind_instruction(if_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: thread %d:%d will run fn %d with mask = %x %b\n" }), sid, local_id, fn_lit, next_mask, should_run) }));
             }
             bind_instruction(if_builder, call(a, (Call) {
-                .callee = find_processed(&ctx->rewriter, decl),
+                .callee = fn_addr_helper(a, find_processed(&ctx->rewriter, decl)),
                 .args = nodes(a, 0, NULL)
             }));
             const Node* if_true_lam = lambda(a, empty(a), finish_body(if_builder, yield(a, (Yield) { .args = nodes(a, 0, NULL) })));
