@@ -402,7 +402,7 @@ void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* d
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
     IrArena* a = get_module_arena(dst);
 
-    Node* init_fn = function(dst, nodes(a, 0, NULL), "generated_init", singleton(annotation(a, (Annotation) { .name = "Generated" })), nodes(a, 0, NULL));
+    Node* init_fn = function(dst, nodes(a, 0, NULL), "generated_init", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), nodes(a, 0, NULL));
     init_fn->payload.fun.body = fn_ret(a, (Return) { .fn = init_fn, .args = empty(a) });
 
     FnPtr next_fn_ptr = 1;
