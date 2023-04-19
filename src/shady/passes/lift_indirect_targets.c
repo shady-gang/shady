@@ -167,9 +167,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (oinstruction->tag == Control_TAG) {
                 const Node* oinside = oinstruction->payload.control.inside;
                 assert(is_anonymous_lambda(oinside));
-                const Node* old_jp = first(get_abstraction_params(oinside));
-                Uses* jp_uses = *find_value_dict(const Node*, Uses*, ctx->uses->map, old_jp);
-                if (jp_uses->escapes_defining_block) {
+                if (!is_control_static(ctx->uses, oinstruction)) {
                     const Node* otail = get_let_tail(node);
                     BodyBuilder* bb = begin_body(a);
                     LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string(a, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));

@@ -587,9 +587,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
         } case Control_TAG: {
             printf(BGREEN);
             if (ctx->scope) {
-                const Node* jp = first(node->payload.control.inside->payload.anon_lam.params);
-                Uses* jp_uses = *find_value_dict(const Node*, Uses*, ctx->uses->map, jp);
-                if (!jp_uses->escapes_defining_block)
+                if (is_control_static(ctx->uses, node))
                     printf("static ");
             }
             printf("control");

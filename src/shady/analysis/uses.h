@@ -25,4 +25,6 @@ typedef struct {
 ScopeUses* analyse_uses_scope(Scope*);
 void destroy_uses_scope(ScopeUses*);
 
+bool is_control_static(ScopeUses*, const Node* control);
+
 #endif

@@ -292,3 +292,12 @@ void destroy_uses_scope(ScopeUses* u) {
     destroy_dict(u->map);
     free(u);
 }
+
+bool is_control_static(ScopeUses* uses, const Node* control) {
+    assert(control->tag == Control_TAG);
+    const Node* inside = control->payload.control.inside;
+    assert(is_anonymous_lambda(inside));
+    const Node* jp = first(get_abstraction_params(inside));
+    Uses* param_uses = *find_value_dict(const Node*, Uses*, uses->map, jp);
+    return !param_uses->escapes_defining_block && !param_uses->in_non_callee_position;
+}
