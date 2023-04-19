@@ -6,6 +6,8 @@
 #include "../rewrite.h"
 #include "../type.h"
 
+#include "../analysis/scope.h"
+#include "../analysis/uses.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include "list.h"
@@ -22,6 +24,9 @@ typedef struct Context_ {
     bool disable_lowering;
     struct Dict* assigned_fn_ptrs;
     FnPtr* next_fn_ptr;
+
+    Scope* scope;
+    ScopeUses* uses;
 
     Node** top_dispatcher_fn;
     Node* init_fn;
@@ -93,6 +98,9 @@ static const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case Function_TAG: {
             Context ctx2 = *ctx;
+            ctx2.scope = new_scope(old);
+            ctx2.uses = analyse_uses_scope(ctx2.scope);
+            ctx = &ctx2;
 
             const Node* entry_point_annotation = lookup_annotation_list(old->payload.fun.annotations, "EntryPoint");
 
@@ -101,13 +109,16 @@ static const Node* process(Context* ctx, const Node* old) {
             if (ctx2.disable_lowering) {
                 Node* fun = recreate_decl_header_identity(&ctx2.rewriter, old);
                 if (old->payload.fun.body) {
-                    const Node* nbody = rewrite_node(&ctx->rewriter, old->payload.fun.body);
+                    const Node* nbody = rewrite_node(&ctx2.rewriter, old->payload.fun.body);
                     if (entry_point_annotation) {
                         const Node* lam = lambda(a, empty(a), nbody);
-                        nbody = let(a, call(a, (Call) { .callee = fn_addr_helper(a, ctx->init_fn), .args = empty(a)}), lam);
+                        nbody = let(a, call(a, (Call) { .callee = fn_addr_helper(a, ctx2.init_fn), .args = empty(a)}), lam);
                     }
                     fun->payload.fun.body = nbody;
                 }
+
+                destroy_uses_scope(ctx2.uses);
+                destroy_scope(ctx2.scope);
                 return fun;
             }
 
@@ -136,6 +147,8 @@ static const Node* process(Context* ctx, const Node* old) {
                 register_processed(&ctx->rewriter, old_param, popped);
             }
             fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
+            destroy_uses_scope(ctx2.uses);
+            destroy_scope(ctx2.scope);
             return fun;
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
@@ -186,10 +199,14 @@ static const Node* process(Context* ctx, const Node* old) {
             //if (ctx->disable_lowering)
             //    return recreate_node_identity(&ctx->rewriter, old);
 
+            const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
+            const Node* jp_type = jp->type;
+            deconstruct_qualified_type(&jp_type);
+            if (jp_type->tag == JoinPointType_TAG)
+                break;
+
             BodyBuilder* bb = begin_body(a);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
-
-            const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
             const Node* dst = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 1)));
             const Node* tree_node = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 0)));
 
@@ -206,10 +223,33 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Type* emulated_fn_ptr_type = uint32_type(a);
                 return emulated_fn_ptr_type;
             }
-            SHADY_FALLTHROUGH
+            break;
         }
-        default: return recreate_node_identity(&ctx->rewriter, old);
+        case Control_TAG: {
+            if (is_control_static(ctx->uses, old)) {
+                const Node* old_inside = old->payload.control.inside;
+                const Node* old_jp = first(get_abstraction_params(old_inside));
+                assert(old_jp->tag == Variable_TAG);
+                const Node* old_jp_type = old_jp->type;
+                deconstruct_qualified_type(&old_jp_type);
+                assert(old_jp_type->tag == JoinPointType_TAG);
+                const Node* new_jp_type = join_point_type(a, (JoinPointType) {
+                    .yield_types = rewrite_nodes(&ctx->rewriter, old_jp_type->payload.join_point_type.yield_types),
+                });
+                const Node* new_jp = var(a, qualified_type_helper(new_jp_type, true), old_jp->payload.var.name);
+                register_processed(&ctx->rewriter, old_jp, new_jp);
+                const Node* new_body = lambda(a, singleton(new_jp), rewrite_node(&ctx->rewriter, get_abstraction_body(old_inside)));
+                return control(a, (Control) {
+                    .yield_types = rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types),
+                    .inside = new_body,
+                });
+            }
+            break;
+        }
+        default:
+            break;
     }
+    return recreate_node_identity(&ctx->rewriter, old);
 }
 
 void generate_top_level_dispatch_fn(Context* ctx) {
