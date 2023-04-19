@@ -90,6 +90,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(opt_stack)
 
     RUN_PASS(lower_tailcalls)
+    RUN_PASS(lower_switch_btree)
+    RUN_PASS(opt_restructurize)
 
     aconfig.specializations.subgroup_mask_representation = SubgroupMaskInt64;
     RUN_PASS(lower_mask)
@@ -104,8 +106,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_memory_layout)
 
     RUN_PASS(lower_int)
-    RUN_PASS(lower_switch_btree)
-    RUN_PASS(opt_restructurize)
 
     if (config->lower.simt_to_explicit_simd) {
         aconfig.is_simt = false;
