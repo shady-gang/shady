@@ -31,7 +31,7 @@ Strings import_strings(IrArena*, Strings);
 #define VISIT_FIELD_BASIC_BLOCK(t, n)
 #define VISIT_FIELD_BASIC_BLOCKS(t, n)
 
-static void intern_strings(IrArena* arena, Node* node) {
+static void pre_construction_validation(IrArena* arena, Node* node) {
     switch (node->tag) {
         case InvalidNode_TAG: SHADY_UNREACHABLE;
         #define VISIT_FIELD(hash, ft, t, n) VISIT_FIELD_##ft(t, n)
@@ -62,7 +62,7 @@ static void intern_strings(IrArena* arena, Node* node) {
 #define VISIT_FIELD_BASIC_BLOCK(t, n)
 #define VISIT_FIELD_BASIC_BLOCKS(t, n)
 
-static void tag_used_anon_lambdas(IrArena* arena, Node* node) {
+static void post_construction_validation(IrArena* arena, Node* node) {
     switch (node->tag) {
         case InvalidNode_TAG: SHADY_UNREACHABLE;
         #define VISIT_FIELD(hash, ft, t, n) VISIT_FIELD_##ft(t, n)
@@ -74,7 +74,7 @@ static void tag_used_anon_lambdas(IrArena* arena, Node* node) {
 }
 
 static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
-    intern_strings(arena, &node);
+    pre_construction_validation(arena, &node);
 
     if (pfresh)
         *pfresh = false;
@@ -95,7 +95,7 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
         if (folded != ptr) {
             // The folding process simplified the node, we store a mapping to that simplified node and bail out !
             insert_set_get_result(Node*, arena->node_set, folded);
-            tag_used_anon_lambdas(arena, folded);
+            post_construction_validation(arena, folded);
             return folded;
         }
     }
@@ -108,7 +108,7 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     *alloc = node;
     insert_set_get_result(const Node*, arena->node_set, alloc);
 
-    tag_used_anon_lambdas(arena, alloc);
+    post_construction_validation(arena, alloc);
     return alloc;
 }
 
