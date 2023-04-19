@@ -83,52 +83,45 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 assert(false);
             }
         }
-        case Let_TAG: {
-            const Node* old_instruction = get_let_instruction(old);
-            const Node* new_instruction = NULL;
-            const Node* old_tail = get_let_tail(old);
-            // we convert calls to tail-calls within a control
-            // let(call_indirect(...), ret_fn) to let(control(jp => save(jp); tailcall(...)), ret_fn)
-            if (old_instruction->tag == Call_TAG && old_instruction->payload.call.callee->tag != FnAddr_TAG) {
-                // Get the return types from the old callee
-                const Node* ocallee = old_instruction->payload.call.callee;
-                const Type* ocallee_type = ocallee->type;
-                bool callee_uniform = deconstruct_qualified_type(&ocallee_type);
-                ocallee_type = get_pointee_type(a, ocallee_type);
-                assert(ocallee_type->tag == FnType_TAG);
-                Nodes returned_types = rewrite_nodes(&ctx->rewriter, ocallee_type->payload.fn_type.return_types);
+        // we convert calls to tail-calls within a control - only if the
+        // call_indirect(...) to control(jp => save(jp); tailcall(...))
+        case Call_TAG: {
+            const Node* ocallee = old->payload.call.callee;
+            // if we know the callee and it's a leaf - then we don't change the call
+            if (ocallee->tag == FnAddr_TAG && lookup_annotation(ocallee->payload.fn_addr.fn, "Leaf"))
+                break;
 
-                // Rewrite the callee and its arguments
-                const Node* ncallee = rewrite_node(&ctx->rewriter, ocallee);
-                Nodes nargs = rewrite_nodes(&ctx->rewriter, old_instruction->payload.call.args);
+            const Type* ocallee_type = ocallee->type;
+            bool callee_uniform = deconstruct_qualified_type(&ocallee_type);
+            ocallee_type = get_pointee_type(a, ocallee_type);
+            assert(ocallee_type->tag == FnType_TAG);
+            Nodes returned_types = rewrite_nodes(&ctx->rewriter, ocallee_type->payload.fn_type.return_types);
 
-                // Create the body of the control that receives the appropriately typed join point
-                const Type* jp_type = qualified_type(a, (QualifiedType) {
+            // Rewrite the callee and its arguments
+            const Node* ncallee = rewrite_node(&ctx->rewriter, ocallee);
+            Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.call.args);
+
+            // Create the body of the control that receives the appropriately typed join point
+            const Type* jp_type = qualified_type(a, (QualifiedType) {
                     .type = join_point_type(a, (JoinPointType) { .yield_types = strip_qualifiers(a, returned_types) }),
                     .is_uniform = true
-                });
-                const Node* jp = var(a, jp_type, "fn_return_point");
+            });
+            const Node* jp = var(a, jp_type, "fn_return_point");
 
-                // Add that join point as the last argument to the newly made function
-                nargs = append_nodes(a, nargs, jp);
+            // Add that join point as the last argument to the newly made function
+            nargs = append_nodes(a, nargs, jp);
 
-                // the body of the control is just an immediate tail-call
-                const Node* control_body = tail_call(a, (TailCall) {
-                    .target = ncallee,
-                    .args = nargs,
-                });
-                const Node* control_lam = lambda(a, nodes(a, 1, (const Node*[]) {jp }), control_body);
-                new_instruction = control(a, (Control) { .yield_types = strip_qualifiers(a, returned_types), .inside = control_lam });
-            }
-
-            if (!new_instruction)
-                new_instruction = rewrite_node(&ctx->rewriter, old_instruction);
-
-            const Node* new_tail = rewrite_node(&ctx->rewriter, old_tail);
-            return let(a, new_instruction, new_tail);
+            // the body of the control is just an immediate tail-call
+            const Node* control_body = tail_call(a, (TailCall) {
+                .target = ncallee,
+                .args = nargs,
+            });
+            const Node* control_lam = lambda(a, nodes(a, 1, (const Node*[]) { jp }), control_body);
+            return control(a, (Control) { .yield_types = strip_qualifiers(a, returned_types), .inside = control_lam });
         }
-        default: return recreate_node_identity(&ctx->rewriter, old);
+        default: break;
     }
+    return recreate_node_identity(&ctx->rewriter, old);
 }
 
 void lower_callf(SHADY_UNUSED CompilerConfig* config,  Module* src, Module* dst) {
