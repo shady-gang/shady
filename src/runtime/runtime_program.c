@@ -346,6 +346,8 @@ static CompilerConfig get_compiler_config_for_device(Device* device) {
     if (device->caps.implementation.is_moltenvk) {
         warn_print("Hack: MoltenVK says they supported subgroup extended types, but it's a lie. 64-bit types are unaccounted for !\n");
         config.lower.emulate_subgroup_ops_extended_types = true;
+        warn_print("Hack: MoltenVK does not support pointers to unsized arrays properly.\n");
+        config.lower.decay_ptrs = true;
     }
     if (device->caps.properties.base.properties.vendorID == 0x10de) {
         warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");

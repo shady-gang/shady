@@ -1,4 +1,5 @@
 #include "scope.h"
+#include "looptree.h"
 #include "log.h"
 
 #include "list.h"
@@ -29,6 +30,7 @@ bool compare_node(const Node**, const Node**);
 typedef struct {
     Arena* arena;
     const Node* entry;
+    LoopTree* lt;
     struct Dict* nodes;
     struct List* queue;
     struct List* contents;
@@ -62,12 +64,35 @@ static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
     return new;
 }
 
+static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
+    LTNode* lt_node = looptree_lookup(lt, block);
+    assert(lt_node);
+    LTNode* parent = lt_node->parent;
+    assert(parent);
+
+    while (parent) {
+        if (entries_count_list(parent->cf_nodes) != 1)
+            return false;
+
+        if (read_list(CFNode*, parent->cf_nodes)[0]->node == entry)
+            return true;
+
+        parent = parent->parent;
+    }
+
+    return false;
+}
+
 static bool is_structural_edge(CFEdgeType edge_type) { return edge_type != ForwardEdge; }
 
 /// Adds an edge to somewhere inside a basic block
 static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type) {
     assert(!is_function(dst));
     assert(is_structural_edge(type) == is_anonymous_lambda(dst));
+    if (ctx->lt && !in_loop(ctx->lt, ctx->entry, dst))
+        return;
+    if (ctx->lt && dst == ctx->entry)
+        return;
 
     CFNode* src_node = get_or_enqueue(ctx, src);
     CFNode* dst_node = get_or_enqueue(ctx, dst);
@@ -160,13 +185,86 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     }
 }
 
-Scope* new_scope(const Node* entry) {
+/**
+ * Invert all edges in this scope. Used to compute a post dominance tree.
+ */
+static void flip_scope(Scope* scope) {
+    scope->entry = NULL;
+
+    for (size_t i = 0; i < scope->size; i++) {
+        CFNode * cur = read_list(CFNode*, scope->contents)[i];
+
+        struct List* tmp = cur->succ_edges;
+        cur->succ_edges = cur->pred_edges;
+        cur->pred_edges = tmp;
+
+        for (size_t j = 0; j < entries_count_list(cur->succ_edges); j++) {
+            CFEdge* edge = &read_list(CFEdge, cur->succ_edges)[j];
+
+            CFNode* tmp = edge->dst;
+            edge->dst = edge->src;
+            edge->src = tmp;
+        }
+
+        for (size_t j = 0; j < entries_count_list(cur->pred_edges); j++) {
+            CFEdge* edge = &read_list(CFEdge, cur->pred_edges)[j];
+
+            CFNode* tmp = edge->dst;
+            edge->dst = edge->src;
+            edge->src = tmp;
+        }
+
+        if (entries_count_list(cur->pred_edges) == 0) {
+            if (scope->entry != NULL) {
+                if (scope->entry->node) {
+                    CFNode* new_entry = arena_alloc(scope->arena, sizeof(CFNode));
+                    *new_entry = (CFNode) {
+                        .node = NULL,
+                        .succ_edges = new_list(CFEdge),
+                        .pred_edges = new_list(CFEdge),
+                        .rpo_index = SIZE_MAX,
+                        .idom = NULL,
+                        .dominates = NULL,
+                    };
+
+                    CFEdge prev_entry_edge = {
+                        .type = ForwardEdge,
+                        .src = new_entry,
+                        .dst = scope->entry
+                    };
+                    append_list(CFEdge, new_entry->succ_edges, prev_entry_edge);
+                    append_list(CFEdge, scope->entry->pred_edges, prev_entry_edge);
+                    scope->entry = new_entry;
+                }
+
+                CFEdge new_edge = {
+                    .type = ForwardEdge,
+                    .src = scope->entry,
+                    .dst = cur
+                };
+                append_list(CFEdge, scope->entry->succ_edges, new_edge);
+                append_list(CFEdge, cur->pred_edges, new_edge);
+            } else {
+                scope->entry = cur;
+            }
+        }
+    }
+
+    if (!scope->entry->node) {
+        scope->size += 1;
+        append_list(Node*, scope->contents, scope->entry);
+    }
+}
+
+
+Scope* new_scope_impl(const Node* entry, LoopTree* lt, bool flipped) {
     assert(is_abstraction(entry));
     Arena* arena = new_arena();
 
     ScopeBuildContext context = {
         .arena = arena,
         .entry = entry,
+        .lt = lt,
         .nodes = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
         .queue = new_list(CFNode*),
         .contents = new_list(CFNode*),
@@ -186,10 +284,14 @@ Scope* new_scope(const Node* entry) {
         .arena = arena,
         .entry = entry_node,
         .size = entries_count_list(context.contents),
+        .flipped = flipped,
         .contents = context.contents,
         .map = context.nodes,
         .rpo = NULL
     };
+
+    if (flipped)
+        flip_scope(scope);
 
     compute_rpo(scope);
     compute_domtree(scope);
@@ -198,14 +300,22 @@ Scope* new_scope(const Node* entry) {
 }
 
 void destroy_scope(Scope* scope) {
+    bool entry_destroyed = false;
     for (size_t i = 0; i < scope->size; i++) {
         CFNode* node = read_list(CFNode*, scope->contents)[i];
+        entry_destroyed |= node == scope->entry;
         destroy_list(node->pred_edges);
         destroy_list(node->succ_edges);
         if (node->dominates)
             destroy_list(node->dominates);
         if (node->structurally_dominated)
             destroy_dict(node->structurally_dominated);
+    }
+    if (!entry_destroyed) {
+        destroy_list(scope->entry->pred_edges);
+        destroy_list(scope->entry->succ_edges);
+        if (scope->entry->dominates)
+            destroy_list(scope->entry->dominates);
     }
     destroy_dict(scope->map);
     destroy_arena(scope->arena);
@@ -250,8 +360,10 @@ CFNode* least_common_ancestor(CFNode* i, CFNode* j) {
 }
 
 void compute_domtree(Scope* scope) {
-    for (size_t i = 1; i < scope->size; i++) {
+    for (size_t i = 0; i < scope->size; i++) {
         CFNode* n = read_list(CFNode*, scope->contents)[i];
+        if (n == scope->entry)
+            continue;
         for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
             CFEdge e = read_list(CFEdge, n->pred_edges)[j];
             CFNode* p = e.src;
@@ -267,8 +379,10 @@ void compute_domtree(Scope* scope) {
     bool todo = true;
     while (todo) {
         todo = false;
-        for (size_t i = 1; i < scope->size; i++) {
+        for (size_t i = 0; i < scope->size; i++) {
             CFNode* n = read_list(CFNode*, scope->contents)[i];
+            if (n == scope->entry)
+                continue;
             CFNode* new_idom = NULL;
             for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
                 CFEdge e = read_list(CFEdge, n->pred_edges)[j];
@@ -287,10 +401,46 @@ void compute_domtree(Scope* scope) {
         CFNode* n = read_list(CFNode*, scope->contents)[i];
         n->dominates = new_list(CFNode*);
     }
-    for (size_t i = 1; i < scope->size; i++) {
+    for (size_t i = 0; i < scope->size; i++) {
         CFNode* n = read_list(CFNode*, scope->contents)[i];
+        if (n == scope->entry)
+            continue;
         append_list(CFNode*, n->idom->dominates, n);
     }
+}
+
+/**
+ * @param node: Start node.
+ * @param target: List to extend. @ref List of @ref CFNode*
+ */
+static void get_undominated_children(const CFNode* node, struct List* target) {
+    for (size_t i = 0; i < entries_count_list(node->succ_edges); i++) {
+        CFEdge edge = read_list(CFEdge, node->succ_edges)[i];
+
+        bool contained = false;
+        for (size_t j = 0; j < entries_count_list(node->dominates); j++) {
+            CFNode* dominated = read_list(CFNode*, node->dominates)[j];
+            if (edge.dst == dominated) {
+                contained = true;
+                break;
+            }
+        }
+        if (!contained)
+            append_list(CFNode*, target, edge.dst);
+    }
+}
+
+//TODO: this function can produce duplicates.
+struct List* scope_get_dom_frontier(Scope* scope, const CFNode* node) {
+    struct List* dom_frontier = new_list(CFNode*);
+
+    get_undominated_children(node, dom_frontier);
+    for (size_t i = 0; i < entries_count_list(node->dominates); i++) {
+        CFNode* dom = read_list(CFNode*, node->dominates)[i];
+        get_undominated_children(dom, dom_frontier);
+    }
+
+    return dom_frontier;
 }
 
 static int extra_uniqueness = 0;

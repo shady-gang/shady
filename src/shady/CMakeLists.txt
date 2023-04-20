@@ -22,6 +22,7 @@ set(SHADY_SOURCES
     analysis/verify.c
     analysis/callgraph.c
     analysis/uses.c
+    analysis/looptree.c
 
     transform/memory_layout.c
     transform/ir_gen_helpers.c
@@ -40,6 +41,7 @@ set(SHADY_SOURCES
     passes/lower_generic_ptrs.c
     passes/lower_memory_layout.c
     passes/lower_memcpy.c
+    passes/lower_decay_ptrs.c
     passes/lower_tailcalls.c
     passes/lower_mask.c
     passes/lower_fill.c
@@ -55,6 +57,7 @@ set(SHADY_SOURCES
     passes/opt_inline.c
     passes/opt_stack.c
     passes/opt_restructure.c
+    passes/reconvergence_heuristics.c
     passes/simt2d.c
     passes/specialize_for_entry_point.c
 

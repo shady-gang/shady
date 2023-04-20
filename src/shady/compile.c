@@ -72,6 +72,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(bind_program)
     RUN_PASS(normalize)
 
+    RUN_PASS(reconvergence_heuristics)
+
     aconfig.check_types = true;
     RUN_PASS(infer_program)
 
@@ -104,6 +106,10 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_physical_ptrs)
     RUN_PASS(lower_subgroup_vars)
     RUN_PASS(lower_memory_layout)
+
+    if (config->lower.decay_ptrs) {
+        RUN_PASS(lower_decay_ptrs)
+    }
 
     RUN_PASS(lower_int)
 

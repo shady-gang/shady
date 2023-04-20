@@ -30,6 +30,7 @@ struct PrinterCtx_ {
     const Node* fn;
     Scope* scope;
     ScopeUses* uses;
+    long int min_rpo;
     PrintConfig config;
 };
 
@@ -213,7 +214,12 @@ static void print_abs_body(PrinterCtx* ctx, const Node* block) {
     // TODO: it's likely cleaner to instead print things according to the dominator tree in the first place.
     if (ctx->scope != NULL) {
         const CFNode* dominator = scope_lookup(ctx->scope, block);
-        print_dominated_bbs(ctx, dominator);
+        if (ctx->min_rpo < ((long int) dominator->rpo_index)) {
+            size_t save_rpo = ctx->min_rpo;
+            ctx->min_rpo = dominator->rpo_index;
+            print_dominated_bbs(ctx, dominator);
+            ctx->min_rpo = save_rpo;
+        }
     }
 }
 
@@ -348,7 +354,6 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             print_address_space(ctx, node->payload.ptr_type.address_space);
             printf(", ");
             print_node(node->payload.ptr_type.pointed_type);
-            printf(")");
             break;
         }
         case ArrType_TAG: {

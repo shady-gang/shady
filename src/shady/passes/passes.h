@@ -4,7 +4,8 @@
 
 typedef void (RewritePass)(CompilerConfig* config, Module* src_module, Module* dst_module);
 
-// Boring, regular compiler stuff
+/// @name Boring, regular compiler stuff
+/// @{
 
 RewritePass import;
 
@@ -15,12 +16,18 @@ RewritePass normalize;
 /// Makes sure every node is well-typed
 RewritePass infer_program;
 
-// Initial CF lowering passes
+/// @}
+
+/// @name Initial CF lowering passes
+/// @{
 
 /// Gets rid of structured control flow constructs, and turns them into branches, joins and tailcalls
 RewritePass lower_cf_instrs;
 
-// Control flow lowering strategies
+/// @}
+
+/// @name Control flow lowering strategies
+/// @{
 
 /// Extracts unstructured basic blocks into separate functions (including spilling)
 RewritePass lift_indirect_targets;
@@ -29,7 +36,10 @@ RewritePass lower_jumps_loop;
 /// Emulates uniform jumps within functions by applying a structuring transformation
 RewritePass lower_jumps_structure;
 
-// Final CF lowering passes
+/// @}
+
+/// @name Final CF lowering passes
+/// @{
 
 /// Lowers calls to stack saves and forks, lowers returns to stack pops and joins
 RewritePass lower_callf;
@@ -38,7 +48,10 @@ RewritePass lower_tailcalls;
 /// Turns SIMT code back into SIMD (intended for debugging with the help of the C backend)
 RewritePass simt2d;
 
-// Physical memory emulation
+/// @}
+
+/// @name Physical memory emulation
+/// @{
 
 /// Implements stack frames, saves the stack size on function entry and restores it upon exit
 RewritePass setup_stack_frames;
@@ -53,8 +66,13 @@ RewritePass lower_physical_ptrs;
 /// Replaces size_of, offset_of etc with their exact values
 RewritePass lower_memory_layout;
 RewritePass lower_memcpy;
+/// Eliminates pointers to unsized arrays from the IR. Needs lower_lea to have ran first!
+RewritePass lower_decay_ptrs;
 
-// Subgroup stuff
+/// @}
+
+/// @name Subgroup stuff
+/// @{
 
 /// Emulates unsupported subgroup operations using subgroup memory
 RewritePass lower_subgroup_ops;
@@ -63,7 +81,10 @@ RewritePass lower_subgroup_vars;
 /// Lowers the abstract mask type to whatever the configured target mask representation is
 RewritePass lower_mask;
 
-// Emulation misc.
+/// @}
+
+/// @name Emulation misc.
+/// @{
 
 /// Emulates unsupported integer datatypes and operations
 RewritePass lower_int;
@@ -71,7 +92,10 @@ RewritePass lower_vec_arr;
 RewritePass lower_workgroups;
 RewritePass lower_fill;
 
-// Optimisation passes
+/// @}
+
+/// @name Optimisation passes
+/// @{
 
 /// Eliminates all Constant decls
 RewritePass eliminate_constants;
@@ -81,6 +105,9 @@ RewritePass mark_leaf_functions;
 RewritePass opt_inline_jumps;
 /// In addition, also inlines function calls according to heuristics
 RewritePass opt_inline;
+
+/// Try to identify reconvergence points throughout the program for unstructured control flow programs
+RewritePass reconvergence_heuristics;
 
 RewritePass opt_stack;
 RewritePass opt_restructurize;
@@ -93,6 +120,8 @@ RewritePass spirv_lift_globals_ssbo;
 
 void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* config);
 RewritePass specialize_for_entry_point;
+
+/// @}
 
 #define SHADY_PASSES_H
 
