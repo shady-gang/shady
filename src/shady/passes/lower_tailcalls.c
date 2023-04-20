@@ -126,6 +126,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
             Nodes new_annotations = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
             new_annotations = append_nodes(a, new_annotations, annotation_value(a, (AnnotationValue) { .name = "FnId", .value = lower_fn_addr(ctx, old) }));
+            new_annotations = append_nodes(a, new_annotations, annotation(a, (Annotation) { .name = "Leaf" }));
 
             String new_name = format_string(a, "%s_indirect", old->payload.fun.name);
 
