@@ -740,6 +740,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 name = unique_name(parser->arena, "function");
 
             Nodes annotations = empty(parser->arena);
+            annotations = append_nodes(parser->arena, annotations, annotation(parser->arena, (Annotation) { .name = "Restructure" }));
             SpvDeco* entry_point_type = find_decoration(parser, result, -1, ShdDecorationEntryPointType);
             parser->is_entry_pt = entry_point_type;
             if (entry_point_type) {
