@@ -295,6 +295,61 @@ void compute_domtree(Scope* scope) {
 
 static int extra_uniqueness = 0;
 
+static CFNode* get_let_pred(const CFNode* n) {
+    if (entries_count_list(n->pred_edges) == 1) {
+        CFEdge pred = read_list(CFEdge, n->pred_edges)[0];
+        assert(pred.dst == n);
+        if (pred.type == LetTailEdge) {
+            assert(is_anonymous_lambda(n->node));
+            return pred.src;
+        }
+    }
+    return NULL;
+}
+
+static void dump_cf_node(FILE* output, const CFNode* n) {
+    const Node* bb = n->node;
+    const Node* body = get_abstraction_body(bb);
+    if (!body)
+        return;
+    //assert(entries_count_list(n->pred_edges) > 0);
+    if (get_let_pred(n))
+        return;
+
+    String color = "black";
+    if (is_anonymous_lambda(bb))
+        color = "green";
+    else if (is_basic_block(bb))
+        color = "blue";
+
+    String label = node_tags[body->tag];
+    if (body->tag == Let_TAG)
+        label = "";
+
+    while (body->tag == Let_TAG) {
+        const Node* instr = body->payload.let.instruction;
+        label = "";
+        if (body->tag == PrimOp_TAG)
+            label = format_string(bb->arena, "%slet ... = %s (...)\n", label, primop_names[instr->payload.prim_op.op]);
+        else
+            label = format_string(bb->arena, "%slet ... = %s (...)\n", label, node_tags[instr->tag]);
+        const Node* abs = body->payload.let.tail;
+        assert(is_anonymous_lambda(abs));
+        body = get_abstraction_body(abs);
+    }
+
+    if (is_basic_block(bb)) {
+        label = format_string(bb->arena, "%s\n%s", get_abstraction_name(bb), label);
+    }
+    fprintf(output, "bb_%zu [label=\"%s\", color=\"%s\"];\n", (size_t) n, label, color);
+
+    for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
+        CFNode* d = read_list(CFNode*, n->dominates)[i];
+        if (!find_key_dict(const Node*, n->structurally_dominated, d->node))
+            dump_cf_node(output, d);
+    }
+}
+
 static void dump_cfg_scope(FILE* output, Scope* scope) {
     extra_uniqueness++;
 
@@ -303,42 +358,27 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
     fprintf(output, "label = \"%s\";\n", get_abstraction_name(entry));
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* n = read_list(const CFNode*, scope->contents)[i];
-        const Node* bb = n->node;
-        const Node* body = get_abstraction_body(bb);
-        if (!body) continue;
-
-        String color = "black";
-        if (is_anonymous_lambda(bb))
-            color = "green";
-        else if (is_basic_block(bb))
-            color = "blue";
-
-        String label = node_tags[body->tag];
-        switch (body->tag) {
-            case Let_TAG:
-                body = body->payload.let.instruction;
-                if (body->tag == PrimOp_TAG)
-                    label = format_string(bb->arena, "%s ... = %s (...)", label, primop_names[body->payload.prim_op.op]);
-                else
-                    label = format_string(bb->arena, "%s ... = %s (...)", label, node_tags[body->tag]);
-                break;
-            default: break;
-        }
-
-        if (is_basic_block(bb)) {
-            label = format_string(entry->arena, "%s\n%s", get_abstraction_name(bb), label);
-        }
-        fprintf(output, "bb_%zu [label=\"%s\", color=\"%s\"];\n", (size_t) n, label, color);
+        dump_cf_node(output, n);
     }
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
-        const Node* bb = bb_node->node;
+        const CFNode* src_node = bb_node;
+        while (true) {
+            const CFNode* let_parent = get_let_pred(src_node);
+            if (let_parent)
+                src_node = let_parent;
+            else
+                break;
+        }
 
         for (size_t j = 0; j < entries_count_list(bb_node->succ_edges); j++) {
             CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
+
+            if (edge.type == LetTailEdge)
+                continue;
+
             const CFNode* target_node = edge.dst;
-            const Node* target_bb = target_node->node;
-            fprintf(output, "bb_%zu -> bb_%zu;\n", (size_t) (bb_node), (size_t) (target_node));
+            fprintf(output, "bb_%zu -> bb_%zu;\n", (size_t) (src_node), (size_t) (target_node));
         }
     }
     fprintf(output, "}\n");
@@ -357,4 +397,10 @@ void dump_cfg(FILE* output, Module* mod) {
     }
     destroy_list(scopes);
     fprintf(output, "}\n");
+}
+
+void dump_cfg_auto(Module* mod) {
+    FILE* f = fopen("cfg.dot", "wb");
+    dump_cfg(f, mod);
+    fclose(f);
 }

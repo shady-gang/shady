@@ -494,6 +494,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
         case Value_AntiQuote_TAG: {
             PrinterCtx sub_ctx = *ctx;
             sub_ctx.scope = NULL;
+            sub_ctx.uses = NULL;
             ctx = &sub_ctx;
             printf(BBLUE);
             printf("anti_quote ");
