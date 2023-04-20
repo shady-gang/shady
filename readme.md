@@ -28,7 +28,7 @@ Not all supported features are listed, these are just the more notable ones that
    * [ ] Shuffles
  * [ ] Int8, Int16 and Int64 support everywhere
  * [ ] FP 64 emulation
- * [ ] Generic (tagged) pointers
+ * [x] Generic (tagged) pointers
  * [x] Printf debug support
  * [x] Adapt code generation to the target through a `runtime` component.
 
@@ -51,7 +51,7 @@ Not all supported features are listed, these are just the more notable ones that
 
 Additionally, the compiler supports alternative backends:
  * GLSL (untested - no runtime component yet)
- * ISPC (no runtime component either, but useful for debugging single waves)
+ * ISPC (no runtime component either, but useful for debugging on the host)
 
 Metal shading language and C backends are on the table in the future.
 
