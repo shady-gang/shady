@@ -90,21 +90,13 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
         destroy_list(exiting_nodes);
 
         if (exiting_node) {
+            assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
+
             Nodes yield_types;
             Nodes exit_args;
             Nodes lambda_args;
 
-            Nodes old_params;
-            switch (exiting_node->node->tag) {
-                case BasicBlock_TAG:
-                    old_params = exiting_node->node->payload.basic_block.params;
-                    break;
-                case AnonLambda_TAG:
-                    old_params = exiting_node->node->payload.anon_lam.params;
-                    break;
-                default:
-                    assert(false);
-            }
+            Nodes old_params = get_abstraction_params(exiting_node->node);
 
             if (old_params.count == 0) {
                 yield_types = empty(arena);
@@ -178,17 +170,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             }
             register_processed(rewriter, loop_entry_node->node, pre_join_continue);
 
-            const Node* new_terminator;
-            switch (node->tag) {
-                case BasicBlock_TAG:
-                    new_terminator = rewrite_node(rewriter, node->payload.basic_block.body);
-                    break;
-                case AnonLambda_TAG:
-                    new_terminator = rewrite_node(rewriter, node->payload.anon_lam.body);
-                    break;
-                default:
-                    assert(false);
-            }
+            const Node* new_terminator = recreate_node_identity(rewriter, get_abstraction_body(node));
             Node* loop_inner = basic_block(arena, fn, exit_args, "loop_inner");
             loop_inner->payload.basic_block.body = new_terminator;
 
@@ -324,6 +306,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 break;
             }
 
+            assert(is_abstraction(idom->node) && idom->node->tag != Function_TAG);
+
             LTNode* lt_node = looptree_lookup(ctx->current_looptree, ctx->current_abstraction);
             LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, idom->node);
             CFNode* current_node = scope_lookup(ctx->fwd_scope, ctx->current_abstraction);
@@ -339,17 +323,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes exit_args;
             Nodes lambda_args;
 
-            Nodes old_params;
-            switch (idom->node->tag) {
-                case BasicBlock_TAG:
-                    old_params = idom->node->payload.basic_block.params;
-                    break;
-                case AnonLambda_TAG:
-                    old_params = idom->node->payload.anon_lam.params;
-                    break;
-                default:
-                    assert(false);
-            }
+            Nodes old_params = get_abstraction_params(idom->node);
 
             if (old_params.count == 0) {
                 yield_types = empty(arena);
