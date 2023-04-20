@@ -234,8 +234,10 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     if (node->arena->config.name_bound) {
         Scope* scope = new_scope(node);
         sub_ctx.scope = scope;
-        sub_ctx.uses = analyse_uses_scope(sub_ctx.scope);
         sub_ctx.fn = node;
+        if (node->arena->config.check_types) {
+            sub_ctx.uses = analyse_uses_scope(sub_ctx.scope);
+        }
     }
     ctx = &sub_ctx;
 
@@ -256,7 +258,8 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     printf("\n}");
 
     if (node->arena->config.name_bound) {
-        destroy_uses_scope(sub_ctx.uses);
+        if (sub_ctx.uses)
+            destroy_uses_scope(sub_ctx.uses);
         destroy_scope(sub_ctx.scope);
     }
 }
@@ -384,7 +387,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case Variable_TAG:
-            if (ctx->scope) {
+            if (ctx->uses) {
                 if ((*find_value_dict(const Node*, Uses*, ctx->uses->map, node))->escapes_defining_block)
                     printf(MANGENTA);
                 else
@@ -586,7 +589,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             break;
         } case Control_TAG: {
             printf(BGREEN);
-            if (ctx->scope) {
+            if (ctx->uses) {
                 if (is_control_static(ctx->uses, node))
                     printf("static ");
             }
