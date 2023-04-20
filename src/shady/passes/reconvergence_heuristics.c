@@ -56,6 +56,9 @@ static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode
 
 static const Node* process_abstraction(Context* ctx, const Node* node) {
     assert(is_abstraction(node));
+    Context new_context = *ctx;
+    ctx = &new_context;
+    ctx->current_abstraction = node;
     Rewriter* rewriter = &ctx->rewriter;
     IrArena* arena = rewriter->dst_arena;
 
@@ -246,10 +249,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
     Rewriter* rewriter = &ctx->rewriter;
     IrArena* arena = rewriter->dst_arena;
 
-    if (!ctx->current_fn || !lookup_annotation(ctx->current_fn, "Restructure")) {
-        return recreate_node_identity(&ctx->rewriter, node);
-    }
-
     switch (node->tag) {
         case Function_TAG: {
             Context new_context = *ctx;
@@ -268,8 +267,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case AnonLambda_TAG:
         case BasicBlock_TAG:
+            if (!ctx->current_fn || !lookup_annotation(ctx->current_fn, "Restructure"))
+                break;
             return process_abstraction(ctx, node);
         case Branch_TAG: {
+            if (!ctx->current_fn || !lookup_annotation(ctx->current_fn, "Restructure"))
+                break;
             assert(ctx->fwd_scope);
 
             CFNode* cfnode = scope_lookup(ctx->back_scope, ctx->current_abstraction);
@@ -306,10 +309,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 break;
             }
 
-            assert(is_abstraction(idom->node) && idom->node->tag != Function_TAG);
+            const Node* old_idom_node = idom->node;
+
+            assert(is_abstraction(old_idom_node) && old_idom_node->tag != Function_TAG);
 
             LTNode* lt_node = looptree_lookup(ctx->current_looptree, ctx->current_abstraction);
-            LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, idom->node);
+            LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, old_idom_node);
             CFNode* current_node = scope_lookup(ctx->fwd_scope, ctx->current_abstraction);
 
             assert(lt_node);
@@ -323,7 +328,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes exit_args;
             Nodes lambda_args;
 
-            Nodes old_params = get_abstraction_params(idom->node);
+            Nodes old_params = get_abstraction_params(old_idom_node);
 
             if (old_params.count == 0) {
                 yield_types = empty(arena);
@@ -345,7 +350,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     types[j] = get_unqualified_type(qualified_type);
 
                     inner_args[j] = var(arena, qualified_type, old_params.nodes[j]->payload.var.name);
-                    outer_args[j] = var(arena, NULL, old_params.nodes[j]->payload.var.name);
+                    outer_args[j] = var(arena, qualified_type, old_params.nodes[j]->payload.var.name);
                 }
 
                 yield_types = nodes(arena, old_params.count, types);
@@ -359,24 +364,24 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             Node* pre_join = basic_block(arena, fn, exit_args, "exit");
             pre_join->payload.basic_block.body = join(arena, (Join) {
-                    .join_point = join_token,
-                    .args = exit_args
+                .join_point = join_token,
+                .args = exit_args
             });
 
-            const Node* cached = search_processed(rewriter, idom->node);
+            const Node* cached = search_processed(rewriter, old_idom_node);
             if (cached)
-                remove_dict(const Node*, is_declaration(idom->node) ? rewriter->decls_map : rewriter->map, idom->node);
+                remove_dict(const Node*, is_declaration(old_idom_node) ? rewriter->decls_map : rewriter->map, old_idom_node);
             for (size_t i = 0; i < old_params.count; i++) {
                 assert(!search_processed(rewriter, old_params.nodes[i]));
             }
 
-            register_processed(rewriter, idom->node, pre_join);
+            register_processed(rewriter, old_idom_node, pre_join);
 
             const Node* inner_terminator = recreate_node_identity(rewriter, node);
 
-            remove_dict(const Node*, is_declaration(idom->node) ? rewriter->decls_map : rewriter->map, idom->node);
+            remove_dict(const Node*, is_declaration(idom->node) ? rewriter->decls_map : rewriter->map, old_idom_node);
             if (cached)
-                register_processed(rewriter, idom->node, cached);
+                register_processed(rewriter, old_idom_node, cached);
 
             const Node* control_inner = lambda(arena, singleton(join_token), inner_terminator);
             const Node* new_target = control (arena, (Control) {
@@ -384,13 +389,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .yield_types = yield_types
             });
 
-            const Node* recreated_join = rewrite_node(rewriter, idom->node);
+            const Node* recreated_join = rewrite_node(rewriter, old_idom_node);
 
-            switch (idom->node->tag) {
+            switch (old_idom_node->tag) {
                 case BasicBlock_TAG: {
                     const Node* outer_terminator = jump(arena, (Jump) {
-                            .target = recreated_join,
-                            .args = lambda_args
+                        .target = recreated_join,
+                        .args = lambda_args
                     });
 
                     const Node* anon_lam = lambda(arena, lambda_args, outer_terminator);
