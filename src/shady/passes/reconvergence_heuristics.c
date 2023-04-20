@@ -57,12 +57,15 @@ static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode
 static const Node* process_node(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
 
-    Rewriter * rewriter = &ctx->rewriter;
-    IrArena * arena = rewriter->dst_arena;
+    Rewriter* rewriter = &ctx->rewriter;
+    IrArena* arena = rewriter->dst_arena;
 
     const Node* already_done = search_processed(&ctx->rewriter, node);
     if (already_done)
         return already_done;
+
+    Context new_context = *ctx;
+    ctx = &new_context;
 
     if (is_function(node)) {
         ctx->current_fn = node;
@@ -73,32 +76,18 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 
     if (is_function(node)) {
-        if (ctx->fwd_scope) {
-            destroy_scope(ctx->fwd_scope);
-            ctx->fwd_scope = NULL;
-        }
-        if (ctx->back_scope) {
-            destroy_scope(ctx->back_scope);
-            ctx->back_scope = NULL;
-        }
-        if (ctx->current_looptree) {
-            destroy_loop_tree(ctx->current_looptree);
-            ctx->current_looptree = NULL;
-        }
+        ctx->fwd_scope = new_scope(ctx->current_fn);
+        ctx->back_scope = new_scope_flipped(ctx->current_fn);
+        ctx->current_looptree = build_loop_tree(ctx->fwd_scope);
     }
 
-    const Node* old_abstraction = ctx->current_abstraction;
     if (is_abstraction(node)) {
         ctx->current_abstraction = node;
     }
     const Node* result;
 
     if (node->tag == Branch_TAG) {
-        if (!ctx->fwd_scope) {
-            ctx->fwd_scope = new_scope(ctx->current_fn);
-            ctx->back_scope = new_scope_flipped(ctx->current_fn);
-            ctx->current_looptree = build_loop_tree(ctx->fwd_scope);
-        }
+        assert(ctx->fwd_scope);
 
         CFNode* cfnode = scope_lookup(ctx->back_scope, ctx->current_abstraction);
 
@@ -240,12 +229,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }
         }
     } else if (is_abstraction(node)) {
-        if (!ctx->fwd_scope) {
-            ctx->fwd_scope = new_scope(ctx->current_fn);
-            ctx->back_scope = new_scope_flipped(ctx->current_fn);
-            ctx->current_looptree = build_loop_tree(ctx->fwd_scope);
-        }
-
         CFNode* current_node = scope_lookup(ctx->fwd_scope, node);
         LTNode* lt_node = looptree_lookup(ctx->current_looptree, node);
 
@@ -449,9 +432,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
         result = recreate_node_identity(&ctx->rewriter, node);
     }
 
-    assert(result);
+    if (is_function(node)) {
+        destroy_scope(ctx->fwd_scope);
+        destroy_scope(ctx->back_scope);
+        destroy_loop_tree(ctx->current_looptree);
+    }
 
-    ctx->current_abstraction = old_abstraction;
+    assert(result);
     return result;
 }
 
@@ -466,11 +453,4 @@ void reconvergence_heuristics(SHADY_UNUSED CompilerConfig* config, Module* src, 
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-
-    if (ctx.fwd_scope)
-        destroy_scope(ctx.fwd_scope);
-    if (ctx.back_scope)
-        destroy_scope(ctx.back_scope);
-    if (ctx.current_looptree)
-        destroy_loop_tree(ctx.current_looptree);
 }
