@@ -317,11 +317,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
                         .args = exit_args
                         });
                 switch (exiting_node->node->tag) {
-                case BasicBlock_TAG:
+                case BasicBlock_TAG: {
                     Node* pre_join_exit_bb = basic_block(arena, fn, exit_args, "exit");
                     pre_join_exit_bb->payload.basic_block.body = pre_join_exit_join;
                     pre_join_exit = pre_join_exit_bb;
                     break;
+                }
                 case AnonLambda_TAG:
                     pre_join_exit = lambda(arena, exit_args, pre_join_exit_join);
                     break;
@@ -335,11 +336,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .args = exit_args
                     });
                 switch (loop_entry_node->node->tag) {
-                case BasicBlock_TAG:
+                case BasicBlock_TAG: {
                     Node* pre_join_continue_bb = basic_block(arena, fn, exit_args, "continue");
                     pre_join_continue_bb->payload.basic_block.body = pre_join_continue_join;
                     pre_join_continue = pre_join_continue_bb;
                     break;
+                }
                 case AnonLambda_TAG:
                     pre_join_continue = lambda(arena, exit_args, pre_join_continue_join);
                     break;
@@ -424,11 +426,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                 const Node* loop_container;
                 switch (node->tag) {
-                case BasicBlock_TAG:
+                case BasicBlock_TAG: {
                     Node* bb = basic_block(arena, fn, exit_args, node->payload.basic_block.name);
                     bb->payload.basic_block.body = outer_control_let;
                     loop_container = bb;
                     break;
+                }
                 case AnonLambda_TAG:
                     loop_container = lambda(arena, exit_args, outer_control_let);
                     break;
