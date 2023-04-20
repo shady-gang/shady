@@ -136,7 +136,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (node->tag == Function_TAG) {
         Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
         Context sub_ctx = *ctx;
-        sub_ctx.disable_lowering = lookup_annotation_with_string_payload(fun, "DisablePass", "lower_cf_instrs");
+        sub_ctx.disable_lowering = lookup_annotation(fun, "Structured");
         sub_ctx.current_fn = fun;
         sub_ctx.join_points = (JoinPoints) {
             .join_point_selection_merge = NULL,

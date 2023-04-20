@@ -337,7 +337,7 @@ static const Node* process(Context* ctx, const Node* node) {
         ctx2.control_stack = NULL;
         bool is_builtin = lookup_annotation(node, "Builtin");
         bool is_leaf = false;
-        if (is_builtin || !node->payload.fun.body || setjmp(ctx2.bail)) {
+        if (is_builtin || !node->payload.fun.body || lookup_annotation(node, "Structured") || setjmp(ctx2.bail)) {
             ctx2.lower = false;
             ctx2.rewriter.map = ctx->rewriter.map;
             if (node->payload.fun.body)
