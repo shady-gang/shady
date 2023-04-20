@@ -11,11 +11,11 @@
 #include <stdbool.h>
 
 #ifdef C_PARSER_PRESENT
-#include "../clang-ast/clang_ast.h"
+#include "../frontends/clang-ast/clang_ast.h"
 #endif
 
 #ifdef SPV_PARSER_PRESENT
-#include "../spirv/s2s.h"
+#include "../frontends/spirv/s2s.h"
 #endif
 
 #define KiB * 1024
