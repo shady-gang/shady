@@ -383,7 +383,7 @@ static void emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, 
     fn = fn->payload.fn_addr.fn;
     SpvId callee = emit_decl(emitter, fn);
 
-    const Type* callee_type = call.callee->type;
+    const Type* callee_type = fn->type;
     assert(callee_type->tag == FnType_TAG);
     Nodes return_types = callee_type->payload.fn_type.return_types;
     SpvId return_type = nodes_to_codom(emitter, return_types);
