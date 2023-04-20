@@ -82,16 +82,16 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(mark_leaf_functions)
 
     RUN_PASS(lower_callf)
-    RUN_PASS(opt_simplify_cf)
+    RUN_PASS(opt_inline)
 
     RUN_PASS(lift_indirect_targets)
 
-    RUN_PASS(opt_simplify_cf)
     RUN_PASS(opt_stack)
 
     RUN_PASS(lower_tailcalls)
     RUN_PASS(lower_switch_btree)
     RUN_PASS(opt_restructurize)
+    RUN_PASS(opt_inline_jumps)
 
     aconfig.specializations.subgroup_mask_representation = SubgroupMaskInt64;
     RUN_PASS(lower_mask)

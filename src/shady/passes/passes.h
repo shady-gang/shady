@@ -77,7 +77,11 @@ RewritePass lower_fill;
 RewritePass eliminate_constants;
 /// Tags all functions that don't need special handling
 RewritePass mark_leaf_functions;
-RewritePass opt_simplify_cf;
+/// Inlines basic blocks used exactly once, necessary after opt_restructure
+RewritePass opt_inline_jumps;
+/// In addition, also inlines function calls according to heuristics
+RewritePass opt_inline;
+
 RewritePass opt_stack;
 RewritePass opt_restructurize;
 RewritePass lower_switch_btree;

@@ -52,7 +52,7 @@ set(SHADY_SOURCES
     passes/lower_vec_arr.c
     passes/lower_workgroups.c
     passes/mark_leaf_functions.c
-    passes/opt_simplify_cf.c
+    passes/opt_inline.c
     passes/opt_stack.c
     passes/opt_restructure.c
     passes/simt2d.c

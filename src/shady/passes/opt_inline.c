@@ -111,10 +111,12 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Function_TAG: {
-            CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
-            if (get_inlining_heuristic(fn_node).can_be_eliminated) {
-                debugv_print("Eliminating %s because it has exactly one caller\n", get_abstraction_name(fn_node->fn));
-                return NULL;
+            if (ctx->graph) {
+                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
+                if (get_inlining_heuristic(fn_node).can_be_eliminated) {
+                    debugv_print("Eliminating %s because it has exactly one caller\n", get_abstraction_name(fn_node->fn));
+                    return NULL;
+                }
             }
 
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
@@ -147,9 +149,11 @@ static const Node* process(Context* ctx, const Node* node) {
                 Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
                 return inline_call(ctx, otarget, nargs, false);
             }
-            return recreate_node_identity(&ctx->rewriter, node);
+            break;
         }
         case Call_TAG: {
+            if (!ctx->graph)
+                break;
             const Node* ocallee = node->payload.call.callee;
             Nodes oargs = node->payload.call.args;
 
@@ -176,15 +180,17 @@ static const Node* process(Context* ctx, const Node* node) {
                     });
                 }
             }
-            return recreate_node_identity(&ctx->rewriter, node);
+            break;
         }
         case Return_TAG: {
             const Node** p_ret_jp = find_value_dict(const Node*, const Node*, ctx->inlined_return_sites, node);
             if (p_ret_jp)
                 return join(a, (Join) { .join_point = *p_ret_jp, .args = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.args )});
-            return recreate_node_identity(&ctx->rewriter, node);
+            break;
         }
         case TailCall_TAG: {
+            if (!ctx->graph)
+                break;
             const Node* ocallee = node->payload.tail_call.target;
             ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {
@@ -196,7 +202,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     return inline_call(ctx, ocallee, nargs, true);
                 }
             }
-            return recreate_node_identity(&ctx->rewriter, node);
+            break;
         }
         case BasicBlock_TAG: {
             Nodes params = recreate_variables(&ctx->rewriter, node->payload.basic_block.params);
@@ -206,8 +212,7 @@ static const Node* process(Context* ctx, const Node* node) {
             bb->payload.basic_block.body = process(ctx, node->payload.basic_block.body);
             return bb;
         }
-        default:
-            break;
+        default: break;
     }
 
     const Node* new = recreate_node_identity(&ctx->rewriter, node);
@@ -219,16 +224,29 @@ static const Node* process(Context* ctx, const Node* node) {
 KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
-void opt_simplify_cf(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+void opt_simplify_cf(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst, bool allow_fn_inlining) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
-        .graph = new_callgraph(src),
+        .graph = NULL,
         .scope = NULL,
         .fun = NULL,
         .inlined_return_sites = new_dict(const Node*, CGNode*, (HashFn) hash_node, (CmpFn) compare_node),
     };
+    if (allow_fn_inlining)
+        ctx.graph = new_callgraph(src);
+
     rewrite_module(&ctx.rewriter);
-    destroy_callgraph(ctx.graph);
+    if (ctx.graph)
+        destroy_callgraph(ctx.graph);
+
     destroy_rewriter(&ctx.rewriter);
     destroy_dict(ctx.inlined_return_sites);
+}
+
+void opt_inline_jumps(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+    opt_simplify_cf(config, src, dst, false);
+}
+
+void opt_inline(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+    opt_simplify_cf(config, src, dst, true);
 }
