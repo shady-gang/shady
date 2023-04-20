@@ -7,6 +7,4 @@ target_include_directories(api INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOUR
 add_subdirectory(common)
 add_subdirectory(shady)
 add_subdirectory(runtime)
-add_subdirectory(slim)
-add_subdirectory(clang-ast)
-add_subdirectory(spirv)
+add_subdirectory(frontends)
