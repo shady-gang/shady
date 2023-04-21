@@ -35,6 +35,7 @@ struct Rewriter_ {
     struct {
         bool search_map;
         bool write_map;
+        bool rebind_let;
     } config;
     struct Dict* map;
     struct Dict* decls_map;

@@ -33,6 +33,7 @@ Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn) {
         },
         .config = {
             .search_map = true,
+            .rebind_let = dst->arena->config.check_types,
             //.write_map = true,
         },
         .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
@@ -303,7 +304,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 return rewrite_node(rewriter, node->payload.let.tail->payload.anon_lam.body);
             }
             const Node* tail;
-            if (arena->config.check_types)
+            if (rewriter->config.rebind_let)
                 tail = rebind_results(rewriter, instruction, node->payload.let.tail);
             else
                 tail = rewrite_node_with_fn(rewriter, node->payload.let.tail, rewrite_anon_lambda);
