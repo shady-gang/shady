@@ -463,8 +463,8 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     if (!body)
         return;
     //assert(entries_count_list(n->pred_edges) > 0);
-    if (get_let_pred(n))
-        return;
+    //if (get_let_pred(n))
+    //    return;
 
     String color = "black";
     if (is_anonymous_lambda(bb))
@@ -479,13 +479,14 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     while (body->tag == Let_TAG) {
         const Node* instr = body->payload.let.instruction;
         label = "";
-        if (body->tag == PrimOp_TAG)
+        if (instr->tag == PrimOp_TAG)
             label = format_string(bb->arena, "%slet ... = %s (...)\n", label, primop_names[instr->payload.prim_op.op]);
         else
             label = format_string(bb->arena, "%slet ... = %s (...)\n", label, node_tags[instr->tag]);
         const Node* abs = body->payload.let.tail;
         assert(is_anonymous_lambda(abs));
         body = get_abstraction_body(abs);
+        break;
     }
 
     if (is_basic_block(bb)) {
@@ -513,19 +514,19 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
         const CFNode* src_node = bb_node;
-        while (true) {
-            const CFNode* let_parent = get_let_pred(src_node);
-            if (let_parent)
-                src_node = let_parent;
-            else
-                break;
-        }
+        // while (true) {
+        //     const CFNode* let_parent = get_let_pred(src_node);
+        //     if (let_parent)
+        //         src_node = let_parent;
+        //     else
+        //         break;
+        // }
 
         for (size_t j = 0; j < entries_count_list(bb_node->succ_edges); j++) {
             CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
 
-            if (edge.type == LetTailEdge)
-                continue;
+            //if (edge.type == LetTailEdge)
+            //    continue;
 
             const CFNode* target_node = edge.dst;
             fprintf(output, "bb_%zu -> bb_%zu;\n", (size_t) (src_node), (size_t) (target_node));
