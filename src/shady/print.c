@@ -246,6 +246,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
         }
     }
     ctx = &sub_ctx;
+    ctx->min_rpo = -1;
 
     print_yield_types(ctx, node->payload.fun.return_types);
     print_param_list(ctx, node->payload.fun.params, NULL);
