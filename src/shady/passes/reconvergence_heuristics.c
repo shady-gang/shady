@@ -246,10 +246,15 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 exit_numbers[i] = int32_literal(arena, i);
                 exits[i] = basic_block(arena, fn, empty(arena), format_string(arena, "exit_recover_values_%s", get_abstraction_name(exiting_node->node)));
-                exits[i]->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
-                        .target = recreated_exit,
-                        .args = nodes(arena, exit_allocas[i].count, recovered_args),
-                }));
+                if (recreated_exit->tag == BasicBlock_TAG) {
+                    exits[i]->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
+                            .target = recreated_exit,
+                            .args = nodes(arena, exit_allocas[i].count, recovered_args),
+                    }));
+                } else {
+                    assert(recreated_exit->tag == AnonLambda_TAG);
+                    exits[i]->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_allocas[i].count, recovered_args)), recreated_exit));
+                }
             }
 
             if (exiting_nodes_count == 1)
