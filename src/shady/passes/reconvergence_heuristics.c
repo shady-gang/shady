@@ -215,15 +215,16 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             Nodes inner_control_results = bind_instruction(inner_bb, inner_control);
 
             Node* loop_outer = basic_block(arena, fn, inner_loop_params, "loop_outer");
-            const Node* jump_inside_loop_iteration = jump(arena, (Jump) {
-                .target = loop_outer,
-                .args = inner_control_results
-            });
 
-            loop_outer->payload.basic_block.body = finish_body(inner_bb, jump_inside_loop_iteration);
-            const Node* control_outer_lambda = lambda(arena, singleton(join_token_exit), jump_inside_loop_iteration);
+            loop_outer->payload.basic_block.body = finish_body(inner_bb, jump(arena, (Jump) {
+                    .target = loop_outer,
+                    .args = inner_control_results
+            }));
             const Node* outer_control = control (arena, (Control) {
-                .inside = control_outer_lambda,
+                .inside = lambda(arena, singleton(join_token_exit), jump(arena, (Jump) {
+                    .target = loop_outer,
+                    .args = nparams
+                })),
                 .yield_types = empty(arena)
             });
 
@@ -427,9 +428,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 register_processed(rewriter, old_idom_node, cached);
 
             const Node* control_inner = lambda(arena, singleton(join_token), inner_terminator);
-            const Node* new_target = control (arena, (Control) {
-                    .inside = control_inner,
-                    .yield_types = yield_types
+            const Node* new_target = control(arena, (Control) {
+                .inside = control_inner,
+                .yield_types = yield_types
             });
 
             const Node* recreated_join = rewrite_node(rewriter, old_idom_node);
