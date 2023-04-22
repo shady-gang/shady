@@ -457,7 +457,7 @@ static CFNode* get_let_pred(const CFNode* n) {
     if (entries_count_list(n->pred_edges) == 1) {
         CFEdge pred = read_list(CFEdge, n->pred_edges)[0];
         assert(pred.dst == n);
-        if (pred.type == LetTailEdge) {
+        if (pred.type == LetTailEdge && entries_count_list(pred.src->succ_edges) == 1) {
             assert(is_anonymous_lambda(n->node));
             return pred.src;
         }
@@ -470,9 +470,8 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     const Node* body = get_abstraction_body(bb);
     if (!body)
         return;
-    //assert(entries_count_list(n->pred_edges) > 0);
-    //if (get_let_pred(n))
-    //    return;
+    if (get_let_pred(n))
+        return;
 
     String color = "black";
     if (is_anonymous_lambda(bb))
@@ -480,27 +479,34 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     else if (is_basic_block(bb))
         color = "blue";
 
-    String label = node_tags[body->tag];
-    if (body->tag == Let_TAG)
-        label = "";
+    String label = "";
 
+    const CFNode* let_chain_end = n;
     while (body->tag == Let_TAG) {
         const Node* instr = body->payload.let.instruction;
-        label = "";
+        // label = "";
         if (instr->tag == PrimOp_TAG)
             label = format_string(bb->arena, "%slet ... = %s (...)\n", label, primop_names[instr->payload.prim_op.op]);
         else
             label = format_string(bb->arena, "%slet ... = %s (...)\n", label, node_tags[instr->tag]);
+
+        if (entries_count_list(let_chain_end->succ_edges) != 1 || read_list(CFEdge, let_chain_end->succ_edges)[0].type != LetTailEdge)
+            break;
+
+        let_chain_end = read_list(CFEdge, let_chain_end->succ_edges)[0].dst;
         const Node* abs = body->payload.let.tail;
+        assert(let_chain_end->node == abs);
         assert(is_anonymous_lambda(abs));
         body = get_abstraction_body(abs);
-        break;
     }
+
+    label = format_string(bb->arena, "%s%s", label, node_tags[body->tag]);
 
     if (is_basic_block(bb)) {
         label = format_string(bb->arena, "%s\n%s", get_abstraction_name(bb), label);
     }
-    fprintf(output, "bb_%zu [label=\"%s\", color=\"%s\"];\n", (size_t) n, label, color);
+
+    fprintf(output, "bb_%zu [label=\"%s\", color=\"%s\", shape=box];\n", (size_t) n, label, color);
 
     for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
         CFNode* d = read_list(CFNode*, n->dominates)[i];
@@ -522,22 +528,32 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
     for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
         const CFNode* src_node = bb_node;
-        // while (true) {
-        //     const CFNode* let_parent = get_let_pred(src_node);
-        //     if (let_parent)
-        //         src_node = let_parent;
-        //     else
-        //         break;
-        // }
+        while (true) {
+            const CFNode* let_parent = get_let_pred(src_node);
+            if (let_parent)
+                src_node = let_parent;
+            else
+                break;
+        }
 
         for (size_t j = 0; j < entries_count_list(bb_node->succ_edges); j++) {
             CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
-
-            //if (edge.type == LetTailEdge)
-            //    continue;
-
             const CFNode* target_node = edge.dst;
-            fprintf(output, "bb_%zu -> bb_%zu;\n", (size_t) (src_node), (size_t) (target_node));
+
+            if (edge.type == LetTailEdge && get_let_pred(target_node) == bb_node)
+                continue;
+
+            String edge_color = "black";
+            switch (edge.type) {
+                case LetTailEdge:     edge_color = "green"; break;
+                case ControlBodyEdge: edge_color = "red"; break;
+                case IfBodyEdge:
+                case MatchBodyEdge:   edge_color = "orange"; break;
+                case BlockBodyEdge:   edge_color = "darkred"; break;
+                default: break;
+            }
+
+            fprintf(output, "bb_%zu -> bb_%zu [color=\"%s\"];\n", (size_t) (src_node), (size_t) (target_node), edge_color);
         }
     }
     fprintf(output, "}\n");
