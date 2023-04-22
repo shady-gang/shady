@@ -320,7 +320,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
             assert(ctx->fwd_scope);
 
             CFNode* cfnode = scope_lookup(ctx->back_scope, ctx->current_abstraction);
-
             CFNode* idom = NULL;
 
             LTNode* current_loop = looptree_lookup(ctx->current_looptree, ctx->current_abstraction)->parent;
@@ -352,6 +351,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if(!idom || !idom->node) {
                 break;
             }
+
+            if (scope_lookup(ctx->fwd_scope, idom->node)->idom->node!= ctx->current_abstraction)
+                break;
 
             const Node* old_idom_node = idom->node;
 
@@ -404,9 +406,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             const Node* join_token = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
                     .yield_types = yield_types
-            }), true), "jp");
+            }), true), "jp_postdom");
 
-            Node* pre_join = basic_block(arena, fn, exit_args, "exit");
+            Node* pre_join = basic_block(arena, fn, exit_args, format_string(arena, "merge_%s_%s", get_abstraction_name(ctx->current_abstraction) ,get_abstraction_name(old_idom_node)));
             pre_join->payload.basic_block.body = join(arena, (Join) {
                 .join_point = join_token,
                 .args = exit_args
