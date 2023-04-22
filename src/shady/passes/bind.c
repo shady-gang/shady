@@ -245,9 +245,6 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 add_binding(ctx, false, old_bb->payload.basic_block.name, new_bb);
                 register_processed(&ctx->rewriter, old_bb, new_bb);
                 debugv_print("Bound (stub) basic block %s\n", old_bb->payload.basic_block.name);
-
-                for (size_t j = 0; j < new_bb_params.count; j++)
-                    add_binding(ctx, false, new_bb->payload.basic_block.params.nodes[j]->payload.var.name, new_bb_params.nodes[j]);
             }
 
             const Node* bound_body = rewrite_node(&ctx->rewriter, node->payload.unbound_bbs.body);
@@ -256,7 +253,13 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             for (size_t i = 0; i < unbound_blocks.count; i++) {
                 const Node* old_bb = unbound_blocks.nodes[i];
                 Node* new_bb = new_bbs[i];
-                new_bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, old_bb->payload.basic_block.body);
+
+                Context bb_ctx = *ctx;
+                Nodes new_bb_params = get_abstraction_params(new_bb);
+                for (size_t j = 0; j < new_bb_params.count; j++)
+                    add_binding(&bb_ctx, false, new_bb->payload.basic_block.params.nodes[j]->payload.var.name, new_bb_params.nodes[j]);
+
+                new_bb->payload.basic_block.body = rewrite_node(&bb_ctx.rewriter, old_bb->payload.basic_block.body);
                 debugv_print("Bound basic block %s\n", new_bb->payload.basic_block.name);
             }
 
@@ -266,6 +269,8 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             assert(is_basic_block(node));
             Nodes new_bb_params = recreate_variables(&ctx->rewriter, node->payload.basic_block.params);
             Node* new_bb = basic_block(a, (Node*) ctx->current_function, new_bb_params, node->payload.basic_block.name);
+            Context bb_ctx = *ctx;
+            ctx = &bb_ctx;
             add_binding(ctx, false, node->payload.basic_block.name, new_bb);
             register_processed(&ctx->rewriter, node, new_bb);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new_bb_params);
