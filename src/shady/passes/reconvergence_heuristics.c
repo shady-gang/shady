@@ -130,6 +130,9 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 Nodes exit_wrapper_params = recreate_variables(&ctx->rewriter, get_abstraction_params(exiting_node->node));
                 BodyBuilder* exit_wrapper_bb = begin_body(arena);
 
+                for (size_t j = 0; j < exit_allocas[i].count; j++)
+                    gen_store(exit_wrapper_bb, exit_allocas[i].nodes[j], exit_wrapper_params.nodes[j]);
+
                 const Node* exit_wrapper_body = finish_body(exit_wrapper_bb, join(arena, (Join) {
                     .join_point = join_token_exit,
                     .args = empty(arena)
