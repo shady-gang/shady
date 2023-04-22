@@ -69,16 +69,20 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
     assert(lt_node);
 
     bool is_loop_entry = false;
-    const CFNode* loop_entry_node = NULL;
-    if (entries_count_list(lt_node->parent->cf_nodes) == 1) {
-        loop_entry_node = read_list(CFNode*, lt_node->parent->cf_nodes)[0];
-        const Node* loop_header = loop_entry_node->node;
-        is_loop_entry = loop_header == node;
+    if (lt_node->parent && lt_node->parent->type == LF_HEAD) {
+        if (entries_count_list(lt_node->parent->cf_nodes) == 1)
+            if (read_list(CFNode*, lt_node->parent->cf_nodes)[0]->node == node)
+                is_loop_entry = true;
     }
 
     if (is_loop_entry) {
-        struct List * exiting_nodes = new_list(CFNode*);
-        gather_exiting_nodes(ctx->current_looptree, loop_entry_node, loop_entry_node, exiting_nodes);
+        struct List* exiting_nodes = new_list(CFNode*);
+        gather_exiting_nodes(ctx->current_looptree, current_node, current_node, exiting_nodes);
+
+        for (size_t i = 0; i < entries_count_list(exiting_nodes); i++) {
+            debugv_print("Node %s exits the loop headed at %s\n", get_abstraction_name(read_list(CFNode*, exiting_nodes)[i]->node), get_abstraction_name(node));
+        }
+
         const CFNode* exiting_node = NULL;
         if (entries_count_list(exiting_nodes) > 0)
             exiting_node = read_list(CFNode*, exiting_nodes)[0];
@@ -143,7 +147,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 .join_point = join_token_continue,
                 .args = exit_args
             });
-            switch (loop_entry_node->node->tag) {
+            switch (node->tag) {
                 case BasicBlock_TAG: {
                     Node* pre_join_continue_bb = basic_block(arena, fn, exit_args, "continue");
                     pre_join_continue_bb->payload.basic_block.body = pre_join_continue_join;
@@ -165,13 +169,13 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             }
             register_processed(rewriter, exiting_node->node, pre_join_exit);
 
-            const Node* cached_entry = search_processed(rewriter, loop_entry_node->node);
+            const Node* cached_entry = search_processed(rewriter, node);
             if (cached_entry)
-                remove_dict(const Node*, is_declaration(loop_entry_node->node) ? rewriter->decls_map : rewriter->map, loop_entry_node->node);
+                remove_dict(const Node*, is_declaration(node) ? rewriter->decls_map : rewriter->map, node);
             for (size_t i = 0; i < old_params.count; i++) {
                 assert(!search_processed(rewriter, old_params.nodes[i]));
             }
-            register_processed(rewriter, loop_entry_node->node, pre_join_continue);
+            register_processed(rewriter, node, pre_join_continue);
 
             const Node* new_terminator = recreate_node_identity(rewriter, get_abstraction_body(node));
             Node* loop_inner = basic_block(arena, fn, exit_args, "loop_inner");
@@ -181,9 +185,9 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             if (cached_exit)
                 register_processed(rewriter, exiting_node->node, cached_exit);
 
-            remove_dict(const Node*, is_declaration(loop_entry_node->node) ? rewriter->decls_map : rewriter->map, loop_entry_node->node);
+            remove_dict(const Node*, is_declaration(node) ? rewriter->decls_map : rewriter->map, node);
             if (cached_entry)
-                register_processed(rewriter, loop_entry_node->node, cached_entry);
+                register_processed(rewriter, node, cached_entry);
 
             const Node* inner_terminator = jump(arena, (Jump) {
                 .target = loop_inner,
