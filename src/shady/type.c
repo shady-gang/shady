@@ -1228,8 +1228,6 @@ const Type* check_type_br_switch(IrArena* arena, Switch br_switch) {
         assert(is_value(argument));
     }
 
-    error("TODO")
-
     return noret_type(arena);
 }
 

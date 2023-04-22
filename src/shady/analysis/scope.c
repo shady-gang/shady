@@ -161,7 +161,15 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
             add_edge(ctx, abs, false_target, ForwardEdge);
             break;
         }
-        case Switch_TAG: error("TODO")
+        case Switch_TAG: {
+            for (size_t i = 0; i < terminator->payload.br_switch.case_targets.count; i++) {
+                const Node* case_tgt = terminator->payload.br_switch.case_targets.nodes[i];
+                add_edge(ctx, abs, case_tgt, ForwardEdge);
+            }
+            const Node* default_target = terminator->payload.br_switch.default_target;
+            add_edge(ctx, abs, default_target, ForwardEdge);
+            break;
+        }
         case LetMut_TAG:
         case Let_TAG: {
             process_instruction(ctx, node, get_let_instruction(terminator));
