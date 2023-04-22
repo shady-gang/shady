@@ -732,12 +732,16 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             break;
         }
         case SpvOpFunction: {
+            assert(parser->defs[result].type == Forward);
+            parser->defs[result].type = Decl;
             const Type* t = get_def_type(parser, instruction[4]);
             assert(t && t->tag == FnType_TAG);
 
             String name = get_name(parser, result);
             if (!name)
                 name = unique_name(parser->arena, "function");
+            else
+                name = unique_name(parser->arena, name);
 
             Nodes annotations = empty(parser->arena);
             annotations = append_nodes(parser->arena, annotations, annotation(parser->arena, (Annotation) { .name = "Restructure" }));
@@ -778,7 +782,6 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }
 
             Node* fun = function(parser->mod, nodes(parser->arena, params_count, params), name, annotations, t->payload.fn_type.return_types);
-            parser->defs[result].type = Decl;
             parser->defs[result].node = fun;
             Node* old_fun = parser->fun;
             parser->fun = fun;
