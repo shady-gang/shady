@@ -277,10 +277,29 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 .if_false = if_false_lam,
             });
             const Node* post_merge_lam = lambda(a, empty(a), exit_ladder);
-            return let(ctx->rewriter.dst_arena, instr, post_merge_lam);
+            return let(a, instr, post_merge_lam);
         }
         case Switch_TAG: {
-            error("TODO");
+            const Node* switch_value = rewrite_node(&ctx->rewriter, body->payload.br_switch.switch_value);
+
+            BodyBuilder* default_bb = begin_body(a);
+            const Node* default_body = handle_bb_callsite(ctx, default_bb, abs, body->payload.br_switch.default_target, body->payload.br_switch.args, yield(a, (Yield) { .args = empty(a) }));
+            const Node* default_case = lambda(a, empty(a), default_body);
+
+            LARRAY(const Node*, cases, body->payload.br_switch.case_targets.count);
+            for (size_t i = 0; i < body->payload.br_switch.case_targets.count; i++) {
+                BodyBuilder* bb = begin_body(a);
+                cases[i] = lambda(a, empty(a), handle_bb_callsite(ctx, bb, abs, body->payload.br_switch.case_targets.nodes[i], body->payload.br_switch.args, yield(a, (Yield) { .args = empty(a) })));
+            }
+
+            const Node* instr = match_instr(a, (Match) {
+                .inspect = switch_value,
+                .yield_types = empty(a),
+                .default_case = default_case,
+                .cases = nodes(a, body->payload.br_switch.case_targets.count, cases),
+                .literals = rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values),
+            });
+            return let(a, instr, lambda(a, empty(a), exit_ladder));
         }
         case Join_TAG: {
             ControlEntry* control = search_containing_control(ctx, body->payload.join.join_point);
