@@ -265,7 +265,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     .switch_value = loaded_destination,
                     .args = empty(arena),
                     .default_target = exits[0],
-                    .case_targets = nodes(arena, exiting_nodes_count, exits)
+                    .case_values = nodes(arena, exiting_nodes_count, exit_numbers),
+                    .case_targets = nodes(arena, exiting_nodes_count, exits),
                 }));
             }
 

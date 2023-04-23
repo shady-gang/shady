@@ -1228,6 +1228,8 @@ const Type* check_type_br_switch(IrArena* arena, Switch br_switch) {
         assert(is_value(argument));
     }
 
+    assert(br_switch.case_values.count == br_switch.case_targets.count);
+
     return noret_type(arena);
 }
 
