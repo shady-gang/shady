@@ -27,6 +27,7 @@ list(APPEND BASIC_TESTS test/create_control_2.slim)
 list(APPEND BASIC_TESTS test/create_control_loop.slim)
 list(APPEND BASIC_TESTS test/add_reconvergence_loop_multi_exit.slim)
 list(APPEND BASIC_TESTS test/add_reconvergence_merge_evil.slim)
+list(APPEND BASIC_TESTS test/add_reconvergence_multiple_loops.slim)
 
 list(APPEND BASIC_C_TESTS test/c/simple1.c)
 list(APPEND BASIC_C_TESTS test/c/simple2.c)
