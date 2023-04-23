@@ -36,7 +36,7 @@ fn loop_with_two_exits_and_values varying i32(varying bool b) {
     }
 
     cont loop_body2(varying f32 f) {
-        branch(b, loop_body, exit_b)(x);
+        branch(b, loop_body, exit_b)(3);
     }
 
     cont exit_a(varying f32 f) {
