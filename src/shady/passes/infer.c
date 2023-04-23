@@ -700,8 +700,9 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             .args = infer_nodes(ctx, node->payload.join.args),
         });
         case Terminator_TailCall_TAG:
-        case Terminator_Switch_TAG: error("TODO")
+        case Terminator_Switch_TAG: break;
     }
+    return recreate_node_identity(&ctx->rewriter, node);
 }
 
 static const Node* process(Context* src_ctx, const Node* node) {

@@ -735,6 +735,22 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
                 .args = args
             });
         }
+        case br_switch_tok: {
+            next_token(tokenizer);
+
+            Nodes values = expect_operands(ctx);
+            Nodes dests = expect_operands(ctx);
+            assert(values.count > 0 && values.count == dests.count);
+            Nodes args = expect_operands(ctx);
+
+            return br_switch(arena, (Switch) {
+                .switch_value = first(values),
+                .default_target = first(dests),
+                .case_values = nodes(arena, values.count - 1, values.nodes + 1),
+                .case_targets = nodes(arena, dests.count - 1, dests.nodes + 1),
+                .args = args,
+            });
+        }
         case return_tok: {
             next_token(tokenizer);
             Nodes args = expect_operands(ctx);

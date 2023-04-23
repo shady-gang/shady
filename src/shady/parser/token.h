@@ -61,6 +61,7 @@ TOKEN(continue, "continue") \
 TOKEN(break, "break") \
 TEXT_TOKEN(jump) \
 TEXT_TOKEN(branch) \
+TEXT_TOKEN(br_switch) \
 TEXT_TOKEN(join) \
 TEXT_TOKEN(call) \
 TOKEN(return, "return") \
