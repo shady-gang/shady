@@ -1,0 +1,45 @@
+@Restructure
+fn minimal_loop varying i32(varying bool b) {
+    jump(entry)();
+
+    cont entry() {
+        jump (loop_body)();
+    }
+
+    cont loop_body() {
+        branch(b, loop_body, exit)();
+    }
+
+    cont exit() {
+        return (0);
+    }
+}
+
+@Restructure
+fn reconverge_inside_loop varying i32(varying bool b) {
+    jump(entry)();
+
+    cont entry() {
+        jump (loop_body)();
+    }
+
+    cont loop_body() {
+        branch(b, loop_body_a, loop_body_b)();
+    }
+
+    cont loop_body_a() {
+        branch(b, loop_body, loop_exit)();
+    }
+
+    cont loop_body_b() {
+        branch(b, loop_body, loop_exit)();
+    }
+
+    cont loop_exit() {
+        jump (exit)();
+    }
+
+    cont exit() {
+        return (0);
+    }
+}
