@@ -63,14 +63,17 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
         if (!is_child(defining_loop, bb_loop)) {
             // that's it, that variable is leaking !
             debug_print("lcssa: %s is used outside of the loop that defines it\n", fv->payload.var.name);
+            debug_print("lcssa: %s~%d is used outside of the loop that defines it %s %s\n", fv->payload.var.name, fv->payload.var.id, loop_name(defining_loop), loop_name(bb_loop));
             const Node* narg = rewrite_node(&ctx->rewriter, fv);
             const Node* nparam = var(a, narg->type, "lcssa_phi");
             *nparams = append_nodes(a, *nparams, nparam);
             *lparams = append_nodes(a, *lparams, fv);
             *nargs = append_nodes(a, *nargs, narg);
         }
-        debug_print("lcssa: %s~%d is ok %s %s\n", fv->payload.var.name, fv->payload.var.id, loop_name(defining_loop), loop_name(bb_loop));
     }
+
+    if (nparams->count > 0)
+        insert_dict(const Node*, Nodes, ctx->lifted_arguments, old, *nparams);
 }
 
 const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* body) {
@@ -106,10 +109,17 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
 
     const Node* new = recreate_node_identity(&ctx->rewriter, body);
 
+    ctx->rewriter.map = clone_dict(ctx->rewriter.map);
+
     for (size_t i = 0; i < children_count; i++) {
+        for (size_t j = 0; j < lifted_params[i].count; j++) {
+            remove_dict(const Node*, ctx->rewriter.map, lifted_params[i].nodes[j]);
+        }
         register_processed_list(&ctx->rewriter, lifted_params[i], new_params[i]);
         new_children[i]->payload.basic_block.body = process_abstraction_body(ctx, old_children[i], get_abstraction_body(old_children[i]));
     }
+
+    destroy_dict(ctx->rewriter.map);
 
     return new;
 }
@@ -137,7 +147,7 @@ const Node* process_node(Context* ctx, const Node* old) {
         }
         case Jump_TAG: {
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.jump.args);
-            Nodes* lifted_args = find_value_dict(const Node*, Nodes, ctx->lifted_arguments, old);
+            Nodes* lifted_args = find_value_dict(const Node*, Nodes, ctx->lifted_arguments, old->payload.jump.target);
             if (lifted_args) {
                 nargs = concat_nodes(a, nargs, *lifted_args);
             }
