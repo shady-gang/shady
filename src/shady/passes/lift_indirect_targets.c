@@ -70,7 +70,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
 
     // Compute the live stuff we'll need
     Scope* scope = new_scope(cont);
-    struct List* recover_context = compute_free_variables(scope);
+    struct List* recover_context = compute_free_variables(scope, cont);
     size_t recover_context_size = entries_count_list(recover_context);
     destroy_scope(scope);
 

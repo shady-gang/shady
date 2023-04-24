@@ -53,7 +53,7 @@ static void verify_scoping(Module* mod) {
     struct List* scopes = build_scopes(mod);
     for (size_t i = 0; i < entries_count_list(scopes); i++) {
         Scope* scope = read_list(Scope*, scopes)[i];
-        struct List* leaking = compute_free_variables(scope);
+        struct List* leaking = compute_free_variables(scope, scope->entry->node);
         for (size_t j = 0; j < entries_count_list(leaking); j++) {
             log_node(ERROR, read_list(const Node*, leaking)[j]);
             error_print("\n");

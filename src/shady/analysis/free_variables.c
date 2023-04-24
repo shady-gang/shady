@@ -77,7 +77,7 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
     }
 }
 
-struct List* compute_free_variables(const Scope* scope) {
+struct List* compute_free_variables(const Scope* scope, const Node* at) {
     struct Dict* bound_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct Dict* set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
     struct List* free_list = new_list(const Node*);
@@ -92,7 +92,7 @@ struct List* compute_free_variables(const Scope* scope) {
     };
 
     debugv_print("Computing free variables...\n");
-    visit_domtree(&ctx, scope->entry, 0);
+    visit_domtree(&ctx, scope_lookup(scope, at), 0);
 
     destroy_dict(bound_set);
     destroy_dict(set);

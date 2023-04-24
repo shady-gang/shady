@@ -5,6 +5,6 @@
 
 typedef struct Scope_ Scope;
 
-struct List* compute_free_variables(const Scope* scope);
+struct List* compute_free_variables(const Scope* scope, const Node*);
 
 #endif
