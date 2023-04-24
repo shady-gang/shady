@@ -230,6 +230,10 @@ const Node* ref_decl_helper(IrArena* a, const Node* decl) {
     return ref_decl(a, (RefDecl) { .decl = decl });
 }
 
+const Node* type_decl_ref_helper(IrArena* a, const Node* decl) {
+    return type_decl_ref(a, (TypeDeclRef) { .decl = decl });
+}
+
 Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
     assert(!mod->sealed);
     IrArena* arena = mod->arena;

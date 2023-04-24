@@ -20,13 +20,14 @@ typedef struct Context_ {
     CompilerConfig* config;
     const Node* entry_base_stack_ptr;
     const Node* entry_stack_offset;
-    size_t total_size;
 } Context;
 
 typedef struct {
     Visitor visitor;
     Context* context;
     BodyBuilder* bb;
+    Node* nom_t;
+    struct List* members;
 } VContext;
 
 static void collect_allocas(VContext* vctx, const Node* node) {
@@ -41,11 +42,14 @@ static void collect_allocas(VContext* vctx, const Node* node) {
         }
 
         const Type* element_type = rewrite_node(&vctx->context->rewriter, node->payload.prim_op.type_arguments.nodes[0]);
-        const Node* element_size = gen_primop_e(vctx->bb, size_of_op, singleton(element_type), empty(a));
+        assert(is_data_type(element_type));
+        const Node* slot_offset = gen_primop_e(vctx->bb, offset_of_op, singleton(type_decl_ref_helper(a, vctx->nom_t)), singleton(int32_literal(a, entries_count_list(vctx->members))));
+        append_list(const Type*, vctx->members, element_type);
 
         const Node* slot = first(bind_instruction_named(vctx->bb, prim_op(a, (PrimOp) {
             .op = lea_op,
-            .operands = mk_nodes(a, vctx->context->entry_base_stack_ptr, element_size) }), (String []) {"stack_slot" }));
+            .operands = mk_nodes(a, vctx->context->entry_base_stack_ptr, slot_offset) }), (String []) {format_string(a, "stack_slot_%d", entries_count_list(vctx->members)) }));
+
         const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = as });
         slot = gen_reinterpret_cast(vctx->bb, ptr_t, slot);
 
@@ -62,6 +66,7 @@ static const Node* process(Context* ctx, const Node* node) {
     if (found) return found;
 
     IrArena* a = ctx->rewriter.dst_arena;
+    Module* m = ctx->rewriter.dst_module;
     switch (node->tag) {
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
@@ -79,9 +84,17 @@ static const Node* process(Context* ctx, const Node* node) {
                     },
                     .context = &ctx2,
                     .bb = bb,
+                    .nom_t = nominal_type(m, empty(a), format_string(a, "%s_stack_frame", get_abstraction_name(node))),
+                    .members = new_list(const Node*),
                 };
                 if (node->payload.fun.body)
                     collect_allocas(&vctx, node);
+                vctx.nom_t->payload.nom_type.body = record_type(a, (RecordType) {
+                    .members = nodes(a, entries_count_list(vctx.members), read_list(const Node*, vctx.members)),
+                    .names = strings(a, 0, NULL),
+                    .special = 0
+                });
+                destroy_list(vctx.members);
             }
             if (node->payload.fun.body)
                 fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
