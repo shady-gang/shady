@@ -246,11 +246,12 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
 
             if (insert) {
                 final_expression = unique_name(arena, "modified");
-                print(p, "\n%s = %s;", c_emit_type(emitter, first(prim_op->operands)->type, final_expression), acc);
+                print(p, "\n%s = %s;", c_emit_type(emitter, node->type, final_expression), acc);
+                acc = final_expression;
             }
 
             const Type* t = get_unqualified_type(first(prim_op->operands)->type);
-            for (size_t i = 1; i < prim_op->operands.count; i++) {
+            for (size_t i = (insert ? 2 : 1); i < prim_op->operands.count; i++) {
                 const Node* index = prim_op->operands.nodes[i];
                 const IntLiteral* static_index = resolve_to_literal(index);
 
