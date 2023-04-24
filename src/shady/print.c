@@ -355,6 +355,7 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             print_address_space(ctx, node->payload.ptr_type.address_space);
             printf(", ");
             print_node(node->payload.ptr_type.pointed_type);
+            printf(")");
             break;
         }
         case ArrType_TAG: {
@@ -686,6 +687,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf(BGREEN);
             printf("jump");
             printf(RESET);
+            printf(" ");
             print_jump(ctx, node);
             printf(";");
             break;
