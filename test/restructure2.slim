@@ -3,10 +3,10 @@
 // in other words: no implicit synchronisation at the loop header
 
 fn f i32(varying bool b) {
-    jump(bb1)();
+    jump bb1();
 
     cont bb1() {
-        branch (b, bb1, bb2)();
+        branch (b, bb1(), bb2());
     }
 
     cont bb2 () {

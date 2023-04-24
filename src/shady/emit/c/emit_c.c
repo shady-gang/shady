@@ -516,7 +516,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             }
 
             if (!address_space_prefix) {
-                warn_print("No known address space prefix for as %d, this might produce broken code");
+                warn_print("No known address space prefix for as %d, this might produce broken code\n", decl->payload.global_variable.address_space);
                 address_space_prefix = "";
             }
 

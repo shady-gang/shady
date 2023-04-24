@@ -141,6 +141,12 @@ static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const No
     }
 }
 
+static void process_jump_edge(ScopeBuildContext* ctx, const Node* src, const Node* j) {
+    assert(j->tag == Jump_TAG);
+    const Node* target = j->payload.jump.target;
+    add_edge(ctx, src, target, ForwardEdge);
+}
+
 static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     const Node* const abs = node->node;
     assert(is_abstraction(abs));
@@ -150,24 +156,18 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
         return;
     switch (is_terminator(terminator)) {
         case Jump_TAG: {
-            const Node* target = terminator->payload.jump.target;
-            add_edge(ctx, abs, target, ForwardEdge);
+            process_jump_edge(ctx, abs, terminator);
             break;
         }
         case Branch_TAG: {
-            const Node* true_target = terminator->payload.branch.true_target;
-            const Node* false_target = terminator->payload.branch.false_target;
-            add_edge(ctx, abs, true_target, ForwardEdge);
-            add_edge(ctx, abs, false_target, ForwardEdge);
+            process_jump_edge(ctx, abs, terminator->payload.branch.true_jump);
+            process_jump_edge(ctx, abs, terminator->payload.branch.false_jump);
             break;
         }
         case Switch_TAG: {
-            for (size_t i = 0; i < terminator->payload.br_switch.case_targets.count; i++) {
-                const Node* case_tgt = terminator->payload.br_switch.case_targets.nodes[i];
-                add_edge(ctx, abs, case_tgt, ForwardEdge);
-            }
-            const Node* default_target = terminator->payload.br_switch.default_target;
-            add_edge(ctx, abs, default_target, ForwardEdge);
+            for (size_t i = 0; i < terminator->payload.br_switch.case_jumps.count; i++)
+                process_jump_edge(ctx, abs, terminator->payload.br_switch.case_jumps.nodes[i]);
+            process_jump_edge(ctx, abs, terminator->payload.br_switch.default_jump);
             break;
         }
         case LetMut_TAG:

@@ -91,9 +91,17 @@ The textual syntax allows nesting basic blocks inside functions. The syntax is s
 
 ```
 fn f i32(varying bool b) {
-    jump (bb1)(7);
+    jump bb1(7);
 
     cont bb1(varying i32 n) {
+        branch (b, bb2(), bb3(n));
+    }
+
+    cont bb2() {
+        return (0);
+    }
+
+    cont bb3(varying i32 n) {
         return (n);
     }
 };

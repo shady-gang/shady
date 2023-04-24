@@ -58,9 +58,8 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
             const Node* control_body = branch(a, (Branch) {
                 .branch_condition = rewrite_node(&ctx->rewriter, old_instruction->payload.if_instr.condition),
-                .true_target = true_block,
-                .false_target = flse_block,
-                .args = nodes(a, 0, NULL),
+                .true_jump = jump_helper(a, true_block, empty(a)),
+                .false_jump = jump_helper(a, flse_block, empty(a)),
             });
 
             const Node* control_lam = lambda(a, nodes(a, 1, (const Node*[]) {join_point }), control_body);

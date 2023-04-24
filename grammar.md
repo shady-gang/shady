@@ -39,6 +39,8 @@ INSTRUCTION := PRIMOP `[` DATA_TYPES `]` (VALUES)                    // primop
              | loop TYPES LOOP_PARAMS BODY  // structured loop construct
              | control LAMBDA                    // structured 'control' construct
 
+JUMP := IDENTIFIER VALUES
+
 TERMINATOR := unreachable;                           // use as a placeholder if nothing belongs. undefined behaviour if reached.
             | let INSTRUCTION in LAMBDA;             // alternative syntax: let PARAMS = INSTRUCTION; TERMINATOR
             | seq INSTRUCTION in VALUE;              // alternative syntax: let PARAMS = INSTRUCTION; TERMINATOR
@@ -46,11 +48,11 @@ TERMINATOR := unreachable;                           // use as a placeholder if 
             | tailcall VALUE VALUES;                // Start over in a new function, target is indirect (pointer), may be non-uniform
             | return VALUES;                          // return from current function
             
-            | jump (IDENTIFIER) VALUES;               // one-way non-divergent branch, target is immediate and must be uniform
-            | branch (OPERAND, ID, ID) VALUES;        // two-way divergent branch, targets are immediate and must be uniform
+            | jump JUMP;               // one-way non-divergent branch, target is immediate and must be uniform
+            | branch (OPERAND, JUMP, JUMP);        // two-way divergent branch, targets are immediate and must be uniform
             | switch (OPERAND)                          // n-way divergent branch, targets are immediate and must be uniform
-                (case LITERAL ID)* 
-                default (ID);
+                (case LITERAL JUMP)* 
+                default JUMP;
             
             | join VALUE VALUES;                    // exits a control
             

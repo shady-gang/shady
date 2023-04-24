@@ -23,6 +23,7 @@ Strings import_strings(IrArena*, Strings);
 #define VISIT_FIELD_VARIABLES(t, n)
 #define VISIT_FIELD_INSTRUCTION(t, n)
 #define VISIT_FIELD_TERMINATOR(t, n)
+#define VISIT_FIELD_TERMINATORS(t, n)
 #define VISIT_FIELD_ANON_LAMBDA(t, n)
 #define VISIT_FIELD_ANON_LAMBDAS(t, n)
 
@@ -54,6 +55,7 @@ static void pre_construction_validation(IrArena* arena, Node* node) {
 #define VISIT_FIELD_VARIABLES(t, n)
 #define VISIT_FIELD_INSTRUCTION(t, n)
 #define VISIT_FIELD_TERMINATOR(t, n)
+#define VISIT_FIELD_TERMINATORS(t, n)
 #define VISIT_FIELD_ANON_LAMBDA(t, n) if (payload->n) ((Node*) payload->n)->payload.anon_lam.structured_construct = node;
 #define VISIT_FIELD_ANON_LAMBDAS(t, n) for (size_t i = 0; i < payload->n.count; i++) { ((Node*) payload->n.nodes[i])->payload.anon_lam.structured_construct = node; }
 
@@ -398,6 +400,13 @@ const Node* quote_helper(IrArena* a, Nodes values) {
         .op = quote_op,
         .type_arguments = nodes(a, 0, NULL),
         .operands = values
+    });
+}
+
+const Node* jump_helper(IrArena* a, const Node* dst, Nodes args) {
+    return jump(a, (Jump) {
+        .target = dst,
+        .args = args,
     });
 }
 

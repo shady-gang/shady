@@ -233,7 +233,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             const Node* outer_body;
 
             LARRAY(const Node*, exit_numbers, exiting_nodes_count);
-            LARRAY(Node*, exits, exiting_nodes_count);
+            LARRAY(const Node*, exit_jumps, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 BodyBuilder* exit_recover_bb = begin_body(arena);
 
@@ -245,28 +245,28 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     recovered_args[j] = gen_load(exit_recover_bb, exit_allocas[i].nodes[j]);
 
                 exit_numbers[i] = int32_literal(arena, i);
-                exits[i] = basic_block(arena, fn, empty(arena), format_string(arena, "exit_recover_values_%s", get_abstraction_name(exiting_node->node)));
+                Node* exit_bb = basic_block(arena, fn, empty(arena), format_string(arena, "exit_recover_values_%s", get_abstraction_name(exiting_node->node)));
                 if (recreated_exit->tag == BasicBlock_TAG) {
-                    exits[i]->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
+                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
                             .target = recreated_exit,
                             .args = nodes(arena, exit_allocas[i].count, recovered_args),
                     }));
                 } else {
                     assert(recreated_exit->tag == AnonLambda_TAG);
-                    exits[i]->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_allocas[i].count, recovered_args)), recreated_exit));
+                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_allocas[i].count, recovered_args)), recreated_exit));
                 }
+                exit_jumps[i] = jump_helper(arena, exit_bb, empty(arena));
             }
 
             if (exiting_nodes_count == 1)
-                outer_body = finish_body(outer_bb, exits[0]->payload.basic_block.body);
+                outer_body = finish_body(outer_bb, exit_jumps[0]->payload.jump.target->payload.basic_block.body);
             else {
                 const Node* loaded_destination = gen_load(outer_bb, exit_destination_alloca);
                 outer_body = finish_body(outer_bb, br_switch(arena, (Switch) {
                     .switch_value = loaded_destination,
-                    .args = empty(arena),
-                    .default_target = exits[0],
+                    .default_jump = exit_jumps[0],
                     .case_values = nodes(arena, exiting_nodes_count, exit_numbers),
-                    .case_targets = nodes(arena, exiting_nodes_count, exits),
+                    .case_jumps = nodes(arena, exiting_nodes_count, exit_jumps),
                 }));
             }
 

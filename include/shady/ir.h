@@ -187,6 +187,7 @@ const Node* quote_helper(IrArena*, Nodes values);
 // terminators
 const Node* let(IrArena*, const Node* instruction, const Node* tail);
 const Node* let_mut(IrArena*, const Node* instruction, const Node* tail);
+const Node* jump_helper(IrArena* a, const Node* dst, Nodes args);
 
 // decl ctors
 Node* function    (Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);

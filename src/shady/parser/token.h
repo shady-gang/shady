@@ -61,7 +61,9 @@ TOKEN(continue, "continue") \
 TOKEN(break, "break") \
 TEXT_TOKEN(jump) \
 TEXT_TOKEN(branch) \
-TEXT_TOKEN(br_switch) \
+TOKEN(switch, "switch") \
+TOKEN(case, "case") \
+TOKEN(default, "default") \
 TEXT_TOKEN(join) \
 TEXT_TOKEN(call) \
 TOKEN(return, "return") \

@@ -616,6 +616,12 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
     }
 }
 
+static void print_jump(PrinterCtx* ctx, const Node* node) {
+    assert(node->tag == Jump_TAG);
+    print_node(node->payload.jump.target);
+    print_args_list(ctx, node->payload.jump.args);
+}
+
 static void print_terminator(PrinterCtx* ctx, const Node* node) {
     TerminatorTag tag = is_terminator(node);
     switch (tag) {
@@ -680,10 +686,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf(BGREEN);
             printf("jump");
             printf(RESET);
-            printf(" (");
-            print_node(node->payload.jump.target);
-            printf(") ");
-            print_args_list(ctx, node->payload.jump.args);
+            print_jump(ctx, node);
             printf(";");
             break;
         case Branch_TAG:
@@ -693,11 +696,10 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf("(");
             print_node(node->payload.branch.branch_condition);
             printf(", ");
-            print_node(node->payload.branch.true_target);
+            print_jump(ctx, node->payload.branch.true_jump);
             printf(", ");
-            print_node(node->payload.branch.false_target);
+            print_jump(ctx, node->payload.branch.false_jump);
             printf(")");
-            print_args_list(ctx, node->payload.branch.args);
             printf(";");
             break;
         case Switch_TAG:
@@ -710,14 +712,13 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             for (size_t i = 0; i < node->payload.br_switch.case_values.count; i++) {
                 print_node(node->payload.br_switch.case_values.nodes[i]);
                 printf(", ");
-                print_node(node->payload.br_switch.case_targets.nodes[i]);
+                print_jump(ctx, node->payload.br_switch.case_jumps.nodes[i]);
                 if (i + 1 < node->payload.br_switch.case_values.count)
                     printf(", ");
             }
             printf(", ");
-            print_node(node->payload.br_switch.default_target);
+            print_jump(ctx, node->payload.br_switch.default_jump);
             printf(") ");
-            print_args_list(ctx, node->payload.br_switch.args);
             printf(";");
             break;
         case Join_TAG:

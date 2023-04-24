@@ -1205,31 +1205,17 @@ const Type* check_type_jump(IrArena* arena, Jump jump) {
     return noret_type(arena);
 }
 
-const Type* check_type_branch(IrArena* arena, Branch branch) {
-    for (size_t i = 0; i < branch.args.count; i++) {
-        const Node* argument = branch.args.nodes[i];
-        assert(is_value(argument));
-    }
-
-    const Type* condition_type = branch.branch_condition->type;
-    bool uniform = deconstruct_qualified_type(&condition_type);
-    assert(bool_type(arena) == condition_type);
-
-    const Node* branches[2] = { branch.true_target, branch.false_target };
-    for (size_t i = 0; i < 2; i++)
-        check_basic_block_call(branches[i], get_values_types(arena, branch.args));
-
+const Type* check_type_branch(IrArena* arena, Branch payload) {
+    assert(payload.true_jump->tag == Jump_TAG);
+    assert(payload.false_jump->tag == Jump_TAG);
     return noret_type(arena);
 }
 
-const Type* check_type_br_switch(IrArena* arena, Switch br_switch) {
-    for (size_t i = 0; i < br_switch.args.count; i++) {
-        const Node* argument = br_switch.args.nodes[i];
-        assert(is_value(argument));
-    }
-
-    assert(br_switch.case_values.count == br_switch.case_targets.count);
-
+const Type* check_type_br_switch(IrArena* arena, Switch payload) {
+    for (size_t i = 0; i < payload.case_jumps.count; i++)
+        assert(payload.case_jumps.nodes[i]->tag == Jump_TAG);
+    assert(payload.case_values.count == payload.case_jumps.count);
+    assert(payload.default_jump->tag == Jump_TAG);
     return noret_type(arena);
 }
 

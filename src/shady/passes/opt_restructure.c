@@ -64,8 +64,11 @@ static DFSStackEntry* encountered_before(Context* ctx, const Node* bb, size_t* p
 
 static const Node* structure(Context* ctx, const Node* abs, const Node* exit_ladder);
 
-static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node* caller, const Node* dst, Nodes oargs, const Node* exit_ladder) {
+static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node* caller, const Node* j, const Node* exit_ladder) {
+    assert(j->tag == Jump_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
+    const Node* dst = j->payload.jump.target;
+    Nodes oargs = j->payload.jump.args;
 
     size_t path_len;
     DFSStackEntry* prior_encounter = encountered_before(ctx, dst, &path_len);
@@ -254,7 +257,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         }
         case Jump_TAG: {
             BodyBuilder* bb = begin_body(a);
-            return handle_bb_callsite(ctx, bb, abs, body->payload.jump.target, body->payload.jump.args, exit_ladder);
+            return handle_bb_callsite(ctx, bb, abs, body, exit_ladder);
         }
         // br(cond, true_bb, false_bb, args)
         // becomes
@@ -263,11 +266,11 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
             const Node* condition = rewrite_node(&ctx->rewriter, body->payload.branch.branch_condition);
 
             BodyBuilder* if_true_bb = begin_body(a);
-            const Node* true_body = handle_bb_callsite(ctx, if_true_bb, abs, body->payload.branch.true_target, body->payload.branch.args, yield(a, (Yield) { .args = empty(a) }));
+            const Node* true_body = handle_bb_callsite(ctx, if_true_bb, abs, body->payload.branch.true_jump, yield(a, (Yield) { .args = empty(a) }));
             const Node* if_true_lam = lambda(a, empty(a), true_body);
 
             BodyBuilder* if_false_bb = begin_body(a);
-            const Node* false_body = handle_bb_callsite(ctx, if_false_bb, abs, body->payload.branch.false_target, body->payload.branch.args, yield(a, (Yield) { .args = empty(a) }));
+            const Node* false_body = handle_bb_callsite(ctx, if_false_bb, abs, body->payload.branch.false_jump, yield(a, (Yield) { .args = empty(a) }));
             const Node* if_false_lam = lambda(a, empty(a), false_body);
 
             const Node* instr = if_instr(a, (If) {
@@ -283,20 +286,20 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
             const Node* switch_value = rewrite_node(&ctx->rewriter, body->payload.br_switch.switch_value);
 
             BodyBuilder* default_bb = begin_body(a);
-            const Node* default_body = handle_bb_callsite(ctx, default_bb, abs, body->payload.br_switch.default_target, body->payload.br_switch.args, yield(a, (Yield) { .args = empty(a) }));
+            const Node* default_body = handle_bb_callsite(ctx, default_bb, abs, body->payload.br_switch.default_jump, yield(a, (Yield) { .args = empty(a) }));
             const Node* default_case = lambda(a, empty(a), default_body);
 
-            LARRAY(const Node*, cases, body->payload.br_switch.case_targets.count);
-            for (size_t i = 0; i < body->payload.br_switch.case_targets.count; i++) {
+            LARRAY(const Node*, cases, body->payload.br_switch.case_jumps.count);
+            for (size_t i = 0; i < body->payload.br_switch.case_jumps.count; i++) {
                 BodyBuilder* bb = begin_body(a);
-                cases[i] = lambda(a, empty(a), handle_bb_callsite(ctx, bb, abs, body->payload.br_switch.case_targets.nodes[i], body->payload.br_switch.args, yield(a, (Yield) { .args = empty(a) })));
+                cases[i] = lambda(a, empty(a), handle_bb_callsite(ctx, bb, abs, body->payload.br_switch.case_jumps.nodes[i], yield(a, (Yield) { .args = empty(a) })));
             }
 
             const Node* instr = match_instr(a, (Match) {
                 .inspect = switch_value,
                 .yield_types = empty(a),
                 .default_case = default_case,
-                .cases = nodes(a, body->payload.br_switch.case_targets.count, cases),
+                .cases = nodes(a, body->payload.br_switch.case_jumps.count, cases),
                 .literals = rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values),
             });
             return let(a, instr, lambda(a, empty(a), exit_ladder));

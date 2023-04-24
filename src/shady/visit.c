@@ -36,6 +36,7 @@ void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
 #define visit_values(ns) visit_nodes(visitor, ns)
 #define visit_instruction(n) visit_node(visitor, n)
 #define visit_terminator(n) visit_node(visitor, n)
+#define visit_terminators(n) visit_nodes(visitor, n)
 #define visit_decl(n) visit_node(visitor, n)
 #define visit_anon_lambda(n) visit_node(visitor, n)
 #define visit_anon_lambdas(ns) visit_nodes(visitor, ns)
@@ -54,6 +55,7 @@ void visit_fn_blocks_except_head(Visitor* visitor, const Node* function) {
 #define VISIT_FIELD_VARIABLES(t, n) visit_values(payload.n);
 #define VISIT_FIELD_INSTRUCTION(t, n) visit_instruction(payload.n);
 #define VISIT_FIELD_TERMINATOR(t, n) visit_terminator(payload.n);
+#define VISIT_FIELD_TERMINATORS(t, n) visit_terminators(payload.n);
 #define VISIT_FIELD_ANON_LAMBDA(t, n) if (visitor->visit_cf_targets) visit_anon_lambda(payload.n);
 #define VISIT_FIELD_ANON_LAMBDAS(t, n) if (visitor->visit_cf_targets) visit_anon_lambdas(payload.n);
 

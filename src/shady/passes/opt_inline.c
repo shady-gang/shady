@@ -151,6 +151,22 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             break;
         }
+        // do not inline jumps in branches
+        case Branch_TAG: {
+            return branch(a, (Branch) {
+                .branch_condition = rewrite_node(&ctx->rewriter, node->payload.branch.branch_condition),
+                .true_jump = recreate_node_identity(&ctx->rewriter, node->payload.branch.true_jump),
+                .false_jump = recreate_node_identity(&ctx->rewriter, node->payload.branch.false_jump),
+            });
+        }
+        case Switch_TAG: {
+            return br_switch(a, (Switch) {
+                .switch_value = rewrite_node(&ctx->rewriter, node->payload.br_switch.switch_value),
+                .case_values = rewrite_nodes(&ctx->rewriter, node->payload.br_switch.case_values),
+                .case_jumps = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.br_switch.case_jumps, recreate_node_identity),
+                .default_jump = recreate_node_identity(&ctx->rewriter, node->payload.br_switch.default_jump),
+            });
+        }
         case Call_TAG: {
             if (!ctx->graph)
                 break;

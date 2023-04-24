@@ -164,20 +164,14 @@ static void visit_terminator(const VisitCtx* ctx, const Node* terminator) {
             visit_values(&ctx2, terminator->payload.jump.args);
             break;
         } case Terminator_Branch_TAG: {
-            VisitCtx ctx2 = *ctx;
-            // there are effectively two uses of those guys, or more exactly, two places where they'll be used.
-            // should this count as one use ? should this count as always leaking ? doesn't matter for now
-            ctx2.use_location = scope_lookup(ctx->scope_uses->scope, terminator->payload.branch.true_target);
-            visit_values(&ctx2, terminator->payload.branch.args);
-            ctx2.use_location = scope_lookup(ctx->scope_uses->scope, terminator->payload.branch.false_target);
-            visit_values(&ctx2, terminator->payload.branch.args);
+            visit_terminator(ctx, terminator->payload.branch.true_jump);
+            visit_terminator(ctx, terminator->payload.branch.false_jump);
             break;
         } case Terminator_Switch_TAG: {
-            VisitCtx ctx2 = *ctx;
-            // TODO: align with what we do for branches
-            ctx2.use_location = NULL;
-            visit_value(&ctx2, terminator->payload.br_switch.switch_value);
-            visit_values(&ctx2, terminator->payload.br_switch.args);
+            visit_value(ctx, terminator->payload.br_switch.switch_value);
+            for (size_t i = 0; i < terminator->payload.br_switch.case_jumps.count; i++)
+                visit_terminator(ctx, terminator->payload.br_switch.case_jumps.nodes[i]);
+            visit_terminator(ctx, terminator->payload.br_switch.default_jump);
             break;
         }
         case Terminator_MergeContinue_TAG: {

@@ -138,17 +138,20 @@ static BBBuilder find_basic_block_builder(Emitter* emitter, SHADY_UNUSED FnBuild
     return *found;
 }
 
-static void add_branch_phis(Emitter* emitter, FnBuilder fn_builder, SpvId src_id, const Node* dst, size_t count, SpvId args[]) {
+static void add_branch_phis(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* jump) {
+    assert(jump->tag == Jump_TAG);
+    const Node* dst = jump->payload.jump.target;
+    Nodes args = jump->payload.jump.args;
     // because it's forbidden to jump back into the entry block of a function
     // (which is actually a Function in this IR, not a BasicBlock)
     // we assert that the destination must be an actual BasicBlock
     assert(is_basic_block(dst));
     BBBuilder dst_builder = find_basic_block_builder(emitter, fn_builder, dst);
     struct List* phis = spbv_get_phis(dst_builder);
-    assert(entries_count_list(phis) == count);
-    for (size_t i = 0; i < count; i++) {
+    assert(entries_count_list(phis) == args.count);
+    for (size_t i = 0; i < args.count; i++) {
         SpvbPhi* phi = read_list(SpvbPhi*, phis)[i];
-        spvb_add_phi_source(phi, src_id, args[i]);
+        spvb_add_phi_source(phi, get_block_builder_id(bb_builder), emit_value(emitter, bb_builder, args.nodes[i]));
     }
 }
 
@@ -182,33 +185,26 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             return;
         }
         case Jump_TAG: {
-            Nodes args = terminator->payload.jump.args;
-            LARRAY(SpvId, emitted_args, args.count);
-            for (size_t i = 0; i < args.count; i++)
-                emitted_args[i] = emit_value(emitter, basic_block_builder, args.nodes[i]);
-
+            add_branch_phis(emitter, fn_builder, basic_block_builder, terminator);
             spvb_branch(basic_block_builder, find_reserved_id(emitter, terminator->payload.jump.target));
-            add_branch_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), terminator->payload.jump.target, args.count, emitted_args);
         }
         case Branch_TAG: {
-            Nodes args = terminator->payload.branch.args;
-            LARRAY(SpvId, emitted_args, args.count);
-            for (size_t i = 0; i < args.count; i++)
-                emitted_args[i] = emit_value(emitter, basic_block_builder, args.nodes[i]);
-
             SpvId condition = emit_value(emitter, basic_block_builder, terminator->payload.branch.branch_condition);
-            spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_target), find_reserved_id(emitter, terminator->payload.branch.false_target));
-
-            add_branch_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), terminator->payload.branch.true_target, args.count, emitted_args);
-            add_branch_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), terminator->payload.branch.false_target, args.count, emitted_args);
+            add_branch_phis(emitter, fn_builder, basic_block_builder, terminator->payload.branch.true_jump);
+            add_branch_phis(emitter, fn_builder, basic_block_builder, terminator->payload.branch.false_jump);
+            spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_jump->payload.jump.target), find_reserved_id(emitter, terminator->payload.branch.false_jump->payload.jump.target));
         }
         case Switch_TAG: {
-            Nodes args = terminator->payload.br_switch.args;
-            LARRAY(SpvId, emitted_args, args.count);
-            for (size_t i = 0; i < args.count; i++)
-                emitted_args[i] = emit_value(emitter, basic_block_builder, args.nodes[i]);
+            SpvId inspectee = emit_value(emitter, basic_block_builder, terminator->payload.br_switch.switch_value);
+            LARRAY(SpvId, targets, terminator->payload.br_switch.case_jumps.count * 2);
+            for (size_t i = 0; i < terminator->payload.br_switch.case_jumps.count; i++) {
+                add_branch_phis(emitter, fn_builder, basic_block_builder, terminator->payload.br_switch.case_jumps.nodes[i]);
+                error("TODO finish")
+            }
+            add_branch_phis(emitter, fn_builder, basic_block_builder, terminator->payload.br_switch.default_jump);
+            SpvId default_tgt = find_reserved_id(emitter, terminator->payload.br_switch.default_jump->payload.jump.target);
 
-            error("TODO")
+            spvb_switch(basic_block_builder, inspectee, default_tgt, terminator->payload.br_switch.case_jumps.count, targets);
         }
         case LetMut_TAG:
         case TailCall_TAG:

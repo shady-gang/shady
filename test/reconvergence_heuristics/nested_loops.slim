@@ -1,21 +1,21 @@
 @Restructure
 fn f i32(varying bool b, varying i32 i) {
-    jump(A)();
+    jump A();
 
     cont A() {
-        branch(b, B, H)();
+        branch (b, B(), H());
     }
 
     cont B() {
-        br_switch(i, 1, 2)(C, G, E)();
+        switch(i, case 1, C(), case 2, G(), default E());
     }
 
     cont C() {
-        br_switch(i, 4, 5)(B, D, F)();
+        switch(i, case 4, B(), case 5, D(), default F());
     }
 
     cont D() {
-        branch(b, E, A)();
+        branch (b, E(), A());
     }
 
     cont E() {
@@ -23,7 +23,7 @@ fn f i32(varying bool b, varying i32 i) {
     }
 
     cont F() {
-        jump (D)();
+        jump D();
     }
 
     cont G() {

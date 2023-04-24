@@ -1,25 +1,25 @@
 @Restructure
 fn f i32(varying bool b) {
-    jump(A)();
+    jump A();
 
     cont A() {
-        branch(b, B, C)(1);
+        branch(b, B(), C());
     }
 
-    cont B(varying i32 x) {
-        branch(b, D, E)(2);
+    cont B() {
+        branch(b, D(2), E(2));
     }
 
-    cont C(varying i32 x) {
-        branch(b, D, E)(3);
+    cont C() {
+        branch(b, D(3), E(3));
     }
 
     cont D(varying i32 x) {
-        jump (F)(x * 5);
+        jump F(x * 5);
     }
 
     cont E(varying i32 x) {
-        jump (F)(x * 7);
+        jump F(x * 7);
     }
 
     cont F(varying i32 x) {

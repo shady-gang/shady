@@ -263,6 +263,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     #define REWRITE_FIELD_VALUES(t, n) .n = rewrite_nodes_with_fn(rewriter, old_payload.n, rewrite_value),
     #define REWRITE_FIELD_INSTRUCTION(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_instruction),
     #define REWRITE_FIELD_TERMINATOR(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_terminator),
+    #define REWRITE_FIELD_TERMINATORS(t, n) .n = rewrite_nodes_with_fn(rewriter, old_payload.n, rewrite_terminator),
     #define REWRITE_FIELD_DECL(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_decl),
     #define REWRITE_FIELD_ANON_LAMBDA(t, n) .n = rewrite_node_with_fn(rewriter, old_payload.n, rewrite_anon_lambda),
     #define REWRITE_FIELD_ANON_LAMBDAS(t, n) .n = rewrite_nodes_with_fn(rewriter, old_payload.n, rewrite_anon_lambda),

@@ -5,14 +5,14 @@
 //     to reconverge, one needs to use the control() construct, such as demonstrated in restructure3
 //     to be absolutely clear: two distinct sets of threads will execute two different dynamic instances bb3
 fn f i32(varying bool b) {
-    branch(b, bb1, bb2)();
+    branch (b, bb1(), bb2());
 
     cont bb1() {
-        jump (bb3)(6);
+        jump bb3(6);
     }
 
     cont bb2 () {
-        jump (bb3)(7);
+        jump bb3(7);
     }
 
     cont bb3(varying i32 r) {

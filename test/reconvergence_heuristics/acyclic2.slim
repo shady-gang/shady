@@ -1,27 +1,27 @@
 @Restructure
 fn h1 i32(varying bool b) {
-    branch(b, bb1, bb2)();
+    branch(b, bb1(), bb2());
 
     cont bb1() {
         val not_b = ! b;
 
-        branch(not_b, bb3, bb4b)();
+        branch(not_b, bb3(), bb4b());
     }
 
     cont bb2 () {
-        jump (bb4)();
+        jump bb4();
     }
 
     cont bb3() {
-        jump (bb5)();
+        jump bb5();
     }
 
     cont bb4() {
-        jump (bb5)();
+        jump bb5();
     }
 
     cont bb4b() {
-        jump (bb5)();
+        jump bb5();
     }
 
     cont bb5() {

@@ -1,17 +1,17 @@
 @Restructure
 fn loop_with_two_exits varying i32(varying bool b) {
-    jump(entry)();
+    jump entry();
 
     cont entry() {
-        jump (loop_body)();
+        jump loop_body();
     }
 
     cont loop_body() {
-        branch(b, loop_body2, exit_a)();
+        branch (b, loop_body2(), exit_a());
     }
 
     cont loop_body2() {
-        branch(b, loop_body, exit_b)();
+        branch(b, loop_body(), exit_b());
     }
 
     cont exit_a() {
@@ -25,18 +25,18 @@ fn loop_with_two_exits varying i32(varying bool b) {
 
 @Restructure
 fn loop_with_two_exits_and_values varying i32(varying bool b) {
-    jump(entry)();
+    jump entry();
 
     cont entry() {
-        jump (loop_body)(0);
+        jump loop_body(0);
     }
 
     cont loop_body(varying i32 x) {
-        branch(b, loop_body2, exit_a)(0.3);
+        branch(b, loop_body2(0.3), exit_a(0.3));
     }
 
     cont loop_body2(varying f32 f) {
-        branch(b, loop_body, exit_b)(3);
+        branch(b, loop_body(3), exit_b(3));
     }
 
     cont exit_a(varying f32 f) {

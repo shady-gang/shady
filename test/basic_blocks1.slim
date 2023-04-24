@@ -1,6 +1,6 @@
 @EntryPoint("compute") @WorkgroupSize(64, 1, 1)
 fn main() {
-    jump (bb1)(7);
+    jump bb1(7);
 
     cont bb1(varying i32 n) {
         return ();

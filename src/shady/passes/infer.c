@@ -631,32 +631,9 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
                 .args = new_args
             });
         }
-        case Branch_TAG: {
-            const Node* ncond = infer(ctx, node->payload.branch.branch_condition, bool_type(a));
-
-            assert(is_basic_block(node->payload.branch.true_target));
-            assert(is_basic_block(node->payload.branch.false_target));
-            const Node* t_target = infer(ctx, node->payload.branch.true_target, NULL);
-            const Node* f_target = infer(ctx, node->payload.branch.false_target, NULL);
-
-            Nodes t_param_types = get_variables_types(a, get_abstraction_params(t_target));
-            Nodes f_param_types = get_variables_types(a, get_abstraction_params(f_target));
-
-            // TODO: unify the two target types
-
-            LARRAY(const Node*, tmp, node->payload.branch.args.count);
-            for (size_t i = 0; i < node->payload.branch.args.count; i++)
-                tmp[i] = infer(ctx, node->payload.branch.args.nodes[i], t_param_types.nodes[i]);
-
-            Nodes new_args = nodes(a, node->payload.branch.args.count, tmp);
-
-            return branch(a, (Branch) {
-                .branch_condition = ncond,
-                .true_target = t_target,
-                .false_target = f_target,
-                .args = new_args
-            });
-        }
+        case Branch_TAG:
+        case Terminator_Switch_TAG: break;
+        case Terminator_TailCall_TAG: break;
         case Terminator_Yield_TAG: {
             const Nodes* expected_types = ctx->merge_types;
             // TODO: block nodes should set merge types
@@ -699,8 +676,6 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             .join_point = infer(ctx, node->payload.join.join_point, NULL),
             .args = infer_nodes(ctx, node->payload.join.args),
         });
-        case Terminator_TailCall_TAG:
-        case Terminator_Switch_TAG: break;
     }
     return recreate_node_identity(&ctx->rewriter, node);
 }

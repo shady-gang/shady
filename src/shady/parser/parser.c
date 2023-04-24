@@ -684,6 +684,16 @@ static const Node* accept_anonymous_lambda(ctxparams, Node* fn) {
     return lambda(arena, params, body);
 }
 
+static const Node* expect_jump(ctxparams) {
+    String target = accept_identifier(ctx);
+    expect(target);
+    Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
+    return jump(arena, (Jump) {
+            .target = unbound(arena, (Unbound) { .name = target }),
+            .args = args
+    });
+}
+
 static const Node* accept_terminator(ctxparams, Node* fn) {
     TokenTag tag = curr_token(tokenizer).tag;
     switch (tag) {
@@ -703,15 +713,7 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
         }
         case jump_tok: {
             next_token(tokenizer);
-            expect(accept_token(ctx, lpar_tok));
-            const Node* target = accept_operand(ctx);
-            expect(accept_token(ctx, rpar_tok));
-            expect(target);
-            Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
-            return jump(arena, (Jump) {
-                .target = target,
-                .args = args
-            });
+            return expect_jump(ctx);
         }
         case branch_tok: {
             next_token(tokenizer);
@@ -720,35 +722,49 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
             const Node* condition = accept_value(ctx);
             expect(condition);
             expect(accept_token(ctx, comma_tok));
-            const Node* true_target = accept_value(ctx);
-            expect(true_target);
+            const Node* true_target = expect_jump(ctx);
             expect(accept_token(ctx, comma_tok));
-            const Node* false_target = accept_value(ctx);
-            expect(false_target);
+            const Node* false_target = expect_jump(ctx);
             expect(accept_token(ctx, rpar_tok));
 
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
             return branch(arena, (Branch) {
                 .branch_condition = condition,
-                .true_target = true_target,
-                .false_target = false_target,
-                .args = args
+                .true_jump = true_target,
+                .false_jump = false_target,
             });
         }
-        case br_switch_tok: {
+        case switch_tok: {
             next_token(tokenizer);
 
-            Nodes values = expect_operands(ctx);
-            Nodes dests = expect_operands(ctx);
-            assert(values.count > 0 && values.count == dests.count);
-            Nodes args = expect_operands(ctx);
+            expect(accept_token(ctx, lpar_tok));
+            const Node* inspectee = accept_value(ctx);
+            assert(inspectee);
+            expect(accept_token(ctx, comma_tok));
+            Nodes values = empty(arena);
+            Nodes cases = empty(arena);
+            const Node* default_jump;
+            while (true) {
+                if (accept_token(ctx, default_tok)) {
+                    default_jump = expect_jump(ctx);
+                    break;
+                }
+                assert(accept_token(ctx, case_tok));
+                const Node* value = accept_value(ctx);
+                assert(value);
+                expect(accept_token(ctx, comma_tok) && 1);
+                const Node* j = expect_jump(ctx);
+                expect(accept_token(ctx, comma_tok) && true);
+                values = append_nodes(arena, values, value);
+                cases = append_nodes(arena, cases, j);
+            }
+            expect(accept_token(ctx, rpar_tok));
 
             return br_switch(arena, (Switch) {
                 .switch_value = first(values),
-                .default_target = first(dests),
-                .case_values = nodes(arena, values.count - 1, values.nodes + 1),
-                .case_targets = nodes(arena, dests.count - 1, dests.nodes + 1),
-                .args = args,
+                .case_values = values,
+                .case_jumps = cases,
+                .default_jump = default_jump,
             });
         }
         case return_tok: {

@@ -399,17 +399,15 @@ MkField(1, VALUES, Nodes, args)
 typedef struct Branch_ Branch;
 #define Branch_Fields(MkField) \
 MkField(1, VALUE, const Node*, branch_condition) \
-MkField(1, BASIC_BLOCK, const Node*, true_target) \
-MkField(1, BASIC_BLOCK, const Node*, false_target) \
-MkField(1, VALUES, Nodes, args)
+MkField(1, TERMINATOR, const Node*, true_jump) \
+MkField(1, TERMINATOR, const Node*, false_jump) \
 
 typedef struct Switch_ Switch;
 #define Switch_Fields(MkField) \
 MkField(1, VALUE, const Node*, switch_value) \
 MkField(1, VALUES, Nodes, case_values) \
-MkField(1, BASIC_BLOCKS, Nodes, case_targets) \
-MkField(1, BASIC_BLOCK, const Node*, default_target) \
-MkField(1, VALUES, Nodes, args)
+MkField(1, TERMINATORS, Nodes, case_jumps) \
+MkField(1, TERMINATOR, const Node*, default_jump)
 
 /// Join nodes are used to undo the divergence caused by branches. At join nodes, an explicit mask is used to force a number of divergent execution paths to resume.
 /// If @p is_indirect is set, the target must be a function pointer. Otherwise, the target must be a function directly.
