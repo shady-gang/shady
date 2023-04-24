@@ -326,7 +326,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             assert(ctx->fwd_scope);
 
             CFNode* cfnode = scope_lookup(ctx->back_scope, ctx->current_abstraction);
-            CFNode* idom = NULL;
+            const Node* idom = NULL;
 
             LTNode* current_loop = looptree_lookup(ctx->current_looptree, ctx->current_abstraction)->parent;
             assert(current_loop);
@@ -347,26 +347,26 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 if (!leaves_loop) {
                     const Node* current_loop_head = read_list(CFNode*, current_loop->cf_nodes)[0]->node;
                     Scope* loop_scope = new_scope_lt_flipped(current_loop_head, ctx->current_looptree);
-                    idom = scope_lookup(loop_scope, ctx->current_abstraction)->idom;
+                    CFNode* idom_cf = scope_lookup(loop_scope, ctx->current_abstraction)->idom;
+                    if (idom_cf)
+                        idom = idom_cf->node;
                     destroy_scope(loop_scope);
                 }
             } else {
-                idom = cfnode->idom;
+                idom = cfnode->idom->node;
             }
 
-            if(!idom || !idom->node) {
+            if(!idom) {
                 break;
             }
 
-            if (scope_lookup(ctx->fwd_scope, idom->node)->idom->node!= ctx->current_abstraction)
+            if (scope_lookup(ctx->fwd_scope, idom)->idom->node!= ctx->current_abstraction)
                 break;
 
-            const Node* old_idom_node = idom->node;
-
-            assert(is_abstraction(old_idom_node) && old_idom_node->tag != Function_TAG);
+            assert(is_abstraction(idom) && idom->tag != Function_TAG);
 
             LTNode* lt_node = looptree_lookup(ctx->current_looptree, ctx->current_abstraction);
-            LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, old_idom_node);
+            LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, idom);
             CFNode* current_node = scope_lookup(ctx->fwd_scope, ctx->current_abstraction);
 
             assert(lt_node);
@@ -380,7 +380,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes exit_args;
             Nodes lambda_args;
 
-            Nodes old_params = get_abstraction_params(old_idom_node);
+            Nodes old_params = get_abstraction_params(idom);
 
             if (old_params.count == 0) {
                 yield_types = empty(arena);
@@ -414,26 +414,26 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
-            Node* pre_join = basic_block(arena, fn, exit_args, format_string(arena, "merge_%s_%s", get_abstraction_name(ctx->current_abstraction) ,get_abstraction_name(old_idom_node)));
+            Node* pre_join = basic_block(arena, fn, exit_args, format_string(arena, "merge_%s_%s", get_abstraction_name(ctx->current_abstraction) ,get_abstraction_name(idom)));
             pre_join->payload.basic_block.body = join(arena, (Join) {
                 .join_point = join_token,
                 .args = exit_args
             });
 
-            const Node* cached = search_processed(rewriter, old_idom_node);
+            const Node* cached = search_processed(rewriter, idom);
             if (cached)
-                remove_dict(const Node*, is_declaration(old_idom_node) ? rewriter->decls_map : rewriter->map, old_idom_node);
+                remove_dict(const Node*, is_declaration(idom) ? rewriter->decls_map : rewriter->map, idom);
             for (size_t i = 0; i < old_params.count; i++) {
                 assert(!search_processed(rewriter, old_params.nodes[i]));
             }
 
-            register_processed(rewriter, old_idom_node, pre_join);
+            register_processed(rewriter, idom, pre_join);
 
             const Node* inner_terminator = recreate_node_identity(rewriter, node);
 
-            remove_dict(const Node*, is_declaration(idom->node) ? rewriter->decls_map : rewriter->map, old_idom_node);
+            remove_dict(const Node*, is_declaration(idom) ? rewriter->decls_map : rewriter->map, idom);
             if (cached)
-                register_processed(rewriter, old_idom_node, cached);
+                register_processed(rewriter, idom, cached);
 
             const Node* control_inner = lambda(arena, singleton(join_token), inner_terminator);
             const Node* new_target = control(arena, (Control) {
@@ -441,9 +441,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .yield_types = yield_types
             });
 
-            const Node* recreated_join = rewrite_node(rewriter, old_idom_node);
+            const Node* recreated_join = rewrite_node(rewriter, idom);
 
-            switch (old_idom_node->tag) {
+            switch (idom->tag) {
                 case BasicBlock_TAG: {
                     const Node* outer_terminator = jump(arena, (Jump) {
                         .target = recreated_join,
