@@ -24,13 +24,13 @@ static const Node* get_global_var(Context* ctx, Op op) {
     const Type* t = rewrite_node(&ctx->rewriter, node->type);
     deconstruct_qualified_type(&t);
     Node* decl = ctx->globals[node->payload.prim_op.op];
-    AddressSpace as;
+    AddressSpace as = AsSubgroupLogical;
 
     switch (op) {
         case global_id_op:
         case workgroup_local_id_op:
         case workgroup_id_op:
-            as = AsPrivatePhysical;
+            as = AsPrivateLogical;
             break;
         case workgroup_num_op:
             as = AsExternal;
