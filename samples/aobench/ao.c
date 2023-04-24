@@ -192,12 +192,12 @@ void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
 
 unsigned char aobench_clamp(Scalar f)
 {
-    int i = (int)(f * 255.5);
+    Scalar s = (f * 255.5);
 
-    if (i < 0) i = 0;
-    if (i > 255) i = 255;
+    if (s < 0.f) return 0;
+    if (s > 255.f) return 255;
 
-    return (unsigned char)i;
+    return (unsigned char) s;
 }
 
 void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigned char* img) {
@@ -211,7 +211,7 @@ void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigne
             Scalar px = (x + (u / (Scalar)nsubsamples) - (w / 2.0)) / (w / 2.0);
             Scalar py = -(y + (v / (Scalar)nsubsamples) - (h / 2.0)) / (h / 2.0);
 
-            Ray ray;
+            Ray ray = {};
 
             ray.org.x = 0.0;
             ray.org.y = 0.0;
@@ -222,18 +222,18 @@ void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigne
             ray.dir.z = -1.0;
             vnormalize(&(ray.dir));
 
-            Isect isect;
+            Isect isect = {};
             isect.t   = 1.0e+17;
             isect.hit = 0;
 
-            ray_sphere_intersect(&isect, &ray, &ctx->spheres[0]);
+            // ray_sphere_intersect(&isect, &ray, &ctx->spheres[0]);
             // ray_sphere_intersect(&isect, &ray, &ctx->spheres[1]);
             // ray_sphere_intersect(&isect, &ray, &ctx->spheres[2]);
-            // ray_plane_intersect (&isect, &ray, &ctx->plane);
+            ray_plane_intersect (&isect, &ray, &ctx->plane);
 
             pixel[0] = isect.t * 0.05f;
             pixel[1] = isect.t * 0.25f;
-            pixel[2] = 255.f;
+            pixel[2] = 0.f;
 
             // if (isect.hit) {
             //     vec col;
