@@ -162,13 +162,16 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             switch (value->payload.float_literal.width) {
                 case FloatTy16:
                     assert(false);
-                    break;
-                case FloatTy32:
-                    emitted = format_string(emitter->arena, "%f", value->payload.float_literal.value.b32); break;
-                    break;
-                case FloatTy64:
-                    emitted = format_string(emitter->arena, "%d", value->payload.float_literal.value.b64); break;
-                    break;
+                case FloatTy32: {
+                    float f;
+                    memcpy(&f, &value->payload.float_literal.value.b32, sizeof(uint32_t));
+                    emitted = format_string(emitter->arena, "%f", f); break;
+                }
+                case FloatTy64: {
+                    double d;
+                    memcpy(&d, &value->payload.float_literal.value.b64, sizeof(uint64_t));
+                    emitted = format_string(emitter->arena, "%f", d); break;
+                }
             }
             break;
         case Value_True_TAG: return term_from_cvalue("true");

@@ -126,8 +126,8 @@ int main(int argc, char **argv) {
     saveppm("ispc.ppm", WIDTH, HEIGHT, img);
 #endif
 
-    // render_device(img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
-    // saveppm("device.ppm", WIDTH, HEIGHT, img);
+    render_device(img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
+    saveppm("device.ppm", WIDTH, HEIGHT, img);
 
     free(img);
 

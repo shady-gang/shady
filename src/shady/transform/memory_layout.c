@@ -70,7 +70,7 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
         };
         case Float_TAG:   return (TypeMemLayout) {
             .type = type,
-            .size_in_bytes = get_type_bitwidth(type),
+            .size_in_bytes = get_type_bitwidth(type) / 8,
             .alignment_in_bytes = type->payload.float_type.width == FloatTy64 ? 8 : 4,
         };
         case Bool_TAG:   return (TypeMemLayout) {

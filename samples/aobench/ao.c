@@ -226,9 +226,9 @@ void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigne
             isect.t   = 1.0e+17;
             isect.hit = 0;
 
-            // ray_sphere_intersect(&isect, &ray, &ctx->spheres[0]);
-            // ray_sphere_intersect(&isect, &ray, &ctx->spheres[1]);
-            // ray_sphere_intersect(&isect, &ray, &ctx->spheres[2]);
+            ray_sphere_intersect(&isect, &ray, &ctx->spheres[0]);
+            ray_sphere_intersect(&isect, &ray, &ctx->spheres[1]);
+            ray_sphere_intersect(&isect, &ray, &ctx->spheres[2]);
             ray_plane_intersect (&isect, &ray, &ctx->plane);
 
             pixel[0] = isect.t * 0.05f;
