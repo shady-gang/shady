@@ -465,6 +465,8 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
 
+            bool uniform = is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space);
+
             String address_space_prefix = NULL;
             switch (decl->payload.global_variable.address_space) {
                 case AsGeneric:
@@ -520,13 +522,18 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 address_space_prefix = "";
             }
 
+            if (emitter->config.dialect == ISPC && !uniform) {
+                // hack for ISPC: there is no nice way to get a set of varying pointers (instead of a "pointer to a varying") pointing to a varying global
+                emit_as = term_from_cvalue(format_string(emitter->arena, "(((%s) &%s) + programIndex)", c_emit_type(emitter, decl->type, NULL), name));
+            }
+
             register_emitted(emitter, decl, emit_as);
 
             String init = NULL;
             if (decl->payload.global_variable.init)
                 init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
 
-            emit_global_variable_definition(emitter, address_space_prefix, decl_center, decl_type, is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space), false, init);
+            emit_global_variable_definition(emitter, address_space_prefix, decl_center, decl_type, uniform, false, init);
             return;
         }
         case Function_TAG: {
