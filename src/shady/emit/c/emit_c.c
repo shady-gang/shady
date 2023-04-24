@@ -527,15 +527,6 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
 
             emit_global_variable_definition(emitter, address_space_prefix, decl_center, decl_type, is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space), false, init);
-            /*if (decl->payload.global_variable.init) {
-                print(emitter->fn_defs, "\n%s%s = %s;", address_space_prefix, emit_type(emitter, decl_type, decl_center), to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init)));
-
-                if (!has_forward_declarations(emitter->config.dialect))
-                    return;
-            }
-
-            String declaration = emit_type(emitter, decl_type, decl_center);
-            print(emitter->fn_decls, "\n%s%s;", address_space_prefix, declaration);*/
             return;
         }
         case Function_TAG: {
