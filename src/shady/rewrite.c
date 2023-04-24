@@ -33,8 +33,9 @@ Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn) {
         },
         .config = {
             .search_map = true,
-            .rebind_let = dst->arena->config.check_types,
             //.write_map = true,
+            .rebind_let = dst->arena->config.check_types,
+            .fold_quote = true,
         },
         .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
@@ -297,7 +298,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         }
         case Let_TAG: {
             const Node* instruction = rewrite_node_with_fn(rewriter, node->payload.let.instruction, rewrite_instruction);
-            if (arena->config.check_types && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
+            if (arena->config.allow_fold && rewriter->config.fold_quote && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
                 Nodes old_params = node->payload.let.tail->payload.anon_lam.params;
                 Nodes new_args = instruction->payload.prim_op.operands;
                 assert(old_params.count == new_args.count);

@@ -107,7 +107,7 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
         insert_dict(const Node*, Nodes, ctx->lifted_arguments, old_children[i], nargs);
     }
 
-    const Node* new = recreate_node_identity(&ctx->rewriter, body);
+    const Node* new = rewrite_node(&ctx->rewriter, body);
 
     ctx->rewriter.map = clone_dict(ctx->rewriter.map);
 
@@ -159,10 +159,11 @@ const Node* process_node(Context* ctx, const Node* old) {
         case BasicBlock_TAG: {
             assert(false);
         }
-    }
-
-    if (is_abstraction(old)) {
-        return process_abstraction_body(ctx, old, old);
+        case AnonLambda_TAG: {
+            Nodes nparams = recreate_variables(&ctx->rewriter, get_abstraction_params(old));
+            register_processed_list(&ctx->rewriter, get_abstraction_params(old), nparams);
+            return lambda(a, nparams, process_abstraction_body(ctx, old, get_abstraction_body(old)));
+        }
     }
 
     return recreate_node_identity(&ctx->rewriter, old);
@@ -179,6 +180,7 @@ void lcssa(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     };
 
     ctx.rewriter.config.rebind_let = false;
+    ctx.rewriter.config.fold_quote = false;
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
