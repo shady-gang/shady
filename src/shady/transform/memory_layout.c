@@ -9,6 +9,8 @@
 #include <assert.h>
 
 inline static size_t round_up(size_t a, size_t b) {
+    if (b == 0)
+        return a;
     size_t divided = (a + b - 1) / b;
     return divided * b;
 }

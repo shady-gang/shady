@@ -75,6 +75,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             BodyBuilder* bb = begin_body(a);
             if (!ctx2.disable_lowering) {
+                Node* nom_t = nominal_type(m, empty(a), format_string(a, "%s_stack_frame", get_abstraction_name(node)));
                 ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_pointer_op } ), (String []) {format_string(a, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
                 ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
                 VContext vctx = {
@@ -84,7 +85,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     },
                     .context = &ctx2,
                     .bb = bb,
-                    .nom_t = nominal_type(m, empty(a), format_string(a, "%s_stack_frame", get_abstraction_name(node))),
+                    .nom_t = nom_t,
                     .members = new_list(const Node*),
                 };
                 if (node->payload.fun.body)
@@ -95,6 +96,11 @@ static const Node* process(Context* ctx, const Node* node) {
                     .special = 0
                 });
                 destroy_list(vctx.members);
+
+                const Node* frame_size = gen_primop_e(bb, size_of_op, singleton(type_decl_ref_helper(a, nom_t)), empty(a));
+                frame_size = convert_int_extend_according_to_src_t(bb, get_unqualified_type(ctx2.entry_stack_offset->type), frame_size);
+                const Node* updated_stack_ptr = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, ctx2.entry_stack_offset, frame_size));
+                gen_primop(bb, set_stack_pointer_op, empty(a), singleton(updated_stack_ptr));
             }
             if (node->payload.fun.body)
                 fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
