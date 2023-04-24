@@ -34,6 +34,7 @@ set(SHADY_SOURCES
     passes/infer.c
     passes/lower_cf_instrs.c
     passes/lift_indirect_targets.c
+    passes/lcssa.c
     passes/lower_callf.c
     passes/lower_stack.c
     passes/lower_lea.c

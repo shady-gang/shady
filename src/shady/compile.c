@@ -77,6 +77,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     aconfig.allow_fold = true;
     RUN_PASS(opt_inline_jumps)
 
+    RUN_PASS(lcssa)
     RUN_PASS(reconvergence_heuristics)
 
     RUN_PASS(setup_stack_frames)
