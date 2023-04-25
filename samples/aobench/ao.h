@@ -5,7 +5,7 @@
 
 typedef float Scalar;
 
-#define M_PI 3.14159
+#define M_PI 3.14159f
 
 Scalar sqrtf(Scalar);
 Scalar floorf(Scalar);

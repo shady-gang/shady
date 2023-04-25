@@ -23,7 +23,7 @@ unsigned int nrand(unsigned int* rng) {
 }
 
 Scalar drand48(Ctx* ctx) {
-    Scalar n = (nrand(&ctx->rng) / 65536.0);
+    Scalar n = (nrand(&ctx->rng) / 65536.0f);
     n = n - floorf(n);
     return n;
 }
@@ -35,7 +35,6 @@ static Scalar vdot(vec v0, vec v1)
 
 static void vcross(vec *c, vec v0, vec v1)
 {
-
     c->x = v0.y * v1.z - v0.z * v1.y;
     c->y = v0.z * v1.x - v0.x * v1.z;
     c->z = v0.x * v1.y - v0.y * v1.x;
@@ -45,7 +44,7 @@ static void vnormalize(vec *c)
 {
     Scalar length = sqrtf(vdot((*c), (*c)));
 
-    if (fabsf(length) > 1.0e-17) {
+    if (fabsf(length) > 1.0e-17f) {
         c->x /= length;
         c->y /= length;
         c->z /= length;
@@ -65,10 +64,10 @@ ray_sphere_intersect(Isect *isect, const Ray *ray, const Sphere *sphere)
     Scalar C = vdot(rs, rs) - sphere->radius * sphere->radius;
     Scalar D = B * B - C;
 
-    if (D > 0.0) {
+    if (D > 0.0f) {
         Scalar t = -B - sqrtf(D);
 
-        if ((t > 0.0) && (t < isect->t)) {
+        if ((t > 0.0f) && (t < isect->t)) {
             isect->t = t;
             isect->hit = 1;
 
@@ -91,11 +90,11 @@ ray_plane_intersect(Isect *isect, const Ray *ray, const Plane *plane)
     Scalar d = -vdot(plane->p, plane->n);
     Scalar v = vdot(ray->dir, plane->n);
 
-    if (fabsf(v) < 1.0e-17) return;
+    if (fabsf(v) < 1.0e-17f) return;
 
     Scalar t = -(vdot(ray->org, plane->n) + d) / v;
 
-    if ((t > 0.0) && (t < isect->t)) {
+    if ((t > 0.0f) && (t < isect->t)) {
         isect->t = t;
         isect->hit = 1;
 
@@ -111,16 +110,16 @@ void
 orthoBasis(vec *basis, vec n)
 {
     basis[2] = n;
-    basis[1].x = 0.0; basis[1].y = 0.0; basis[1].z = 0.0;
+    basis[1].x = 0.0f; basis[1].y = 0.0f; basis[1].z = 0.0f;
 
-    if ((n.x < 0.6) && (n.x > -0.6)) {
-        basis[1].x = 1.0;
-    } else if ((n.y < 0.6) && (n.y > -0.6)) {
-        basis[1].y = 1.0;
-    } else if ((n.z < 0.6) && (n.z > -0.6)) {
-        basis[1].z = 1.0;
+    if ((n.x < 0.6f) && (n.x > -0.6f)) {
+        basis[1].x = 1.0f;
+    } else if ((n.y < 0.6f) && (n.y > -0.6f)) {
+        basis[1].y = 1.0f;
+    } else if ((n.z < 0.6f) && (n.z > -0.6f)) {
+        basis[1].z = 1.0f;
     } else {
-        basis[1].x = 1.0;
+        basis[1].x = 1.0f;
     }
 
     vcross(&basis[0], basis[1], basis[2]);
@@ -135,7 +134,7 @@ void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
     int    i, j;
     int    ntheta = NAO_SAMPLES;
     int    nphi   = NAO_SAMPLES;
-    Scalar eps = 0.0001;
+    Scalar eps = 0.0001f;
 
     vec p;
 
@@ -146,16 +145,16 @@ void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
     vec basis[3];
     orthoBasis(basis, isect->n);
 
-    Scalar occlusion = 0.0;
+    Scalar occlusion = 0.0f;
 
     for (j = 0; j < ntheta; j++) {
         for (i = 0; i < nphi; i++) {
             Scalar theta = sqrtf(drand48(ctx));
-            Scalar phi   = 2.0 * M_PI * drand48(ctx);
+            Scalar phi   = 2.0f * M_PI * drand48(ctx);
 
             Scalar x = cosf(phi) * theta;
             Scalar y = sinf(phi) * theta;
-            Scalar z = sqrtf(1.0 - theta * theta);
+            Scalar z = sqrtf(1.0f - theta * theta);
 
             // local -> global
             Scalar rx = x * basis[0].x + y * basis[1].x + z * basis[2].x;
@@ -170,7 +169,7 @@ void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
             ray.dir.z = rz;
 
             Isect occIsect;
-            occIsect.t   = 1.0e+17;
+            occIsect.t   = 1.0e+17f;
             occIsect.hit = 0;
 
             ray_sphere_intersect(&occIsect, &ray, &ctx->spheres[0]);
@@ -178,7 +177,7 @@ void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
             ray_sphere_intersect(&occIsect, &ray, &ctx->spheres[2]);
             ray_plane_intersect (&occIsect, &ray, &ctx->plane);
 
-            if (occIsect.hit) occlusion += 1.0;
+            if (occIsect.hit) occlusion += 1.0f;
 
         }
     }
@@ -192,7 +191,7 @@ void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
 
 unsigned char aobench_clamp(Scalar f)
 {
-    Scalar s = (f * 255.5);
+    Scalar s = (f * 255.5f);
 
     if (s < 0.f) return 0;
     if (s > 255.f) return 255;
@@ -208,22 +207,22 @@ void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigne
     int u, v;
     for (v = 0; v < nsubsamples; v++) {
         for (u = 0; u < nsubsamples; u++) {
-            Scalar px = (x + (u / (Scalar)nsubsamples) - (w / 2.0)) / (w / 2.0);
-            Scalar py = -(y + (v / (Scalar)nsubsamples) - (h / 2.0)) / (h / 2.0);
+            Scalar px = (x + (u / (Scalar)nsubsamples) - (w / 2.0f)) / (w / 2.0f);
+            Scalar py = -(y + (v / (Scalar)nsubsamples) - (h / 2.0f)) / (h / 2.0f);
 
             Ray ray = {};
 
-            ray.org.x = 0.0;
-            ray.org.y = 0.0;
-            ray.org.z = 0.0;
+            ray.org.x = 0.0f;
+            ray.org.y = 0.0f;
+            ray.org.z = 0.0f;
 
             ray.dir.x = px;
             ray.dir.y = py;
-            ray.dir.z = -1.0;
+            ray.dir.z = -1.0f;
             vnormalize(&(ray.dir));
 
             Isect isect = {};
-            isect.t   = 1.0e+17;
+            isect.t   = 1.0e+17f;
             isect.hit = 0;
 
             ray_sphere_intersect(&isect, &ray, &ctx->spheres[0]);
@@ -259,28 +258,28 @@ void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigne
 
 void init_scene(Ctx* ctx)
 {
-    ctx->spheres[0].center.x = -2.0;
-    ctx->spheres[0].center.y =  0.0;
-    ctx->spheres[0].center.z = -3.5;
-    ctx->spheres[0].radius = 0.5;
+    ctx->spheres[0].center.x = -2.0f;
+    ctx->spheres[0].center.y =  0.0f;
+    ctx->spheres[0].center.z = -3.5f;
+    ctx->spheres[0].radius = 0.5f;
 
-    ctx->spheres[1].center.x = -0.5;
-    ctx->spheres[1].center.y =  0.0;
-    ctx->spheres[1].center.z = -3.0;
-    ctx->spheres[1].radius = 0.5;
+    ctx->spheres[1].center.x = -0.5f;
+    ctx->spheres[1].center.y =  0.0f;
+    ctx->spheres[1].center.z = -3.0f;
+    ctx->spheres[1].radius = 0.5f;
 
-    ctx->spheres[2].center.x =  1.0;
-    ctx->spheres[2].center.y =  0.0;
-    ctx->spheres[2].center.z = -2.2;
-    ctx->spheres[2].radius = 0.5;
+    ctx->spheres[2].center.x =  1.0f;
+    ctx->spheres[2].center.y =  0.0f;
+    ctx->spheres[2].center.z = -2.2f;
+    ctx->spheres[2].radius = 0.5f;
 
-    ctx->plane.p.x = 0.0;
-    ctx->plane.p.y = -0.5;
-    ctx->plane.p.z = 0.0;
+    ctx->plane.p.x = 0.0f;
+    ctx->plane.p.y = -0.5f;
+    ctx->plane.p.z = 0.0f;
 
-    ctx->plane.n.x = 0.0;
-    ctx->plane.n.y = 1.0;
-    ctx->plane.n.z = 0.0;
+    ctx->plane.n.x = 0.0f;
+    ctx->plane.n.y = 1.0f;
+    ctx->plane.n.z = 0.0f;
 
 }
 
