@@ -270,7 +270,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     if (dst_type->tag == Float_TAG) {
                         assert(src_type->tag == Int_TAG);
                         String n;
-                        switch (src_type->payload.float_type.width) {
+                        switch (dst_type->payload.float_type.width) {
                             case FloatTy16: n = "float16bits";
                                 break;
                             case FloatTy32: n = "floatbits";
