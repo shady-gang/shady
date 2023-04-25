@@ -1,11 +1,14 @@
-add_executable(aobench_host ao_host.c ao_main.c)
-
 find_program(CLANG_EXE "clang")
 find_program(LLVM-SPIRV_EXE "llvm-spirv")
 
 if (CLANG_EXE AND LLVM-SPIRV_EXE)
+    add_executable(aobench_host ao_host.c ao_main.c)
+
     add_custom_command(OUTPUT ao.cl.ll COMMAND clang ARGS ${CMAKE_CURRENT_SOURCE_DIR}/ao.cl -std=clc++2021 -emit-llvm -o ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.ll -c -target spir64-unknown-unknown -O2 DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ao.cl ${CMAKE_CURRENT_SOURCE_DIR}/ao.c)
     add_custom_command(OUTPUT ao.cl.spv COMMAND llvm-spirv ARGS ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.ll -o ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.spv DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.ll)
+
+    set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/ao_main.c APPEND PROPERTY OBJECT_DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.spv)
+    file(COPY ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.spv DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
     find_program(ISPC_EXE "ispc")
     if (ISPC_EXE)
@@ -15,9 +18,9 @@ if (CLANG_EXE AND LLVM-SPIRV_EXE)
         add_library(aobench_ispc OBJECT ${CMAKE_CURRENT_BINARY_DIR}/aobench.ispc.o)
         set_target_properties(aobench_ispc PROPERTIES LINKER_LANGUAGE C)
         target_link_libraries(aobench_host PRIVATE aobench_ispc ${CMAKE_CURRENT_BINARY_DIR}/aobench.ispc.o)
-        message("mdr")
     endif()
 
+    target_link_libraries(aobench_host PRIVATE m shady runtime common)
+else()
+    message("Clang and/or llvm-spirv not found. Skipping aobench.")
 endif()
-
-target_link_libraries(aobench_host PRIVATE m shady runtime common)
