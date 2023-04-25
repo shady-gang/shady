@@ -198,7 +198,11 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                         return emit_type(emitter, type->payload.qualified_type.type, format_string(emitter->arena, "varying %s", center));
             }
         case Type_PtrType_TAG: {
-            return emit_type(emitter, type->payload.ptr_type.pointed_type, format_string(emitter->arena, "*%s", center));
+            CType t = emit_type(emitter, type->payload.ptr_type.pointed_type, format_string(emitter->arena, "* %s", center));
+            // we always emit pointers to _uniform_ data, no exceptions
+            if (emitter->config.dialect == ISPC)
+                t = format_string(emitter->arena, "uniform %s", t);
+            return t;
         }
         case Type_FnType_TAG: {
             return emit_fn_head(emitter, type, center, NULL);

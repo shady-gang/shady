@@ -275,8 +275,23 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             break;
         }
         case Value_RefDecl_TAG: {
-            emit_decl(emitter, value->payload.ref_decl.decl);
-            return *lookup_existing_term(emitter, value->payload.ref_decl.decl);
+            const Node* decl = value->payload.ref_decl.decl;
+            emit_decl(emitter, decl);
+
+            if (emitter->config.dialect == ISPC && decl->tag == GlobalVariable_TAG) {
+                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space)) {
+                    assert(block_printer && "ISPC backend cannot statically refer to a varying global variable");
+                    // hack for ISPC: there is no nice way to get a set of varying pointers (instead of a "pointer to a varying") pointing to a varying global
+                    String interm = unique_name(emitter->arena, "intermediary_ptr_value");
+                    const Type* ut = qualified_type_helper(decl->type, true);
+                    const Type* vt = qualified_type_helper(decl->type, false);
+                    String lhs = emit_type(emitter, vt, interm);
+                    print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, emit_type(emitter, ut, NULL), to_cvalue(emitter, *lookup_existing_term(emitter, decl)));
+                    return term_from_cvalue(interm);
+                }
+            }
+
+            return *lookup_existing_term(emitter, decl);
         }
     }
 
@@ -523,11 +538,6 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             if (!address_space_prefix) {
                 warn_print("No known address space prefix for as %d, this might produce broken code\n", decl->payload.global_variable.address_space);
                 address_space_prefix = "";
-            }
-
-            if (emitter->config.dialect == ISPC && !uniform) {
-                // hack for ISPC: there is no nice way to get a set of varying pointers (instead of a "pointer to a varying") pointing to a varying global
-                emit_as = term_from_cvalue(format_string(emitter->arena, "(((%s) &%s) + programIndex)", c_emit_type(emitter, decl->type, NULL), name));
             }
 
             register_emitted(emitter, decl, emit_as);

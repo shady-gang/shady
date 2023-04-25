@@ -172,6 +172,16 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                         SHADY_FALLTHROUGH
                     }
                     case RecordType_TAG: {
+                        // yet another ISPC bug and workaround
+                        // ISPC cannot deal with subscripting if you've done pointer arithmetic (!) inside the expression
+                        // so hum we just need to introduce a temporary variable to hold the pointer expression so far, and go again from there
+                        // See https://github.com/ispc/ispc/issues/2496
+                        if (emitter->config.dialect == ISPC) {
+                            String interm = unique_name(arena, "lea_intermediary_ptr_value");
+                            print(p, "%s = %s;\n", emit_type(emitter, curr_ptr_type, interm), to_cvalue(emitter, acc));
+                            acc = term_from_cvalue(interm);
+                        }
+
                         assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
                         size_t static_index = get_int_literal_value(selector, false);
                         assert(static_index < pointee_type->payload.record_type.members.count);
