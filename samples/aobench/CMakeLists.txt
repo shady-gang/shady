@@ -8,7 +8,10 @@ if (CLANG_EXE AND LLVM-SPIRV_EXE)
     add_custom_command(OUTPUT ao.cl.spv COMMAND llvm-spirv ARGS ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.ll -o ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.spv DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.ll)
 
     set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/ao_main.c APPEND PROPERTY OBJECT_DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.spv)
-    file(COPY ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.spv DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+    add_custom_command(TARGET aobench_host POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_CURRENT_BINARY_DIR}/ao.cl.spv
+            ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ao.cl.spv)
 
     find_program(ISPC_EXE "ispc")
     if (ISPC_EXE)
