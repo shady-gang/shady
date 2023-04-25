@@ -228,8 +228,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             final_expression = format_string(emitter->arena, "(%s) ? (%s) : (%s)", condition, l, r);
             break;
         }
-        case convert_op:
-        case reinterpret_op: {
+        case convert_op: {
             assert(outputs.count == 1);
             CTerm src = emit_value(emitter, p, first(prim_op->operands));
             const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
@@ -245,6 +244,55 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 CType t = emit_type(emitter, dst_type, NULL);
                 outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "((%s) %s)", t, to_cvalue(emitter, src)));
                 outputs.binding[0] = NoBinding;
+            }
+            return;
+        }
+        case reinterpret_op: {
+            assert(outputs.count == 1);
+            CTerm src_value = emit_value(emitter, p, first(prim_op->operands));
+            const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
+            const Type* dst_type = first(prim_op->type_arguments);
+            switch (emitter->config.dialect) {
+                case C: {
+                    String src = unique_name(arena, "bitcast_src");
+                    String dst = unique_name(arena, "bitcast_result");
+                    print(p, "\n%s = %s;", emit_type(emitter, src_type, src), to_cvalue(emitter, src_value));
+                    print(p, "\n%s;", emit_type(emitter, dst_type, dst));
+                    print(p, "\nmemcpy(&%s, &s, sizeof(%s));", dst, src, src);
+                    outputs.results[0] = term_from_cvalue(dst);
+                    outputs.binding[0] = NoBinding;
+                    break;
+                }
+                case GLSL:
+                    error("TODO");
+                    break;
+                case ISPC: {
+                    if (dst_type->tag == Float_TAG) {
+                        assert(src_type->tag == Int_TAG);
+                        String n;
+                        switch (src_type->payload.float_type.width) {
+                            case FloatTy16: n = "float16bits";
+                                break;
+                            case FloatTy32: n = "floatbits";
+                                break;
+                            case FloatTy64: n = "doublebits";
+                                break;
+                        }
+                        outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s(%s)", n, to_cvalue(emitter, src_value)));
+                        outputs.binding[0] = LetBinding;
+                        break;
+                    } else if (src_type->tag == Float_TAG) {
+                        assert(dst_type->tag == Int_TAG);
+                        outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "intbits(%s)", to_cvalue(emitter, src_value)));
+                        outputs.binding[0] = LetBinding;
+                        break;
+                    }
+
+                    CType t = emit_type(emitter, dst_type, NULL);
+                    outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "((%s) %s)", t, to_cvalue(emitter, src_value)));
+                    outputs.binding[0] = NoBinding;
+                    break;
+                }
             }
             return;
         }

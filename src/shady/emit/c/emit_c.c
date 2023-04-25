@@ -375,6 +375,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                             register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
                         break;
                     }
+                    default: assert(false);
                 }
             }
             emit_terminator(emitter, block_printer, tail->payload.anon_lam.body);
