@@ -176,7 +176,7 @@ static const Node* accept_value(ctxparams) {
                 return quote_helper(arena, empty(arena));
             }
             const Node* atom = config.front_end ? accept_expr(ctx, max_precedence()) : accept_value(ctx);
-            assert(atom);
+            expect(atom);
             if (curr_token(tokenizer).tag == rpar_tok) {
                 next_token(tokenizer);
             } else {
@@ -186,7 +186,7 @@ static const Node* accept_value(ctxparams) {
                 while (!accept_token(ctx, rpar_tok)) {
                     expect(accept_token(ctx, comma_tok));
                     const Node* element = config.front_end ? accept_expr(ctx, max_precedence()) : accept_value(ctx);
-                    assert(elements);
+                    expect(elements);
                     append_list(const Node*, elements, element);
                 }
 
@@ -236,7 +236,7 @@ static const Type* accept_unqualified_type(ctxparams) {
         });
     } else if (config.front_end && accept_token(ctx, lsbracket_tok)) {
         const Type* elem_type = accept_unqualified_type(ctx);
-        assert(elem_type);
+        expect(elem_type);
         const Node* size = NULL;
         if(accept_token(ctx, semi_tok)) {
             size = accept_value(ctx);
@@ -379,7 +379,7 @@ static Nodes accept_types(ctxparams, TokenTag separator, Qualified qualified) {
 static const Node* accept_primary_expr(ctxparams) {
     if (accept_token(ctx, minus_tok)) {
         const Node* expr = accept_primary_expr(ctx);
-        assert(expr);
+        expect(expr);
         if (expr->tag == IntLiteral_TAG) {
             return int_literal(arena, (IntLiteral) {
                 // We always treat that value like an signed integer, because it makes no sense to negate an unsigned number !
@@ -393,14 +393,14 @@ static const Node* accept_primary_expr(ctxparams) {
         }
     } else if (accept_token(ctx, unary_excl_tok)) {
         const Node* expr = accept_primary_expr(ctx);
-        assert(expr);
+        expect(expr);
         return prim_op(arena, (PrimOp) {
             .op = not_op,
             .operands = singleton(expr),
         });
     } else if (accept_token(ctx, star_tok)) {
         const Node* expr = accept_primary_expr(ctx);
-        assert(expr);
+        expect(expr);
         return prim_op(arena, (PrimOp) {
             .op = deref_op,
             .operands = singleton(expr),
@@ -436,7 +436,7 @@ static const Node* accept_expr(ctxparams, int outer_precedence) {
             next_token(tokenizer);
 
             const Node* rhs = accept_expr(ctx, precedence - 1);
-            assert(rhs);
+            expect(rhs);
             Op primop_op;
             if (is_primop_op(infix, &primop_op)) {
                 expr = prim_op(arena, (PrimOp) {
@@ -568,7 +568,7 @@ static const Node* accept_primop(ctxparams) {
             next_token(tokenizer);
             expect(accept_token(ctx, lpar_tok));
             const Node* callee = accept_operand(ctx);
-            assert(callee);
+            expect(callee);
             expect(accept_token(ctx, rpar_tok));
             Nodes args = expect_operands(ctx);
             return call(arena, (Call) {
@@ -739,7 +739,7 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
 
             expect(accept_token(ctx, lpar_tok));
             const Node* inspectee = accept_value(ctx);
-            assert(inspectee);
+            expect(inspectee);
             expect(accept_token(ctx, comma_tok));
             Nodes values = empty(arena);
             Nodes cases = empty(arena);
@@ -749,9 +749,9 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
                     default_jump = expect_jump(ctx);
                     break;
                 }
-                assert(accept_token(ctx, case_tok));
+                expect(accept_token(ctx, case_tok));
                 const Node* value = accept_value(ctx);
-                assert(value);
+                expect(value);
                 expect(accept_token(ctx, comma_tok) && 1);
                 const Node* j = expect_jump(ctx);
                 expect(accept_token(ctx, comma_tok) && true);
@@ -886,7 +886,7 @@ static Nodes accept_annotations(ctxparams) {
                     append_list(const Node*, values, first_value);
                     while (true) {
                         const Node* next_value = accept_value(ctx);
-                        assert(next_value);
+                        expect(next_value);
                         append_list(const Node*, values, next_value);
                         if (accept_token(ctx, comma_tok))
                             continue;
@@ -911,7 +911,7 @@ static Nodes accept_annotations(ctxparams) {
                     .name = id,
                 });
             }
-            assert(annot);
+            expect(annot);
             append_list(const Node*, list, annot);
             continue;
         }
@@ -932,7 +932,7 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
     expect(id);
     expect(accept_token(ctx, equal_tok));
     const Node* definition = accept_value(ctx);
-    assert(definition);
+    expect(definition);
 
     expect(accept_token(ctx, semi_tok));
 
@@ -957,7 +957,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
         fn->payload.fun.body = expect_body(ctx, fn, types.count == 0 ? fn_ret(arena, (Return) { .args = types }) : NULL);
 
     const Node* declaration = fn;
-    assert(declaration);
+    expect(declaration);
 
     return declaration;
 }
@@ -989,7 +989,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     const Node* initial_value = NULL;
     if (accept_token(ctx, equal_tok)) {
         initial_value = accept_value(ctx);
-        assert(initial_value);
+        expect(initial_value);
     }
 
     expect(accept_token(ctx, semi_tok));
@@ -1010,7 +1010,7 @@ static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
 
     Node* nom = nominal_type(mod, annotations, id);
     nom->payload.nom_type.body = accept_unqualified_type(ctx);
-    assert(nom->payload.nom_type.body);
+    expect(nom->payload.nom_type.body);
 
     expect(accept_token(ctx, semi_tok));
     return nom;
