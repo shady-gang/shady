@@ -12,6 +12,7 @@ static void bind_program_resources(Command* cmd, SpecProgram* prog) {
         return;
 
     LARRAY(VkWriteDescriptorSet, write_descriptor_sets, prog->resources.num_resources);
+    LARRAY(VkDescriptorBufferInfo, descriptor_buffer_info, prog->resources.num_resources);
     size_t write_descriptor_sets_count = 0;
 
     LARRAY(VkDescriptorSet, bind_sets, prog->resources.num_resources);
@@ -20,19 +21,23 @@ static void bind_program_resources(Command* cmd, SpecProgram* prog) {
     for (size_t i = 0; i < prog->resources.num_resources; i++) {
         ProgramResourceInfo* resource = prog->resources.resources[i];
         if (resource->is_bound) {
-            write_descriptor_sets[write_descriptor_sets_count++] = (VkWriteDescriptorSet) {
+            descriptor_buffer_info[write_descriptor_sets_count] = (VkDescriptorBufferInfo) {
+                .buffer = resource->buffer->buffer,
+                .offset = resource->buffer->offset,
+                .range = resource->buffer->size - resource->buffer->offset,
+            };
+
+            write_descriptor_sets[write_descriptor_sets_count] = (VkWriteDescriptorSet) {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .pNext = NULL,
                 .descriptorType = as_to_descriptor_type(resource->as),
                 .descriptorCount = 1,
                 .dstSet = prog->sets[resource->set],
                 .dstBinding = resource->binding,
-                .pBufferInfo = &(VkDescriptorBufferInfo) {
-                    .buffer = resource->buffer->buffer,
-                    .offset = resource->buffer->offset,
-                    .range = resource->buffer->size - resource->buffer->offset,
-                }
+                .pBufferInfo = &descriptor_buffer_info[write_descriptor_sets_count],
             };
+
+            write_descriptor_sets_count++;
         }
     }
 
