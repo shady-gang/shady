@@ -404,11 +404,7 @@ static bool prepare_resources(SpecProgram* program) {
         ProgramResourceInfo* resource = program->resources.resources[i];
 
         if (resource->host_owned) {
-#if 1
-            resource->host_ptr = aligned_alloc(program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment, resource->size);
-#else
-            resource->host_ptr = malloc(resource->size)
-#endif
+            resource->host_ptr = alloc_aligned(resource->size, program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment);
             resource->buffer = import_buffer_host(program->device, resource->host_ptr, resource->size);
         } else {
             resource->buffer = allocate_buffer_device(program->device, resource->size);
@@ -470,6 +466,8 @@ void destroy_specialized_program(SpecProgram* spec) {
     if (get_module_arena(spec->specialized_module) != get_module_arena(spec->key.base->module))
         destroy_ir_arena(get_module_arena(spec->specialized_module));
     destroy_arena(spec->arena);
+    for (size_t i = 0; i < spec->resources.num_resources; i++)
+        free_aligned(spec->resources.resources[i]);
     free(spec->resources.resources);
     free(spec);
 }
