@@ -1,5 +1,5 @@
-#define WIDTH        256
-#define HEIGHT       256
+#define WIDTH        2048
+#define HEIGHT       2048
 #define NSUBSAMPLES  1
 #define NAO_SAMPLES  8
 
