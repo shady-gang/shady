@@ -76,9 +76,9 @@ void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
         }
     }
 
-    workgroup_num.x = 16;
-    workgroup_num.y = 16;
-    workgroup_num.z = 16;
+    workgroup_num.x = WIDTH / 16;
+    workgroup_num.y = HEIGHT / 16;
+    workgroup_num.z = 1;
 
     aobench_kernel(img);
     struct timespec tp;
@@ -148,8 +148,8 @@ int main(int argc, char **argv) {
 
     unsigned char *img = (unsigned char *)malloc(WIDTH * HEIGHT * 3);
 
-     render_host(img, WIDTH, HEIGHT, NSUBSAMPLES);
-     saveppm("reference.ppm", WIDTH, HEIGHT, img);
+    render_host(img, WIDTH, HEIGHT, NSUBSAMPLES);
+    saveppm("reference.ppm", WIDTH, HEIGHT, img);
 
 #ifdef ENABLE_ISPC
     render_ispc(img, WIDTH, HEIGHT, NSUBSAMPLES);
