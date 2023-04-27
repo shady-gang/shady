@@ -468,7 +468,6 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
     size_t literal_width = inspectee_t->payload.int_type.width == IntTy64 ? 2 : 1;
     size_t literal_case_entry_size = literal_width + 1;
     LARRAY(uint32_t, literals_and_cases, match.cases.count * literal_case_entry_size);
-    error_print("cases_count: %d\n", match.cases.count);
     for (size_t i = 0; i < match.cases.count; i++) {
         uint64_t value = (uint64_t) get_int_literal_value(match.literals.nodes[i], false);
         if (inspectee_t->payload.int_type.width == IntTy64) {

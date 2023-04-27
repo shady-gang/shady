@@ -50,7 +50,6 @@ static void visit_callsite(CGVisitor* visitor, const Node* callee, const Node* i
         .instr = instr,
         .abs = visitor->abs,
     };
-    dump_node(instr);
     insert_set_get_result(CGEdge, visitor->root->callees, edge);
     insert_set_get_result(CGEdge, target->callers, edge);
 }
