@@ -431,6 +431,8 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                     print(block_printer, "\n__builtin_unreachable();");
                     break;
                 case ISPC:
+                    print(block_printer, "\nassert(false);");
+                    break;
                 case GLSL:
                     print(block_printer, "\n//unreachable");
                     break;
