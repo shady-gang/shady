@@ -165,12 +165,13 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                 case FloatTy32: {
                     float f;
                     memcpy(&f, &value->payload.float_literal.value.b32, sizeof(uint32_t));
-                    emitted = format_string(emitter->arena, "%f", f); break;
+                    double d = (double) f;
+                    emitted = format_string(emitter->arena, "%.9g", d); break;
                 }
                 case FloatTy64: {
                     double d;
                     memcpy(&d, &value->payload.float_literal.value.b64, sizeof(uint64_t));
-                    emitted = format_string(emitter->arena, "%f", d); break;
+                    emitted = format_string(emitter->arena, "%.17g", d); break;
                 }
             }
             break;

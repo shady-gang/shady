@@ -430,12 +430,13 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
                 case FloatTy32: {
                     float f;
                     memcpy(&f, &node->payload.float_literal.value.b32, sizeof(uint32_t));
-                    printf("%f", f); break;
+                    double d = (double) f;
+                    printf("%.9g", d); break;
                 }
                 case FloatTy64: {
                     double d;
                     memcpy(&d, &node->payload.float_literal.value.b64, sizeof(uint64_t));
-                    printf("%f", d); break;
+                    printf("%.17g", d); break;
                 }
                 default: error("Not a known valid float width")
             }
