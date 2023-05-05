@@ -213,7 +213,7 @@ KeyHash hash_nodes(Nodes* nodes) {
 
 bool compare_nodes(Nodes* a, Nodes* b) {
     if (a->count != b->count) return false;
-    if (a->count == 0 && b->count == 0) return true;
+    if (a->count == 0) return true;
     assert(a->nodes != NULL && b->nodes != NULL);
     return memcmp(a->nodes, b->nodes, sizeof(Node*) * (a->count)) == 0; // actually compare the data
 }
@@ -223,7 +223,10 @@ KeyHash hash_strings(Strings* strings) {
 }
 
 bool compare_strings(Strings* a, Strings* b) {
-    return a->count == b->count && memcmp(a->strings, b->strings, sizeof(const char*) * a->count) == 0;
+    if (a->count != b->count) return false;
+    if (a->count == 0) return true;
+    assert(a->strings != NULL && b->strings != NULL);
+    return memcmp(a->strings, b->strings, sizeof(const char*) * a->count) == 0;
 }
 
 KeyHash hash_string(const char** string) {
