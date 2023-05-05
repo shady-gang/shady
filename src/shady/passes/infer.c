@@ -563,11 +563,14 @@ static const Node* _infer_block(Context* ctx, const Node* node, const Type* expe
     assert(node->tag == Block_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
 
+    Context block_inside_ctx = *ctx;
+    Nodes nyield_types = infer_nodes(ctx, node->payload.block.yield_types);
+    block_inside_ctx.merge_types = &nyield_types;
     const Node* olam = node->payload.block.inside;
+    const Node* nlam = lambda(a, empty(a), infer(&block_inside_ctx, get_abstraction_body(olam), NULL));
 
-    const Node* nlam = lambda(a, empty(a), infer(ctx, get_abstraction_body(olam), NULL));
-
-    return control(a, (Control) {
+    return block(a, (Block) {
+        .yield_types = nyield_types,
         .inside = nlam
     });
 }
