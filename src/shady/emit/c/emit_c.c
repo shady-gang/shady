@@ -183,6 +183,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             emitted = name;
             break;
         }
+        case Value_NullPtr_TAG: return term_from_cvalue("NULL");
         case Value_Composite_TAG: {
             const Type* type = value->payload.composite.type;
             Nodes elements = value->payload.composite.contents;

@@ -161,7 +161,7 @@ const Node* get_default_zero_value(IrArena* a, const Type* t) {
         case Type_FnType_TAG:
         case Type_BBType_TAG:
         case Type_LamType_TAG: error("These are symbolic and lack concrete values, so no defaults either.");
-        case Type_PtrType_TAG: error("TODO nullptr constant");
+        case Type_PtrType_TAG: return null_ptr(a, (NullPtr) { .ptr_type = t });
         case Type_QualifiedType_TAG: return get_default_zero_value(a, t->payload.qualified_type.type);
         case Type_RecordType_TAG:
         case Type_ArrType_TAG:

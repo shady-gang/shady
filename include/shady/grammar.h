@@ -34,6 +34,7 @@ N(1, 1, 1, FloatLiteral, float_literal) \
 N(1, 1, 0, True, true_lit) \
 N(1, 1, 0, False, false_lit) \
 N(1, 1, 1, StringLiteral, string_lit) \
+N(1, 1, 1, NullPtr, null_ptr) \
 N(0, 1, 1, Composite, composite) \
 N(1, 1, 1, Fill, fill) \
 N(1, 1, 1, Undef, undef) \
@@ -286,6 +287,10 @@ MkField(1, POD, FloatLiteralValue, value)
 typedef struct StringLiteral_ StringLiteral;
 #define StringLiteral_Fields(MkField) \
 MkField(1, STRING, String, string)
+
+typedef struct NullPtr_ NullPtr;
+#define NullPtr_Fields(MkField) \
+MkField(1, TYPE, const Type*, ptr_type)
 
 /// A value made out of more values.
 /// Re-ordering values does not count as a computation here !

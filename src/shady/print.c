@@ -462,8 +462,21 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf(BBLUE);
             printf("undef");
             printf(RESET);
-            printf(" ");
+            printf("[");
             print_node(type);
+            printf(RESET);
+            printf("]");
+            break;
+        }
+        case Value_NullPtr_TAG: {
+            const Type* type = node->payload.undef.type;
+            printf(BBLUE);
+            printf("null");
+            printf(RESET);
+            printf("[");
+            print_node(type);
+            printf(RESET);
+            printf("]");
             break;
         }
         case Value_Composite_TAG: {
@@ -471,8 +484,9 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf(BBLUE);
             printf("composite");
             printf(RESET);
-            printf(" ");
+            printf("[");
             print_node(type);
+            printf("]");
             print_args_list(ctx, node->payload.composite.contents);
             break;
         }
@@ -481,8 +495,10 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf(BBLUE);
             printf("fill");
             printf(RESET);
-            printf(" ");
+            printf("[");
             print_node(type);
+            printf(RESET);
+            printf("]");
             printf("(");
             print_node(node->payload.fill.value);
             printf(")");

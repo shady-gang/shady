@@ -51,6 +51,7 @@ SpvId spvb_undef(SpvbFileBuilder*, SpvId type);
 void spvb_bool_constant(SpvbFileBuilder*, SpvId result, SpvId type, bool value);
 void spvb_constant(SpvbFileBuilder*, SpvId result, SpvId type, size_t bit_pattern_size, uint32_t bit_pattern[]);
 SpvId spvb_constant_composite(SpvbFileBuilder*, SpvId type, size_t ops_count, SpvId ops[]);
+SpvId spvb_constant_null(SpvbFileBuilder*, SpvId type);
 SpvId spvb_global_variable(SpvbFileBuilder*, SpvId id, SpvId type, SpvStorageClass storage_class, bool has_initializer, SpvId initializer);
 
 // Function building stuff

@@ -85,6 +85,10 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
             new = spvb_debug_string(emitter->file_builder, node->payload.string_lit.string);
             break;
         }
+        case Value_NullPtr_TAG: {
+            new = spvb_constant_null(emitter->file_builder, emit_type(emitter, node->payload.null_ptr.ptr_type));
+            break;
+        }
         case Composite_TAG: {
             Nodes contents = node->payload.composite.contents;
             LARRAY(SpvId, ids, contents.count);

@@ -263,7 +263,8 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
             const Node* value = infer(ctx, node->payload.fill.value, qualified_type(a, (QualifiedType) { .is_uniform = uniform, .type = element_t }));
             return fill(a, (Fill) { .type = composite_t, .value = value });
         }
-        case Value_AntiQuote_TAG: error("TODO");
+        case Value_NullPtr_TAG:
+        case Value_AntiQuote_TAG: return recreate_node_identity(&ctx->rewriter, node);
     }
 }
 

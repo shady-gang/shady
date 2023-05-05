@@ -385,6 +385,11 @@ const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
     });
 }
 
+const Type* check_type_null_ptr(IrArena* a, NullPtr payload) {
+    assert(is_data_type(payload.ptr_type) && payload.ptr_type->tag == PtrType_TAG);
+    return qualified_type_helper(payload.ptr_type, true);
+}
+
 const Type* check_type_composite(IrArena* arena, Composite composite) {
     assert(is_data_type(composite.type));
     Nodes expected_member_types = get_composite_type_element_types(composite.type);
