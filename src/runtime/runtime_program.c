@@ -467,9 +467,12 @@ void destroy_specialized_program(SpecProgram* spec) {
     free(spec->spirv_bytes);
     if (get_module_arena(spec->specialized_module) != get_module_arena(spec->key.base->module))
         destroy_ir_arena(get_module_arena(spec->specialized_module));
-    destroy_arena(spec->arena);
-    for (size_t i = 0; i < spec->resources.num_resources; i++)
-        free_aligned(spec->resources.resources[i]);
+    for (size_t i = 0; i < spec->resources.num_resources; i++) {
+        ProgramResourceInfo* resource = spec->resources.resources[i];
+        if (resource->host_ptr && resource->host_owned)
+            free_aligned(resource->host_ptr);
+    }
     free(spec->resources.resources);
+    destroy_arena(spec->arena);
     free(spec);
 }
