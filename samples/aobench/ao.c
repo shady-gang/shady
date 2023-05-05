@@ -44,14 +44,14 @@ static void vnormalize(vec *c)
 {
     Scalar length = sqrtf(vdot((*c), (*c)));
 
-    if (fabsf(length) > 1.0e-17f) {
+    if (fabsf(length) > 1.0e-18f) {
         c->x /= length;
         c->y /= length;
         c->z /= length;
     }
 }
 
-void
+static void
 ray_sphere_intersect(Isect *isect, const Ray *ray, const Sphere *sphere)
 {
     vec rs;
@@ -84,7 +84,7 @@ ray_sphere_intersect(Isect *isect, const Ray *ray, const Sphere *sphere)
     }
 }
 
-void
+static void
 ray_plane_intersect(Isect *isect, const Ray *ray, const Plane *plane)
 {
     Scalar d = -vdot(plane->p, plane->n);
@@ -106,7 +106,7 @@ ray_plane_intersect(Isect *isect, const Ray *ray, const Plane *plane)
     }
 }
 
-void
+static void
 orthoBasis(vec *basis, vec n)
 {
     basis[2] = n;
@@ -129,7 +129,7 @@ orthoBasis(vec *basis, vec n)
     vnormalize(&basis[1]);
 }
 
-void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
+static void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
 {
     int    i, j;
     int    ntheta = NAO_SAMPLES;
@@ -202,8 +202,6 @@ unsigned char aobench_clamp(Scalar f)
 void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigned char* img) {
     Scalar pixel[3] = { 0, 0, 0 };
 
-    // pixel[2] = 125.f;
-
     int u, v;
     for (v = 0; v < nsubsamples; v++) {
         for (u = 0; u < nsubsamples; u++) {
@@ -234,6 +232,10 @@ void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigne
             // pixel[1] = isect.t * 0.25f;
             // pixel[2] = 0.f;
 
+            // pixel[0] = ray.dir.x * 0.5f + 0.5f;
+            // pixel[1] = ray.dir.y * 0.5f + 0.5f;
+            // pixel[2] = ray.dir.z * 0.5f + 0.5f;
+
             if (isect.hit) {
                 vec col;
                 ambient_occlusion(ctx, &col, &isect);
@@ -241,7 +243,6 @@ void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigne
                 pixel[1] += col.y;
                 pixel[2] += col.z;
             }
-
         }
     }
 
