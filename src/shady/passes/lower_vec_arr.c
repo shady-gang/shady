@@ -24,7 +24,7 @@ static const Node* scalarify_primop(Context* ctx, const Node* old) {
     for (size_t i = 0; i < width; i++) {
         LARRAY(const Node*, nops, noperands.count);
         for (size_t j = 0; j < noperands.count; j++)
-            nops[j] = gen_extract(bb, noperands.nodes[j], singleton(int32_literal(a, j)));
+            nops[j] = gen_extract(bb, noperands.nodes[j], singleton(int32_literal(a, i)));
         elements[i] = gen_primop_e(bb, old->payload.prim_op.op, empty(a), nodes(a, noperands.count, nops));
     }
     const Type* t = arr_type(a, (ArrType) {
