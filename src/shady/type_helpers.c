@@ -68,6 +68,7 @@ Strings get_variable_names(IrArena* arena, Nodes variables) {
 }
 
 Nodes get_values_types(IrArena* arena, Nodes values) {
+    assert(arena->config.check_types);
     LARRAY(const Type*, arr, values.count);
     for (size_t i = 0; i < values.count; i++)
         arr[i] = values.nodes[i]->type;

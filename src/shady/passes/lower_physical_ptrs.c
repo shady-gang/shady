@@ -344,8 +344,12 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case PtrType_TAG: {
             if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
                 return int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
-
-            return recreate_node_identity(&ctx->rewriter, old);
+            break;
+        }
+        case NullPtr_TAG: {
+            if (is_as_emulated(ctx, old->payload.null_ptr.ptr_type->payload.ptr_type.address_space))
+                return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = 0 });
+            break;
         }
         case GlobalVariable_TAG: {
             const GlobalVariable* old_gvar = &old->payload.global_variable;
@@ -353,10 +357,12 @@ static const Node* process_node(Context* ctx, const Node* old) {
             if (is_as_emulated(ctx, old_gvar->address_space)) {
                 assert(false);
             }
-            return recreate_node_identity(&ctx->rewriter, old);
+            break;
         }
-        default: return recreate_node_identity(&ctx->rewriter, old);
+        default: break;
     }
+
+    return recreate_node_identity(&ctx->rewriter, old);
 }
 
 KeyHash hash_node(Node**);

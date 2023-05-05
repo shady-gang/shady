@@ -76,6 +76,11 @@ static const Node* process(Context* ctx, const Node* old) {
             }
             break;
         }
+        case NullPtr_TAG: {
+            if (old->payload.null_ptr.ptr_type->payload.ptr_type.address_space == AsGeneric)
+                return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = 0 });
+            break;
+        }
         case PrimOp_TAG: {
             switch (old->payload.prim_op.op) {
                 case convert_op: {
