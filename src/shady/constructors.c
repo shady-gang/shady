@@ -230,6 +230,10 @@ const Node* ref_decl_helper(IrArena* a, const Node* decl) {
     return ref_decl(a, (RefDecl) { .decl = decl });
 }
 
+const Node* anti_quote_helper(IrArena* a, const Node* instr) {
+    return anti_quote(a, (AntiQuote) { .instruction = instr });
+}
+
 const Node* type_decl_ref_helper(IrArena* a, const Node* decl) {
     return type_decl_ref(a, (TypeDeclRef) { .decl = decl });
 }
@@ -407,6 +411,14 @@ const Node* quote_helper(IrArena* a, Nodes values) {
     });
 }
 
+const Node* prim_op_helper(IrArena* a, Op op, Nodes types, Nodes operands) {
+    return prim_op(a, (PrimOp) {
+        .op = op,
+        .type_arguments = types,
+        .operands = operands
+    });
+}
+
 const Node* jump_helper(IrArena* a, const Node* dst, Nodes args) {
     return jump(a, (Jump) {
         .target = dst,
@@ -420,6 +432,8 @@ const Node* unit_type(IrArena* arena) {
          .special = MultipleReturn,
      });
 }
+
+const Type* int_type_helper(IrArena* a, bool s, IntSizes w) { return int_type(a, (Int) { .width = w, .is_signed = s }); }
 
 const Type* int8_type(IrArena* arena) {  return int_type(arena, (Int) { .width = IntTy8 , .is_signed = true }); }
 const Type* int16_type(IrArena* arena) { return int_type(arena, (Int) { .width = IntTy16, .is_signed = true }); }

@@ -147,6 +147,8 @@ const Type* noret_type(IrArena*);
 
 const Node* unit_type(IrArena*);
 
+const Type* int_type_helper(IrArena*, bool, IntSizes);
+
 const Type* int8_type(IrArena*);
 const Type* int16_type(IrArena*);
 const Type* int32_type(IrArena*);
@@ -171,6 +173,8 @@ const Type* fp16_type(IrArena*);
 const Type* fp32_type(IrArena*);
 const Type* fp64_type(IrArena*);
 
+const Node* type_decl_ref_helper(IrArena*, const Node* decl);
+
 // values
 const Node* var(IrArena*, const Type* type, const char* name);
 
@@ -178,12 +182,13 @@ const Node* tuple(IrArena*, Nodes contents);
 const Node* composite(IrArena*, const Type*, Nodes contents);
 const Node* fn_addr_helper(IrArena*, const Node* fn);
 const Node* ref_decl_helper(IrArena*, const Node* decl);
-const Node* type_decl_ref_helper(IrArena*, const Node* decl);
+const Node* anti_quote_helper(IrArena*, const Node* instr);
 
 // instructions
 /// Turns a value into an 'instruction' (the enclosing let will be folded away later)
 /// Useful for local rewrites
 const Node* quote_helper(IrArena*, Nodes values);
+const Node* prim_op_helper(IrArena*, Op, Nodes, Nodes);
 
 // terminators
 const Node* let(IrArena*, const Node* instruction, const Node* tail);
