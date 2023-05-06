@@ -63,6 +63,9 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
         }
     }
 
+    // by analysing the callees, the dict might have been regrown so we must refetch this to update the ptr if needed
+    info = find_value_dict(const Node*, FnInfo, ctx->fns, fn_node->fn);
+
     if (!info->done) {
         info->is_leaf = true;
         info->done = true;
