@@ -214,7 +214,7 @@ typedef struct {
     ProgramResourceInfo** resources;
 } ProgramResourcesInfo;
 
-#define MAX_DESCRIPTOR_SETS 8
+#define MAX_DESCRIPTOR_SETS 4
 
 VkDescriptorType as_to_descriptor_type(AddressSpace as);
 
