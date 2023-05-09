@@ -202,6 +202,8 @@ unsigned char aobench_clamp(Scalar f)
 void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigned char* img) {
     Scalar pixel[3] = { 0, 0, 0 };
 
+    ctx->rng = x * w + y;
+
     int u, v;
     for (v = 0; v < nsubsamples; v++) {
         for (u = 0; u < nsubsamples; u++) {
