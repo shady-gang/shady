@@ -469,10 +469,13 @@ void destroy_specialized_program(SpecProgram* spec) {
         destroy_ir_arena(get_module_arena(spec->specialized_module));
     for (size_t i = 0; i < spec->resources.num_resources; i++) {
         ProgramResourceInfo* resource = spec->resources.resources[i];
+        if (resource->buffer)
+            destroy_buffer(resource->buffer);
         if (resource->host_ptr && resource->host_owned)
             free_aligned(resource->host_ptr);
     }
     free(spec->resources.resources);
+    vkDestroyDescriptorPool(spec->device->device, spec->descriptor_pool, NULL);
     destroy_arena(spec->arena);
     free(spec);
 }
