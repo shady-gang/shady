@@ -1,20 +1,13 @@
-find_package(Vulkan)
-
-if (Vulkan_FOUND)
-add_library(runtime SHARED runtime.c runtime_device.c runtime_program.c runtime_dispatch.c runtime_buffer.c)
+add_library(runtime SHARED runtime.c runtime_program.c)
 target_link_libraries(runtime PUBLIC api)
 target_link_libraries(runtime PUBLIC shady)
-target_link_libraries(runtime PRIVATE "$<BUILD_INTERFACE:common>")
-target_link_libraries(runtime PRIVATE "$<BUILD_INTERFACE:murmur3>")
-target_link_libraries(runtime PRIVATE Vulkan::Headers Vulkan::Vulkan)
-target_include_directories(runtime PRIVATE ../../include)
-
-add_executable(runtime_test runtime_test.c)
+target_link_libraries(runtime PRIVATE common)
 set_property(TARGET runtime PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_target_properties(runtime PROPERTIES OUTPUT_NAME "shady_runtime")
+
+add_subdirectory(vulkan)
+
+add_executable(runtime_test runtime_test.c)
+target_link_libraries(runtime_test common)
 target_link_libraries(runtime_test shady)
 target_link_libraries(runtime_test runtime)
-target_link_libraries(runtime_test common)
-else()
-  message("Vulkan not found, runtime component will not be built.")
-endif()

@@ -1,4 +1,4 @@
-#include "runtime_private.h"
+#include "vk_runtime_private.h"
 
 #include "log.h"
 #include "portability.h"
@@ -40,7 +40,7 @@ static bool fill_available_extensions(VkPhysicalDevice physical_device, size_t* 
     return true;
 }
 
-static void figure_out_spirv_version(DeviceCaps* caps) {
+static void figure_out_spirv_version(VkrDeviceCaps* caps) {
     uint32_t major = VK_VERSION_MAJOR(caps->properties.base.properties.apiVersion);
     uint32_t minor = VK_VERSION_MINOR(caps->properties.base.properties.apiVersion);
 
@@ -65,7 +65,7 @@ static void figure_out_spirv_version(DeviceCaps* caps) {
     debug_print("Using SPIR-V version %d.%d, on Vulkan %d.%d\n", caps->spirv_version.major, caps->spirv_version.minor, major, minor);
 }
 
-static bool fill_device_properties(DeviceCaps* caps) {
+static bool fill_device_properties(VkrDeviceCaps* caps) {
     caps->properties.base.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
     vkGetPhysicalDeviceProperties2(caps->physical_device, &caps->properties.base);
 
@@ -113,7 +113,7 @@ static bool fill_device_properties(DeviceCaps* caps) {
     return true;
 }
 
-static bool fill_device_features(DeviceCaps* caps) {
+static bool fill_device_features(VkrDeviceCaps* caps) {
     caps->features.base = (VkPhysicalDeviceFeatures2) {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = NULL,
@@ -159,7 +159,7 @@ static bool fill_device_features(DeviceCaps* caps) {
     return true;
 }
 
-static bool fill_queue_properties(DeviceCaps* caps) {
+static bool fill_queue_properties(VkrDeviceCaps* caps) {
     uint32_t queue_families_count;
     vkGetPhysicalDeviceQueueFamilyProperties2(caps->physical_device, &queue_families_count, NULL);
     LARRAY(VkQueueFamilyProperties2, queue_families_properties, queue_families_count);
@@ -186,8 +186,8 @@ static bool fill_queue_properties(DeviceCaps* caps) {
 }
 
 /// Considers a given physical device for running on, returns false if it's unusable, otherwise returns a report in out
-static bool get_physical_device_caps(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device, DeviceCaps* out) {
-    memset(out, 0, sizeof(DeviceCaps));
+static bool get_physical_device_caps(SHADY_UNUSED VkrBackend* runtime, VkPhysicalDevice physical_device, VkrDeviceCaps* out) {
+    memset(out, 0, sizeof(VkrDeviceCaps));
     out->physical_device = physical_device;
 
     if (!fill_device_properties(out))
@@ -211,7 +211,7 @@ bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
     return memcmp(a, b, sizeof(SpecProgramKey)) == 0;
 }
 
-static void obtain_device_pointers(Device* device) {
+static void obtain_device_pointers(VkrDevice* device) {
 #define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetDeviceProcAddr(device->device, #fn_name);
 #define X(_, name, fns) \
         device->extensions.name.enabled = device->caps.supported_extensions[ShadySupports##name]; \
@@ -224,8 +224,8 @@ static void obtain_device_pointers(Device* device) {
 #undef X
 }
 
-static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice physical_device) {
-    Device* device = calloc(1, sizeof(Device));
+static VkrDevice* create_vkr_device(SHADY_UNUSED VkrBackend* runtime, VkPhysicalDevice physical_device) {
+    VkrDevice* device = calloc(1, sizeof(VkrDevice));
     device->runtime = runtime;
     CHECK(get_physical_device_caps(runtime, physical_device, &device->caps), assert(false));
     info_print("Initialising device %s\n", device->caps.properties.base.properties.deviceName);
@@ -262,7 +262,7 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
     }, NULL, &device->cmd_pool), goto delete_device);
 
-    device->specialized_programs = new_dict(SpecProgramKey, SpecProgram*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys);
+    device->specialized_programs = new_dict(SpecProgramKey, VkrSpecProgram*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys);
 
     vkGetDeviceQueue(device->device, device->caps.compute_queue_family, 0, &device->compute_queue);
 
@@ -277,42 +277,10 @@ static Device* create_device(SHADY_UNUSED Runtime* runtime, VkPhysicalDevice phy
     return NULL;
 }
 
-bool probe_devices(Runtime* runtime) {
-    uint32_t devices_count;
-    CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, NULL), return false)
-    LARRAY(VkPhysicalDevice, available_devices, devices_count);
-    CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, available_devices), return false)
-
-    if (devices_count == 0 && !runtime->config.allow_no_devices) {
-        error_print("No vulkan devices found!\n");
-        error_print("You may be able to diagnose this further using `VK_LOADER_DEBUG=all vulkaninfo`.\n");
-        return false;
-    }
-
-    for (uint32_t i = 0; i < devices_count; i++) {
-        VkPhysicalDevice physical_device = available_devices[i];
-        DeviceCaps dummy;
-        if (get_physical_device_caps(runtime, physical_device, &dummy)) {
-            Device* device = create_device(runtime, physical_device);
-            append_list(Device*, runtime->devices, device);
-        }
-    }
-
-    if (entries_count_list(runtime->devices) == 0 && !runtime->config.allow_no_devices) {
-        error_print("No __suitable__ vulkan devices found!\n");
-        error_print("This is caused by running on weird hardware configurations. Hardware support might get better in the future.\n");
-        return false;
-    }
-
-    info_print("Found %d usable devices\n", entries_count_list(runtime->devices));
-
-    return true;
-}
-
-void shutdown_device(Device* device) {
+static void shutdown_vkr_device(VkrDevice* device) {
     size_t i = 0;
     SpecProgramKey k;
-    SpecProgram* sp;
+    VkrSpecProgram* sp;
     while (dict_iter(device->specialized_programs, &i, &k, &sp)) {
         destroy_specialized_program(sp);
     }
@@ -322,18 +290,43 @@ void shutdown_device(Device* device) {
     free(device);
 }
 
-size_t device_count(Runtime* r) {
-    return entries_count_list(r->devices);
-}
+static const char* get_vkr_device_name(VkrDevice* device) { return device->caps.properties.base.properties.deviceName; }
 
-Device* get_device(Runtime* r, size_t i) {
-    assert(i < device_count(r));
-    return read_list(Device*, r->devices)[i];
-}
+bool probe_vkr_devices(VkrBackend* runtime) {
+    uint32_t devices_count;
+    CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, NULL), return false)
+    LARRAY(VkPhysicalDevice, available_devices, devices_count);
+    CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, available_devices), return false)
 
-Device* get_an_device(Runtime* r) {
-    assert(device_count(r) > 0);
-    return get_device(r, 0);
-}
+    if (devices_count == 0 && !runtime->base.runtime->config.allow_no_devices) {
+        error_print("No vulkan devices found!\n");
+        error_print("You may be able to diagnose this further using `VK_LOADER_DEBUG=all vulkaninfo`.\n");
+        return false;
+    }
 
-const char* get_device_name(Device* device) { return device->caps.properties.base.properties.deviceName; }
+    for (uint32_t i = 0; i < devices_count; i++) {
+        VkPhysicalDevice physical_device = available_devices[i];
+        VkrDeviceCaps dummy;
+        if (get_physical_device_caps(runtime, physical_device, &dummy)) {
+            VkrDevice* device = create_vkr_device(runtime, physical_device);
+            device->base = (Device) {
+                .cleanup = (void(*)(Device*)) shutdown_vkr_device,
+                .get_name = (String(*)(Device*)) get_vkr_device_name,
+                .allocate_buffer = (Buffer*(*)(Device*, size_t)) vkr_allocate_buffer_device,
+                .import_host_memory_as_buffer = (Buffer*(*)(Device*, void*, size_t)) vkr_import_buffer_host,
+                .launch_kernel = (Command*(*)(Device*, Program*, String, int, int, int, int, void**)) vkr_launch_kernel,
+            };
+            append_list(Device*, runtime->base.runtime->devices, device);
+        }
+    }
+
+    if (entries_count_list(runtime->base.runtime->devices) == 0 && !runtime->base.runtime->config.allow_no_devices) {
+        error_print("No __suitable__ vulkan devices found!\n");
+        error_print("This is caused by running on weird hardware configurations. Hardware support might get better in the future.\n");
+        return false;
+    }
+
+    info_print("Found %d usable devices\n", entries_count_list(runtime->base.runtime->devices));
+
+    return true;
+}

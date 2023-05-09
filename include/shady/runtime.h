@@ -22,9 +22,8 @@ void shutdown_runtime(Runtime*);
 
 size_t device_count(Runtime*);
 Device* get_device(Runtime*, size_t i);
-const char* get_device_name(Device*);
-
 Device* get_an_device(Runtime*);
+const char* get_device_name(Device*);
 
 Program* load_program(Runtime*, const char* program_src);
 Program* load_program_from_disk(Runtime*, const char* path);

@@ -1,4 +1,4 @@
-#include "runtime_private.h"
+#include "vk_runtime_private.h"
 
 #include "log.h"
 
@@ -7,7 +7,7 @@ typedef enum {
     AllocHostVisible
 } AllocHeap;
 
-static uint32_t find_suitable_memory_type(Device* device, uint32_t memory_type_bits, AllocHeap heap) {
+static uint32_t find_suitable_memory_type(VkrDevice* device, uint32_t memory_type_bits, AllocHeap heap) {
     VkPhysicalDeviceMemoryProperties device_memory_properties;
     vkGetPhysicalDeviceMemoryProperties(device->caps.physical_device, &device_memory_properties);
     for (size_t bit = 0; bit < 32; bit++) {
@@ -33,13 +33,16 @@ static uint32_t find_suitable_memory_type(Device* device, uint32_t memory_type_b
     assert(false && "Unable to find a suitable memory type");
 }
 
-Buffer* allocate_buffer_device(Device* device, size_t size) {
+static Buffer make_base_buffer();
+
+VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size) {
     if (!device->caps.features.buffer_device_address.bufferDeviceAddress) {
         error_print("device buffers require VK_KHR_buffer_device_address\n");
         return NULL;
     }
 
-    Buffer* buffer = calloc(sizeof(Buffer), 1);
+    VkrBuffer* buffer = calloc(sizeof(VkrBuffer), 1);
+    buffer->base = make_base_buffer();
     buffer->device = device;
     buffer->imported = true;
     buffer->offset = 0;
@@ -97,13 +100,14 @@ err_post_obj_create:
     return NULL;
 }
 
-Buffer* import_buffer_host(Device* device, void* ptr, size_t size) {
+VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
     if (!device->caps.features.buffer_device_address.bufferDeviceAddress) {
         error_print("host imported buffers require VK_KHR_buffer_device_address\n");
         return NULL;
     }
 
-    Buffer* buffer = calloc(sizeof(Buffer), 1);
+    VkrBuffer* buffer = calloc(sizeof(VkrBuffer), 1);
+    buffer->base = make_base_buffer();
     buffer->device = device;
     buffer->host_ptr = ptr;
 
@@ -191,12 +195,12 @@ err_post_obj_create:
     return NULL;
 }
 
-void destroy_buffer(Buffer* buffer) {
+static void vkr_destroy_buffer(VkrBuffer* buffer) {
     vkDestroyBuffer(buffer->device->device, buffer->buffer, NULL);
     vkFreeMemory(buffer->device->device, buffer->memory, NULL);
 }
 
-VkDeviceAddress get_buffer_device_pointer(Buffer* buf) {
+static VkDeviceAddress vkr_get_buffer_device_pointer(VkrBuffer* buf) {
     return vkGetBufferDeviceAddress(buf->device->device, &(VkBufferDeviceAddressInfo) {
         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
         .pNext = NULL,
@@ -204,59 +208,69 @@ VkDeviceAddress get_buffer_device_pointer(Buffer* buf) {
     }) + buf->offset;
 }
 
-void* get_buffer_host_pointer(Buffer* buf) {
+static void* vkr_get_buffer_host_pointer(VkrBuffer* buf) {
     return ((char*) buf->host_ptr) + buf->offset;
 }
 
-static Command* submit_buffer_copy(Device* device, VkBuffer src, size_t src_offset, VkBuffer dst, size_t dst_offset, size_t size) {
-    Command* commands = begin_command(device);
+static VkrCommand* submit_buffer_copy(VkrDevice* device, VkBuffer src, size_t src_offset, VkBuffer dst, size_t dst_offset, size_t size) {
+    VkrCommand* commands = vkr_begin_command(device);
     if (!commands)
         return NULL;
 
     vkCmdCopyBuffer(commands->cmd_buf, src, dst, 1, (VkBufferCopy[]) { { .srcOffset = src_offset, .dstOffset = dst_offset, .size = size } });
 
-    if (!submit_command(commands))
+    if (!vkr_submit_command(commands))
         goto err_post_commands_create;
 
     return commands;
 
 err_post_commands_create:
-    destroy_command(commands);
+    vkr_destroy_command(commands);
     return NULL;
 }
 
-bool copy_to_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size) {
-    Device* device = dst->device;
+static bool vkr_copy_to_buffer(VkrBuffer* dst, size_t buffer_offset, void* src, size_t size) {
+    VkrDevice* device = dst->device;
 
-    Buffer* src_buf = import_buffer_host(device, src, size);
+    VkrBuffer* src_buf = vkr_import_buffer_host(device, src, size);
     if (!src_buf)
         return false;
 
     if (!wait_completion(submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
         goto err_post_buffer_import;
 
-    destroy_buffer(src_buf);
+    vkr_destroy_buffer(src_buf);
     return true;
 
 err_post_buffer_import:
-    destroy_buffer(src_buf);
+    vkr_destroy_buffer(src_buf);
     return false;
 }
 
-bool copy_from_buffer(Buffer* src, size_t buffer_offset, void* dst, size_t size) {
-    Device* device = src->device;
+static bool vkr_copy_from_buffer(VkrBuffer* src, size_t buffer_offset, void* dst, size_t size) {
+    VkrDevice* device = src->device;
 
-    Buffer* dst_buf = import_buffer_host(device, dst, size);
+    VkrBuffer* dst_buf = vkr_import_buffer_host(device, dst, size);
     if (!dst_buf)
         return false;
 
     if (!wait_completion(submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
         goto err_post_buffer_import;
 
-    destroy_buffer(dst_buf);
+    vkr_destroy_buffer(dst_buf);
     return true;
 
 err_post_buffer_import:
-    destroy_buffer(dst_buf);
+    vkr_destroy_buffer(dst_buf);
     return false;
+}
+
+static Buffer make_base_buffer() {
+    return (Buffer) {
+        .destroy = (void(*)(Buffer*)) vkr_destroy_buffer,
+        .get_device_ptr = (uint64_t(*)(Buffer*)) vkr_get_buffer_device_pointer,
+        .get_host_ptr = (void*(*)(Buffer*)) vkr_get_buffer_host_pointer,
+        .copy_into = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_to_buffer,
+        .copy_from = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_from_buffer,
+    };
 }

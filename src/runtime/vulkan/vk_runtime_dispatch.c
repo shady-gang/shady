@@ -1,4 +1,4 @@
-#include "runtime_private.h"
+#include "vk_runtime_private.h"
 
 #include "log.h"
 #include "portability.h"
@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void bind_program_resources(Command* cmd, SpecProgram* prog) {
+static void bind_program_resources(VkrCommand* cmd, VkrSpecProgram* prog) {
     if (prog->resources.num_resources == 0)
         return;
 
@@ -51,14 +51,20 @@ static void bind_program_resources(Command* cmd, SpecProgram* prog) {
     vkCmdBindDescriptorSets(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->layout, 0, bind_sets_count, bind_sets, 0, NULL);
 }
 
-Command* launch_kernel(Program* program, Device* device, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
+static Command make_command_base() {
+    return (Command) {
+            .wait_for_completion = (bool(*)(Command*)) vkr_wait_completion,
+    };
+}
+
+VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
     assert(program && device);
 
-    SpecProgram* prog = get_specialized_program(program, entry_point, device);
+    VkrSpecProgram* prog = get_specialized_program(program, entry_point, device);
 
     debug_print("Dispatching kernel on %s\n", device->caps.properties.base.properties.deviceName);
 
-    Command* cmd = begin_command(device);
+    VkrCommand* cmd = vkr_begin_command(device);
     if (!cmd)
         return NULL;
 
@@ -78,18 +84,19 @@ Command* launch_kernel(Program* program, Device* device, String entry_point, int
     bind_program_resources(cmd, prog);
     vkCmdDispatch(cmd->cmd_buf, dimx, dimy, dimz);
 
-    if (!submit_command(cmd))
+    if (!vkr_submit_command(cmd))
         goto err_post_commands_create;
 
     return cmd;
 
 err_post_commands_create:
-    destroy_command(cmd);
+    vkr_destroy_command(cmd);
     return NULL;
 }
 
-Command* begin_command(Device* device) {
-    Command* cmd = calloc(1, sizeof(Command));
+VkrCommand* vkr_begin_command(VkrDevice* device) {
+    VkrCommand* cmd = calloc(1, sizeof(VkrCommand));
+    cmd->base = make_command_base();
     cmd->device = device;
 
     CHECK_VK(vkAllocateCommandBuffers(device->device, &(VkCommandBufferAllocateInfo) {
@@ -110,13 +117,13 @@ Command* begin_command(Device* device) {
     return cmd;
 
 err_post_cmd_buf_create:
-    vkFreeCommandBuffers(device, device->cmd_pool, 1, &cmd->cmd_buf);
+    vkFreeCommandBuffers(device->device, device->cmd_pool, 1, &cmd->cmd_buf);
 err_post_commands_create:
     free(cmd);
     return NULL;
 }
 
-bool submit_command(Command* cmd) {
+bool vkr_submit_command(VkrCommand* cmd) {
     CHECK_VK(vkEndCommandBuffer(cmd->cmd_buf), return false);
 
     CHECK_VK(vkCreateFence(cmd->device->device, &(VkFenceCreateInfo) {
@@ -143,14 +150,14 @@ err_post_fence_create:
     return false;
 }
 
-bool wait_completion(Command* cmd) {
+bool vkr_wait_completion(VkrCommand* cmd) {
     assert(cmd->submitted && "Command must be submitted before they can be waited on");
     CHECK_VK(vkWaitForFences(cmd->device->device, 1, (VkFence[]) { cmd->done_fence }, true, UINT32_MAX), return false);
-    destroy_command(cmd);
+    vkr_destroy_command(cmd);
     return true;
 }
 
-void destroy_command(Command* cmd) {
+void vkr_destroy_command(VkrCommand* cmd) {
     if (cmd->submitted)
         vkDestroyFence(cmd->device->device, cmd->done_fence, NULL);
     vkFreeCommandBuffers(cmd->device->device, cmd->device->cmd_pool, 1, &cmd->cmd_buf);
