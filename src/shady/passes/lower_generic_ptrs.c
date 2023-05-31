@@ -181,6 +181,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     }
                     break;
                 }
+                default: break;
             }
         }
         default: break;
