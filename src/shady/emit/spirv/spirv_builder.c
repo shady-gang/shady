@@ -150,6 +150,25 @@ inline static void merge_sections(SpvbFileBuilder* file_builder, SpvbSectionBuil
 }
 #undef target_data
 
+static const uint8_t endian_check_helper[4] = { 1, 2, 3, 4 };
+
+static bool is_big_endian() {
+    uint32_t x;
+    memcpy(&x, &endian_check_helper, sizeof(x));
+    if (x == 0x01020304)
+        return true;
+    assert(x == 0x04030201);
+    return false;
+}
+
+static uint32_t byteswap(uint32_t v) {
+    uint8_t arr[4];
+    memcpy(&arr, &v, sizeof(v));
+    uint8_t swizzled[4] = { arr[3], arr[2], arr[1], arr[0] };
+    memcpy(&v, &swizzled, sizeof(v));
+    return v;
+}
+
 size_t spvb_finish(SpvbFileBuilder* file_builder, char** output) {
     Growy* g = new_growy();
     merge_sections(file_builder, g);
@@ -174,6 +193,11 @@ size_t spvb_finish(SpvbFileBuilder* file_builder, char** output) {
     size_t s = growy_size(g);
     assert(s % 4 == 0);
     *output = growy_deconstruct(g);
+
+    if (is_big_endian()) for (size_t i = 0; i < s / 4; i++) {
+        ((uint32_t*)*output)[i] = byteswap(((uint32_t*)(*output))[i]);
+    }
+
     return s;
 }
 
