@@ -165,7 +165,7 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     switch (payload.op) {
         case add_op: {
             if (all_int_literals)
-                return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.u64 = int_literals[0]->value.u64 + int_literals[1]->value.u64 }));
+                return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value = int_literals[0]->value + int_literals[1]->value }));
             // If either operand is zero, destroy the add
             for (size_t i = 0; i < 2; i++)
                 if (is_zero(payload.operands.nodes[i]))
@@ -174,7 +174,7 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
         }
         case sub_op: {
             if (all_int_literals)
-                return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.u64 = int_literals[0]->value.u64 - int_literals[1]->value.u64 }));
+                return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value = int_literals[0]->value - int_literals[1]->value }));
             // If second operand is zero, return the first one
             if (is_zero(payload.operands.nodes[1]))
                 return quote_single(arena, payload.operands.nodes[0]);
@@ -186,9 +186,9 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
         case mul_op: {
             if (all_int_literals) {
                 if (is_signed)
-                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.i64 = int_literals[0]->value.i64 * int_literals[1]->value.i64 }));
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value = int_literals[0]->value * int_literals[1]->value }));
                 else
-                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.u64 = int_literals[0]->value.u64 * int_literals[1]->value.u64 }));
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value = int_literals[0]->value * int_literals[1]->value }));
             }
             for (size_t i = 0; i < 2; i++)
                 if (is_zero(payload.operands.nodes[i]))
@@ -203,9 +203,9 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
         case div_op: {
             if (all_int_literals) {
                 if (is_signed)
-                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.i64 = int_literals[0]->value.i64 / int_literals[1]->value.i64 }));
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value = int_literals[0]->value / int_literals[1]->value }));
                 else
-                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value.u64 = int_literals[0]->value.u64 / int_literals[1]->value.u64 }));
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = width, .value = int_literals[0]->value / int_literals[1]->value }));
             }
             // If second operand is one, return the first one
             if (is_one(payload.operands.nodes[1]))

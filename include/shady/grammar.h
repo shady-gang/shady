@@ -255,34 +255,17 @@ typedef struct UntypedNumber_ UntypedNumber;
 #define UntypedNumber_Fields(MkField) \
 MkField(1, POD, String, plaintext)
 
-typedef union {
-    int64_t  i64;
-    int32_t  i32;
-    int16_t  i16;
-    int8_t    i8;
-    uint64_t u64;
-    uint32_t u32;
-    uint16_t u16;
-    uint8_t   u8;
-} IntLiteralValue;
-
 typedef struct IntLiteral_ IntLiteral;
 #define IntLiteral_Fields(MkField) \
 MkField(1, POD, IntSizes, width) \
 MkField(1, POD, bool, is_signed) \
-MkField(1, POD, IntLiteralValue, value)
+MkField(1, POD, uint64_t, value)
 
 /// C lacks sized float types, so let's just store the raw bits for them.
-typedef union {
-    uint64_t b64;
-    uint32_t b32;
-    uint16_t b16;
-} FloatLiteralValue;
-
 typedef struct FloatLiteral_ FloatLiteral;
 #define FloatLiteral_Fields(MkField) \
 MkField(1, POD, FloatSizes, width) \
-MkField(1, POD, FloatLiteralValue, value)
+MkField(1, POD, uint64_t, value)
 
 typedef struct StringLiteral_ StringLiteral;
 #define StringLiteral_Fields(MkField) \

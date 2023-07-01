@@ -35,7 +35,7 @@ static uint64_t get_tag_for_addr_space(AddressSpace as) {
 
 static const Node* size_t_literal(Context* ctx, uint64_t value) {
     IrArena* a = ctx->rewriter.dst_arena;
-    return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = value });
+    return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value = value });
 }
 
 static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t tag, const Node* nptr, const Type* element_type) {
@@ -78,7 +78,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case NullPtr_TAG: {
             if (old->payload.null_ptr.ptr_type->payload.ptr_type.address_space == AsGeneric)
-                return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = 0 });
+                return size_t_literal(ctx, 0);
             break;
         }
         case PrimOp_TAG: {

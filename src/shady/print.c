@@ -414,11 +414,12 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             break;
         case IntLiteral_TAG:
             printf(BBLUE);
+            uint64_t v = get_int_literal_value(node, false);
             switch (node->payload.int_literal.width) {
-                case IntTy8:  printf("%" PRIu8 ,  node->payload.int_literal.value.i8);  break;
-                case IntTy16: printf("%" PRIu16, node->payload.int_literal.value.i16); break;
-                case IntTy32: printf("%" PRIu32, node->payload.int_literal.value.i32); break;
-                case IntTy64: printf("%" PRIu64, node->payload.int_literal.value.i64); break;
+                case IntTy8:  printf("%" PRIu8,  (uint8_t)  v);  break;
+                case IntTy16: printf("%" PRIu16, (uint16_t) v); break;
+                case IntTy32: printf("%" PRIu32, (uint32_t) v); break;
+                case IntTy64: printf("%" PRIu64, v); break;
                 default: error("Not a known valid int width")
             }
             printf(RESET);
@@ -426,16 +427,16 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
         case FloatLiteral_TAG:
             printf(BBLUE);
             switch (node->payload.float_literal.width) {
-                case FloatTy16: printf("%" PRIu16, node->payload.float_literal.value.b16); break;
+                case FloatTy16: printf("%" PRIu16, (uint16_t) node->payload.float_literal.value); break;
                 case FloatTy32: {
                     float f;
-                    memcpy(&f, &node->payload.float_literal.value.b32, sizeof(uint32_t));
+                    memcpy(&f, &node->payload.float_literal.value, sizeof(uint32_t));
                     double d = (double) f;
                     printf("%.9g", d); break;
                 }
                 case FloatTy64: {
                     double d;
-                    memcpy(&d, &node->payload.float_literal.value.b64, sizeof(uint64_t));
+                    memcpy(&d, &node->payload.float_literal.value, sizeof(uint64_t));
                     printf("%.17g", d); break;
                 }
                 default: error("Not a known valid float width")

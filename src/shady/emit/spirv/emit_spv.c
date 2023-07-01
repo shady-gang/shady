@@ -43,10 +43,10 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
             SpvId ty = emit_type(emitter, node->type);
             // 64-bit constants take two spirv words, anything else fits in one
             if (node->payload.int_literal.width == IntTy64) {
-                uint32_t arr[] = { node->payload.int_literal.value.i64 & 0xFFFFFFFF, node->payload.int_literal.value.i64 >> 32 };
+                uint32_t arr[] = { node->payload.int_literal.value & 0xFFFFFFFF, node->payload.int_literal.value >> 32 };
                 spvb_constant(emitter->file_builder, new, ty, 2, arr);
             } else {
-                uint32_t arr[] = { node->payload.int_literal.value.i32 };
+                uint32_t arr[] = { node->payload.int_literal.value };
                 spvb_constant(emitter->file_builder, new, ty, 1, arr);
             }
             break;
@@ -56,17 +56,17 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
             SpvId ty = emit_type(emitter, node->type);
             switch (node->payload.float_literal.width) {
                 case FloatTy16: {
-                    uint32_t arr[] = { node->payload.float_literal.value.b16 /* todo endianness ? */ };
+                    uint32_t arr[] = { node->payload.float_literal.value & 0xFFFF };
                     spvb_constant(emitter->file_builder, new, ty, 1, arr);
                     break;
                 }
                 case FloatTy32: {
-                    uint32_t arr[] = { node->payload.float_literal.value.b32 };
+                    uint32_t arr[] = { node->payload.float_literal.value };
                     spvb_constant(emitter->file_builder, new, ty, 1, arr);
                     break;
                 }
                 case FloatTy64: {
-                    uint32_t arr[] = { node->payload.float_literal.value.b64 & 0xFFFFFFFF, node->payload.float_literal.value.b64 >> 32 };
+                    uint32_t arr[] = { node->payload.float_literal.value & 0xFFFFFFFF, node->payload.float_literal.value >> 32 };
                     spvb_constant(emitter->file_builder, new, ty, 2, arr);
                     break;
                 }

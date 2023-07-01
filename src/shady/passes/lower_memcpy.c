@@ -15,7 +15,7 @@ typedef struct {
 
 static const Node* size_t_literal(Context* ctx, uint64_t value) {
     IrArena* a = ctx->rewriter.dst_arena;
-    return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = value });
+    return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value = value });
 }
 
 // TODO assumes alignment

@@ -69,7 +69,7 @@ const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
     lo = gen_conversion(bb, dst_type, lo);
     hi = gen_conversion(bb, dst_type, hi);
     // shift hi
-    const Node* shift_by = int_literal(bb->arena, (IntLiteral)  { .width = size + 1, .is_signed = src_type->payload.int_type.is_signed, .value.u64 = get_type_bitwidth(src_type) });
+    const Node* shift_by = int_literal(bb->arena, (IntLiteral)  { .width = size + 1, .is_signed = src_type->payload.int_type.is_signed, .value = get_type_bitwidth(src_type) });
     hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []) { hi, shift_by});
     // Merge the two
     return gen_primop_ce(bb, or_op, 2, (const Node* []) { lo, hi });
@@ -155,8 +155,8 @@ const Node* get_default_zero_value(IrArena* a, const Type* t) {
         case Type_MaskType_TAG:
         case Type_JoinPointType_TAG: error("TODO");
         case Type_NoRet_TAG: error("Has no values (let alone a default one!)");
-        case Type_Int_TAG: return int_literal(a, (IntLiteral) { .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed, .value.u64 = 0 });
-        case Type_Float_TAG: return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value.b64 = 0 });
+        case Type_Int_TAG: return int_literal(a, (IntLiteral) { .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed, .value = 0 });
+        case Type_Float_TAG: return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = 0 });
         case Type_Bool_TAG: return false_lit(a);
         case Type_FnType_TAG:
         case Type_BBType_TAG:

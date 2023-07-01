@@ -22,7 +22,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
     const Node* ptr = base;
 
     const IntLiteral* offset_value = resolve_to_literal(offset);
-    bool offset_is_zero = offset_value && offset_value->value.i64 == 0;
+    bool offset_is_zero = offset_value && offset_value->value == 0;
     if (!offset_is_zero) {
         const Type* arr_type = pointer_type->payload.ptr_type.pointed_type;
         assert(arr_type->tag == ArrType_TAG);
@@ -67,7 +67,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
                 const IntLiteral* selector_value = resolve_to_literal(indices[i]);
                 assert(selector_value && "selector value must be known for LEA into a record");
-                size_t n = selector_value->value.u64;
+                size_t n = selector_value->value;
                 assert(n < member_types.count);
 
                 const Node* offset_of = gen_primop_e(bb, offset_of_op, singleton(pointed_type), singleton(uint64_literal(a, n)));

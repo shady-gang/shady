@@ -98,18 +98,18 @@ int64_t get_int_literal_value(const Node* node, bool sign_extend) {
     assert(literal);
     if (sign_extend) {
         switch (literal->width) {
-            case IntTy8:  return (int64_t) literal->value.i8;
-            case IntTy16: return (int64_t) literal->value.i16;
-            case IntTy32: return (int64_t) literal->value.i32;
-            case IntTy64: return           literal->value.i64;
+            case IntTy8:  return (int64_t) (int8_t)  (literal->value & 0xFF);
+            case IntTy16: return (int64_t) (int16_t) (literal->value & 0xFFFF);
+            case IntTy32: return (int64_t) (int32_t) (literal->value & 0xFFFFFFFF);
+            case IntTy64: return (int64_t) literal->value;
             default: assert(false);
         }
     } else {
         switch (literal->width) {
-            case IntTy8:  return (int64_t) ((uint64_t) (literal->value.u8 ));
-            case IntTy16: return (int64_t) ((uint64_t) (literal->value.u16));
-            case IntTy32: return (int64_t) ((uint64_t) (literal->value.u32));
-            case IntTy64: return                        literal->value.i64  ;
+            case IntTy8:  return literal->value & 0xFF;
+            case IntTy16: return literal->value & 0xFFFF;
+            case IntTy32: return literal->value & 0xFFFFFFFF;
+            case IntTy64: return literal->value;
             default: assert(false);
         }
     }

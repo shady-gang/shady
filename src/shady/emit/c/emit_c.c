@@ -153,24 +153,25 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case Value_Variable_TAG: error("variables need to be emitted beforehand");
         case Value_IntLiteral_TAG: {
             if (value->payload.int_literal.is_signed)
-                emitted = format_string(emitter->arena, "%" PRIi64, value->payload.int_literal.value.i64);
+                emitted = format_string(emitter->arena, "%" PRIi64, value->payload.int_literal.value);
             else
-                emitted = format_string(emitter->arena, "%" PRIu64, value->payload.int_literal.value.u64);
+                emitted = format_string(emitter->arena, "%" PRIu64, value->payload.int_literal.value);
             break;
         }
         case Value_FloatLiteral_TAG:
+            uint64_t v = value->payload.float_literal.value;
             switch (value->payload.float_literal.width) {
                 case FloatTy16:
                     assert(false);
                 case FloatTy32: {
                     float f;
-                    memcpy(&f, &value->payload.float_literal.value.b32, sizeof(uint32_t));
+                    memcpy(&f, &v, sizeof(uint32_t));
                     double d = (double) f;
                     emitted = format_string(emitter->arena, "%.9g", d); break;
                 }
                 case FloatTy64: {
                     double d;
-                    memcpy(&d, &value->payload.float_literal.value.b64, sizeof(uint64_t));
+                    memcpy(&d, &v, sizeof(uint64_t));
                     emitted = format_string(emitter->arena, "%.17g", d); break;
                 }
             }

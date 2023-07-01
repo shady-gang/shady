@@ -170,7 +170,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
             return int_literal(a, (IntLiteral) {
                 .width = node->payload.int_literal.width,
                 .is_signed = node->payload.int_literal.is_signed,
-                .value.u64 = node->payload.int_literal.value.u64});
+                .value = node->payload.int_literal.value});
         }
         case UntypedNumber_TAG: {
             char* endptr;
@@ -185,22 +185,22 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
                 return int_literal(a, (IntLiteral) {
                     .width = expected_type->payload.int_type.width,
                     .is_signed = expected_type->payload.int_literal.is_signed,
-                    .value.i64 = i
+                    .value = i
                 });
             } else if (expected_type->tag == Float_TAG) {
-                FloatLiteralValue v;
+                uint64_t v;
                 switch (expected_type->payload.float_type.width) {
                     case FloatTy16:
                         error("TODO: implement fp16 parsing");
                     case FloatTy32:
                         assert(sizeof(float) == sizeof(uint32_t));
                         float f = strtof(node->payload.untyped_number.plaintext, NULL);
-                        memcpy(&v.b32, &f, sizeof(uint32_t));
+                        memcpy(&v, &f, sizeof(uint32_t));
                         break;
                     case FloatTy64:
                         assert(sizeof(double) == sizeof(uint64_t));
                         double d = strtod(node->payload.untyped_number.plaintext, NULL);
-                        memcpy(&v.b64, &d, sizeof(uint64_t));
+                        memcpy(&v, &d, sizeof(uint64_t));
                         break;
                 }
                 return float_literal(a, (FloatLiteral) {.value = v, .width = expected_type->payload.float_type.width});
@@ -388,7 +388,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             assert(base_datatype->tag == PtrType_TAG);
             AddressSpace as = deconstruct_pointer_type(&base_datatype);
             const IntLiteral* lit = resolve_to_literal(new_inputs_scratch[1]);
-            if ((!lit || lit->value.u64) != 0 && base_datatype->tag != ArrType_TAG) {
+            if ((!lit || lit->value) != 0 && base_datatype->tag != ArrType_TAG) {
                 warn_print("LEA used on a pointer to a non-array type!\n");
                 BodyBuilder* bb = begin_body(a);
                 const Node* cast_base = first(bind_instruction(bb, prim_op(a, (PrimOp) {
@@ -726,6 +726,8 @@ void infer_program(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
     };
+    ctx.rewriter.config.search_map = false;
+    ctx.rewriter.config.write_map = false;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
 }

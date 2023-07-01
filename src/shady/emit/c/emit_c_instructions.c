@@ -145,7 +145,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             assert(curr_ptr_type->tag == PtrType_TAG);
 
             const IntLiteral* offset_static_value = resolve_to_literal(prim_op->operands.nodes[1]);
-            if (!offset_static_value || offset_static_value->value.i64 != 0) {
+            if (!offset_static_value || offset_static_value->value != 0) {
                 CTerm offset = emit_value(emitter, p, prim_op->operands.nodes[1]);
                 // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this
                 // this means such code is never going to be legal in GLSL
@@ -324,9 +324,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                         assert(static_index);
                         Strings names = t->payload.record_type.names;
                         if (names.count == 0)
-                            acc = format_string(emitter->arena, "(%s._%d)", acc, static_index->value.u64);
+                            acc = format_string(emitter->arena, "(%s._%d)", acc, static_index->value);
                         else
-                            acc = format_string(emitter->arena, "(%s.%s)", acc, names.strings[static_index->value.u64]);
+                            acc = format_string(emitter->arena, "(%s.%s)", acc, names.strings[static_index->value]);
                         break;
                     }
                     case Type_ArrType_TAG:

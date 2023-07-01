@@ -48,7 +48,7 @@ static const Node* process(Context* ctx, const Node* node) {
             break;
         case IntLiteral_TAG:
             if (node->payload.int_literal.width == IntTy64 && ctx->config->lower.int64) {
-                uint64_t raw = node->payload.int_literal.value.u64;
+                uint64_t raw = node->payload.int_literal.value;
                 const Node* lower = uint32_literal(a, (uint32_t) raw);
                 const Node* upper = uint32_literal(a, (uint32_t) (raw >> 32));
                 return tuple(a, mk_nodes(a, lower, upper));

@@ -692,7 +692,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* pointee_type = curr_ptr_type->payload.ptr_type.pointed_type;
 
             const IntLiteral* lit = resolve_to_literal(offset);
-            bool offset_is_zero = lit && lit->value.i64 == 0;
+            bool offset_is_zero = lit && lit->value == 0;
             assert(offset_is_zero || pointee_type->tag == ArrType_TAG && "if an offset is used, the base pointer must point to an array");
             uniform &= offset_uniform;
 
@@ -830,7 +830,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 switch(current_type->tag) {
                     case RecordType_TAG: {
                         assert(!dynamic_index);
-                        size_t index_value = ith_index->payload.int_literal.value.i32;
+                        size_t index_value = ith_index->payload.int_literal.value;
                         assert(index_value < current_type->payload.record_type.members.count);
                         current_type = current_type->payload.record_type.members.nodes[index_value];
                         continue;

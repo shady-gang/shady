@@ -106,7 +106,7 @@ static const Node* generate_decision_tree(Context* ctx, TreeNode* n, uint64_t mi
     deconstruct_qualified_type(&inspectee_t);
     assert(inspectee_t->tag == Int_TAG);
 
-    const Node* pivot = int_literal(a, (IntLiteral) { .width = inspectee_t->payload.int_type.width, .is_signed = inspectee_t->payload.int_type.is_signed, .value.u64 = n->key });
+    const Node* pivot = int_literal(a, (IntLiteral) { .width = inspectee_t->payload.int_type.width, .is_signed = inspectee_t->payload.int_type.is_signed, .value = n->key });
 
     if (min < n->key) {
         BodyBuilder* bb = begin_body(a);

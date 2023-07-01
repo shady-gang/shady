@@ -645,11 +645,11 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             int width = get_type_bitwidth(t);
             switch (is_type(t)) {
                 case Int_TAG: {
-                    IntLiteralValue v;
+                    uint64_t v;
                     if (width == 64) {
-                        v.u64 = *(uint64_t*)(instruction + 3);
+                        v = *(uint64_t*)(instruction + 3);
                     } else
-                        v.u64 = instruction[3];
+                        v = instruction[3];
                     parser->defs[result].node = int_literal(parser->arena, (IntLiteral) {
                         .width = t->payload.int_literal.width,
                         .is_signed = t->payload.int_literal.is_signed,
@@ -658,11 +658,11 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     break;
                 }
                 case Float_TAG: {
-                    FloatLiteralValue v;
+                    uint64_t v;
                     if (width == 64) {
-                        v.b64 = *(uint64_t*)(instruction + 3);
+                        v = *(uint64_t*)(instruction + 3);
                     } else
-                        v.b64 = instruction[3];
+                        v = instruction[3];
                     parser->defs[result].node = float_literal(parser->arena, (FloatLiteral) {
                         .width = t->payload.float_literal.width,
                         .value = v

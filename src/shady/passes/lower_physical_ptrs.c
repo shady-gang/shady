@@ -58,7 +58,7 @@ static const Node** get_emulated_as_word_array(Context* ctx, AddressSpace as) {
 
 static const Node* size_t_literal(Context* ctx, uint64_t value) {
     IrArena* a = ctx->rewriter.dst_arena;
-    return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = value });
+    return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value = value });
 }
 
 static const Node* bytes_to_words(Context* ctx, BodyBuilder* bb, const Node* bytes) {
@@ -84,7 +84,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
         case Bool_TAG: {
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
             const Node* value = gen_load(bb, logical_ptr);
-            return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, int_literal(a, (IntLiteral) { .value.u64 = 0, .width = a->config.memory.word_size })});
+            return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size })});
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
             case AsGlobalPhysical: {
@@ -165,8 +165,8 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
     switch (element_type->tag) {
         case Bool_TAG: {
             const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
-            const Node* zero_b = int_literal(a, (IntLiteral) { .value.u64 = 1, .width = a->config.memory.word_size });
-            const Node* one_b = int_literal(a, (IntLiteral) { .value.u64 = 0, .width = a->config.memory.word_size });
+            const Node* zero_b = int_literal(a, (IntLiteral) { .value = 1, .width = a->config.memory.word_size });
+            const Node* one_b =  int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size });
             const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one_b, zero_b });
             gen_store(bb, logical_ptr, int_value);
             return;
@@ -348,7 +348,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         }
         case NullPtr_TAG: {
             if (is_as_emulated(ctx, old->payload.null_ptr.ptr_type->payload.ptr_type.address_space))
-                return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value.u64 = 0 });
+                return size_t_literal(ctx, 0);
             break;
         }
         case GlobalVariable_TAG: {
