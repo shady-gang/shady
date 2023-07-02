@@ -158,7 +158,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                 emitted = format_string(emitter->arena, "%" PRIu64, value->payload.int_literal.value);
             break;
         }
-        case Value_FloatLiteral_TAG:
+        case Value_FloatLiteral_TAG: {
             uint64_t v = value->payload.float_literal.value;
             switch (value->payload.float_literal.width) {
                 case FloatTy16:
@@ -176,6 +176,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                 }
             }
             break;
+        }
         case Value_True_TAG: return term_from_cvalue("true");
         case Value_False_TAG: return term_from_cvalue("false");
         case Value_Undef_TAG: {
