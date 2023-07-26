@@ -80,15 +80,6 @@ P(0, subgroup_reduce_sum)              \
 P(0, subgroup_active_mask)             \
 P(0, subgroup_ballot)                  \
 
-#define COMPUTE_INTRINSICS_PRIMOPS(P) \
-P(0, subgroup_id)                     \
-P(0, subgroup_local_id)               \
-P(0, workgroup_local_id)              \
-P(0, workgroup_id)                    \
-P(0, global_id)                       \
-P(0, workgroup_size)                  \
-P(0, workgroup_num)                   \
-
 #define SYNTAX_SUGAR_OPS(P) \
 P(1, assign)                \
 P(1, subscript)             \
@@ -110,7 +101,6 @@ P(0, extract)                   \
 P(0, extract_dynamic)           \
 P(0, insert)                    \
 P(1, debug_printf)              \
-COMPUTE_INTRINSICS_PRIMOPS(P)   \
 SUBGROUP_INTRINSICS_PRIMOPS(P)  \
 /* these are all lowered away */\
 STACK_PRIMOPS(P)                \

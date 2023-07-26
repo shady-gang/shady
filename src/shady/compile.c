@@ -34,8 +34,8 @@ CompilerConfig default_compiler_config() {
         },
 
         .logging = {
-            // most of the time, we are not interested in seeing generated/builtin code in the debug output
-            .skip_builtin = true,
+            // most of the time, we are not interested in seeing generated & internal code in the debug output
+            .skip_internal = true,
             .skip_generated = true,
         },
 

@@ -104,6 +104,53 @@ void gen_comment(BodyBuilder* bb, String str) {
     bind_instruction(bb, comment(bb->arena, (Comment) { .string = str }));
 }
 
+const Node* get_builtin(Module* m, Builtin b, String n) {
+    Nodes decls = get_module_declarations(m);
+    for (size_t i = 0; i < decls.count; i++) {
+        const Node* decl = decls.nodes[i];
+        if (decl->tag != GlobalVariable_TAG)
+            continue;
+        const Node* a = lookup_annotation(decl, "Builtin");
+        if (!a)
+            continue;
+        String builtin_name = get_annotation_string_payload(a);
+        assert(builtin_name);
+        if (strcmp(builtin_name, builtin_names[b]) == 0)
+            return decl;
+    }
+
+    AddressSpace as;
+    IrArena* a = get_module_arena(m);
+    Node* decl = global_var(m, singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a, builtin_names[b]))), get_builtin_type(a, b), n ? n : format_string(a, "builtin_%s", builtin_names[b]), as);
+    return decl;
+}
+
+const Node* gen_builtin_load(Module* m, BodyBuilder* bb, Builtin b) {
+    return gen_load(bb, ref_decl_helper(bb->arena, get_builtin(m, b, NULL)));
+}
+
+bool is_builtin_load_op(const Node* n, Builtin* out) {
+    assert(is_instruction(n));
+    if (n->tag == PrimOp_TAG && n->payload.prim_op.op == load_op) {
+        const Node* src = first(n->payload.prim_op.operands);
+        if (src->tag == RefDecl_TAG)
+            src = src->payload.ref_decl.decl;
+        if (src->tag == GlobalVariable_TAG) {
+            const Node* a = lookup_annotation(src, "Builtin");
+            if (a) {
+                String bn = get_annotation_string_payload(a);
+                assert(bn);
+                Builtin b = get_builtin_by_name(bn);
+                if (b != BuiltinsCount) {
+                    *out = b;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
     Nodes old_decls = get_module_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {

@@ -33,7 +33,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 break;
             BodyBuilder* bb = begin_body(a);
             const Node* ndecl = rewrite_node(&ctx->rewriter, odecl);
-            const Node* index = gen_primop_e(bb, subgroup_id_op, empty(a), empty(a));
+            const Node* index = gen_builtin_load(ctx->rewriter.dst_module, bb, BuiltinSubgroupId);
             const Node* slice = gen_lea(bb, ref_decl_helper(a, ndecl), int32_literal(a, 0), mk_nodes(a, index));
             return anti_quote(a, (AntiQuote) { .instruction = yield_values_and_wrap_in_block(bb, singleton(slice)) });
         }

@@ -56,9 +56,6 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Node* packed = composite(a, result_type, nodes(a, ctx->width, allocated));
                     return yield_values_and_wrap_in_block(bb, singleton(packed));
                 }
-                case subgroup_local_id_op: {
-                    error("TODO")
-                }
                 default: break;
             }
 

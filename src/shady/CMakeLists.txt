@@ -4,6 +4,7 @@ set(SHADY_SOURCES
     constructors.c
     type.c
     type_helpers.c
+    builtins.c
     rewrite.c
     visit.c
     print.c
@@ -78,7 +79,7 @@ if (WIN32)
     endif()
 endif()
 
-add_subdirectory(builtin)
+add_subdirectory(internal)
 add_subdirectory(emit)
 
 target_link_libraries(shady PUBLIC "api")

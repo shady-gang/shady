@@ -247,6 +247,19 @@ static const Type* accept_unqualified_type(ctxparams) {
             .element_type = elem_type,
             .size = size
         });
+    } else if (accept_token(ctx, pack_tok)) {
+        expect(accept_token(ctx, lsbracket_tok));
+        const Type* elem_type = accept_unqualified_type(ctx);
+        expect(elem_type);
+        const Node* size = NULL;
+        expect(accept_token(ctx, semi_tok));
+        size = accept_numerical_literal(ctx);
+        expect(size && size->tag == UntypedNumber_TAG);
+        expect(accept_token(ctx, rsbracket_tok));
+        return pack_type(arena, (PackType) {
+            .element_type = elem_type,
+            .width = strtoll(size->payload.untyped_number.plaintext, NULL, 10)
+        });
     } else if (accept_token(ctx, struct_tok)) {
         expect(accept_token(ctx, lbracket_tok));
         struct List* names = new_list(String);

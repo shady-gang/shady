@@ -2,6 +2,7 @@
 #define SHADY_IR_GEN_HELPERS_H
 
 #include "shady/ir.h"
+#include "shady/builtins.h"
 
 void gen_push_value_stack(BodyBuilder* bb, const Node* value);
 void gen_push_values_stack(BodyBuilder* bb, Nodes values);
@@ -21,6 +22,8 @@ void gen_store(BodyBuilder*, const Node* ptr, const Node* value);
 const Node* gen_lea(BodyBuilder*, const Node* base, const Node* offset, Nodes selectors);
 const Node* gen_extract(BodyBuilder*, const Node* base, Nodes selectors);
 void gen_comment(BodyBuilder*, String str);
+const Node* get_builtin(Module* m, Builtin b, String n);
+const Node* gen_builtin_load(Module*, BodyBuilder*, Builtin);
 
 typedef struct Rewriter_ Rewriter;
 
@@ -31,5 +34,7 @@ const Node* convert_int_extend_according_to_src_t(BodyBuilder*, const Type* dst_
 const Node* convert_int_extend_according_to_dst_t(BodyBuilder*, const Type* dst_type, const Node* src);
 
 const Node* get_default_zero_value(IrArena*, const Type*);
+
+bool is_builtin_load_op(const Node*, Builtin*);
 
 #endif

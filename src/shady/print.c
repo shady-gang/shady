@@ -19,6 +19,7 @@ typedef void (*PrintFn)(PrinterCtx* ctx, char* format, ...);
 
 typedef struct {
     bool skip_builtin;
+    bool skip_internal;
     bool skip_generated;
     bool print_ptrs;
     bool color;
@@ -773,6 +774,8 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
     assert(is_declaration(node));
     if (ctx->config.skip_generated && lookup_annotation(node, "Generated"))
         return;
+    if (ctx->config.skip_internal && lookup_annotation(node, "Internal"))
+        return;
     if (ctx->config.skip_builtin && lookup_annotation(node, "Builtin"))
         return;
 
@@ -985,6 +988,7 @@ void log_module(LogLevel level, CompilerConfig* compiler_cfg, Module* mod) {
     if (compiler_cfg) {
         config.skip_generated = compiler_cfg->logging.skip_generated;
         config.skip_builtin = compiler_cfg->logging.skip_builtin;
+        config.skip_internal = compiler_cfg->logging.skip_internal;
     }
     if (level >= get_log_level())
         print_helper(open_file_as_printer(stderr), NULL, mod, config);

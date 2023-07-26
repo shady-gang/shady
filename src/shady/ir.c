@@ -12,7 +12,7 @@
 #include <stdarg.h>
 
 static KeyHash hash_nodes(Nodes* nodes);
-static bool compare_nodes(Nodes* a, Nodes* b);
+bool compare_nodes(Nodes* a, Nodes* b);
 
 static KeyHash hash_strings(Strings* strings);
 static bool compare_strings(Strings* a, Strings* b);

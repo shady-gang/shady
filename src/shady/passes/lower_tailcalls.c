@@ -264,7 +264,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, "next_fn"));
     const Node* get_active_branch_fn = access_decl(&ctx->rewriter, "builtin_get_active_branch");
     const Node* next_mask = first(bind_instruction(loop_body_builder, call(a, (Call) { .callee = get_active_branch_fn, .args = empty(a) })));
-    const Node* local_id = gen_primop_e(loop_body_builder, subgroup_local_id_op, empty(a), empty(a));
+    const Node* local_id = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);
     const Node* should_run = gen_primop_e(loop_body_builder, mask_is_thread_active_op, empty(a), mk_nodes(a, next_mask, local_id));
 
     bool count_iterations = ctx->config->shader_diagnostics.max_top_iterations > 0;
@@ -273,7 +273,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         iterations_count_param = var(a, qualified_type(a, (QualifiedType) { .type = int32_type(a), .is_uniform = true }), "iterations");
 
     if (ctx->config->printf_trace.god_function) {
-        const Node* sid = gen_primop_e(loop_body_builder, subgroup_id_op, empty(a), empty(a));
+        const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         if (count_iterations)
             bind_instruction(loop_body_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: top loop, thread:%d:%d iteration=%d next_fn=%d next_mask=%lx\n" }), sid, local_id, iterations_count_param, next_function, next_mask) }));
         else
@@ -308,7 +308,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     BodyBuilder* zero_case_builder = begin_body(a);
     BodyBuilder* zero_if_case_builder = begin_body(a);
     if (ctx->config->printf_trace.god_function) {
-        const Node* sid = gen_primop_e(loop_body_builder, subgroup_id_op, empty(a), empty(a));
+        const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         bind_instruction(zero_if_case_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: kill thread %d:%d\n" }), sid, local_id) }));
     }
     const Node* zero_if_true_lam = lambda(a, empty(a), finish_body(zero_if_case_builder, break_terminator));
@@ -320,7 +320,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     });
     bind_instruction(zero_case_builder, zero_if_instruction);
     if (ctx->config->printf_trace.god_function) {
-        const Node* sid = gen_primop_e(loop_body_builder, subgroup_id_op, empty(a), empty(a));
+        const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         bind_instruction(zero_case_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: thread %d:%d escaped death!\n" }), sid, local_id) }));
     }
 
@@ -340,7 +340,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             BodyBuilder* if_builder = begin_body(a);
             if (ctx->config->printf_trace.god_function) {
-                const Node* sid = gen_primop_e(loop_body_builder, subgroup_id_op, empty(a), empty(a));
+                const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
                 bind_instruction(if_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: thread %d:%d will run fn %d with mask = %x %b\n" }), sid, local_id, fn_lit, next_mask, should_run) }));
             }
             bind_instruction(if_builder, call(a, (Call) {

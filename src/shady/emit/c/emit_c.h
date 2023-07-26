@@ -2,6 +2,7 @@
 #define SHADY_EMIT_C
 
 #include "shady/ir.h"
+#include "shady/builtins.h"
 #include "growy.h"
 #include "arena.h"
 #include "printer.h"
@@ -57,6 +58,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
 void emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
 
 CTerm emit_value(Emitter* emitter, Printer*, const Node* value);
+CTerm emit_c_builtin(Emitter*, Builtin);
 
 String legalize_c_identifier(Emitter*, String);
 

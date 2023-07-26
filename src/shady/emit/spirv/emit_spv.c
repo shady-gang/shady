@@ -3,17 +3,19 @@
 #include "log.h"
 #include "portability.h"
 
-#include "../../analysis/scope.h"
+#include "shady/builtins.h"
 #include "../../ir_private.h"
+#include "../../analysis/scope.h"
 #include "../../type.h"
 #include "../../compile.h"
 
 #include "emit_spv.h"
-#include "emit_spv_builtins.h"
 
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
+
+extern SpvBuiltIn spv_builtins[];
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -346,6 +348,23 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
             SpvStorageClass storage_class = emit_addr_space(gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), storage_class, false, init);
 
+            Builtin b = BuiltinsCount;
+            for (size_t i = 0; i < gvar->annotations.count; i++) {
+                const Node* a = gvar->annotations.nodes[i];
+                assert(is_annotation(a));
+                String name = get_annotation_name(a);
+                if (strcmp(name, "Builtin") == 0) {
+                    String builtin_name = get_annotation_string_payload(a);
+                    assert(builtin_name);
+                    assert(b == BuiltinsCount && "Only one @Builtin annotation permitted.");
+                    b = get_builtin_by_name(builtin_name);
+                    assert(b != BuiltinsCount);
+                    SpvBuiltIn d = spv_builtins[b];
+                    uint32_t decoration_payload[] = { d };
+                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationBuiltIn, 1, decoration_payload);
+                }
+            }
+
             switch (storage_class) {
                 case SpvStorageClassPushConstant: {
                     break;
@@ -404,7 +423,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
     // First, collect all the global variables, they're needed for the interface section of OpEntryPoint
     // it can be a superset of the ones actually used, so the easiest option is to just grab _all_ global variables and shove them in there
     // my gut feeling says it's unlikely any drivers actually care, but validation needs to be happy so here we go...
-    LARRAY(SpvId, interface_arr, declarations.count + VulkanBuiltinsCount);
+    LARRAY(SpvId, interface_arr, declarations.count);
     size_t interface_size = 0;
     for (size_t i = 0; i < declarations.count; i++) {
         const Node* node = declarations.nodes[i];
@@ -419,17 +438,6 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
             }
         }
         interface_arr[interface_size++] = find_reserved_id(emitter, node);
-    }
-    // Do the same with builtins ...
-    for (size_t i = 0; i < VulkanBuiltinsCount; i++) {
-        switch (vulkan_builtins_kind[i]) {
-            case VulkanBuiltinInput:
-            case VulkanBuiltinOutput:
-                if (emitter->emitted_builtins[i] != 0)
-                    interface_arr[interface_size++] = emitter->emitted_builtins[i];
-                break;
-            default: error("TODO")
-        }
     }
 
     for (size_t i = 0; i < declarations.count; i++) {
@@ -518,9 +526,6 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
     };
 
     emitter.extended_instruction_sets = new_dict(const char*, SpvId, (HashFn) hash_string, (CmpFn) compare_string);
-
-    for (size_t i = 0; i < VulkanBuiltinsCount; i++)
-        emitter.emitted_builtins[i] = 0;
 
     emitter.void_t = spvb_void_type(emitter.file_builder);
 

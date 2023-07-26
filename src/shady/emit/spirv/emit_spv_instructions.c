@@ -12,7 +12,7 @@
 #include "spirv/unified1/GLSL.std.450.h"
 
 typedef enum {
-    Custom, Plain, Builtin
+    Custom, Plain,
 } InstrClass;
 
 /// What is considered when searching for an instruction
@@ -53,7 +53,6 @@ typedef struct  {
         SpvOp fo[OperandClassCount];
         // matches first operand and return type [first operand][result type]
         SpvOp foar[OperandClassCount][OperandClassCount];
-        VulkanBuiltins builtin;
     };
     const char* extended_set;
 } IselTableEntry;
@@ -124,14 +123,6 @@ const IselTableEntry isel_table[] = {
     [sign_op] = { Plain, FirstOp, Same, .extended_set = "GLSL.std.450", .fo = { (SpvOp) GLSLstd450SSign, ISEL_ILLEGAL, (SpvOp) GLSLstd450FSign, ISEL_ILLEGAL }},
 
     [debug_printf_op] = {Plain, Monomorphic, Void, .extended_set = "NonSemantic.DebugPrintf", .op = (SpvOp) NonSemanticDebugPrintfDebugPrintf},
-
-    [subgroup_local_id_op] = { Builtin, .builtin = VulkanBuiltinSubgroupLocalInvocationId },
-    [subgroup_id_op] = { Builtin, .builtin = VulkanBuiltinSubgroupId },
-    [workgroup_local_id_op] = { Builtin, .builtin = VulkanBuiltinLocalInvocationId },
-    [workgroup_num_op] = { Builtin, .builtin = VulkanBuiltinNumWorkgroups },
-    [workgroup_id_op] = { Builtin, .builtin = VulkanBuiltinWorkgroupId },
-    [workgroup_size_op] = { Builtin, .builtin = VulkanBuiltinWorkgroupSize },
-    [global_id_op] = { Builtin, .builtin = VulkanBuiltinGlobalInvocationId },
 
     [PRIMOPS_COUNT] = { Custom }
 };
@@ -207,14 +198,6 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 }
                 return;
             }
-            case Builtin: {
-                assert(args.count == 0 && results_count == 1);
-                SpvId result_t = emit_type(emitter, get_vulkan_builtins_type(emitter->arena, entry.builtin));
-                SpvId ptr = emit_builtin(emitter, entry.builtin);
-                SpvId result = spvb_load(bb_builder, result_t, ptr, 0, NULL);
-                results[0] = result;
-                return;
-            }
             case Custom: SHADY_UNREACHABLE;
         }
 
@@ -242,7 +225,8 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
 
             if (emitter->configuration->hacks.spv_shuffle_instead_of_broadcast_first) {
                 SpvId local_id;
-                emit_primop(emitter, fn_builder, bb_builder, prim_op(emitter->arena, (PrimOp) { .op = subgroup_local_id_op }), 1, &local_id);
+                error("TODO: fix")
+                //emit_primop(emitter, fn_builder, bb_builder, prim_op(emitter->arena, (PrimOp) { .op = subgroup_local_id_op }), 1, &local_id);
                 result = spvb_shuffle(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), scope_subgroup, emit_value(emitter, bb_builder, first(args)), local_id);
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
             } else {

@@ -10,6 +10,7 @@
 #include <assert.h>
 
 Strings import_strings(IrArena*, Strings);
+bool compare_nodes(Nodes* a, Nodes* b);
 
 #define VISIT_FIELD_SCRATCH(t, n)
 #define VISIT_FIELD_POD(t, n)
@@ -356,6 +357,15 @@ Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
 }
 
 Node* global_var(Module* mod, Nodes annotations, const Type* type, const char* name, AddressSpace as) {
+    const Node* existing = get_declaration(mod, name);
+    if (existing) {
+        assert(existing->tag == GlobalVariable_TAG);
+        assert(existing->payload.global_variable.type == type);
+        assert(existing->payload.global_variable.address_space == as);
+        assert(!mod->arena->config.check_types || compare_nodes((Nodes*) &existing->payload.global_variable.annotations, &annotations));
+        return (Node*) existing;
+    }
+
     IrArena* arena = mod->arena;
     GlobalVariable gvar = {
         .annotations = annotations,
@@ -431,6 +441,14 @@ const Node* unit_type(IrArena* arena) {
          .members = empty(arena),
          .special = MultipleReturn,
      });
+}
+
+const Node* annotation_value_helper(IrArena* a, String n, const Node* v) {
+    return annotation_value(a, (AnnotationValue) { .name = n, .value = v});
+}
+
+const Node* string_lit_helper(IrArena* a, String s) {
+    return string_lit(a, (StringLiteral) { .string = s });
 }
 
 const Type* int_type_helper(IrArena* a, bool s, IntSizes w) { return int_type(a, (Int) { .width = w, .is_signed = s }); }

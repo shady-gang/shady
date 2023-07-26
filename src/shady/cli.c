@@ -114,8 +114,8 @@ void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv)
             config->specialization.subgroup_size = atoi(argv[i]);
         } else if (strcmp(argv[i], "--simt2d") == 0) {
             config->lower.simt_to_explicit_simd = true;
-        } else if (strcmp(argv[i], "--print-builtin") == 0) {
-            config->logging.skip_builtin = false;
+        } else if (strcmp(argv[i], "--print-internal") == 0) {
+            config->logging.skip_internal = false;
         } else if (strcmp(argv[i], "--print-generated") == 0) {
             config->logging.skip_generated = false;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -128,7 +128,7 @@ void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv)
     }
 
     if (help) {
-        error_print("  --print-builtin                           Includes builtin-in functions in the debug output\n");
+        error_print("  --print-internal                          Includes internal functions in the debug output\n");
         error_print("  --print-generated                         Includes generated functions in the debug output\n");
         error_print("  --no-dynamic-scheduling                   Disable the built-in dynamic scheduler, restricts code to only leaf functions\n");
         error_print("  --simt2d                                  Emits SIMD code instead of SIMT, only effective with the C backend.\n");

@@ -1,4 +1,5 @@
 #include "s2s.h"
+#include "shady/builtins.h"
 
 // this avoids polluting the namespace
 #define SpvHasResultAndType ShadySpvHasResultAndType
@@ -10,6 +11,8 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 #define SPV_ENABLE_UTILITY_CODE 1
 #include "spirv/unified1/spirv.h"
 #include "spirv/unified1/OpenCL.std.h"
+
+extern SpvBuiltIn spv_builtins[];
 
 // TODO: reserve real decoration IDs
 typedef enum {
@@ -42,7 +45,7 @@ typedef struct {
 typedef struct SpvDeco_ SpvDeco;
 
 typedef struct {
-    enum { Nothing, Forward, Str, Typ, Decl, BB, Value, Literals, Builtin } type;
+    enum { Nothing, Forward, Str, Typ, Decl, BB, Value, Literals } type;
     const Type* result_type;
     union {
         size_t instruction_offset;
@@ -746,13 +749,52 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                         .operands = mk_nodes(parser->arena, ptr, get_def_ssa_value(parser, instruction[4]))
                     }), 1, NULL, NULL);
             } else {
-                if (find_decoration(parser, result, -1, SpvDecorationBuiltIn)) {
-                    parser->defs[result].type = Builtin;
+                Nodes annotations = empty(parser->arena);
+                SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
+                if (builtin) {
+                    SpvBuiltIn spv_builtin = *builtin->payload.literals.data;
+                    Builtin b = BuiltinsCount;
+                    for (size_t i = 0; i < BuiltinsCount; i++) {
+                        if (spv_builtin == spv_builtins[i]) {
+                            b = i;
+                            break;
+                        }
+                    }
+                    assert(b != BuiltinsCount && "Unsupported builtin");
+                    annotations = append_nodes(parser->arena, annotations, annotation_value_helper(parser->arena, "Builtin", string_lit_helper(parser->arena, builtin_names[b])));
+                    /*switch () {
+                        case SpvBuiltInGlobalInvocationId: {
+                            parser->defs[result].type = Value;
+                            const Node* r = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                                    .op = global_id_op,
+                                    .type_arguments = empty(parser->arena),
+                                    .operands = empty(parser->arena)
+                            }), 1, NULL, NULL));
+                            const Type* t = get_def_type(parser, result_t);
+                            assert(t->tag == PackType_TAG);
+                            const Node* gid[3];
+                            for (size_t i = 0; i < 3; i++) {
+                                gid[i] = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                                        .op = extract_op,
+                                        .type_arguments = empty(parser->arena),
+                                        .operands = mk_nodes(parser->arena, r, int32_literal(parser->arena, i)),
+                                }), 1, NULL, NULL));
+                                gid[i] = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                                        .op = convert_op,
+                                        .type_arguments = singleton(t->payload.pack_type.element_type),
+                                        .operands = singleton(gid[i]),
+                                }), 1, NULL, NULL));
+                            }
+                            parser->defs[result].node = composite(parser->arena, t, mk_nodes(parser->arena, gid[0], gid[1], gid[2]));
+                            break;
+                        }
+                        default: error("unsupported builtin")
+                    }*/
                     break;
                 }
 
                 parser->defs[result].type = Decl;
-                Node* global = global_var(parser->mod, empty(parser->arena), contents_t, name, as);
+                Node* global = global_var(parser->mod, annotations, contents_t, name, as);
                 parser->defs[result].node = global;
 
                 if (size == 5)
@@ -1061,38 +1103,6 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             break;
         }
         case SpvOpLoad: {
-            SpvDeco* builtin = find_decoration(parser, instruction[3], -1, SpvDecorationBuiltIn);
-            if (builtin) {
-                switch (*builtin->payload.literals.data) {
-                    case SpvBuiltInGlobalInvocationId: {
-                        parser->defs[result].type = Value;
-                        const Node* r = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                            .op = global_id_op,
-                            .type_arguments = empty(parser->arena),
-                            .operands = empty(parser->arena)
-                        }), 1, NULL, NULL));
-                        const Type* t = get_def_type(parser, result_t);
-                        assert(t->tag == PackType_TAG);
-                        const Node* gid[3];
-                        for (size_t i = 0; i < 3; i++) {
-                            gid[i] = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                                .op = extract_op,
-                                .type_arguments = empty(parser->arena),
-                                .operands = mk_nodes(parser->arena, r, int32_literal(parser->arena, i)),
-                            }), 1, NULL, NULL));
-                            gid[i] = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                                .op = convert_op,
-                                .type_arguments = singleton(t->payload.pack_type.element_type),
-                                .operands = singleton(gid[i]),
-                            }), 1, NULL, NULL));
-                        }
-                        parser->defs[result].node = composite(parser->arena, t, mk_nodes(parser->arena, gid[0], gid[1], gid[2]));
-                        break;
-                    }
-                    default: error("unsupported builtin")
-                }
-                break;
-            }
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             parser->defs[result].type = Value;
             parser->defs[result].node = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {

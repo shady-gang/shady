@@ -415,7 +415,6 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
         }
         case empty_mask_op:
         case subgroup_active_mask_op:
-        case subgroup_local_id_op:
         case subgroup_elect_first_op:
             input_types = nodes(a, 0, NULL);
             break;

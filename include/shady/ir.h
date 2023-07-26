@@ -51,6 +51,7 @@ Module* new_module(IrArena*, String name);
 IrArena* get_module_arena(const Module*);
 String get_module_name(const Module*);
 Nodes get_module_declarations(const Module*);
+const Node* get_declaration(const Module*, String);
 
 //////////////////////////////// Grammar ////////////////////////////////
 
@@ -183,6 +184,8 @@ const Node* composite(IrArena*, const Type*, Nodes contents);
 const Node* fn_addr_helper(IrArena*, const Node* fn);
 const Node* ref_decl_helper(IrArena*, const Node* decl);
 const Node* anti_quote_helper(IrArena*, const Node* instr);
+const Node* string_lit_helper(IrArena* a, String s);
+const Node* annotation_value_helper(IrArena* a, String n, const Node* v);
 
 // instructions
 /// Turns a value into an 'instruction' (the enclosing let will be folded away later)
@@ -263,7 +266,7 @@ typedef struct CompilerConfig_ {
     } shader_diagnostics;
 
     struct {
-        bool skip_generated, skip_builtin;
+        bool skip_generated, skip_builtin, skip_internal;
     } logging;
 
     struct {

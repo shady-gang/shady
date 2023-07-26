@@ -486,6 +486,21 @@ void emit_decl(Emitter* emitter, const Node* decl) {
 
     switch (decl->tag) {
         case GlobalVariable_TAG: {
+            const GlobalVariable* gvar = &decl->payload.global_variable;
+            Builtin b = BuiltinsCount;
+            for (size_t i = 0; i < gvar->annotations.count; i++) {
+                const Node* a = gvar->annotations.nodes[i];
+                assert(is_annotation(a));
+                if (strcmp(get_annotation_name(a), "Builtin") == 0) {
+                    String builtin_name = get_annotation_string_payload(a);
+                    assert(builtin_name);
+                    b = get_builtin_by_name(builtin_name);
+                    assert(b != BuiltinsCount);
+                    register_emitted(emitter, decl, emit_c_builtin(emitter, b));
+                    return;
+                }
+            }
+
             decl_type = decl->payload.global_variable.type;
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);

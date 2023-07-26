@@ -26,16 +26,27 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case PrimOp_TAG: {
-            switch (node->payload.prim_op.op) {
-                case workgroup_size_op: {
-                    const Type* t = pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 });
-                    uint32_t wg_size[3];
-                    wg_size[0] = a->config.specializations.workgroup_size[0];
-                    wg_size[1] = a->config.specializations.workgroup_size[1];
-                    wg_size[2] = a->config.specializations.workgroup_size[2];
-                    return quote_helper(a, singleton(composite(a, t,mk_nodes(a, uint32_literal(a, wg_size[0]), uint32_literal(a, wg_size[1]), uint32_literal(a, wg_size[2]) ))));
+            Builtin b;
+            if (is_builtin_load_op(node, &b) && b == BuiltinWorkgroupSize) {
+                const Type* t = pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 });
+                uint32_t wg_size[3];
+                wg_size[0] = a->config.specializations.workgroup_size[0];
+                wg_size[1] = a->config.specializations.workgroup_size[1];
+                wg_size[2] = a->config.specializations.workgroup_size[2];
+                return quote_helper(a, singleton(composite(a, t,mk_nodes(a, uint32_literal(a, wg_size[0]), uint32_literal(a, wg_size[1]), uint32_literal(a, wg_size[2]) ))));
+            }
+            break;
+        }
+        case GlobalVariable_TAG: {
+            const Node* ba = lookup_annotation(node, "Builtin");
+            if (ba) {
+                Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
+                switch (b) {
+                    case BuiltinWorkgroupSize:
+                        return NULL;
+                    default:
+                        break;
                 }
-                default: break;
             }
             break;
         }

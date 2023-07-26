@@ -2,8 +2,6 @@
 #define SHADY_EMIT_SPIRV_H
 
 #include "shady/ir.h"
-#include "emit_spv_builtins.h"
-
 #include "spirv_builder.h"
 
 typedef SpvbFileBuilder* FileBuilder;
@@ -18,7 +16,6 @@ typedef struct Emitter_ {
     SpvId void_t;
     struct Dict* node_ids;
     struct Dict* bb_builders;
-    SpvId emitted_builtins[VulkanBuiltinsCount];
     size_t num_entry_pts;
 
     struct Dict* extended_instruction_sets;
@@ -42,7 +39,6 @@ typedef struct {
 SpvId emit_decl(Emitter*, const Node*);
 SpvId emit_type(Emitter*, const Type*);
 SpvId emit_value(Emitter*, BBBuilder, const Node*);
-SpvId emit_builtin(Emitter*, VulkanBuiltins builtin);
 void emit_instruction(Emitter*, FnBuilder, BBBuilder*, MergeTargets*, const Node* instruction, size_t results_count, SpvId results[]);
 void emit_terminator(Emitter*, FnBuilder, BBBuilder, MergeTargets, const Node* terminator);
 

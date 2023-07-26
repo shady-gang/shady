@@ -5,6 +5,7 @@
 #include "portability.h"
 
 #include "dict.h"
+#include "shady/builtins.h"
 
 #include <string.h>
 #include <assert.h>
@@ -960,42 +961,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 0);
             return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = empty(arena) }), .is_uniform = true });
         }
-        // Invocation ID and compute kernel stuff
-        case subgroup_local_id_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 0);
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = false,
-                .type = uint32_type(arena)
-            });
-        }
-        case subgroup_id_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 0);
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = true,
-                .type = uint32_type(arena)
-            });
-        }
-        case workgroup_id_op:
-        case workgroup_num_op:
-        case workgroup_size_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 0);
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = true,
-                .type = pack_type(arena, (PackType) { .element_type = uint32_type(arena), .width = 3 })
-            });
-        }
-        case workgroup_local_id_op:
-        case global_id_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 0);
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = false,
-                .type = pack_type(arena, (PackType) { .element_type = uint32_type(arena), .width = 3 })
-            });
-        }
         // Stack stuff
         case get_stack_pointer_op:
         case get_stack_pointer_uniform_op: {
@@ -1286,6 +1251,22 @@ const Type* check_type_anon_lam(IrArena* arena, AnonLambda lam) {
 
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
     assert(is_type(global_variable.type));
+
+    const Node* ba = lookup_annotation_list(global_variable.annotations, "Builtin");
+    if (ba) {
+        Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
+        assert(b != BuiltinsCount);
+        const Type* t = get_builtin_type(arena, b);
+        if (t != global_variable.type) {
+            error_print("Creating a @Builtin global variable '%s' with the incorrect type: ", global_variable.name);
+            log_node(ERROR, global_variable.type);
+            error_print(" instead of the expected ");
+            log_node(ERROR, t);
+            error_print(".\n");
+            error_die();
+        }
+    }
+
     return ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space

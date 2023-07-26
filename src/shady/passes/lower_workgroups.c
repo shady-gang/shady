@@ -15,52 +15,29 @@ typedef struct {
     bool is_entry_point;
 } Context;
 
-static const Node* get_global_var(Context* ctx, Op op) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    Module* m = ctx->rewriter.dst_module;
-    const Node* node = prim_op(ctx->rewriter.src_arena, (PrimOp) { .op = op });
-
-    String name = primop_names[op];
-    const Type* t = rewrite_node(&ctx->rewriter, node->type);
-    deconstruct_qualified_type(&t);
-    Node* decl = ctx->globals[node->payload.prim_op.op];
-    AddressSpace as = AsSubgroupLogical;
-
-    switch (op) {
-        case global_id_op:
-        case workgroup_local_id_op:
-        case workgroup_id_op:
-            as = AsPrivateLogical;
-            break;
-        case workgroup_num_op:
-            as = AsExternal;
-            break;
-        default: break;
-    }
-
-    if (!decl) {
-        decl = ctx->globals[op] = global_var(m, empty(a), t, name, as);
-    }
-    return decl;
-}
-
 static const Node* process(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
 
     switch (node->tag) {
-        case PrimOp_TAG: {
-            switch (node->payload.prim_op.op) {
-                case subgroup_id_op:
-                case workgroup_id_op:
-                case workgroup_local_id_op:
-                case workgroup_num_op:
-                case workgroup_size_op:
-                case global_id_op: {
-                    const Node* ref = ref_decl_helper(a,  get_global_var(ctx, node->payload.prim_op.op));
-                    return prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(ref) });
+        case GlobalVariable_TAG: {
+            const Node* ba = lookup_annotation(node, "Builtin");
+            if (ba) {
+                Nodes filtered_as = rewrite_nodes(&ctx->rewriter, filter_out_annotation(a, node->payload.global_variable.annotations, "Builtin"));
+                Builtin b = get_builtin_by_name(get_abstraction_name(ba));
+                switch (b) {
+                    case BuiltinSubgroupId:
+                    case BuiltinWorkgroupId:
+                    case BuiltinGlobalInvocationId:
+                    case BuiltinLocalInvocationId:
+                        return global_var(m, filtered_as, rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivateLogical);
+                    case BuiltinNumWorkgroups:
+                        return global_var(m, filtered_as, rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsExternal);
+                    case BuiltinWorkgroupSize:
+                        assert(false);
+                    default:
+                        break;
                 }
-                default: break;
             }
             break;
         }
@@ -84,7 +61,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 inner->payload.fun.body = recreate_node_identity(&ctx->rewriter, node->payload.fun.body);
 
                 BodyBuilder* bb = begin_body(a);
-                const Node* workgroup_num_vec3 = gen_load(bb, ref_decl_helper(a, get_global_var(ctx, workgroup_num_op)));
+                const Node* num_workgroups_var = rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinNumWorkgroups, NULL));
+                const Node* workgroup_num_vec3 = gen_load(bb, ref_decl_helper(a, num_workgroups_var));
 
                 // prepare variables for iterating over workgroups
                 String names[] = { "gx", "gy", "gz" };
@@ -112,19 +90,19 @@ static const Node* process(Context* ctx, const Node* node) {
 
                 BodyBuilder* bb2 = begin_body(a);
                 // write the workgroup ID
-                gen_store(bb2, ref_decl_helper(a, get_global_var(ctx, workgroup_id_op)), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
+                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinWorkgroupId, NULL))), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
                 // write the local ID
                 const Node* local_id[3];
                 // local_id[0] = SUBGROUP_SIZE * subgroup_id[0] + subgroup_local_id
-                local_id[0] = gen_primop_e(bb2, add_op, empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, empty(a), mk_nodes(a, uint32_literal(a, a->config.specializations.subgroup_size), subgroup_id[0])), gen_primop_e(bb2, subgroup_local_id_op, empty(a), empty(a))));
+                local_id[0] = gen_primop_e(bb2, add_op, empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, empty(a), mk_nodes(a, uint32_literal(a, a->config.specializations.subgroup_size), subgroup_id[0])), gen_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
                 local_id[1] = subgroup_id[1];
                 local_id[2] = subgroup_id[2];
-                gen_store(bb2, ref_decl_helper(a, get_global_var(ctx, workgroup_local_id_op)), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
+                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinLocalInvocationId, NULL))), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
                 // write the global ID
                 const Node* global_id[3];
                 for (int dim = 0; dim < 3; dim++)
                     global_id[dim] = gen_primop_e(bb2, add_op, empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, empty(a), mk_nodes(a, uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
-                gen_store(bb2, ref_decl_helper(a, get_global_var(ctx, global_id_op)), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
+                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinGlobalInvocationId, NULL))), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
                 // TODO: write the subgroup ID
 
                 bind_instruction(bb2, call(a, (Call) { .callee = fn_addr_helper(a, inner), .args = wparams }));

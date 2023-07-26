@@ -30,14 +30,19 @@ Nodes get_module_declarations(const Module* m) {
     return nodes(get_module_arena(m), count, start);
 }
 
-void register_decl_module(Module* mod, Node* node) {
+void register_decl_module(Module* m, Node* node) {
     assert(is_declaration(node));
-    Nodes existing_decls = get_module_declarations(mod);
+    assert(!get_declaration(m, get_decl_name(node)) && "duplicate declaration");
+    append_list(Node*, m->decls, node);
+}
+
+const Node* get_declaration(const Module* m, String name) {
+    Nodes existing_decls = get_module_declarations(m);
     for (size_t i = 0; i < existing_decls.count; i++) {
-        if (strcmp(get_decl_name(existing_decls.nodes[i]), get_decl_name(node)) == 0)
-            assert(false);
+        if (strcmp(get_decl_name(existing_decls.nodes[i]), name) == 0)
+            return existing_decls.nodes[i];
     }
-    append_list(Node*, mod->decls, node);
+    return NULL;
 }
 
 void destroy_module(Module* m) {
