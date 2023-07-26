@@ -119,7 +119,7 @@ const Node* get_builtin(Module* m, Builtin b, String n) {
             return decl;
     }
 
-    AddressSpace as;
+    AddressSpace as = builtin_as[b];
     IrArena* a = get_module_arena(m);
     Node* decl = global_var(m, singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a, builtin_names[b]))), get_builtin_type(a, b), n ? n : format_string(a, "builtin_%s", builtin_names[b]), as);
     return decl;

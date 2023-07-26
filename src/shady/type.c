@@ -1267,6 +1267,8 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
         }
     }
 
+    assert(global_variable.address_space < NumAddressSpaces);
+
     return ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space
