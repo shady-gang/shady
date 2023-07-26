@@ -105,6 +105,20 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case fract_op:    m = Call; operator_str = "fract"; break;
         case sqrt_op:     m = Call; operator_str = "sqrt"; break;
         case inv_sqrt_op: m = Call; operator_str = "rsqrt"; break;
+        case min_op: {
+            CValue a = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
+            CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+            outputs.results[0] = term_from_cvalue(format_string(arena, "(%s > %s ? %s : %s)", a, b, b, a));
+            break;
+        }
+        case max_op: {
+            CValue a = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
+            CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+            outputs.results[0] = term_from_cvalue(format_string(arena, "(%s > %s ? %s : %s)", a, b, a, b));
+            break;
+        }
+        case exp_op:
+        case pow_op: error("TODO");
         case sign_op: {
             CValue src = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             outputs.results[0] = term_from_cvalue(format_string(arena, "(%s > 0 ? 1 : -1)", src));

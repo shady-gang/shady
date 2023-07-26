@@ -511,6 +511,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case add_carry_op:
         case sub_borrow_op:
         case mul_extended_op: extended = true; SHADY_FALLTHROUGH;
+        case min_op:
+        case max_op:
         case add_op:
         case sub_op:
         case mul_op:
@@ -602,6 +604,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case fract_op:
         case sin_op:
         case cos_op:
+        case exp_op:
         {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
@@ -610,6 +613,25 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             size_t width = deconstruct_maybe_packed_type(&src_type);
             assert(src_type->tag == Float_TAG);
             return qualified_type_helper(maybe_packed_type_helper(src_type, width), uniform);
+        }
+        case pow_op: {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 2);
+            const Type* first_operand_type = get_unqualified_type(first(prim_op.operands)->type);
+
+            bool result_uniform = true;
+            for (size_t i = 0; i < prim_op.operands.count; i++) {
+                const Node* arg = prim_op.operands.nodes[i];
+                const Type* operand_type = arg->type;
+                bool operand_uniform = deconstruct_qualified_type(&operand_type);
+
+                assert(get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
+                assert(first_operand_type == operand_type &&  "operand type mismatch");
+
+                result_uniform &= operand_uniform;
+            }
+
+            return qualified_type_helper(first_operand_type, result_uniform);
         }
         case abs_op:
         case sign_op:

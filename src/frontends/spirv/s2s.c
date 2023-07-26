@@ -11,6 +11,7 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 #define SPV_ENABLE_UTILITY_CODE 1
 #include "spirv/unified1/spirv.h"
 #include "spirv/unified1/OpenCL.std.h"
+#include "spirv/unified1/GLSL.std.450.h"
 
 extern SpvBuiltIn spv_builtins[];
 
@@ -1222,6 +1223,59 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                             .operands = singleton(args[0])
                         });
                         break;
+                    default: error("unhandled extended instruction %d in set '%s'", ext_instr, set);
+                }
+            } else if (strcmp(set, "GLSL.std.450") == 0) {
+                switch (ext_instr) {
+                    case GLSLstd450Fma:
+                        assert(num_args == 3);
+                        instr = prim_op(parser->arena, (PrimOp) {
+                                .op = mul_op,
+                                .operands = mk_nodes(parser->arena, args[0], args[1])
+                        });
+                        instr = prim_op(parser->arena, (PrimOp) {
+                                .op = add_op,
+                                .operands = mk_nodes(parser->arena, instr, args[2])
+                        });
+                        break;
+                    case GLSLstd450Floor:
+                        instr = prim_op(parser->arena, (PrimOp) {
+                                .op = floor_op,
+                                .operands = singleton(args[0])
+                        });
+                        break;
+                    case GLSLstd450Sqrt:
+                        instr = prim_op(parser->arena, (PrimOp) {
+                                .op = sqrt_op,
+                                .operands = singleton(args[0])
+                        });
+                        break;
+                    case GLSLstd450FAbs:
+                        instr = prim_op(parser->arena, (PrimOp) {
+                                .op = abs_op,
+                                .operands = singleton(args[0])
+                        });
+                        break;
+                    case GLSLstd450Sin:
+                        instr = prim_op(parser->arena, (PrimOp) {
+                                .op = sin_op,
+                                .operands = singleton(args[0])
+                        });
+                        break;
+                    case GLSLstd450Cos:
+                        instr = prim_op(parser->arena, (PrimOp) {
+                                .op = cos_op,
+                                .operands = singleton(args[0])
+                        });
+                        break;
+                    case GLSLstd450FMin: instr = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450SMin: instr = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450UMin: instr = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450FMax: instr = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450SMax: instr = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450UMax: instr = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450Exp: instr = prim_op(parser->arena, (PrimOp) { .op = exp_op, .operands = singleton(args[0]) }); break;
+                    case GLSLstd450Pow: instr = prim_op(parser->arena, (PrimOp) { .op = pow_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
                     default: error("unhandled extended instruction %d in set '%s'", ext_instr, set);
                 }
             } else {
