@@ -14,6 +14,7 @@ BUILTIN(BaseInstance,              AsInput,  int32_type(arena)   )\
 BUILTIN(BaseVertex,                AsInput,  int32_type(arena)   )\
 BUILTIN(DeviceIndex,               AsInput,  int32_type(arena)   )\
 BUILTIN(DrawIndex,                 AsInput,  int32_type(arena)   )\
+BUILTIN(VertexIndex,               AsInput,  int32_type(arena)   )\
 BUILTIN(FragCoord,                 AsInput,  f32vec4_type(arena) )\
 BUILTIN(FragDepth,                 AsOutput, fp32_type(arena)    )\
 BUILTIN(InstanceId,                AsInput,  int32_type(arena)   )\
