@@ -203,11 +203,11 @@ AddressSpace convert_storage_class(SpvStorageClass class) {
         case SpvStorageClassPrivate:               return AsPrivatePhysical;
         case SpvStorageClassFunction:              return AsPrivatePhysical;
         case SpvStorageClassGeneric:               return AsGeneric;
-        case SpvStorageClassPushConstant:
+        case SpvStorageClassPushConstant:          return AsVKPushConstant;
         case SpvStorageClassAtomicCounter:
         case SpvStorageClassImage:
-        case SpvStorageClassStorageBuffer:
             error("TODO");
+        case SpvStorageClassStorageBuffer:         return AsGlobalLogical;
         case SpvStorageClassUniformConstant:
         case SpvStorageClassUniform:               return AsGlobalPhysical; // TODO: should probably depend on CL/VK flavours!
         case SpvStorageClassCallableDataKHR:
@@ -470,6 +470,11 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].str = decode_spv_string_literal(parser, instruction + 2);
             break;
         }
+        case SpvOpExtension: {
+            // TODO: do we care to do anything with enabled exts ?
+            String ext = decode_spv_string_literal(parser, instruction + 1);
+            break;
+        }
         case SpvOpName:
         case SpvOpMemberName: {
             SpvId target = instruction[1];
@@ -489,12 +494,27 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpSourceExtension:
             break;
         case SpvOpEntryPoint: {
+            String type;
+            switch ((SpvExecutionModel) instruction[1]) {
+                case SpvExecutionModelGLCompute:
+                case SpvExecutionModelKernel:
+                    type = "compute";
+                    break;
+                case SpvExecutionModelFragment:
+                    type = "frag";
+                    break;
+                case SpvExecutionModelVertex:
+                    type = "vertex";
+                    break;
+                default:
+                    error("Unsupported execution model %d", instruction[1])
+            }
             add_decoration(parser, instruction[2], (SpvDeco) {
                 .decoration = ShdDecorationEntryPointType,
                 .member = -1,
                 .payload = {
                     .type = Str,
-                    .str = "compute"
+                    .str = type,
                 },
             });
             add_decoration(parser, instruction[2], (SpvDeco) {
@@ -690,6 +710,15 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].node = true_lit(parser->arena);
             break;
         }
+        case SpvOpConstantComposite: {
+            parser->defs[result].type = Value;
+            const Type* t = get_def_type(parser, result_t);
+            LARRAY(const Node*, contents, size - 3);
+            for (size_t i = 0; i < size - 3; i++)
+                contents[i] = get_def_ssa_value(parser, instruction[3 + i]);
+            parser->defs[result].node = composite(parser->arena, t, nodes(parser->arena, size - 3, contents));
+            break;
+        }
         case SpvOpVariable: {
             String name = get_name(parser, result);
             name = name ? name : unique_name(parser->arena, "global_variable");
@@ -755,19 +784,25 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
 
                 SpvDeco* entry_point_name = find_decoration(parser, result, -1, ShdDecorationEntryPointName);
                 assert(entry_point_name);
-
                 name = entry_point_name->payload.str;
 
-                SpvDeco* wg_size_dec = find_decoration(parser, result, -2, SpvExecutionModeLocalSize);
-                assert(wg_size_dec && wg_size_dec->payload.literals.count == 3 && "we require kernels decorated with a workgroup size");
+                if (strcmp(entry_point_type->payload.str, "compute") == 0) {
+                    SpvDeco* wg_size_dec = find_decoration(parser, result, -2, SpvExecutionModeLocalSize);
+                    assert(wg_size_dec && wg_size_dec->payload.literals.count == 3 && "we require kernels decorated with a workgroup size");
+                    annotations = append_nodes(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
+                            .name = "WorkgroupSize",
+                            .values = mk_nodes(parser->arena,
+                                               int32_literal(parser->arena, wg_size_dec->payload.literals.data[0]),
+                                               int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
+                                               int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
+                    }));
+                } else if (strcmp(entry_point_type->payload.str, "frag") == 0) {
 
-                annotations = append_nodes(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
-                    .name = "WorkgroupSize",
-                    .values = mk_nodes(parser->arena,
-                        int32_literal(parser->arena, wg_size_dec->payload.literals.data[0]),
-                        int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
-                        int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
-                }));
+                } else if (strcmp(entry_point_type->payload.str, "vertex") == 0) {
+
+                } else {
+                    warn_print("Unknown entry point type '%s' for '%s'\n", entry_point_type->payload.str, name);
+                }
             }
 
             size_t params_count = t->payload.fn_type.param_types.count;
