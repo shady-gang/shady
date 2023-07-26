@@ -169,6 +169,7 @@ typedef enum AddressSpace_ {
 
     /// special addressing spaces for input/output global variables in shader stages
     AsInput,
+    AsUInput, // just like AsInput but known to be subgroup-uniform
     AsOutput,
 
     /// For resources supplied by the host, agnostic of the binding model

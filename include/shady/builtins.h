@@ -22,14 +22,14 @@ BUILTIN(InstanceIndex,             AsInput,  int32_type(arena)   )\
 BUILTIN(LocalInvocationId,         AsInput,  i32vec3_type(arena) )\
 BUILTIN(LocalInvocationIndex,      AsInput,  int32_type(arena)   )\
 BUILTIN(GlobalInvocationId,        AsInput,  u32vec3_type(arena) )\
-BUILTIN(WorkgroupId,               AsInput,  i32vec3_type(arena) )\
-BUILTIN(WorkgroupSize,             AsInput,  i32vec3_type(arena) )\
-BUILTIN(NumSubgroups,              AsInput,  int32_type(arena)   )\
-BUILTIN(NumWorkgroups,             AsInput,  int32_type(arena)   )\
+BUILTIN(WorkgroupId,               AsUInput, i32vec3_type(arena) )\
+BUILTIN(WorkgroupSize,             AsUInput, i32vec3_type(arena) )\
+BUILTIN(NumSubgroups,              AsUInput, int32_type(arena)   )\
+BUILTIN(NumWorkgroups,             AsUInput, int32_type(arena)   )\
 BUILTIN(Position,                  AsOutput, f32vec4_type(arena) )\
 BUILTIN(PrimitiveId,               AsInput,  int32_type(arena)   )\
 BUILTIN(SubgroupLocalInvocationId, AsInput,  uint32_type(arena)  )\
-BUILTIN(SubgroupId,                AsInput,  uint32_type(arena)  )\
+BUILTIN(SubgroupId,                AsUInput, uint32_type(arena)  )\
 BUILTIN(SubgroupSize,              AsInput,  uint32_type(arena)  )\
 
 typedef enum {

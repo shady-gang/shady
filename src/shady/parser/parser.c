@@ -991,7 +991,14 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
         as = AsInput;
     else if (accept_token(ctx, output_tok))
         as = AsOutput;
-    else
+    else if (accept_token(ctx, uniform_tok)) {
+        if (accept_token(ctx, input_tok)) {
+            as = AsUInput;
+        } else {
+            expect(false && "expected 'input'");
+            return NULL;
+        }
+    } else
         return NULL;
 
     const Type* type = accept_unqualified_type(ctx);

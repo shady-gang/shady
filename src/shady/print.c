@@ -93,6 +93,7 @@ static void print_address_space(PrinterCtx* ctx, AddressSpace as) {
         case AsGlobalPhysical:            printf("global"); break;
 
         case AsInput:                      printf("input"); break;
+        case AsUInput:             printf("input_uniform"); break;
         case AsOutput:                    printf("output"); break;
         case AsExternal:                printf("external"); break;
         case AsProgramCode:         printf("program_code"); break;

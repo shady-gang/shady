@@ -548,6 +548,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     break;
                 case AsProgramCode:
                 case AsInput:
+                case AsUInput:
                 case AsOutput:
                     break;
                 case AsGLUniformBufferObject:

@@ -8,7 +8,7 @@ fn fib varying u32(varying u32 n) {
 input u32 subgroup_local_id;
 
 @Builtin("SubgroupId")
-input u32 subgroup_id;
+uniform input u32 subgroup_id;
 
 @EntryPoint("compute") @WorkgroupSize(64, 1, 1) fn main() {
     val n = subgroup_local_id % u32 16;
