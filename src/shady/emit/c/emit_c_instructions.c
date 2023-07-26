@@ -109,20 +109,49 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             CValue a = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
             outputs.results[0] = term_from_cvalue(format_string(arena, "(%s > %s ? %s : %s)", a, b, b, a));
-            break;
+            outputs.binding[0] = LetBinding;
+            return;
         }
         case max_op: {
             CValue a = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
             outputs.results[0] = term_from_cvalue(format_string(arena, "(%s > %s ? %s : %s)", a, b, a, b));
-            break;
+            outputs.binding[0] = LetBinding;
+            return;
         }
-        case exp_op:
-        case pow_op: error("TODO");
+        case exp_op: {
+            if (emitter->config.dialect == C) {
+                const Node* op = first(prim_op->operands);
+                const Type* opt = op->type;
+                deconstruct_qualified_type(&opt);
+                assert(opt->tag == Float_TAG);
+                String f = opt->payload.float_type.width == FloatTy64 ? "exp" : "expf";
+                outputs.results[0] = term_from_cvalue(format_string(arena, "%s(%s)", f, to_cvalue(emitter, emit_value(emitter, p, op))));
+                outputs.binding[0] = LetBinding;
+                return;
+            }
+            error("TODO")
+        }
+        case pow_op: {
+            if (emitter->config.dialect == C) {
+                const Node* op = first(prim_op->operands);
+                const Type* opt = op->type;
+                deconstruct_qualified_type(&opt);
+                assert(opt->tag == Float_TAG);
+                String f = opt->payload.float_type.width == FloatTy64 ? "pow" : "powf";
+                String a = to_cvalue(emitter, emit_value(emitter, p, op));
+                String b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+                outputs.results[0] = term_from_cvalue(format_string(arena, "%s(%s, %s)", f, a, b));
+                outputs.binding[0] = LetBinding;
+                return;
+            }
+            error("TODO")
+        }
         case sign_op: {
             CValue src = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             outputs.results[0] = term_from_cvalue(format_string(arena, "(%s > 0 ? 1 : -1)", src));
-            break;
+            outputs.binding[0] = LetBinding;
+            return;
         } case alloca_op:
         case alloca_subgroup_op: error("Lower me");
         case alloca_logical_op: {

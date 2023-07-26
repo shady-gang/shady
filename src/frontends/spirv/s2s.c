@@ -505,7 +505,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     type = "compute";
                     break;
                 case SpvExecutionModelFragment:
-                    type = "frag";
+                    type = "fragment";
                     break;
                 case SpvExecutionModelVertex:
                     type = "vertex";
@@ -714,6 +714,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].node = true_lit(parser->arena);
             break;
         }
+        case SpvOpCompositeConstruct:
         case SpvOpConstantComposite: {
             parser->defs[result].type = Value;
             const Type* t = get_def_type(parser, result_t);
@@ -763,35 +764,6 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     }
                     assert(b != BuiltinsCount && "Unsupported builtin");
                     annotations = append_nodes(parser->arena, annotations, annotation_value_helper(parser->arena, "Builtin", string_lit_helper(parser->arena, builtin_names[b])));
-                    /*switch () {
-                        case SpvBuiltInGlobalInvocationId: {
-                            parser->defs[result].type = Value;
-                            const Node* r = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                                    .op = global_id_op,
-                                    .type_arguments = empty(parser->arena),
-                                    .operands = empty(parser->arena)
-                            }), 1, NULL, NULL));
-                            const Type* t = get_def_type(parser, result_t);
-                            assert(t->tag == PackType_TAG);
-                            const Node* gid[3];
-                            for (size_t i = 0; i < 3; i++) {
-                                gid[i] = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                                        .op = extract_op,
-                                        .type_arguments = empty(parser->arena),
-                                        .operands = mk_nodes(parser->arena, r, int32_literal(parser->arena, i)),
-                                }), 1, NULL, NULL));
-                                gid[i] = first(bind_instruction_extra(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                                        .op = convert_op,
-                                        .type_arguments = singleton(t->payload.pack_type.element_type),
-                                        .operands = singleton(gid[i]),
-                                }), 1, NULL, NULL));
-                            }
-                            parser->defs[result].node = composite(parser->arena, t, mk_nodes(parser->arena, gid[0], gid[1], gid[2]));
-                            break;
-                        }
-                        default: error("unsupported builtin")
-                    }*/
-                    break;
                 }
 
                 parser->defs[result].type = Decl;
@@ -1147,6 +1119,8 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }), 0, NULL, NULL);
             break;
         }
+        case SpvOpSelectionMerge:
+            break;
         case SpvOpLifetimeStart:
         case SpvOpLifetimeStop:
             // these are no-ops ... I think ?

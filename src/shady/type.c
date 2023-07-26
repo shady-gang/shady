@@ -1275,7 +1275,7 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
     assert(is_type(global_variable.type));
 
     const Node* ba = lookup_annotation_list(global_variable.annotations, "Builtin");
-    if (ba) {
+    if (ba && arena->config.validate_builtin_types) {
         Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
         assert(b != BuiltinsCount);
         const Type* t = get_builtin_type(arena, b);

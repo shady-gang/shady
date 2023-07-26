@@ -2,6 +2,8 @@
 
 #include "log.h"
 
+#pragma GCC diagnostic error "-Wswitch"
+
 CTerm emit_c_builtin(Emitter* emitter, Builtin b) {
     switch (b) {
         case BuiltinBaseInstance:
@@ -24,7 +26,10 @@ CTerm emit_c_builtin(Emitter* emitter, Builtin b) {
         case BuiltinPrimitiveId:
         case BuiltinSubgroupLocalInvocationId:
         case BuiltinSubgroupId:
-        case BuiltinSubgroupSize:
+        case BuiltinVertexIndex:
+        case BuiltinSubgroupSize: {
+            return term_from_cvar(builtin_names[b]);
+        }
         case BuiltinsCount: error("")
     }
 }

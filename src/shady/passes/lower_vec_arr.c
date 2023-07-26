@@ -51,6 +51,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 BITSTUFF_PRIMOPS(HANDLE)
                 CMP_PRIMOPS(HANDLE)
                 SHIFT_PRIMOPS(HANDLE)
+                MATH_PRIMOPS(HANDLE)
                 default: break;
             }
         }

@@ -554,7 +554,8 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 case AsGLUniformBufferObject:
                 case AsGLShaderStorageBufferObject:
                 case AsSPVFunctionLogical:
-                case AsVKPushConstant: error("These only make sense for SPIR-V !")
+                case AsVKPushConstant:
+                    break; // error("These only make sense for SPIR-V !")
                 case NumAddressSpaces: error("");
             }
 
@@ -652,6 +653,7 @@ static Module* run_backend_specific_passes(SHADY_UNUSED CEmitterConfig* econfig,
         RUN_PASS(lower_workgroups)
     }
     if (econfig->dialect != GLSL) {
+        aconfig.validate_builtin_types = false;
         RUN_PASS(lower_vec_arr)
     }
     if (config->lower.simt_to_explicit_simd) {
@@ -707,6 +709,7 @@ void emit_c(CEmitterConfig config, Module* mod, size_t* output_size, char** outp
             print(finalp, "\n#include <stdint.h>");
             print(finalp, "\n#include <stddef.h>");
             print(finalp, "\n#include <stdio.h>");
+            print(finalp, "\n#include <math.h>");
             break;
         case GLSL:
             print(finalp, "#extension GL_ARB_compute_shader: require\n");

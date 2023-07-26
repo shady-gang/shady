@@ -49,6 +49,7 @@ CompilerConfig default_compiler_config() {
 ArenaConfig default_arena_config() {
     return (ArenaConfig) {
         .is_simt = true,
+        .validate_builtin_types = false,
 
         .memory = {
             .word_size = IntTy32,
@@ -73,6 +74,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(normalize)
 
     aconfig.check_types = true;
+    aconfig.validate_builtin_types = true;
     RUN_PASS(infer_program)
     aconfig.allow_fold = true;
     RUN_PASS(opt_inline_jumps)
