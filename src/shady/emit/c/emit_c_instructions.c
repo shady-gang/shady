@@ -43,15 +43,150 @@ static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String g
     return strings(emitter->arena, types.count, names);
 }
 
+static const Type* get_first_op_scalar_type(Nodes ops) {
+    const Type* t = first(ops)->type;
+    deconstruct_qualified_type(&t);
+    deconstruct_maybe_packed_type(&t);
+    return t;
+}
+
+typedef enum {
+    OsInfix, OsPrefix, OsCall,
+} OpStyle;
+
+typedef enum {
+    IsNone, // empty entry
+    IsMono,
+    IsPoly
+} ISelMechanism;
+
+typedef struct {
+    ISelMechanism isel_mechanism;
+    OpStyle style;
+    String op;
+    String u_ops[4];
+    String s_ops[4];
+    String f_ops[3];
+} ISelTableEntry;
+
+static const ISelTableEntry isel_table[PRIMOPS_COUNT] = {
+    [add_op] = { IsMono, OsInfix,  "+" },
+    [sub_op] = { IsMono, OsInfix,  "-" },
+    [mul_op] = { IsMono, OsInfix,  "*" },
+    [div_op] = { IsMono, OsInfix,  "/" },
+    [mod_op] = { IsMono, OsInfix,  "%" },
+    [neg_op] = { IsMono, OsPrefix, "-" },
+    [gt_op] =  { IsMono, OsInfix,  ">" },
+    [gte_op] = { IsMono, OsInfix,  ">=" },
+    [lt_op] =  { IsMono, OsInfix,  "<"  },
+    [lte_op] = { IsMono, OsInfix,  "<=" },
+    [eq_op] =  { IsMono, OsInfix,  "==" },
+    [neq_op] = { IsMono, OsInfix,  "!=" },
+    [and_op] = { IsMono, OsInfix,  "&" },
+    [or_op]  = { IsMono, OsInfix,  "|" },
+    [xor_op] = { IsMono, OsInfix,  "^" },
+    [not_op] = { IsMono, OsPrefix, "!" },
+    [rshift_arithm_op] = { IsMono, OsInfix,  ">>" },
+    [rshift_logical_op] = { IsMono, OsInfix,  ">>" }, // TODO achieve desired right shift semantics through unsigned/signed casts
+    [lshift_op] = { IsMono, OsInfix,  "<<" },
+};
+
+static const ISelTableEntry isel_table_c[PRIMOPS_COUNT] = {
+    [abs_op] = { IsPoly, OsCall, .s_ops = { "abs", "abs", "abs", "llabs" }, .f_ops = {"fabsf", "fabsf", "fabs"}},
+
+    [sin_op] = { IsPoly, OsCall, .f_ops = {"sinf", "sinf", "sin"}},
+    [cos_op] = { IsPoly, OsCall, .f_ops = {"cosf", "cosf", "cos"}},
+    [floor_op] = { IsPoly, OsCall, .f_ops = {"floorf", "floorf", "floor"}},
+    [ceil_op] = { IsPoly, OsCall, .f_ops = {"ceilf", "ceilf", "ceil"}},
+    [round_op] = { IsPoly, OsCall, .f_ops = {"roundf", "roundf", "round"}},
+
+    [sqrt_op] = { IsPoly, OsCall, .f_ops = {"sqrtf", "sqrtf", "sqrt"}},
+    [exp_op] = { IsPoly, OsCall, .f_ops = {"expf", "expf", "exp"}},
+    [pow_op] = { IsPoly, OsCall, .f_ops = {"powf", "powf", "pow"}},
+};
+
+static const ISelTableEntry isel_table_glsl[PRIMOPS_COUNT] = {};
+
+static const ISelTableEntry isel_table_ispc[PRIMOPS_COUNT] = {
+    [subgroup_active_mask_op] = { IsMono, OsCall, "lanemask" },
+    [subgroup_ballot_op] = { IsMono, OsCall, "packmask" },
+    [subgroup_reduce_sum_op] = { IsMono, OsCall, "reduce_add" },
+};
+
+static bool emit_using_entry(CTerm* out, Emitter* emitter, Printer* p, const ISelTableEntry* entry, Nodes operands) {
+    String operator_str = NULL;
+    switch (entry->isel_mechanism) {
+        case IsNone: return false;
+        case IsMono: operator_str = entry->op; break;
+        case IsPoly: {
+            const Type* t = get_first_op_scalar_type(operands);
+            if (t->tag == Float_TAG)
+                operator_str = entry->f_ops[t->payload.float_type.width];
+            else if (t->tag == Int_TAG && t->payload.int_type.is_signed)
+                operator_str = entry->s_ops[t->payload.int_type.width];
+            else if (t->tag == Int_TAG)
+                operator_str = entry->u_ops[t->payload.int_type.width];
+            break;
+        }
+    }
+
+    if (!operator_str)
+        return false;
+
+    switch (entry->style) {
+        case OsInfix: {
+            CTerm a = emit_value(emitter, p, operands.nodes[0]);
+            CTerm b = emit_value(emitter, p, operands.nodes[1]);
+            *out = term_from_cvalue(format_string(emitter->arena, "%s %s %s", to_cvalue(emitter, a), operator_str, to_cvalue(emitter, b)));
+            break;
+        }
+        case OsPrefix: {
+            CTerm operand = emit_value(emitter, p, operands.nodes[0]);
+            *out = term_from_cvalue(format_string(emitter->arena, "%s%s", operator_str, to_cvalue(emitter, operand)));
+            break;
+        }
+        case OsCall: {
+            LARRAY(CTerm, cops, operands.count);
+            for (size_t i = 0; i < operands.count; i++)
+                cops[i] = emit_value(emitter, p, operands.nodes[i]);
+            if (operands.count == 1)
+                *out = term_from_cvalue(format_string(emitter->arena, "%s(%s)", operator_str, to_cvalue(emitter, cops[0])));
+            else {
+                Growy* g = new_growy();
+                growy_append_string(g, operator_str);
+                growy_append_string_literal(g, "(");
+                for (size_t i = 0; i < operands.count; i++) {
+                    growy_append_string(g, to_cvalue(emitter, cops[i]));
+                    if (i + 1 < operands.count)
+                        growy_append_string_literal(g, ", ");
+                }
+                growy_append_string_literal(g, ")");
+                *out = term_from_cvalue(growy_deconstruct(g));
+            }
+            break;
+        }
+    }
+    return true;
+}
+
+static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
+    const ISelTableEntry* isel_entry = NULL;
+    switch (emitter->config.dialect) {
+        case C: isel_entry = &isel_table_c[op]; break;
+        case GLSL: isel_entry = &isel_table_glsl[op]; break;
+        case ISPC: isel_entry = &isel_table_ispc[op]; break;
+    }
+    if (isel_entry->isel_mechanism == IsNone)
+        isel_entry = &isel_table[op];
+    return isel_entry;
+}
+
 static void emit_primop(Emitter* emitter, Printer* p, const Node* node, InstructionOutputs outputs) {
     assert(node->tag == PrimOp_TAG);
     IrArena* arena = emitter->arena;
     const PrimOp* prim_op = &node->payload.prim_op;
-    enum {
-        Infix, Prefix, Call
-    } m = Infix;
-    String operator_str = NULL;
-    CValue final_expression = NULL;
+    CTerm term = term_from_cvalue("/* todo */");
+    const ISelTableEntry* isel_entry = lookup_entry(emitter, prim_op->op);
     switch (prim_op->op) {
         case deref_op:
         case assign_op:
@@ -69,89 +204,35 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case mul_extended_op:
             error("TODO: implement extended arithm ops in C");
             break;
-        case add_op: operator_str = "+";  break;
-        case sub_op: operator_str = "-";  break;
-        case mul_op: operator_str = "*";  break;
-        case div_op: operator_str = "/";  break;
-        case mod_op: operator_str = "%";  break;
-        case neg_op: operator_str = "-"; m = Prefix; break;
-        case gt_op: operator_str = ">";  break;
-        case gte_op: operator_str = ">="; break;
-        case lt_op: operator_str = "<";  break;
-        case lte_op: operator_str = "<="; break;
-        case eq_op: operator_str = "=="; break;
-        case neq_op: operator_str = "!="; break;
-        case and_op: operator_str = "&";  break;
-        case or_op: operator_str = "|";  break;
-        case xor_op: operator_str = "^";  break;
-        case not_op: operator_str = "!"; m = Prefix; break;
-        // TODO achieve desired right shift semantics through unsigned/signed casts
-        case rshift_logical_op:
-            operator_str = ">>";
-            break;
-        case rshift_arithm_op:
-            operator_str = ">>";
-            break;
-        case lshift_op:
-            operator_str = "<<";
-            break;
         // MATH OPS
-        case sin_op:      m = Call; operator_str = "sin"; break;
-        case cos_op:      m = Call; operator_str = "cos"; break;
-        case abs_op:      m = Call; operator_str = "abs"; break;
-        case floor_op:    m = Call; operator_str = "floor"; break;
-        case ceil_op:     m = Call; operator_str = "ceil"; break;
-        case round_op:    m = Call; operator_str = "round"; break;
-        case fract_op:    m = Call; operator_str = "fract"; break;
-        case sqrt_op:     m = Call; operator_str = "sqrt"; break;
-        case inv_sqrt_op: m = Call; operator_str = "rsqrt"; break;
+        case fract_op: {
+            CTerm floored;
+            emit_using_entry(&floored, emitter, p, lookup_entry(emitter, floor_op), prim_op->operands);
+            term = term_from_cvalue(format_string(arena, "1 - %s", to_cvalue(emitter, floored)));
+            break;
+        }
+        case inv_sqrt_op: {
+            CTerm floored;
+            emit_using_entry(&floored, emitter, p, lookup_entry(emitter, sqrt_op), prim_op->operands);
+            term = term_from_cvalue(format_string(arena, "1.0f / %s", to_cvalue(emitter, floored)));
+            break;
+        }
         case min_op: {
             CValue a = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
-            outputs.results[0] = term_from_cvalue(format_string(arena, "(%s > %s ? %s : %s)", a, b, b, a));
-            outputs.binding[0] = LetBinding;
-            return;
+            term = term_from_cvalue(format_string(arena, "(%s > %s ? %s : %s)", a, b, b, a));
+            break;
         }
         case max_op: {
             CValue a = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
-            outputs.results[0] = term_from_cvalue(format_string(arena, "(%s > %s ? %s : %s)", a, b, a, b));
-            outputs.binding[0] = LetBinding;
-            return;
-        }
-        case exp_op: {
-            if (emitter->config.dialect == C) {
-                const Node* op = first(prim_op->operands);
-                const Type* opt = op->type;
-                deconstruct_qualified_type(&opt);
-                assert(opt->tag == Float_TAG);
-                String f = opt->payload.float_type.width == FloatTy64 ? "exp" : "expf";
-                outputs.results[0] = term_from_cvalue(format_string(arena, "%s(%s)", f, to_cvalue(emitter, emit_value(emitter, p, op))));
-                outputs.binding[0] = LetBinding;
-                return;
-            }
-            error("TODO")
-        }
-        case pow_op: {
-            if (emitter->config.dialect == C) {
-                const Node* op = first(prim_op->operands);
-                const Type* opt = op->type;
-                deconstruct_qualified_type(&opt);
-                assert(opt->tag == Float_TAG);
-                String f = opt->payload.float_type.width == FloatTy64 ? "pow" : "powf";
-                String a = to_cvalue(emitter, emit_value(emitter, p, op));
-                String b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
-                outputs.results[0] = term_from_cvalue(format_string(arena, "%s(%s, %s)", f, a, b));
-                outputs.binding[0] = LetBinding;
-                return;
-            }
-            error("TODO")
+            term = term_from_cvalue(format_string(arena, "(%s > %s ? %s : %s)", a, b, a, b));
+            break;
         }
         case sign_op: {
             CValue src = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
-            outputs.results[0] = term_from_cvalue(format_string(arena, "(%s > 0 ? 1 : -1)", src));
-            outputs.binding[0] = LetBinding;
-            return;
+            term = term_from_cvalue(format_string(arena, "(%s > 0 ? 1 : -1)", src));
+            break;
         } case alloca_op:
         case alloca_subgroup_op: error("Lower me");
         case alloca_logical_op: {
@@ -253,22 +334,22 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             return;
         }
         case size_of_op:
-            final_expression = format_string(emitter->arena, "sizeof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL));
+            term = term_from_cvalue(format_string(emitter->arena, "sizeof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL)));
             break;
         case align_of_op:
-            final_expression = format_string(emitter->arena, "alignof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL));
+            term = term_from_cvalue(format_string(emitter->arena, "alignof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL)));
             break;
         case offset_of_op: {
             // TODO get member name
             String member_name; error("TODO");
-            final_expression = format_string(emitter->arena, "offsetof(%s, %s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL), member_name);
+            term = term_from_cvalue(format_string(emitter->arena, "offsetof(%s, %s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL), member_name));
             break;
         } case select_op: {
             assert(prim_op->operands.count == 3);
             CValue condition = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[0]));
             CValue l = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
             CValue r = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[2]));
-            final_expression = format_string(emitter->arena, "(%s) ? (%s) : (%s)", condition, l, r);
+            term = term_from_cvalue(format_string(emitter->arena, "(%s) ? (%s) : (%s)", condition, l, r));
             break;
         }
         case convert_op: {
@@ -279,16 +360,14 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             if (emitter->config.dialect == GLSL) {
                 if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
                     CType t = emit_type(emitter, dst_type, NULL);
-                    outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s(%s)", t, to_cvalue(emitter, src)));
-                    outputs.binding[0] = NoBinding;
+                    term = term_from_cvalue(format_string(emitter->arena, "%s(%s)", t, to_cvalue(emitter, src)));
                 } else
                     assert(false);
             } else {
                 CType t = emit_type(emitter, dst_type, NULL);
-                outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "((%s) %s)", t, to_cvalue(emitter, src)));
-                outputs.binding[0] = NoBinding;
+                term = term_from_cvalue(format_string(emitter->arena, "((%s) %s)", t, to_cvalue(emitter, src)));
             }
-            return;
+            break;
         }
         case reinterpret_op: {
             assert(outputs.count == 1);
@@ -346,9 +425,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             bool insert = prim_op->op == insert_op;
 
             if (insert) {
-                final_expression = unique_name(arena, "modified");
-                print(p, "\n%s = %s;", c_emit_type(emitter, node->type, final_expression), acc);
-                acc = final_expression;
+                String dst = unique_name(arena, "modified");
+                print(p, "\n%s = %s;", c_emit_type(emitter, node->type, dst), acc);
+                acc = dst;
             }
 
             const Type* t = get_unqualified_type(first(prim_op->operands)->type);
@@ -387,7 +466,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 break;
             }
 
-            final_expression = acc;
+            term = term_from_cvalue(acc);
             break;
         }
         case get_stack_base_op:
@@ -402,18 +481,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case set_stack_pointer_uniform_op: error("Stack operations need to be lowered.");
         case default_join_point_op:
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
-        case subgroup_reduce_sum_op: {
-            CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
-            switch (emitter->config.dialect) {
-                case ISPC: final_expression = format_string(emitter->arena, "reduce_add(%s)", value); break;
-                case C:
-                case GLSL: error("TODO")
-            }
-            break;
-        }
         case subgroup_elect_first_op: {
             switch (emitter->config.dialect) {
-                case ISPC: final_expression = format_string(emitter->arena, "(programIndex == count_trailing_zeros(lanemask()))"); break;
+                case ISPC: term = term_from_cvalue(format_string(emitter->arena, "(programIndex == count_trailing_zeros(lanemask()))")); break;
                 case C:
                 case GLSL: error("TODO")
             }
@@ -422,24 +492,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case subgroup_broadcast_first_op: {
             CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             switch (emitter->config.dialect) {
-                case ISPC: final_expression = format_string(emitter->arena, "extract(%s, count_trailing_zeros(lanemask()))", value); break;
-                case C:
-                case GLSL: error("TODO")
-            }
-            break;
-        }
-        case subgroup_active_mask_op: {
-            switch (emitter->config.dialect) {
-                case ISPC: final_expression = "lanemask()"; break;
-                case C:
-                case GLSL: error("TODO")
-            }
-            break;
-        }
-        case subgroup_ballot_op: {
-            CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
-            switch (emitter->config.dialect) {
-                case ISPC: final_expression = format_string(emitter->arena, "packmask(%s)", value); break;
+                case ISPC: term = term_from_cvalue(format_string(emitter->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
                 case C:
                 case GLSL: error("TODO")
             }
@@ -473,38 +526,17 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
 
             return;
         }
+        default: break;
         case PRIMOPS_COUNT: assert(false); break;
     }
 
+    if (isel_entry->isel_mechanism != IsNone)
+        emit_using_entry(&term, emitter, p, isel_entry, prim_op->operands);
+
     assert(outputs.count == 1);
     outputs.binding[0] = LetBinding;
-    if (operator_str == NULL) {
-        if (final_expression)
-            outputs.results[0] = term_from_cvalue(final_expression);
-        else
-            outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "/* todo: implement %s */", primop_names[prim_op->op]));
-        return;
-    }
-
-    switch (m) {
-        case Infix: {
-            CTerm a = emit_value(emitter, p, prim_op->operands.nodes[0]);
-            CTerm b = emit_value(emitter, p, prim_op->operands.nodes[1]);
-            outputs.results[0] = term_from_cvalue(
-                    format_string(emitter->arena, "%s %s %s", to_cvalue(emitter, a), operator_str, to_cvalue(emitter, b)));
-            break;
-        }
-        case Prefix: {
-            CTerm operand = emit_value(emitter, p, prim_op->operands.nodes[0]);
-            outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s%s", operator_str, to_cvalue(emitter, operand)));
-            break;
-        }
-        case Call: {
-            CTerm operand = emit_value(emitter, p, prim_op->operands.nodes[0]);
-            outputs.results[0] = term_from_cvalue(format_string(emitter->arena, "%s(%s)", operator_str, to_cvalue(emitter, operand)));
-            break;
-        }
-    }
+    outputs.results[0] = term;
+    return;
 }
 
 static void emit_call(Emitter* emitter, Printer* p, const Node* call, InstructionOutputs outputs) {

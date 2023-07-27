@@ -62,6 +62,9 @@ ArenaConfig default_arena_config() {
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     ArenaConfig aconfig = get_module_arena(mod)->config;
+
+    aconfig.specializations.subgroup_size = config->specialization.subgroup_size;
+
     Module* old_mod;
 
     IrArena* old_arena = NULL;

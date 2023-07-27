@@ -496,8 +496,10 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     assert(builtin_name);
                     b = get_builtin_by_name(builtin_name);
                     assert(b != BuiltinsCount);
-                    register_emitted(emitter, decl, emit_c_builtin(emitter, b));
-                    return;
+                    name = builtin_name;
+                    decl_center = builtin_name;
+                    //register_emitted(emitter, decl, emit_c_builtin(emitter, p, b));
+                    //return;
                 }
             }
 

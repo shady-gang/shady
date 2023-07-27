@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 typedef struct {
     Rewriter rewriter;
@@ -24,7 +25,7 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* ba = lookup_annotation(node, "Builtin");
             if (ba) {
                 Nodes filtered_as = rewrite_nodes(&ctx->rewriter, filter_out_annotation(a, node->payload.global_variable.annotations, "Builtin"));
-                Builtin b = get_builtin_by_name(get_abstraction_name(ba));
+                Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
                 switch (b) {
                     case BuiltinSubgroupId:
                     case BuiltinWorkgroupId:
@@ -44,7 +45,8 @@ static const Node* process(Context* ctx, const Node* node) {
         case Function_TAG: {
             Context ctx2 = *ctx;
             ctx2.is_entry_point = false;
-            if (lookup_annotation(node, "EntryPoint")) {
+            const Node* epa = lookup_annotation(node, "EntryPoint");
+            if (epa && strcmp(get_annotation_string_payload(epa), "compute") == 0) {
                 ctx2.is_entry_point = true;
                 assert(node->payload.fun.return_types.count == 0 && "entry points do not return at this stage");
 

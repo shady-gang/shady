@@ -78,8 +78,6 @@ static const Node* process(Context* ctx, const Node* node) {
 void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* config) {
     const Node* old_entry_point_decl;
 
-    target->specializations.subgroup_size = config->specialization.subgroup_size;
-
     Nodes old_decls = get_module_declarations(m);
     for (size_t i = 0; i < old_decls.count; i++) {
         if (strcmp(get_decl_name(old_decls.nodes[i]), config->specialization.entry_point) == 0) {
@@ -109,6 +107,9 @@ void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* con
         target->specializations.workgroup_size[0] = get_int_literal_value(wg_size_nodes.nodes[0], false);
         target->specializations.workgroup_size[1] = get_int_literal_value(wg_size_nodes.nodes[1], false);
         target->specializations.workgroup_size[2] = get_int_literal_value(wg_size_nodes.nodes[2], false);
+        assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2]);
+    } else if (strcmp(entry_point_type, "fragment") == 0) {
+        // TODO
     } else {
         error("Unknown entry point type: %s", entry_point_type);
     }
@@ -117,7 +118,6 @@ void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* con
 void specialize_for_entry_point(CompilerConfig* config, Module* src, Module* dst) {
     IrArena* a = get_module_arena(dst);
     assert(a->config.specializations.subgroup_size);
-    assert(a->config.specializations.workgroup_size[0] * a->config.specializations.workgroup_size[1] * a->config.specializations.workgroup_size[2]);
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
