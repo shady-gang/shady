@@ -84,3 +84,4 @@ add_subdirectory(emit)
 
 target_link_libraries(shady PUBLIC "api")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:common>")
+target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
