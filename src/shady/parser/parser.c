@@ -4,6 +4,7 @@
 #include "list.h"
 #include "portability.h"
 #include "log.h"
+#include "util.h"
 
 #include "../type.h"
 #include "../ir_private.h"
@@ -167,7 +168,14 @@ static const Node* accept_value(ctxparams) {
                 .plaintext = string_sized(arena, (int) size, &contents[tok.start])
             });
         }
-        case string_lit_tok: next_token(tokenizer); return string_lit(arena, (StringLiteral) {.string = string_sized(arena, (int) size, &contents[tok.start]) });
+        case string_lit_tok: {
+            next_token(tokenizer);
+            char* unescaped = calloc(size + 1, 1);
+            size_t j = apply_escape_codes(&contents[tok.start], size, unescaped);
+            const Node* lit = string_lit(arena, (StringLiteral) {.string = string_sized(arena, (int) j, unescaped) });
+            free(unescaped);
+            return lit;
+        }
         case true_tok: next_token(tokenizer); return true_lit(arena);
         case false_tok: next_token(tokenizer); return false_lit(arena);
         case lpar_tok: {

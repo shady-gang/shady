@@ -3,6 +3,37 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define ESCAPE_SEQS(X) \
+X('\\', '\\') \
+X('\'', '\'') \
+X('\"', '\"') \
+X( 'n', '\n') \
+X( 't', '\t') \
+X( 'b', '\b') \
+X( 'r', '\r') \
+X( 'f', '\f') \
+X( 'a', '\a') \
+X( 'v', '\v') \
+
+size_t apply_escape_codes(const char* src, size_t size, char* dst) {
+    char p, c = '\0';
+    size_t j = 0;
+    for (size_t i = 0; i < size; i++) {
+        p = c;
+        c = src[i];
+
+#define ESCAPE_CASE(m, s) if (p == '\\' && c == m) { \
+        dst[j - 1] = s; \
+        continue; \
+    } \
+
+        ESCAPE_SEQS(ESCAPE_CASE)
+
+        dst[j++] = c;
+    }
+    return j;
+}
+
 static long get_file_size(FILE* f) {
     if (fseek(f, 0, SEEK_END) != 0)
         return -1;
