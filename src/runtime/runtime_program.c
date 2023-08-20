@@ -6,9 +6,10 @@
 #include <stdlib.h>
 #include <assert.h>
 
-static Program* load_program_internal(Runtime* runtime, const char* program_src, const char* program_path) {
+static Program* load_program_internal(Runtime* runtime, const CompilerConfig* base_config, const char* program_src, const char* program_path) {
     Program* program = calloc(1, sizeof(Program));
     program->runtime = runtime;
+    program->base_config = base_config;
 
     CompilerConfig config = default_compiler_config();
     config.allow_frontend_syntax = true;
@@ -31,12 +32,12 @@ static Program* load_program_internal(Runtime* runtime, const char* program_src,
     return program;
 }
 
-Program* load_program(Runtime* runtime, const char* program_src) {
-    return load_program_internal(runtime, program_src, NULL);
+Program* load_program(Runtime* runtime, const CompilerConfig* base_config, const char* program_src) {
+    return load_program_internal(runtime, base_config, program_src, NULL);
 }
 
-Program* load_program_from_disk(Runtime* runtime, const char* path) {
-    return load_program_internal(runtime, NULL, path);
+Program* load_program_from_disk(Runtime* runtime, const CompilerConfig* base_config, const char* path) {
+    return load_program_internal(runtime, base_config, NULL, path);
 }
 
 void unload_program(Program* program) {

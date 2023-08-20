@@ -32,7 +32,7 @@ struct Device_ {
 
 struct Program_ {
     Runtime* runtime;
-
+    const CompilerConfig* base_config;
     IrArena* arena;
     Module* module;
 };

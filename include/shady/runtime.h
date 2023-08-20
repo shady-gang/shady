@@ -25,8 +25,10 @@ Device* get_device(Runtime*, size_t i);
 Device* get_an_device(Runtime*);
 const char* get_device_name(Device*);
 
-Program* load_program(Runtime*, const char* program_src);
-Program* load_program_from_disk(Runtime*, const char* path);
+typedef struct CompilerConfig_ CompilerConfig;
+
+Program* load_program(Runtime*, const CompilerConfig*, const char* program_src);
+Program* load_program_from_disk(Runtime*, const CompilerConfig*, const char* path);
 
 Command* launch_kernel(Program*, Device*, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args);
 bool wait_completion(Command*);

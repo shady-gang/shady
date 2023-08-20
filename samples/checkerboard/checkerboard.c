@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 
     info_print("Device-side address is: %zu\n", buf_addr);
 
-    Program* program = load_program(runtime, checkerboard_kernel_src);
+    Program* program = load_program(runtime, &compiler_config, checkerboard_kernel_src);
 
     wait_completion(launch_kernel(program, device, "main", 16, 16, 1, 1, (void*[]) { &buf_addr }));
 

@@ -60,6 +60,7 @@ int main(int argc, char* argv[]) {
     set_log_level(INFO);
     Args args = {
         .input_filenames = new_list(const char*),
+        .compiler_config = default_compiler_config(),
     };
     args.runtime_config = (RuntimeConfig) {
         .use_validation = true,
@@ -105,7 +106,7 @@ int main(int argc, char* argv[]) {
     copy_to_buffer(buffer, 0, stuff, sizeof(stuff));
     copy_from_buffer(buffer, 0, stuff, sizeof(stuff));
 
-    Program* program = load_program(runtime, shader);
+    Program* program = load_program(runtime, &args.compiler_config, shader);
 
     int32_t a0 = 42;
     uint64_t a1 = get_buffer_device_pointer(buffer);

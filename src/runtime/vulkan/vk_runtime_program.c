@@ -289,8 +289,8 @@ static bool create_vk_pipeline(VkrSpecProgram* program) {
     return true;
 }
 
-static CompilerConfig get_compiler_config_for_device(VkrDevice* device) {
-    CompilerConfig config = default_compiler_config();
+static CompilerConfig get_compiler_config_for_device(VkrDevice* device, const CompilerConfig* base_config) {
+    CompilerConfig config = *base_config;
 
     assert(device->caps.subgroup_size.max > 0);
     config.specialization.subgroup_size = device->caps.subgroup_size.max;
@@ -314,12 +314,14 @@ static CompilerConfig get_compiler_config_for_device(VkrDevice* device) {
         warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
         config.hacks.spv_shuffle_instead_of_broadcast_first = true;
     }
+    config.shader_diagnostics.max_top_iterations = 100;
+    config.printf_trace.god_function = true;
 
     return config;
 }
 
 static bool compile_specialized_program(VkrSpecProgram* spec) {
-    CompilerConfig config = get_compiler_config_for_device(spec->device);
+    CompilerConfig config = get_compiler_config_for_device(spec->device, spec->key.base->base_config);
     config.specialization.entry_point = spec->key.entry_point;
 
     CHECK(run_compiler_passes(&config, &spec->specialized_module) == CompilationNoError, return false);

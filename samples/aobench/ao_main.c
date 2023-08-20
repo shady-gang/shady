@@ -88,7 +88,7 @@ void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
 }
 #endif
 
-void render_device(unsigned char *img, int w, int h, int nsubsamples, String path) {
+void render_device(const CompilerConfig* compiler_config, unsigned char *img, int w, int h, int nsubsamples, String path) {
     for (size_t i = 0; i < WIDTH; i++) {
         for (size_t j = 0; j < HEIGHT; j++) {
             img[j * WIDTH * 3 + i * 3 + 0] = 255;
@@ -98,7 +98,6 @@ void render_device(unsigned char *img, int w, int h, int nsubsamples, String pat
     }
 
     set_log_level(INFO);
-    CompilerConfig compiler_config = default_compiler_config();
 
     RuntimeConfig runtime_config = (RuntimeConfig) {
             .use_validation = true,
@@ -119,7 +118,7 @@ void render_device(unsigned char *img, int w, int h, int nsubsamples, String pat
 
     info_print("Device-side address is: %zu\n", buf_addr);
 
-    Program* program = load_program_from_disk(runtime, path);
+    Program* program = load_program_from_disk(runtime, compiler_config, path);
 
     // run it twice to compile everything and benefit from caches
     wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / 16, HEIGHT / 16, 1, 1, (void*[]) { &buf_addr }));
@@ -156,7 +155,7 @@ int main(int argc, char **argv) {
     saveppm("ispc.ppm", WIDTH, HEIGHT, img);
 #endif
 
-    render_device(img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
+    render_device(&compiler_config, img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
     saveppm("device.ppm", WIDTH, HEIGHT, img);
 
     free(img);
