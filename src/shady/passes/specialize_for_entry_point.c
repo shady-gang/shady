@@ -76,7 +76,7 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* config) {
-    const Node* old_entry_point_decl;
+    const Node* old_entry_point_decl = NULL;
 
     Nodes old_decls = get_module_declarations(m);
     for (size_t i = 0; i < old_decls.count; i++) {
