@@ -1,0 +1,19 @@
+@EntryPoint("compute") @WorkgroupSize(64, 1, 1) fn main() {
+    val tid = subgroup_local_id();
+    val x = tid / u32 4;
+    debug_printf("tid = %d x = %d\n", tid, x);
+
+    if (subgroup_elect_first()) {
+        debug_printf("not-loop: electing x = %d, mask = %lx\n", x, subgroup_active_mask());
+    }
+
+    loop() {
+        if (subgroup_broadcast_first(x) == x) {
+            if (subgroup_elect_first()) {
+                debug_printf("loop: electing x = %d, mask = %lx\n", x, subgroup_active_mask());
+            }
+            break();
+        }
+    }
+    return ();
+}
