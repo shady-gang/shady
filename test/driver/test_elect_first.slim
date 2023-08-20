@@ -1,5 +1,5 @@
 @EntryPoint("compute") @WorkgroupSize(64, 1, 1) fn main() {
-    val tid = subgroup_local_id();
+    val tid = subgroup_local_id;
     val x = tid / u32 4;
     debug_printf("tid = %d x = %d\n", tid, x);
 
