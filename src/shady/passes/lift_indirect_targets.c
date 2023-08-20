@@ -27,6 +27,7 @@ typedef struct Context_ {
 
     struct Dict* lifted;
     bool disable_lowering;
+    const CompilerConfig* config;
 } Context;
 
 static const Node* process_node(Context* ctx, const Node* node);
@@ -167,7 +168,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (oinstruction->tag == Control_TAG) {
                 const Node* oinside = oinstruction->payload.control.inside;
                 assert(is_anonymous_lambda(oinside));
-                if (!is_control_static(ctx->uses, oinstruction)) {
+                if (!is_control_static(ctx->uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
                     const Node* otail = get_let_tail(node);
                     BodyBuilder* bb = begin_body(a);
                     LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string(a, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
@@ -190,6 +191,7 @@ void lift_indirect_targets(SHADY_UNUSED CompilerConfig* config, Module* src, Mod
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
         .lifted = new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
+        .config = config,
     };
 
     rewrite_module(&ctx.rewriter);

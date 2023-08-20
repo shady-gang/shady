@@ -100,6 +100,8 @@ void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv)
             continue;
         if (strcmp(argv[i], "--no-dynamic-scheduling") == 0) {
             config->dynamic_scheduling = false;
+        } else if (strcmp(argv[i], "--lift-join-points") == 0) {
+            config->hacks.force_join_point_lifting = true;
         } else if (strcmp(argv[i], "--entry-point") == 0) {
             argv[i] = NULL;
             i++;
@@ -134,6 +136,7 @@ void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv)
         error_print("  --simt2d                                  Emits SIMD code instead of SIMT, only effective with the C backend.\n");
         error_print("  --entry-point <foo>                       Selects an entry point for the program to be specialized on.\n");
         error_print("  --subgroup-size N                         Sets the subgroup size the program will be specialized for.\n");
+        error_print("  --lift-join-points                        Forcefully lambda-lifts all join points. Can help with reconvergence issues.\n");
     }
 
     pack_remaining_args(pargc, argv);
