@@ -1,8 +1,11 @@
 const i32 WIDTH = 256;
 const i32 HEIGHT = 256;
 
+@Builtin("GlobalInvocationId")
+uniform input pack[u32; 3] global_id;
+
 @EntryPoint("compute") @WorkgroupSize(16, 16, 1) fn main(uniform ptr global [u8] p) {
-    val thread_id = global_id();
+    val thread_id = global_id;
     val x = reinterpret[i32](thread_id#0);
     val y = reinterpret[i32](thread_id#1);
     if (((x / 16) % 2) == ((y / 16) % 2)) {
