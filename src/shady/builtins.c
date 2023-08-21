@@ -41,3 +41,14 @@ Builtin get_builtin_by_name(String s) {
     }
     return BuiltinsCount;
 }
+
+Builtin get_builtin_by_spv_id(SpvBuiltIn id) {
+    Builtin b = BuiltinsCount;
+    for (size_t i = 0; i < BuiltinsCount; i++) {
+        if (id == spv_builtins[i]) {
+            b = i;
+            break;
+        }
+    }
+    return b;
+}

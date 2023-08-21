@@ -754,14 +754,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 Nodes annotations = empty(parser->arena);
                 SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
                 if (builtin) {
-                    SpvBuiltIn spv_builtin = *builtin->payload.literals.data;
-                    Builtin b = BuiltinsCount;
-                    for (size_t i = 0; i < BuiltinsCount; i++) {
-                        if (spv_builtin == spv_builtins[i]) {
-                            b = i;
-                            break;
-                        }
-                    }
+                    Builtin b = get_builtin_by_spv_id(*builtin->payload.literals.data);
                     assert(b != BuiltinsCount && "Unsupported builtin");
                     annotations = append_nodes(parser->arena, annotations, annotation_value_helper(parser->arena, "Builtin", string_lit_helper(parser->arena, builtin_names[b])));
                 }

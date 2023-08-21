@@ -46,4 +46,7 @@ extern String builtin_names[];
 const Type* get_builtin_type(IrArena* arena, Builtin);
 Builtin get_builtin_by_name(String);
 
+typedef enum SpvBuiltIn_ SpvBuiltIn;
+Builtin get_builtin_by_spv_id(SpvBuiltIn id);
+
 #endif
