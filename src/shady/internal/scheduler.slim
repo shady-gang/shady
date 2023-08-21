@@ -69,9 +69,9 @@ fn builtin_fork(varying u32 branch_destination) {
     // Partition the set of branch destinations and adapt the masks in turn
     loop() {
         val elected = subgroup_broadcast_first(branch_destination);
+        resume_at#(subgroup_local_id) = elected;
+        scheduler_vector#(subgroup_local_id)#0 = subgroup_ballot(elected == branch_destination);
         if (elected == branch_destination) {
-            resume_at#(subgroup_local_id) = elected;
-            scheduler_vector#(subgroup_local_id)#0 = subgroup_ballot(elected == branch_destination);
             break;
         }
     }
