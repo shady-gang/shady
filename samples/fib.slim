@@ -12,6 +12,6 @@ uniform input u32 subgroup_id;
 
 @EntryPoint("compute") @WorkgroupSize(64, 1, 1) fn main() {
     val n = subgroup_local_id % u32 16;
-    debug_printf("fib(%d) = %d from thread %d:%d", n, fib(n), subgroup_id, subgroup_local_id);
+    debug_printf("fib(%d) = %d from thread %d:%d\n", n, fib(n), subgroup_id, subgroup_local_id);
     return ();
 }

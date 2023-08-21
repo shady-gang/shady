@@ -1,4 +1,4 @@
-@EntryPoint("compute") @WorkgroupSize(64, 1, 1) fn say_hello() {
-    debug_printf("Hello World");
+@EntryPoint("compute") @WorkgroupSize(64, 1, 1) fn main() {
+    debug_printf("Hello World\n");
     return ();
 }
