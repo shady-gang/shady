@@ -314,8 +314,6 @@ static CompilerConfig get_compiler_config_for_device(VkrDevice* device, const Co
         warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
         config.hacks.spv_shuffle_instead_of_broadcast_first = true;
     }
-    config.shader_diagnostics.max_top_iterations = 100;
-    config.printf_trace.god_function = true;
 
     return config;
 }

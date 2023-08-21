@@ -87,7 +87,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(setup_stack_frames)
     RUN_PASS(lower_cf_instrs)
-    RUN_PASS(mark_leaf_functions)
+    if (!config->hacks.force_join_point_lifting)
+        RUN_PASS(mark_leaf_functions)
 
     RUN_PASS(lower_callf)
     RUN_PASS(opt_inline)
