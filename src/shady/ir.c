@@ -121,6 +121,14 @@ Nodes append_nodes(IrArena* arena, Nodes old, const Node* new) {
     return nodes(arena, old.count + 1, tmp);
 }
 
+Nodes prepend_nodes(IrArena* arena, Nodes old, const Node* new) {
+    LARRAY(const Node*, tmp, old.count + 1);
+    for (size_t i = 0; i < old.count; i++)
+        tmp[i + 1] = old.nodes[i];
+    tmp[0] = new;
+    return nodes(arena, old.count + 1, tmp);
+}
+
 Nodes concat_nodes(IrArena* arena, Nodes a, Nodes b) {
     LARRAY(const Node*, tmp, a.count + b.count);
     size_t j = 0;

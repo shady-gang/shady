@@ -167,10 +167,10 @@ static const Node* process(Context* ctx, const Node* old) {
         case PrimOp_TAG: {
             switch (old->payload.prim_op.op) {
                 case create_joint_point_op: {
-                    const Node* join_destination = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands));
+                    Nodes args = rewrite_nodes(&ctx->rewriter, old->payload.prim_op.operands);
                     return call(a, (Call) {
                         .callee = access_decl(&ctx->rewriter, "builtin_create_control_point"),
-                        .args = mk_nodes(a, join_destination)
+                        .args = args,
                     });
                 }
                 case default_join_point_op: {
@@ -208,6 +208,8 @@ static const Node* process(Context* ctx, const Node* old) {
 
             BodyBuilder* bb = begin_body(a);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
+            const Node* payload = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 2)));
+            gen_push_value_stack(bb, payload);
             const Node* dst = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 1)));
             const Node* tree_node = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 0)));
 

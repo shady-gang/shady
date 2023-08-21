@@ -34,6 +34,7 @@ Nodes singleton(const Node*);
 const Node* first(Nodes nodes);
 
 Nodes append_nodes(IrArena*, Nodes, const Node*);
+Nodes prepend_nodes(IrArena*, Nodes, const Node*);
 Nodes concat_nodes(IrArena*, Nodes, Nodes);
 
 String string_sized(IrArena*, size_t size, const char* start);

@@ -973,7 +973,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         }
         // Intermediary ops
         case create_joint_point_op: {
-            assert(prim_op.operands.count == 1);
+            assert(prim_op.operands.count == 2);
             const Node* join_point = first(prim_op.operands);
             assert(is_qualified_type_uniform(join_point->type));
             return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = prim_op.type_arguments }), .is_uniform = true });

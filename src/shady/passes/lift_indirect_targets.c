@@ -40,7 +40,7 @@ typedef struct {
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* spilled_vars) {
+static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* spilled_vars) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     size_t recover_context_size = entries_count_list(spilled_vars);
@@ -55,6 +55,10 @@ static void add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* sp
         });
         bind_instruction(builder, save_instruction);
     }
+
+    const Node* sp = gen_primop_ce(builder, get_stack_pointer_op, 0, NULL);
+
+    return sp;
 }
 
 static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name) {
@@ -87,13 +91,8 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     // Create and register new parameters for the lifted continuation
     Nodes new_params = recreate_variables(&ctx->rewriter, oparams);
 
-    // Keep annotations the same
-    Nodes annotations = nodes(a, 0, NULL);
-    Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, nodes(a, 0, NULL));
-
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = cont;
-    lifted_cont->lifted_fn = new_fn;
     lifted_cont->save_values = recover_context;
     insert_dict(const Node*, LiftedCont*, ctx->lifted, cont, lifted_cont);
 
@@ -101,8 +100,17 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     lifting_ctx.rewriter = create_rewriter(ctx->rewriter.src_module, ctx->rewriter.dst_module, (RewriteFn) process_node);
     register_processed_list(&lifting_ctx.rewriter, oparams, new_params);
 
+    const Node* payload = var(a, qualified_type_helper(uint32_type(a), false), "sp");
+
+    // Keep annotations the same
+    Nodes annotations = nodes(a, 0, NULL);
+    new_params = prepend_nodes(a, new_params, payload);
+    Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, nodes(a, 0, NULL));
+    lifted_cont->lifted_fn = new_fn;
+
     // Recover that stuff inside the new body
     BodyBuilder* bb = begin_body(a);
+    gen_primop(bb, set_stack_pointer_op, empty(a), singleton(payload));
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
         assert(ovar->tag == Variable_TAG);
@@ -172,10 +180,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     const Node* otail = get_let_tail(node);
                     BodyBuilder* bb = begin_body(a);
                     LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string(a, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
-                    add_spill_instrs(ctx, bb, lifted_tail->save_values);
+                    const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                     const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 
-                    const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), singleton(tail_ptr));
+                    const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), mk_nodes(a, tail_ptr, sp));
 
                     return finish_body(bb, let(a, quote_helper(a, singleton(jp)), rewrite_node(&ctx->rewriter, oinside)));
                 }
