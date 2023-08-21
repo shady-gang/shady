@@ -37,6 +37,8 @@ Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 /// Returns the (possibly qualified) pointee type from a (possibly qualified) ptr type
 const Type* get_pointee_type(IrArena*, const Type*);
 
+void enter_composite(const Type** datatype, bool* u, Nodes indices, bool allow_entering_pack);
+
 /// Collects the annotated types in the list of variables
 /// NB: this is different from get_values_types, that function uses node.type, whereas this one uses node.payload.var.type
 /// This means this function works in untyped modules where node.type is NULL.

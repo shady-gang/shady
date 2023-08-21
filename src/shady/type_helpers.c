@@ -51,6 +51,59 @@ const Type* get_pointee_type(IrArena* arena, const Type* type) {
     return type;
 }
 
+void enter_composite(const Type** datatype, bool* uniform, Nodes indices, bool allow_entering_pack) {
+    const Type* current_type = *datatype;
+
+    for(size_t i = 0; i < indices.count; i++) {
+        const Node* selector = indices.nodes[i];
+        const Type* selector_type = selector->type;
+        bool selector_uniform = deconstruct_qualified_type(&selector_type);
+
+        assert(selector_type->tag == Int_TAG && "selectors must be integers");
+        *uniform &= selector_uniform;
+
+        try_again:
+        switch (current_type->tag) {
+            case RecordType_TAG: {
+                size_t selector_value = get_int_literal_value(selector, false);
+                assert(selector_value < current_type->payload.record_type.members.count);
+                current_type = current_type->payload.record_type.members.nodes[selector_value];
+                continue;
+            }
+            case ArrType_TAG: {
+                current_type = current_type->payload.arr_type.element_type;
+                continue;
+            }
+            case TypeDeclRef_TAG: {
+                const Node* nom_decl = current_type->payload.type_decl_ref.decl;
+                assert(nom_decl->tag == NominalType_TAG);
+                current_type = nom_decl->payload.nom_type.body;
+                goto try_again;
+            }
+            case PackType_TAG: {
+                assert(allow_entering_pack);
+                assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a pack type need to be constant");
+                size_t selector_value = get_int_literal_value(selector, false);
+                assert(selector_value < current_type->payload.pack_type.width);
+                current_type = current_type->payload.pack_type.element_type;
+                continue;
+            }
+            // also remember to assert literals for the selectors !
+            default: {
+                log_string(ERROR, "Trying to enter non-composite type '");
+                log_node(ERROR, current_type);
+                log_string(ERROR, "' with selector '");
+                log_node(ERROR, selector);
+                log_string(ERROR, "'.");
+                error("");
+            }
+        }
+        i++;
+    }
+
+    *datatype = current_type;
+}
+
 Nodes get_variables_types(IrArena* arena, Nodes variables) {
     LARRAY(const Type*, arr, variables.count);
     for (size_t i = 0; i < variables.count; i++) {

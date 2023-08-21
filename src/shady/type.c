@@ -704,65 +704,27 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Node* base = prim_op.operands.nodes[0];
             bool uniform = is_qualified_type_uniform(base->type);
 
-            const Type* curr_ptr_type = get_unqualified_type(base->type);
-            assert(curr_ptr_type->tag == PtrType_TAG && "lea expects a pointer as a base");
+            const Type* base_ptr_type = get_unqualified_type(base->type);
+            assert(base_ptr_type->tag == PtrType_TAG && "lea expects a pointer as a base");
 
             const Node* offset = prim_op.operands.nodes[1];
             assert(offset);
             const Type* offset_type = offset->type;
             bool offset_uniform = deconstruct_qualified_type(&offset_type);
             assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
-            const Type* pointee_type = curr_ptr_type->payload.ptr_type.pointed_type;
+            const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
             const IntLiteral* lit = resolve_to_literal(offset);
             bool offset_is_zero = lit && lit->value == 0;
             assert(offset_is_zero || pointee_type->tag == ArrType_TAG && "if an offset is used, the base pointer must point to an array");
             uniform &= offset_uniform;
 
-            // enter N levels of pointers
-            size_t i = 2;
-            while (true) {
-                assert(curr_ptr_type->tag == PtrType_TAG && "lea is supposed to work on, and yield pointers");
-                if (i >= prim_op.operands.count) break;
-
-                const Node* selector = prim_op.operands.nodes[i];
-                const Type* selector_type = selector->type;
-                bool selector_uniform = deconstruct_qualified_type(&selector_type);
-
-                assert(selector_type->tag == Int_TAG && "selectors must be integers");
-                uniform &= selector_uniform;
-                pointee_type = curr_ptr_type->payload.ptr_type.pointed_type;
-                switch (pointee_type->tag) {
-                    case ArrType_TAG: {
-                        curr_ptr_type = ptr_type(arena, (PtrType) {
-                            .pointed_type = pointee_type->payload.arr_type.element_type,
-                            .address_space = curr_ptr_type->payload.ptr_type.address_space
-                        });
-                        break;
-                    }
-                    case TypeDeclRef_TAG: {
-                        pointee_type = get_nominal_type_body(pointee_type);
-                        SHADY_FALLTHROUGH
-                    }
-                    case RecordType_TAG: {
-                        assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
-                        size_t index = get_int_literal_value(selector, false);
-                        assert(index < pointee_type->payload.record_type.members.count);
-                        curr_ptr_type = ptr_type(arena, (PtrType) {
-                            .pointed_type = pointee_type->payload.record_type.members.nodes[index],
-                            .address_space = curr_ptr_type->payload.ptr_type.address_space
-                        });
-                        break;
-                    }
-                    // also remember to assert literals for the selectors !
-                    default: error("lea selectors can only work on pointers to arrays or records")
-                }
-                i++;
-            }
+            Nodes indices = nodes(arena, prim_op.operands.count - 2, &prim_op.operands.nodes[2]);
+            enter_composite(&pointee_type, &uniform, indices, true);
 
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = uniform,
-                .type = curr_ptr_type
+                .type = ptr_type(arena, (PtrType) { .pointed_type = pointee_type, .address_space = base_ptr_type->payload.ptr_type.address_space })
             });
         }
         case memcpy_op: {
@@ -828,71 +790,25 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count >= 2);
             const Node* source = first(prim_op.operands);
 
-            const Type* current_type = source->type;
-            bool is_uniform = deconstruct_qualified_type(&current_type);
-
             size_t indices_start = prim_op.op == insert_op ? 2 : 1;
+            Nodes indices = nodes(arena, prim_op.operands.count - indices_start, &prim_op.operands.nodes[indices_start]);
 
-            for (size_t i = indices_start; i < prim_op.operands.count; i++) {
-                assert(is_data_type(current_type));
-
-                // Check index is valid !
-                const Node* ith_index = prim_op.operands.nodes[i];
-                bool dynamic_index = prim_op.op == extract_dynamic_op;
-                if (dynamic_index) {
-                    const Type* index_type = ith_index->type;
-                    bool index_uniform = deconstruct_qualified_type(&index_type);
-                    is_uniform &= index_uniform;
-                    assert(index_type->tag == Int_TAG && "extract_dynamic requires integers for the indices");
-                } else {
-                    assert(ith_index->tag == IntLiteral_TAG && "extract takes integer literals");
-                }
-
-                // Go down one level...
-                try_again:
-                switch(current_type->tag) {
-                    case RecordType_TAG: {
-                        assert(!dynamic_index);
-                        size_t index_value = ith_index->payload.int_literal.value;
-                        assert(index_value < current_type->payload.record_type.members.count);
-                        current_type = current_type->payload.record_type.members.nodes[index_value];
-                        continue;
-                    }
-                    case ArrType_TAG: {
-                        assert(!dynamic_index);
-                        current_type = current_type->payload.arr_type.element_type;
-                        continue;
-                    }
-                    case TypeDeclRef_TAG: {
-                        assert(!dynamic_index);
-                        const Node* nom_decl = current_type->payload.type_decl_ref.decl;
-                        assert(nom_decl->tag == NominalType_TAG);
-                        current_type = nom_decl->payload.nom_type.body;
-                        goto try_again;
-                    }
-                    case PackType_TAG: {
-                        current_type = current_type->payload.pack_type.element_type;
-                        continue;
-                    }
-                    default: error("Not a valid type to extract from")
-                }
-            }
+            const Type* t = source->type;
+            bool uniform = deconstruct_qualified_type(&t);
+            enter_composite(&t, &uniform, indices, true);
 
             if (prim_op.op == insert_op) {
                 const Node* inserted_data = prim_op.operands.nodes[1];
                 const Type* inserted_data_type = inserted_data->type;
-                is_uniform &= deconstruct_qualified_type(&inserted_data_type);
-                assert(is_subtype(current_type, inserted_data_type) && "inserting data into a composite, but it doesn't match the target and indices");
+                assert(is_subtype(t, inserted_data_type) && "inserting data into a composite, but it doesn't match the target and indices");
+                bool is_uniform = is_qualified_type_uniform(t) && deconstruct_qualified_type(&inserted_data_type);
                 return qualified_type(arena, (QualifiedType) {
                     .is_uniform = is_uniform,
                     .type = get_unqualified_type(source->type),
                 });
             }
 
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = is_uniform,
-                .type = current_type
-            });
+            return qualified_type_helper(t, uniform);
         }
         case reinterpret_op: {
             assert(prim_op.type_arguments.count == 1);
