@@ -36,6 +36,7 @@ RewritePass lower_jumps_loop;
 /// Emulates uniform jumps within functions by applying a structuring transformation
 RewritePass lower_jumps_structure;
 RewritePass lcssa;
+RewritePass normalize_builtins;
 
 /// @}
 

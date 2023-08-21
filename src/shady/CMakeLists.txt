@@ -50,6 +50,7 @@ set(SHADY_SOURCES
     passes/lower_switch_btree.c
     passes/setup_stack_frames.c
     passes/eliminate_constants.c
+    passes/normalize_builtins.c
     passes/lower_subgroup_ops.c
     passes/lower_subgroup_vars.c
     passes/lower_int64.c

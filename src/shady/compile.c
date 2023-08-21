@@ -77,8 +77,11 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(normalize)
 
     aconfig.check_types = true;
-    aconfig.validate_builtin_types = true;
     RUN_PASS(infer_program)
+
+    aconfig.validate_builtin_types = true;
+    RUN_PASS(normalize_builtins);
+
     aconfig.allow_fold = true;
     RUN_PASS(opt_inline_jumps)
 
