@@ -146,11 +146,23 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             return recreate_node_identity(&ctx2.rewriter, node);
         }
-        /*case Return_TAG: {
-            if (ctx->is_entry_point) {
-
+        case PrimOp_TAG: {
+            switch (node->payload.prim_op.op) {
+                case load_op: {
+                    const Node* ptr = first(node->payload.prim_op.operands);
+                    if (ptr->tag == RefDecl_TAG)
+                        ptr = ptr->payload.ref_decl.decl;
+                    if (ptr == get_builtin(ctx->rewriter.src_module, BuiltinSubgroupId, NULL)) {
+                        BodyBuilder* bb = begin_body(a);
+                        const Node* loaded = first(bind_instruction(bb, recreate_node_identity(&ctx->rewriter, node)));
+                        const Node* uniformized = first(gen_primop(bb, subgroup_broadcast_first_op, empty(a), singleton(loaded)));
+                        return yield_values_and_wrap_in_block(bb, singleton(uniformized));
+                    }
+                }
+                default: break;
             }
-        }*/
+            break;
+        }
         default: break;
     }
 
