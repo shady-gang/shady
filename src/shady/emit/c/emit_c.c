@@ -486,6 +486,10 @@ void emit_decl(Emitter* emitter, const Node* decl) {
 
     switch (decl->tag) {
         case GlobalVariable_TAG: {
+            String init = NULL;
+            if (decl->payload.global_variable.init)
+                init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
+
             const GlobalVariable* gvar = &decl->payload.global_variable;
             Builtin b = BuiltinsCount;
             for (size_t i = 0; i < gvar->annotations.count; i++) {
@@ -502,6 +506,9 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     //return;
                 }
             }
+
+            if (b == BuiltinSubgroupLocalInvocationId)
+                init = "programIndex";
 
             decl_type = decl->payload.global_variable.type;
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
@@ -567,10 +574,6 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             }
 
             register_emitted(emitter, decl, emit_as);
-
-            String init = NULL;
-            if (decl->payload.global_variable.init)
-                init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
 
             emit_global_variable_definition(emitter, address_space_prefix, decl_center, decl_type, uniform, false, init);
             return;

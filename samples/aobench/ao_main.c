@@ -57,10 +57,10 @@ void render_host(unsigned char *img, int w, int h, int nsubsamples) {
 extern void (aobench_kernel)(uint8_t*);
 
 typedef struct {
-    int32_t x, y, z;
-} Vec3i;
+    uint32_t x, y, z;
+} Vec3u;
 
-Vec3i workgroup_num;
+Vec3u builtin_NumWorkgroups;
 
 void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
     struct timespec ts;
@@ -76,9 +76,9 @@ void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
         }
     }
 
-    workgroup_num.x = WIDTH / 16;
-    workgroup_num.y = HEIGHT / 16;
-    workgroup_num.z = 1;
+    builtin_NumWorkgroups.x = WIDTH / 16;
+    builtin_NumWorkgroups.y = HEIGHT / 16;
+    builtin_NumWorkgroups.z = 1;
 
     aobench_kernel(img);
     struct timespec tp;

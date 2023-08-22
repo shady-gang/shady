@@ -42,7 +42,7 @@ fn builtin_entry_join_point uniform JoinPoint() {
 }
 
 @Internal @Structured @Leaf
-fn builtin_create_control_point uniform JoinPoint(uniform u32 join_destination, varying u32 payload) {
+fn builtin_create_control_point varying JoinPoint(uniform u32 join_destination, varying u32 payload) {
     val curr_mask = subgroup_active_mask();
     val depth = subgroup_broadcast_first(scheduler_vector#(subgroup_local_id)#1);
     val tree_node = composite TreeNode(curr_mask, depth);
