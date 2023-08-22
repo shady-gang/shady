@@ -14,7 +14,7 @@
 
 static const char* default_shader =
 "@EntryPoint(\"compute\") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main(uniform i32 a, uniform ptr global i32 b) {\n"
-"    debug_printf(\"hi %d %p\\n\", a, b);"
+"    debug_printf(\"hi %d 0x%lx\\n\", a, reinterpret[u64](b));"
 "    return ();\n"
 "}";
 
