@@ -41,12 +41,11 @@ Not all supported features are listed, these are just the more notable ones that
  * The following Vulkan drivers have been tested:
    * [x] `radv` Open-source mesa driver for AMD GPUs
      * Tested on multiple RDNA2 and GCN devices
+   * [x] `amdvlk` works too
    * [x] `anv` Open-source mesa driver for Intel GPUs
+   * [x] Intel proprietary Windows drivers (UHD 630, A750/A770)
    * [x] NVidia proprietary drivers (requiring a [small hack](https://github.com/Hugobros3/shady/commit/f3ef83dbff7f29654fc11f8901ba67494864c085))
-   * [x] Intel proprietary Windows drivers for Intel HD cards
-     * [ ] Xe (Arc) cards come with their own driver, which can't run currently due to missing `Int64` support
-   * [ ] MoltenVK does not work due to buggy Metal drivers currently miscompiling SIMD intrinsics.
-     * Might work on non-apple sillicon devices
+   * [ ] MoltenVK does not work properly due to issues with SPIRV-Cross
    * [ ] Imagination closed-source driver on the VisionFive 2 board: driver crash
 
 Additionally, the compiler supports alternative backends:
