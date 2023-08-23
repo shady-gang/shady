@@ -145,18 +145,38 @@ int main(int argc, char **argv) {
     parse_common_args(&argc, argv);
     parse_compiler_config_args(&compiler_config, &argc, argv);
 
+    bool do_host = false, do_ispc = false, do_device = false, do_all = true;
+    for (size_t i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "--device") == 0) {
+            do_device = true;
+            do_all = false;
+        } else if (strcmp(argv[i], "--host") == 0) {
+            do_host = true;
+            do_all = false;
+        } else if (strcmp(argv[i], "--ispc") == 0) {
+            do_ispc = true;
+            do_all = false;
+        }
+    }
+
     unsigned char *img = (unsigned char *)malloc(WIDTH * HEIGHT * 3);
 
-    render_host(img, WIDTH, HEIGHT, NSUBSAMPLES);
-    saveppm("reference.ppm", WIDTH, HEIGHT, img);
+    if (do_host || do_all) {
+        render_host(img, WIDTH, HEIGHT, NSUBSAMPLES);
+        saveppm("reference.ppm", WIDTH, HEIGHT, img);
+    }
 
 #ifdef ENABLE_ISPC
-    render_ispc(img, WIDTH, HEIGHT, NSUBSAMPLES);
-    saveppm("ispc.ppm", WIDTH, HEIGHT, img);
+    if (do_ispc || do_all) {
+        render_ispc(img, WIDTH, HEIGHT, NSUBSAMPLES);
+        saveppm("ispc.ppm", WIDTH, HEIGHT, img);
+    }
 #endif
 
-    render_device(&compiler_config, img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
-    saveppm("device.ppm", WIDTH, HEIGHT, img);
+    if (do_device || do_all) {
+        render_device(&compiler_config, img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
+        saveppm("device.ppm", WIDTH, HEIGHT, img);
+    }
 
     free(img);
 
