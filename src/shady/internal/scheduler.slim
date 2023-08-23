@@ -104,7 +104,7 @@ fn builtin_yield(uniform u32 resume_target) {
 }
 
 @Internal @Structured @Leaf
-fn builtin_join(uniform u32 join_at, uniform TreeNode token) {
+fn builtin_join(varying u32 join_at, varying TreeNode token) {
     resume_at#(subgroup_local_id) = join_at;
     scheduler_vector#(subgroup_local_id) = token;
 

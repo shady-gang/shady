@@ -104,13 +104,13 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 Nodes exit_param_types = rewrite_nodes(rewriter, get_variables_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
                 LARRAY(const Node*, allocas, exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++)
-                    allocas[j] = gen_primop_e(outer_bb, alloca_logical_op, singleton(get_unqualified_type(exit_param_types.nodes[j])), empty(arena));
+                    allocas[j] = gen_primop_e(outer_bb, alloca_op, singleton(get_unqualified_type(exit_param_types.nodes[j])), empty(arena));
                 exit_allocas[i] = nodes(arena, exit_param_types.count, allocas);
             }
 
             const Node* exit_destination_alloca = NULL;
             if (exiting_nodes_count > 1)
-                exit_destination_alloca = gen_primop_e(outer_bb, alloca_logical_op, singleton(int32_type(arena)), empty(arena));
+                exit_destination_alloca = gen_primop_e(outer_bb, alloca_op, singleton(int32_type(arena)), empty(arena));
 
             Node* fn = (Node*) find_processed(rewriter, ctx->current_fn);
 
