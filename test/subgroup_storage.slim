@@ -1,0 +1,11 @@
+@Builtin("GlobalInvocationId")
+input pack[u32; 3] global_id;
+
+subgroup u32 x;
+
+@EntryPoint("compute") @WorkgroupSize(256, 1, 1)
+fn main() {
+    x = subgroup_broadcast_first(global_id#0);
+    debug_printf("Thread %d:1:1, x = %d\n", global_id#0, x);
+    return ();
+}
