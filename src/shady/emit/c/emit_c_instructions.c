@@ -105,7 +105,7 @@ static const ISelTableEntry isel_table_c[PRIMOPS_COUNT] = {
     [pow_op] = { IsPoly, OsCall, .f_ops = {"powf", "powf", "pow"}},
 };
 
-static const ISelTableEntry isel_table_glsl[PRIMOPS_COUNT] = {};
+static const ISelTableEntry isel_table_glsl[PRIMOPS_COUNT] = { 0 };
 
 static const ISelTableEntry isel_table_ispc[PRIMOPS_COUNT] = {
     [abs_op] = { IsMono, OsCall, "abs" },

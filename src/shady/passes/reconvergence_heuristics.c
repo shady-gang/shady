@@ -387,9 +387,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 exit_args = empty(arena);
                 lambda_args = empty(arena);
             } else {
-                const Node* types[old_params.count];
-                const Node* inner_args[old_params.count];
-                const Node* outer_args[old_params.count];
+                LARRAY(const Node*, types,old_params.count);
+                LARRAY(const Node*, inner_args,old_params.count);
+                LARRAY(const Node*, outer_args,old_params.count);
 
                 for (size_t j = 0; j < old_params.count; j++) {
                     //TODO: Is this correct?
