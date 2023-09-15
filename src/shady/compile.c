@@ -10,6 +10,10 @@
 
 #include <stdbool.h>
 
+#ifdef LLVM_PARSER_PRESENT
+#include "../frontends/llvm/shady_llvm.h"
+#endif
+
 #ifdef SPV_PARSER_PRESENT
 #include "../frontends/spirv/s2s.h"
 #endif
@@ -142,7 +146,17 @@ CompilationResult parse_files(CompilerConfig* config, size_t num_files, const ch
     };
 
     for (size_t i = 0; i < num_files; i++) {
-        if (file_names && string_ends_with(file_names[i], ".spv")) {
+        if (file_names && (string_ends_with(file_names[i], ".ll") || string_ends_with(file_names[i], ".bc"))) {
+#ifdef LLVM_PARSER_PRESENT
+            size_t size;
+            unsigned char* data;
+            bool ok = read_file(file_names[i], &size, &data);
+            assert(ok);
+            parse_llvm_into_shady(mod, size, data);
+#else
+            assert(false && "LLVM front-end missing in this version");
+#endif
+        } else if (file_names && string_ends_with(file_names[i], ".spv")) {
 #ifdef SPV_PARSER_PRESENT
             size_t size;
             unsigned char* data;
