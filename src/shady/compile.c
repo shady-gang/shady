@@ -10,10 +10,6 @@
 
 #include <stdbool.h>
 
-#ifdef C_PARSER_PRESENT
-#include "../frontends/clang-ast/clang_ast.h"
-#endif
-
 #ifdef SPV_PARSER_PRESENT
 #include "../frontends/spirv/s2s.h"
 #endif
@@ -146,13 +142,7 @@ CompilationResult parse_files(CompilerConfig* config, size_t num_files, const ch
     };
 
     for (size_t i = 0; i < num_files; i++) {
-        if (file_names && string_ends_with(file_names[i], ".c")) {
-#ifdef C_PARSER_PRESENT
-            parse_c_file(file_names[i], mod);
-#else
-            assert(false && "C front-end missing in this version");
-#endif
-        } else if (file_names && string_ends_with(file_names[i], ".spv")) {
+        if (file_names && string_ends_with(file_names[i], ".spv")) {
 #ifdef SPV_PARSER_PRESENT
             size_t size;
             unsigned char* data;
