@@ -2,6 +2,8 @@
 
 #include "log.h"
 #include "dict.h"
+#include "portability.h"
+#include "../../shady/transform/ir_gen_helpers.h"
 
 #include "llvm-c/IRReader.h"
 #include "llvm-c/Core.h"
@@ -105,6 +107,291 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
     error_die();
 }
 
+static const Node* convert_value(Parser* p, LLVMValueRef v) {
+    const Type** found = find_value_dict(LLVMTypeRef, const Type*, p->map, v);
+    if (found) return *found;
+    IrArena* a = get_module_arena(p->dst);
+
+    switch (LLVMGetValueKind(v)) {
+        case LLVMArgumentValueKind:
+            break;
+        case LLVMBasicBlockValueKind:
+            break;
+        case LLVMMemoryUseValueKind:
+            break;
+        case LLVMMemoryDefValueKind:
+            break;
+        case LLVMMemoryPhiValueKind:
+            break;
+        case LLVMFunctionValueKind:
+            break;
+        case LLVMGlobalAliasValueKind:
+            break;
+        case LLVMGlobalIFuncValueKind:
+            break;
+        case LLVMGlobalVariableValueKind:
+            break;
+        case LLVMBlockAddressValueKind:
+            break;
+        case LLVMConstantExprValueKind:
+            break;
+        case LLVMConstantArrayValueKind:
+            break;
+        case LLVMConstantStructValueKind:
+            break;
+        case LLVMConstantVectorValueKind:
+            break;
+        case LLVMUndefValueValueKind:
+            break;
+        case LLVMConstantAggregateZeroValueKind:
+            break;
+        case LLVMConstantDataArrayValueKind:
+            break;
+        case LLVMConstantDataVectorValueKind:
+            break;
+        case LLVMConstantIntValueKind: {
+            const Type* t = convert_type(p, LLVMTypeOf(v));
+            assert(t->tag == Int_TAG);
+            unsigned long long value = LLVMConstIntGetZExtValue(v);
+            switch (t->payload.int_type.width) {
+                case IntTy8: return uint8_literal(a, value);
+                case IntTy16: return uint16_literal(a, value);
+                case IntTy32: return uint32_literal(a, value);
+                case IntTy64: return uint64_literal(a, value);
+            }
+        }
+        case LLVMConstantFPValueKind:
+            break;
+        case LLVMConstantPointerNullValueKind:
+            break;
+        case LLVMConstantTokenNoneValueKind:
+            break;
+        case LLVMMetadataAsValueValueKind:
+            break;
+        case LLVMInlineAsmValueKind:
+            break;
+        case LLVMInstructionValueKind:
+            break;
+        case LLVMPoisonValueValueKind:
+            break;
+    }
+
+    error_print("Failed to find value ");
+    LLVMDumpValue(v);
+    error_print(" in the already emitted map.");
+    error_die();
+}
+
+static void emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
+    IrArena* a = get_module_arena(p->dst);
+    const Node* r = NULL;
+    int c = 1;
+    int num_ops = LLVMGetNumOperands(instr);
+    LARRAY(const Node*, ops, num_ops);
+    for (size_t i = 0; i < num_ops; i++) {
+        ops[i] = convert_value(p, LLVMGetOperand(instr, i));
+    }
+    Nodes operands = nodes(a, num_ops, ops);
+
+    switch (LLVMGetInstructionOpcode(instr)) {
+        case LLVMRet:
+            goto unimplemented;
+        case LLVMBr:
+            goto unimplemented;
+        case LLVMSwitch:
+            goto unimplemented;
+        case LLVMIndirectBr:
+            goto unimplemented;
+        case LLVMInvoke:
+            goto unimplemented;
+        case LLVMUnreachable:
+            finish_body(b, unreachable(a));
+            break;
+        case LLVMCallBr:
+            goto unimplemented;
+        case LLVMFNeg:
+            goto unimplemented;
+        case LLVMAdd:
+            r = prim_op_helper(a, add_op, empty(a), operands);
+            break;
+        case LLVMFAdd:
+            goto unimplemented;
+        case LLVMSub:
+            goto unimplemented;
+        case LLVMFSub:
+            goto unimplemented;
+        case LLVMMul:
+            goto unimplemented;
+        case LLVMFMul:
+            goto unimplemented;
+        case LLVMUDiv:
+            goto unimplemented;
+        case LLVMSDiv:
+            goto unimplemented;
+        case LLVMFDiv:
+            goto unimplemented;
+        case LLVMURem:
+            goto unimplemented;
+        case LLVMSRem:
+            goto unimplemented;
+        case LLVMFRem:
+            goto unimplemented;
+        case LLVMShl:
+            goto unimplemented;
+        case LLVMLShr:
+            goto unimplemented;
+        case LLVMAShr:
+            goto unimplemented;
+        case LLVMAnd:
+            goto unimplemented;
+        case LLVMOr:
+            goto unimplemented;
+        case LLVMXor:
+            goto unimplemented;
+        case LLVMAlloca:
+            r = prim_op_helper(a, alloca_op, singleton(convert_type(p, LLVMGetAllocatedType(instr))), empty(a));
+            break;
+        case LLVMLoad:
+            goto unimplemented;
+        case LLVMStore:
+            c = 0;
+            r = prim_op_helper(a, store_op, empty(a), operands);
+            break;
+        case LLVMGetElementPtr:
+            goto unimplemented;
+        case LLVMTrunc:
+            goto unimplemented;
+        case LLVMZExt:
+            goto unimplemented;
+        case LLVMSExt:
+            goto unimplemented;
+        case LLVMFPToUI:
+            goto unimplemented;
+        case LLVMFPToSI:
+            goto unimplemented;
+        case LLVMUIToFP:
+            goto unimplemented;
+        case LLVMSIToFP:
+            goto unimplemented;
+        case LLVMFPTrunc:
+            goto unimplemented;
+        case LLVMFPExt:
+            goto unimplemented;
+        case LLVMPtrToInt:
+            goto unimplemented;
+        case LLVMIntToPtr:
+            goto unimplemented;
+        case LLVMBitCast:
+            goto unimplemented;
+        case LLVMAddrSpaceCast:
+            goto unimplemented;
+        case LLVMICmp:
+            goto unimplemented;
+        case LLVMFCmp:
+            goto unimplemented;
+        case LLVMPHI:
+            assert(false && "We deal with phi nodes before, there shouldn't be one here");
+            break;
+        case LLVMCall:
+            goto unimplemented;
+        case LLVMSelect:
+            goto unimplemented;
+        case LLVMUserOp1:
+            goto unimplemented;
+        case LLVMUserOp2:
+            goto unimplemented;
+        case LLVMVAArg:
+            goto unimplemented;
+        case LLVMExtractElement:
+            goto unimplemented;
+        case LLVMInsertElement:
+            goto unimplemented;
+        case LLVMShuffleVector:
+            goto unimplemented;
+        case LLVMExtractValue:
+            goto unimplemented;
+        case LLVMInsertValue:
+            goto unimplemented;
+        case LLVMFreeze:
+            goto unimplemented;
+        case LLVMFence:
+            goto unimplemented;
+        case LLVMAtomicCmpXchg:
+            goto unimplemented;
+        case LLVMAtomicRMW:
+            goto unimplemented;
+        case LLVMResume:
+            goto unimplemented;
+        case LLVMLandingPad:
+            goto unimplemented;
+        case LLVMCleanupRet:
+            goto unimplemented;
+        case LLVMCatchRet:
+            goto unimplemented;
+        case LLVMCatchPad:
+            goto unimplemented;
+        case LLVMCleanupPad:
+            goto unimplemented;
+        case LLVMCatchSwitch:
+            goto unimplemented;
+    }
+    assert(c < 2);
+    if (c == 0) {
+        bind_instruction_extra(b, r, 0, NULL, NULL);
+    } else if (c == 1) {
+        Nodes result_types = singleton(convert_type(p, LLVMTypeOf(instr)));
+        String names[] = { LLVMGetValueName(instr) };
+        Nodes results = bind_instruction_extra(b, r, c, &result_types, names);
+        const Node* result = first(results);
+        insert_dict(LLVMValueRef, const Node*, p->map, instr, result);
+    }
+    return;
+
+    unimplemented:
+    error_print("Shady: unimplemented LLVM instruction ");
+    LLVMDumpValue(instr);
+    error_print("\n");
+    error_die();
+}
+
+static void write_bb_tail(Parser* p, BodyBuilder* b, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
+    for (LLVMValueRef instr = first_instr; instr && instr <= LLVMGetLastInstruction(bb); instr = LLVMGetNextInstruction(instr)) {
+        bool last = instr == LLVMGetLastInstruction(bb);
+        if (last)
+            assert(LLVMGetBasicBlockTerminator(bb) == instr);
+        LLVMDumpValue(instr);
+        printf("\n");
+        emit_instruction(p, b, instr);
+    }
+}
+
+static const Node* emit_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
+    const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, bb);
+    if (found) return *found;
+    IrArena* a = get_module_arena(p->dst);
+
+    Nodes params = empty(a);
+    LLVMValueRef instr = LLVMGetFirstInstruction(bb);
+    while (instr) {
+        switch (LLVMGetInstructionOpcode(instr)) {
+            case LLVMPHI: {
+                assert(false);
+                break;
+            }
+            default: goto after_phis;
+        }
+        instr = LLVMGetNextInstruction(instr);
+    }
+    after_phis:
+    {
+        Node* nbb = basic_block(a, fn, params, LLVMGetBasicBlockName(bb));
+        insert_dict(LLVMValueRef, const Node*, p->map, bb, nbb);
+        BodyBuilder* b = begin_body(a);
+        write_bb_tail(p, b, bb, instr);
+        return nbb;
+    }
+}
+
 const Node* convert_function(Parser* p, LLVMValueRef fn) {
     const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, fn);
     if (found) return *found;
@@ -116,10 +403,19 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         LLVMTypeRef ot = LLVMTypeOf(oparam);
         const Type* t = convert_type(p, ot);
         const Node* param = var(a, t, LLVMGetValueName(oparam));
+        insert_dict(LLVMValueRef, const Node*, p->map, oparam, param);
         params = append_nodes(a, params, param);
     }
     Node* f = function(p->dst, params, LLVMGetValueName(fn), empty(a), empty(a));
     insert_dict(LLVMValueRef, const Node*, p->map, fn, f);
+
+    LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
+    if (first_bb) {
+        BodyBuilder* b = begin_body(a);
+        insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
+        write_bb_tail(p, b, first_bb, LLVMGetFirstInstruction(first_bb));
+    }
+
     return f;
 }
 
@@ -138,8 +434,6 @@ bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
         error_die();
     }
     info_print("LLVM IR parsed successfully\n");
-    size_t l;
-    info_print("Module name: %s\n", LLVMGetModuleIdentifier(src, &l));
 
     Parser p = {
         .ctx = context,
