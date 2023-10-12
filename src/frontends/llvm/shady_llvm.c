@@ -7,6 +7,7 @@
 
 #include "llvm-c/IRReader.h"
 #include "llvm-c/Core.h"
+#include "llvm-c/DebugInfo.h"
 #include "llvm-c/Support.h"
 #include "llvm-c/Types.h"
 
@@ -36,6 +37,8 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
         return false;
     return *a == *b;
 }
+
+static const Node* convert_value(Parser* p, LLVMValueRef v);
 
 static AddressSpace convert_address_space(unsigned as) {
     static bool warned = false;
@@ -107,10 +110,101 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
     error_die();
 }
 
+static Nodes convert_mdnode_operands(Parser* p, LLVMValueRef mdnode) {
+    IrArena* a = get_module_arena(p->dst);
+    assert(LLVMIsAMDNode(mdnode));
+
+    unsigned count = LLVMGetMDNodeNumOperands(mdnode);
+    LARRAY(LLVMValueRef, ops, count);
+    LLVMGetMDNodeOperands(mdnode, ops);
+
+    LARRAY(const Node*, cops, count);
+    for (size_t i = 0; i < count; i++)
+        cops[i] = ops[i] ? convert_value(p, ops[i]) : string_lit_helper(a, "null");
+    Nodes args = nodes(a, count, cops);
+    return args;
+}
+
+static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, String name) {
+    IrArena* a = get_module_arena(p->dst);
+    Nodes args = convert_mdnode_operands(p, v);
+    args = prepend_nodes(a, args, string_lit_helper(a, name));
+    return tuple(a, args);
+}
+
+static const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
+    IrArena* a = get_module_arena(p->dst);
+    LLVMMetadataKind kind = LLVMGetMetadataKind(meta);
+    LLVMValueRef v = LLVMMetadataAsValue(p->ctx, meta);
+
+    switch (kind) {
+        case LLVMMDStringMetadataKind: {
+            unsigned l;
+            String name = LLVMGetMDString(v, &l);
+            return string_lit_helper(a, name);
+        }
+        case LLVMConstantAsMetadataMetadataKind:
+        case LLVMLocalAsMetadataMetadataKind: {
+            Nodes ops = convert_mdnode_operands(p, v);
+            assert(ops.count == 1);
+            return first(ops);
+        }
+        case LLVMDistinctMDOperandPlaceholderMetadataKind: goto default_;
+        case LLVMMDTupleMetadataKind: return tuple(a, convert_mdnode_operands(p, v));
+
+        case LLVMDILocationMetadataKind:                 return convert_named_tuple_metadata(p, v, "DILocation");
+        case LLVMDIExpressionMetadataKind:               return convert_named_tuple_metadata(p, v, "DIExpression");
+        case LLVMDIGlobalVariableExpressionMetadataKind: return convert_named_tuple_metadata(p, v, "DIGlobalVariableExpression");
+        case LLVMGenericDINodeMetadataKind:              return convert_named_tuple_metadata(p, v, "GenericDINode");
+        case LLVMDISubrangeMetadataKind:                 return convert_named_tuple_metadata(p, v, "DISubrange");
+        case LLVMDIEnumeratorMetadataKind:               return convert_named_tuple_metadata(p, v, "DIEnumerator");
+        case LLVMDIBasicTypeMetadataKind:                return convert_named_tuple_metadata(p, v, "DIBasicType");
+        case LLVMDIDerivedTypeMetadataKind:              return convert_named_tuple_metadata(p, v, "DIDerivedType");
+        case LLVMDICompositeTypeMetadataKind:            return convert_named_tuple_metadata(p, v, "DICompositeType");
+        case LLVMDISubroutineTypeMetadataKind:           return convert_named_tuple_metadata(p, v, "DISubroutineType");
+        case LLVMDIFileMetadataKind:                     return convert_named_tuple_metadata(p, v, "DIFile");
+        case LLVMDICompileUnitMetadataKind:              return convert_named_tuple_metadata(p, v, "DICompileUnit");
+        case LLVMDISubprogramMetadataKind:               return convert_named_tuple_metadata(p, v, "DiSubprogram");
+        case LLVMDILexicalBlockMetadataKind:             return convert_named_tuple_metadata(p, v, "DILexicalBlock");
+        case LLVMDILexicalBlockFileMetadataKind:         return convert_named_tuple_metadata(p, v, "DILexicalBlockFile");
+        case LLVMDINamespaceMetadataKind:                return convert_named_tuple_metadata(p, v, "DINamespace");
+        case LLVMDIModuleMetadataKind:                   return convert_named_tuple_metadata(p, v, "DIModule");
+        case LLVMDITemplateTypeParameterMetadataKind:    return convert_named_tuple_metadata(p, v, "DITemplateTypeParameter");
+        case LLVMDITemplateValueParameterMetadataKind:   return convert_named_tuple_metadata(p, v, "DITemplateValueParameter");
+        case LLVMDIGlobalVariableMetadataKind:           return convert_named_tuple_metadata(p, v, "DIGlobalVariable");
+        case LLVMDILocalVariableMetadataKind:            return convert_named_tuple_metadata(p, v, "DILocalVariable");
+        case LLVMDILabelMetadataKind:
+        case LLVMDIObjCPropertyMetadataKind:
+        case LLVMDIImportedEntityMetadataKind:
+        case LLVMDIMacroMetadataKind:
+        case LLVMDIMacroFileMetadataKind:
+        case LLVMDICommonBlockMetadataKind:
+        case LLVMDIStringTypeMetadataKind:
+        case LLVMDIGenericSubrangeMetadataKind:
+        case LLVMDIArgListMetadataKind:
+        default: default_:
+            error_print("Unknown metadata kind %d for ", kind);
+            LLVMDumpValue(v);
+            error_print(".\n");
+            error_die();
+    }
+    /*unsigned l;
+    String name = LLVMGetMDString(v, &l);
+    unsigned count = LLVMGetMDNodeNumOperands(v);
+    assert(count == 1);
+    LLVMValueRef op;
+    LLVMGetMDNodeOperands(v, &op);
+    // error_print("kkk");
+    LLVMDumpValue(op);
+    */
+}
+
 static const Node* convert_value(Parser* p, LLVMValueRef v) {
     const Type** found = find_value_dict(LLVMTypeRef, const Type*, p->map, v);
     if (found) return *found;
     IrArena* a = get_module_arena(p->dst);
+
+    const Node* r = NULL;
 
     switch (LLVMGetValueKind(v)) {
         case LLVMArgumentValueKind:
@@ -166,14 +260,21 @@ static const Node* convert_value(Parser* p, LLVMValueRef v) {
             break;
         case LLVMConstantTokenNoneValueKind:
             break;
-        case LLVMMetadataAsValueValueKind:
-            break;
+        case LLVMMetadataAsValueValueKind: {
+            LLVMMetadataRef meta = LLVMValueAsMetadata(v);
+            r = convert_metadata(p, meta);
+        }
         case LLVMInlineAsmValueKind:
             break;
         case LLVMInstructionValueKind:
             break;
         case LLVMPoisonValueValueKind:
             break;
+    }
+
+    if (r) {
+        insert_dict(LLVMTypeRef, const Type*, p->map, v, r);
+        return r;
     }
 
     error_print("Failed to find value ");
