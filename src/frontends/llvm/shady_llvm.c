@@ -39,6 +39,7 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
 }
 
 static const Node* convert_value(Parser* p, LLVMValueRef v);
+const Node* convert_function(Parser* p, LLVMValueRef fn);
 
 static AddressSpace convert_address_space(unsigned as) {
     static bool warned = false;
@@ -108,6 +109,14 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
     error_print("Unsupported type: ");
     LLVMDumpType(t);
     error_die();
+}
+
+static String is_llvm_intrinsic(LLVMValueRef fn) {
+    assert(LLVMIsAFunction(fn));
+    String name = LLVMGetValueName(fn);
+    if (memcmp(name, "llvm.", 5) == 0)
+        return name;
+    return NULL;
 }
 
 static Nodes convert_mdnode_operands(Parser* p, LLVMValueRef mdnode) {
@@ -218,6 +227,7 @@ static const Node* convert_value(Parser* p, LLVMValueRef v) {
         case LLVMMemoryPhiValueKind:
             break;
         case LLVMFunctionValueKind:
+            r = convert_function(p, v);
             break;
         case LLVMGlobalAliasValueKind:
             break;
@@ -283,20 +293,27 @@ static const Node* convert_value(Parser* p, LLVMValueRef v) {
     error_die();
 }
 
-static void emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
+static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
     IrArena* a = get_module_arena(p->dst);
     const Node* r = NULL;
     int c = 1;
     int num_ops = LLVMGetNumOperands(instr);
     LARRAY(const Node*, ops, num_ops);
     for (size_t i = 0; i < num_ops; i++) {
-        ops[i] = convert_value(p, LLVMGetOperand(instr, i));
+        LLVMValueRef op = LLVMGetOperand(instr, i);
+        if (LLVMIsAFunction(op) && is_llvm_intrinsic(op))
+            ops[i] = NULL;
+        else
+            ops[i] = convert_value(p, op);
     }
     Nodes operands = nodes(a, num_ops, ops);
 
     switch (LLVMGetInstructionOpcode(instr)) {
         case LLVMRet:
-            goto unimplemented;
+            return fn_ret(a, (Return) {
+                .fn = NULL,
+                .args = num_ops == 0 ? empty(a) : singleton(ops[0])
+            });
         case LLVMBr:
             goto unimplemented;
         case LLVMSwitch:
@@ -306,8 +323,7 @@ static void emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
         case LLVMInvoke:
             goto unimplemented;
         case LLVMUnreachable:
-            finish_body(b, unreachable(a));
-            break;
+            return unreachable(a);
         case LLVMCallBr:
             goto unimplemented;
         case LLVMFNeg:
@@ -356,7 +372,7 @@ static void emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             goto unimplemented;
         case LLVMStore:
             c = 0;
-            r = prim_op_helper(a, store_op, empty(a), operands);
+            r = prim_op_helper(a, store_op, empty(a), mk_nodes(a, ops[1], ops[0]));
             break;
         case LLVMGetElementPtr:
             goto unimplemented;
@@ -393,8 +409,21 @@ static void emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
         case LLVMPHI:
             assert(false && "We deal with phi nodes before, there shouldn't be one here");
             break;
-        case LLVMCall:
-            goto unimplemented;
+        case LLVMCall: {
+            unsigned num_args = LLVMGetNumArgOperands(instr);
+            LLVMValueRef callee = LLVMGetCalledValue(instr);
+            assert(num_args + 1 == num_ops);
+            String intrinsic = is_llvm_intrinsic(callee);
+            if (intrinsic) {
+                if (strcmp(intrinsic, "llvm.dbg.declare") == 0)
+                    return NULL;
+            }
+            r = call(a, (Call) {
+                .callee = ops[num_args],
+                .args = nodes(a, num_args, ops),
+            });
+            break;
+        }
         case LLVMSelect:
             goto unimplemented;
         case LLVMUserOp1:
@@ -446,7 +475,7 @@ static void emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
         const Node* result = first(results);
         insert_dict(LLVMValueRef, const Node*, p->map, instr, result);
     }
-    return;
+    return NULL;
 
     unimplemented:
     error_print("Shady: unimplemented LLVM instruction ");
@@ -455,15 +484,19 @@ static void emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
     error_die();
 }
 
-static void write_bb_tail(Parser* p, BodyBuilder* b, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
+static const Node* write_bb_tail(Parser* p, BodyBuilder* b, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
     for (LLVMValueRef instr = first_instr; instr && instr <= LLVMGetLastInstruction(bb); instr = LLVMGetNextInstruction(instr)) {
         bool last = instr == LLVMGetLastInstruction(bb);
         if (last)
             assert(LLVMGetBasicBlockTerminator(bb) == instr);
         LLVMDumpValue(instr);
         printf("\n");
-        emit_instruction(p, b, instr);
+        const Node* terminator = emit_instruction(p, b, instr);
+        if (terminator)
+            return finish_body(b, terminator);
+
     }
+    assert(false);
 }
 
 static const Node* emit_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
@@ -514,7 +547,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     if (first_bb) {
         BodyBuilder* b = begin_body(a);
         insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
-        write_bb_tail(p, b, first_bb, LLVMGetFirstInstruction(first_bb));
+        f->payload.fun.body = write_bb_tail(p, b, first_bb, LLVMGetFirstInstruction(first_bb));
     }
 
     return f;
@@ -544,7 +577,7 @@ bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
     };
 
     for (LLVMValueRef fn = LLVMGetFirstFunction(src); fn && fn <= LLVMGetNextFunction(fn); fn = LLVMGetLastFunction(src)) {
-        if (memcmp(LLVMGetValueName(fn), "llvm.", 5) == 0)
+        if (is_llvm_intrinsic(fn))
             continue;
         convert_function(&p, fn);
     }
