@@ -153,11 +153,12 @@ bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
     }
     info_print("LLVM IR parsed successfully\n");
 
+    Module* dirty = new_module(get_module_arena(dst), "dirty");
     Parser p = {
         .ctx = context,
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .src = src,
-        .dst = dst,
+        .dst = dirty,
     };
 
     for (LLVMValueRef fn = LLVMGetFirstFunction(src); fn && fn <= LLVMGetNextFunction(fn); fn = LLVMGetLastFunction(src)) {
@@ -174,6 +175,9 @@ bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
 
     destroy_dict(p.map);
 
+    postprocess(dirty, dst);
+
     LLVMContextDispose(context);
+
     return true;
 }

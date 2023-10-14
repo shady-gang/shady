@@ -27,6 +27,8 @@ const Node* convert_function(Parser* p, LLVMValueRef fn);
 const Type* convert_type(Parser* p, LLVMTypeRef t);
 const Node* convert_metadata(Parser* p, LLVMMetadataRef meta);
 
+void postprocess(Module* src, Module* dst);
+
 static String is_llvm_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);

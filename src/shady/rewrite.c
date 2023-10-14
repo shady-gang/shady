@@ -161,8 +161,13 @@ const Node* recreate_variable(Rewriter* rewriter, const Node* old) {
 
 Nodes recreate_variables(Rewriter* rewriter, Nodes old) {
     LARRAY(const Node*, nvars, old.count);
-    for (size_t i = 0; i < old.count; i++)
-        nvars[i] = recreate_variable(rewriter, old.nodes[i]);
+    for (size_t i = 0; i < old.count; i++) {
+        if (rewriter->config.process_variables)
+            nvars[i] = rewrite_node(rewriter, old.nodes[i]);
+        else
+            nvars[i] = recreate_variable(rewriter, old.nodes[i]);
+        assert(nvars[i]->tag == Variable_TAG);
+    }
     return nodes(rewriter->dst_arena, old.count, nvars);
 }
 
