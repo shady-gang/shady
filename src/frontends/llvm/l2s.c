@@ -132,7 +132,8 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
 
     if (LLVMIsAGlobalVariable(global)) {
         LLVMValueRef value = LLVMGetInitializer(global);
-        r = global_var(p->dst, empty(a), type, name, AsGeneric);
+        assert(type->tag == PtrType_TAG);
+        r = global_var(p->dst, empty(a), type->payload.ptr_type.pointed_type, name, AsGeneric);
         if (value)
             r->payload.global_variable.init = convert_value(p, value);
     } else {
