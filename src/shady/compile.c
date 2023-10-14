@@ -11,7 +11,7 @@
 #include <stdbool.h>
 
 #ifdef LLVM_PARSER_PRESENT
-#include "../frontends/llvm/shady_llvm.h"
+#include "../frontends/llvm/l2s.h"
 #endif
 
 #ifdef SPV_PARSER_PRESENT

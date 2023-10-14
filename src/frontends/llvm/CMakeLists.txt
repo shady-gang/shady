@@ -1,4 +1,4 @@
-add_library(shady_fe_llvm STATIC shady_llvm.c)
+add_library(shady_fe_llvm STATIC l2s.c)
 
 target_include_directories(shady_fe_llvm PRIVATE ${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
