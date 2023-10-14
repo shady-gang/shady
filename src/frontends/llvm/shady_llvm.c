@@ -360,26 +360,31 @@ static const Node* convert_value(Parser* p, LLVMValueRef v) {
     error_die();
 }
 
-static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
+static Nodes convert_operands(Parser* p, size_t num_ops, LLVMValueRef v) {
     IrArena* a = get_module_arena(p->dst);
-    const Node* r = NULL;
-    int c = 1;
-    int num_ops = LLVMGetNumOperands(instr);
     LARRAY(const Node*, ops, num_ops);
     for (size_t i = 0; i < num_ops; i++) {
-        LLVMValueRef op = LLVMGetOperand(instr, i);
+        LLVMValueRef op = LLVMGetOperand(v, i);
         if (LLVMIsAFunction(op) && is_llvm_intrinsic(op))
             ops[i] = NULL;
         else
             ops[i] = convert_value(p, op);
     }
     Nodes operands = nodes(a, num_ops, ops);
+    return operands;
+}
+
+static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
+    IrArena* a = get_module_arena(p->dst);
+    int num_ops = LLVMGetNumOperands(instr);
+    const Node* r = NULL;
+    int results_count = 1;
 
     switch (LLVMGetInstructionOpcode(instr)) {
         case LLVMRet:
             return fn_ret(a, (Return) {
                 .fn = NULL,
-                .args = num_ops == 0 ? empty(a) : singleton(ops[0])
+                .args = num_ops == 0 ? empty(a) : convert_operands(p, num_ops, instr)
             });
         case LLVMBr:
             goto unimplemented;
@@ -396,7 +401,7 @@ static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef inst
         case LLVMFNeg:
             goto unimplemented;
         case LLVMAdd:
-            r = prim_op_helper(a, add_op, empty(a), operands);
+            r = prim_op_helper(a, add_op, empty(a), convert_operands(p, num_ops, instr));
             break;
         case LLVMFAdd:
             goto unimplemented;
@@ -437,10 +442,13 @@ static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef inst
             break;
         case LLVMLoad:
             goto unimplemented;
-        case LLVMStore:
-            c = 0;
-            r = prim_op_helper(a, store_op, empty(a), mk_nodes(a, ops[1], ops[0]));
+        case LLVMStore: {
+            results_count = 0;
+            Nodes ops = convert_operands(p, num_ops, instr);
+            assert(ops.count == 2);
+            r = prim_op_helper(a, store_op, empty(a), mk_nodes(a, ops.nodes[1], ops.nodes[0]));
             break;
+        }
         case LLVMGetElementPtr:
             goto unimplemented;
         case LLVMTrunc:
@@ -485,9 +493,10 @@ static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef inst
                 if (strcmp(intrinsic, "llvm.dbg.declare") == 0)
                     return NULL;
             }
+            Nodes ops = convert_operands(p, num_ops, instr);
             r = call(a, (Call) {
-                .callee = ops[num_args],
-                .args = nodes(a, num_args, ops),
+                .callee = ops.nodes[num_args],
+                .args = nodes(a, num_args, ops.nodes),
             });
             break;
         }
@@ -532,13 +541,13 @@ static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef inst
         case LLVMCatchSwitch:
             goto unimplemented;
     }
-    assert(c < 2);
-    if (c == 0) {
+    assert(results_count < 2);
+    if (results_count == 0) {
         bind_instruction_extra(b, r, 0, NULL, NULL);
-    } else if (c == 1) {
+    } else if (results_count == 1) {
         Nodes result_types = singleton(convert_type(p, LLVMTypeOf(instr)));
         String names[] = { LLVMGetValueName(instr) };
-        Nodes results = bind_instruction_extra(b, r, c, &result_types, names);
+        Nodes results = bind_instruction_extra(b, r, results_count, &result_types, names);
         const Node* result = first(results);
         insert_dict(LLVMValueRef, const Node*, p->map, instr, result);
     }
