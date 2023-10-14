@@ -635,7 +635,38 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
 }
 
 const Node* convert_global(Parser* p, LLVMValueRef global) {
-    assert(false && "TODO");
+    const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, global);
+    if (found) return *found;
+    IrArena* a = get_module_arena(p->dst);
+
+    String name = LLVMGetValueName(global);
+    String intrinsic = is_llvm_intrinsic(global);
+    /*if (intrinsic) {
+        if (strcmp(intrinsic, "llvm.global.annotations") == 0) {
+            assert(false);
+        }
+        warn_print("Skipping unknown LLVM intrinsic function: %s\n", name);
+        return NULL;
+    }*/
+    debug_print("Converting global: %s\n", name);
+
+    const Type* type = convert_type(p, LLVMTypeOf(global));
+    Node* r = NULL;
+
+    if (LLVMIsAGlobalVariable(global)) {
+        LLVMValueRef value = LLVMGetInitializer(global);
+        r = global_var(p->dst, empty(a), type, name, AsGeneric);
+        if (value)
+            r->payload.global_variable.init = convert_value(p, value);
+    } else {
+        r = constant(p->dst, empty(a), type, name);
+        r->payload.constant.value = convert_value(p, global);
+    }
+
+    assert(r && is_declaration(r));
+    const Node* ref = ref_decl_helper(a, r);
+    insert_dict(LLVMValueRef, const Node*, p->map, global, ref);
+    return ref;
 }
 
 bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
