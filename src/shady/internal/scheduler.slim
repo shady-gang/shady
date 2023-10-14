@@ -18,7 +18,7 @@
 @Internal subgroup u32 next_fn;
 @Internal subgroup TreeNode active_branch;
 
-@Builtin("SubgroupLocalInvocationId")
+@Internal @Builtin("SubgroupLocalInvocationId")
 input u32 subgroup_local_id;
 
 @Internal @Structured @DisablePass("setup_stack_frames") @Leaf
