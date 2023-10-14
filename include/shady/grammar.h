@@ -175,9 +175,6 @@ typedef enum AddressSpace_ {
     /// For resources supplied by the host, agnostic of the binding model
     AsExternal,
 
-    // "fake" address space for function pointers
-    AsProgramCode,
-
     // SPIR-V specific address spaces
 
     /// Maps to Vulkan push constants

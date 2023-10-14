@@ -555,7 +555,6 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 case AsExternal:
                     address_space_prefix = "extern ";
                     break;
-                case AsProgramCode:
                 case AsInput:
                 case AsUInput:
                 case AsOutput:

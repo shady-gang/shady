@@ -96,7 +96,6 @@ static void print_address_space(PrinterCtx* ctx, AddressSpace as) {
         case AsUInput:             printf("input_uniform"); break;
         case AsOutput:                    printf("output"); break;
         case AsExternal:                printf("external"); break;
-        case AsProgramCode:         printf("program_code"); break;
 
         case AsSPVFunctionLogical:      printf("function"); break;
         case AsVKPushConstant:     printf("push_constant"); break;

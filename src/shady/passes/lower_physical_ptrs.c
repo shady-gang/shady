@@ -172,7 +172,6 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             return;
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
-            case AsProgramCode: goto des_int;
             case AsGlobalPhysical: {
                 const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false });
                 const Node* unsigned_value = gen_primop_e(bb, reinterpret_op, singleton(ptr_int_t), singleton(value));

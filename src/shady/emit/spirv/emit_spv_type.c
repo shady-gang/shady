@@ -32,7 +32,6 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
         case AsExternal:
         case AsGeneric:
         case AsSubgroupLogical:
-        case AsProgramCode:
         case AsSharedPhysical:
         case AsSubgroupPhysical:
         case AsPrivatePhysical: error("This should have been lowered before");

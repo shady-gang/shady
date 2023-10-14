@@ -434,7 +434,7 @@ const Type* check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
         .is_uniform = true,
         .type = ptr_type(arena, (PtrType) {
             .pointed_type = fn_addr.fn->type,
-            .address_space = AsProgramCode,
+            .address_space = AsGeneric /* the actual AS does not matter because these are opaque anyways */,
         })
     });
 }
@@ -969,7 +969,7 @@ static Nodes check_value_call(const Node* callee, Nodes argument_types) {
     const Type* callee_type = callee->type;
     SHADY_UNUSED bool callee_uniform = deconstruct_qualified_type(&callee_type);
     AddressSpace as = deconstruct_pointer_type(&callee_type);
-    assert(as == AsProgramCode);
+    assert(as == AsGeneric);
 
     assert(callee_type->tag == FnType_TAG);
 
