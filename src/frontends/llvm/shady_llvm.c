@@ -212,30 +212,21 @@ static const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
         case LLVMDITemplateValueParameterMetadataKind:   return convert_named_tuple_metadata(p, v, "DITemplateValueParameter");
         case LLVMDIGlobalVariableMetadataKind:           return convert_named_tuple_metadata(p, v, "DIGlobalVariable");
         case LLVMDILocalVariableMetadataKind:            return convert_named_tuple_metadata(p, v, "DILocalVariable");
-        case LLVMDILabelMetadataKind:
-        case LLVMDIObjCPropertyMetadataKind:
-        case LLVMDIImportedEntityMetadataKind:
-        case LLVMDIMacroMetadataKind:
-        case LLVMDIMacroFileMetadataKind:
-        case LLVMDICommonBlockMetadataKind:
-        case LLVMDIStringTypeMetadataKind:
-        case LLVMDIGenericSubrangeMetadataKind:
-        case LLVMDIArgListMetadataKind:
+        case LLVMDILabelMetadataKind:                    return convert_named_tuple_metadata(p, v, "DILabelMetadata");
+        case LLVMDIObjCPropertyMetadataKind:             return convert_named_tuple_metadata(p, v, "DIObjCProperty");
+        case LLVMDIImportedEntityMetadataKind:           return convert_named_tuple_metadata(p, v, "DIImportedEntity");
+        case LLVMDIMacroMetadataKind:                    return convert_named_tuple_metadata(p, v, "DIMacroMetadata");
+        case LLVMDIMacroFileMetadataKind:                return convert_named_tuple_metadata(p, v, "DIMacroFile");
+        case LLVMDICommonBlockMetadataKind:              return convert_named_tuple_metadata(p, v, "DICommonBlock");
+        case LLVMDIStringTypeMetadataKind:               return convert_named_tuple_metadata(p, v, "DIStringType");
+        case LLVMDIGenericSubrangeMetadataKind:          return convert_named_tuple_metadata(p, v, "DIGenericSubrange");
+        case LLVMDIArgListMetadataKind:                  return convert_named_tuple_metadata(p, v, "DIArgList");
         default: default_:
             error_print("Unknown metadata kind %d for ", kind);
             LLVMDumpValue(v);
             error_print(".\n");
             error_die();
     }
-    /*unsigned l;
-    String name = LLVMGetMDString(v, &l);
-    unsigned count = LLVMGetMDNodeNumOperands(v);
-    assert(count == 1);
-    LLVMValueRef op;
-    LLVMGetMDNodeOperands(v, &op);
-    // error_print("kkk");
-    LLVMDumpValue(op);
-    */
 }
 
 static const Node* convert_value(Parser* p, LLVMValueRef v) {
