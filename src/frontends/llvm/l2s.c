@@ -93,7 +93,12 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         insert_dict(LLVMValueRef, const Node*, p->map, oparam, param);
         params = append_nodes(a, params, param);
     }
-    Node* f = function(p->dst, params, LLVMGetValueName(fn), empty(a), empty(a));
+    const Type* fn_type = convert_type(p, LLVMTypeOf(fn));
+    assert(fn_type->tag == PtrType_TAG);
+    fn_type = fn_type->payload.ptr_type.pointed_type;
+    assert(fn_type->tag == FnType_TAG);
+    assert(fn_type->payload.fn_type.param_types.count == params.count);
+    Node* f = function(p->dst, params, LLVMGetValueName(fn), empty(a), fn_type->payload.fn_type.return_types);
     insert_dict(LLVMValueRef, const Node*, p->map, fn, f);
 
     LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);

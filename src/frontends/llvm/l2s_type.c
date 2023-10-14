@@ -40,8 +40,19 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
                 case 64: return uint64_type(a);
                 default: error("Unsupported integer width: %d\n", LLVMGetIntTypeWidth(t)); break;
             }
-        case LLVMFunctionTypeKind:
-            break;
+        case LLVMFunctionTypeKind: {
+            unsigned num_params = LLVMCountParamTypes(t);
+            LARRAY(LLVMTypeRef, param_types, num_params);
+            LLVMGetParamTypes(t, param_types);
+            LARRAY(const Type*, cparam_types, num_params);
+            for (size_t i = 0; i < num_params; i++)
+                cparam_types[i] = convert_type(p, param_types[i]);
+            const Type* ret_type = convert_type(p, LLVMGetReturnType(t));
+            return fn_type(a, (FnType) {
+                .param_types = nodes(a, num_params, cparam_types),
+                .return_types = ret_type == unit_type(a) ? empty(a) : singleton(ret_type)
+            });
+        }
         case LLVMStructTypeKind: {
             String name = LLVMGetStructName(t);
             Node* decl = NULL;
