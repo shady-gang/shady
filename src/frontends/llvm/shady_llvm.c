@@ -10,6 +10,7 @@
 #include "llvm-c/DebugInfo.h"
 #include "llvm-c/Support.h"
 #include "llvm-c/Types.h"
+#include "../../shady/type.h"
 
 #include <assert.h>
 #include <string.h>
@@ -38,6 +39,13 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
     return *a == *b;
 }
 
+typedef struct {
+    const Node* terminator;
+    const Node* instruction;
+    Nodes result_types;
+} EmittedInstr;
+
+static EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr);
 static const Node* convert_value(Parser* p, LLVMValueRef v);
 const Node* convert_function(Parser* p, LLVMValueRef fn);
 
@@ -259,8 +267,12 @@ static const Node* convert_value(Parser* p, LLVMValueRef v) {
             break;
         case LLVMBlockAddressValueKind:
             break;
-        case LLVMConstantExprValueKind:
+        case LLVMConstantExprValueKind: {
+            BodyBuilder* bb = begin_body(a);
+            EmittedInstr emitted = emit_instruction(p, bb, v);
+            r = anti_quote_helper(a, emitted.instruction);
             break;
+        }
         case LLVMConstantDataArrayValueKind: {
             assert(t->tag == ArrType_TAG);
             size_t arr_size = get_int_literal_value(t->payload.arr_type.size, false);
@@ -334,6 +346,7 @@ static const Node* convert_value(Parser* p, LLVMValueRef v) {
         case LLVMConstantFPValueKind:
             break;
         case LLVMConstantPointerNullValueKind:
+            r = null_ptr(a, (NullPtr) { .ptr_type = t });
             break;
         case LLVMConstantTokenNoneValueKind:
             break;
@@ -374,18 +387,29 @@ static Nodes convert_operands(Parser* p, size_t num_ops, LLVMValueRef v) {
     return operands;
 }
 
-static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
+/// instr may be an instruction or a constantexpr
+static EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
     IrArena* a = get_module_arena(p->dst);
     int num_ops = LLVMGetNumOperands(instr);
+    size_t num_results = 1;
+    Nodes result_types = empty(a);
     const Node* r = NULL;
-    int results_count = 1;
 
-    switch (LLVMGetInstructionOpcode(instr)) {
-        case LLVMRet:
-            return fn_ret(a, (Return) {
-                .fn = NULL,
-                .args = num_ops == 0 ? empty(a) : convert_operands(p, num_ops, instr)
-            });
+    LLVMOpcode opcode;
+    if (LLVMIsAInstruction(instr))
+        opcode = LLVMGetInstructionOpcode(instr);
+    else if (LLVMIsAConstantExpr(instr))
+        opcode = LLVMGetConstOpcode(instr);
+    else
+        assert(false);
+
+    switch (opcode) {
+        case LLVMRet: return (EmittedInstr) {
+                .terminator = fn_ret(a, (Return) {
+                    .fn = NULL,
+                    .args = num_ops == 0 ? empty(a) : convert_operands(p, num_ops, instr)
+                })
+            };
         case LLVMBr:
             goto unimplemented;
         case LLVMSwitch:
@@ -394,8 +418,9 @@ static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef inst
             goto unimplemented;
         case LLVMInvoke:
             goto unimplemented;
-        case LLVMUnreachable:
-            return unreachable(a);
+        case LLVMUnreachable: return (EmittedInstr) {
+            .terminator = unreachable(a)
+        };
         case LLVMCallBr:
             goto unimplemented;
         case LLVMFNeg:
@@ -443,14 +468,17 @@ static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef inst
         case LLVMLoad:
             goto unimplemented;
         case LLVMStore: {
-            results_count = 0;
+            num_results = 0;
             Nodes ops = convert_operands(p, num_ops, instr);
             assert(ops.count == 2);
             r = prim_op_helper(a, store_op, empty(a), mk_nodes(a, ops.nodes[1], ops.nodes[0]));
             break;
         }
-        case LLVMGetElementPtr:
-            goto unimplemented;
+        case LLVMGetElementPtr: {
+            Nodes ops = convert_operands(p, num_ops, instr);
+            r = prim_op_helper(a, lea_op, empty(a), ops);
+            break;
+        }
         case LLVMTrunc:
             goto unimplemented;
         case LLVMZExt:
@@ -470,13 +498,12 @@ static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef inst
         case LLVMFPExt:
             goto unimplemented;
         case LLVMPtrToInt:
-            goto unimplemented;
         case LLVMIntToPtr:
-            goto unimplemented;
         case LLVMBitCast:
-            goto unimplemented;
-        case LLVMAddrSpaceCast:
-            goto unimplemented;
+        case LLVMAddrSpaceCast:{
+            r = prim_op_helper(a, reinterpret_op, singleton(convert_type(p, LLVMTypeOf(instr))), convert_operands(p, num_ops, instr));
+            break;
+        }
         case LLVMICmp:
             goto unimplemented;
         case LLVMFCmp:
@@ -491,7 +518,7 @@ static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef inst
             String intrinsic = is_llvm_intrinsic(callee);
             if (intrinsic) {
                 if (strcmp(intrinsic, "llvm.dbg.declare") == 0)
-                    return NULL;
+                    return (EmittedInstr) {};
             }
             Nodes ops = convert_operands(p, num_ops, instr);
             r = call(a, (Call) {
@@ -541,22 +568,20 @@ static const Node* emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef inst
         case LLVMCatchSwitch:
             goto unimplemented;
     }
-    assert(results_count < 2);
-    if (results_count == 0) {
-        bind_instruction_extra(b, r, 0, NULL, NULL);
-    } else if (results_count == 1) {
-        Nodes result_types = singleton(convert_type(p, LLVMTypeOf(instr)));
-        String names[] = { LLVMGetValueName(instr) };
-        Nodes results = bind_instruction_extra(b, r, results_count, &result_types, names);
-        const Node* result = first(results);
-        insert_dict(LLVMValueRef, const Node*, p->map, instr, result);
+    if (r) {
+        if (num_results == 1)
+            result_types = singleton(convert_type(p, LLVMTypeOf(instr)));
+        assert(result_types.count == num_results);
+        return (EmittedInstr) {
+            .instruction = r,
+            .result_types = result_types
+        };
     }
-    return NULL;
 
     unimplemented:
     error_print("Shady: unimplemented LLVM instruction ");
     LLVMDumpValue(instr);
-    error_print("\n");
+    error_print(" (opcode=%d)\n", opcode);
     error_die();
 }
 
@@ -567,10 +592,17 @@ static const Node* write_bb_tail(Parser* p, BodyBuilder* b, LLVMBasicBlockRef bb
             assert(LLVMGetBasicBlockTerminator(bb) == instr);
         LLVMDumpValue(instr);
         printf("\n");
-        const Node* terminator = emit_instruction(p, b, instr);
-        if (terminator)
-            return finish_body(b, terminator);
-
+        EmittedInstr emitted = emit_instruction(p, b, instr);
+        if (emitted.terminator)
+            return finish_body(b, emitted.terminator);
+        if (!emitted.instruction)
+            continue;
+        String names[] = { LLVMGetValueName(instr) };
+        Nodes results = bind_instruction_extra(b, emitted.instruction, emitted.result_types.count, &emitted.result_types, names);
+        if (emitted.result_types.count == 1) {
+            const Node* result = first(results);
+            insert_dict(LLVMValueRef, const Node*, p->map, instr, result);
+        }
     }
     assert(false);
 }
