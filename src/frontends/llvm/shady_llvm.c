@@ -79,10 +79,38 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             }
         case LLVMFunctionTypeKind:
             break;
-        case LLVMStructTypeKind:
-            break;
-        case LLVMArrayTypeKind:
-            break;
+        case LLVMStructTypeKind: {
+            String name = LLVMGetStructName(t);
+            Node* decl = NULL;
+            const Node* result = NULL;
+            if (name) {
+                decl = nominal_type(p->dst, empty(a), name);
+                result = type_decl_ref_helper(a, decl);
+                insert_dict(LLVMTypeRef, const Type*, p->map, t, result);
+            }
+
+            unsigned size = LLVMCountStructElementTypes(t);
+            LARRAY(LLVMTypeRef, elements, size);
+            LLVMGetStructElementTypes(t, elements);
+            LARRAY(const Type*, celements, size);
+            for (size_t i = 0; i < size; i++) {
+                celements[i] = convert_type(p, elements[i]);
+            }
+
+            const Node* product = record_type(a, (RecordType) {
+                .members = nodes(a, size, celements)
+            });
+            if (decl)
+                decl->payload.nom_type.body = product;
+            else
+                result = product;
+            return result;
+        }
+        case LLVMArrayTypeKind: {
+            unsigned length = LLVMGetArrayLength(t);
+            const Type* elem_t = convert_type(p, LLVMGetElementType(t));
+            return arr_type(a, (ArrType) { .element_type = elem_t, .size = uint32_literal(a, length)});
+        }
         case LLVMPointerTypeKind: {
             AddressSpace as = convert_address_space(LLVMGetPointerAddressSpace(t));
             const Type* pointee = convert_type(p, LLVMGetElementType(t));
@@ -103,6 +131,8 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
         case LLVMScalableVectorTypeKind:
         case LLVMBFloatTypeKind:
         case LLVMX86_AMXTypeKind:
+            break;
+        case LLVMPPC_FP128TypeKind:
             break;
     }
 
