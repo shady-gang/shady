@@ -142,7 +142,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
 }
 
 static String is_llvm_intrinsic(LLVMValueRef fn) {
-    assert(LLVMIsAFunction(fn));
+    assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);
     if (memcmp(name, "llvm.", 5) == 0)
         return name;
@@ -557,10 +557,15 @@ static const Node* emit_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
 }
 
 const Node* convert_function(Parser* p, LLVMValueRef fn) {
+    if (is_llvm_intrinsic(fn)) {
+        warn_print("Skipping unknown LLVM intrinsic function: %s\n", LLVMGetValueName(fn));
+        return NULL;
+    }
+
     const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, fn);
     if (found) return *found;
     IrArena* a = get_module_arena(p->dst);
-    info_print("Converting: %s\n", LLVMGetValueName(fn));
+    debug_print("Converting function: %s\n", LLVMGetValueName(fn));
 
     Nodes params = empty(a);
     for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam && oparam <= LLVMGetLastParam(fn); oparam = LLVMGetNextParam(oparam)) {
@@ -607,8 +612,6 @@ bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
     };
 
     for (LLVMValueRef fn = LLVMGetFirstFunction(src); fn && fn <= LLVMGetNextFunction(fn); fn = LLVMGetLastFunction(src)) {
-        if (is_llvm_intrinsic(fn))
-            continue;
         convert_function(&p, fn);
     }
 
