@@ -16,7 +16,7 @@
 #include <assert.h>
 #include <string.h>
 
-typedef uint32_t FnPtr;
+typedef uint64_t FnPtr;
 
 typedef struct Context_ {
     Rewriter rewriter;
@@ -35,7 +35,7 @@ typedef struct Context_ {
 static const Node* process(Context* ctx, const Node* old);
 
 static const Node* fn_ptr_as_value(IrArena* a, FnPtr ptr) {
-    return uint32_literal(a, ptr);
+    return uint64_literal(a, ptr);
 }
 
 static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
@@ -73,7 +73,9 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     // Initialise next_fn/next_mask to the entry function
     const Node* jump_fn = access_decl(&ctx->rewriter, "builtin_fork");
-    bind_instruction(bb, call(a, (Call) { .callee = jump_fn, .args = singleton(lower_fn_addr(ctx, old)) }));
+    const Node* fn_addr = lower_fn_addr(ctx, old);
+    fn_addr = gen_conversion(bb, uint32_type(a), fn_addr);
+    bind_instruction(bb, call(a, (Call) { .callee = jump_fn, .args = singleton(fn_addr) }));
 
     if (!*ctx->top_dispatcher_fn) {
         *ctx->top_dispatcher_fn = function(ctx->rewriter.dst_module, nodes(a, 0, NULL), "top_dispatcher", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" }), annotation(a, (Annotation) { .name = "Structured" })), nodes(a, 0, NULL));
@@ -167,17 +169,25 @@ static const Node* process(Context* ctx, const Node* old) {
         case PrimOp_TAG: {
             switch (old->payload.prim_op.op) {
                 case create_joint_point_op: {
+                    BodyBuilder* bb = begin_body(a);
                     Nodes args = rewrite_nodes(&ctx->rewriter, old->payload.prim_op.operands);
-                    return call(a, (Call) {
+                    assert(args.count == 2);
+                    const Node* dst = first(args);
+                    const Node* sp = args.nodes[1];
+                    dst = gen_conversion(bb, uint32_type(a), dst);
+                    Nodes r = bind_instruction(bb, call(a, (Call) {
                         .callee = access_decl(&ctx->rewriter, "builtin_create_control_point"),
-                        .args = args,
-                    });
+                        .args = mk_nodes(a, dst, sp),
+                    }));
+                    return yield_values_and_wrap_in_block(bb, r);
                 }
                 case default_join_point_op: {
-                    return call(a, (Call) {
-                        .callee = access_decl(&ctx->rewriter, "builtin_entry_join_point"),
-                        .args = empty(a)
-                    });
+                    BodyBuilder* bb = begin_body(a);
+                    Nodes r = bind_instruction(bb, call(a, (Call) {
+                            .callee = access_decl(&ctx->rewriter, "builtin_entry_join_point"),
+                            .args = empty(a)
+                    }));
+                    return yield_values_and_wrap_in_block(bb, r);
                 }
                 default: return recreate_node_identity(&ctx->rewriter, old);
             }
@@ -188,10 +198,11 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* bb = begin_body(a);
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.tail_call.args));
             const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
+            target = gen_conversion(bb, uint32_type(a), target);
 
             const Node* fork_call = call(a, (Call) {
                 .callee = access_decl(&ctx->rewriter, "builtin_fork"),
-                .args = nodes(a, 1, (const Node*[]) {target })
+                .args = nodes(a, 1, (const Node*[]) { target })
             });
             bind_instruction(bb, fork_call);
             return finish_body(bb, fn_ret(a, (Return) { .fn = NULL, .args = nodes(a, 0, NULL) }));
@@ -223,7 +234,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
             if (pointee->tag == FnType_TAG) {
-                const Type* emulated_fn_ptr_type = uint32_type(a);
+                const Type* emulated_fn_ptr_type = uint64_type(a);
                 return emulated_fn_ptr_type;
             }
             break;
@@ -327,7 +338,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     }
 
     const Node* zero_case_lam = lambda(a, nodes(a, 0, NULL), finish_body(zero_case_builder, continue_terminator));
-    const Node* zero_lit = uint32_literal(a, 0);
+    const Node* zero_lit = uint64_literal(a, 0);
     append_list(const Node*, literals, zero_lit);
     append_list(const Node*, cases, zero_case_lam);
 
