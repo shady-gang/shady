@@ -93,8 +93,11 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
                 .pointed_type = pointee
             });
         }
-        case LLVMVectorTypeKind:
-            break;
+        case LLVMVectorTypeKind: {
+            unsigned width = LLVMGetVectorSize(t);
+            const Type* elem_t = convert_type(p, LLVMGetElementType(t));
+            return pack_type(a, (PackType) { .element_type = elem_t, .width = (size_t) width });
+        }
         case LLVMMetadataTypeKind:
             assert(false && "why are we typing metadata");
             break;

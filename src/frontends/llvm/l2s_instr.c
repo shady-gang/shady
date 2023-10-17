@@ -179,11 +179,22 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
         case LLVMVAArg:
             goto unimplemented;
         case LLVMExtractElement:
-            goto unimplemented;
+            r = prim_op_helper(a, extract_dynamic_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMInsertElement:
             goto unimplemented;
-        case LLVMShuffleVector:
-            goto unimplemented;
+        case LLVMShuffleVector: {
+            Nodes ops = convert_operands(p, num_ops, instr);
+            unsigned num_indices = LLVMGetNumIndices(instr);
+            const unsigned* indices = LLVMGetIndices(instr);
+            LARRAY(const Node*, cindices, num_indices);
+            for (size_t i = 0; i < num_indices; i++)
+                cindices[i] = uint32_literal(a, (uint32_t) indices[i]);
+            ops = append_nodes(a, ops, tuple(a, nodes(a, num_indices, cindices)));
+            assert(ops.count == 3);
+            r = prim_op_helper(a, shuffle_op, empty(a), ops);
+            break;
+        }
         case LLVMExtractValue:
             goto unimplemented;
         case LLVMInsertValue:

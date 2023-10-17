@@ -76,10 +76,19 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             }
             return composite(a, t, nodes(a, size, elements));
         }
-        case LLVMConstantVectorValueKind:
-            break;
+        case LLVMConstantVectorValueKind: {
+            assert(t->tag == PackType_TAG);
+            size_t size = t->payload.pack_type.width;
+            LARRAY(const Node*, elements, size);
+            for (size_t i = 0; i < size; i++) {
+                LLVMValueRef value = LLVMGetOperand(v, i);
+                assert(value);
+                elements[i] = convert_value(p, value);
+            }
+            return composite(a, t, nodes(a, size, elements));
+        }
         case LLVMUndefValueValueKind:
-            break;
+            return undef(a, (Undef) { .type = convert_type(p, LLVMTypeOf(v)) });
         case LLVMConstantAggregateZeroValueKind:
             return get_default_zero_value(a, convert_type(p, LLVMTypeOf(v)));
         case LLVMConstantArrayValueKind: {
@@ -127,7 +136,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         case LLVMInstructionValueKind:
             break;
         case LLVMPoisonValueValueKind:
-            break;
+            return undef(a, (Undef) { .type = convert_type(p, LLVMTypeOf(v)) });
     }
 
     if (r) {
