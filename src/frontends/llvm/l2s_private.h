@@ -13,6 +13,7 @@ typedef struct {
     struct Dict* map;
     LLVMModuleRef src;
     Module* dst;
+    bool untyped_pointers;
 } Parser;
 
 typedef struct {

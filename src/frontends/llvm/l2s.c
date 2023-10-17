@@ -93,13 +93,16 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         insert_dict(LLVMValueRef, const Node*, p->map, oparam, param);
         params = append_nodes(a, params, param);
     }
-    const Type* fn_type = convert_type(p, LLVMTypeOf(fn));
-    assert(fn_type->tag == PtrType_TAG);
-    fn_type = fn_type->payload.ptr_type.pointed_type;
+    const Type* fn_type = convert_type(p, LLVMGlobalGetValueType(fn));
     assert(fn_type->tag == FnType_TAG);
     assert(fn_type->payload.fn_type.param_types.count == params.count);
     Node* f = function(p->dst, params, LLVMGetValueName(fn), empty(a), fn_type->payload.fn_type.return_types);
-    insert_dict(LLVMValueRef, const Node*, p->map, fn, f);
+    const Node* r = f;
+    if (p->untyped_pointers) {
+        const Type* generic_ptr_t = ptr_type(a, (PtrType) {.pointed_type = uint8_type(a), .address_space = AsGeneric});
+        r = anti_quote_helper(a, prim_op_helper(a, reinterpret_op, singleton(generic_ptr_t), singleton(r)));
+    }
+    insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
 
     LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
     if (first_bb) {
@@ -108,7 +111,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         f->payload.fun.body = write_bb_tail(p, b, first_bb, LLVMGetFirstInstruction(first_bb));
     }
 
-    return f;
+    return r;
 }
 
 const Node* convert_global(Parser* p, LLVMValueRef global) {
@@ -127,24 +130,30 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     }*/
     debug_print("Converting global: %s\n", name);
 
-    const Type* type = convert_type(p, LLVMTypeOf(global));
-    Node* r = NULL;
+    Node* decl = NULL;
 
     if (LLVMIsAGlobalVariable(global)) {
         LLVMValueRef value = LLVMGetInitializer(global);
-        assert(type->tag == PtrType_TAG);
-        r = global_var(p->dst, empty(a), type->payload.ptr_type.pointed_type, name, AsGeneric);
+        const Type* type = convert_type(p, LLVMTypeOf(value));
+        decl = global_var(p->dst, empty(a), type, name, AsGeneric);
         if (value)
-            r->payload.global_variable.init = convert_value(p, value);
+            decl->payload.global_variable.init = convert_value(p, value);
     } else {
-        r = constant(p->dst, empty(a), type, name);
-        r->payload.constant.value = convert_value(p, global);
+        const Type* type = convert_type(p, LLVMTypeOf(global));
+        decl = constant(p->dst, empty(a), type, name);
+        decl->payload.constant.value = convert_value(p, global);
     }
 
-    assert(r && is_declaration(r));
-    const Node* ref = ref_decl_helper(a, r);
-    insert_dict(LLVMValueRef, const Node*, p->map, global, ref);
-    return ref;
+    assert(decl && is_declaration(decl));
+    const Node* r = ref_decl_helper(a, decl);
+
+    if (p->untyped_pointers) {
+        const Type* generic_ptr_t = ptr_type(a, (PtrType) {.pointed_type = uint8_type(a), .address_space = AsGeneric});
+        r = anti_quote_helper(a, prim_op_helper(a, reinterpret_op, singleton(generic_ptr_t), singleton(r)));
+    }
+
+    insert_dict(LLVMValueRef, const Node*, p->map, global, r);
+    return r;
 }
 
 bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
@@ -166,6 +175,11 @@ bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
         .src = src,
         .dst = dirty,
     };
+
+    struct { unsigned major, minor, patch; } llvm_version;
+    LLVMGetVersion(&llvm_version.major, &llvm_version.minor, &llvm_version.patch);
+    if (llvm_version.major >= 15)
+        p.untyped_pointers = true;
 
     for (LLVMValueRef fn = LLVMGetFirstFunction(src); fn && fn <= LLVMGetNextFunction(fn); fn = LLVMGetLastFunction(src)) {
         convert_function(&p, fn);
