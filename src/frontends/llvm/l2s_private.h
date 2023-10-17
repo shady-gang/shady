@@ -19,12 +19,14 @@ typedef struct {
     bool untyped_pointers;
 } Parser;
 
-typedef enum { NoneAnnot, EntryPointAnnot, AddressSpaceAnnot } AnnotationType;
+typedef enum { NoneAnnot, EntryPointAnnot, BuiltinAnnot, AddressSpaceAnnot } AnnotationType;
 
 typedef struct ParsedAnnotationContents_ {
     AnnotationType type;
     union {
         String entry_point_type;
+        String builtin_name;
+        AddressSpace as;
     } payload;
     struct ParsedAnnotationContents_* next;
 } ParsedAnnotationContents;

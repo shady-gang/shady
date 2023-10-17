@@ -169,6 +169,12 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
                             .type = EntryPointAnnot,
                             .payload.entry_point_type = strtok(NULL, "::")
                         });
+                    } else if (strcmp(keyword, "builtin") == 0) {
+                        assert(target->tag == GlobalVariable_TAG);
+                        add_annotation(p, target, (ParsedAnnotationContents) {
+                            .type = BuiltinAnnot,
+                            .payload.builtin_name = strtok(NULL, "::")
+                        });
                     } else {
                         error_print("Unrecognised shady annotation '%s'\n", keyword);
                         error_die();

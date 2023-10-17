@@ -24,6 +24,17 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }
             return fun;
         }
+        case GlobalVariable_TAG: {
+            Node* gv = recreate_node_identity(&ctx->rewriter, node);
+            ParsedAnnotationContents* ep_type = find_annotation(ctx->p, node, BuiltinAnnot);
+            if (ep_type) {
+                gv->payload.global_variable.annotations = append_nodes(a, gv->payload.global_variable.annotations, annotation_value(a, (AnnotationValue) {
+                    .name = "Builtin",
+                    .value = string_lit_helper(a, ep_type->payload.builtin_name)
+                }));
+            }
+            return gv;
+        }
         default: break;
     }
     return recreate_node_identity(&ctx->rewriter, node);
