@@ -32,6 +32,7 @@ static bool is_escaping_use(CFNode* definition, CFNode* use) {
 
 static void visit_values(const VisitCtx*, Nodes nodes);
 static void visit_domtree(const VisitCtx* ctx, CFNode* n);
+static void visit_instruction(const VisitCtx* ctx, const Node* instruction);
 
 static void visit_value(const VisitCtx* ctx, const Node* n) {
     switch (is_value(n)) {
@@ -72,7 +73,9 @@ static void visit_value(const VisitCtx* ctx, const Node* n) {
             break;
         case Value_RefDecl_TAG:
             break;
-        case Value_AntiQuote_TAG: error("Not handled");
+        case Value_AntiQuote_TAG:
+            visit_instruction(ctx, n->payload.anti_quote.instruction);
+            break;
     }
 }
 

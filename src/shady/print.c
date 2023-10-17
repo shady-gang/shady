@@ -242,7 +242,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
         Scope* scope = new_scope(node);
         sub_ctx.scope = scope;
         sub_ctx.fn = node;
-        if (node->arena->config.check_types) {
+        if (node->arena->config.check_types && node->arena->config.allow_fold) {
             sub_ctx.uses = analyse_uses_scope(sub_ctx.scope);
         }
     }
