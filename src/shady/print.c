@@ -385,6 +385,27 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
     printf(RESET);
 }
 
+static void print_string_lit(PrinterCtx* ctx, const char* string) {
+    printf("\"");
+    while (*string) {
+        switch (*string) {
+            case '\a': printf("\\a");         break;
+            case '\b': printf("\\b");         break;
+            case '\f': printf("\\f");         break;
+            case '\r': printf("\\r");         break;
+            case '\n': printf("\\n");         break;
+            case '\t': printf("\\t");         break;
+            case '\v': printf("\\v");         break;
+            case '\\': printf("\\\\");        break;
+            case '\'': printf("\\\'");        break;
+            case '\"': printf("\\\"");        break;
+            default:   printf("%c", *string); break;
+        }
+        ++string;
+    }
+    printf("\"");
+}
+
 static void print_value(PrinterCtx* ctx, const Node* node) {
     switch (is_value(node)) {
         case NotAValue: assert(false); break;
@@ -456,7 +477,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             break;
         case StringLiteral_TAG:
             printf(BBLUE);
-            printf("\"%s\"", node->payload.string_lit.string);
+            print_string_lit(ctx, node->payload.string_lit.string);
             printf(RESET);
             break;
         case Value_Undef_TAG: {
