@@ -104,6 +104,7 @@ P(0, reinterpret)               \
 P(0, extract)                   \
 P(0, extract_dynamic)           \
 P(0, insert)                    \
+P(0, shuffle)                   \
 P(1, debug_printf)              \
 SUBGROUP_INTRINSICS_PRIMOPS(P)  \
 /* these are all lowered away */\

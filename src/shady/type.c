@@ -810,6 +810,31 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             return qualified_type_helper(t, uniform);
         }
+        case shuffle_op: {
+            assert(prim_op.operands.count == 3);
+            assert(prim_op.type_arguments.count == 0);
+            const Node* lhs = prim_op.operands.nodes[0];
+            const Node* rhs = prim_op.operands.nodes[1];
+            const Type* lhs_t = lhs->type;
+            const Type* rhs_t = rhs->type;
+            bool lhs_u = deconstruct_qualified_type(&lhs_t);
+            bool rhs_u = deconstruct_qualified_type(&rhs_t);
+            assert(lhs_t->tag == PackType_TAG && rhs_t->tag == PackType_TAG);
+            size_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
+            const Type* element_t = lhs_t->payload.pack_type.element_type;
+            assert(element_t == rhs_t->payload.pack_type.element_type);
+
+            const Node* indices = prim_op.operands.nodes[2];
+            assert(indices->tag == Composite_TAG);
+            Nodes idx = indices->payload.composite.contents;
+            bool u = lhs_u & rhs_u;
+            for (size_t i = 0; i < idx.count; i++) {
+                u &= is_qualified_type_uniform(idx.nodes[i]->type);
+                size_t index = get_int_literal_value(idx.nodes[i], false);
+                assert(index >= 0 && index < total_size && "shuffle element out of range");
+            }
+            return qualified_type_helper(pack_type(arena, (PackType) { .element_type = element_t, .width = idx.count }), u);
+        }
         case reinterpret_op: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);
