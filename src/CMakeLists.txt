@@ -1,5 +1,6 @@
 add_library(murmur3 STATIC ../murmur3/murmur3.c)
 target_include_directories(murmur3 INTERFACE ../murmur3)
+set_target_properties(murmur3 PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_library(api INTERFACE)
 target_include_directories(api INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>" "$<INSTALL_INTERFACE:include>")
