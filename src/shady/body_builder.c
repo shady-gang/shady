@@ -24,23 +24,23 @@ BodyBuilder* begin_body(IrArena* a) {
     return bb;
 }
 
-static Nodes create_output_variables(IrArena* a, const Node* value, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
+static Nodes create_output_variables(IrArena* a, const Node* value, size_t outputs_count, const Node** output_types, String const output_names[]) {
     Nodes types;
     if (a->config.check_types) {
         types = unwrap_multiple_yield_types(a, value->type);
-        if (provided_types) {
-            assert(provided_types->count == types.count);
+        // outputs count has to match or not be given
+        assert(outputs_count == types.count || outputs_count == SIZE_MAX);
+        if (output_types) {
             // Check that the types we got are subtypes of what we care about
             for (size_t i = 0; i < types.count; i++)
-                assert(is_subtype(provided_types->nodes[i], types.nodes[i]));
-            types = *provided_types;
+                assert(is_subtype(output_types[i], types.nodes[i]));
+            types = nodes(a, outputs_count, output_types);
         }
         outputs_count = types.count;
     } else {
         assert(outputs_count != SIZE_MAX);
-        if (provided_types) {
-            assert(provided_types->count == outputs_count);
-            types = *provided_types;
+        if (output_types) {
+            types = nodes(a, outputs_count, output_types);
         } else {
             LARRAY(const Type*, nulls, outputs_count);
             for (size_t i = 0; i < outputs_count; i++)
@@ -69,7 +69,7 @@ static Nodes create_output_variables(IrArena* a, const Node* value, size_t outpu
     return nodes(a, outputs_count, (const Node**) vars);
 }
 
-static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, bool mut, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
+static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, bool mut, size_t outputs_count, const Node** provided_types, String const output_names[]) {
     if (bb->arena->config.check_types) {
         assert(is_instruction(instruction));
     }
@@ -83,22 +83,23 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, bool mut, s
     return params;
 }
 
-Nodes bind_instruction_extra(BodyBuilder* bb, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
-    return bind_internal(bb, instruction, false, outputs_count, provided_types, output_names);
-}
-
-Nodes bind_instruction_extra_mutable(BodyBuilder* bb, const Node* instruction, size_t outputs_count, Nodes* provided_types, String const output_names[]) {
-    return bind_internal(bb, instruction, true, outputs_count, provided_types, output_names);
+Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
+    assert(bb->arena->config.check_types);
+    return bind_internal(bb, instruction, false, SIZE_MAX, NULL, NULL);
 }
 
 Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String const output_names[]) {
     assert(bb->arena->config.check_types);
+    assert(output_names);
     return bind_internal(bb, instruction, false, SIZE_MAX, NULL, output_names);
 }
 
-Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
-    assert(bb->arena->config.check_types);
-    return bind_internal(bb, instruction, false, SIZE_MAX, NULL, NULL);
+Nodes bind_instruction_explicit_result_types(BodyBuilder* bb, const Node* instruction, Nodes provided_types, String const output_names[], bool mut) {
+    return bind_internal(bb, instruction, mut, provided_types.count, provided_types.nodes, output_names);
+}
+
+Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count, String const output_names[], bool mut) {
+    return bind_internal(bb, instruction, mut, outputs_count, NULL, output_names);
 }
 
 void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {

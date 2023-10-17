@@ -81,7 +81,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
         }
     }
 
-    return bind_instruction_extra(ctx->bb, let_bound, 1, NULL, NULL).nodes[0];
+    return first(bind_instruction_outputs_count(ctx->bb, let_bound, 1, NULL, false));
 }
 
 static const Node* force_to_be_type(Context* ctx, const Node* node) {

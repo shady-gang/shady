@@ -676,21 +676,21 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
 
 static bool accept_non_terminator_instr(ctxparams, BodyBuilder* bb, Node* fn) {
     Strings ids;
-    Nodes types;
     if (accept_token(ctx, val_tok)) {
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok));
         const Node* instruction = accept_instruction(ctx, fn, true);
-        bind_instruction_extra(bb, instruction, ids.count, NULL, ids.strings);
+        bind_instruction_outputs_count(bb, instruction, ids.count, ids.strings, false);
     } else if (accept_token(ctx, var_tok)) {
+        Nodes types;
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok));
         const Node* instruction = accept_instruction(ctx, fn, true);
-        bind_instruction_extra_mutable(bb, instruction, ids.count, &types, ids.strings);
+        bind_instruction_explicit_result_types(bb, instruction, types, ids.strings, true);
     } else {
         const Node* instr = accept_instruction(ctx, fn, true);
         if (!instr) return false;
-        bind_instruction_extra(bb, instr, 0, NULL, NULL);
+        bind_instruction_outputs_count(bb, instr, 0, NULL, false);
     }
     return true;
 }

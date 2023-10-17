@@ -221,8 +221,8 @@ Nodes bind_instruction_named(BodyBuilder*, const Node* instruction, String const
 
 /// Like append instruction, but you explicitly give it information about any yielded values
 /// ! In untyped arenas, you need to call this because we can't guess how many things are returned without typing info !
-Nodes bind_instruction_extra_mutable(BodyBuilder*, const Node* initial_value, size_t outputs_count, Nodes* provided_types, String const output_names[]);
-Nodes bind_instruction_extra(BodyBuilder*, const Node* initial_value, size_t outputs_count, Nodes* provided_types, String const output_names[]);
+Nodes bind_instruction_explicit_result_types(BodyBuilder*, const Node* initial_value, Nodes provided_types, String const output_names[], bool mut);
+Nodes bind_instruction_outputs_count(BodyBuilder*, const Node* initial_value, size_t outputs_count, String const output_names[], bool mut);
 
 void bind_variables(BodyBuilder*, Nodes vars, Nodes values);
 

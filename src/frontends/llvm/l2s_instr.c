@@ -96,7 +96,7 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             const Type* t = convert_type(p, LLVMTypeOf(instr));
             assert(t->tag == PtrType_TAG);
             Nodes tys = singleton(ptr_type(a, (PtrType) { .pointed_type = t->payload.ptr_type.pointed_type, .address_space = AsPrivatePhysical }));
-            const Node* private_ptr = first(bind_instruction_extra(b, prim_op_helper(a, alloca_op, singleton(convert_type(p, LLVMGetAllocatedType(instr))), empty(a)), 1, &tys, (String[]) { "alloca_private" }));
+            const Node* private_ptr = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, alloca_op, singleton(convert_type(p, LLVMGetAllocatedType(instr))), empty(a)), tys, (String[]) { "alloca_private" }, false));
             r = prim_op_helper(a, convert_op, singleton(t), singleton(private_ptr));
             break;
         }
