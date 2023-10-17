@@ -2,11 +2,13 @@
 
 #include "log.h"
 #include "dict.h"
+#include "util.h"
 
 #include "llvm-c/IRReader.h"
 
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 
 typedef struct OpaqueRef* OpaqueRef;
 
@@ -121,13 +123,65 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
 
     String name = LLVMGetValueName(global);
     String intrinsic = is_llvm_intrinsic(global);
-    /*if (intrinsic) {
+    if (intrinsic) {
         if (strcmp(intrinsic, "llvm.global.annotations") == 0) {
-            assert(false);
+            const Type* t = convert_type(p, LLVMGlobalGetValueType(global));
+            assert(t->tag == ArrType_TAG);
+            size_t arr_size = get_int_literal_value(t->payload.arr_type.size, false);
+            assert(arr_size > 0);
+            const Node* value = convert_value(p, LLVMGetInitializer(global));
+            assert(value->tag == Composite_TAG && value->payload.composite.contents.count == arr_size);
+            for (size_t i = 0; i < arr_size; i++) {
+                const Node* entry = value->payload.composite.contents.nodes[i];
+                assert(entry->tag == Composite_TAG);
+                const Node* annotation_payload = entry->payload.composite.contents.nodes[1];
+                // eliminate dummy reinterpret cast
+                if (annotation_payload->tag == AntiQuote_TAG) {
+                    assert(annotation_payload->payload.anti_quote.instruction->tag == PrimOp_TAG);
+                    assert(annotation_payload->payload.anti_quote.instruction->payload.prim_op.op == reinterpret_op);
+                    annotation_payload = first(annotation_payload->payload.anti_quote.instruction->payload.prim_op.operands);
+                }
+                if (annotation_payload->tag == RefDecl_TAG) {
+                    annotation_payload = annotation_payload->payload.ref_decl.decl;
+                }
+                if (annotation_payload->tag == GlobalVariable_TAG) {
+                    annotation_payload = annotation_payload->payload.global_variable.init;
+                }
+                const char* ostr = get_string_literal(a, annotation_payload);
+                char* str = calloc(strlen(ostr) + 1, 1);
+                memcpy(str, ostr, strlen(ostr) + 1);
+                if (strcmp(strtok(str, "::"), "shady") == 0) {
+                    const Node* target = entry->payload.composite.contents.nodes[0];
+                    if (target->tag == AntiQuote_TAG) {
+                        assert(target->payload.anti_quote.instruction->tag == PrimOp_TAG);
+                        assert(target->payload.anti_quote.instruction->payload.prim_op.op == reinterpret_op);
+                        target = first(target->payload.anti_quote.instruction->payload.prim_op.operands);
+                    }
+                    if (target->tag == RefDecl_TAG) {
+                        target = target->payload.ref_decl.decl;
+                    }
+
+                    char* keyword = strtok(NULL, "::");
+                    if (strcmp(keyword, "entry_point") == 0) {
+                        assert(target->tag == Function_TAG);
+                        add_annotation(p, target, (ParsedAnnotationContents) {
+                            .type = EntryPointAnnot,
+                            .payload.entry_point_type = strtok(NULL, "::")
+                        });
+                    } else {
+                        error_print("Unrecognised shady annotation '%s'\n", keyword);
+                        error_die();
+                    }
+                } else {
+                    warn_print("Ignoring annotation '%s'\n", ostr);
+                }
+                free(str);
+                //dump_node(annotation_payload);
+            }
         }
         warn_print("Skipping unknown LLVM intrinsic function: %s\n", name);
         return NULL;
-    }*/
+    }
     debug_print("Converting global: %s\n", name);
 
     Node* decl = NULL;
@@ -172,6 +226,8 @@ bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
     Parser p = {
         .ctx = context,
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
+        .annotations = new_dict(LLVMValueRef, ParsedAnnotationContents, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
+        .annotations_arena = new_arena(),
         .src = src,
         .dst = dirty,
     };
@@ -193,9 +249,11 @@ bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
         global = LLVMGetNextGlobal(global);
     }
 
-    destroy_dict(p.map);
+    postprocess(&p, dirty, dst);
 
-    postprocess(dirty, dst);
+    destroy_dict(p.map);
+    destroy_dict(p.annotations);
+    destroy_arena(p.annotations_arena);
 
     LLVMContextDispose(context);
 
