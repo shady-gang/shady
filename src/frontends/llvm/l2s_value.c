@@ -3,6 +3,7 @@
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
+#include "../../shady/transform/ir_gen_helpers.h"
 
 const Node* convert_value(Parser* p, LLVMValueRef v) {
     const Type** found = find_value_dict(LLVMTypeRef, const Type*, p->map, v);
@@ -80,7 +81,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         case LLVMUndefValueValueKind:
             break;
         case LLVMConstantAggregateZeroValueKind:
-            break;
+            return get_default_zero_value(a, convert_type(p, LLVMTypeOf(v)));
         case LLVMConstantArrayValueKind: {
             assert(t->tag == ArrType_TAG);
             if (LLVMIsConstantString(v)) {

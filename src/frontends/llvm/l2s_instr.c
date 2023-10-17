@@ -55,25 +55,23 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             goto unimplemented;
         case LLVMFNeg:
             goto unimplemented;
+        case LLVMFAdd:
         case LLVMAdd:
             r = prim_op_helper(a, add_op, empty(a), convert_operands(p, num_ops, instr));
             break;
-        case LLVMFAdd:
-            goto unimplemented;
         case LLVMSub:
-            goto unimplemented;
         case LLVMFSub:
-            goto unimplemented;
+            r = prim_op_helper(a, sub_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMMul:
-            goto unimplemented;
         case LLVMFMul:
-            goto unimplemented;
+            r = prim_op_helper(a, mul_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMUDiv:
-            goto unimplemented;
-        case LLVMSDiv:
-            goto unimplemented;
         case LLVMFDiv:
-            goto unimplemented;
+        case LLVMSDiv:
+            r = prim_op_helper(a, div_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMURem:
             goto unimplemented;
         case LLVMSRem:
@@ -208,8 +206,8 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             result_types = singleton(convert_type(p, LLVMTypeOf(instr)));
         assert(result_types.count == num_results);
         return (EmittedInstr) {
-                .instruction = r,
-                .result_types = result_types
+            .instruction = r,
+            .result_types = result_types
         };
     }
 

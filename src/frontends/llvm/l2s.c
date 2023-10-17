@@ -28,7 +28,8 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
 }
 
 static const Node* write_bb_tail(Parser* p, BodyBuilder* b, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
-    for (LLVMValueRef instr = first_instr; instr && instr <= LLVMGetLastInstruction(bb); instr = LLVMGetNextInstruction(instr)) {
+    LLVMValueRef instr;
+    for (instr = first_instr; instr; instr = LLVMGetNextInstruction(instr)) {
         bool last = instr == LLVMGetLastInstruction(bb);
         if (last)
             assert(LLVMGetBasicBlockTerminator(bb) == instr);

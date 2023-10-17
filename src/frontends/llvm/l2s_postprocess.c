@@ -12,7 +12,7 @@ typedef struct {
 static const Node* process_node(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (node->tag) {
-        case Variable_TAG: return var(a, qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.var.type), false), node->payload.var.name);
+        case Variable_TAG: return var(a, node->payload.var.type ? qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.var.type), false) : NULL, node->payload.var.name);
         case Function_TAG: {
             Node* fun = recreate_node_identity(&ctx->rewriter, node);
             ParsedAnnotationContents* ep_type = find_annotation(ctx->p, node, EntryPointAnnot);
