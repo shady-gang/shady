@@ -5,6 +5,7 @@
 
 #include "../type.h"
 #include "../rewrite.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include <assert.h>
 #include <string.h>
@@ -322,6 +323,17 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
     return bb;
 }
 
+static const Node* untyped_pointer_recover_helper(const Node* ptr, const Type* t) {
+    IrArena* a = ptr->arena;
+    const Type* ptr_t = ptr->type;
+    deconstruct_qualified_type(&ptr_t);
+    assert(ptr_t->tag == PtrType_TAG);
+    BodyBuilder* bb = begin_body(a);
+    const Type* typed_ptr_t = ptr_type(a, (PtrType) { .pointed_type = t, .address_space = ptr_t->payload.ptr_type.address_space });
+    ptr = gen_reinterpret_cast(bb, typed_ptr_t, ptr);
+    return anti_quote_helper(a, yield_values_and_wrap_in_block(bb, singleton(ptr)));
+}
+
 static const Node* _infer_primop(Context* ctx, const Node* node, const Type* expected_type) {
     assert(node->tag == PrimOp_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
@@ -357,12 +369,24 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
         }
         case load_op: {
             assert(old_operands.count == 1);
+            assert(type_args.count <= 1);
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
+            if (type_args.count == 1) {
+                // typed loads - normalise to typed ptrs instead by generating an extra cast!
+                new_inputs_scratch[0] = untyped_pointer_recover_helper(new_inputs_scratch[0], first(type_args));
+                type_args = empty(a);
+            }
             goto skip_input_types;
         }
         case store_op: {
             assert(old_operands.count == 2);
+            assert(type_args.count <= 1);
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
+            if (type_args.count == 1) {
+                // typed loads - normalise to typed ptrs instead by generating an extra cast!
+                new_inputs_scratch[0] = untyped_pointer_recover_helper(new_inputs_scratch[0], first(type_args));
+                type_args = empty(a);
+            }
             const Type* ptr_type = get_unqualified_type(new_inputs_scratch[0]->type);
             assert(ptr_type->tag == PtrType_TAG);
             new_inputs_scratch[1] = infer(ctx, old_operands.nodes[1], qualified_type_helper((&ptr_type->payload.ptr_type)->pointed_type, false));
@@ -378,6 +402,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
         }
         case lea_op: {
             assert(old_operands.count >= 2);
+            assert(type_args.count <= 1);
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
             new_inputs_scratch[1] = infer(ctx, old_operands.nodes[1], NULL);
             for (size_t i = 2; i < old_operands.count; i++) {
@@ -387,6 +412,11 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             const Type* base_datatype = remove_uniformity_qualifier(new_inputs_scratch[0]->type);
             assert(base_datatype->tag == PtrType_TAG);
             AddressSpace as = deconstruct_pointer_type(&base_datatype);
+            if (type_args.count == 1) {
+                base_datatype = ptr_type(a, (PtrType) { .pointed_type = first(type_args), .address_space = as });
+                new_inputs_scratch[0] = untyped_pointer_recover_helper(new_inputs_scratch[0], first(type_args));
+                type_args = empty(a);
+            }
             const IntLiteral* lit = resolve_to_literal(new_inputs_scratch[1]);
             if ((!lit || lit->value) != 0 && base_datatype->tag != ArrType_TAG) {
                 warn_print("LEA used on a pointer to a non-array type!\n");
