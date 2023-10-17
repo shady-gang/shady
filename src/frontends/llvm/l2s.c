@@ -126,65 +126,8 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     String intrinsic = is_llvm_intrinsic(global);
     if (intrinsic) {
         if (strcmp(intrinsic, "llvm.global.annotations") == 0) {
-            const Type* t = convert_type(p, LLVMGlobalGetValueType(global));
-            assert(t->tag == ArrType_TAG);
-            size_t arr_size = get_int_literal_value(t->payload.arr_type.size, false);
-            assert(arr_size > 0);
-            const Node* value = convert_value(p, LLVMGetInitializer(global));
-            assert(value->tag == Composite_TAG && value->payload.composite.contents.count == arr_size);
-            for (size_t i = 0; i < arr_size; i++) {
-                const Node* entry = value->payload.composite.contents.nodes[i];
-                assert(entry->tag == Composite_TAG);
-                const Node* annotation_payload = entry->payload.composite.contents.nodes[1];
-                // eliminate dummy reinterpret cast
-                if (annotation_payload->tag == AntiQuote_TAG) {
-                    assert(annotation_payload->payload.anti_quote.instruction->tag == PrimOp_TAG);
-                    assert(annotation_payload->payload.anti_quote.instruction->payload.prim_op.op == reinterpret_op);
-                    annotation_payload = first(annotation_payload->payload.anti_quote.instruction->payload.prim_op.operands);
-                }
-                if (annotation_payload->tag == RefDecl_TAG) {
-                    annotation_payload = annotation_payload->payload.ref_decl.decl;
-                }
-                if (annotation_payload->tag == GlobalVariable_TAG) {
-                    annotation_payload = annotation_payload->payload.global_variable.init;
-                }
-                const char* ostr = get_string_literal(a, annotation_payload);
-                char* str = calloc(strlen(ostr) + 1, 1);
-                memcpy(str, ostr, strlen(ostr) + 1);
-                if (strcmp(strtok(str, "::"), "shady") == 0) {
-                    const Node* target = entry->payload.composite.contents.nodes[0];
-                    if (target->tag == AntiQuote_TAG) {
-                        assert(target->payload.anti_quote.instruction->tag == PrimOp_TAG);
-                        assert(target->payload.anti_quote.instruction->payload.prim_op.op == reinterpret_op);
-                        target = first(target->payload.anti_quote.instruction->payload.prim_op.operands);
-                    }
-                    if (target->tag == RefDecl_TAG) {
-                        target = target->payload.ref_decl.decl;
-                    }
-
-                    char* keyword = strtok(NULL, "::");
-                    if (strcmp(keyword, "entry_point") == 0) {
-                        assert(target->tag == Function_TAG);
-                        add_annotation(p, target, (ParsedAnnotationContents) {
-                            .type = EntryPointAnnot,
-                            .payload.entry_point_type = strtok(NULL, "::")
-                        });
-                    } else if (strcmp(keyword, "builtin") == 0) {
-                        assert(target->tag == GlobalVariable_TAG);
-                        add_annotation(p, target, (ParsedAnnotationContents) {
-                            .type = BuiltinAnnot,
-                            .payload.builtin_name = strtok(NULL, "::")
-                        });
-                    } else {
-                        error_print("Unrecognised shady annotation '%s'\n", keyword);
-                        error_die();
-                    }
-                } else {
-                    warn_print("Ignoring annotation '%s'\n", ostr);
-                }
-                free(str);
-                //dump_node(annotation_payload);
-            }
+            process_llvm_annotations(p, global);
+            return NULL;
         }
         warn_print("Skipping unknown LLVM intrinsic function: %s\n", name);
         return NULL;

@@ -41,6 +41,8 @@ ParsedAnnotationContents* find_annotation(Parser*, const Node*, AnnotationType);
 ParsedAnnotationContents* next_annotation(ParsedAnnotationContents*, AnnotationType);
 void add_annotation(Parser*, const Node*, ParsedAnnotationContents);
 
+void process_llvm_annotations(Parser* p, LLVMValueRef global);
+
 EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr);
 const Node* convert_value(Parser* p, LLVMValueRef v);
 const Node* convert_function(Parser* p, LLVMValueRef fn);
