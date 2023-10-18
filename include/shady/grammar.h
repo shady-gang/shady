@@ -140,52 +140,45 @@ typedef struct LamType_ LamType;
 #define LamType_Fields(MkField) \
 MkField(1, TYPES, Nodes, param_types)
 
+#define ADDRESS_SPACES(AS) \
+    AS(Generic, 0) \
+    /* Global memory, all threads see the same data (not necessarily consistent!) */ \
+    AS(GlobalPhysical, 1) \
+    /* Points into workgroup-private memory (you get the idea) */ \
+    AS(SharedPhysical, 3) \
+    /* Points into subgroup-private memory (all threads in a subgroup see the same contents for the same \
+       address, but threads in different subgroups see different data) \
+       needs to be lowered to something else since targets do not understand this */ \
+    AS(SubgroupPhysical, 384) \
+    /* Points into thread-private memory (all threads see different contents for the same address) */ \
+    AS(PrivatePhysical, 5) \
+    /* Logical variants of the prior four ASes */ \
+    AS(PrivateLogical, 385) \
+    AS(SubgroupLogical, 386) \
+    AS(SharedLogical, 387) \
+    AS(GlobalLogical, 388) \
+    /* special addressing spaces for input/output global variables in shader stages */ \
+    AS(Input, 389) \
+    AS(UInput, 396) /* just like AsInput but known to be subgroup-uniform */ \
+    AS(Output, 390) \
+    /* For resources supplied by the host, agnostic of the binding model */ \
+    AS(External, 391) \
+    /* SPIR-V specific address spaces */ \
+    /* Maps to Vulkan push constants */ \
+    AS(VKPushConstant, 392) \
+    /* Weird SPIR-V nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime) */ \
+    AS(SPVFunctionLogical, 393) \
+    AS(GLShaderStorageBufferObject, 394) \
+    AS(GLUniformBufferObject, 395)
+
 typedef enum AddressSpace_ {
-    AsGeneric,
-
-    /// Points into thread-private memory (all threads see different contents for the same address)
-    AsPrivatePhysical,
-
-    /// Points into subgroup-private memory (all threads in a subgroup see the same contents for the same
-    /// address, but threads in different subgroups see different data)
-    /// needs to be lowered to something else since targets do not understand this
-    AsSubgroupPhysical,
-
-    /// Points into workgroup-private memory (you get the idea)
-    AsSharedPhysical,
-
-    /// Global memory, all threads see the same data (not necessarily consistent!)
-    AsGlobalPhysical,
-
+#define AS(name, _) As##name,
+ADDRESS_SPACES(AS)
+#undef AS
+    NumAddressSpaces,
     // All address spaces after this are 'logical', that is, their pointers have an opaque representation
     // their bit-pattern is not observable, they cannot be reinterpreted and pointer arithmetic is severely limited
-    PhysicalAddressSpacesEnd = AsGlobalPhysical,
-
-    // Logical variants of the prior four ASes
-    AsPrivateLogical,
-    AsSubgroupLogical,
-    AsSharedLogical,
-    AsGlobalLogical,
-
-    /// special addressing spaces for input/output global variables in shader stages
-    AsInput,
-    AsUInput, // just like AsInput but known to be subgroup-uniform
-    AsOutput,
-
-    /// For resources supplied by the host, agnostic of the binding model
-    AsExternal,
-
-    // SPIR-V specific address spaces
-
-    /// Maps to Vulkan push constants
-    AsVKPushConstant,
-    /// Weird SPIR-V nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)
-    AsSPVFunctionLogical,
-
-    AsGLShaderStorageBufferObject,
-    AsGLUniformBufferObject,
-
-    NumAddressSpaces,
+    PhysicalAddressSpacesEnd = AsPrivatePhysical,
 } AddressSpace;
 
 typedef struct PtrType_ PtrType;
