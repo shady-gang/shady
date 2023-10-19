@@ -362,6 +362,18 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
                     SpvBuiltIn d = spv_builtins[b];
                     uint32_t decoration_payload[] = { d };
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBuiltIn, 1, decoration_payload);
+                } else if (strcmp(name, "Location") == 0) {
+                    size_t loc = get_int_literal_value(get_annotation_value(a), false);
+                    assert(loc >= 0);
+                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationLocation, 1, (uint32_t[]) { loc });
+                } else if (strcmp(name, "DescriptorSet") == 0) {
+                    size_t loc = get_int_literal_value(get_annotation_value(a), false);
+                    assert(loc >= 0);
+                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationDescriptorSet, 1, (uint32_t[]) { loc });
+                } else if (strcmp(name, "DescriptorBinding") == 0) {
+                    size_t loc = get_int_literal_value(get_annotation_value(a), false);
+                    assert(loc >= 0);
+                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationBinding, 1, (uint32_t[]) { loc });
                 }
             }
 

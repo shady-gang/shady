@@ -81,6 +81,22 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                         .value = string_lit_helper(a, strtok(NULL, "::"))
                     })
                 });
+            } else if (strcmp(keyword, "location") == 0) {
+                assert(target->tag == GlobalVariable_TAG);
+                add_annotation(p, target, (ParsedAnnotation) {
+                    .payload = annotation_value(a, (AnnotationValue) {
+                        .name = "Location",
+                        .value = int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
+                    })
+                });
+            } else if (strcmp(keyword, "descriptor_set") == 0) {
+                assert(target->tag == GlobalVariable_TAG);
+                add_annotation(p, target, (ParsedAnnotation) {
+                    .payload = annotation_value(a, (AnnotationValue) {
+                        .name = "DescriptorSet",
+                        .value = int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
+                    })
+                });
             } else {
                 error_print("Unrecognised shady annotation '%s'\n", keyword);
                 error_die();
