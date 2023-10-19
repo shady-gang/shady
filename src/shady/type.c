@@ -802,8 +802,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             if (prim_op.op == insert_op) {
                 const Node* inserted_data = prim_op.operands.nodes[1];
                 const Type* inserted_data_type = inserted_data->type;
+                bool is_uniform = uniform & deconstruct_qualified_type(&inserted_data_type);
                 assert(is_subtype(t, inserted_data_type) && "inserting data into a composite, but it doesn't match the target and indices");
-                bool is_uniform = is_qualified_type_uniform(t) && deconstruct_qualified_type(&inserted_data_type);
                 return qualified_type(arena, (QualifiedType) {
                     .is_uniform = is_uniform,
                     .type = get_unqualified_type(source->type),
