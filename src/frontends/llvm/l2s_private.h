@@ -53,6 +53,8 @@ const Node* convert_value(Parser* p, LLVMValueRef v);
 const Node* convert_function(Parser* p, LLVMValueRef fn);
 const Type* convert_type(Parser* p, LLVMTypeRef t);
 const Node* convert_metadata(Parser* p, LLVMMetadataRef meta);
+const Node* convert_global(Parser* p, LLVMValueRef global);
+const Node* convert_function(Parser* p, LLVMValueRef fn);
 
 void postprocess(Parser*, Module* src, Module* dst);
 

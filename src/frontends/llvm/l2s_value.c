@@ -32,6 +32,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         case LLVMGlobalIFuncValueKind:
             break;
         case LLVMGlobalVariableValueKind:
+            r = convert_global(p, v);
             break;
         case LLVMBlockAddressValueKind:
             break;

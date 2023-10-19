@@ -6,7 +6,7 @@ add_definitions(${LLVM_DEFINITIONS_LIST})
 target_compile_definitions(shady_fe_llvm PRIVATE "LLVM_VERSION_MAJOR=${LLVM_VERSION_MAJOR}")
 
 if (TARGET LLVM)
-    message("LLVM shared library target exists")
+    message("LLVM shared library target exists, major version = ${LLVM_VERSION_MAJOR}")
     target_link_libraries(shady_fe_llvm PRIVATE LLVM)
 else ()
     message(FATAL_ERROR "Failed to find LLVM target, but found LLVM module earlier")

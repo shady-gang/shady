@@ -32,6 +32,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .name = "Builtin",
                     .value = string_lit_helper(a, ep_type->payload.builtin_name)
                 }));
+                gv->payload.global_variable.init = NULL;
             }
             return gv;
         }

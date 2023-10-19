@@ -185,11 +185,10 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             goto unimplemented;
         case LLVMShuffleVector: {
             Nodes ops = convert_operands(p, num_ops, instr);
-            unsigned num_indices = LLVMGetNumIndices(instr);
-            const unsigned* indices = LLVMGetIndices(instr);
+            unsigned num_indices = LLVMGetNumMaskElements(instr);
             LARRAY(const Node*, cindices, num_indices);
             for (size_t i = 0; i < num_indices; i++)
-                cindices[i] = uint32_literal(a, (uint32_t) indices[i]);
+                cindices[i] = uint32_literal(a, LLVMGetMaskValue(instr, i));
             ops = append_nodes(a, ops, tuple(a, nodes(a, num_indices, cindices)));
             assert(ops.count == 3);
             r = prim_op_helper(a, shuffle_op, empty(a), ops);

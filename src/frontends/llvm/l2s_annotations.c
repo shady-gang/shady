@@ -70,7 +70,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
         memcpy(str, ostr, strlen(ostr) + 1);
         if (strcmp(strtok(str, "::"), "shady") == 0) {
             const Node* target = entry->payload.composite.contents.nodes[0];
-            if (target->tag == AntiQuote_TAG) {
+            while (target->tag == AntiQuote_TAG) {
                 assert(target->payload.anti_quote.instruction->tag == PrimOp_TAG);
                 assert(target->payload.anti_quote.instruction->payload.prim_op.op == reinterpret_op);
                 target = first(target->payload.anti_quote.instruction->payload.prim_op.operands);

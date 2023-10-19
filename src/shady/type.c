@@ -280,6 +280,8 @@ static bool is_transparent_pointer_type(const Type* t) {
 static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
     assert(is_data_type(src_type) && is_data_type(dst_type));
     assert(get_type_bitwidth(src_type) == get_type_bitwidth(dst_type));
+    if (src_type == dst_type)
+        return true; // folding will eliminate those, but we need to pass type-checking first :)
     if (!(is_arithm_type(src_type) || src_type->tag == MaskType_TAG || is_transparent_pointer_type(src_type)))
         return false;
     if (!(is_arithm_type(dst_type) || dst_type->tag == MaskType_TAG || is_transparent_pointer_type(dst_type)))

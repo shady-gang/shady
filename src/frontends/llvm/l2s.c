@@ -139,7 +139,10 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     if (LLVMIsAGlobalVariable(global)) {
         LLVMValueRef value = LLVMGetInitializer(global);
         const Type* type = convert_type(p, LLVMTypeOf(value));
-        decl = global_var(p->dst, empty(a), type, name, AsGeneric);
+        // nb: even if we have untyped pointers, they still carry useful address space info
+        const Type* ptr_t = convert_type(p, LLVMTypeOf(global));
+        assert(ptr_t->tag == PtrType_TAG);
+        decl = global_var(p->dst, empty(a), type, name, ptr_t->payload.ptr_type.address_space);
         if (value)
             decl->payload.global_variable.init = convert_value(p, value);
     } else {
