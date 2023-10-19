@@ -257,6 +257,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             return;
         }
         case insert_op:
+        case extract_dynamic_op:
         case extract_op: {
             assert(results_count == 1);
             bool insert = the_op.op == insert_op;
@@ -265,18 +266,29 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             const Type* result_t = instr->type;
             size_t indices_start = insert ? 2 : 1;
             size_t indices_count = args.count - indices_start;
-
             assert(args.count > indices_start);
-            LARRAY(uint32_t, indices, indices_count);
-            for (size_t i = 0; i < indices_count; i++) {
-                // TODO: fallback to Dynamic variants transparently
-                indices[i] = get_int_literal_value(args.nodes[i + indices_start], false);
-            }
 
-            if (!insert)
-                results[0] = spvb_extract(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, src_value), indices_count, indices);
-            else
-                results[0] = spvb_insert(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, args.nodes[1]), emit_value(emitter, bb_builder, src_value), indices_count, indices);
+            bool dynamic = the_op.op == extract_dynamic_op;
+
+            if (dynamic) {
+                LARRAY(SpvId, indices, indices_count);
+                for (size_t i = 0; i < indices_count; i++) {
+                    indices[i] = emit_value(emitter, bb_builder, args.nodes[i + indices_start]);
+                }
+                assert(indices_count == 1);
+                results[0] = spvb_vector_extract_dynamic(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, src_value), indices[0]);
+            } else {
+                LARRAY(uint32_t, indices, indices_count);
+                for (size_t i = 0; i < indices_count; i++) {
+                    // TODO: fallback to Dynamic variants transparently
+                    indices[i] = get_int_literal_value(args.nodes[i + indices_start], false);
+                }
+
+                if (!insert) {
+                    results[0] = spvb_extract(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, src_value), indices_count, indices);
+                } else
+                    results[0] = spvb_insert(bb_builder, emit_type(emitter, result_t), emit_value(emitter, bb_builder, args.nodes[1]), emit_value(emitter, bb_builder, src_value), indices_count, indices);
+            }
             return;
         }
         case load_op: {
