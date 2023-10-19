@@ -75,7 +75,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return recreate_node_identity(&ctx->rewriter, node);
 }
 
-void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* config) {
+static const Node* find_entry_point(Module* m, CompilerConfig* config) {
     const Node* old_entry_point_decl = NULL;
 
     Nodes old_decls = get_module_declarations(m);
@@ -87,6 +87,11 @@ void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* con
     if (!old_entry_point_decl) {
         error("Asked to specialize on %s but no such declaration was found", config->specialization.entry_point);
     }
+    return old_entry_point_decl;
+}
+
+void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* config) {
+    const Node* old_entry_point_decl = find_entry_point(m, config);
     if (old_entry_point_decl->tag != Function_TAG) {
         error("%s is not a function", config->specialization.entry_point);
     }
@@ -124,6 +129,8 @@ void specialize_for_entry_point(CompilerConfig* config, Module* src, Module* dst
         .config = config,
     };
 
-    rewrite_module(&ctx.rewriter);
+    const Node* old_entry_point_decl = find_entry_point(src, config);
+    rewrite_node(&ctx.rewriter, old_entry_point_decl);
+
     destroy_rewriter(&ctx.rewriter);
 }
