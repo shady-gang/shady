@@ -51,9 +51,13 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
         const Node* annotation_payload = entry->payload.composite.contents.nodes[1];
         // eliminate dummy reinterpret cast
         if (annotation_payload->tag == AntiQuote_TAG) {
-            assert(annotation_payload->payload.anti_quote.instruction->tag == PrimOp_TAG);
-            assert(annotation_payload->payload.anti_quote.instruction->payload.prim_op.op == reinterpret_op);
-            annotation_payload = first(annotation_payload->payload.anti_quote.instruction->payload.prim_op.operands);
+            const Node* instr = annotation_payload->payload.anti_quote.instruction;
+            assert(instr->tag == PrimOp_TAG);
+            switch (instr->payload.prim_op.op) {
+                case reinterpret_op:
+                case lea_op: annotation_payload = first(annotation_payload->payload.anti_quote.instruction->payload.prim_op.operands); break;
+                default: assert(false);
+            }
         }
         if (annotation_payload->tag == RefDecl_TAG) {
             annotation_payload = annotation_payload->payload.ref_decl.decl;

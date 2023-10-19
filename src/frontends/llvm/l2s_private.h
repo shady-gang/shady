@@ -16,8 +16,13 @@ typedef struct {
     Arena* annotations_arena;
     LLVMModuleRef src;
     Module* dst;
-    bool untyped_pointers;
 } Parser;
+
+#ifndef LLVM_VERSION_MAJOR
+#error "Missing LLVM_VERSION_MAJOR"
+#else
+#define UNTYPED_POINTERS (LLVM_VERSION_MAJOR >= 15)
+#endif
 
 typedef enum { NoneAnnot, EntryPointAnnot, BuiltinAnnot, AddressSpaceAnnot } AnnotationType;
 

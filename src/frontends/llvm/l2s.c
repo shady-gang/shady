@@ -101,7 +101,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     assert(fn_type->payload.fn_type.param_types.count == params.count);
     Node* f = function(p->dst, params, LLVMGetValueName(fn), empty(a), fn_type->payload.fn_type.return_types);
     const Node* r = f;
-    if (p->untyped_pointers) {
+    if (UNTYPED_POINTERS) {
         const Type* generic_ptr_t = ptr_type(a, (PtrType) {.pointed_type = uint8_type(a), .address_space = AsGeneric});
         r = anti_quote_helper(a, prim_op_helper(a, reinterpret_op, singleton(generic_ptr_t), singleton(r)));
     }
@@ -151,7 +151,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     assert(decl && is_declaration(decl));
     const Node* r = ref_decl_helper(a, decl);
 
-    if (p->untyped_pointers) {
+    if (UNTYPED_POINTERS) {
         const Type* generic_ptr_t = ptr_type(a, (PtrType) {.pointed_type = uint8_type(a), .address_space = AsGeneric});
         r = anti_quote_helper(a, prim_op_helper(a, reinterpret_op, singleton(generic_ptr_t), singleton(r)));
     }
@@ -181,11 +181,6 @@ bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
         .src = src,
         .dst = dirty,
     };
-
-    struct { unsigned major, minor, patch; } llvm_version;
-    LLVMGetVersion(&llvm_version.major, &llvm_version.minor, &llvm_version.patch);
-    if (llvm_version.major >= 15)
-        p.untyped_pointers = true;
 
     for (LLVMValueRef fn = LLVMGetFirstFunction(src); fn && fn <= LLVMGetNextFunction(fn); fn = LLVMGetLastFunction(src)) {
         convert_function(&p, fn);

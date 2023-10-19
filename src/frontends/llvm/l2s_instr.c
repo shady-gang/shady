@@ -95,7 +95,7 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             assert(dst_t->tag == PtrType_TAG);
             const Type* allocated_t = convert_type(p, LLVMGetAllocatedType(instr));
             r = first(bind_instruction_outputs_count(b, prim_op_helper(a, alloca_op, singleton(allocated_t), empty(a)), 1, (String[]) { "alloca_private" }, false));
-            if (p->untyped_pointers) {
+            if (UNTYPED_POINTERS) {
                 const Type* untyped_private_ptr_t = ptr_type(a, (PtrType) { .pointed_type = dst_t->payload.ptr_type.pointed_type, .address_space = AsPrivatePhysical });
                 r = prim_op_helper(a, reinterpret_op, singleton(untyped_private_ptr_t), singleton(r));
             }
@@ -114,12 +114,12 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             num_results = 0;
             Nodes ops = convert_operands(p, num_ops, instr);
             assert(ops.count == 2);
-            r = prim_op_helper(a, store_op, p->untyped_pointers ? singleton(convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)))) : empty(a), mk_nodes(a, ops.nodes[1], ops.nodes[0]));
+            r = prim_op_helper(a, store_op, UNTYPED_POINTERS ? singleton(convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)))) : empty(a), mk_nodes(a, ops.nodes[1], ops.nodes[0]));
             break;
         }
         case LLVMGetElementPtr: {
             Nodes ops = convert_operands(p, num_ops, instr);
-            r = prim_op_helper(a, lea_op, p->untyped_pointers ? singleton(convert_type(p, LLVMGetGEPSourceElementType(instr))) : empty(a), ops);
+            r = prim_op_helper(a, lea_op, UNTYPED_POINTERS ? singleton(convert_type(p, LLVMGetGEPSourceElementType(instr))) : empty(a), ops);
             break;
         }
         case LLVMTrunc:
