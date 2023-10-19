@@ -7,7 +7,9 @@
 static AddressSpace convert_address_space(unsigned as) {
     static bool warned = false;
     switch (as) {
-        case 0: return AsGeneric;
+#define AS(name, i) case i: return As##name;
+ADDRESS_SPACES(AS)
+#undef AS
         default:
             if (!warned)
                 warn_print("Warning: unrecognised address space %d", as);
