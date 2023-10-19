@@ -26,12 +26,15 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case GlobalVariable_TAG: {
             Node* decl = (Node*) recreate_node_identity(&ctx->rewriter, node);
-            Nodes annotations = decl->payload.fun.annotations;
+            Nodes annotations = decl->payload.global_variable.annotations;
             ParsedAnnotation* an = find_annotation(ctx->p, node);
             while (an) {
                 annotations = append_nodes(a, annotations, an->payload);
+                if (strcmp(get_annotation_name(an->payload), "Builtin") == 0)
+                    decl->payload.global_variable.init = NULL;
                 an = an->next;
             }
+            decl->payload.global_variable.annotations = annotations;
             return decl;
         }
         default: break;
