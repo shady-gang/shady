@@ -121,8 +121,15 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
                 case IntTy64: return uint64_literal(a, value);
             }
         }
-        case LLVMConstantFPValueKind:
-            break;
+        case LLVMConstantFPValueKind: {
+            assert(t->tag == Float_TAG);
+            LLVMBool lossy;
+            double d = LLVMConstRealGetDouble(v, &lossy);
+            uint64_t u;
+            assert(sizeof(u) == sizeof(d));
+            memcpy(&u, &d, sizeof(double));
+            return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = u });
+        }
         case LLVMConstantPointerNullValueKind:
             r = null_ptr(a, (NullPtr) { .ptr_type = t });
             break;

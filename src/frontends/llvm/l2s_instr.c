@@ -182,7 +182,8 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             r = prim_op_helper(a, extract_dynamic_op, empty(a), convert_operands(p, num_ops, instr));
             break;
         case LLVMInsertElement:
-            goto unimplemented;
+            r = prim_op_helper(a, insert_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMShuffleVector: {
             Nodes ops = convert_operands(p, num_ops, instr);
             unsigned num_indices = LLVMGetNumMaskElements(instr);
