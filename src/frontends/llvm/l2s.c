@@ -179,7 +179,7 @@ bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
     Parser p = {
         .ctx = context,
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
-        .annotations = new_dict(LLVMValueRef, ParsedAnnotationContents, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
+        .annotations = new_dict(LLVMValueRef, ParsedAnnotation, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations_arena = new_arena(),
         .src = src,
         .dst = dirty,

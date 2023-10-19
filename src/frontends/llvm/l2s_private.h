@@ -24,17 +24,10 @@ typedef struct {
 #define UNTYPED_POINTERS (LLVM_VERSION_MAJOR >= 15)
 #endif
 
-typedef enum { NoneAnnot, EntryPointAnnot, BuiltinAnnot, AddressSpaceAnnot } AnnotationType;
-
 typedef struct ParsedAnnotationContents_ {
-    AnnotationType type;
-    union {
-        String entry_point_type;
-        String builtin_name;
-        AddressSpace as;
-    } payload;
+    const Node* payload;
     struct ParsedAnnotationContents_* next;
-} ParsedAnnotationContents;
+} ParsedAnnotation;
 
 typedef struct {
     const Node* terminator;
@@ -42,9 +35,9 @@ typedef struct {
     Nodes result_types;
 } EmittedInstr;
 
-ParsedAnnotationContents* find_annotation(Parser*, const Node*, AnnotationType);
-ParsedAnnotationContents* next_annotation(ParsedAnnotationContents*, AnnotationType);
-void add_annotation(Parser*, const Node*, ParsedAnnotationContents);
+ParsedAnnotation* find_annotation(Parser*, const Node*);
+ParsedAnnotation* next_annotation(ParsedAnnotation*);
+void add_annotation(Parser*, const Node*, ParsedAnnotation);
 
 void process_llvm_annotations(Parser* p, LLVMValueRef global);
 

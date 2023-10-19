@@ -14,27 +14,25 @@ static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Variable_TAG: return var(a, node->payload.var.type ? qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.var.type), false) : NULL, node->payload.var.name);
         case Function_TAG: {
-            Node* fun = recreate_node_identity(&ctx->rewriter, node);
-            ParsedAnnotationContents* ep_type = find_annotation(ctx->p, node, EntryPointAnnot);
-            if (ep_type) {
-                fun->payload.fun.annotations = append_nodes(a, fun->payload.fun.annotations, annotation_value(a, (AnnotationValue) {
-                    .name = "EntryPoint",
-                    .value = string_lit_helper(a, ep_type->payload.entry_point_type)
-                }));
+            Node* decl = (Node*) recreate_node_identity(&ctx->rewriter, node);
+            Nodes annotations = decl->payload.fun.annotations;
+            ParsedAnnotation* an = find_annotation(ctx->p, node);
+            while (an) {
+                annotations = append_nodes(a, annotations, an->payload);
+                an = an->next;
             }
-            return fun;
+            decl->payload.fun.annotations = annotations;
+            return decl;
         }
         case GlobalVariable_TAG: {
-            Node* gv = recreate_node_identity(&ctx->rewriter, node);
-            ParsedAnnotationContents* ep_type = find_annotation(ctx->p, node, BuiltinAnnot);
-            if (ep_type) {
-                gv->payload.global_variable.annotations = append_nodes(a, gv->payload.global_variable.annotations, annotation_value(a, (AnnotationValue) {
-                    .name = "Builtin",
-                    .value = string_lit_helper(a, ep_type->payload.builtin_name)
-                }));
-                gv->payload.global_variable.init = NULL;
+            Node* decl = (Node*) recreate_node_identity(&ctx->rewriter, node);
+            Nodes annotations = decl->payload.fun.annotations;
+            ParsedAnnotation* an = find_annotation(ctx->p, node);
+            while (an) {
+                annotations = append_nodes(a, annotations, an->payload);
+                an = an->next;
             }
-            return gv;
+            return decl;
         }
         default: break;
     }

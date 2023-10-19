@@ -5,35 +5,20 @@
 
 #include <stdlib.h>
 
-ParsedAnnotationContents* find_annotation(Parser* p, const Node* n, AnnotationType t) {
-    ParsedAnnotationContents* a = find_value_dict(const Node*, ParsedAnnotationContents, p->annotations, n);
-    if (!a)
-        return NULL;
-    else if (t == NoneAnnot || a->type == t)
-        return a;
-    else
-        return next_annotation(a, t);
+ParsedAnnotation* find_annotation(Parser* p, const Node* n) {
+    return find_value_dict(const Node*, ParsedAnnotation, p->annotations, n);
 }
 
-ParsedAnnotationContents* next_annotation(ParsedAnnotationContents* a, AnnotationType t) {
-    do {
-        a = a->next;
-        if (a && (t == NoneAnnot || a->type == t))
-            return a;
-    } while (a);
-    return a;
-}
-
-void add_annotation(Parser* p, const Node* n, ParsedAnnotationContents a) {
-    ParsedAnnotationContents* found = find_value_dict(const Node*, ParsedAnnotationContents, p->annotations, n);
+void add_annotation(Parser* p, const Node* n, ParsedAnnotation a) {
+    ParsedAnnotation* found = find_value_dict(const Node*, ParsedAnnotation, p->annotations, n);
     if (found) {
-        ParsedAnnotationContents* data = arena_alloc(p->annotations_arena, sizeof(a));
+        ParsedAnnotation* data = arena_alloc(p->annotations_arena, sizeof(a));
         *data = a;
         while (found->next)
             found = found->next;
         found->next = data;
     } else {
-        insert_dict(const Node*, ParsedAnnotationContents, p->annotations, n, a);
+        insert_dict(const Node*, ParsedAnnotation, p->annotations, n, a);
     }
 }
 
@@ -82,15 +67,19 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
             char* keyword = strtok(NULL, "::");
             if (strcmp(keyword, "entry_point") == 0) {
                 assert(target->tag == Function_TAG);
-                add_annotation(p, target, (ParsedAnnotationContents) {
-                        .type = EntryPointAnnot,
-                        .payload.entry_point_type = strtok(NULL, "::")
+                add_annotation(p, target,  (ParsedAnnotation) {
+                    .payload = annotation_value(a, (AnnotationValue) {
+                            .name = "EntryPoint",
+                            .value = string_lit_helper(a, strtok(NULL, "::"))
+                    })
                 });
             } else if (strcmp(keyword, "builtin") == 0) {
                 assert(target->tag == GlobalVariable_TAG);
-                add_annotation(p, target, (ParsedAnnotationContents) {
-                        .type = BuiltinAnnot,
-                        .payload.builtin_name = strtok(NULL, "::")
+                add_annotation(p, target, (ParsedAnnotation) {
+                    .payload = annotation_value(a, (AnnotationValue) {
+                        .name = "Builtin",
+                        .value = string_lit_helper(a, strtok(NULL, "::"))
+                    })
                 });
             } else {
                 error_print("Unrecognised shady annotation '%s'\n", keyword);
