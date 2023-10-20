@@ -10,6 +10,15 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
+
+#ifdef LLVM_PARSER_PRESENT
+#include "../frontends/llvm/l2s.h"
+#endif
+
+#ifdef SPV_PARSER_PRESENT
+#include "../frontends/spirv/s2s.h"
+#endif
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -27,15 +36,11 @@ SourceLanguage guess_source_language(const char* filename) {
     return SrcSlim;
 }
 
-ShadyErrorCodes parse_file(CompilerConfig* config, SourceLanguage lang, const char* file_contents, Module* mod) {
+ShadyErrorCodes parse_file(SourceLanguage lang, size_t len, const char* file_contents, Module* mod) {
     switch (lang) {
         case SrcLLVM: {
 #ifdef LLVM_PARSER_PRESENT
-            size_t size;
-            unsigned char* data;
-            bool ok = read_file(file_names[i], &size, &data);
-            assert(ok);
-            parse_llvm_into_shady(mod, size, data);
+            parse_llvm_into_shady(mod, len, file_contents);
 #else
             assert(false && "LLVM front-end missing in this version");
 #endif
@@ -43,11 +48,7 @@ ShadyErrorCodes parse_file(CompilerConfig* config, SourceLanguage lang, const ch
         }
         case SrcSPIRV: {
 #ifdef SPV_PARSER_PRESENT
-            size_t size;
-            unsigned char* data;
-            bool ok = read_file(file_names[i], &size, &data);
-            assert(ok);
-            parse_spirv_into_shady(mod, size, (uint32_t*) data);
+            parse_spirv_into_shady(mod, len, file_contents);
 #else
             assert(false && "SPIR-V front-end missing in this version");
 #endif

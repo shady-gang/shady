@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 static Program* load_program_internal(Runtime* runtime, const CompilerConfig* base_config, const char* program_src, const char* program_path) {
     Program* program = calloc(1, sizeof(Program));
@@ -27,7 +28,7 @@ static Program* load_program_internal(Runtime* runtime, const CompilerConfig* ba
     } else {
         assert(!program_path);
     }
-    CHECK(parse_file(&config, SrcShadyIR, program_src, program->module) == CompilationNoError, return false);
+    CHECK(parse_file(SrcShadyIR, strlen(program_src), program_src, program->module) == CompilationNoError, return false);
     if (program_path)
         free(program_src);
 

@@ -14,5 +14,3 @@ endif()
 
 target_link_libraries(shady_fe_llvm PRIVATE api common)
 set_property(TARGET shady_fe_llvm PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(shady PRIVATE shady_fe_llvm)
-target_compile_definitions(shady PRIVATE LLVM_PARSER_PRESENT)

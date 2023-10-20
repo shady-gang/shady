@@ -1318,11 +1318,11 @@ bool compare_spvid(SpvId* pa, SpvId* pb) {
     return *pa == *pb;
 }
 
-S2SError parse_spirv_into_shady(Module* dst, size_t len, uint32_t* words) {
+S2SError parse_spirv_into_shady(Module* dst, size_t len, const char* data) {
     SpvParser parser = {
         .cursor = 0,
         .len = len / sizeof(uint32_t),
-        .words = words,
+        .words = (uint32_t*) data,
         .mod = dst,
         .arena = get_module_arena(dst),
 

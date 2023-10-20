@@ -29,9 +29,10 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < num_source_files; i++) {
         String filename = read_list(const char*, args.input_filenames)[i];
         SourceLanguage lang = guess_source_language(filename);
+        size_t len;
         char* contents;
         assert(filename);
-        bool ok = read_file(filename, NULL, &contents);
+        bool ok = read_file(filename, &len, &contents);
         if (!ok) {
             error_print("Failed to read file '%s'\n", filename);
             exit(InputFileIOError);
@@ -40,7 +41,7 @@ int main(int argc, char** argv) {
             error_print("file does not exist\n");
             exit(InputFileDoesNotExist);
         }
-        parse_file(&args.config, lang, contents, mod);
+        parse_file(lang, len, contents, mod);
         free((void*) contents);
     }
 

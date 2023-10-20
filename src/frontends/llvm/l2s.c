@@ -163,7 +163,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     return r;
 }
 
-bool parse_llvm_into_shady(Module* dst, size_t len, char* data) {
+bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
     LLVMContextRef context = LLVMContextCreate();
     LLVMModuleRef src;
     LLVMMemoryBufferRef mem = LLVMCreateMemoryBufferWithMemoryRange(data, len, "my_great_buffer", false);

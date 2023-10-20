@@ -10,14 +10,6 @@
 
 #include <stdbool.h>
 
-#ifdef LLVM_PARSER_PRESENT
-#include "../frontends/llvm/l2s.h"
-#endif
-
-#ifdef SPV_PARSER_PRESENT
-#include "../frontends/spirv/s2s.h"
-#endif
-
 #define KiB * 1024
 #define MiB * 1024 KiB
 
