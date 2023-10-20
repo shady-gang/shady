@@ -1,8 +1,10 @@
 #include "runtime_private.h"
-#include "shady/ir.h"
+#include "shady/driver.h"
 
 #include "log.h"
 #include "list.h"
+#include "util.h"
+
 #include <stdlib.h>
 #include <assert.h>
 
@@ -12,20 +14,22 @@ static Program* load_program_internal(Runtime* runtime, const CompilerConfig* ba
     program->base_config = base_config;
 
     CompilerConfig config = default_compiler_config();
-    config.allow_frontend_syntax = true;
     ArenaConfig arena_config = default_arena_config();
     program->arena = new_ir_arena(arena_config);
     CHECK(program->arena != NULL, return false);
 
     program->module = new_module(program->arena, "my_module");
 
-    if (program_src) {
-        CHECK(parse_files(&config, 1, NULL, (const char* []) {program_src}, program->module) == CompilationNoError, return false);
-    } else if (program_path) {
-        CHECK(parse_files(&config, 1, (const char* []) { program_path}, NULL, program->module) == CompilationNoError, return false);
+    if (!program_src) {
+        assert(program_path);
+        bool ok = read_file(program_path, NULL, &program_src);
+        assert(ok);
     } else {
-        assert(false);
+        assert(!program_path);
     }
+    CHECK(parse_file(&config, SrcShadyIR, program_src, program->module) == CompilationNoError, return false);
+    if (program_path)
+        free(program_src);
 
     // TODO split the compilation pipeline into generic and non-generic parts
     append_list(Program*, runtime->programs, program);

@@ -1044,7 +1044,7 @@ static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
     return nom;
 }
 
-void parse(ParserConfig config, const char* contents, Module* mod) {
+void parse_shady_ir(ParserConfig config, const char* contents, Module* mod) {
     IrArena* arena = get_module_arena(mod);
     Tokenizer* tokenizer = new_tokenizer(contents);
 

@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #define ESCAPE_SEQS(X) \
 X('\\', '\\') \
@@ -49,7 +50,7 @@ static long get_file_size(FILE* f) {
     return fsize;
 }
 
-bool read_file(const char* filename, size_t* size, unsigned char** output) {
+bool read_file(const char* filename, size_t* size, char** output) {
     FILE *f = fopen(filename, "rb");
     if (f == NULL)
         return false;
@@ -82,7 +83,7 @@ err_post_open:
     return false;
 }
 
-bool write_file(const char* filename, size_t size, const unsigned char* data) {
+bool write_file(const char* filename, size_t size, const char* data) {
     FILE* f = fopen(filename, "wb");
     if (f == NULL)
         return false;
@@ -97,6 +98,18 @@ bool write_file(const char* filename, size_t size, const unsigned char* data) {
 err_post_open:
     fclose(f);
     return false;
+}
+
+bool string_ends_with(const char* string, const char* suffix) {
+    size_t len = strlen(string);
+    size_t slen = strlen(suffix);
+    if (len < slen)
+        return false;
+    for (size_t i = 0; i < slen; i++) {
+        if (string[len - 1 - i] != suffix[slen - 1 - i])
+            return false;
+    }
+    return true;
 }
 
 void error_die() {

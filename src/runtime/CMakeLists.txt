@@ -1,7 +1,6 @@
 add_library(runtime SHARED runtime.c runtime_program.c)
-target_link_libraries(runtime PUBLIC api)
-target_link_libraries(runtime PUBLIC shady)
-target_link_libraries(runtime PRIVATE common)
+target_link_libraries(runtime PUBLIC api shady)
+target_link_libraries(runtime PRIVATE common driver)
 set_property(TARGET runtime PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_target_properties(runtime PROPERTIES OUTPUT_NAME "shady_runtime")
 

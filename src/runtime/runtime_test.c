@@ -1,6 +1,6 @@
 #include "shady/runtime.h"
 #include "shady/ir.h"
-#include "shady/cli.h"
+#include "shady/driver.h"
 
 #include "log.h"
 #include "portability.h"
@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
     size_t num_source_files = entries_count_list(args.input_filenames);
     LARRAY(const char*, read_files, num_source_files);
     for (size_t i = 0; i < num_source_files; i++) {
-        unsigned char* input_file_contents;
+        char* input_file_contents;
 
         bool ok = read_file(read_list(const char*, args.input_filenames)[i], NULL, &input_file_contents);
         assert(ok);

@@ -647,8 +647,7 @@ CType* lookup_existing_type(Emitter* emitter, const Type* node) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-static Module* run_backend_specific_passes(SHADY_UNUSED CEmitterConfig* econfig, Module* mod) {
-    CompilerConfig* config = econfig->config;
+static Module* run_backend_specific_passes(CompilerConfig* config, CEmitterConfig* econfig, Module* mod) {
     IrArena* old_arena = get_module_arena(mod);
     ArenaConfig aconfig = old_arena->config;
     Module* old_mod;
@@ -669,9 +668,9 @@ static Module* run_backend_specific_passes(SHADY_UNUSED CEmitterConfig* econfig,
     return mod;
 }
 
-void emit_c(CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
+void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
     IrArena* initial_arena = get_module_arena(mod);
-    mod = run_backend_specific_passes(&config, mod);
+    mod = run_backend_specific_passes(&compiler_config, &config, mod);
     IrArena* arena = get_module_arena(mod);
 
     Growy* type_decls_g = new_growy();

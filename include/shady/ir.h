@@ -233,7 +233,6 @@ const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
 //////////////////////////////// Compilation ////////////////////////////////
 
 typedef struct CompilerConfig_ {
-    bool allow_frontend_syntax;
     bool dynamic_scheduling;
     uint32_t per_thread_stack_size;
     uint32_t per_subgroup_stack_size;
@@ -284,7 +283,6 @@ typedef enum CompilationResult_ {
     CompilationNoError
 } CompilationResult;
 
-CompilationResult parse_files(CompilerConfig*, size_t num_files, const char** file_names, const char** files_contents, Module* module);
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
 
 //////////////////////////////// Emission ////////////////////////////////
@@ -298,13 +296,12 @@ typedef enum {
 } CDialect;
 
 typedef struct {
-    CompilerConfig* config;
     CDialect dialect;
     bool explicitly_sized_types;
     bool allow_compound_literals;
 } CEmitterConfig;
 
-void emit_c(CEmitterConfig config, Module*, size_t* output_size, char** output, Module** new_mod);
+void emit_c(CompilerConfig compiler_config, CEmitterConfig emitter_config, Module*, size_t* output_size, char** output, Module** new_mod);
 
 void dump_cfg(FILE* file, Module*);
 void dump_loop_trees(FILE* output, Module* mod);

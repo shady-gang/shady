@@ -1,4 +1,4 @@
-#include "shady/cli.h"
+#include "shady/driver.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -7,18 +7,7 @@
 #include "log.h"
 #include "portability.h"
 #include "list.h"
-
-bool string_ends_with(const char* string, const char* suffix) {
-    size_t len = strlen(string);
-    size_t slen = strlen(suffix);
-    if (len < slen)
-        return false;
-    for (size_t i = 0; i < slen; i++) {
-        if (string[len - 1 - i] != suffix[slen - 1 - i])
-            return false;
-    }
-    return true;
-}
+#include "util.h"
 
 CodegenTarget guess_target(const char* filename) {
     if (string_ends_with(filename, ".c"))
@@ -154,4 +143,98 @@ void parse_input_files(struct List* list, int* pargc, char** argv) {
 
     pack_remaining_args(pargc, argv);
     assert(*pargc == 1);
+}
+
+DriverConfig default_driver_config() {
+    return (DriverConfig) {
+        .config = default_compiler_config(),
+        .target = TgtAuto,
+        .input_filenames = new_list(const char*),
+        .output_filename = NULL,
+        .cfg_output_filename = NULL,
+        .shd_output_filename = NULL,
+    };
+}
+
+void destroy_driver_config(DriverConfig* config) {
+    destroy_list(config->input_filenames);
+}
+
+void parse_driver_arguments(DriverConfig* args, int* pargc, char** argv) {
+    int argc = *pargc;
+
+    bool help = false;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--output") == 0 || strcmp(argv[i], "-o") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc) {
+                error_print("--output must be followed with a filename");
+                exit(MissingOutputArg);
+            }
+            args->output_filename = argv[i];
+        } else if (strcmp(argv[i], "--dump-cfg") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc) {
+                error_print("--dump-cfg must be followed with a filename");
+                exit(MissingDumpCfgArg);
+            }
+            args->cfg_output_filename = argv[i];
+        } else if (strcmp(argv[i], "--dump-loop-tree") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc) {
+                error_print("--dump-loop-tree must be followed with a filename");
+                exit(MissingDumpCfgArg);
+            }
+            args->loop_tree_output_filename = argv[i];
+        } else if (strcmp(argv[i], "--dump-ir") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc) {
+                error_print("--dump-ir must be followed with a filename");
+                exit(MissingDumpIrArg);
+            }
+            args->shd_output_filename = argv[i];
+        } else if (strcmp(argv[i], "--target") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc)
+                goto invalid_target;
+            else if (strcmp(argv[i], "c") == 0)
+                args->target = TgtC;
+            else if (strcmp(argv[i], "spirv") == 0)
+                args->target = TgtSPV;
+            else if (strcmp(argv[i], "glsl") == 0)
+                args->target = TgtGLSL;
+            else if (strcmp(argv[i], "ispc") == 0)
+                args->target = TgtISPC;
+            else
+                goto invalid_target;
+            argv[i] = NULL;
+            continue;
+            invalid_target:
+            error_print("--target must be followed with a valid target (see help for list of targets)");
+            exit(InvalidTarget);
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            help = true;
+            continue;
+        } else {
+            continue;
+        }
+        argv[i] = NULL;
+    }
+
+    if (help) {
+        // error_print("Usage: slim source.slim\n");
+        // error_print("Available arguments: \n");
+        error_print("  --target <c, glsl, ispc, spirv>           \n");
+        error_print("  --output <filename>, -o <filename>        \n");
+        error_print("  --dump-cfg <filename>                     Dumps the control flow graph of the final IR\n");
+        error_print("  --dump-loop-tree <filename>\n");
+        error_print("  --dump-ir <filename>                      Dumps the final IR\n");
+    }
+
+    pack_remaining_args(pargc, argv);
 }

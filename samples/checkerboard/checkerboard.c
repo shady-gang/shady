@@ -3,7 +3,7 @@
 #include <assert.h>
 
 #include "shady/runtime.h"
-#include "shady/cli.h"
+#include "shady/driver.h"
 
 #include "log.h"
 #include "list.h"

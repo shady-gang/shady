@@ -1,4 +1,4 @@
-#include "shady/cli.h"
+#include "shady/driver.h"
 #include "compile.h"
 
 #include "parser/parser.h"
@@ -23,7 +23,6 @@
 
 CompilerConfig default_compiler_config() {
     return (CompilerConfig) {
-        .allow_frontend_syntax = false,
         .dynamic_scheduling = true,
         .per_thread_stack_size = 4 KiB,
         .per_subgroup_stack_size = 1 KiB,
@@ -61,6 +60,14 @@ ArenaConfig default_arena_config() {
 #define mod (*pmod)
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
+    if (config->dynamic_scheduling) {
+        debugv_print("Parsing builtin scheduler code");
+        ParserConfig pconfig = {
+            .front_end = true,
+        };
+        parse_shady_ir(pconfig, shady_scheduler_src, mod);
+    }
+
     ArenaConfig aconfig = get_module_arena(mod)->config;
 
     aconfig.specializations.subgroup_size = config->specialization.subgroup_size;
@@ -139,65 +146,3 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 }
 
 #undef mod
-
-CompilationResult parse_files(CompilerConfig* config, size_t num_files, const char** file_names, const char** files_contents, Module* mod) {
-    ParserConfig pconfig = {
-        .front_end = config->allow_frontend_syntax
-    };
-
-    for (size_t i = 0; i < num_files; i++) {
-        if (file_names && (string_ends_with(file_names[i], ".ll") || string_ends_with(file_names[i], ".bc"))) {
-#ifdef LLVM_PARSER_PRESENT
-            size_t size;
-            unsigned char* data;
-            bool ok = read_file(file_names[i], &size, &data);
-            assert(ok);
-            parse_llvm_into_shady(mod, size, data);
-#else
-            assert(false && "LLVM front-end missing in this version");
-#endif
-        } else if (file_names && string_ends_with(file_names[i], ".spv")) {
-#ifdef SPV_PARSER_PRESENT
-            size_t size;
-            unsigned char* data;
-            bool ok = read_file(file_names[i], &size, &data);
-            assert(ok);
-            parse_spirv_into_shady(mod, size, (uint32_t*) data);
-#else
-            assert(false && "SPIR-V front-end missing in this version");
-#endif
-        } else {
-            const char* file_contents;
-
-            if (files_contents) {
-                file_contents = files_contents[i];
-            } else {
-                assert(file_names);
-                bool ok = read_file(file_names[i], NULL, &file_contents);
-                assert(ok);
-
-                if (file_contents == NULL) {
-                    error_print("file does not exist\n");
-                    exit(InputFileDoesNotExist);
-                }
-            }
-
-            debugv_print("Parsing: \n%s\n", file_contents);
-
-            parse(pconfig, file_contents, mod);
-
-            if (!files_contents)
-                free((void*) file_contents);
-        }
-    }
-
-    if (config->dynamic_scheduling) {
-        debugv_print("Parsing builtin scheduler code");
-        parse(pconfig, shady_scheduler_src, mod);
-    }
-
-    // Free the read files
-    for (size_t i = 0; i < num_files; i++)
-
-    return CompilationNoError;
-}

@@ -36,6 +36,6 @@ INFIX_OPERATORS()
     InfixOperatorsCount
 } InfixOperators;
 
-void parse(ParserConfig config, const char* contents, Module*);
+void parse_shady_ir(ParserConfig config, const char* contents, Module* mod);
 
 #endif
