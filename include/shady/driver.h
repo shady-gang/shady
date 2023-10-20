@@ -15,6 +15,7 @@ typedef enum {
     MissingDumpIrArg,
     IncorrectLogLevel = 16,
     InvalidTarget,
+    ClangInvocationFailed,
 } ShadyErrorCodes;
 
 typedef enum {

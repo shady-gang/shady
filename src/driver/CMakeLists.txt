@@ -13,4 +13,8 @@ endif()
 if (TARGET shady_fe_llvm)
     target_link_libraries(driver PRIVATE shady_fe_llvm)
     target_compile_definitions(driver PUBLIC LLVM_PARSER_PRESENT)
+
+    add_executable(vcc vcc.c)
+    target_compile_definitions(vcc PRIVATE "VCC=1")
+    target_link_libraries(vcc PRIVATE driver api common)
 endif ()
