@@ -40,6 +40,7 @@ jobs:
           - os: ubuntu-latest
             c_compiler: clang
             cpp_compiler: clang++
+        exclude:
           - os: ubuntu-latest
             c_compiler: cl
 
@@ -63,8 +64,8 @@ jobs:
         mkdir SPIRV-Headers/install
         cmake --install SPIRV-Headers/build --prefix SPIRV-Headers/install
 
-    #- name: Install Clang
-    #  uses: egor-tensin/setup-clang@v1.4
+    - name: Install Clang
+      uses: egor-tensin/setup-clang@v1.4
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
