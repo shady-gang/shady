@@ -756,7 +756,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 if (builtin) {
                     Builtin b = get_builtin_by_spv_id(*builtin->payload.literals.data);
                     assert(b != BuiltinsCount && "Unsupported builtin");
-                    annotations = append_nodes(parser->arena, annotations, annotation_value_helper(parser->arena, "Builtin", string_lit_helper(parser->arena, builtin_names[b])));
+                    annotations = append_nodes(parser->arena, annotations, annotation_value_helper(parser->arena, "Builtin", string_lit_helper(parser->arena, get_builtin_name(b))));
                 }
 
                 parser->defs[result].type = Decl;

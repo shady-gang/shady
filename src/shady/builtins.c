@@ -11,11 +11,15 @@ SHADY_BUILTINS()
 #undef BUILTIN
 };
 
+AddressSpace get_builtin_as(Builtin builtin) { return builtin_as[builtin]; }
+
 String builtin_names[] = {
 #define BUILTIN(name, _, _2) #name,
 SHADY_BUILTINS()
 #undef BUILTIN
 };
+
+String get_builtin_name(Builtin builtin) { return builtin_names[builtin]; }
 
 const Type* get_builtin_type(IrArena* arena, Builtin builtin) {
     switch (builtin) {

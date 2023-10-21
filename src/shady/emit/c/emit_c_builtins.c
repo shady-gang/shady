@@ -28,7 +28,7 @@ CTerm emit_c_builtin(Emitter* emitter, Builtin b) {
         case BuiltinSubgroupId:
         case BuiltinVertexIndex:
         case BuiltinSubgroupSize: {
-            return term_from_cvar(builtin_names[b]);
+            return term_from_cvar(get_builtin_name(b));
         }
         case BuiltinsCount: error("")
     }

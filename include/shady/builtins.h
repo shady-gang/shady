@@ -40,8 +40,8 @@ SHADY_BUILTINS()
   BuiltinsCount
 } Builtin;
 
-extern AddressSpace builtin_as[];
-extern String builtin_names[];
+AddressSpace get_builtin_as(Builtin);
+String get_builtin_name(Builtin);
 
 const Type* get_builtin_type(IrArena* arena, Builtin);
 Builtin get_builtin_by_name(String);

@@ -115,13 +115,13 @@ const Node* get_builtin(Module* m, Builtin b, String n) {
             continue;
         String builtin_name = get_annotation_string_payload(a);
         assert(builtin_name);
-        if (strcmp(builtin_name, builtin_names[b]) == 0)
+        if (strcmp(builtin_name, get_builtin_name(b)) == 0)
             return decl;
     }
 
-    AddressSpace as = builtin_as[b];
+    AddressSpace as = get_builtin_as(b);
     IrArena* a = get_module_arena(m);
-    Node* decl = global_var(m, singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a, builtin_names[b]))), get_builtin_type(a, b), n ? n : format_string(a, "builtin_%s", builtin_names[b]), as);
+    Node* decl = global_var(m, singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a, get_builtin_name(b)))), get_builtin_type(a, b), n ? n : format_string(a, "builtin_%s", get_builtin_name(b)), as);
     return decl;
 }
 
