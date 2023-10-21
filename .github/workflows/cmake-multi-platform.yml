@@ -62,7 +62,7 @@ jobs:
         cd SPIRV-Headers
         mkdir build
         cmake -B build .
-        cmake --install
+        cmake --install build
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
