@@ -1,5 +1,5 @@
 add_executable(checkerboard checkerboard.c)
-target_link_libraries(checkerboard PRIVATE m runtime common)
+target_link_libraries(checkerboard PRIVATE m runtime common driver)
 target_include_directories(checkerboard PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 message(${CMAKE_CURRENT_BINARY_DIR})
 

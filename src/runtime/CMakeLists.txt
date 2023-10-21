@@ -7,6 +7,4 @@ set_target_properties(runtime PROPERTIES OUTPUT_NAME "shady_runtime")
 add_subdirectory(vulkan)
 
 add_executable(runtime_test runtime_test.c)
-target_link_libraries(runtime_test common)
-target_link_libraries(runtime_test shady)
-target_link_libraries(runtime_test runtime)
+target_link_libraries(runtime_test common shady runtime driver)
