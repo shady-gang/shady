@@ -63,12 +63,6 @@ static const Node* process_let(Context* ctx, const Node* old) {
                 const Type* varying_typed_ptr_t = ptr_type(a, (PtrType) { .address_space = AsPrivatePhysical, .pointed_type = element_type });
                 const Node* varying_typed_ptr = gen_reinterpret_cast(builder, varying_typed_ptr_t, varying_top_of_stack);
 
-                const Node* uniform_top_of_stack = gen_primop_e(builder, get_stack_base_uniform_op, empty(a), empty(a));
-                const Type* uniform_raw_ptr_t = ptr_type(a, (PtrType) { .address_space = AsSubgroupPhysical, .pointed_type = local_arr_ty });
-                const Node* uniform_raw_ptr = gen_reinterpret_cast(builder, uniform_raw_ptr_t, uniform_top_of_stack);
-                const Type* uniform_typed_ptr_t = ptr_type(a, (PtrType) { .address_space = AsSubgroupPhysical, .pointed_type = element_type });
-                const Node* uniform_typed_ptr = gen_reinterpret_cast(builder, uniform_typed_ptr_t, uniform_top_of_stack);
-
                 gen_store(builder, varying_typed_ptr, varying_value);
                 for (int32_t j = 0; j < bytes_to_i32_cells(layout.size_in_bytes); j++) {
                     const Node* varying_logical_addr = gen_lea(builder, varying_raw_ptr, int32_literal(a, 0), nodes(a, 1, (const Node* []) {int32_literal(a, j) }));
@@ -79,10 +73,10 @@ static const Node* process_let(Context* ctx, const Node* old) {
                     if (ctx->config->printf_trace.subgroup_ops)
                         gen_primop(builder, debug_printf_op, empty(a), mk_nodes(a, string_lit(a, (StringLiteral) { .string = "partial_result %d"}), partial_result));
 
-                    const Node* uniform_logical_addr = gen_lea(builder, uniform_raw_ptr, int32_literal(a, 0), nodes(a, 1, (const Node* []) {int32_literal(a, j) }));
-                    gen_store(builder, uniform_logical_addr, partial_result);
+                    gen_store(builder, varying_logical_addr, partial_result);
                 }
-                const Node* result = gen_load(builder, uniform_typed_ptr);
+                const Node* result = gen_load(builder, varying_typed_ptr);
+                result = first(gen_primop(builder, subgroup_assume_uniform_op, empty(a), singleton(result)));
                 return finish_body(builder, let(a, quote_helper(a, singleton(result)), tail));
             }
             default: break;
@@ -107,7 +101,7 @@ void lower_subgroup_ops(SHADY_UNUSED CompilerConfig* config, Module* src, Module
     assert(!config->lower.emulate_subgroup_ops && "TODO");
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
-        .config = config
+        .config = config,
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);

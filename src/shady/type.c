@@ -912,6 +912,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = bool_type(arena)
             });
         }
+        case subgroup_assume_uniform_op:
         case subgroup_broadcast_first_op:
         case subgroup_reduce_sum_op: {
             assert(prim_op.type_arguments.count == 0);
