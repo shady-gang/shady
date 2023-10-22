@@ -4,6 +4,44 @@
 #include "log.h"
 #include "dict.h"
 #include "../../shady/transform/ir_gen_helpers.h"
+#include "../../shady/type.h"
+
+static const Node* data_composite(const Type* t, size_t size, LLVMValueRef v) {
+    IrArena* a = t->arena;
+    LARRAY(const Node*, elements, size);
+    size_t idc;
+    const char* raw_bytes = LLVMGetAsString(v, &idc);
+    for (size_t i = 0; i < size; i++) {
+        const Type* et = get_fill_type_element_type(t);
+        switch (et->tag) {
+            case Int_TAG: {
+                switch (et->payload.int_type.width) {
+                    case IntTy8:  elements[i] =  uint8_literal(a, ((uint8_t*) raw_bytes)[i]); break;
+                    case IntTy16: elements[i] = uint16_literal(a, ((uint16_t*) raw_bytes)[i]); break;
+                    case IntTy32: elements[i] = uint32_literal(a, ((uint32_t*) raw_bytes)[i]); break;
+                    case IntTy64: elements[i] = uint64_literal(a, ((uint64_t*) raw_bytes)[i]); break;
+                }
+                break;
+            }
+            case Float_TAG: {
+                switch (et->payload.float_type.width) {
+                    case FloatTy16:
+                        elements[i] = float_literal(a, (FloatLiteral) { .width = et->payload.float_type.width, .value = ((uint16_t*) raw_bytes)[i] });
+                        break;
+                    case FloatTy32:
+                        elements[i] = float_literal(a, (FloatLiteral) { .width = et->payload.float_type.width, .value = ((uint32_t*) raw_bytes)[i] });
+                        break;
+                    case FloatTy64:
+                        elements[i] = float_literal(a, (FloatLiteral) { .width = et->payload.float_type.width, .value = ((uint64_t*) raw_bytes)[i] });
+                        break;
+                }
+                break;
+            }
+            default: assert(false);
+        }
+    }
+    return composite(a, t, nodes(a, size, elements));
+}
 
 const Node* convert_value(Parser* p, LLVMValueRef v) {
     const Type** found = find_value_dict(LLVMTypeRef, const Type*, p->map, v);
@@ -46,25 +84,13 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             assert(t->tag == ArrType_TAG);
             size_t arr_size = get_int_literal_value(t->payload.arr_type.size, false);
             assert(arr_size >= 0 && arr_size < INT32_MAX && "sanity check");
-            LARRAY(const Node*, elements, arr_size);
-            size_t idc;
-            const char* raw_bytes = LLVMGetAsString(v, &idc);
-            for (size_t i = 0; i < arr_size; i++) {
-                const Type* et = t->payload.arr_type.element_type;
-                switch (et->tag) {
-                    case Int_TAG: {
-                        switch (et->payload.int_type.width) {
-                            case IntTy8:  elements[i] =  uint8_literal(a, ((uint8_t*) raw_bytes)[i]); break;
-                            case IntTy16: elements[i] = uint16_literal(a, ((uint16_t*) raw_bytes)[i]); break;
-                            case IntTy32: elements[i] = uint32_literal(a, ((uint32_t*) raw_bytes)[i]); break;
-                            case IntTy64: elements[i] = uint64_literal(a, ((uint64_t*) raw_bytes)[i]); break;
-                        }
-                        break;
-                    }
-                    default: assert(false);
-                }
-            }
-            return composite(a, t, nodes(a, arr_size, elements));
+            return data_composite(t, arr_size, v);
+        }
+        case LLVMConstantDataVectorValueKind: {
+            assert(t->tag == PackType_TAG);
+            size_t width = t->payload.pack_type.width;
+            assert(width >= 0 && width < INT32_MAX && "sanity check");
+            return data_composite(t, width, v);
         }
         case LLVMConstantStructValueKind: {
             assert(t->tag == RecordType_TAG);
@@ -109,8 +135,6 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             }
             return composite(a, t, nodes(a, arr_size, elements));
         }
-        case LLVMConstantDataVectorValueKind:
-            break;
         case LLVMConstantIntValueKind: {
             assert(t->tag == Int_TAG);
             unsigned long long value = LLVMConstIntGetZExtValue(v);
@@ -125,10 +149,21 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             assert(t->tag == Float_TAG);
             LLVMBool lossy;
             double d = LLVMConstRealGetDouble(v, &lossy);
-            uint64_t u;
-            assert(sizeof(u) == sizeof(d));
-            memcpy(&u, &d, sizeof(double));
-            return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = u });
+            uint64_t u = 0;
+            static_assert(sizeof(u) == sizeof(d), "");
+            switch (t->payload.float_type.width) {
+                case FloatTy16: error("todo")
+                case FloatTy32: {
+                    float f = (float) d;
+                    static_assert(sizeof(f) == sizeof(uint32_t), "");
+                    memcpy(&u, &f, sizeof(f));
+                    return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = u });
+                }
+                case FloatTy64: {
+                    memcpy(&u, &d, sizeof(double));
+                    return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = u });
+                }
+            }
         }
         case LLVMConstantPointerNullValueKind:
             r = null_ptr(a, (NullPtr) { .ptr_type = t });
@@ -154,6 +189,6 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
 
     error_print("Failed to find value ");
     LLVMDumpValue(v);
-    error_print(" in the already emitted map (kind=%d)", LLVMGetValueKind(v));
+    error_print(" in the already emitted map (kind=%d)\n", LLVMGetValueKind(v));
     error_die();
 }
