@@ -237,7 +237,6 @@ const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
 typedef struct CompilerConfig_ {
     bool dynamic_scheduling;
     uint32_t per_thread_stack_size;
-    uint32_t per_subgroup_stack_size;
 
     struct {
         uint8_t major;

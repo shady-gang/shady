@@ -182,23 +182,16 @@ void lower_stack(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) 
         .element_type = stack_base_element,
         .size = uint32_literal(a, config->per_thread_stack_size),
     });
-    const Type* uniform_stack_arr_type = arr_type(a, (ArrType) {
-        .element_type = stack_base_element,
-        .size = uint32_literal(a, config->per_subgroup_stack_size),
-    });
     const Type* stack_counter_t = uint32_type(a);
 
     Nodes annotations = mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }));
 
     // Arrays for the stacks
     Node* stack_decl = global_var(dst, annotations, stack_arr_type, "stack", AsPrivatePhysical);
-    Node* uniform_stack_decl = global_var(dst, annotations, uniform_stack_arr_type, "uniform_stack", AsSubgroupPhysical);
 
     // Pointers into those arrays
     Node* stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "stack_ptr", AsPrivateLogical);
     stack_ptr_decl->payload.global_variable.init = uint32_literal(a, 0);
-    Node* uniform_stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "uniform_stack_ptr", AsSubgroupLogical);
-    uniform_stack_ptr_decl->payload.global_variable.init = uint32_literal(a, 0);
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),

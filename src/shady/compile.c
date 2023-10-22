@@ -17,7 +17,6 @@ CompilerConfig default_compiler_config() {
     return (CompilerConfig) {
         .dynamic_scheduling = true,
         .per_thread_stack_size = 4 KiB,
-        .per_subgroup_stack_size = 1 KiB,
 
         .target_spirv_version = {
             .major = 1,
