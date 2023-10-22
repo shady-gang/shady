@@ -26,8 +26,8 @@ typedef enum {
 } SourceLanguage;
 
 SourceLanguage guess_source_language(const char* filename);
-ShadyErrorCodes parse_file(SourceLanguage lang, size_t, const char* file_contents, Module* mod);
-ShadyErrorCodes parse_file_from_filename(const char* filename, Module* mod);
+ShadyErrorCodes driver_load_source_file(SourceLanguage lang, size_t, const char* file_contents, Module* mod);
+ShadyErrorCodes driver_load_source_file_from_filename(const char* filename, Module* mod);
 
 typedef enum {
     TgtAuto,
@@ -39,14 +39,14 @@ typedef enum {
 
 CodegenTarget guess_target(const char* filename);
 
-void pack_remaining_args(int* pargc, char** argv);
+void cli_pack_remaining_args(int* pargc, char** argv);
 
 // parses 'common' arguments such as log level etc
-void parse_common_args(int* pargc, char** argv);
+void cli_parse_common_args(int* pargc, char** argv);
 // parses compiler pipeline options
-void parse_compiler_config_args(CompilerConfig*, int* pargc, char** argv);
+void cli_parse_compiler_config_args(CompilerConfig*, int* pargc, char** argv);
 // parses the remaining arguments into a list of files
-void parse_input_files(struct List*, int* pargc, char** argv);
+void cli_parse_input_files(struct List*, int* pargc, char** argv);
 
 typedef struct {
     CompilerConfig config;
@@ -62,7 +62,7 @@ typedef struct {
 DriverConfig default_driver_config();
 void destroy_driver_config(DriverConfig*);
 
-void parse_driver_arguments(DriverConfig* args, int* pargc, char** argv);
+void cli_parse_driver_arguments(DriverConfig* args, int* pargc, char** argv);
 
 ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod);
 ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod);

@@ -14,10 +14,10 @@ int main(int argc, char** argv) {
     platform_specific_terminal_init_extras();
 
     DriverConfig args = default_driver_config();
-    parse_driver_arguments(&args, &argc, argv);
-    parse_common_args(&argc, argv);
-    parse_compiler_config_args(&args.config, &argc, argv);
-    parse_input_files(args.input_filenames, &argc, argv);
+    cli_parse_driver_arguments(&args, &argc, argv);
+    cli_parse_common_args(&argc, argv);
+    cli_parse_compiler_config_args(&args.config, &argc, argv);
+    cli_parse_input_files(args.input_filenames, &argc, argv);
 
     if (entries_count_list(args.input_filenames) == 0) {
         error_print("Missing input file. See --help for proper usage");
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
     char* llvm_ir;
     if (!read_file("vcc_tmp.ll", &len, &llvm_ir))
         return InputFileIOError;
-    parse_file(SrcLLVM, len, llvm_ir, mod);
+    driver_load_source_file(SrcLLVM, len, llvm_ir, mod);
 
     driver_compile(&args, mod);
     info_print("Done\n");

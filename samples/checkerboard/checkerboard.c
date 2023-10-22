@@ -48,8 +48,8 @@ int main(int argc, char **argv)
         .dump_spv = true,
     };
 
-    parse_common_args(&argc, argv);
-    parse_compiler_config_args(&compiler_config, &argc, argv);
+    cli_parse_common_args(&argc, argv);
+    cli_parse_compiler_config_args(&compiler_config, &argc, argv);
 
     info_print("Shady checkerboard test starting...\n");
 

@@ -36,7 +36,7 @@ SourceLanguage guess_source_language(const char* filename) {
     return SrcSlim;
 }
 
-ShadyErrorCodes parse_file(SourceLanguage lang, size_t len, const char* file_contents, Module* mod) {
+ShadyErrorCodes driver_load_source_file(SourceLanguage lang, size_t len, const char* file_contents, Module* mod) {
     switch (lang) {
         case SrcLLVM: {
 #ifdef LLVM_PARSER_PRESENT
@@ -66,7 +66,7 @@ ShadyErrorCodes parse_file(SourceLanguage lang, size_t len, const char* file_con
     return NoError;
 }
 
-ShadyErrorCodes parse_file_from_filename(const char* filename, Module* mod) {
+ShadyErrorCodes driver_load_source_file_from_filename(const char* filename, Module* mod) {
     ShadyErrorCodes err;
     SourceLanguage lang = guess_source_language(filename);
     size_t len;
@@ -83,7 +83,7 @@ ShadyErrorCodes parse_file_from_filename(const char* filename, Module* mod) {
         err = InputFileDoesNotExist;
         goto exit;
     }
-    err = parse_file(lang, len, contents, mod);
+    err = driver_load_source_file(lang, len, contents, mod);
     exit:
     free((void*) contents);
     return err;
@@ -97,7 +97,7 @@ ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
 
     size_t num_source_files = entries_count_list(args->input_filenames);
     for (size_t i = 0; i < num_source_files; i++) {
-        int err = parse_file_from_filename(read_list(const char*, args->input_filenames)[i], mod);
+        int err = driver_load_source_file_from_filename(read_list(const char*, args->input_filenames)[i], mod);
         if (err)
             return err;
     }

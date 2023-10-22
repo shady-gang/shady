@@ -65,9 +65,9 @@ int main(int argc, char* argv[]) {
         .dump_spv = true,
     };
     parse_runtime_arguments(&argc, argv, &args);
-    parse_common_args(&argc, argv);
-    parse_compiler_config_args(&args.driver_config.config, &argc, argv);
-    parse_input_files(args.driver_config.input_filenames, &argc, argv);
+    cli_parse_common_args(&argc, argv);
+    cli_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
+    cli_parse_input_files(args.driver_config.input_filenames, &argc, argv);
 
     info_print("Shady runtime test starting...\n");
 

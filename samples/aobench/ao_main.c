@@ -142,8 +142,8 @@ int main(int argc, char **argv) {
     set_log_level(INFO);
     CompilerConfig compiler_config = default_compiler_config();
 
-    parse_common_args(&argc, argv);
-    parse_compiler_config_args(&compiler_config, &argc, argv);
+    cli_parse_common_args(&argc, argv);
+    cli_parse_compiler_config_args(&compiler_config, &argc, argv);
 
     bool do_host = false, do_ispc = false, do_device = false, do_all = true;
     for (size_t i = 0; i < argc; i++) {

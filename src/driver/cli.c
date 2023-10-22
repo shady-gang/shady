@@ -22,7 +22,7 @@ CodegenTarget guess_target(const char* filename) {
     exit(InvalidTarget);
 }
 
-void pack_remaining_args(int* pargc, char** argv) {
+void cli_pack_remaining_args(int* pargc, char** argv) {
     LARRAY(char*, nargv, *pargc);
     int nargc = 0;
     for (size_t i = 0; i < *pargc; i++) {
@@ -33,7 +33,7 @@ void pack_remaining_args(int* pargc, char** argv) {
     *pargc = nargc;
 }
 
-void parse_common_args(int* pargc, char** argv) {
+void cli_parse_common_args(int* pargc, char** argv) {
     int argc = *pargc;
 
     bool help = false;
@@ -77,10 +77,10 @@ void parse_common_args(int* pargc, char** argv) {
         error_print("  --log-level debug[v[v]], info, warn, error]\n");
     }
 
-    pack_remaining_args(pargc, argv);
+    cli_pack_remaining_args(pargc, argv);
 }
 
-void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
+void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
     int argc = *pargc;
 
     bool help = false;
@@ -131,10 +131,10 @@ void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv)
         error_print("  --lift-join-points                        Forcefully lambda-lifts all join points. Can help with reconvergence issues.\n");
     }
 
-    pack_remaining_args(pargc, argv);
+    cli_pack_remaining_args(pargc, argv);
 }
 
-void parse_input_files(struct List* list, int* pargc, char** argv) {
+void cli_parse_input_files(struct List* list, int* pargc, char** argv) {
     int argc = *pargc;
 
     for (int i = 1; i < argc; i++) {
@@ -144,7 +144,7 @@ void parse_input_files(struct List* list, int* pargc, char** argv) {
         argv[i] = NULL;
     }
 
-    pack_remaining_args(pargc, argv);
+    cli_pack_remaining_args(pargc, argv);
     assert(*pargc == 1);
 }
 
@@ -163,7 +163,7 @@ void destroy_driver_config(DriverConfig* config) {
     destroy_list(config->input_filenames);
 }
 
-void parse_driver_arguments(DriverConfig* args, int* pargc, char** argv) {
+void cli_parse_driver_arguments(DriverConfig* args, int* pargc, char** argv) {
     int argc = *pargc;
 
     bool help = false;
@@ -239,5 +239,5 @@ void parse_driver_arguments(DriverConfig* args, int* pargc, char** argv) {
         error_print("  --dump-ir <filename>                      Dumps the final IR\n");
     }
 
-    pack_remaining_args(pargc, argv);
+    cli_pack_remaining_args(pargc, argv);
 }
