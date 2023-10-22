@@ -103,6 +103,8 @@ void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv)
             if (i == argc)
                 error("Missing subgroup size name");
             config->specialization.subgroup_size = atoi(argv[i]);
+        } else if (strcmp(argv[i], "--specialize-early") == 0) {
+            config->specialization.early = true;
         } else if (strcmp(argv[i], "--simt2d") == 0) {
             config->lower.simt_to_explicit_simd = true;
         } else if (strcmp(argv[i], "--print-internal") == 0) {
@@ -124,6 +126,7 @@ void parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv)
         error_print("  --no-dynamic-scheduling                   Disable the built-in dynamic scheduler, restricts code to only leaf functions\n");
         error_print("  --simt2d                                  Emits SIMD code instead of SIMT, only effective with the C backend.\n");
         error_print("  --entry-point <foo>                       Selects an entry point for the program to be specialized on.\n");
+        error_print("  --specialize-early                        Applies specialization early, this can help eliminating problematic dead code earlier.\n");
         error_print("  --subgroup-size N                         Sets the subgroup size the program will be specialized for.\n");
         error_print("  --lift-join-points                        Forcefully lambda-lifts all join points. Can help with reconvergence issues.\n");
     }

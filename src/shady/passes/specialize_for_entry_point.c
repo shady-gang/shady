@@ -120,7 +120,7 @@ void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* con
     }
 }
 
-void specialize_for_entry_point(CompilerConfig* config, Module* src, Module* dst) {
+static void specialize_for_entry_point_(CompilerConfig* config, Module* src, Module* dst, bool early) {
     IrArena* a = get_module_arena(dst);
     assert(a->config.specializations.subgroup_size);
 
@@ -132,5 +132,23 @@ void specialize_for_entry_point(CompilerConfig* config, Module* src, Module* dst
     const Node* old_entry_point_decl = find_entry_point(src, config);
     rewrite_node(&ctx.rewriter, old_entry_point_decl);
 
+    if (early) {
+        // keep internal decls around the first time
+        Nodes odecls = get_module_declarations(src);
+        for (size_t i = 0; i < odecls.count; i++) {
+            const Node* odecl = odecls.nodes[i];
+            if (lookup_annotation(odecl, "Internal"))
+                rewrite_node(&ctx.rewriter, odecl);
+        }
+    }
+
     destroy_rewriter(&ctx.rewriter);
+}
+
+void specialize_for_entry_point(CompilerConfig* config, Module* src, Module* dst) {
+    specialize_for_entry_point_(config, src, dst, false);
+}
+
+void specialize_for_entry_point_early(CompilerConfig* config, Module* src, Module* dst) {
+    specialize_for_entry_point_(config, src, dst, true);
 }

@@ -274,6 +274,7 @@ typedef struct CompilerConfig_ {
     struct {
         uint32_t subgroup_size;
         String entry_point;
+        bool early;
     } specialization;
 } CompilerConfig;
 

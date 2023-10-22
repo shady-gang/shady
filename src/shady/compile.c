@@ -98,6 +98,11 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(lift_indirect_targets)
 
+    if (config->specialization.entry_point && config->specialization.early) {
+        specialize_arena_config(&aconfig, mod, config);
+        RUN_PASS(specialize_for_entry_point_early)
+    }
+
     RUN_PASS(opt_stack)
 
     RUN_PASS(lower_tailcalls)
@@ -129,7 +134,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     }
 
     if (config->specialization.entry_point) {
-        specialize_arena_config(&aconfig, mod, config);
+        if (!config->specialization.early)
+            specialize_arena_config(&aconfig, mod, config);
         RUN_PASS(specialize_for_entry_point)
     }
     RUN_PASS(lower_fill)
