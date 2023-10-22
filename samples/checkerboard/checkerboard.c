@@ -65,7 +65,10 @@ int main(int argc, char **argv)
 
     info_print("Device-side address is: %zu\n", buf_addr);
 
-    Program* program = load_program(runtime, &compiler_config, checkerboard_kernel_src);
+    IrArena* a = new_ir_arena(default_arena_config());
+    Module* m = new_module(a, "checkerboard");
+    driver_load_source_file(SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, m);
+    Program* program = new_program_from_module(runtime, &compiler_config, m);
 
     wait_completion(launch_kernel(program, device, "main", 16, 16, 1, 1, (void*[]) { &buf_addr }));
 
@@ -75,5 +78,6 @@ int main(int argc, char **argv)
 
     shutdown_runtime(runtime);
     saveppm("ao.ppm", WIDTH, HEIGHT, img);
+    destroy_ir_arena(a);
     free(img);
 }
