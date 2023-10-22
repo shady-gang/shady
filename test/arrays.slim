@@ -4,7 +4,7 @@ type T = struct {
     f32 y;
 };
 
-@EntryPoint("compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1)
+@EntryPoint("Compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1)
 fn main() {
     var [i32; 3] A = composite [i32; 3](0, 0, 0);
     A#0 = 17;

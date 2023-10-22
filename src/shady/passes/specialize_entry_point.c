@@ -97,7 +97,7 @@ void specialize_configurations_for_entry_point(Module* m, ArenaConfig* target, C
     if (!ep)
         error("%s is not annotated with @EntryPoint", config->specialization.entry_point);
     switch (execution_model_from_string(get_annotation_string_payload(ep))) {
-        case EmNone: assert(false);
+        case EmNone: error("Unknown entry point type: %s", get_annotation_string_payload(ep))
         case EmCompute: {
             const Node* old_wg_size_annotation = lookup_annotation(old_entry_point_decl, "WorkgroupSize");
             assert(old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && get_annotation_values(old_wg_size_annotation).count == 3);
@@ -106,8 +106,9 @@ void specialize_configurations_for_entry_point(Module* m, ArenaConfig* target, C
             target->specializations.workgroup_size[1] = get_int_literal_value(wg_size_nodes.nodes[1], false);
             target->specializations.workgroup_size[2] = get_int_literal_value(wg_size_nodes.nodes[2], false);
             assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2]);
+            break;
         }
-        default: error("Unknown entry point type: %s", get_annotation_string_payload(ep))
+        default: break;
     }
 }
 

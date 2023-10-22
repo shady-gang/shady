@@ -4,7 +4,7 @@ const i32 HEIGHT = 256;
 @Builtin("GlobalInvocationId")
 uniform input pack[u32; 3] global_id;
 
-@EntryPoint("compute") @WorkgroupSize(16, 16, 1) fn main(uniform ptr global [u8] p) {
+@EntryPoint("Compute") @WorkgroupSize(16, 16, 1) fn main(uniform ptr global [u8] p) {
     val thread_id = global_id;
     val x = reinterpret[i32](thread_id#0);
     val y = reinterpret[i32](thread_id#1);
