@@ -5,6 +5,7 @@
 #include "log.h"
 #include "portability.h"
 #include "util.h"
+#include "list.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -75,13 +76,19 @@ int main(int argc, char* argv[]) {
     Device* device = get_device(runtime, args.device);
     assert(device);
 
-    IrArena* arena = new_ir_arena(default_arena_config());
-    Module* module = new_module(arena, "my_module");
+    Program* program;
+    IrArena* arena = NULL;
+    if (entries_count_list(args.driver_config.input_filenames) == 0) {
+        program = load_program(runtime, &args.driver_config.config, default_shader);
+    } else {
+        arena = new_ir_arena(default_arena_config());
+        Module* module = new_module(arena, "my_module");
 
-    int err = driver_load_source_files(&args.driver_config, module);
-    if (err)
-        return err;
-    Program* program = new_program_from_module(runtime, &args.driver_config.config, module);
+        int err = driver_load_source_files(&args.driver_config, module);
+        if (err)
+            return err;
+        program = new_program_from_module(runtime, &args.driver_config.config, module);
+    }
 
     int32_t stuff[] = { 42, 42, 42, 42 };
     Buffer* buffer = allocate_buffer_device(device, sizeof(stuff));
@@ -95,7 +102,8 @@ int main(int argc, char* argv[]) {
     destroy_buffer(buffer);
 
     shutdown_runtime(runtime);
-    destroy_ir_arena(arena);
+    if (arena)
+        destroy_ir_arena(arena);
     destroy_driver_config(&args.driver_config);
     return 0;
 }
