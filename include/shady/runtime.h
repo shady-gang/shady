@@ -26,7 +26,9 @@ Device* get_an_device(Runtime*);
 const char* get_device_name(Device*);
 
 typedef struct CompilerConfig_ CompilerConfig;
+typedef struct Module_ Module;
 
+Program* new_program_from_module(Runtime*, const CompilerConfig*, Module*);
 Program* load_program(Runtime*, const CompilerConfig*, const char* program_src);
 Program* load_program_from_disk(Runtime*, const CompilerConfig*, const char* path);
 

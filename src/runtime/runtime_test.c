@@ -4,7 +4,6 @@
 
 #include "log.h"
 #include "portability.h"
-#include "list.h"
 #include "util.h"
 
 #include <stdlib.h>
@@ -14,14 +13,14 @@
 
 static const char* default_shader =
 "@EntryPoint(\"compute\") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn main(uniform i32 a, uniform ptr global i32 b) {\n"
-"    debug_printf(\"hi %d 0x%lx\\n\", a, reinterpret[u64](b));"
+"    val rb = reinterpret[u64](b);\n"
+"    debug_printf(\"hi %d 0x%lx\\n\", a, rb);\n"
 "    return ();\n"
 "}";
 
 typedef struct {
-    CompilerConfig compiler_config;
+    DriverConfig driver_config;
     RuntimeConfig runtime_config;
-    struct List* input_filenames;
     size_t device;
 } Args;
 
@@ -59,8 +58,7 @@ static void parse_runtime_arguments(int* pargc, char** argv, Args* args) {
 int main(int argc, char* argv[]) {
     set_log_level(INFO);
     Args args = {
-        .input_filenames = new_list(const char*),
-        .compiler_config = default_compiler_config(),
+        .driver_config = default_driver_config(),
     };
     args.runtime_config = (RuntimeConfig) {
         .use_validation = true,
@@ -68,45 +66,27 @@ int main(int argc, char* argv[]) {
     };
     parse_runtime_arguments(&argc, argv, &args);
     parse_common_args(&argc, argv);
-    parse_compiler_config_args(&args.compiler_config, &argc, argv);
-    parse_input_files(args.input_filenames, &argc, argv);
+    parse_compiler_config_args(&args.driver_config.config, &argc, argv);
+    parse_input_files(args.driver_config.input_filenames, &argc, argv);
 
     info_print("Shady runtime test starting...\n");
 
     Runtime* runtime = initialize_runtime(args.runtime_config);
     Device* device = get_device(runtime, args.device);
     assert(device);
-    const char* shader = NULL;
 
-    // Read the files
-    size_t num_source_files = entries_count_list(args.input_filenames);
-    LARRAY(const char*, read_files, num_source_files);
-    for (size_t i = 0; i < num_source_files; i++) {
-        char* input_file_contents;
+    IrArena* arena = new_ir_arena(default_arena_config());
+    Module* module = new_module(arena, "my_module");
 
-        bool ok = read_file(read_list(const char*, args.input_filenames)[i], NULL, &input_file_contents);
-        assert(ok);
-        if (input_file_contents == NULL) {
-            error_print("file does not exist\n");
-            exit(InputFileDoesNotExist);
-        }
-        read_files[i] = (char*)input_file_contents;
-    }
-    destroy_list(args.input_filenames);
-
-    // TODO handle multiple input files properly !
-    assert(num_source_files < 2);
-    if (num_source_files == 1)
-        shader = read_files[0];
-    if (!shader)
-        shader = default_shader;
+    int err = driver_load_source_files(&args.driver_config, module);
+    if (err)
+        return err;
+    Program* program = new_program_from_module(runtime, &args.driver_config.config, module);
 
     int32_t stuff[] = { 42, 42, 42, 42 };
     Buffer* buffer = allocate_buffer_device(device, sizeof(stuff));
     copy_to_buffer(buffer, 0, stuff, sizeof(stuff));
     copy_from_buffer(buffer, 0, stuff, sizeof(stuff));
-
-    Program* program = load_program(runtime, &args.compiler_config, shader);
 
     int32_t a0 = 42;
     uint64_t a1 = get_buffer_device_pointer(buffer);
@@ -115,4 +95,7 @@ int main(int argc, char* argv[]) {
     destroy_buffer(buffer);
 
     shutdown_runtime(runtime);
+    destroy_ir_arena(arena);
+    destroy_driver_config(&args.driver_config);
+    return 0;
 }

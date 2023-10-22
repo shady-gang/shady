@@ -64,6 +64,7 @@ void destroy_driver_config(DriverConfig*);
 
 void parse_driver_arguments(DriverConfig* args, int* pargc, char** argv);
 
+ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod);
 ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod);
 
 #endif

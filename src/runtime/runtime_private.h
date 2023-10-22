@@ -33,6 +33,7 @@ struct Device_ {
 struct Program_ {
     Runtime* runtime;
     const CompilerConfig* base_config;
+    /// owns the module, may be NULL if module is owned by someone else
     IrArena* arena;
     Module* module;
 };

@@ -20,17 +20,7 @@ int main(int argc, char** argv) {
     IrArena* arena = new_ir_arena(default_arena_config());
     Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
-    if (entries_count_list(args.input_filenames) == 0) {
-        error_print("Missing input file. See --help for proper usage");
-        exit(MissingInputArg);
-    }
-
-    size_t num_source_files = entries_count_list(args.input_filenames);
-    for (size_t i = 0; i < num_source_files; i++) {
-        int err = parse_file_from_filename(read_list(const char*, args.input_filenames)[i], mod);
-        if (err)
-            return err;
-    }
+    driver_load_source_files(&args, mod);
 
     driver_compile(&args, mod);
     info_print("Done\n");

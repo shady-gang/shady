@@ -89,6 +89,22 @@ ShadyErrorCodes parse_file_from_filename(const char* filename, Module* mod) {
     return err;
 }
 
+ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
+    if (entries_count_list(args->input_filenames) == 0) {
+        error_print("Missing input file. See --help for proper usage");
+        return MissingInputArg;
+    }
+
+    size_t num_source_files = entries_count_list(args->input_filenames);
+    for (size_t i = 0; i < num_source_files; i++) {
+        int err = parse_file_from_filename(read_list(const char*, args->input_filenames)[i], mod);
+        if (err)
+            return err;
+    }
+
+    return NoError;
+}
+
 ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
     info_print("Parsed program successfully: \n");
     log_module(INFO, &args->config, mod);
