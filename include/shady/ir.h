@@ -71,6 +71,7 @@ typedef struct {
     bool is_simt;
 
     bool allow_subgroup_memory;
+    bool allow_shared_memory;
 
     struct {
         /// Selects which type the subgroup intrinsic primops use to manipulate masks

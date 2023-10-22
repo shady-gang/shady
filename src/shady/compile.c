@@ -41,6 +41,7 @@ ArenaConfig default_arena_config() {
         .is_simt = true,
         .validate_builtin_types = false,
         .allow_subgroup_memory = true,
+        .allow_shared_memory = true,
 
         .memory = {
             .word_size = IntTy32,

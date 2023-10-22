@@ -31,6 +31,7 @@ void specialize_configurations_for_execution_model(Module* m, ArenaConfig* targe
     switch (config->specialization.execution_model) {
         case EmFragment: {
             target->allow_subgroup_memory = false;
+            target->allow_shared_memory = false;
         }
         default: break;
     }

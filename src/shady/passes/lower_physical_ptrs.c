@@ -455,8 +455,10 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
     };
 
     construct_emulated_memory_array(&ctx, AsPrivatePhysical, AsPrivateLogical);
-    construct_emulated_memory_array(&ctx, AsSubgroupPhysical, AsSubgroupLogical);
-    construct_emulated_memory_array(&ctx, AsSharedPhysical, AsSharedLogical);
+    if (dst->arena->config.allow_subgroup_memory)
+        construct_emulated_memory_array(&ctx, AsSubgroupPhysical, AsSubgroupLogical);
+    if (dst->arena->config.allow_shared_memory)
+        construct_emulated_memory_array(&ctx, AsSharedPhysical, AsSharedLogical);
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {
         if (is_as_emulated(&ctx, i)) {

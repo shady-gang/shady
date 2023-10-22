@@ -356,6 +356,10 @@ const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
         assert(ptr_type.address_space != AsSubgroupPhysical);
         assert(ptr_type.address_space != AsSubgroupLogical);
     }
+    if (!arena->config.allow_shared_memory) {
+        assert(ptr_type.address_space != AsSharedPhysical);
+        assert(ptr_type.address_space != AsSharedLogical);
+    }
     return NULL;
 }
 

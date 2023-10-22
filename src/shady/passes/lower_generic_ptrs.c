@@ -60,6 +60,14 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
     return reinterpreted_ptr;
 }
 
+static bool allowed(IrArena* a, AddressSpace as) {
+    if (as == AsSharedPhysical && !a->config.allow_shared_memory)
+        return false;
+    if (as == AsSubgroupPhysical && !a->config.allow_subgroup_memory)
+        return false;
+    return true;
+}
+
 static const Node* process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
@@ -123,6 +131,10 @@ static const Node* process(Context* ctx, const Node* old) {
                         LARRAY(const Node*, cases, max_tag);
                         for (size_t tag = 0; tag < max_tag; tag++) {
                             literals[tag] = size_t_literal(ctx, tag);
+                            if (!allowed(a, generic_ptr_tags[tag])) {
+                                cases[tag] = lambda(a, empty(a), unreachable(a));
+                                continue;
+                            }
                             BodyBuilder* case_bb = begin_body(a);
                             const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, nptr, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type));
                             const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
@@ -157,6 +169,10 @@ static const Node* process(Context* ctx, const Node* old) {
                         LARRAY(const Node*, cases, max_tag);
                         for (size_t tag = 0; tag < max_tag; tag++) {
                             literals[tag] = size_t_literal(ctx, tag);
+                            if (!allowed(a, generic_ptr_tags[tag])) {
+                                cases[tag] = lambda(a, empty(a), unreachable(a));
+                                continue;
+                            }
                             BodyBuilder* case_bb = begin_body(a);
                             const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, nptr, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type));
                             gen_store(case_bb, reinterpreted_ptr, rewrite_node(&ctx->rewriter, old->payload.prim_op.operands.nodes[1]));
