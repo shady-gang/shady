@@ -30,10 +30,6 @@ jobs:
           - os: windows-latest
             c_compiler: cl
             cpp_compiler: cl
-          - os: windows-latest
-            c_compiler: gcc
-          - os: windows-latest
-            c_compiler: clang
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
@@ -43,6 +39,10 @@ jobs:
         exclude:
           - os: ubuntu-latest
             c_compiler: cl
+          - os: windows-latest # these don't use MinGW, what's the point ?!
+            c_compiler: gcc
+          - os: windows-latest
+            c_compiler: clang
 
     steps:
     - uses: actions/checkout@v3
