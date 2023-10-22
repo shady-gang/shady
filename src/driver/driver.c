@@ -66,6 +66,29 @@ ShadyErrorCodes parse_file(SourceLanguage lang, size_t len, const char* file_con
     return NoError;
 }
 
+ShadyErrorCodes parse_file_from_filename(const char* filename, Module* mod) {
+    ShadyErrorCodes err;
+    SourceLanguage lang = guess_source_language(filename);
+    size_t len;
+    char* contents;
+    assert(filename);
+    bool ok = read_file(filename, &len, &contents);
+    if (!ok) {
+        error_print("Failed to read file '%s'\n", filename);
+        err = InputFileIOError;
+        goto exit;
+    }
+    if (contents == NULL) {
+        error_print("file does not exist\n");
+        err = InputFileDoesNotExist;
+        goto exit;
+    }
+    err = parse_file(lang, len, contents, mod);
+    exit:
+    free((void*) contents);
+    return err;
+}
+
 ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
     info_print("Parsed program successfully: \n");
     log_module(INFO, &args->config, mod);

@@ -27,6 +27,7 @@ typedef enum {
 
 SourceLanguage guess_source_language(const char* filename);
 ShadyErrorCodes parse_file(SourceLanguage lang, size_t, const char* file_contents, Module* mod);
+ShadyErrorCodes parse_file_from_filename(const char* filename, Module* mod);
 
 typedef enum {
     TgtAuto,

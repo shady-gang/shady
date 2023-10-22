@@ -17,34 +17,19 @@ int main(int argc, char** argv) {
     parse_compiler_config_args(&args.config, &argc, argv);
     parse_input_files(args.input_filenames, &argc, argv);
 
+    IrArena* arena = new_ir_arena(default_arena_config());
+    Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
+
     if (entries_count_list(args.input_filenames) == 0) {
         error_print("Missing input file. See --help for proper usage");
         exit(MissingInputArg);
     }
 
-    IrArena* arena = new_ir_arena(default_arena_config());
-    Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
-
     size_t num_source_files = entries_count_list(args.input_filenames);
     for (size_t i = 0; i < num_source_files; i++) {
-        String filename = read_list(const char*, args.input_filenames)[i];
-        SourceLanguage lang = guess_source_language(filename);
-        size_t len;
-        char* contents;
-        assert(filename);
-        bool ok = read_file(filename, &len, &contents);
-        if (!ok) {
-            error_print("Failed to read file '%s'\n", filename);
-            exit(InputFileIOError);
-        }
-        if (contents == NULL) {
-            error_print("file does not exist\n");
-            exit(InputFileDoesNotExist);
-        }
-        int err = parse_file(lang, len, contents, mod);
+        int err = parse_file_from_filename(read_list(const char*, args.input_filenames)[i], mod);
         if (err)
             return err;
-        free((void*) contents);
     }
 
     driver_compile(&args, mod);
