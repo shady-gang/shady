@@ -63,7 +63,7 @@ ShadyErrorCodes parse_file(SourceLanguage lang, size_t len, const char* file_con
             parse_shady_ir(pconfig, (const char*) file_contents, mod);
         }
     }
-    return true;
+    return NoError;
 }
 
 ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {

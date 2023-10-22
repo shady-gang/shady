@@ -41,7 +41,9 @@ int main(int argc, char** argv) {
             error_print("file does not exist\n");
             exit(InputFileDoesNotExist);
         }
-        parse_file(lang, len, contents, mod);
+        int err = parse_file(lang, len, contents, mod);
+        if (err)
+            return err;
         free((void*) contents);
     }
 
