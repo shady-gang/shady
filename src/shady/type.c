@@ -936,50 +936,42 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = empty(arena) }), .is_uniform = true });
         }
         // Stack stuff
-        case get_stack_pointer_op:
-        case get_stack_pointer_uniform_op: {
+        case get_stack_pointer_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 0);
-            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_pointer_uniform_op, .type = uint32_type(arena) });
+            return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = uint32_type(arena) });
         }
-        case get_stack_base_op:
-        case get_stack_base_uniform_op: {
+        case get_stack_base_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 0);
             const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = uint8_type(arena), .size = NULL }), .address_space = prim_op.op == get_stack_base_op ? AsPrivatePhysical : AsSubgroupPhysical});
-            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == get_stack_base_uniform_op, .type = ptr });
+            return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = ptr });
         }
-        case set_stack_pointer_op:
-        case set_stack_pointer_uniform_op: {
+        case set_stack_pointer_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
-            bool is_uniform = prim_op.op == set_stack_pointer_uniform_op;
-            if (is_uniform)
-                assert(is_qualified_type_uniform(prim_op.operands.nodes[0]->type));
             assert(get_unqualified_type(prim_op.operands.nodes[0]->type) == uint32_type(arena));
             return unit_type(arena);
         }
-        case push_stack_uniform_op:
         case push_stack_op: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);
             const Type* element_type = first(prim_op.type_arguments);
             assert(is_data_type(element_type));
             const Type* qual_element_type = qualified_type(arena, (QualifiedType) {
-                .is_uniform = prim_op.op == push_stack_uniform_op,
+                .is_uniform = false,
                 .type = element_type
             });
             // the operand has to be a subtype of the annotated type
             assert(is_subtype(qual_element_type, first(prim_op.operands)->type));
             return unit_type(arena);
         }
-        case pop_stack_op:
-        case pop_stack_uniform_op: {
+        case pop_stack_op:{
             assert(prim_op.operands.count == 0);
             assert(prim_op.type_arguments.count == 1);
             const Type* element_type = prim_op.type_arguments.nodes[0];
             assert(is_data_type(element_type));
-            return qualified_type(arena, (QualifiedType) { .is_uniform = prim_op.op == pop_stack_uniform_op, .type = element_type});
+            return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = element_type});
         }
         // Debugging ops
         case debug_printf_op: {

@@ -54,14 +54,9 @@ P(0, cos)               \
 #define STACK_PRIMOPS(P) \
 P(1, push_stack)                \
 P(1, pop_stack)                 \
-P(1, push_stack_uniform)        \
-P(1, pop_stack_uniform)         \
 P(0, get_stack_pointer)         \
-P(0, get_stack_pointer_uniform) \
 P(0, get_stack_base)            \
-P(0, get_stack_base_uniform)    \
 P(1, set_stack_pointer)         \
-P(1, set_stack_pointer_uniform) \
 
 #define MEMORY_PRIMOPS(P) \
 P(1, alloca)              \

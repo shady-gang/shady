@@ -349,8 +349,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
     LARRAY(const Node*, new_inputs_scratch, old_operands.count);
     Nodes input_types;
     switch (node->payload.prim_op.op) {
-        case push_stack_op:
-        case push_stack_uniform_op: {
+        case push_stack_op: {
             assert(old_operands.count == 1);
             assert(type_args.count == 1);
             const Type* element_type = type_args.nodes[0];
@@ -358,8 +357,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], qualified_type_helper(element_type, false));
             goto skip_input_types;
         }
-        case pop_stack_op:
-        case pop_stack_uniform_op: {
+        case pop_stack_op: {
             assert(old_operands.count == 0);
             assert(type_args.count == 1);
             const Type* element_type = type_args.nodes[0];
