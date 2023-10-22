@@ -41,11 +41,12 @@ ArenaConfig default_arena_config() {
     return (ArenaConfig) {
         .is_simt = true,
         .validate_builtin_types = false,
+        .allow_subgroup_memory = true,
 
         .memory = {
             .word_size = IntTy32,
             .ptr_size = IntTy64,
-        }
+        },
     };
 }
 
@@ -98,9 +99,9 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(lift_indirect_targets)
 
-    if (config->specialization.entry_point && config->specialization.early) {
-        specialize_arena_config(&aconfig, mod, config);
-        RUN_PASS(specialize_for_entry_point_early)
+    if (config->specialization.execution_model != EmNone) {
+        specialize_configurations_for_execution_model(mod, &aconfig, config);
+        RUN_PASS(specialize_execution_model)
     }
 
     RUN_PASS(opt_stack)
@@ -134,9 +135,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     }
 
     if (config->specialization.entry_point) {
-        if (!config->specialization.early)
-            specialize_arena_config(&aconfig, mod, config);
-        RUN_PASS(specialize_for_entry_point)
+        specialize_configurations_for_entry_point(mod, &aconfig, config);
+        RUN_PASS(specialize_entry_point)
     }
     RUN_PASS(lower_fill)
 

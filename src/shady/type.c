@@ -351,6 +351,14 @@ const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
     return NULL;
 }
 
+const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
+    if (!arena->config.allow_subgroup_memory) {
+        assert(ptr_type.address_space != AsSubgroupPhysical);
+        assert(ptr_type.address_space != AsSubgroupLogical);
+    }
+    return NULL;
+}
+
 const Type* check_type_var(IrArena* arena, Variable variable) {
     assert(is_value_type(variable.type));
     return variable.type;

@@ -424,10 +424,10 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
 
 static SpvExecutionModel emit_exec_model(ExecutionModel model) {
     switch (model) {
-        case Compute:  return SpvExecutionModelGLCompute;
-        case Vertex:   return SpvExecutionModelVertex;
-        case Fragment: return SpvExecutionModelFragment;
-        default: error("Can't emit execution model");
+        case EmCompute:  return SpvExecutionModelGLCompute;
+        case EmVertex:   return SpvExecutionModelVertex;
+        case EmFragment: return SpvExecutionModelFragment;
+        case EmNone: error("No execution model but we were asked to emit it anyways");
     }
 }
 
@@ -459,14 +459,14 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
 
         const Node* entry_point = lookup_annotation(decl, "EntryPoint");
         if (entry_point) {
-            const char* execution_model_name = get_string_literal(emitter->arena, get_annotation_value(entry_point));
-            SpvExecutionModel execution_model = emit_exec_model(execution_model_from_string(execution_model_name));
+            ExecutionModel execution_model = execution_model_from_string(get_string_literal(emitter->arena, get_annotation_value(entry_point)));
+            assert(execution_model != EmNone);
 
-            spvb_entry_point(emitter->file_builder, execution_model, fn_id, decl->payload.fun.name, interface_size, interface_arr);
+            spvb_entry_point(emitter->file_builder, emit_exec_model(execution_model), fn_id, decl->payload.fun.name, interface_size, interface_arr);
             emitter->num_entry_pts++;
 
             const Node* workgroup_size = lookup_annotation(decl, "WorkgroupSize");
-            if (execution_model == SpvExecutionModelGLCompute)
+            if (execution_model == EmCompute)
                 assert(workgroup_size);
             if (workgroup_size) {
                 Nodes values = get_annotation_values(workgroup_size);
@@ -478,7 +478,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, (uint32_t[3]) { wg_x_dim, wg_y_dim, wg_z_dim });
             }
 
-            if (execution_model == SpvExecutionModelFragment) {
+            if (execution_model == EmFragment) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeOriginUpperLeft, 0, NULL);
             }
         }

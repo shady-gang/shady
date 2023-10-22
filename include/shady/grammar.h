@@ -19,7 +19,7 @@ N(1, 1, 1, RecordType, record_type) \
 N(1, 0, 1, FnType, fn_type) \
 N(1, 0, 1, BBType, bb_type) \
 N(1, 0, 1, LamType, lam_type) \
-N(1, 0, 1, PtrType, ptr_type) \
+N(1, 1, 1, PtrType, ptr_type) \
 N(1, 1, 1, QualifiedType, qualified_type) \
 N(1, 1, 1, ArrType, arr_type) \
 N(1, 1, 1, PackType, pack_type) \
@@ -435,6 +435,20 @@ MkField(0, POD, Module*, module) \
 MkField(1, STRING, String, name) \
 MkField(1, TYPES, Nodes, return_types) \
 MkField(1, ANNOTATIONS, Nodes, annotations)
+
+#define EXECUTION_MODELS(EM) \
+EM(Compute,  1) \
+EM(Fragment, 0) \
+EM(Vertex,   0) \
+
+typedef enum {
+    EmNone,
+#define EM(name, _) Em##name,
+EXECUTION_MODELS(EM)
+#undef EM
+} ExecutionModel;
+
+ExecutionModel execution_model_from_string(const char*);
 
 typedef struct Constant_ Constant;
 #define Constant_Fields(MkField) \

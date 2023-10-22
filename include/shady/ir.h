@@ -70,6 +70,8 @@ typedef struct {
     bool validate_builtin_types; // do @Builtins variables need to match their type in builtins.h ?
     bool is_simt;
 
+    bool allow_subgroup_memory;
+
     struct {
         /// Selects which type the subgroup intrinsic primops use to manipulate masks
         enum {
@@ -272,9 +274,9 @@ typedef struct CompilerConfig_ {
     } logging;
 
     struct {
-        uint32_t subgroup_size;
         String entry_point;
-        bool early;
+        ExecutionModel execution_model;
+        uint32_t subgroup_size;
     } specialization;
 } CompilerConfig;
 

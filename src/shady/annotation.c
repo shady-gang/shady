@@ -108,10 +108,10 @@ Nodes filter_out_annotation(IrArena* arena, Nodes annotations, const char* name)
 
 ExecutionModel execution_model_from_string(const char* string) {
     if (strcmp(string, "compute") == 0)
-        return Compute;
+        return EmCompute;
     else if (strcmp(string, "vertex") == 0)
-        return Vertex;
+        return EmVertex;
     else if (strcmp(string, "fragment") == 0)
-        return Fragment;
-    else error("Unknown execution model: %s\n", string)
+        return EmFragment;
+    return EmNone;
 }

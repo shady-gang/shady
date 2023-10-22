@@ -61,7 +61,8 @@ set(SHADY_SOURCES
     passes/opt_restructure.c
     passes/reconvergence_heuristics.c
     passes/simt2d.c
-    passes/specialize_for_entry_point.c
+    passes/specialize_entry_point.c
+    passes/specialize_execution_model.c
 
     passes/lower_entrypoint_args.c
     passes/spirv_map_entrypoint_args.c

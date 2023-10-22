@@ -5,7 +5,6 @@
 
 #include "../ir_private.h"
 #include "../rewrite.h"
-#include "../type.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include <string.h>
@@ -16,6 +15,7 @@ typedef struct {
     const Node* old_entry_point_decl;
     const Node* old_wg_size_annotation;
 } Context;
+
 
 static const Node* process(Context* ctx, const Node* node) {
     if (!node) return NULL;
@@ -76,53 +76,43 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 static const Node* find_entry_point(Module* m, CompilerConfig* config) {
-    const Node* old_entry_point_decl = NULL;
-
+    if (!config->specialization.entry_point)
+        return NULL;
+    const Node* found = NULL;
     Nodes old_decls = get_module_declarations(m);
     for (size_t i = 0; i < old_decls.count; i++) {
         if (strcmp(get_decl_name(old_decls.nodes[i]), config->specialization.entry_point) == 0) {
-            old_entry_point_decl = old_decls.nodes[i];
+            assert(!found);
+            found = old_decls.nodes[i];
         }
     }
-    if (!old_entry_point_decl) {
-        error("Asked to specialize on %s but no such declaration was found", config->specialization.entry_point);
-    }
-    return old_entry_point_decl;
+    return found;
 }
 
-void specialize_arena_config(ArenaConfig* target, Module* m, CompilerConfig* config) {
+void specialize_configurations_for_entry_point(Module* m, ArenaConfig* target, CompilerConfig* config) {
     const Node* old_entry_point_decl = find_entry_point(m, config);
-    if (old_entry_point_decl->tag != Function_TAG) {
+    if (old_entry_point_decl->tag != Function_TAG)
         error("%s is not a function", config->specialization.entry_point);
-    }
     const Node* ep = lookup_annotation(old_entry_point_decl, "EntryPoint");
-    if (!ep) {
+    if (!ep)
         error("%s is not annotated with @EntryPoint", config->specialization.entry_point);
-    }
-    if (ep->tag != AnnotationValue_TAG || get_annotation_value(ep)->tag != StringLiteral_TAG){
-        error("%s's @EntryPoint annotation does not contain a string literal", config->specialization.entry_point);
-    }
-
-    String entry_point_type = get_string_literal(get_module_arena(m), get_annotation_value(ep));
-
-    if (strcmp(entry_point_type, "compute") == 0) {
-        const Node* old_wg_size_annotation = lookup_annotation(old_entry_point_decl, "WorkgroupSize");
-        assert(old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && get_annotation_values(old_wg_size_annotation).count == 3);
-        Nodes wg_size_nodes = get_annotation_values(old_wg_size_annotation);
-        target->specializations.workgroup_size[0] = get_int_literal_value(wg_size_nodes.nodes[0], false);
-        target->specializations.workgroup_size[1] = get_int_literal_value(wg_size_nodes.nodes[1], false);
-        target->specializations.workgroup_size[2] = get_int_literal_value(wg_size_nodes.nodes[2], false);
-        assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2]);
-    } else if (strcmp(entry_point_type, "fragment") == 0) {
-        // TODO
-    } else {
-        error("Unknown entry point type: %s", entry_point_type);
+    switch (execution_model_from_string(get_annotation_string_payload(ep))) {
+        case EmNone: assert(false);
+        case EmCompute: {
+            const Node* old_wg_size_annotation = lookup_annotation(old_entry_point_decl, "WorkgroupSize");
+            assert(old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && get_annotation_values(old_wg_size_annotation).count == 3);
+            Nodes wg_size_nodes = get_annotation_values(old_wg_size_annotation);
+            target->specializations.workgroup_size[0] = get_int_literal_value(wg_size_nodes.nodes[0], false);
+            target->specializations.workgroup_size[1] = get_int_literal_value(wg_size_nodes.nodes[1], false);
+            target->specializations.workgroup_size[2] = get_int_literal_value(wg_size_nodes.nodes[2], false);
+            assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2]);
+        }
+        default: error("Unknown entry point type: %s", get_annotation_string_payload(ep))
     }
 }
 
-static void specialize_for_entry_point_(CompilerConfig* config, Module* src, Module* dst, bool early) {
+void specialize_entry_point(CompilerConfig* config, Module* src, Module* dst) {
     IrArena* a = get_module_arena(dst);
-    assert(a->config.specializations.subgroup_size);
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
@@ -132,23 +122,5 @@ static void specialize_for_entry_point_(CompilerConfig* config, Module* src, Mod
     const Node* old_entry_point_decl = find_entry_point(src, config);
     rewrite_node(&ctx.rewriter, old_entry_point_decl);
 
-    if (early) {
-        // keep internal decls around the first time
-        Nodes odecls = get_module_declarations(src);
-        for (size_t i = 0; i < odecls.count; i++) {
-            const Node* odecl = odecls.nodes[i];
-            if (lookup_annotation(odecl, "Internal"))
-                rewrite_node(&ctx.rewriter, odecl);
-        }
-    }
-
     destroy_rewriter(&ctx.rewriter);
-}
-
-void specialize_for_entry_point(CompilerConfig* config, Module* src, Module* dst) {
-    specialize_for_entry_point_(config, src, dst, false);
-}
-
-void specialize_for_entry_point_early(CompilerConfig* config, Module* src, Module* dst) {
-    specialize_for_entry_point_(config, src, dst, true);
 }
