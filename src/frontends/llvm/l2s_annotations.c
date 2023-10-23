@@ -69,8 +69,16 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                 assert(target->tag == Function_TAG);
                 add_annotation(p, target,  (ParsedAnnotation) {
                     .payload = annotation_value(a, (AnnotationValue) {
-                            .name = "EntryPoint",
-                            .value = string_lit_helper(a, strtok(NULL, "::"))
+                        .name = "EntryPoint",
+                        .value = string_lit_helper(a, strtok(NULL, "::"))
+                    })
+                });
+            } else if (strcmp(keyword, "workgroup_size") == 0) {
+                assert(target->tag == Function_TAG);
+                add_annotation(p, target,  (ParsedAnnotation) {
+                    .payload = annotation_values(a, (AnnotationValues) {
+                        .name = "WorkgroupSize",
+                        .values = mk_nodes(a, int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10)), int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10)), int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10)))
                     })
                 });
             } else if (strcmp(keyword, "builtin") == 0) {
