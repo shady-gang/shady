@@ -17,6 +17,25 @@ static Nodes convert_operands(Parser* p, size_t num_ops, LLVMValueRef v) {
     return operands;
 }
 
+static const Type* change_int_t_sign(const Type* t, bool as_signed) {
+    assert(t->tag == Int_TAG);
+    return int_type(t->arena, (Int) {
+        .width = t->payload.int_type.width,
+        .is_signed = as_signed
+    });
+}
+
+static Nodes reinterpreted_operands(BodyBuilder* b, Nodes ops, bool as_signed) {
+    assert(ops.count > 0);
+    const Type* ot = first(ops)->type;
+    const Type* t = change_int_t_sign(ot, as_signed);
+    IrArena* a = t->arena;
+    LARRAY(const Node*, nops, ops.count);
+    for (size_t i = 0; i < ops.count; i++)
+        nops[i] = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(t), singleton(ops.nodes[i])), singleton(t), NULL, false));
+    return nodes(a, ops.count, nops);
+}
+
 /// instr may be an instruction or a constantexpr
 EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
     IrArena* a = get_module_arena(p->dst);
@@ -33,12 +52,16 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
     else
         assert(false);
 
+    const Type* t = convert_type(p, LLVMTypeOf(instr));
+
+#define BIND_PREV_R bind_instruction_explicit_result_types(b, r, singleton(r->type), NULL, false)
+
     switch (opcode) {
         case LLVMRet: return (EmittedInstr) {
-                    .terminator = fn_ret(a, (Return) {
-                            .fn = NULL,
-                            .args = num_ops == 0 ? empty(a) : convert_operands(p, num_ops, instr)
-                    })
+                .terminator = fn_ret(a, (Return) {
+                    .fn = NULL,
+                    .args = num_ops == 0 ? empty(a) : convert_operands(p, num_ops, instr)
+                })
             };
         case LLVMBr:
             goto unimplemented;
@@ -49,12 +72,13 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
         case LLVMInvoke:
             goto unimplemented;
         case LLVMUnreachable: return (EmittedInstr) {
-                    .terminator = unreachable(a)
+                .terminator = unreachable(a)
             };
         case LLVMCallBr:
             goto unimplemented;
         case LLVMFNeg:
-            goto unimplemented;
+            r = prim_op_helper(a, neg_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMFAdd:
         case LLVMAdd:
             r = prim_op_helper(a, add_op, empty(a), convert_operands(p, num_ops, instr));
@@ -69,44 +93,53 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             break;
         case LLVMUDiv:
         case LLVMFDiv:
-        case LLVMSDiv:
             r = prim_op_helper(a, div_op, empty(a), convert_operands(p, num_ops, instr));
             break;
+        case LLVMSDiv:
+            r = prim_op_helper(a, div_op, empty(a), reinterpreted_operands(b, convert_operands(p, num_ops, instr), true));
+            r = prim_op_helper(a, reinterpret_op, singleton(change_int_t_sign(r->type, false)), BIND_PREV_R);
+            break;
         case LLVMURem:
-            goto unimplemented;
-        case LLVMSRem:
-            goto unimplemented;
         case LLVMFRem:
-            goto unimplemented;
+            r = prim_op_helper(a, mod_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
+        case LLVMSRem:
+            r = prim_op_helper(a, mod_op, empty(a), reinterpreted_operands(b, convert_operands(p, num_ops, instr), true));
+            r = prim_op_helper(a, reinterpret_op, singleton(change_int_t_sign(r->type, false)), BIND_PREV_R);
+            break;
         case LLVMShl:
-            goto unimplemented;
+            r = prim_op_helper(a, lshift_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMLShr:
-            goto unimplemented;
+            r = prim_op_helper(a, rshift_logical_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMAShr:
-            goto unimplemented;
+            r = prim_op_helper(a, rshift_arithm_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMAnd:
-            goto unimplemented;
+            r = prim_op_helper(a, and_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMOr:
-            goto unimplemented;
+            r = prim_op_helper(a, or_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMXor:
-            goto unimplemented;
+            r = prim_op_helper(a, xor_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMAlloca: {
-            const Type* dst_t = convert_type(p, LLVMTypeOf(instr));
-            assert(dst_t->tag == PtrType_TAG);
+            assert(t->tag == PtrType_TAG);
             const Type* allocated_t = convert_type(p, LLVMGetAllocatedType(instr));
             r = first(bind_instruction_outputs_count(b, prim_op_helper(a, alloca_op, singleton(allocated_t), empty(a)), 1, (String[]) { "alloca_private" }, false));
             if (UNTYPED_POINTERS) {
-                const Type* untyped_private_ptr_t = ptr_type(a, (PtrType) { .pointed_type = dst_t->payload.ptr_type.pointed_type, .address_space = AsPrivatePhysical });
+                const Type* untyped_private_ptr_t = ptr_type(a, (PtrType) { .pointed_type = t->payload.ptr_type.pointed_type, .address_space = AsPrivatePhysical });
                 r = prim_op_helper(a, reinterpret_op, singleton(untyped_private_ptr_t), singleton(r));
             }
-            r = prim_op_helper(a, convert_op, singleton(dst_t), singleton(r));
+            r = prim_op_helper(a, convert_op, singleton(t), singleton(r));
             break;
         }
         case LLVMLoad: {
             Nodes ops = convert_operands(p, num_ops, instr);
             assert(ops.count == 1);
             const Node* ptr = first(ops);
-            const Type* t = convert_type(p, LLVMTypeOf(instr));
             r = prim_op_helper(a, load_op, singleton(t), singleton(ptr));
             break;
         }
@@ -123,19 +156,24 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             break;
         }
         case LLVMTrunc:
-            goto unimplemented;
+            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R);
+            break;
         case LLVMZExt:
-            goto unimplemented;
+            // reinterpret as unsigned, convert to change size, reinterpret back to target T
+            r = prim_op_helper(a, convert_op, singleton(change_int_t_sign(t, false)), reinterpreted_operands(b, convert_operands(p, num_ops, instr), false));
+            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R);
+            break;
         case LLVMSExt:
-            goto unimplemented;
+            // reinterpret as signed, convert to change size, reinterpret back to target T
+            r = prim_op_helper(a, convert_op, singleton(change_int_t_sign(t, true)), reinterpreted_operands(b, convert_operands(p, num_ops, instr), true));
+            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R);
+            break;
         case LLVMFPToUI:
-            goto unimplemented;
         case LLVMFPToSI:
-            goto unimplemented;
         case LLVMUIToFP:
-            goto unimplemented;
         case LLVMSIToFP:
-            goto unimplemented;
+            r = prim_op_helper(a, convert_op, singleton(t), BIND_PREV_R);
+            break;
         case LLVMFPTrunc:
             goto unimplemented;
         case LLVMFPExt:
@@ -143,8 +181,19 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
         case LLVMPtrToInt:
         case LLVMIntToPtr:
         case LLVMBitCast:
-        case LLVMAddrSpaceCast:{
-            r = prim_op_helper(a, reinterpret_op, singleton(convert_type(p, LLVMTypeOf(instr))), convert_operands(p, num_ops, instr));
+        case LLVMAddrSpaceCast: {
+            // when constructing or deconstructing generic pointers, we need to emit a convert_op instead
+            assert(num_ops == 1);
+            const Node* src = first(convert_operands(p, num_ops, instr));
+            Op op = reinterpret_op;
+            const Type* src_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            if (src_t->tag == PtrType_TAG && t->tag == PtrType_TAG) {
+                if ((t->payload.ptr_type.address_space == AsGeneric) != (src_t->payload.ptr_type.address_space == AsGeneric))
+                    op = convert_op;
+            } else {
+                assert(opcode != LLVMAddrSpaceCast);
+            }
+            r = prim_op_helper(a, op, singleton(t), singleton(src));
             break;
         }
         case LLVMICmp:

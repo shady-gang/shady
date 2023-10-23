@@ -40,7 +40,8 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
             assert(instr->tag == PrimOp_TAG);
             switch (instr->payload.prim_op.op) {
                 case reinterpret_op:
-                case lea_op: annotation_payload = first(annotation_payload->payload.anti_quote.instruction->payload.prim_op.operands); break;
+                case convert_op:
+                case lea_op: annotation_payload = first(instr->payload.prim_op.operands); break;
                 default: assert(false);
             }
         }
@@ -56,9 +57,14 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
         if (strcmp(strtok(str, "::"), "shady") == 0) {
             const Node* target = entry->payload.composite.contents.nodes[0];
             while (target->tag == AntiQuote_TAG) {
-                assert(target->payload.anti_quote.instruction->tag == PrimOp_TAG);
-                assert(target->payload.anti_quote.instruction->payload.prim_op.op == reinterpret_op);
-                target = first(target->payload.anti_quote.instruction->payload.prim_op.operands);
+                const Node* instr = target->payload.anti_quote.instruction;
+                assert(instr->tag == PrimOp_TAG);
+                switch (instr->payload.prim_op.op) {
+                    case reinterpret_op:
+                    case convert_op:
+                    case lea_op: target = first(instr->payload.prim_op.operands); break;
+                    default: assert(false);
+                }
             }
             if (target->tag == RefDecl_TAG) {
                 target = target->payload.ref_decl.decl;
