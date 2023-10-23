@@ -34,12 +34,13 @@ foreach(T IN LISTS BASIC_TESTS)
     add_test(NAME "test/${T}" COMMAND slim ${PROJECT_SOURCE_DIR}/test/${T} -o test.spv)
 endforeach()
 
-list(APPEND SAMPLE_TESTS fib.slim)
-list(APPEND SAMPLE_TESTS hello_world.slim)
+function(spv_outputting_test)
+    cmake_parse_arguments(PARSE_ARGV 0 F "" "NAME;COMPILER" "EXTRA_ARGS" )
+    add_test(NAME ${F_NAME} COMMAND ${CMAKE_COMMAND} -DCOMPILER=${PROJECT_BINARY_DIR}/bin/${F_COMPILER} -DT=${F_NAME} "-DTARGS=${F_EXTRA_ARGS}" -DSRC=${PROJECT_SOURCE_DIR} -DDST=${PROJECT_BINARY_DIR} -P ${PROJECT_SOURCE_DIR}/test/test_with_val.cmake)
+endfunction()
 
-foreach(T IN LISTS SAMPLE_TESTS)
-    add_test(NAME "samples/${T}" COMMAND slim ${PROJECT_SOURCE_DIR}/samples/${T} -o test.spv)
-endforeach()
+spv_outputting_test(NAME samples/fib.slim COMPILER slim EXTRA_ARGS --entry-point main)
+spv_outputting_test(NAME samples/hello_world.slim COMPILER slim EXTRA_ARGS --entry-point main)
 
 if (TARGET vcc)
     add_subdirectory(vcc)
