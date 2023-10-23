@@ -64,8 +64,14 @@ jobs:
         mkdir SPIRV-Headers/install
         cmake --install SPIRV-Headers/build --prefix SPIRV-Headers/install
 
-    - name: Install Clang
+    - name: Install Clang & LLVM (setup-clang)
+      if: (!startsWith(matrix.os,'windows'))
       uses: egor-tensin/setup-clang@v1.4
+
+    - name: Install LLVM (chocolatey)
+      if: startsWith(matrix.os,'windows')
+      run: |
+        choco install llvm
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
