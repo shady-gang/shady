@@ -36,7 +36,7 @@ endforeach()
 
 function(spv_outputting_test)
     cmake_parse_arguments(PARSE_ARGV 0 F "" "NAME;COMPILER" "EXTRA_ARGS" )
-    add_test(NAME ${F_NAME} COMMAND ${CMAKE_COMMAND} -DCOMPILER=${PROJECT_BINARY_DIR}/bin/${F_COMPILER} -DT=${F_NAME} "-DTARGS=${F_EXTRA_ARGS}" -DSRC=${PROJECT_SOURCE_DIR} -DDST=${PROJECT_BINARY_DIR} -P ${PROJECT_SOURCE_DIR}/test/test_with_val.cmake)
+    add_test(NAME ${F_NAME} COMMAND ${CMAKE_COMMAND} -DCOMPILER=$<TARGET_FILE:${F_COMPILER}> -DT=${F_NAME} "-DTARGS=${F_EXTRA_ARGS}" -DSRC=${PROJECT_SOURCE_DIR} -DDST=${PROJECT_BINARY_DIR} -P ${PROJECT_SOURCE_DIR}/test/test_with_val.cmake)
 endfunction()
 
 spv_outputting_test(NAME samples/fib.slim COMPILER slim EXTRA_ARGS --entry-point main)
