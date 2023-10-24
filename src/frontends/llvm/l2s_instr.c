@@ -202,8 +202,55 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             r = prim_op_helper(a, op, singleton(t), singleton(src));
             break;
         }
-        case LLVMICmp:
-            goto unimplemented;
+        case LLVMICmp: {
+            Op op;
+            bool cast_to_signed = false;
+            switch(LLVMGetICmpPredicate(instr)) {
+                case LLVMIntEQ:
+                    op = eq_op;
+                    break;
+                case LLVMIntNE:
+                    op = neq_op;
+                    break;
+                case LLVMIntUGT:
+                    op = gt_op;
+                    break;
+                case LLVMIntUGE:
+                    op = gte_op;
+                    break;
+                case LLVMIntULT:
+                    op = lt_op;
+                    break;
+                case LLVMIntULE:
+                    op = lte_op;
+                    break;
+                case LLVMIntSGT:
+                    op = gt_op;
+                    cast_to_signed = true;
+                    break;
+                case LLVMIntSGE:
+                    op = gte_op;
+                    cast_to_signed = true;
+                    break;
+                case LLVMIntSLT:
+                    op = lt_op;
+                    cast_to_signed = true;
+                    break;
+                case LLVMIntSLE:
+                    op = lte_op;
+                    cast_to_signed = true;
+                    break;
+            }
+            Nodes ops = convert_operands(p, num_ops, instr);
+            if (cast_to_signed) {
+                const Type* unsigned_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                assert(unsigned_t->tag == Int_TAG);
+                const Type* signed_t = change_int_t_sign(unsigned_t, true);
+                ops = reinterpret_operands(b, ops, signed_t);
+            }
+            r = prim_op_helper(a, op, empty(a), ops);
+            break;
+        }
         case LLVMFCmp:
             goto unimplemented;
         case LLVMPHI:
