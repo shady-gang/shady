@@ -29,25 +29,27 @@ typedef struct ParsedAnnotationContents_ {
     struct ParsedAnnotationContents_* next;
 } ParsedAnnotation;
 
-typedef struct {
-    const Node* terminator;
-    const Node* instruction;
-    Nodes result_types;
-} EmittedInstr;
-
 ParsedAnnotation* find_annotation(Parser*, const Node*);
 ParsedAnnotation* next_annotation(ParsedAnnotation*);
 void add_annotation(Parser*, const Node*, ParsedAnnotation);
 
 void process_llvm_annotations(Parser* p, LLVMValueRef global);
 
-EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr);
 const Node* convert_value(Parser* p, LLVMValueRef v);
 const Node* convert_function(Parser* p, LLVMValueRef fn);
 const Type* convert_type(Parser* p, LLVMTypeRef t);
 const Node* convert_metadata(Parser* p, LLVMMetadataRef meta);
 const Node* convert_global(Parser* p, LLVMValueRef global);
 const Node* convert_function(Parser* p, LLVMValueRef fn);
+const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb);
+
+typedef struct {
+    const Node* terminator;
+    const Node* instruction;
+    Nodes result_types;
+} EmittedInstr;
+
+EmittedInstr convert_instruction(Parser* p, Node* fn, BodyBuilder* b, LLVMValueRef instr);
 
 void postprocess(Parser*, Module* src, Module* dst);
 

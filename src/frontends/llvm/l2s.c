@@ -27,7 +27,7 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
     return *a == *b;
 }
 
-static const Node* write_bb_tail(Parser* p, BodyBuilder* b, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
+static const Node* write_bb_tail(Parser* p, Node* fn, BodyBuilder* b, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
     LLVMValueRef instr;
     for (instr = first_instr; instr; instr = LLVMGetNextInstruction(instr)) {
         bool last = instr == LLVMGetLastInstruction(bb);
@@ -35,7 +35,7 @@ static const Node* write_bb_tail(Parser* p, BodyBuilder* b, LLVMBasicBlockRef bb
             assert(LLVMGetBasicBlockTerminator(bb) == instr);
         LLVMDumpValue(instr);
         printf("\n");
-        EmittedInstr emitted = emit_instruction(p, b, instr);
+        EmittedInstr emitted = convert_instruction(p, fn, b, instr);
         if (emitted.terminator)
             return finish_body(b, emitted.terminator);
         if (!emitted.instruction)
@@ -50,7 +50,7 @@ static const Node* write_bb_tail(Parser* p, BodyBuilder* b, LLVMBasicBlockRef bb
     assert(false);
 }
 
-static const Node* emit_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
+const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
     const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, bb);
     if (found) return *found;
     IrArena* a = get_module_arena(p->dst);
@@ -69,10 +69,13 @@ static const Node* emit_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
     }
     after_phis:
     {
-        Node* nbb = basic_block(a, fn, params, LLVMGetBasicBlockName(bb));
+        String name = LLVMGetBasicBlockName(bb);
+        if (!name || strlen(name) == 0)
+            name = unique_name(a, "bb");
+        Node* nbb = basic_block(a, fn, params, name);
         insert_dict(LLVMValueRef, const Node*, p->map, bb, nbb);
         BodyBuilder* b = begin_body(a);
-        write_bb_tail(p, b, bb, instr);
+        nbb->payload.basic_block.body = write_bb_tail(p, fn, b, bb, instr);
         return nbb;
     }
 }
@@ -111,7 +114,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     if (first_bb) {
         BodyBuilder* b = begin_body(a);
         insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
-        f->payload.fun.body = write_bb_tail(p, b, first_bb, LLVMGetFirstInstruction(first_bb));
+        f->payload.fun.body = write_bb_tail(p, f, b, first_bb, LLVMGetFirstInstruction(first_bb));
     }
 
     return r;

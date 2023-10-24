@@ -36,7 +36,7 @@ static Nodes reinterpret_operands(BodyBuilder* b, Nodes ops, const Type* dst_t) 
 }
 
 /// instr may be an instruction or a constantexpr
-EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
+EmittedInstr convert_instruction(Parser* p, Node* fn, BodyBuilder* b, LLVMValueRef instr) {
     IrArena* a = get_module_arena(p->dst);
     int num_ops = LLVMGetNumOperands(instr);
     size_t num_results = 1;
@@ -62,8 +62,28 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
                     .args = num_ops == 0 ? empty(a) : convert_operands(p, num_ops, instr)
                 })
             };
-        case LLVMBr:
-            goto unimplemented;
+        case LLVMBr: {
+            unsigned n_successors = LLVMGetNumSuccessors(instr);
+            LARRAY(const Node*, targets, n_successors);
+            for (size_t i = 0; i < n_successors; i++)
+                targets[i] = convert_basic_block(p, fn, LLVMGetSuccessor(instr, i));
+            if (LLVMIsConditional(instr)) {
+                assert(n_successors == 2);
+                const Node* condition = convert_value(p, LLVMGetCondition(instr));
+                return (EmittedInstr) {
+                    .terminator = branch(a, (Branch) {
+                        .branch_condition = condition,
+                        .true_jump = jump_helper(a, targets[0], empty(a)),
+                        .false_jump = jump_helper(a, targets[1], empty(a)),
+                    })
+                };
+            } else {
+                assert(n_successors == 1);
+                return (EmittedInstr) {
+                    .terminator = jump_helper(a, targets[0], empty(a))
+                };
+            }
+        }
         case LLVMSwitch:
             goto unimplemented;
         case LLVMIndirectBr:

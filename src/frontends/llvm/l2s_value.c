@@ -76,7 +76,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             break;
         case LLVMConstantExprValueKind: {
             BodyBuilder* bb = begin_body(a);
-            EmittedInstr emitted = emit_instruction(p, bb, v);
+            EmittedInstr emitted = convert_instruction(p, NULL, bb, v);
             r = anti_quote_helper(a, emitted.instruction);
             break;
         }
