@@ -8,3 +8,4 @@ endforeach()
 spv_outputting_test(NAME test/vcc/empty.comp.c COMPILER vcc EXTRA_ARGS --entry-point main)
 
 spv_outputting_test(NAME test/vcc/simple.frag.c COMPILER vcc EXTRA_ARGS --entry-point main --no-dynamic-scheduling --execution-model Fragment)
+spv_outputting_test(NAME test/vcc/checkerboard.frag.c COMPILER vcc EXTRA_ARGS --entry-point main --no-dynamic-scheduling --execution-model Fragment)
