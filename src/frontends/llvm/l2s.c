@@ -154,7 +154,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     assert(decl && is_declaration(decl));
     const Node* r = ref_decl_helper(a, decl);
 
-    if (UNTYPED_POINTERS) {
+    if (decl->tag == GlobalVariable_TAG && UNTYPED_POINTERS && is_physical_as(decl->payload.global_variable.address_space)) {
         const Type* generic_ptr_t = ptr_type(a, (PtrType) {.pointed_type = uint8_type(a), .address_space = AsGeneric});
         r = anti_quote_helper(a, prim_op_helper(a, reinterpret_op, singleton(generic_ptr_t), singleton(r)));
     }
