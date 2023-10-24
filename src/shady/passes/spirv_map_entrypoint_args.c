@@ -10,7 +10,7 @@
 
 typedef struct {
     Rewriter rewriter;
-    CompilerConfig* config;
+    const CompilerConfig* config;
 } Context;
 
 static const Node* rewrite_args_type(Rewriter* rewriter, const Node* old_type) {
@@ -62,11 +62,15 @@ static const Node* process(Context* ctx, const Node* node) {
     return recreate_node_identity(&ctx->rewriter, node);
 }
 
-void spirv_map_entrypoint_args(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* spirv_map_entrypoint_args(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .config = config
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

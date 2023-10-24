@@ -405,7 +405,11 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 }
 
-void opt_restructurize(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* opt_restructurize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
+
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .tmp_alloc_stack = new_list(struct Dict*),
@@ -413,4 +417,5 @@ void opt_restructurize(SHADY_UNUSED CompilerConfig* config, Module* src, Module*
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     destroy_list(ctx.tmp_alloc_stack);
+    return dst;
 }

@@ -10,7 +10,7 @@
 
 typedef struct {
     Rewriter rewriter;
-    CompilerConfig* config;
+    const CompilerConfig* config;
 } Context;
 
 static bool is_extended_type(SHADY_UNUSED IrArena* a, const Type* t, bool allow_vectors) {
@@ -97,7 +97,10 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 }
 
-void lower_subgroup_ops(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
     assert(!config->lower.emulate_subgroup_ops && "TODO");
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
@@ -105,4 +108,5 @@ void lower_subgroup_ops(SHADY_UNUSED CompilerConfig* config, Module* src, Module
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

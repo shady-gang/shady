@@ -172,7 +172,11 @@ const Node* process_node(Context* ctx, const Node* old) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-void lcssa(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* lcssa(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
+
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
         .current_fn = NULL,
@@ -185,4 +189,5 @@ void lcssa(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     destroy_dict(ctx.lifted_arguments);
+    return dst;
 }

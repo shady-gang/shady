@@ -197,7 +197,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 }
 
-void lift_indirect_targets(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
         .lifted = new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
@@ -214,4 +217,5 @@ void lift_indirect_targets(SHADY_UNUSED CompilerConfig* config, Module* src, Mod
     }
     destroy_dict(ctx.lifted);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

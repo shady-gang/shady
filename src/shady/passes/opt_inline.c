@@ -240,7 +240,7 @@ static const Node* process(Context* ctx, const Node* node) {
 KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
-void opt_simplify_cf(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst, bool allow_fn_inlining) {
+void opt_simplify_cf(SHADY_UNUSED const CompilerConfig* config, Module* src, Module* dst, bool allow_fn_inlining) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .graph = NULL,
@@ -259,10 +259,18 @@ void opt_simplify_cf(SHADY_UNUSED CompilerConfig* config, Module* src, Module* d
     destroy_dict(ctx.inlined_return_sites);
 }
 
-void opt_inline_jumps(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* opt_inline_jumps(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
     opt_simplify_cf(config, src, dst, false);
+    return dst;
 }
 
-void opt_inline(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* opt_inline(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
     opt_simplify_cf(config, src, dst, true);
+    return dst;
 }

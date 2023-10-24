@@ -51,10 +51,15 @@ static const Node* process(Context* ctx, const Node* old) {
     return recreate_node_identity(&ctx->rewriter, old);
 }
 
-void lower_memory_layout(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* lower_memory_layout(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
+
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process)
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

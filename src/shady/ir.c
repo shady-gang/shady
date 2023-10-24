@@ -56,6 +56,10 @@ void destroy_ir_arena(IrArena* arena) {
     free(arena);
 }
 
+ArenaConfig get_arena_config(const IrArena* a) {
+    return a->config;
+}
+
 VarId fresh_id(IrArena* arena) {
     return arena->next_free_id++;
 }

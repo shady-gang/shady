@@ -314,7 +314,13 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     }
 }
 
-void bind_program(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* bind_program(SHADY_UNUSED const CompilerConfig* compiler_config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    assert(!src->arena->config.name_bound);
+    aconfig.name_bound = true;
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
+
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) bind_node),
         .local_variables = NULL,
@@ -323,4 +329,5 @@ void bind_program(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst)
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

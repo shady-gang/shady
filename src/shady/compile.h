@@ -12,17 +12,16 @@
 #define SHADY_RUN_VERIFY 1
 #endif
 
-#define RUN_PASS(pass_name)                             \
-old_mod = mod;                                          \
-old_arena = tmp_arena;                                  \
-tmp_arena = new_ir_arena(aconfig);                      \
-mod = new_module(tmp_arena, get_module_name(old_mod));  \
-pass_name(config, old_mod, mod);                        \
-debugvv_print("After "#pass_name" pass: \n");             \
-log_module(DEBUGVV, config, mod);                         \
+#define RUN_PASS(pass_name) {                           \
+old_mod = *pmod;                                        \
+*pmod = pass_name(config, *pmod);                       \
+debugvv_print("After "#pass_name" pass: \n");           \
+log_module(DEBUGVV, config, *pmod);                     \
 if (SHADY_RUN_VERIFY)                                   \
-verify_module(mod);                                     \
-mod->sealed = true;                                     \
-if (old_arena) destroy_ir_arena(old_arena);
+  verify_module(*pmod);                                 \
+(*pmod)->sealed = true;                                 \
+if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena) \
+  destroy_ir_arena(get_module_arena(old_mod));          \
+}
 
 #endif

@@ -15,7 +15,7 @@
 
 typedef struct Context_ {
     Rewriter rewriter;
-    CompilerConfig* config;
+    const CompilerConfig* config;
 
     struct Dict*   serialisation_uniform[NumAddressSpaces];
     struct Dict* deserialisation_uniform[NumAddressSpaces];
@@ -448,7 +448,11 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as, Addre
     *get_emulated_as_word_array(ctx, as) = words_array;
 }
 
-void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
+Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
+
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
         .config = config,
@@ -480,4 +484,6 @@ void lower_physical_ptrs(CompilerConfig* config, Module* src, Module* dst) {
             destroy_dict(ctx.deserialisation_uniform[i]);
         }
     }
+
+    return dst;
 }

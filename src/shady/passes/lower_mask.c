@@ -54,8 +54,12 @@ static const Node* process(Context* ctx, const Node* node) {
     return recreate_node_identity(&ctx->rewriter, node);
 }
 
-void lower_mask(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
-    IrArena* a = dst->arena;
+Module* lower_mask(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    aconfig.specializations.subgroup_mask_representation = SubgroupMaskInt64;
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
+
     const Type* mask_type = get_actual_mask_type(a);
     assert(mask_type->tag == Int_TAG);
 
@@ -66,4 +70,5 @@ void lower_mask(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

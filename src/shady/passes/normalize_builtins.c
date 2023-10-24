@@ -78,7 +78,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Type* t = get_builtin_type(a, b);
                 Node* ndecl = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, global_variable.annotations), t, global_variable.name, global_variable.address_space);
                 register_processed(&ctx->rewriter, node, ndecl);
-                // no 'init' for globals, right ?
+                // no 'init' for builtins, right ?
                 assert(!global_variable.init);
                 return ndecl;
             }
@@ -105,10 +105,15 @@ static const Node* process(Context* ctx, const Node* node) {
     return recreate_node_identity(&ctx->rewriter, node);
 }
 
-void normalize_builtins(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* normalize_builtins(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    aconfig.validate_builtin_types = true;
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

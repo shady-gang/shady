@@ -17,7 +17,7 @@ typedef uint32_t FnPtr;
 
 typedef struct Context_ {
     Rewriter rewriter;
-    CompilerConfig* config;
+    const CompilerConfig* config;
 
     struct Dict* push;
     struct Dict* pop;
@@ -174,8 +174,10 @@ static const Node* process_node(Context* ctx, const Node* old) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-void lower_stack(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
-    IrArena* a = get_module_arena(dst);
+Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
 
     const Type* stack_base_element = uint8_type(a);
     const Type* stack_arr_type = arr_type(a, (ArrType) {
@@ -210,4 +212,5 @@ void lower_stack(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) 
 
     destroy_dict(ctx.push);
     destroy_dict(ctx.pop);
+    return dst;
 }

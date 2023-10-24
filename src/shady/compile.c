@@ -36,12 +36,14 @@ CompilerConfig default_compiler_config() {
     };
 }
 
-ArenaConfig default_arena_config() {
+ArenaConfig default_arena_config(const CompilerConfig* compiler_config) {
     return (ArenaConfig) {
         .is_simt = true,
         .validate_builtin_types = false,
         .allow_subgroup_memory = true,
         .allow_shared_memory = true,
+
+        .specializations.subgroup_size = compiler_config->specialization.subgroup_size,
 
         .memory = {
             .word_size = IntTy32,
@@ -50,39 +52,27 @@ ArenaConfig default_arena_config() {
     };
 }
 
-#define mod (*pmod)
-
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     if (config->dynamic_scheduling) {
         debugv_print("Parsing builtin scheduler code");
         ParserConfig pconfig = {
             .front_end = true,
         };
-        parse_shady_ir(pconfig, shady_scheduler_src, mod);
+        parse_shady_ir(pconfig, shady_scheduler_src, *pmod);
     }
 
-    ArenaConfig aconfig = get_module_arena(mod)->config;
+    IrArena* initial_arena = (*pmod)->arena;
+    Module* old_mod = NULL;
 
-    aconfig.specializations.subgroup_size = config->specialization.subgroup_size;
+    generate_dummy_constants(config, *pmod);
 
-    Module* old_mod;
-
-    IrArena* old_arena = NULL;
-    IrArena* tmp_arena = NULL;
-
-    generate_dummy_constants(config, mod);
-
-    aconfig.name_bound = true;
-    RUN_PASS(bind_program)
+    if (!get_module_arena(*pmod)->config.name_bound)
+        RUN_PASS(bind_program)
     RUN_PASS(normalize)
 
-    aconfig.check_types = true;
     RUN_PASS(infer_program)
-
-    aconfig.validate_builtin_types = true;
     RUN_PASS(normalize_builtins);
 
-    aconfig.allow_fold = true;
     RUN_PASS(opt_inline_jumps)
 
     RUN_PASS(lcssa)
@@ -90,19 +80,16 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(setup_stack_frames)
     RUN_PASS(lower_cf_instrs)
-    if (!config->hacks.force_join_point_lifting) {
+    if (!config->hacks.force_join_point_lifting)
         RUN_PASS(mark_leaf_functions)
-    }
 
     RUN_PASS(lower_callf)
     RUN_PASS(opt_inline)
 
     RUN_PASS(lift_indirect_targets)
 
-    if (config->specialization.execution_model != EmNone) {
-        specialize_configurations_for_execution_model(mod, &aconfig, config);
+    if (config->specialization.execution_model != EmNone)
         RUN_PASS(specialize_execution_model)
-    }
 
     RUN_PASS(opt_stack)
 
@@ -111,7 +98,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(opt_restructurize)
     RUN_PASS(opt_inline_jumps)
 
-    aconfig.specializations.subgroup_mask_representation = SubgroupMaskInt64;
     RUN_PASS(lower_mask)
     RUN_PASS(lower_memcpy)
     RUN_PASS(lower_subgroup_ops)
@@ -123,21 +109,16 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_subgroup_vars)
     RUN_PASS(lower_memory_layout)
 
-    if (config->lower.decay_ptrs) {
+    if (config->lower.decay_ptrs)
         RUN_PASS(lower_decay_ptrs)
-    }
 
     RUN_PASS(lower_int)
 
-    if (config->lower.simt_to_explicit_simd) {
-        aconfig.is_simt = false;
+    if (config->lower.simt_to_explicit_simd)
         RUN_PASS(simt2d)
-    }
 
-    if (config->specialization.entry_point) {
-        specialize_configurations_for_entry_point(mod, &aconfig, config);
+    if (config->specialization.entry_point)
         RUN_PASS(specialize_entry_point)
-    }
     RUN_PASS(lower_fill)
 
     return CompilationNoError;

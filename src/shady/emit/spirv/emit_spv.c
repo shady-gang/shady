@@ -508,18 +508,17 @@ bool compare_node(Node**, Node**);
 KeyHash hash_string(const char** string);
 bool compare_string(const char** a, const char** b);
 
-static Module* run_backend_specific_passes(CompilerConfig* config, Module* mod) {
-    IrArena* old_arena = get_module_arena(mod);
-    ArenaConfig aconfig = old_arena->config;
-    Module* old_mod = mod;
-    IrArena* tmp_arena = NULL;
+static Module* run_backend_specific_passes(CompilerConfig* config, Module* initial_mod) {
+    IrArena* initial_arena = initial_mod->arena;
+    Module* old_mod = NULL;
+    Module** pmod = &initial_mod;
 
     RUN_PASS(lower_entrypoint_args)
     RUN_PASS(spirv_map_entrypoint_args)
     RUN_PASS(spirv_lift_globals_ssbo)
     RUN_PASS(import)
 
-    return mod;
+    return *pmod;
 }
 
 void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {

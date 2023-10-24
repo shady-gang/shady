@@ -11,7 +11,7 @@
 
 typedef struct {
     Rewriter rewriter;
-    CompilerConfig* config;
+    const CompilerConfig* config;
     Node** globals;
     bool is_entry_point;
 } Context;
@@ -170,7 +170,10 @@ static const Node* process(Context* ctx, const Node* node) {
     return recreate_node_identity(&ctx->rewriter, node);
 }
 
-void lower_workgroups(CompilerConfig* config, Module* src, Module* dst) {
+Module* lower_workgroups(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .config = config,
@@ -179,4 +182,5 @@ void lower_workgroups(CompilerConfig* config, Module* src, Module* dst) {
     rewrite_module(&ctx.rewriter);
     free(ctx.globals);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

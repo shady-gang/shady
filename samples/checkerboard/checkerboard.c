@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 
     info_print("Device-side address is: %zu\n", buf_addr);
 
-    IrArena* a = new_ir_arena(default_arena_config());
+    IrArena* a = new_ir_arena(default_arena_config(&compiler_config));
     Module* m = new_module(a, "checkerboard");
     driver_load_source_file(SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, m);
     Program* program = new_program_from_module(runtime, &compiler_config, m);

@@ -2,7 +2,7 @@
 
 #include "shady/ir.h"
 
-typedef void (RewritePass)(CompilerConfig* config, Module* src_module, Module* dst_module);
+typedef Module* (RewritePass)(const CompilerConfig* config, Module* src);
 
 /// @name Boring, regular compiler stuff
 /// @{
@@ -120,9 +120,7 @@ RewritePass lower_entrypoint_args;
 RewritePass spirv_map_entrypoint_args;
 RewritePass spirv_lift_globals_ssbo;
 
-void specialize_configurations_for_entry_point(Module* m, ArenaConfig* target, CompilerConfig* config);
 RewritePass specialize_entry_point;
-void specialize_configurations_for_execution_model(Module* m, ArenaConfig* target, CompilerConfig* config);
 RewritePass specialize_execution_model;
 
 /// @}

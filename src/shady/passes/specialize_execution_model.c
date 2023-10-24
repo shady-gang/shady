@@ -12,7 +12,7 @@
 
 typedef struct {
     Rewriter rewriter;
-    CompilerConfig* config;
+    const CompilerConfig* config;
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -27,7 +27,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return recreate_node_identity(&ctx->rewriter, node);
 }
 
-void specialize_configurations_for_execution_model(Module* m, ArenaConfig* target, CompilerConfig* config) {
+static void specialize_arena_config(const CompilerConfig* config, Module* m, ArenaConfig* target) {
     switch (config->specialization.execution_model) {
         case EmFragment: {
             target->allow_subgroup_memory = false;
@@ -37,7 +37,12 @@ void specialize_configurations_for_execution_model(Module* m, ArenaConfig* targe
     }
 }
 
-void specialize_execution_model(CompilerConfig* config, Module* src, Module* dst) {
+Module* specialize_execution_model(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    specialize_arena_config(config, src, &aconfig);
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
+
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
         .config = config,
@@ -45,4 +50,5 @@ void specialize_execution_model(CompilerConfig* config, Module* src, Module* dst
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

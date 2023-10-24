@@ -11,7 +11,7 @@
 
 typedef struct {
     Rewriter rewriter;
-    CompilerConfig* config;
+    const CompilerConfig* config;
     const Node* old_entry_point_decl;
     const Node* old_wg_size_annotation;
 } Context;
@@ -75,7 +75,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return recreate_node_identity(&ctx->rewriter, node);
 }
 
-static const Node* find_entry_point(Module* m, CompilerConfig* config) {
+static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
     if (!config->specialization.entry_point)
         return NULL;
     const Node* found = NULL;
@@ -89,8 +89,8 @@ static const Node* find_entry_point(Module* m, CompilerConfig* config) {
     return found;
 }
 
-void specialize_configurations_for_entry_point(Module* m, ArenaConfig* target, CompilerConfig* config) {
-    const Node* old_entry_point_decl = find_entry_point(m, config);
+static void specialize_arena_config(const CompilerConfig* config, Module* src, ArenaConfig* target) {
+    const Node* old_entry_point_decl = find_entry_point(src, config);
     if (old_entry_point_decl->tag != Function_TAG)
         error("%s is not a function", config->specialization.entry_point);
     const Node* ep = lookup_annotation(old_entry_point_decl, "EntryPoint");
@@ -112,8 +112,11 @@ void specialize_configurations_for_entry_point(Module* m, ArenaConfig* target, C
     }
 }
 
-void specialize_entry_point(CompilerConfig* config, Module* src, Module* dst) {
-    IrArena* a = get_module_arena(dst);
+Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    specialize_arena_config(config, src, &aconfig);
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
@@ -124,4 +127,5 @@ void specialize_entry_point(CompilerConfig* config, Module* src, Module* dst) {
     rewrite_node(&ctx.rewriter, old_entry_point_decl);
 
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

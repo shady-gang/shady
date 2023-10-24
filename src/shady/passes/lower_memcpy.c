@@ -6,11 +6,13 @@
 #include "../ir_private.h"
 
 #include "log.h"
+#include "portability.h"
+
 #include <assert.h>
 
 typedef struct {
     Rewriter rewriter;
-    CompilerConfig* config;
+    const CompilerConfig* config;
 } Context;
 
 static const Node* size_t_literal(Context* ctx, uint64_t value) {
@@ -94,10 +96,15 @@ static const Node* process(Context* ctx, const Node* old) {
     return recreate_node_identity(&ctx->rewriter, old);
 }
 
-void lower_memcpy(CompilerConfig* config, Module* src, Module* dst) {
+Module* lower_memcpy(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
+
     Context ctx = {
             .rewriter = create_rewriter(src, dst, (RewriteFn) process)
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

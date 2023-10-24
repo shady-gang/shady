@@ -20,7 +20,7 @@ typedef uint64_t FnPtr;
 
 typedef struct Context_ {
     Rewriter rewriter;
-    CompilerConfig* config;
+    const CompilerConfig* config;
     bool disable_lowering;
     struct Dict* assigned_fn_ptrs;
     FnPtr* next_fn_ptr;
@@ -412,9 +412,12 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* dst) {
+Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(aconfig);
+    Module* dst = new_module(a, get_module_name(src));
+
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
-    IrArena* a = get_module_arena(dst);
 
     Node* init_fn = function(dst, nodes(a, 0, NULL), "generated_init", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" }), annotation(a, (Annotation) { .name = "Structured" })), nodes(a, 0, NULL));
     init_fn->payload.fun.body = fn_ret(a, (Return) { .fn = init_fn, .args = empty(a) });
@@ -442,4 +445,5 @@ void lower_tailcalls(SHADY_UNUSED CompilerConfig* config, Module* src, Module* d
 
     destroy_dict(ptrs);
     destroy_rewriter(&ctx.rewriter);
+    return dst;
 }

@@ -93,10 +93,12 @@ typedef struct {
     } memory;
 } ArenaConfig;
 
-ArenaConfig default_arena_config();
+typedef struct CompilerConfig_ CompilerConfig;
+ArenaConfig default_arena_config(const CompilerConfig* compiler_config);
 
 IrArena* new_ir_arena(ArenaConfig);
 void destroy_ir_arena(IrArena*);
+ArenaConfig get_arena_config(const IrArena*);
 
 //////////////////////////////// Getters ////////////////////////////////
 
@@ -235,7 +237,7 @@ const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
 
 //////////////////////////////// Compilation ////////////////////////////////
 
-typedef struct CompilerConfig_ {
+struct CompilerConfig_ {
     bool dynamic_scheduling;
     uint32_t per_thread_stack_size;
 
@@ -278,7 +280,7 @@ typedef struct CompilerConfig_ {
         ExecutionModel execution_model;
         uint32_t subgroup_size;
     } specialization;
-} CompilerConfig;
+};
 
 CompilerConfig default_compiler_config();
 

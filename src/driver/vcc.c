@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
         exit(MissingInputArg);
     }
 
-    IrArena* arena = new_ir_arena(default_arena_config());
+    IrArena* arena = new_ir_arena(default_arena_config(&args.config));
     Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
     int clang_retval = system("clang --version");
