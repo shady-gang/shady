@@ -18,6 +18,7 @@ static Nodes convert_operands(Parser* p, size_t num_ops, LLVMValueRef v) {
 }
 
 static const Type* change_int_t_sign(const Type* t, bool as_signed) {
+    assert(t);
     assert(t->tag == Int_TAG);
     return int_type(t->arena, (Int) {
         .width = t->payload.int_type.width,
@@ -25,14 +26,12 @@ static const Type* change_int_t_sign(const Type* t, bool as_signed) {
     });
 }
 
-static Nodes reinterpreted_operands(BodyBuilder* b, Nodes ops, bool as_signed) {
+static Nodes reinterpret_operands(BodyBuilder* b, Nodes ops, const Type* dst_t) {
     assert(ops.count > 0);
-    const Type* ot = first(ops)->type;
-    const Type* t = change_int_t_sign(ot, as_signed);
-    IrArena* a = t->arena;
+    IrArena* a = dst_t->arena;
     LARRAY(const Node*, nops, ops.count);
     for (size_t i = 0; i < ops.count; i++)
-        nops[i] = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(t), singleton(ops.nodes[i])), singleton(t), NULL, false));
+        nops[i] = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(dst_t), singleton(ops.nodes[i])), singleton(dst_t), NULL, false));
     return nodes(a, ops.count, nops);
 }
 
@@ -54,7 +53,7 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
 
     const Type* t = convert_type(p, LLVMTypeOf(instr));
 
-#define BIND_PREV_R bind_instruction_explicit_result_types(b, r, singleton(r->type), NULL, false)
+#define BIND_PREV_R(t) bind_instruction_explicit_result_types(b, r, singleton(t), NULL, false)
 
     switch (opcode) {
         case LLVMRet: return (EmittedInstr) {
@@ -95,19 +94,23 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
         case LLVMFDiv:
             r = prim_op_helper(a, div_op, empty(a), convert_operands(p, num_ops, instr));
             break;
-        case LLVMSDiv:
-            r = prim_op_helper(a, div_op, empty(a), reinterpreted_operands(b, convert_operands(p, num_ops, instr), true));
-            r = prim_op_helper(a, reinterpret_op, singleton(change_int_t_sign(r->type, false)), BIND_PREV_R);
+        case LLVMSDiv: {
+            const Type* int_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            const Type* signed_t = change_int_t_sign(int_t, true);
+            r = prim_op_helper(a, div_op, empty(a), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
+            r = prim_op_helper(a, reinterpret_op, singleton(int_t), BIND_PREV_R(signed_t));
             break;
-        case LLVMURem:
+        } case LLVMURem:
         case LLVMFRem:
             r = prim_op_helper(a, mod_op, empty(a), convert_operands(p, num_ops, instr));
             break;
-        case LLVMSRem:
-            r = prim_op_helper(a, mod_op, empty(a), reinterpreted_operands(b, convert_operands(p, num_ops, instr), true));
-            r = prim_op_helper(a, reinterpret_op, singleton(change_int_t_sign(r->type, false)), BIND_PREV_R);
+        case LLVMSRem: {
+            const Type* int_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            const Type* signed_t = change_int_t_sign(int_t, true);
+            r = prim_op_helper(a, mod_op, empty(a), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
+            r = prim_op_helper(a, reinterpret_op, singleton(int_t), BIND_PREV_R(signed_t));
             break;
-        case LLVMShl:
+        } case LLVMShl:
             r = prim_op_helper(a, lshift_op, empty(a), convert_operands(p, num_ops, instr));
             break;
         case LLVMLShr:
@@ -128,7 +131,8 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
         case LLVMAlloca: {
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = convert_type(p, LLVMGetAllocatedType(instr));
-            r = first(bind_instruction_outputs_count(b, prim_op_helper(a, alloca_op, singleton(allocated_t), empty(a)), 1, (String[]) { "alloca_private" }, false));
+            const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivatePhysical });
+            r = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, alloca_op, singleton(allocated_t), empty(a)), singleton(allocated_ptr_t), (String[]) { "alloca_private" }, false));
             if (UNTYPED_POINTERS) {
                 const Type* untyped_private_ptr_t = ptr_type(a, (PtrType) { .pointed_type = t->payload.ptr_type.pointed_type, .address_space = AsPrivatePhysical });
                 r = prim_op_helper(a, reinterpret_op, singleton(untyped_private_ptr_t), singleton(r));
@@ -156,23 +160,25 @@ EmittedInstr emit_instruction(Parser* p, BodyBuilder* b, LLVMValueRef instr) {
             break;
         }
         case LLVMTrunc:
-            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R);
+            r = prim_op_helper(a, reinterpret_op, singleton(t), convert_operands(p, num_ops, instr));
             break;
-        case LLVMZExt:
+        case LLVMZExt: {
             // reinterpret as unsigned, convert to change size, reinterpret back to target T
-            r = prim_op_helper(a, convert_op, singleton(change_int_t_sign(t, false)), reinterpreted_operands(b, convert_operands(p, num_ops, instr), false));
-            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R);
+            const Type* unsigned_t = change_int_t_sign(t, false);
+            r = prim_op_helper(a, convert_op, singleton(unsigned_t), reinterpret_operands(b, convert_operands(p, num_ops, instr), unsigned_t));
+            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R(unsigned_t));
             break;
-        case LLVMSExt:
+        } case LLVMSExt: {
             // reinterpret as signed, convert to change size, reinterpret back to target T
-            r = prim_op_helper(a, convert_op, singleton(change_int_t_sign(t, true)), reinterpreted_operands(b, convert_operands(p, num_ops, instr), true));
-            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R);
+            const Type* signed_t = change_int_t_sign(t, true);
+            r = prim_op_helper(a, convert_op, singleton(signed_t), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
+            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R(signed_t));
             break;
-        case LLVMFPToUI:
+        } case LLVMFPToUI:
         case LLVMFPToSI:
         case LLVMUIToFP:
         case LLVMSIToFP:
-            r = prim_op_helper(a, convert_op, singleton(t), BIND_PREV_R);
+            r = prim_op_helper(a, convert_op, singleton(t), convert_operands(p, num_ops, instr));
             break;
         case LLVMFPTrunc:
             goto unimplemented;
