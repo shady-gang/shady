@@ -59,7 +59,7 @@ void postprocess(Parser*, Module* src, Module* dst);
 static String is_llvm_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);
-    if (memcmp(name, "llvm.", 5) == 0)
+    if (strlen(name) >= 5 && memcmp(name, "llvm.", 5) == 0)
         return name;
     return NULL;
 }

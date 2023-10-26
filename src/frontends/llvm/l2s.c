@@ -113,8 +113,8 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     }
     insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
 
-    LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
-    if (first_bb) {
+    if (LLVMCountBasicBlocks(fn) > 0) {
+        LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
         BodyBuilder* b = begin_body(a);
         insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
         f->payload.fun.body = write_bb_tail(p, f, b, first_bb, LLVMGetFirstInstruction(first_bb));

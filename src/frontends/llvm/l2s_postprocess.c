@@ -148,10 +148,18 @@ static const Node* process_node(Context* ctx, const Node* node) {
                                     controls->tokens = append_nodes(a, controls->tokens, join_token);
                                     controls->destinations = append_nodes(a, controls->destinations, dst);
                                 }
-                                return join(a, (Join) {
-                                    .args = rewrite_nodes(&ctx->rewriter, node->payload.jump.args),
+                                Nodes nargs = recreate_variables(&ctx->rewriter, get_abstraction_params(dst));
+
+                                Node* fn = src;
+                                if (fn->tag == BasicBlock_TAG)
+                                    fn = (Node*) fn->payload.basic_block.fn;
+                                assert(fn->tag == Function_TAG);
+                                Node* wrapper = basic_block(a, fn, nargs, format_string(a, "wrapper_to_%s", get_abstraction_name(dst)));
+                                wrapper->payload.basic_block.body = join(a, (Join) {
+                                    .args = nargs,
                                     .join_point = join_token
                                 });
+                                return jump_helper(a, wrapper, rewrite_nodes(&ctx->rewriter, node->payload.jump.args));
                             } else {
                                 assert(false);
                             }
