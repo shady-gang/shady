@@ -36,14 +36,12 @@ CompilerConfig default_compiler_config() {
     };
 }
 
-ArenaConfig default_arena_config(const CompilerConfig* compiler_config) {
+ArenaConfig default_arena_config() {
     return (ArenaConfig) {
         .is_simt = true,
         .validate_builtin_types = false,
         .allow_subgroup_memory = true,
         .allow_shared_memory = true,
-
-        .specializations.subgroup_size = compiler_config->specialization.subgroup_size,
 
         .memory = {
             .word_size = IntTy32,

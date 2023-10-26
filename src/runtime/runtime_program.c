@@ -22,7 +22,7 @@ Program* new_program_from_module(Runtime* runtime, const CompilerConfig* base_co
 }
 
 Program* load_program(Runtime* runtime, const CompilerConfig* base_config, const char* program_src) {
-    IrArena* arena = new_ir_arena(default_arena_config(base_config));
+    IrArena* arena = new_ir_arena(default_arena_config());
     Module* module = new_module(arena, "my_module");
 
     int err = driver_load_source_file(SrcShadyIR, strlen(program_src), program_src, module);
@@ -36,7 +36,7 @@ Program* load_program(Runtime* runtime, const CompilerConfig* base_config, const
 }
 
 Program* load_program_from_disk(Runtime* runtime, const CompilerConfig* base_config, const char* path) {
-    IrArena* arena = new_ir_arena(default_arena_config(base_config));
+    IrArena* arena = new_ir_arena(default_arena_config());
     Module* module = new_module(arena, "my_module");
 
     int err = driver_load_source_file_from_filename(path, module);

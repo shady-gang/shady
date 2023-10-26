@@ -11,7 +11,6 @@
 
 typedef struct {
     Rewriter rewriter;
-    const CompilerConfig* config;
     const Node* old_entry_point_decl;
     const Node* old_wg_size_annotation;
 } Context;
@@ -90,6 +89,10 @@ static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
 }
 
 static void specialize_arena_config(const CompilerConfig* config, Module* src, ArenaConfig* target) {
+    size_t subgroup_size = config->specialization.subgroup_size;
+    assert(subgroup_size);
+    target->specializations.subgroup_size = subgroup_size;
+
     const Node* old_entry_point_decl = find_entry_point(src, config);
     if (old_entry_point_decl->tag != Function_TAG)
         error("%s is not a function", config->specialization.entry_point);
@@ -120,7 +123,6 @@ Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteFn) process),
-        .config = config,
     };
 
     const Node* old_entry_point_decl = find_entry_point(src, config);

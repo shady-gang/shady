@@ -94,7 +94,7 @@ typedef struct {
 } ArenaConfig;
 
 typedef struct CompilerConfig_ CompilerConfig;
-ArenaConfig default_arena_config(const CompilerConfig* compiler_config);
+ArenaConfig default_arena_config();
 
 IrArena* new_ir_arena(ArenaConfig);
 void destroy_ir_arena(IrArena*);

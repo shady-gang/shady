@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
     cli_parse_compiler_config_args(&args.config, &argc, argv);
     cli_parse_input_files(args.input_filenames, &argc, argv);
 
-    IrArena* arena = new_ir_arena(default_arena_config(&args.config));
+    IrArena* arena = new_ir_arena(default_arena_config());
     Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
     driver_load_source_files(&args, mod);
