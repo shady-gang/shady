@@ -110,8 +110,6 @@ const IntLiteral* resolve_to_literal(const Node*);
 int64_t get_int_literal_value(const Node*, bool sign_extend);
 const char* get_string_literal(IrArena*, const Node*);
 
-static inline bool is_physical_as(AddressSpace as) { return as <= PhysicalAddressSpacesEnd; }
-
 /// Returns false iff pointers in that address space can contain different data at the same address
 /// (amongst threads in the same subgroup)
 bool is_addr_space_uniform(IrArena*, AddressSpace);
@@ -186,7 +184,7 @@ const Node* type_decl_ref_helper(IrArena*, const Node* decl);
 // values
 const Node* var(IrArena*, const Type* type, const char* name);
 
-const Node* tuple(IrArena*, Nodes contents);
+const Node* tuple_helper(IrArena*, Nodes contents);
 const Node* composite_helper(IrArena*, const Type*, Nodes contents);
 const Node* fn_addr_helper(IrArena*, const Node* fn);
 const Node* ref_decl_helper(IrArena*, const Node* decl);

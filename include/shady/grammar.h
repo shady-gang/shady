@@ -181,6 +181,8 @@ ADDRESS_SPACES(AS)
     PhysicalAddressSpacesEnd = AsPrivatePhysical,
 } AddressSpace;
 
+static inline bool is_physical_as(AddressSpace as) { return as <= PhysicalAddressSpacesEnd; }
+
 typedef struct PtrType_ PtrType;
 #define PtrType_Fields(MkField) \
 MkField(1, POD, AddressSpace, address_space) \

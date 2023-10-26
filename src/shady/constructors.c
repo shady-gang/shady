@@ -199,7 +199,7 @@ const Node* composite_helper(IrArena* a, const Type* t, Nodes contents) {
     return composite(a, (Composite) { .type = t, .contents = contents });
 }
 
-const Node* tuple(IrArena* a, Nodes contents) {
+const Node* tuple_helper(IrArena* a, Nodes contents) {
     assert(a->config.check_types);
     const Type* t = NULL;
     if (a->config.check_types) {

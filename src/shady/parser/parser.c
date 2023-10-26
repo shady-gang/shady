@@ -200,7 +200,7 @@ static const Node* accept_value(ctxparams) {
 
                 Nodes tcontents = nodes(arena, entries_count_list(elements), read_list(const Node*, elements));
                 destroy_list(elements);
-                atom = tuple(arena, tcontents);
+                atom = tuple_helper(arena, tcontents);
             }
             return atom;
         }

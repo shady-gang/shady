@@ -24,7 +24,7 @@ static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, Strin
     IrArena* a = get_module_arena(p->dst);
     Nodes args = convert_mdnode_operands(p, v);
     args = prepend_nodes(a, args, string_lit_helper(a, name));
-    return tuple(a, args);
+    return tuple_helper(a, args);
 }
 
 const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
@@ -45,7 +45,7 @@ const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
             return first(ops);
         }
         case LLVMDistinctMDOperandPlaceholderMetadataKind: goto default_;
-        case LLVMMDTupleMetadataKind: return tuple(a, convert_mdnode_operands(p, v));
+        case LLVMMDTupleMetadataKind: return tuple_helper(a, convert_mdnode_operands(p, v));
 
         case LLVMDILocationMetadataKind:                 return convert_named_tuple_metadata(p, v, "DILocation");
         case LLVMDIExpressionMetadataKind:               return convert_named_tuple_metadata(p, v, "DIExpression");
