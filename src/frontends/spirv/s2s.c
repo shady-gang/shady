@@ -721,7 +721,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             LARRAY(const Node*, contents, size - 3);
             for (size_t i = 0; i < size - 3; i++)
                 contents[i] = get_def_ssa_value(parser, instruction[3 + i]);
-            parser->defs[result].node = composite(parser->arena, t, nodes(parser->arena, size - 3, contents));
+            parser->defs[result].node = composite_helper(parser->arena, t, nodes(parser->arena, size - 3, contents));
             break;
         }
         case SpvOpVariable: {
@@ -1062,7 +1062,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }
 
             parser->defs[result].type = Value;
-            parser->defs[result].node = composite(parser->arena, pack_type(parser->arena, (PackType) {
+            parser->defs[result].node = composite_helper(parser->arena, pack_type(parser->arena, (PackType) {
                     .element_type = src_a_t->payload.pack_type.element_type,
                     .width = num_components,
                 }), nodes(parser->arena, num_components, components));

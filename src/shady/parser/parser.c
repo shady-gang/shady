@@ -209,7 +209,7 @@ static const Node* accept_value(ctxparams) {
             const Type* elem_type = accept_unqualified_type(ctx);
             expect(elem_type);
             Nodes elems = expect_operands(ctx);
-            return composite(arena, elem_type, elems);
+            return composite_helper(arena, elem_type, elems);
         }
         default: return NULL;
     }

@@ -40,7 +40,7 @@ static const Node* data_composite(const Type* t, size_t size, LLVMValueRef v) {
             default: assert(false);
         }
     }
-    return composite(a, t, nodes(a, size, elements));
+    return composite_helper(a, t, nodes(a, size, elements));
 }
 
 const Node* convert_value(Parser* p, LLVMValueRef v) {
@@ -101,7 +101,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
                 assert(value);
                 elements[i] = convert_value(p, value);
             }
-            return composite(a, t, nodes(a, size, elements));
+            return composite_helper(a, t, nodes(a, size, elements));
         }
         case LLVMConstantVectorValueKind: {
             assert(t->tag == PackType_TAG);
@@ -112,7 +112,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
                 assert(value);
                 elements[i] = convert_value(p, value);
             }
-            return composite(a, t, nodes(a, size, elements));
+            return composite_helper(a, t, nodes(a, size, elements));
         }
         case LLVMUndefValueValueKind:
             return undef(a, (Undef) { .type = convert_type(p, LLVMTypeOf(v)) });
@@ -133,7 +133,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
                 assert(value);
                 elements[i] = convert_value(p, value);
             }
-            return composite(a, t, nodes(a, arr_size, elements));
+            return composite_helper(a, t, nodes(a, arr_size, elements));
         }
         case LLVMConstantIntValueKind: {
             assert(t->tag == Int_TAG);

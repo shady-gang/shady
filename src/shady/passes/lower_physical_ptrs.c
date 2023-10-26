@@ -142,7 +142,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 const Node* adjusted_offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, base_offset, field_offset));
                 loaded[i] = gen_deserialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset);
             }
-            return composite(a, element_type, nodes(a, member_types.count, loaded));
+            return composite_helper(a, element_type, nodes(a, member_types.count, loaded));
         }
         case PackType_TAG: {
             size_t components_count = element_type->payload.pack_type.width;
@@ -152,7 +152,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 components[i] = gen_deserialisation(ctx, bb, element_type->payload.pack_type.element_type, arr, offset);
                 offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, offset, gen_primop_e(bb, size_of_op, singleton(element_type), empty(a))));
             }
-            return composite(a, element_type, nodes(a, components_count, components));
+            return composite_helper(a, element_type, nodes(a, components_count, components));
         }
         default: error("TODO");
     }

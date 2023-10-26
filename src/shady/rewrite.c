@@ -296,11 +296,6 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             return new;
         }
         case Variable_TAG: error("variables should be recreated as part of decl handling");
-        case Composite_TAG: {
-            const Type* ntype = rewrite_node_with_fn(rewriter, node->payload.composite.type, rewrite_type);
-            Nodes nvalues = rewrite_nodes_with_fn(rewriter, node->payload.composite.contents, rewrite_value);
-            return composite(arena, ntype, nvalues);
-        }
         case Let_TAG: {
             const Node* instruction = rewrite_node_with_fn(rewriter, node->payload.let.instruction, rewrite_instruction);
             if (arena->config.allow_fold && rewriter->config.fold_quote && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {

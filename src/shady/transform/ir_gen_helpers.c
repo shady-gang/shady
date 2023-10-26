@@ -218,7 +218,7 @@ const Node* get_default_zero_value(IrArena* a, const Type* t) {
             LARRAY(const Node*, elems, elem_tys.count);
             for (size_t i = 0; i < elem_tys.count; i++)
                 elems[i] = get_default_zero_value(a, elem_tys.nodes[i]);
-            return composite(a, t, nodes(a, elem_tys.count, elems));
+            return composite_helper(a, t, nodes(a, elem_tys.count, elems));
         }
     }
 }

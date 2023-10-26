@@ -18,7 +18,7 @@ static const Node* widen(Context* ctx, const Node* value) {
     for (size_t j = 0; j < ctx->width; j++)
         copies[j] = value;
     const Type* type = pack_type(a, (PackType) { .width = ctx->width, .element_type = get_unqualified_type(value->type)});
-    return composite(a, type, nodes(a, ctx->width, copies));
+    return composite_helper(a, type, nodes(a, ctx->width, copies));
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -53,7 +53,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     }
                     //return yield_values_and_wrap_in_control(bb, singleton(widen(ctx, allocated)));
                     const Node* result_type = maybe_packed_type_helper(ptr_type(a, (PtrType) { .address_space = AsSPVFunctionLogical, .pointed_type = type }), ctx->width);
-                    const Node* packed = composite(a, result_type, nodes(a, ctx->width, allocated));
+                    const Node* packed = composite_helper(a, result_type, nodes(a, ctx->width, allocated));
                     return yield_values_and_wrap_in_block(bb, singleton(packed));
                 }
                 default: break;

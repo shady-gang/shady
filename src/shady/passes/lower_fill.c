@@ -23,7 +23,7 @@ static const Node* process(Context* ctx, const Node* node) {
             for (size_t i = 0; i < actual_size; i++) {
                 copies[i] = value;
             }
-            return composite(a, composite_t, nodes(a, actual_size, copies));
+            return composite_helper(a, composite_t, nodes(a, actual_size, copies));
         }
         default: break;
     }

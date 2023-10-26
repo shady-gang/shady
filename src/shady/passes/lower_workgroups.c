@@ -93,19 +93,19 @@ static const Node* process(Context* ctx, const Node* node) {
 
                 BodyBuilder* bb2 = begin_body(a);
                 // write the workgroup ID
-                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinWorkgroupId, NULL))), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
+                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinWorkgroupId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
                 // write the local ID
                 const Node* local_id[3];
                 // local_id[0] = SUBGROUP_SIZE * subgroup_id[0] + subgroup_local_id
                 local_id[0] = gen_primop_e(bb2, add_op, empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, empty(a), mk_nodes(a, uint32_literal(a, a->config.specializations.subgroup_size), subgroup_id[0])), gen_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
                 local_id[1] = subgroup_id[1];
                 local_id[2] = subgroup_id[2];
-                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinLocalInvocationId, NULL))), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
+                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinLocalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
                 // write the global ID
                 const Node* global_id[3];
                 for (int dim = 0; dim < 3; dim++)
                     global_id[dim] = gen_primop_e(bb2, add_op, empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, empty(a), mk_nodes(a, uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
-                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinGlobalInvocationId, NULL))), composite(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
+                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinGlobalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
                 // TODO: write the subgroup ID
 
                 bind_instruction(bb2, call(a, (Call) { .callee = fn_addr_helper(a, inner), .args = wparams }));

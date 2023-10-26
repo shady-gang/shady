@@ -195,24 +195,12 @@ const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail) {
     return create_node_helper(arena, node, NULL);
 }
 
-const Node* composite(IrArena* a, const Type* elem_type, Nodes contents) {
-    Composite c = {
-        .type = elem_type,
-        .contents = contents,
-    };
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = a,
-        .type = a->config.check_types ? check_type_composite(a, c) : NULL,
-        .tag = Composite_TAG,
-        .payload.composite = c
-    };
-    return create_node_helper(a, node, NULL);
+const Node* composite_helper(IrArena* a, const Type* t, Nodes contents) {
+    return composite(a, (Composite) { .type = t, .contents = contents });
 }
 
 const Node* tuple(IrArena* a, Nodes contents) {
+    assert(a->config.check_types);
     const Type* t = NULL;
     if (a->config.check_types) {
         // infer the type of the tuple
@@ -220,7 +208,7 @@ const Node* tuple(IrArena* a, Nodes contents) {
         t = record_type(a, (RecordType) {.members = strip_qualifiers(a, member_types)});
     }
 
-    return composite(a, t, contents);
+    return composite_helper(a, t, contents);
 }
 
 const Node* fn_addr_helper(IrArena* a, const Node* fn) {

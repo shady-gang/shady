@@ -31,7 +31,7 @@ static const Node* scalarify_primop(Context* ctx, const Node* old) {
         .element_type = rewrite_node(&ctx->rewriter, dst_type),
         .size = int32_literal(a, width)
     });
-    return yield_values_and_wrap_in_block(bb, singleton(composite(a, t, nodes(a, width, elements))));
+    return yield_values_and_wrap_in_block(bb, singleton(composite_helper(a, t, nodes(a, width, elements))));
 }
 
 static const Node* process(Context* ctx, const Node* node) {

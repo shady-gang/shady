@@ -247,7 +247,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
             if (!elem_type)
                 elem_type = record_type(a, (RecordType) { .members = strip_qualifiers(a, get_values_types(a, nmembers)) });
 
-            return composite(a, elem_type, nmembers);
+            return composite_helper(a, elem_type, nmembers);
         }
         case Value_Fill_TAG: {
             const Node* composite_t = infer(ctx, node->payload.fill.type, NULL);

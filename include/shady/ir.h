@@ -187,7 +187,7 @@ const Node* type_decl_ref_helper(IrArena*, const Node* decl);
 const Node* var(IrArena*, const Type* type, const char* name);
 
 const Node* tuple(IrArena*, Nodes contents);
-const Node* composite(IrArena*, const Type*, Nodes contents);
+const Node* composite_helper(IrArena*, const Type*, Nodes contents);
 const Node* fn_addr_helper(IrArena*, const Node* fn);
 const Node* ref_decl_helper(IrArena*, const Node* decl);
 const Node* anti_quote_helper(IrArena*, const Node* instr);

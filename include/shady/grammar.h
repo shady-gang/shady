@@ -35,7 +35,7 @@ N(1, 1, 0, True, true_lit) \
 N(1, 1, 0, False, false_lit) \
 N(1, 1, 1, StringLiteral, string_lit) \
 N(1, 1, 1, NullPtr, null_ptr) \
-N(0, 1, 1, Composite, composite) \
+N(1, 1, 1, Composite, composite) \
 N(1, 1, 1, Fill, fill) \
 N(1, 1, 1, Undef, undef) \
 N(1, 1, 1, FnAddr, fn_addr) \
