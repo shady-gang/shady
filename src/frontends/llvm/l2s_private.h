@@ -13,6 +13,7 @@ typedef struct {
     LLVMContextRef ctx;
     struct Dict* map;
     struct Dict* annotations;
+    struct Dict* scopes;
     Arena* annotations_arena;
     LLVMModuleRef src;
     Module* dst;
@@ -49,7 +50,9 @@ typedef struct {
     Nodes result_types;
 } EmittedInstr;
 
-EmittedInstr convert_instruction(Parser* p, Node* fn, BodyBuilder* b, LLVMValueRef instr);
+EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
+
+Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc);
 
 void postprocess(Parser*, Module* src, Module* dst);
 

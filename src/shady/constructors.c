@@ -200,7 +200,6 @@ const Node* composite_helper(IrArena* a, const Type* t, Nodes contents) {
 }
 
 const Node* tuple_helper(IrArena* a, Nodes contents) {
-    assert(a->config.check_types);
     const Type* t = NULL;
     if (a->config.check_types) {
         // infer the type of the tuple

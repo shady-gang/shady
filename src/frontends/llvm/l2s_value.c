@@ -49,7 +49,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
     IrArena* a = get_module_arena(p->dst);
 
     const Node* r = NULL;
-    const Type* t = convert_type(p, LLVMTypeOf(v));
+    const Type* t = LLVMGetValueKind(v) != LLVMMetadataAsValueValueKind ? convert_type(p, LLVMTypeOf(v)) : NULL;
 
     switch (LLVMGetValueKind(v)) {
         case LLVMArgumentValueKind:

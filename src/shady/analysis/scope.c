@@ -38,8 +38,12 @@ typedef struct {
 
 CFNode* scope_lookup(Scope* scope, const Node* block) {
     CFNode** found = find_value_dict(const Node*, CFNode*, scope->map, block);
-    if (found) return *found;
+    if (found) {
+        assert((*found)->node);
+        return *found;
+    }
     assert(false);
+    return NULL;
 }
 
 static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
@@ -58,6 +62,7 @@ static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
         .dominates = NULL,
         .structurally_dominated = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
+    assert(abs && new->node);
     insert_dict(const Node*, CFNode*, ctx->nodes, abs, new);
     append_list(Node*, ctx->queue, new);
     append_list(Node*, ctx->contents, new);

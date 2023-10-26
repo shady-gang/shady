@@ -21,16 +21,107 @@ static Nodes convert_mdnode_operands(Parser* p, LLVMValueRef mdnode) {
 }
 
 static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, String name) {
+    // printf("%s\n", name);
     IrArena* a = get_module_arena(p->dst);
     Nodes args = convert_mdnode_operands(p, v);
     args = prepend_nodes(a, args, string_lit_helper(a, name));
     return tuple_helper(a, args);
 }
 
+#define LLVM_DI_METADATA_NODES(N) \
+N(DILocation)\
+N(DIExpression)\
+N(DIGlobalVariableExpression)\
+N(GenericDINode)\
+N(DISubrange)\
+N(DIEnumerator)\
+N(DIBasicType)\
+N(DIDerivedType)\
+N(DICompositeType)\
+N(DISubroutineType)\
+N(DIFile)\
+N(DICompileUnit)\
+N(DISubprogram)\
+N(DILexicalBlock)\
+N(DILexicalBlockFile)\
+N(DINamespace)\
+N(DIModule)\
+N(DITemplateTypeParameter)\
+N(DITemplateValueParameter)\
+N(DIGlobalVariable)\
+N(DILocalVariable)\
+N(DILabel)\
+N(DIObjCProperty)\
+N(DIImportedEntity)\
+N(DIMacro)\
+N(DIMacroFile)\
+N(DICommonBlock)\
+N(DIStringType)\
+N(DIGenericSubrange)\
+N(DIArgList)\
+
+// braindead solution to a braindead problem
+#define LLVM_DI_WITH_PARENT_SCOPES(N) \
+N(DIBasicType)\
+N(DIDerivedType)\
+N(DICompositeType)\
+N(DISubroutineType)\
+N(DISubprogram)\
+N(DILexicalBlock)\
+N(DILexicalBlockFile)\
+N(DINamespace)\
+N(DIModule)\
+N(DICommonBlock)                      \
+
+static LLVMValueRef shady_LLVMGetParentScope(Parser* p, LLVMMetadataRef meta) {
+    LLVMMetadataKind kind = LLVMGetMetadataKind(meta);
+    LLVMValueRef v = LLVMMetadataAsValue(p->ctx, meta);
+
+    switch (kind) {
+#define N(e) case LLVM##e##MetadataKind: break;
+LLVM_DI_WITH_PARENT_SCOPES(N)
+#undef N
+        default: return NULL;
+    }
+
+    unsigned count = LLVMGetMDNodeNumOperands(v);
+    LARRAY(LLVMValueRef, ops, count);
+    LLVMGetMDNodeOperands(v, ops);
+
+    assert(count >= 2);
+    return ops[1];
+}
+
+Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc) {
+    IrArena* a = get_module_arena(p->dst);
+    Nodes str = empty(a);
+
+    LLVMMetadataRef scope = LLVMDILocationGetScope(dbgloc);
+    while (true) {
+        if (!scope) break;
+
+        str = prepend_nodes(a, str, convert_metadata(p, scope));
+
+        // LLVMDumpValue(LLVMMetadataAsValue(p->ctx, scope));
+        // printf("\n");
+
+        LLVMValueRef v = shady_LLVMGetParentScope(p, scope);
+        if (!v) break;
+        scope = LLVMValueAsMetadata(v);
+    }
+    //dump_node(convert_metadata(p, dbgloc));
+    return str;
+}
+
 const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
     IrArena* a = get_module_arena(p->dst);
     LLVMMetadataKind kind = LLVMGetMetadataKind(meta);
     LLVMValueRef v = LLVMMetadataAsValue(p->ctx, meta);
+
+    switch (kind) {
+        case LLVMMDTupleMetadataKind: return tuple_helper(a, convert_mdnode_operands(p, v));
+        case LLVMDICompileUnitMetadataKind: return string_lit_helper(a, "CompileUnit");
+    }
 
     switch (kind) {
         case LLVMMDStringMetadataKind: {
@@ -45,38 +136,10 @@ const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
             return first(ops);
         }
         case LLVMDistinctMDOperandPlaceholderMetadataKind: goto default_;
-        case LLVMMDTupleMetadataKind: return tuple_helper(a, convert_mdnode_operands(p, v));
 
-        case LLVMDILocationMetadataKind:                 return convert_named_tuple_metadata(p, v, "DILocation");
-        case LLVMDIExpressionMetadataKind:               return convert_named_tuple_metadata(p, v, "DIExpression");
-        case LLVMDIGlobalVariableExpressionMetadataKind: return convert_named_tuple_metadata(p, v, "DIGlobalVariableExpression");
-        case LLVMGenericDINodeMetadataKind:              return convert_named_tuple_metadata(p, v, "GenericDINode");
-        case LLVMDISubrangeMetadataKind:                 return convert_named_tuple_metadata(p, v, "DISubrange");
-        case LLVMDIEnumeratorMetadataKind:               return convert_named_tuple_metadata(p, v, "DIEnumerator");
-        case LLVMDIBasicTypeMetadataKind:                return convert_named_tuple_metadata(p, v, "DIBasicType");
-        case LLVMDIDerivedTypeMetadataKind:              return convert_named_tuple_metadata(p, v, "DIDerivedType");
-        case LLVMDICompositeTypeMetadataKind:            return convert_named_tuple_metadata(p, v, "DICompositeType");
-        case LLVMDISubroutineTypeMetadataKind:           return convert_named_tuple_metadata(p, v, "DISubroutineType");
-        case LLVMDIFileMetadataKind:                     return convert_named_tuple_metadata(p, v, "DIFile");
-        case LLVMDICompileUnitMetadataKind:              return convert_named_tuple_metadata(p, v, "DICompileUnit");
-        case LLVMDISubprogramMetadataKind:               return convert_named_tuple_metadata(p, v, "DiSubprogram");
-        case LLVMDILexicalBlockMetadataKind:             return convert_named_tuple_metadata(p, v, "DILexicalBlock");
-        case LLVMDILexicalBlockFileMetadataKind:         return convert_named_tuple_metadata(p, v, "DILexicalBlockFile");
-        case LLVMDINamespaceMetadataKind:                return convert_named_tuple_metadata(p, v, "DINamespace");
-        case LLVMDIModuleMetadataKind:                   return convert_named_tuple_metadata(p, v, "DIModule");
-        case LLVMDITemplateTypeParameterMetadataKind:    return convert_named_tuple_metadata(p, v, "DITemplateTypeParameter");
-        case LLVMDITemplateValueParameterMetadataKind:   return convert_named_tuple_metadata(p, v, "DITemplateValueParameter");
-        case LLVMDIGlobalVariableMetadataKind:           return convert_named_tuple_metadata(p, v, "DIGlobalVariable");
-        case LLVMDILocalVariableMetadataKind:            return convert_named_tuple_metadata(p, v, "DILocalVariable");
-        case LLVMDILabelMetadataKind:                    return convert_named_tuple_metadata(p, v, "DILabelMetadata");
-        case LLVMDIObjCPropertyMetadataKind:             return convert_named_tuple_metadata(p, v, "DIObjCProperty");
-        case LLVMDIImportedEntityMetadataKind:           return convert_named_tuple_metadata(p, v, "DIImportedEntity");
-        case LLVMDIMacroMetadataKind:                    return convert_named_tuple_metadata(p, v, "DIMacroMetadata");
-        case LLVMDIMacroFileMetadataKind:                return convert_named_tuple_metadata(p, v, "DIMacroFile");
-        case LLVMDICommonBlockMetadataKind:              return convert_named_tuple_metadata(p, v, "DICommonBlock");
-        case LLVMDIStringTypeMetadataKind:               return convert_named_tuple_metadata(p, v, "DIStringType");
-        case LLVMDIGenericSubrangeMetadataKind:          return convert_named_tuple_metadata(p, v, "DIGenericSubrange");
-        case LLVMDIArgListMetadataKind:                  return convert_named_tuple_metadata(p, v, "DIArgList");
+#define N(e) case LLVM##e##MetadataKind: return convert_named_tuple_metadata(p, v, #e);
+LLVM_DI_METADATA_NODES(N)
+#undef N
         default: default_:
             error_print("Unknown metadata kind %d for ", kind);
             LLVMDumpValue(v);

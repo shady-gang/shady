@@ -2,6 +2,9 @@
 
 #include "portability.h"
 #include "log.h"
+#include "dict.h"
+
+#include "llvm-c/DebugInfo.h"
 
 static Nodes convert_operands(Parser* p, size_t num_ops, LLVMValueRef v) {
     IrArena* a = get_module_arena(p->dst);
@@ -36,7 +39,14 @@ static Nodes reinterpret_operands(BodyBuilder* b, Nodes ops, const Type* dst_t) 
 }
 
 /// instr may be an instruction or a constantexpr
-EmittedInstr convert_instruction(Parser* p, Node* fn, BodyBuilder* b, LLVMValueRef instr) {
+EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
+    Node* fn = fn_or_bb;
+    if (fn) {
+        if (fn_or_bb->tag == BasicBlock_TAG)
+            fn = (Node*) fn_or_bb->payload.basic_block.fn;
+        assert(fn->tag == Function_TAG);
+    }
+
     IrArena* a = get_module_arena(p->dst);
     int num_ops = LLVMGetNumOperands(instr);
     size_t num_results = 1;
@@ -54,6 +64,26 @@ EmittedInstr convert_instruction(Parser* p, Node* fn, BodyBuilder* b, LLVMValueR
     const Type* t = convert_type(p, LLVMTypeOf(instr));
 
 #define BIND_PREV_R(t) bind_instruction_explicit_result_types(b, r, singleton(t), NULL, false)
+
+    //if (LLVMIsATerminatorInst(instr)) {
+    if (LLVMIsAInstruction(instr)) {
+        assert(fn && fn_or_bb);
+        LLVMMetadataRef dbgloc = LLVMInstructionGetDebugLoc(instr);
+        if (dbgloc) {
+            Nodes* found = find_value_dict(const Node*, Nodes, p->scopes, fn_or_bb);
+            if (!found) {
+                Nodes str = scope_to_string(p, dbgloc);
+                insert_dict(const Node*, Nodes, p->scopes, fn_or_bb, str);
+                debug_print("Found a debug location for ");
+                log_node(DEBUG, fn_or_bb);
+                for (size_t i = 0; i < str.count; i++) {
+                    log_node(DEBUG, str.nodes[i]);
+                    debug_print(" -> ");
+                }
+                debug_print(" (depth= %zu)\n", str.count);
+            }
+        }
+    }
 
     switch (opcode) {
         case LLVMRet: return (EmittedInstr) {
@@ -284,6 +314,10 @@ EmittedInstr convert_instruction(Parser* p, Node* fn, BodyBuilder* b, LLVMValueR
             if (intrinsic) {
                 if (strcmp(intrinsic, "llvm.dbg.declare") == 0)
                     return (EmittedInstr) {};
+                if (strcmp(intrinsic, "llvm.dbg.label") == 0) {
+                    // TODO
+                    return (EmittedInstr) {};
+                }
             }
             Nodes ops = convert_operands(p, num_ops, instr);
             r = call(a, (Call) {

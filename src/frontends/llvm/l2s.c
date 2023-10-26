@@ -27,15 +27,18 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
     return *a == *b;
 }
 
-static const Node* write_bb_tail(Parser* p, Node* fn, BodyBuilder* b, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
+
+static const Node* write_bb_tail(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
     LLVMValueRef instr;
     for (instr = first_instr; instr; instr = LLVMGetNextInstruction(instr)) {
         bool last = instr == LLVMGetLastInstruction(bb);
         if (last)
             assert(LLVMGetBasicBlockTerminator(bb) == instr);
-        LLVMDumpValue(instr);
-        printf("\n");
-        EmittedInstr emitted = convert_instruction(p, fn, b, instr);
+        // LLVMDumpValue(instr);
+        // printf("\n");
+        EmittedInstr emitted = convert_instruction(p, fn_or_bb, b, instr);
         if (emitted.terminator)
             return finish_body(b, emitted.terminator);
         if (!emitted.instruction)
@@ -75,7 +78,7 @@ const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
         Node* nbb = basic_block(a, fn, params, name);
         insert_dict(LLVMValueRef, const Node*, p->map, bb, nbb);
         BodyBuilder* b = begin_body(a);
-        nbb->payload.basic_block.body = write_bb_tail(p, fn, b, bb, instr);
+        nbb->payload.basic_block.body = write_bb_tail(p, nbb, b, bb, instr);
         return nbb;
     }
 }
@@ -183,6 +186,7 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
         .ctx = context,
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations = new_dict(LLVMValueRef, ParsedAnnotation, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
+        .scopes = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
         .annotations_arena = new_arena(),
         .src = src,
         .dst = dirty,
@@ -204,6 +208,7 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
 
     destroy_dict(p.map);
     destroy_dict(p.annotations);
+    destroy_dict(p.scopes);
     destroy_arena(p.annotations_arena);
 
     LLVMContextDispose(context);

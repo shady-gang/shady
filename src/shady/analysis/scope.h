@@ -86,7 +86,7 @@ Scope* new_scope_impl(const Node* entry, LoopTree* lt, bool flipped);
 
 Scope* new_scope_lt_impl(const Node* entry, LoopTree* lt, bool flipped);
 
-/** Construct the scope stating in Node.
+/** Construct the scope starting in Node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  */
 #define new_scope(node) new_scope_impl(node, NULL, false);
