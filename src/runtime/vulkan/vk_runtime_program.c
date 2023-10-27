@@ -136,8 +136,8 @@ static void add_binding(VkDescriptorSetLayoutCreateInfo* layout_create_info, Gro
 
 VkDescriptorType as_to_descriptor_type(AddressSpace as) {
     switch (as) {
-        case AsGLUniformBufferObject: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        case AsGLShaderStorageBufferObject: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        case AsUniform: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        case AsShaderStorageBufferObject: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         default: error("No mapping to a descriptor type");
     }
 }
@@ -155,8 +155,8 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
         if (lookup_annotation(decl, "Constants")) {
             AddressSpace as = decl->payload.global_variable.address_space;
             switch (as) {
-                case AsGLShaderStorageBufferObject:
-                case AsGLUniformBufferObject: break;
+                case AsShaderStorageBufferObject:
+                case AsUniform: break;
                 default: continue;
             }
 

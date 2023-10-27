@@ -207,9 +207,10 @@ AddressSpace convert_storage_class(SpvStorageClass class) {
         case SpvStorageClassPrivate:               return AsPrivatePhysical;
         case SpvStorageClassFunction:              return AsPrivatePhysical;
         case SpvStorageClassGeneric:               return AsGeneric;
-        case SpvStorageClassPushConstant:          return AsVKPushConstant;
+        case SpvStorageClassPushConstant:          return AsPushConstant;
         case SpvStorageClassAtomicCounter:
-        case SpvStorageClassImage:
+        error("TODO");
+        case SpvStorageClassImage:                 return AsImage;
             error("TODO");
         case SpvStorageClassStorageBuffer:         return AsGlobalLogical;
         case SpvStorageClassUniformConstant:

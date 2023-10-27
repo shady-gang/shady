@@ -154,7 +154,7 @@ size_t get_type_bitwidth(const Type* t) {
 
 bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     switch (as) {
-        case AsSPVFunctionLogical:
+        case AsFunctionLogical:
         case AsPrivateLogical:
         case AsPrivatePhysical:
         case AsInput:
@@ -695,7 +695,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(is_subtype(val_expected_type, val->type));
             return unit_type(arena);
         }
-        case alloca_logical_op:  as = AsSPVFunctionLogical; goto alloca_case;
+        case alloca_logical_op:  as = AsFunctionLogical; goto alloca_case;
         case alloca_subgroup_op: as = AsSubgroupPhysical; goto alloca_case;
         case alloca_op:          as = AsPrivatePhysical; goto alloca_case;
         alloca_case: {

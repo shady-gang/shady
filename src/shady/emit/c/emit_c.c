@@ -559,10 +559,11 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 case AsUInput:
                 case AsOutput:
                     break;
-                case AsGLUniformBufferObject:
-                case AsGLShaderStorageBufferObject:
-                case AsSPVFunctionLogical:
-                case AsVKPushConstant:
+                case AsUniform:
+                case AsImage:
+                case AsShaderStorageBufferObject:
+                case AsFunctionLogical:
+                case AsPushConstant:
                     break; // error("These only make sense for SPIR-V !")
                 case NumAddressSpaces: error("");
             }

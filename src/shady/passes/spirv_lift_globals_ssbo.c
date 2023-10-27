@@ -84,7 +84,7 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
             .names = strings(a, lifted_globals_count, member_names),
             .special = DecorateBlock
         });
-        ctx.lifted_globals_decl = global_var(dst, annotations, lifted_globals_struct_t, "lifted_globals", AsGLShaderStorageBufferObject);
+        ctx.lifted_globals_decl = global_var(dst, annotations, lifted_globals_struct_t, "lifted_globals", AsShaderStorageBufferObject);
     }
 
     rewrite_module(&ctx.rewriter);

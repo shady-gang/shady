@@ -20,14 +20,15 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
         case AsGlobalLogical:                return SpvStorageClassStorageBuffer;
         case AsSharedLogical:                return SpvStorageClassWorkgroup;
         case AsPrivateLogical:               return SpvStorageClassPrivate;
-        case AsSPVFunctionLogical:           return SpvStorageClassFunction;
+        case AsFunctionLogical:              return SpvStorageClassFunction;
         case AsGlobalPhysical:               return SpvStorageClassPhysicalStorageBuffer;
         case AsInput:
         case AsUInput:                       return SpvStorageClassInput;
         case AsOutput:                       return SpvStorageClassOutput;
-        case AsVKPushConstant:               return SpvStorageClassPushConstant;
-        case AsGLShaderStorageBufferObject:  return SpvStorageClassStorageBuffer;
-        case AsGLUniformBufferObject:        return SpvStorageClassUniform;
+        case AsPushConstant:                 return SpvStorageClassPushConstant;
+        case AsShaderStorageBufferObject:    return SpvStorageClassStorageBuffer;
+        case AsUniform:                      return SpvStorageClassUniform;
+        case AsImage:                        return SpvStorageClassImage;
 
         case AsExternal:
         case AsGeneric:

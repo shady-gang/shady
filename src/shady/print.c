@@ -97,10 +97,11 @@ static void print_address_space(PrinterCtx* ctx, AddressSpace as) {
         case AsOutput:                    printf("output"); break;
         case AsExternal:                printf("external"); break;
 
-        case AsSPVFunctionLogical:      printf("function"); break;
-        case AsVKPushConstant:     printf("push_constant"); break;
-        case AsGLShaderStorageBufferObject: printf("ssbo"); break;
-        case AsGLUniformBufferObject:        printf("ubo"); break;
+        case AsFunctionLogical :      printf("function"); break;
+        case AsPushConstant:     printf("push_constant"); break;
+        case AsShaderStorageBufferObject: printf("ssbo"); break;
+        case AsUniform:                    printf("ubo"); break;
+        case AsImage:                    printf("image"); break;
         case NumAddressSpaces: error("");
     }
     printf(RESET);

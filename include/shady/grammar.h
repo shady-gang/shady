@@ -165,11 +165,12 @@ MkField(1, TYPES, Nodes, param_types)
     AS(0, External, 391) \
     /* SPIR-V specific address spaces */ \
     /* Maps to Vulkan push constants */ \
-    AS(0, VKPushConstant, 392) \
+    AS(0, PushConstant, 392) \
     /* Weird SPIR-V nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime) */ \
-    AS(0, SPVFunctionLogical, 393) \
-    AS(0, GLShaderStorageBufferObject, 394) \
-    AS(0, GLUniformBufferObject, 395)
+    AS(0, FunctionLogical, 393) \
+    AS(0, ShaderStorageBufferObject, 394) \
+    AS(0, Uniform, 395) \
+    AS(0, Image, 397) \
 
 typedef enum AddressSpace_ {
 #define AS(physical, name, llvm_id) As##name,
