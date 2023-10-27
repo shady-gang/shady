@@ -144,13 +144,21 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             }
             return composite_helper(a, element_type, nodes(a, member_types.count, loaded));
         }
+        case ArrType_TAG:
         case PackType_TAG: {
-            size_t components_count = element_type->payload.pack_type.width;
+            const Node* size = get_fill_type_size(element_type);
+            if (size->tag != IntLiteral_TAG) {
+                error_print("Size of type ");
+                log_node(ERROR, element_type);
+                error_print(" is not known a compile-time!\n");
+            }
+            size_t components_count = get_int_literal_value(size, 0);
+            const Type* component_type = get_fill_type_element_type(element_type);
             LARRAY(const Node*, components, components_count);
             const Node* offset = base_offset;
             for (size_t i = 0; i < components_count; i++) {
-                components[i] = gen_deserialisation(ctx, bb, element_type->payload.pack_type.element_type, arr, offset);
-                offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, offset, gen_primop_e(bb, size_of_op, singleton(element_type), empty(a))));
+                components[i] = gen_deserialisation(ctx, bb, component_type, arr, offset);
+                offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, offset, gen_primop_e(bb, size_of_op, singleton(component_type), empty(a))));
             }
             return composite_helper(a, element_type, nodes(a, components_count, components));
         }
@@ -234,12 +242,20 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             gen_serialisation(ctx, bb, nom->payload.nom_type.body, arr, base_offset, value);
             return;
         }
+        case ArrType_TAG:
         case PackType_TAG: {
-            size_t components_count = element_type->payload.pack_type.width;
+            const Node* size = get_fill_type_size(element_type);
+            if (size->tag != IntLiteral_TAG) {
+                error_print("Size of type ");
+                log_node(ERROR, element_type);
+                error_print(" is not known a compile-time!\n");
+            }
+            size_t components_count = get_int_literal_value(size, 0);
+            const Type* component_type = get_fill_type_element_type(element_type);
             const Node* offset = base_offset;
             for (size_t i = 0; i < components_count; i++) {
-                gen_serialisation(ctx, bb, element_type->payload.pack_type.element_type, arr, offset, gen_extract(bb, value, singleton(int32_literal(a, i))));
-                offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, offset, gen_primop_e(bb, size_of_op, singleton(element_type), empty(a))));
+                gen_serialisation(ctx, bb, component_type, arr, offset, gen_extract(bb, value, singleton(int32_literal(a, i))));
+                offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, offset, gen_primop_e(bb, size_of_op, singleton(component_type), empty(a))));
             }
             return;
         }
