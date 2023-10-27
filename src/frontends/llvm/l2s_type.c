@@ -7,7 +7,7 @@
 static AddressSpace convert_address_space(unsigned as) {
     static bool warned = false;
     switch (as) {
-#define AS(name, i) case i: return As##name;
+#define AS(_, name, llvm_id) case llvm_id: return As##name;
 ADDRESS_SPACES(AS)
 #undef AS
         default:

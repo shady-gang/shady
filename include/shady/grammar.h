@@ -141,38 +141,38 @@ typedef struct LamType_ LamType;
 MkField(1, TYPES, Nodes, param_types)
 
 #define ADDRESS_SPACES(AS) \
-    AS(Generic, 0) \
+    AS(1, Generic, 0) \
     /* Global memory, all threads see the same data (not necessarily consistent!) */ \
-    AS(GlobalPhysical, 1) \
+    AS(1, GlobalPhysical, 1) \
     /* Points into workgroup-private memory (you get the idea) */ \
-    AS(SharedPhysical, 3) \
+    AS(1, SharedPhysical, 3) \
     /* Points into subgroup-private memory (all threads in a subgroup see the same contents for the same \
        address, but threads in different subgroups see different data) \
        needs to be lowered to something else since targets do not understand this */ \
-    AS(SubgroupPhysical, 384) \
+    AS(1, SubgroupPhysical, 9) \
     /* Points into thread-private memory (all threads see different contents for the same address) */ \
-    AS(PrivatePhysical, 5) \
+    AS(1, PrivatePhysical, 5) \
     /* Logical variants of the prior four ASes */ \
-    AS(PrivateLogical, 385) \
-    AS(SubgroupLogical, 386) \
-    AS(SharedLogical, 387) \
-    AS(GlobalLogical, 388) \
+    AS(0, PrivateLogical, 385) \
+    AS(0, SubgroupLogical, 386) \
+    AS(0, SharedLogical, 387) \
+    AS(0, GlobalLogical, 388) \
     /* special addressing spaces for input/output global variables in shader stages */ \
-    AS(Input, 389) \
-    AS(UInput, 396) /* just like AsInput but known to be subgroup-uniform */ \
-    AS(Output, 390) \
+    AS(0, Input, 389) \
+    AS(0, UInput, 396) /* just like AsInput but known to be subgroup-uniform */ \
+    AS(0, Output, 390) \
     /* For resources supplied by the host, agnostic of the binding model */ \
-    AS(External, 391) \
+    AS(0, External, 391) \
     /* SPIR-V specific address spaces */ \
     /* Maps to Vulkan push constants */ \
-    AS(VKPushConstant, 392) \
+    AS(0, VKPushConstant, 392) \
     /* Weird SPIR-V nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime) */ \
-    AS(SPVFunctionLogical, 393) \
-    AS(GLShaderStorageBufferObject, 394) \
-    AS(GLUniformBufferObject, 395)
+    AS(0, SPVFunctionLogical, 393) \
+    AS(0, GLShaderStorageBufferObject, 394) \
+    AS(0, GLUniformBufferObject, 395)
 
 typedef enum AddressSpace_ {
-#define AS(name, _) As##name,
+#define AS(physical, name, llvm_id) As##name,
 ADDRESS_SPACES(AS)
 #undef AS
     NumAddressSpaces,
@@ -181,7 +181,16 @@ ADDRESS_SPACES(AS)
     PhysicalAddressSpacesEnd = AsPrivatePhysical,
 } AddressSpace;
 
-static inline bool is_physical_as(AddressSpace as) { return as <= PhysicalAddressSpacesEnd; }
+static inline bool is_physical_as(AddressSpace as) {
+#define AS_1(name, llvm_id) case As##name: return true;
+#define AS_0(name, llvm_id) case As##name: return false;
+#define AS(physical, name, llvm_id) AS_##physical(name, llvm_id)
+    switch (as) {
+        ADDRESS_SPACES(AS)
+        default: return true;
+    }
+#undef AS
+}
 
 typedef struct PtrType_ PtrType;
 #define PtrType_Fields(MkField) \
