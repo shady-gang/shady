@@ -324,6 +324,8 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                     .callee = ops.nodes[num_args],
                     .args = nodes(a, num_args, ops.nodes),
             });
+            if (t == unit_type(a))
+                num_results = 0;
             break;
         }
         case LLVMSelect:
