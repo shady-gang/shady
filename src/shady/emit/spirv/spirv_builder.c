@@ -12,8 +12,6 @@
 
 #define SHADY_GENERATOR_MAGIC_NUMBER 35
 
-typedef Growy* SpvbSectionBuilder;
-
 inline static int div_roundup(int a, int b) {
     if (a % b == 0)
         return a / b;
@@ -38,8 +36,8 @@ inline static void ref_id_(SpvbSectionBuilder data, SpvId id) {
     output_word(data, id);
 }
 
-#define literal_name(str) literal_name_(target_data, str)
-inline static void literal_name_(SpvbSectionBuilder data, const char* str) {
+#define literal_name(str) spvb_literal_name(target_data, str)
+void spvb_literal_name(SpvbSectionBuilder data, const char* str) {
     int i = 0;
     uint32_t cword = 0;
     while (str[0] != '\0') {

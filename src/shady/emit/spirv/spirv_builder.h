@@ -11,7 +11,12 @@ typedef struct SpvbFnBuilder_ SpvbFnBuilder;
 typedef struct SpvbFileBuilder_ SpvbFileBuilder;
 typedef struct SpvbPhi_ SpvbPhi;
 
+typedef struct Growy_ Growy;
+typedef Growy* SpvbSectionBuilder;
+
 typedef const char* String;
+
+void spvb_literal_name(SpvbSectionBuilder data, const char* str);
 
 SpvbFileBuilder* spvb_begin();
 size_t spvb_finish(SpvbFileBuilder*, char** pwords);

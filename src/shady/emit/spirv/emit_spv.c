@@ -2,6 +2,7 @@
 #include "dict.h"
 #include "log.h"
 #include "portability.h"
+#include "growy.h"
 
 #include "shady/builtins.h"
 #include "../../ir_private.h"
@@ -274,7 +275,8 @@ static void emit_function(Emitter* emitter, const Node* node) {
     assert(node->tag == Function_TAG);
 
     const Type* fn_type = node->type;
-    FnBuilder fn_builder = spvb_begin_fn(emitter->file_builder, find_reserved_id(emitter, node), emit_type(emitter, fn_type), nodes_to_codom(emitter, node->payload.fun.return_types));
+    SpvId fn_id = find_reserved_id(emitter, node);
+    FnBuilder fn_builder = spvb_begin_fn(emitter->file_builder, fn_id, emit_type(emitter, fn_type), nodes_to_codom(emitter, node->payload.fun.return_types));
 
     Nodes params = node->payload.fun.params;
     for (size_t i = 0; i < params.count; i++) {
@@ -326,8 +328,14 @@ static void emit_function(Emitter* emitter, const Node* node) {
         destroy_scope(scope);
 
         spvb_define_function(emitter->file_builder, fn_builder);
-    } else
+    } else {
+        Growy* g = new_growy();
+        spvb_literal_name(g, get_abstraction_name(node));
+        growy_append_bytes(g, 4, (char*) &(uint32_t) { SpvLinkageTypeImport });
+        spvb_decorate(emitter->file_builder, fn_id, SpvDecorationLinkageAttributes, growy_size(g) / 4, (uint32_t*) growy_data(g));
+        destroy_growy(g);
         spvb_declare_function(emitter->file_builder, fn_builder);
+    }
 }
 
 SpvId emit_decl(Emitter* emitter, const Node* decl) {
