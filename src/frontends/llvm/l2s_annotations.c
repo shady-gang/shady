@@ -111,6 +111,14 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                         .value = int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
                     })
                 });
+            } else if (strcmp(keyword, "descriptor_binding") == 0) {
+                assert(target->tag == GlobalVariable_TAG);
+                add_annotation(p, target, (ParsedAnnotation) {
+                    .payload = annotation_value(a, (AnnotationValue) {
+                        .name = "DescriptorBinding",
+                        .value = int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
+                    })
+                });
             } else {
                 error_print("Unrecognised shady annotation '%s'\n", keyword);
                 error_die();

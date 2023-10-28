@@ -11,7 +11,7 @@ static Nodes convert_operands(Parser* p, size_t num_ops, LLVMValueRef v) {
     LARRAY(const Node*, ops, num_ops);
     for (size_t i = 0; i < num_ops; i++) {
         LLVMValueRef op = LLVMGetOperand(v, i);
-        if (LLVMIsAFunction(op) && is_llvm_intrinsic(op))
+        if (LLVMIsAFunction(op) && (is_llvm_intrinsic(op) || is_shady_intrinsic(op)))
             ops[i] = NULL;
         else
             ops[i] = convert_value(p, op);
@@ -311,6 +311,8 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             LLVMValueRef callee = LLVMGetCalledValue(instr);
             assert(num_args + 1 == num_ops);
             String intrinsic = is_llvm_intrinsic(callee);
+            if (!intrinsic)
+                intrinsic = is_shady_intrinsic(callee);
             if (intrinsic) {
                 if (strcmp(intrinsic, "llvm.dbg.declare") == 0)
                     return (EmittedInstr) {};
@@ -318,7 +320,35 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                     // TODO
                     return (EmittedInstr) {};
                 }
+
+                String ostr = intrinsic;
+                char* str = calloc(strlen(ostr) + 1, 1);
+                memcpy(str, ostr, strlen(ostr) + 1);
+
+                if (strcmp(strtok(str, "::"), "shady") == 0) {
+                    char* keyword = strtok(NULL, "::");
+                    if (strcmp(keyword, "prim_op") == 0) {
+                        char* opname = strtok(NULL, "::");Op op;
+                        size_t i;
+                        for (i = 0; i < PRIMOPS_COUNT; i++) {
+                            if (strcmp(primop_names[i], opname) == 0) {
+                                op = (Op) i;
+                                break;
+                            }
+                        }
+                        assert(i != PRIMOPS_COUNT);
+                        Nodes ops = convert_operands(p, num_ops, instr);
+                        r = prim_op_helper(a, op, empty(a), nodes(a, num_args, ops.nodes));
+                        break;
+                    } else {
+                        error_print("Unrecognised shady intrinsic '%s'\n", keyword);
+                        error_die();
+                    }
+                }
             }
+            if (r)
+                break;
+
             Nodes ops = convert_operands(p, num_ops, instr);
             r = call(a, (Call) {
                     .callee = ops.nodes[num_args],

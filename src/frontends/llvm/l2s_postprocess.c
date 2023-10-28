@@ -78,6 +78,21 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes annotations = decl->payload.fun.annotations;
             ParsedAnnotation* an = find_annotation(ctx->p, node);
             while (an) {
+                if (strcmp(get_annotation_name(an->payload), "PrimOpIntrinsic") == 0) {
+                    assert(!decl->payload.fun.body);
+                    Op op;
+                    size_t i;
+                    for (i = 0; i < PRIMOPS_COUNT; i++) {
+                        if (strcmp(primop_names[i], get_annotation_string_payload(an->payload)) == 0) {
+                            op = (Op) i;
+                            break;
+                        }
+                    }
+                    assert(i != PRIMOPS_COUNT);
+                    decl->payload.fun.body = fn_ret(a, (Return) {
+                        .args = singleton(prim_op_helper(a, op, empty(a), get_abstraction_params(decl)))
+                    });
+                }
                 annotations = append_nodes(a, annotations, an->payload);
                 an = an->next;
             }

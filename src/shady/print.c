@@ -380,8 +380,35 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             printf(")");
             break;
         }
+        case Type_ImageType_TAG: {
+            switch (node->payload.image_type.sampled) {
+                case 0: printf("texture_or_image_type");
+                case 1: printf("texture_type");
+                case 2: printf("image_type");
+            }
+            printf(RESET);
+            printf("[");
+            print_node(node->payload.image_type.sampled_type);
+            printf(RESET);
+            printf(", %d, %d, %d, %d]", node->payload.image_type.dim, node->payload.image_type.depth, node->payload.image_type.onion, node->payload.image_type.multisample);
+            break;
+        }
+        case Type_SamplerType_TAG: {
+            printf("sampler_type");
+            break;
+        }
+        case Type_CombinedImageSamplerType_TAG: {
+            printf("sampled");
+            printf(RESET);
+            printf("[");
+            print_node(node->payload.combined_image_sampler_type.image_type);
+            printf(RESET);
+            printf("]");
+            break;
+        }
         case TypeDeclRef_TAG: {
             printf("%s", get_decl_name(node->payload.type_decl_ref.decl));
+            break;
         }
     }
     printf(RESET);

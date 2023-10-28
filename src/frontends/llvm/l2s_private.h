@@ -3,6 +3,7 @@
 
 #include "l2s.h"
 #include "arena.h"
+#include "util.h"
 
 #include "llvm-c/Core.h"
 
@@ -59,7 +60,15 @@ void postprocess(Parser*, Module* src, Module* dst);
 static String is_llvm_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);
-    if (strlen(name) >= 5 && memcmp(name, "llvm.", 5) == 0)
+    if (string_starts_with(name, "llvm."))
+        return name;
+    return NULL;
+}
+
+static String is_shady_intrinsic(LLVMValueRef fn) {
+    assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
+    String name = LLVMGetValueName(fn);
+    if (string_starts_with(name, "shady::"))
         return name;
     return NULL;
 }

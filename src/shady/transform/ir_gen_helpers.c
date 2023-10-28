@@ -220,5 +220,6 @@ const Node* get_default_zero_value(IrArena* a, const Type* t) {
                 elems[i] = get_default_zero_value(a, elem_tys.nodes[i]);
             return composite_helper(a, t, nodes(a, elem_tys.count, elems));
         }
+        default: assert(false);
     }
 }

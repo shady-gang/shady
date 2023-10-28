@@ -129,6 +129,8 @@ static const IselTableEntry isel_table[] = {
 
     [debug_printf_op] = {Plain, Monomorphic, Void, .extended_set = "NonSemantic.DebugPrintf", .op = (SpvOp) NonSemanticDebugPrintfDebugPrintf},
 
+    [sample_texture_op] = {Plain, Monomorphic, TyOperand, .op = SpvOpImageSampleImplicitLod },
+
     [subgroup_assume_uniform_op] = {Plain, Monomorphic, Same, .op = ISEL_IDENTITY },
 
     [PRIMOPS_COUNT] = { Custom }

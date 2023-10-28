@@ -382,6 +382,35 @@ SpvId spvb_vector_type(SpvbFileBuilder* file_builder, SpvId component_type, uint
     return id;
 }
 
+SpvId spvb_image_type(SpvbFileBuilder* file_builder, SpvId component_type, uint32_t dim, uint32_t depth, uint32_t onion, uint32_t multisample, uint32_t sampled, SpvImageFormat image_format) {
+    op(SpvOpTypeImage, 9);
+    SpvId id = spvb_fresh_id(file_builder);
+    ref_id(id);
+    ref_id(component_type);
+    literal_int(dim);
+    literal_int(depth);
+    literal_int(onion);
+    literal_int(multisample);
+    literal_int(sampled);
+    literal_int(image_format);
+    return id;
+}
+
+SpvId spvb_sampler_type(SpvbFileBuilder* file_builder) {
+    op(SpvOpTypeSampler, 2);
+    SpvId id = spvb_fresh_id(file_builder);
+    ref_id(id);
+    return id;
+}
+
+SpvId spvb_sampled_image_type(SpvbFileBuilder* file_builder, SpvId image_type) {
+    op(SpvOpTypeSampledImage, 3);
+    SpvId id = spvb_fresh_id(file_builder);
+    ref_id(id);
+    ref_id(image_type);
+    return id;
+}
+
 void spvb_bool_constant(SpvbFileBuilder* file_builder, SpvId result, SpvId type, bool value) {
     op(value ? SpvOpConstantTrue : SpvOpConstantFalse, 3);
     ref_id(type);

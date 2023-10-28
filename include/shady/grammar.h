@@ -24,6 +24,9 @@ N(1, 1, 1, QualifiedType, qualified_type) \
 N(1, 1, 1, ArrType, arr_type) \
 N(1, 1, 1, PackType, pack_type) \
 N(1, 0, 1, TypeDeclRef, type_decl_ref) \
+N(1, 0, 1, ImageType, image_type) \
+N(1, 0, 1, SamplerType, sampler_type) \
+N(1, 0, 1, CombinedImageSamplerType, combined_image_sampler_type) \
 
 #define VALUE_NODES(N) \
 N(0, 1, 1, Variable, var) \
@@ -139,6 +142,22 @@ MkField(1, TYPES, Nodes, param_types)
 typedef struct LamType_ LamType;
 #define LamType_Fields(MkField) \
 MkField(1, TYPES, Nodes, param_types)
+
+typedef struct ImageType_ ImageType;
+#define ImageType_Fields(MkField) \
+MkField(1, TYPE, const Type*, sampled_type) \
+MkField(1, POD, uint32_t, dim) \
+MkField(1, POD, uint32_t, depth) \
+MkField(1, POD, bool, onion) \
+MkField(1, POD, bool, multisample) \
+MkField(1, POD, uint32_t, sampled) \
+
+typedef struct SamplerType_ SamplerType;
+#define SamplerType_Fields(MkField)
+
+typedef struct CombinedImageSamplerType_ CombinedImageSamplerType;
+#define CombinedImageSamplerType_Fields(MkField) \
+MkField(1, TYPE, const Type*, image_type)
 
 #define ADDRESS_SPACES(AS) \
     AS(1, Generic, 0) \

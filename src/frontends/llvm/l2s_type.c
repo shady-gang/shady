@@ -3,6 +3,7 @@
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
+#include "util.h"
 
 static AddressSpace convert_address_space(unsigned as) {
     static bool warned = false;
@@ -60,6 +61,17 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             Node* decl = NULL;
             const Node* result = NULL;
             if (name) {
+                if (strcmp(name, "struct.__shady_builtin_sampler2D") == 0)
+                    return combined_image_sampler_type(a, (CombinedImageSamplerType) { .image_type = image_type(a, (ImageType) {
+                        //.sampled_type = pack_type(a, (PackType) { .element_type = float_type(a, (Float) { .width = FloatTy32 }), .width = 4 }),
+                        .sampled_type = float_type(a, (Float) { .width = FloatTy32 }),
+                        .dim = 1,
+                        .depth = 0,
+                        .onion = 0,
+                        .multisample = 0,
+                        .sampled = 1,
+                    } ) });
+
                 decl = nominal_type(p->dst, empty(a), name);
                 result = type_decl_ref_helper(a, decl);
                 insert_dict(LLVMTypeRef, const Type*, p->map, t, result);
@@ -89,7 +101,12 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
         }
         case LLVMPointerTypeKind: {
             AddressSpace as = convert_address_space(LLVMGetPointerAddressSpace(t));
-            const Type* pointee = UNTYPED_POINTERS ? uint8_type(a) : convert_type(p, LLVMGetElementType(t));
+            LLVMTypeRef element_type = LLVMGetElementType(t);
+
+            const Type* pointee = UNTYPED_POINTERS ? uint8_type(a) : convert_type(p, element_type);
+            if (LLVMGetTypeKind(element_type) == LLVMStructTypeKind && LLVMGetStructName(element_type) && string_starts_with(LLVMGetStructName(element_type), "struct.__shady_builtin"))
+                return pointee;
+
             return ptr_type(a, (PtrType) {
                 .address_space = as,
                 .pointed_type = pointee

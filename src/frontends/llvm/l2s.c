@@ -88,6 +88,10 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         warn_print("Skipping unknown LLVM intrinsic function: %s\n", LLVMGetValueName(fn));
         return NULL;
     }
+    if (is_shady_intrinsic(fn)) {
+        warn_print("Skipping shady intrinsic function: %s\n", LLVMGetValueName(fn));
+        return NULL;
+    }
 
     const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, fn);
     if (found) return *found;
@@ -144,12 +148,13 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
 
     if (LLVMIsAGlobalVariable(global)) {
         LLVMValueRef value = LLVMGetInitializer(global);
-        const Type* type = convert_type(p, LLVMTypeOf(value));
+        const Type* type = convert_type(p, LLVMGlobalGetValueType(global));
         // nb: even if we have untyped pointers, they still carry useful address space info
         const Type* ptr_t = convert_type(p, LLVMTypeOf(global));
         assert(ptr_t->tag == PtrType_TAG);
-        decl = global_var(p->dst, empty(a), type, name, ptr_t->payload.ptr_type.address_space);
-        if (value)
+        AddressSpace as = ptr_t->payload.ptr_type.address_space;
+        decl = global_var(p->dst, empty(a), type, name, as);
+        if (value && as != AsUniformConstant)
             decl->payload.global_variable.init = convert_value(p, value);
     } else {
         const Type* type = convert_type(p, LLVMTypeOf(global));

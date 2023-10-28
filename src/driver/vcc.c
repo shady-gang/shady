@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
 
     Growy* g = new_growy();
     growy_append_string(g, "clang");
-    growy_append_string(g, " -c -emit-llvm -S -g -O0 -Wno-main-return-type -Xclang -fpreserve-vec3-type");
+    growy_append_string(g, " -c -emit-llvm -S -g -O0 -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown");
     growy_append_string(g, " -o vcc_tmp.ll");
 
     size_t num_source_files = entries_count_list(args.input_filenames);

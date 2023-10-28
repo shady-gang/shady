@@ -100,6 +100,14 @@ err_post_open:
     return false;
 }
 
+bool string_starts_with(const char* string, const char* prefix) {
+    size_t len = strlen(string);
+    size_t slen = strlen(prefix);
+    if (len < slen)
+        return false;
+    return memcmp(string, prefix, slen) == 0;
+}
+
 bool string_ends_with(const char* string, const char* suffix) {
     size_t len = strlen(string);
     size_t slen = strlen(suffix);
