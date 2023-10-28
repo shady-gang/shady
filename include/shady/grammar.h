@@ -171,6 +171,7 @@ MkField(1, TYPES, Nodes, param_types)
     AS(0, ShaderStorageBufferObject, 394) \
     AS(0, Uniform, 395) \
     AS(0, Image, 397) \
+    AS(0, UniformConstant, 398) \
 
 typedef enum AddressSpace_ {
 #define AS(physical, name, llvm_id) As##name,

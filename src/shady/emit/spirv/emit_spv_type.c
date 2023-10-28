@@ -29,6 +29,7 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
         case AsShaderStorageBufferObject:    return SpvStorageClassStorageBuffer;
         case AsUniform:                      return SpvStorageClassUniform;
         case AsImage:                        return SpvStorageClassImage;
+        case AsUniformConstant:              return SpvStorageClassUniformConstant;
 
         case AsExternal:
         case AsGeneric:

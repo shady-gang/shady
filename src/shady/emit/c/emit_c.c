@@ -561,6 +561,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     break;
                 case AsUniform:
                 case AsImage:
+                case AsUniformConstant:
                 case AsShaderStorageBufferObject:
                 case AsFunctionLogical:
                 case AsPushConstant:

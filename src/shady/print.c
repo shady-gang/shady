@@ -102,6 +102,7 @@ static void print_address_space(PrinterCtx* ctx, AddressSpace as) {
         case AsShaderStorageBufferObject: printf("ssbo"); break;
         case AsUniform:                    printf("ubo"); break;
         case AsImage:                    printf("image"); break;
+        case AsUniformConstant:  printf("uniform_constant"); break;
         case NumAddressSpaces: error("");
     }
     printf(RESET);
