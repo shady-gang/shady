@@ -1,3 +1,5 @@
+add_subdirectory(generator)
+
 set(SHADY_SOURCES
     ir.c
     node.c
