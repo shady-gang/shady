@@ -159,59 +159,7 @@ typedef struct CombinedImageSamplerType_ CombinedImageSamplerType;
 #define CombinedImageSamplerType_Fields(MkField) \
 MkField(1, TYPE, const Type*, image_type)
 
-#define ADDRESS_SPACES(AS) \
-    AS(1, Generic, 0) \
-    /* Global memory, all threads see the same data (not necessarily consistent!) */ \
-    AS(1, GlobalPhysical, 1) \
-    /* Points into workgroup-private memory (you get the idea) */ \
-    AS(1, SharedPhysical, 3) \
-    /* Points into subgroup-private memory (all threads in a subgroup see the same contents for the same \
-       address, but threads in different subgroups see different data) \
-       needs to be lowered to something else since targets do not understand this */ \
-    AS(1, SubgroupPhysical, 9) \
-    /* Points into thread-private memory (all threads see different contents for the same address) */ \
-    AS(1, PrivatePhysical, 5) \
-    /* Logical variants of the prior four ASes */ \
-    AS(0, PrivateLogical, 385) \
-    AS(0, SubgroupLogical, 386) \
-    AS(0, SharedLogical, 387) \
-    AS(0, GlobalLogical, 388) \
-    /* special addressing spaces for input/output global variables in shader stages */ \
-    AS(0, Input, 389) \
-    AS(0, UInput, 396) /* just like AsInput but known to be subgroup-uniform */ \
-    AS(0, Output, 390) \
-    /* For resources supplied by the host, agnostic of the binding model */ \
-    AS(0, External, 391) \
-    /* SPIR-V specific address spaces */ \
-    /* Maps to Vulkan push constants */ \
-    AS(0, PushConstant, 392) \
-    /* Weird SPIR-V nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime) */ \
-    AS(0, FunctionLogical, 393) \
-    AS(0, ShaderStorageBufferObject, 394) \
-    AS(0, Uniform, 395) \
-    AS(0, Image, 397) \
-    AS(0, UniformConstant, 398) \
-
-typedef enum AddressSpace_ {
-#define AS(physical, name, llvm_id) As##name,
-ADDRESS_SPACES(AS)
-#undef AS
-    NumAddressSpaces,
-    // All address spaces after this are 'logical', that is, their pointers have an opaque representation
-    // their bit-pattern is not observable, they cannot be reinterpreted and pointer arithmetic is severely limited
-    PhysicalAddressSpacesEnd = AsPrivatePhysical,
-} AddressSpace;
-
-static inline bool is_physical_as(AddressSpace as) {
-#define AS_1(name, llvm_id) case As##name: return true;
-#define AS_0(name, llvm_id) case As##name: return false;
-#define AS(physical, name, llvm_id) AS_##physical(name, llvm_id)
-    switch (as) {
-        ADDRESS_SPACES(AS)
-        default: return true;
-    }
-#undef AS
-}
+#include "generated_grammar.h"
 
 typedef struct PtrType_ PtrType;
 #define PtrType_Fields(MkField) \

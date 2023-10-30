@@ -1,0 +1,242 @@
+{
+  "address_spaces": [
+    {
+      "name": "Generic",
+      "llvm-id": 0,
+      "physical": true
+    },
+    {
+      "name": "GlobalPhysical",
+      "description": "Global memory, all threads see the same data (not necessarily consistent!)",
+      "llvm-id": 1,
+      "physical": true
+    },
+    {
+      "name": "SharedPhysical",
+      "description": "Points into workgroup-private memory (aka shared memory)",
+      "llvm-id": 3,
+      "physical": true
+    },
+    {
+      "name": "SubgroupPhysical",
+      "description": [
+        "Points into subgroup-private memory",
+        "All threads in a subgroup see the same contents for the same address, but threads in different subgroups see different data.",
+        "Needs to be lowered to something else since targets do not understand this" ],
+      "llvm-id": 9,
+      "physical": true
+    },
+    {
+      "name": "PrivatePhysical",
+      "description": [
+        "Points into thread-private memory (all threads see different contents for the same address)"
+      ],
+      "llvm-id": 5,
+      "physical": true
+    },
+    {
+      "name": "GlobalLogical",
+      "llvm-id": 388
+    },
+    {
+      "name": "SharedLogical",
+      "llvm-id": 387
+    },
+    {
+      "name": "SubgroupLogical",
+      "llvm-id": 386
+    },
+    {
+      "name": "PrivateLogical",
+      "llvm-id": 385
+    },
+    {
+      "name": "Input",
+      "description": "special addressing spaces for input/output global variables in shader stages",
+      "llvm-id": 389
+    },
+    {
+      "name": "UInput",
+      "description": "just like the Input address space, but known to be subgroup-uniform",
+      "llvm-id": 396
+    },
+    {
+      "name": "Output",
+      "llvm-id": 390
+    },
+    {
+      "name": "External",
+      "description": [ "For resources supplied by the host, agnostic of the binding model.", "Not supported on all backends!" ],
+      "llvm-id": 391
+    },
+    {
+      "name": "PushConstant",
+      "llvm-id": 392
+    },
+    {
+      "name": "FunctionLogical",
+      "description": "Weird SPIR-V nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)",
+      "llvm-id": 393
+    },
+    {
+      "name": "ShaderStorageBufferObject",
+      "llvm-id": 394
+    },
+    {
+      "name": "Uniform",
+      "llvm-id": 395
+    },
+    {
+      "name": "UniformConstant",
+      "llvm-id": 398
+    },
+    {
+      "name": "Image",
+      "llvm-id": 397
+    }
+  ],
+  "nodes": [
+    {
+      "name": "MaskType",
+      "class": "type",
+      "type": null
+    },
+    {
+      "name": "JoinPointType",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "yield_types", "class": "TYPES" }
+      ]
+    },
+    {
+      "name": "NoRet",
+      "camel_name": "noret_type",
+      "class": "type",
+      "type": null
+    },
+    {
+      "name": "Int",
+      "camel_name": "int_type",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "width", "type": "IntSizes" },
+        { "name": "is_signed", "type": "bool" }
+      ]
+    },
+    {
+      "name": "Float",
+      "camel_name": "float_type",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "width", "type": "FloatSizes" }
+      ]
+    },
+    {
+      "name": "Bool",
+      "camel_name": "bool_type",
+      "class": "type",
+      "type": null
+    },
+    {
+      "name": "RecordType",
+      "camel_name": "record_type",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "members", "class": "TYPES" },
+        { "name": "names", "class": "STRINGS" },
+        { "name": "special", "type": "RecordSpecialFlag" }
+      ]
+    },
+    {
+      "name": "FnType",
+      "camel_name": "fn_type",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "param_types", "class": "TYPES" },
+        { "name": "return_types", "class": "TYPES" }
+      ]
+    },
+    {
+      "name": "BBType",
+      "camel_name": "bb_type",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "param_types", "class": "TYPES" }
+      ]
+    },
+    {
+      "name": "LamType",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "param_types", "class": "TYPES" }
+      ]
+    },
+    {
+      "name": "PtrType",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "address_space", "type": "AddressSpace" },
+        { "name": "pointed_type", "class": "TYPE" }
+      ]
+    },
+    {
+      "name": "QualifiedType",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "is_uniform", "type": "bool" },
+        { "name": "type", "class": "TYPE" }
+      ]
+    },
+    {
+      "name": "ArrType",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "element_type", "class": "TYPE" },
+        { "name": "size", "class": "VALUE" }
+      ]
+    },
+    {
+      "name": "PackType",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "element_type", "class": "TYPE" },
+        { "name": "width", "type": "int" }
+      ]
+    },
+    {
+      "name": "TypeDeclRef",
+      "class": "type",
+      "type": null,
+      "ops": [
+        { "name": "decl", "class": "DECL" }
+      ]
+    },
+    {
+      "name": "ImageType",
+      "class": "type",
+      "type": null
+    },
+    {
+      "name": "SamplerType",
+      "class": "type",
+      "type": null
+    },
+    {
+      "name": "CombinedImageSamplerType",
+      "class": "type",
+      "type": null
+    }
+
+  ]
+}

@@ -1,6 +1,16 @@
 add_subdirectory(generator)
 
+# :( see https://gitlab.kitware.com/cmake/cmake/-/issues/18399
+# set_source_files_properties(${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h PROPERTIES GENERATED TRUE)
+#set_property(SOURCE ${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h PROPERTY GENERATED TRUE)
+
+add_library(api INTERFACE)
+target_include_directories(api INTERFACE "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>")
+#target_sources(api PUBLIC "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h>")
+add_dependencies(api INTERFACE generate_grammar)
+
 set(SHADY_SOURCES
+
     ir.c
     node.c
     constructors.c
