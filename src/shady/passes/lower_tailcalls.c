@@ -132,7 +132,7 @@ static const Node* process(Context* ctx, const Node* old) {
             new_annotations = append_nodes(a, new_annotations, annotation_value(a, (AnnotationValue) { .name = "FnId", .value = lower_fn_addr(ctx, old) }));
             new_annotations = append_nodes(a, new_annotations, annotation(a, (Annotation) { .name = "Leaf" }));
 
-            String new_name = format_string(a->arena, "%s_indirect", old->payload.fun.name);
+            String new_name = format_string_arena(a->arena, "%s_indirect", old->payload.fun.name);
 
             Node* fun = function(ctx->rewriter.dst_module, nodes(a, 0, NULL), new_name, filter_out_annotation(a, new_annotations, "EntryPoint"), nodes(a, 0, NULL));
             register_processed(&ctx->rewriter, old, fun);

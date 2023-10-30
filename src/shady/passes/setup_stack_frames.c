@@ -48,7 +48,7 @@ static void collect_allocas(VContext* vctx, const Node* node) {
 
         const Node* slot = first(bind_instruction_named(vctx->bb, prim_op(a, (PrimOp) {
             .op = lea_op,
-            .operands = mk_nodes(a, vctx->context->entry_base_stack_ptr, slot_offset) }), (String []) {format_string(a->arena, "stack_slot_%d", entries_count_list(vctx->members)) }));
+            .operands = mk_nodes(a, vctx->context->entry_base_stack_ptr, slot_offset) }), (String []) {format_string_arena(a->arena, "stack_slot_%d", entries_count_list(vctx->members)) }));
 
         const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = as });
         slot = gen_reinterpret_cast(vctx->bb, ptr_t, slot);
@@ -75,8 +75,8 @@ static const Node* process(Context* ctx, const Node* node) {
 
             BodyBuilder* bb = begin_body(a);
             if (!ctx2.disable_lowering) {
-                Node* nom_t = nominal_type(m, empty(a), format_string(a->arena, "%s_stack_frame", get_abstraction_name(node)));
-                ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_pointer_op } ), (String []) {format_string(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
+                Node* nom_t = nominal_type(m, empty(a), format_string_arena(a->arena, "%s_stack_frame", get_abstraction_name(node)));
+                ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_pointer_op } ), (String []) {format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
                 ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
                 VContext vctx = {
                     .visitor = {

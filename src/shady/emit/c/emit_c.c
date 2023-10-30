@@ -22,13 +22,13 @@ CValue to_cvalue(SHADY_UNUSED Emitter* e, CTerm term) {
     if (term.value)
         return term.value;
     if (term.var)
-        return format_string(e->arena->arena, "(&%s)", term.var);
+        return format_string_arena(e->arena->arena, "(&%s)", term.var);
     assert(false);
 }
 
 CAddr deref_term(Emitter* e, CTerm term) {
     if (term.value)
-        return format_string(e->arena->arena, "(*%s)", term.value);
+        return format_string_arena(e->arena->arena, "(*%s)", term.value);
     if (term.var)
         return term.var;
     assert(false);
@@ -114,17 +114,17 @@ static void emit_global_variable_definition(Emitter* emitter, String prefix, Str
         // ISPC defaults to varying, even for constants... yuck
         case ISPC:
             if (uniform)
-                decl_center = format_string(emitter->arena->arena, "uniform %s", decl_center);
+                decl_center = format_string_arena(emitter->arena->arena, "uniform %s", decl_center);
             else
-                decl_center = format_string(emitter->arena->arena, "varying %s", decl_center);
+                decl_center = format_string_arena(emitter->arena->arena, "varying %s", decl_center);
             break;
         case C:
             if (constant)
-                decl_center = format_string(emitter->arena->arena, "const %s", decl_center);
+                decl_center = format_string_arena(emitter->arena->arena, "const %s", decl_center);
             break;
         case GLSL:
             if (constant)
-                prefix = format_string(emitter->arena->arena, "%s %s", "const", prefix);
+                prefix = format_string_arena(emitter->arena->arena, "%s %s", "const", prefix);
             break;
     }
 
@@ -154,9 +154,9 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case Value_Variable_TAG: error("variables need to be emitted beforehand");
         case Value_IntLiteral_TAG: {
             if (value->payload.int_literal.is_signed)
-                emitted = format_string(emitter->arena->arena, "%" PRIi64, value->payload.int_literal.value);
+                emitted = format_string_arena(emitter->arena->arena, "%" PRIi64, value->payload.int_literal.value);
             else
-                emitted = format_string(emitter->arena->arena, "%" PRIu64, value->payload.int_literal.value);
+                emitted = format_string_arena(emitter->arena->arena, "%" PRIu64, value->payload.int_literal.value);
             break;
         }
         case Value_FloatLiteral_TAG: {
@@ -168,12 +168,12 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                     float f;
                     memcpy(&f, &v, sizeof(uint32_t));
                     double d = (double) f;
-                    emitted = format_string(emitter->arena->arena, "%.9g", d); break;
+                    emitted = format_string_arena(emitter->arena->arena, "%.9g", d); break;
                 }
                 case FloatTy64: {
                     double d;
                     memcpy(&d, &v, sizeof(uint64_t));
-                    emitted = format_string(emitter->arena->arena, "%.17g", d); break;
+                    emitted = format_string_arena(emitter->arena->arena, "%.17g", d); break;
                 }
             }
             break;
@@ -200,10 +200,10 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                         emitted = growy_data(g);
                         break;
                     case StringLit:
-                        emitted = format_string(emitter->arena->arena, "\"%s\"", growy_data(g));
+                        emitted = format_string_arena(emitter->arena->arena, "\"%s\"", growy_data(g));
                         break;
                     case CharsLit:
-                        emitted = format_string(emitter->arena->arena, "'%s'", growy_data(g));
+                        emitted = format_string_arena(emitter->arena->arena, "'%s'", growy_data(g));
                         break;
                 }
             } else {
@@ -221,7 +221,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                 case ISPC: {
                     // arrays need double the brackets
                     if (type->tag == ArrType_TAG)
-                        emitted = format_string(emitter->arena->arena, "{ %s }", emitted);
+                        emitted = format_string_arena(emitter->arena->arena, "{ %s }", emitted);
 
                     if (block_printer) {
                         String tmp = unique_name(emitter->arena, "composite");
@@ -229,7 +229,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                         emitted = tmp;
                     } else {
                         // this requires us to end up in the initialisation side of a declaration
-                        emitted = format_string(emitter->arena->arena, "{ %s }", emitted);
+                        emitted = format_string_arena(emitter->arena->arena, "{ %s }", emitted);
                     }
                     break;
                 }
@@ -237,13 +237,13 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                     // If we're C89 (ew)
                     if (!emitter->config.allow_compound_literals)
                         goto no_compound_literals;
-                    emitted = format_string(emitter->arena->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), emitted);
+                    emitted = format_string_arena(emitter->arena->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), emitted);
                     break;
                 case GLSL:
                     if (type->tag != PackType_TAG)
                         goto no_compound_literals;
                     // GLSL doesn't have compound literals, but it does have constructor syntax for vectors
-                    emitted = format_string(emitter->arena->arena, "%s(%s)", type, emitted);
+                    emitted = format_string_arena(emitter->arena->arena, "%s(%s)", type, emitted);
                     break;
             }
 
@@ -269,14 +269,14 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             }
             growy_append_bytes(g, 1, "\0");
 
-            emitted = format_string(emitter->arena->arena, "\"%s\"", growy_data(g));
+            emitted = format_string_arena(emitter->arena->arena, "\"%s\"", growy_data(g));
             destroy_growy(g);
             destroy_printer(p);
             break;
         }
         case Value_FnAddr_TAG: {
             emitted = legalize_c_identifier(emitter, get_decl_name(value->payload.fn_addr.fn));
-            emitted = format_string(emitter->arena->arena, "(&%s)", emitted);
+            emitted = format_string_arena(emitter->arena->arena, "(&%s)", emitted);
             break;
         }
         case Value_RefDecl_TAG: {
@@ -345,7 +345,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                     case LetMutBinding: mut = true;
                     case LetBinding: {
                         assert((mut || has_result) && "unbound results are only allowed when creating a mutable local variable");
-                        String bind_to = format_string(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, tail_params.nodes[i]->payload.var.name), fresh_id(emitter->arena));
+                        String bind_to = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, tail_params.nodes[i]->payload.var.name), fresh_id(emitter->arena));
 
                         String prefix = "";
                         String center = bind_to;
@@ -353,11 +353,11 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                         // add extra qualifiers if immutable
                         if (!mut) switch (emitter->config.dialect) {
                             case ISPC:
-                                center = format_string(emitter->arena->arena, "const %s", bind_to);
+                                center = format_string_arena(emitter->arena->arena, "const %s", bind_to);
                                 break;
                             case C:
                                 prefix = "register ";
-                                center = format_string(emitter->arena->arena, "const %s", bind_to);
+                                center = format_string_arena(emitter->arena->arena, "const %s", bind_to);
                                 break;
                             case GLSL:
                                 prefix = "const ";
@@ -587,7 +587,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             const Node* body = decl->payload.fun.body;
             if (body) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
-                    const char* param_name = format_string(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, decl->payload.fun.params.nodes[i]->payload.var.name), decl->payload.fun.params.nodes[i]->payload.var.id);
+                    const char* param_name = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, decl->payload.fun.params.nodes[i]->payload.var.name), decl->payload.fun.params.nodes[i]->payload.var.id);
                     register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 
@@ -596,7 +596,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 if (emitter->config.dialect == ISPC) {
                     // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
                     // therefore we must tell ISPC to please, pretty please, mask everything by branching on what the mask should be
-                    fn_body = format_string(emitter->arena->arena, "if ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
+                    fn_body = format_string_arena(emitter->arena->arena, "if ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
                     // I hate everything about this too.
                 }
                 print(emitter->fn_defs, "\n%s { %s }", head, fn_body);
@@ -620,7 +620,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             switch (emitter->config.dialect) {
                 case ISPC:
                 case C: print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
-                case GLSL: emit_nominal_type_body(emitter, format_string(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
+                case GLSL: emit_nominal_type_body(emitter, format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
             }
             return;
         }

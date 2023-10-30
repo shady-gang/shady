@@ -102,7 +102,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         AddressSpace src_as = old_src_t->payload.ptr_type.address_space;
                         size_t tag = get_tag_for_addr_space(src_as);
                         BodyBuilder* bb = begin_body(a);
-                        String x = format_string(a->arena, "Generated generic ptr convert src %d tag %d", src_as, tag);
+                        String x = format_string_arena(a->arena, "Generated generic ptr convert src %d tag %d", src_as, tag);
                         gen_comment(bb, x);
                         const Node* src_ptr = rewrite_node(&ctx->rewriter, old_src);
                         const Node* generic_ptr = gen_reinterpret_cast(bb, generic_ptr_type, src_ptr);

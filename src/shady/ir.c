@@ -180,38 +180,23 @@ Strings import_strings(IrArena* dst_arena, Strings old_strings) {
     return strings(dst_arena, count, arr);
 }
 
-enum {
-    ThreadLocalStaticBufferSize = 256
-};
+void format_string_internal(const char* str, va_list args, void* uptr, void callback(void*, size_t, char*));
 
-static char static_buffer[ThreadLocalStaticBufferSize];
+typedef struct { IrArena* a; const char** result; } InternInArenaPayload;
+
+static void intern_in_arena(InternInArenaPayload* uptr, size_t len, char* tmp) {
+    const char* interned = string_impl(uptr->a, len, tmp);
+    *uptr->result = interned;
+}
 
 String format_string_interned(IrArena* arena, const char* str, ...) {
-    size_t buffer_size = ThreadLocalStaticBufferSize;
-    int len;
-    char* tmp;
-    while (true) {
-        if (buffer_size == ThreadLocalStaticBufferSize) {
-            tmp = static_buffer;
-        } else {
-            tmp = malloc(buffer_size);
-        }
-        va_list args;
-        va_start(args, str);
-        len = vsnprintf(tmp, buffer_size, str, args);
-        va_end(args);
-        if (len < 0 || len >= (int) buffer_size - 1) {
-            buffer_size *= 2;
-            if (tmp != static_buffer)
-                free(tmp);
-            continue;
-        } else {
-            const char* interned = string_impl(arena, len, tmp);
-            if (tmp != static_buffer)
-                free(tmp);
-            return interned;
-        }
-    }
+    String result = NULL;
+    InternInArenaPayload p = { .a = arena, .result = &result };
+    va_list args;
+    va_start(args, str);
+    format_string_internal(str, args, &p, (void(*)(void*, size_t, char*)) intern_in_arena);
+    va_end(args);
+    return result;
 }
 
 const char* unique_name(IrArena* arena, const char* str) {

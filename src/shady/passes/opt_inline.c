@@ -185,7 +185,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     // Prepare a join point to replace the old function return
                     Nodes nyield_types = strip_qualifiers(a, rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
                     const Type* jp_type = join_point_type(a, (JoinPointType) { .yield_types = nyield_types });
-                    const Node* join_point = var(a, qualified_type_helper(jp_type, true), format_string(a->arena, "inlined_return_%s", get_abstraction_name(ocallee)));
+                    const Node* join_point = var(a, qualified_type_helper(jp_type, true), format_string_arena(a->arena, "inlined_return_%s", get_abstraction_name(ocallee)));
                     insert_dict_and_get_result(const Node*, const Node*, ctx->inlined_return_sites, ocallee, join_point);
 
                     const Node* nbody = inline_call(ctx, ocallee, nargs, true);

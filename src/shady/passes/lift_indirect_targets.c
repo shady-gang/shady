@@ -74,7 +74,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     Nodes oparams = get_abstraction_params(cont);
     const Node* obody = get_abstraction_body(cont);
 
-    String name = is_basic_block(cont) ? format_string(a->arena, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(a, given_name);
+    String name = is_basic_block(cont) ? format_string_arena(a->arena, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(a, given_name);
 
     // Compute the live stuff we'll need
     Scope* scope = new_scope(cont);
@@ -182,7 +182,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 if (!is_control_static(ctx->uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
                     const Node* otail = get_let_tail(node);
                     BodyBuilder* bb = begin_body(a);
-                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string(a->arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
+                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string_arena(a->arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
                     const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                     const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 

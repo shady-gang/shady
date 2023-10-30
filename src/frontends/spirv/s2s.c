@@ -635,7 +635,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             for (size_t i = 0; i < members_count; i++) {
                 member_names[i] = get_member_name(parser, result, i);
                 if (!member_names[i])
-                    member_names[i] = format_string(parser->arena->arena, "member%d", i);
+                    member_names[i] = format_string_arena(parser->arena->arena, "member%d", i);
                 member_tys[i] = get_def_type(parser, instruction[2 + i]);
             }
             nominal_type_decl->payload.nom_type.body = record_type(parser->arena, (RecordType) {
@@ -860,7 +860,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpFunctionParameter: {
             parser->defs[result].type = Value;
             String param_name = get_name(parser, result);
-            param_name = param_name ? param_name : format_string(parser->arena, "param%d", parser->fun_arg_i);
+            param_name = param_name ? param_name : format_string_arena(parser->arena, "param%d", parser->fun_arg_i);
             parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), parser->is_entry_pt), param_name);
             break;
         }

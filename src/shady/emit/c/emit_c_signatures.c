@@ -23,7 +23,7 @@ void emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
         String member_identifier;
         if (i >= type->payload.record_type.names.count)
-            member_identifier = format_string(emitter->arena->arena, "_%d", i);
+            member_identifier = format_string_arena(emitter->arena->arena, "_%d", i);
         else
             member_identifier = type->payload.record_type.names.strings[i];
 
@@ -52,7 +52,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
         Nodes params = fn->payload.fun.params;
         assert(params.count == dom.count);
         for (size_t i = 0; i < dom.count; i++) {
-            print(paramp, emit_type(emitter, params.nodes[i]->type, format_string(emitter->arena->arena, "%s_%d", params.nodes[i]->payload.var.name, params.nodes[i]->payload.var.id)));
+            print(paramp, emit_type(emitter, params.nodes[i]->type, format_string_arena(emitter->arena->arena, "%s_%d", params.nodes[i]->payload.var.name, params.nodes[i]->payload.var.id)));
             if (i + 1 < dom.count) {
                 print(paramp, ", ");
             }
@@ -70,12 +70,12 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     switch (emitter->config.dialect) {
         case ISPC:
         case C:
-            center = format_string(emitter->arena->arena, "(%s)(%s)", center, parameters);
+            center = format_string_arena(emitter->arena->arena, "(%s)(%s)", center, parameters);
             break;
         case GLSL:
             // GLSL does not accept functions declared like void (foo)(int);
             // it also does not support higher-order functions and/or function pointers, so we drop the parentheses
-            center = format_string(emitter->arena->arena, "%s(%s)", center, parameters);
+            center = format_string_arena(emitter->arena->arena, "%s(%s)", center, parameters);
             break;
     }
     free_tmp_str(parameters);
@@ -89,7 +89,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
             case GLSL:
                 break;
             case ISPC:
-                c_decl = format_string(emitter->arena->arena, "export %s", c_decl);
+                c_decl = format_string_arena(emitter->arena->arena, "export %s", c_decl);
                 break;
         }
 
@@ -183,7 +183,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             }
 
             emitted = unique_name(emitter->arena, "Record");
-            String prefixed = format_string(emitter->arena->arena, "struct %s", emitted);
+            String prefixed = format_string_arena(emitter->arena->arena, "struct %s", emitted);
             emit_nominal_type_body(emitter, prefixed, type);
             // C puts structs in their own namespace so we always need the prefix
             if (emitter->config.dialect == C)
@@ -198,15 +198,15 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                     return emit_type(emitter, type->payload.qualified_type.type, center);
                 case ISPC:
                     if (type->payload.qualified_type.is_uniform)
-                        return emit_type(emitter, type->payload.qualified_type.type, format_string(emitter->arena->arena, "uniform %s", center));
+                        return emit_type(emitter, type->payload.qualified_type.type, format_string_arena(emitter->arena->arena, "uniform %s", center));
                     else
-                        return emit_type(emitter, type->payload.qualified_type.type, format_string(emitter->arena->arena, "varying %s", center));
+                        return emit_type(emitter, type->payload.qualified_type.type, format_string_arena(emitter->arena->arena, "varying %s", center));
             }
         case Type_PtrType_TAG: {
-            CType t = emit_type(emitter, type->payload.ptr_type.pointed_type, format_string(emitter->arena->arena, "* %s", center));
+            CType t = emit_type(emitter, type->payload.ptr_type.pointed_type, format_string_arena(emitter->arena->arena, "* %s", center));
             // we always emit pointers to _uniform_ data, no exceptions
             if (emitter->config.dialect == ISPC)
-                t = format_string(emitter->arena->arena, "uniform %s", t);
+                t = format_string_arena(emitter->arena->arena, "uniform %s", t);
             return t;
         }
         case Type_FnType_TAG: {
@@ -214,7 +214,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         }
         case Type_ArrType_TAG: {
             emitted = unique_name(emitter->arena, "Array");
-            String prefixed = format_string(emitter->arena->arena, "struct %s", emitted);
+            String prefixed = format_string_arena(emitter->arena->arena, "struct %s", emitted);
             Growy* g = new_growy();
             Printer* p = open_growy_as_printer(g);
 
@@ -223,9 +223,9 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             const Node* size = type->payload.arr_type.size;
             String inner_decl_rhs;
             if (size)
-                inner_decl_rhs = format_string(emitter->arena->arena, "arr[%s]", emit_value(emitter, NULL, size));
+                inner_decl_rhs = format_string_arena(emitter->arena->arena, "arr[%s]", emit_value(emitter, NULL, size));
             else
-                inner_decl_rhs = format_string(emitter->arena->arena, "arr[0]");
+                inner_decl_rhs = format_string_arena(emitter->arena->arena, "arr[0]");
             print(p, "\n%s;", emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));
             deindent(p);
             print(p, "\n};\n");
@@ -260,13 +260,13 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                         case Float_TAG: base = "vec"; break;
                         default: error("not a valid GLSL vector type");
                     }
-                    emitted = format_string(emitter->arena->arena, "%s%d", base, width);
+                    emitted = format_string_arena(emitter->arena->arena, "%s%d", base, width);
                     break;
                 }
                 case ISPC: error("Please lower to something else")
                 case C: {
                     emitted = emit_type(emitter, element_type, NULL);
-                    emitted = format_string(emitter->arena->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width, emitted, emitted);
+                    emitted = format_string_arena(emitter->arena->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width, emitted, emitted);
                     break;
                 }
             }
@@ -285,7 +285,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
     assert(emitted != NULL);
 
     if (strlen(center) > 0)
-        emitted = format_string(emitter->arena->arena, "%s %s", emitted, center);
+        emitted = format_string_arena(emitter->arena->arena, "%s %s", emitted, center);
 
     return emitted;
 }

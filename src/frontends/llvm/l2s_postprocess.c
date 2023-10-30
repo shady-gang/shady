@@ -170,7 +170,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                                 if (fn->tag == BasicBlock_TAG)
                                     fn = (Node*) fn->payload.basic_block.fn;
                                 assert(fn->tag == Function_TAG);
-                                Node* wrapper = basic_block(a, fn, nargs, format_string(a->arena, "wrapper_to_%s", get_abstraction_name(dst)));
+                                Node* wrapper = basic_block(a, fn, nargs, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name(dst)));
                                 wrapper->payload.basic_block.body = join(a, (Join) {
                                     .args = nargs,
                                     .join_point = join_token
