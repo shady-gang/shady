@@ -330,7 +330,7 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
 
     if (spec->key.base->runtime->config.dump_spv) {
         String module_name = get_module_name(spec->specialized_module);
-        String file_name = format_string(get_module_arena(spec->specialized_module), "%s.spv", module_name);
+        String file_name = format_string(get_module_arena(spec->specialized_module)->arena, "%s.spv", module_name);
         write_file(file_name, spec->spirv_size, (unsigned char*)spec->spirv_bytes);
     }
 

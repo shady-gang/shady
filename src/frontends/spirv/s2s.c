@@ -27,8 +27,10 @@ typedef enum {
 #include "arena.h"
 #include "portability.h"
 #include "dict.h"
+#include "util.h"
 
 #include "../shady/type.h"
+#include "../shady/ir_private.h"
 #include "../shady/transform/ir_gen_helpers.h"
 
 #include <assert.h>
@@ -633,7 +635,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             for (size_t i = 0; i < members_count; i++) {
                 member_names[i] = get_member_name(parser, result, i);
                 if (!member_names[i])
-                    member_names[i] = format_string(parser->arena, "member%d", i);
+                    member_names[i] = format_string(parser->arena->arena, "member%d", i);
                 member_tys[i] = get_def_type(parser, instruction[2 + i]);
             }
             nominal_type_decl->payload.nom_type.body = record_type(parser->arena, (RecordType) {

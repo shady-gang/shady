@@ -1,5 +1,4 @@
 #include "ir_private.h"
-#include "type.h"
 #include "portability.h"
 
 #include "list.h"
@@ -185,9 +184,9 @@ enum {
     ThreadLocalStaticBufferSize = 256
 };
 
-char static_buffer[ThreadLocalStaticBufferSize];
+static char static_buffer[ThreadLocalStaticBufferSize];
 
-String format_string(IrArena* arena, const char* str, ...) {
+String format_string_interned(IrArena* arena, const char* str, ...) {
     size_t buffer_size = ThreadLocalStaticBufferSize;
     int len;
     char* tmp;
@@ -216,7 +215,7 @@ String format_string(IrArena* arena, const char* str, ...) {
 }
 
 const char* unique_name(IrArena* arena, const char* str) {
-    return format_string(arena, "%s_%d", str, fresh_id(arena));
+    return format_string_interned(arena, "%s_%d", str, fresh_id(arena));
 }
 
 KeyHash hash_nodes(Nodes* nodes) {

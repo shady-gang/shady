@@ -39,7 +39,8 @@ Nodes concat_nodes(IrArena*, Nodes, Nodes);
 
 String string_sized(IrArena*, size_t size, const char* start);
 String string(IrArena*, const char*);
-String format_string(IrArena*, const char* str, ...);
+// see also: format_string in util.h
+String format_string_interned(IrArena*, const char* str, ...);
 String unique_name(IrArena*, const char* base_name);
 String name_type_safe(IrArena*, const Type*);
 

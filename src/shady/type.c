@@ -3,8 +3,9 @@
 #include "log.h"
 #include "ir_private.h"
 #include "portability.h"
-
 #include "dict.h"
+#include "util.h"
+
 #include "shady/builtins.h"
 
 #include <string.h>
@@ -199,11 +200,11 @@ String name_type_safe(IrArena* arena, const Type* t) {
         case Type_NoRet_TAG: return "no_ret";
         case Type_Int_TAG:
             if (t->payload.int_type.is_signed)
-                return format_string(arena, "i%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
+                return format_string(arena->arena, "i%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
             else
-                return format_string(arena, "u%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
+                return format_string(arena->arena, "u%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
         case Type_Float_TAG:
-            return format_string(arena, "f%s", ((String[]) { "16", "32", "64" })[t->payload.float_type.width]);
+            return format_string(arena->arena, "f%s", ((String[]) { "16", "32", "64" })[t->payload.float_type.width]);
         case Type_Bool_TAG: return "bool";
         case Type_RecordType_TAG:
         case Type_FnType_TAG:

@@ -5,6 +5,8 @@
 #include "list.h"
 #include "dict.h"
 #include "arena.h"
+#include "util.h"
+
 #include "../ir_private.h"
 
 #include <stdlib.h>
@@ -491,9 +493,9 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
         const Node* instr = body->payload.let.instruction;
         // label = "";
         if (instr->tag == PrimOp_TAG)
-            label = format_string(bb->arena, "%slet ... = %s (...)\n", label, primop_names[instr->payload.prim_op.op]);
+            label = format_string(bb->arena->arena, "%slet ... = %s (...)\n", label, primop_names[instr->payload.prim_op.op]);
         else
-            label = format_string(bb->arena, "%slet ... = %s (...)\n", label, node_tags[instr->tag]);
+            label = format_string(bb->arena->arena, "%slet ... = %s (...)\n", label, node_tags[instr->tag]);
 
         if (entries_count_list(let_chain_end->succ_edges) != 1 || read_list(CFEdge, let_chain_end->succ_edges)[0].type != LetTailEdge)
             break;
@@ -505,10 +507,10 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
         body = get_abstraction_body(abs);
     }
 
-    label = format_string(bb->arena, "%s%s", label, node_tags[body->tag]);
+    label = format_string(bb->arena->arena, "%s%s", label, node_tags[body->tag]);
 
     if (is_basic_block(bb)) {
-        label = format_string(bb->arena, "%s\n%s", get_abstraction_name(bb), label);
+        label = format_string(bb->arena->arena, "%s\n%s", get_abstraction_name(bb), label);
     }
 
     fprintf(output, "bb_%zu [label=\"%s\", color=\"%s\", shape=box];\n", (size_t) n, label, color);

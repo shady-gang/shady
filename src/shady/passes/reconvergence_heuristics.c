@@ -4,9 +4,11 @@
 #include "dict.h"
 #include "log.h"
 #include "portability.h"
+#include "util.h"
 
 #include "../type.h"
 #include "../rewrite.h"
+#include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include "../analysis/scope.h"
@@ -140,7 +142,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 switch (exiting_node->node->tag) {
                     case BasicBlock_TAG: {
-                        Node* pre_join_exit_bb = basic_block(arena, fn, exit_wrapper_params, format_string(arena, "exit_wrapper_%d", i));
+                        Node* pre_join_exit_bb = basic_block(arena, fn, exit_wrapper_params, format_string(arena->arena, "exit_wrapper_%d", i));
                         pre_join_exit_bb->payload.basic_block.body = exit_wrapper_body;
                         exit_wrappers[i] = pre_join_exit_bb;
                         break;
@@ -245,7 +247,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     recovered_args[j] = gen_load(exit_recover_bb, exit_allocas[i].nodes[j]);
 
                 exit_numbers[i] = int32_literal(arena, i);
-                Node* exit_bb = basic_block(arena, fn, empty(arena), format_string(arena, "exit_recover_values_%s", get_abstraction_name(exiting_node->node)));
+                Node* exit_bb = basic_block(arena, fn, empty(arena), format_string(arena->arena, "exit_recover_values_%s", get_abstraction_name(exiting_node->node)));
                 if (recreated_exit->tag == BasicBlock_TAG) {
                     exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
                             .target = recreated_exit,
@@ -414,7 +416,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
-            Node* pre_join = basic_block(arena, fn, exit_args, format_string(arena, "merge_%s_%s", get_abstraction_name(ctx->current_abstraction) ,get_abstraction_name(idom)));
+            Node* pre_join = basic_block(arena, fn, exit_args, format_string(arena->arena, "merge_%s_%s", get_abstraction_name(ctx->current_abstraction) ,get_abstraction_name(idom)));
             pre_join->payload.basic_block.body = join(arena, (Join) {
                 .join_point = join_token,
                 .args = exit_args

@@ -1,8 +1,10 @@
 #include "util.h"
+#include "arena.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 #define ESCAPE_SEQS(X) \
 X('\\', '\\') \
@@ -98,6 +100,43 @@ bool write_file(const char* filename, size_t size, const char* data) {
 err_post_open:
     fclose(f);
     return false;
+}
+
+enum {
+    ThreadLocalStaticBufferSize = 256
+};
+
+static char static_buffer[ThreadLocalStaticBufferSize];
+
+char* format_string(Arena* arena, const char* str, ...) {
+    size_t buffer_size = ThreadLocalStaticBufferSize;
+    int len;
+    char* tmp;
+    while (true) {
+        if (buffer_size == ThreadLocalStaticBufferSize) {
+            tmp = static_buffer;
+        } else {
+            tmp = malloc(buffer_size);
+        }
+        va_list args;
+        va_start(args, str);
+        len = vsnprintf(tmp, buffer_size, str, args);
+        va_end(args);
+        if (len < 0 || len >= (int) buffer_size - 1) {
+            buffer_size *= 2;
+            if (tmp != static_buffer)
+                free(tmp);
+            continue;
+        } else {
+            // const char* interned = string_impl(arena, len, tmp);
+            char* interned = (char*) arena_alloc(arena, len + 1);
+            strncpy(interned, tmp, len);
+            interned[len] = '\0';
+            if (tmp != static_buffer)
+                free(tmp);
+            return interned;
+        }
+    }
 }
 
 bool string_starts_with(const char* string, const char* prefix) {

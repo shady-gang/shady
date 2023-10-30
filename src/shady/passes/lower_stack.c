@@ -4,11 +4,13 @@
 #include "portability.h"
 #include "list.h"
 #include "dict.h"
-
-#include "../transform/ir_gen_helpers.h"
+#include "util.h"
 
 #include "../rewrite.h"
 #include "../type.h"
+#include "../ir_private.h"
+
+#include "../transform/ir_gen_helpers.h"
 
 #include <assert.h>
 #include <string.h>
@@ -39,7 +41,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     const Node* param = push ? var(a, qualified_t, "value") : NULL;
     Nodes params = push ? singleton(param) : empty(a);
     Nodes return_ts = push ? empty(a) : singleton(qualified_t);
-    String name = format_string(a, "generated_%s_%s", push ? "push" : "pop", name_type_safe(a, element_type));
+    String name = format_string(a->arena, "generated_%s_%s", push ? "push" : "pop", name_type_safe(a, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(a, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
