@@ -286,6 +286,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 default:
                     assert(false);
             }
+            destroy_list(exiting_nodes);
             return loop_container;
         }
 

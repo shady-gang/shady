@@ -71,6 +71,7 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
             *nargs = append_nodes(a, *nargs, narg);
         }
     }
+    destroy_list(fvs);
 
     if (nparams->count > 0)
         insert_dict(const Node*, Nodes, ctx->lifted_arguments, old, *nparams);

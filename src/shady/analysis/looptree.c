@@ -238,6 +238,7 @@ static void destroy_lt_node(LTNode* n) {
 
 void destroy_loop_tree(LoopTree* lt) {
     destroy_lt_node(lt->root);
+    destroy_dict(lt->map);
     free(lt);
 }
 
