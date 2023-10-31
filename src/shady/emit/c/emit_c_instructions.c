@@ -221,30 +221,30 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case fract_op: {
             CTerm floored;
             emit_using_entry(&floored, emitter, p, lookup_entry(emitter, floor_op), prim_op->operands);
-            term = term_from_cvalue(format_string_arena(arena, "1 - %s", to_cvalue(emitter, floored)));
+            term = term_from_cvalue(format_string_arena(arena->arena, "1 - %s", to_cvalue(emitter, floored)));
             break;
         }
         case inv_sqrt_op: {
             CTerm floored;
             emit_using_entry(&floored, emitter, p, lookup_entry(emitter, sqrt_op), prim_op->operands);
-            term = term_from_cvalue(format_string_arena(arena, "1.0f / %s", to_cvalue(emitter, floored)));
+            term = term_from_cvalue(format_string_arena(arena->arena, "1.0f / %s", to_cvalue(emitter, floored)));
             break;
         }
         case min_op: {
             CValue a = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
-            term = term_from_cvalue(format_string_arena(arena, "(%s > %s ? %s : %s)", a, b, b, a));
+            term = term_from_cvalue(format_string_arena(arena->arena, "(%s > %s ? %s : %s)", a, b, b, a));
             break;
         }
         case max_op: {
             CValue a = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
-            term = term_from_cvalue(format_string_arena(arena, "(%s > %s ? %s : %s)", a, b, a, b));
+            term = term_from_cvalue(format_string_arena(arena->arena, "(%s > %s ? %s : %s)", a, b, a, b));
             break;
         }
         case sign_op: {
             CValue src = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
-            term = term_from_cvalue(format_string_arena(arena, "(%s > 0 ? 1 : -1)", src));
+            term = term_from_cvalue(format_string_arena(arena->arena, "(%s > 0 ? 1 : -1)", src));
             break;
         } case alloca_op:
         case alloca_subgroup_op: error("Lower me");
@@ -287,7 +287,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this
                 // this means such code is never going to be legal in GLSL
                 // also the cast is to account for our arrays-in-structs hack
-                acc = term_from_cvalue(format_string_arena(arena, "((%s) &(%s.arr[%s]))", emit_type(emitter, curr_ptr_type, NULL), deref_term(emitter, acc), to_cvalue(emitter, offset)));
+                acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &(%s.arr[%s]))", emit_type(emitter, curr_ptr_type, NULL), deref_term(emitter, acc), to_cvalue(emitter, offset)));
             }
 
             //t = t->payload.ptr_type.pointed_type;
@@ -297,7 +297,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 switch (is_type(pointee_type)) {
                     case ArrType_TAG: {
                         CTerm index = emit_value(emitter, p, selector);
-                        acc = term_from_cvar(format_string_arena(arena, "(%s.arr[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
+                        acc = term_from_cvar(format_string_arena(arena->arena, "(%s.arr[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
                         curr_ptr_type = ptr_type(arena, (PtrType) {
                                 .pointed_type = pointee_type->payload.arr_type.element_type,
                                 .address_space = curr_ptr_type->payload.ptr_type.address_space
@@ -324,9 +324,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                         assert(static_index < pointee_type->payload.record_type.members.count);
                         Strings names = pointee_type->payload.record_type.names;
                         if (names.count == 0)
-                            acc = term_from_cvar(format_string_arena(arena, "(%s._%d)", deref_term(emitter, acc), static_index));
+                            acc = term_from_cvar(format_string_arena(arena->arena, "(%s._%d)", deref_term(emitter, acc), static_index));
                         else
-                            acc = term_from_cvar(format_string_arena(arena, "(%s.%s)", deref_term(emitter, acc), names.strings[static_index]));
+                            acc = term_from_cvar(format_string_arena(arena->arena, "(%s.%s)", deref_term(emitter, acc), names.strings[static_index]));
                         curr_ptr_type = ptr_type(arena, (PtrType) {
                                 .pointed_type = pointee_type->payload.record_type.members.nodes[static_index],
                                 .address_space = curr_ptr_type->payload.ptr_type.address_space

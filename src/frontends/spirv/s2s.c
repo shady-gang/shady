@@ -860,7 +860,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpFunctionParameter: {
             parser->defs[result].type = Value;
             String param_name = get_name(parser, result);
-            param_name = param_name ? param_name : format_string_arena(parser->arena, "param%d", parser->fun_arg_i);
+            param_name = param_name ? param_name : format_string_arena(parser->arena->arena, "param%d", parser->fun_arg_i);
             parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), parser->is_entry_pt), param_name);
             break;
         }

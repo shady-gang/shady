@@ -120,7 +120,7 @@ void format_string_internal(const char* str, va_list args, void* uptr, void call
         }
         va_list args_copy;
         va_copy(args_copy, args);
-        len = vsnprintf(tmp, buffer_size, str, args);
+        len = vsnprintf(tmp, buffer_size, str, args_copy);
         if (len < 0 || len >= (int) buffer_size - 1) {
             buffer_size *= 2;
             if (tmp != static_buffer)
