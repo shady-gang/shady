@@ -505,13 +505,13 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             switch ((SpvExecutionModel) instruction[1]) {
                 case SpvExecutionModelGLCompute:
                 case SpvExecutionModelKernel:
-                    type = "compute";
+                    type = "Compute";
                     break;
                 case SpvExecutionModelFragment:
-                    type = "fragment";
+                    type = "Fragment";
                     break;
                 case SpvExecutionModelVertex:
-                    type = "vertex";
+                    type = "Vertex";
                     break;
                 default:
                     error("Unsupported execution model %d", instruction[1])
@@ -797,7 +797,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 assert(entry_point_name);
                 name = entry_point_name->payload.str;
 
-                if (strcmp(entry_point_type->payload.str, "compute") == 0) {
+                if (strcmp(entry_point_type->payload.str, "Compute") == 0) {
                     SpvDeco* wg_size_dec = find_decoration(parser, result, -2, SpvExecutionModeLocalSize);
                     assert(wg_size_dec && wg_size_dec->payload.literals.count == 3 && "we require kernels decorated with a workgroup size");
                     annotations = append_nodes(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
@@ -807,9 +807,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                                                int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
                                                int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
                     }));
-                } else if (strcmp(entry_point_type->payload.str, "frag") == 0) {
+                } else if (strcmp(entry_point_type->payload.str, "Fragment") == 0) {
 
-                } else if (strcmp(entry_point_type->payload.str, "vertex") == 0) {
+                } else if (strcmp(entry_point_type->payload.str, "Vertex") == 0) {
 
                 } else {
                     warn_print("Unknown entry point type '%s' for '%s'\n", entry_point_type->payload.str, name);
