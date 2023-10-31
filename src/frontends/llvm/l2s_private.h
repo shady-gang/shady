@@ -37,6 +37,7 @@ void add_annotation(Parser*, const Node*, ParsedAnnotation);
 
 void process_llvm_annotations(Parser* p, LLVMValueRef global);
 
+AddressSpace convert_llvm_address_space(unsigned);
 const Node* convert_value(Parser* p, LLVMValueRef v);
 const Node* convert_function(Parser* p, LLVMValueRef fn);
 const Type* convert_type(Parser* p, LLVMTypeRef t);

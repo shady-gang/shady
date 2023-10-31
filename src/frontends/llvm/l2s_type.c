@@ -5,20 +5,6 @@
 #include "dict.h"
 #include "util.h"
 
-static AddressSpace convert_address_space(unsigned as) {
-    static bool warned = false;
-    switch (as) {
-#define AS(_, name, llvm_id) case llvm_id: return As##name;
-ADDRESS_SPACES(AS)
-#undef AS
-        default:
-            if (!warned)
-                warn_print("Warning: unrecognised address space %d", as);
-            warned = true;
-            return AsGeneric;
-    }
-}
-
 const Type* convert_type(Parser* p, LLVMTypeRef t) {
     const Type** found = find_value_dict(LLVMTypeRef, const Type*, p->map, t);
     if (found) return *found;
@@ -100,7 +86,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             return arr_type(a, (ArrType) { .element_type = elem_t, .size = uint32_literal(a, length)});
         }
         case LLVMPointerTypeKind: {
-            AddressSpace as = convert_address_space(LLVMGetPointerAddressSpace(t));
+            AddressSpace as = convert_llvm_address_space(LLVMGetPointerAddressSpace(t));
             LLVMTypeRef element_type = LLVMGetElementType(t);
 
             const Type* pointee = UNTYPED_POINTERS ? uint8_type(a) : convert_type(p, element_type);
