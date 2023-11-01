@@ -480,6 +480,36 @@ static void generate_nodes_code(Growy* g, json_object* shd, json_object* spv) {
     }
 }
 
+static void generate_types_header(Growy* g, json_object* shd, json_object* spv) {
+    generate_header(g, shd, spv);
+
+    json_object* nodes = json_object_object_get(shd, "nodes");
+    for (size_t i = 0; i < json_object_array_length(nodes); i++) {
+        json_object* node = json_object_array_get_idx(nodes, i);
+
+        String name = json_object_get_string(json_object_object_get(node, "name"));
+        assert(name);
+
+        String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
+        void* alloc = NULL;
+        if (!snake_name) {
+            alloc = snake_name = to_snake_case(name);
+        }
+
+        json_object* t = json_object_object_get(node, "type");
+        if (!t || json_object_get_boolean(t)) {
+            json_object* ops = json_object_object_get(node, "ops");
+            if (ops)
+                growy_append_formatted(g, "const Type* check_type_%s(IrArena*, %s);\n", snake_name, name);
+            else
+                growy_append_formatted(g, "const Type* check_type_%s(IrArena*);\n", snake_name);
+        }
+
+        if (alloc)
+            free(alloc);
+    }
+}
+
 enum {
     ArgSelf = 0,
     ArgGeneratorFn,
@@ -544,10 +574,12 @@ int main(int argc, char** argv) {
 
     if (strcmp(mode, "grammar-headers") == 0) {
         generate_grammar_header(g, shd_grammar.root, spv_grammar.root);
-    } else if (strcmp(mode, "l2s") == 0) {
+    } else if (strcmp(mode, "l2s-code") == 0) {
         generate_l2s_code(g, shd_grammar.root, spv_grammar.root);
-    } else if (strcmp(mode, "nodes") == 0) {
+    } else if (strcmp(mode, "node-code") == 0) {
         generate_nodes_code(g, shd_grammar.root, spv_grammar.root);
+    } else if (strcmp(mode, "type-headers") == 0) {
+        generate_types_header(g, shd_grammar.root, spv_grammar.root);
     } else {
         error_print("Unknown mode '%s'\n", mode);
         exit(-1);

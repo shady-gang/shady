@@ -130,7 +130,6 @@
     {
       "name": "JoinPointType",
       "class": "type",
-      "type": false,
       "ops": [
         { "name": "yield_types", "class": "TYPES" }
       ]
@@ -170,7 +169,6 @@
       "name": "RecordType",
       "snake_name": "record_type",
       "class": "type",
-      "type": false,
       "ops": [
         { "name": "members", "class": "TYPES" },
         { "name": "names", "class": "STRINGS" },
@@ -207,7 +205,6 @@
     {
       "name": "PtrType",
       "class": "type",
-      "type": false,
       "ops": [
         { "name": "address_space", "type": "AddressSpace" },
         { "name": "pointed_type", "class": "TYPE" }
@@ -216,7 +213,6 @@
     {
       "name": "QualifiedType",
       "class": "type",
-      "type": false,
       "ops": [
         { "name": "is_uniform", "type": "bool" },
         { "name": "type", "class": "TYPE" }
@@ -225,7 +221,6 @@
     {
       "name": "ArrType",
       "class": "type",
-      "type": false,
       "ops": [
         { "name": "element_type", "class": "TYPE" },
         { "name": "size", "class": "VALUE" }
@@ -234,7 +229,6 @@
     {
       "name": "PackType",
       "class": "type",
-      "type": false,
       "ops": [
         { "name": "element_type", "class": "TYPE" },
         { "name": "width", "type": "int" }
