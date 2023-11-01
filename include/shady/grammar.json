@@ -95,6 +95,9 @@
       "llvm-id": 397
     }
   ],
+  "node-classes": [
+    
+  ],
   "nodes": [
     {
       "name": "MaskType",
@@ -111,13 +114,13 @@
     },
     {
       "name": "NoRet",
-      "camel_name": "noret_type",
+      "snake_name": "noret_type",
       "class": "type",
       "type": null
     },
     {
       "name": "Int",
-      "camel_name": "int_type",
+      "snake_name": "int_type",
       "class": "type",
       "type": null,
       "ops": [
@@ -127,7 +130,7 @@
     },
     {
       "name": "Float",
-      "camel_name": "float_type",
+      "snake_name": "float_type",
       "class": "type",
       "type": null,
       "ops": [
@@ -136,13 +139,13 @@
     },
     {
       "name": "Bool",
-      "camel_name": "bool_type",
+      "snake_name": "bool_type",
       "class": "type",
       "type": null
     },
     {
       "name": "RecordType",
-      "camel_name": "record_type",
+      "snake_name": "record_type",
       "class": "type",
       "type": null,
       "ops": [
@@ -153,7 +156,7 @@
     },
     {
       "name": "FnType",
-      "camel_name": "fn_type",
+      "snake_name": "fn_type",
       "class": "type",
       "type": null,
       "ops": [
@@ -163,7 +166,7 @@
     },
     {
       "name": "BBType",
-      "camel_name": "bb_type",
+      "snake_name": "bb_type",
       "class": "type",
       "type": null,
       "ops": [
@@ -225,7 +228,15 @@
     {
       "name": "ImageType",
       "class": "type",
-      "type": null
+      "type": null,
+      "ops": [
+        { "name": "sampled_type", "class": "TYPE" },
+        { "name": "dim", "type": "uint32_t" },
+        { "name": "depth", "type": "uint32_t" },
+        { "name": "onion", "type": "bool" },
+        { "name": "multisample", "type": "bool" },
+        { "name": "sampled", "type": "uint32_t" }
+      ]
     },
     {
       "name": "SamplerType",
@@ -235,8 +246,451 @@
     {
       "name": "CombinedImageSamplerType",
       "class": "type",
-      "type": null
+      "type": null,
+      "ops": [
+        { "name": "image_type", "class": "TYPE" }
+      ]
+    },
+    {
+      "name": "Variable",
+      "snake_name": "var",
+      "class": "value",
+      "constructor": "custom",
+      "ops": [
+        { "name": "type", "class": "TYPE" },
+        { "name": "id", "type": "VarId" },
+        { "name": "name", "class": "STRING" },
+        { "name": "abs", "type": "const Node*", "ignore": true },
+        { "name": "pindex", "type": "unsigned", "ignore": true }
+      ]
+    },
+    {
+      "name": "ConstrainedValue",
+      "snake_name": "constrained",
+      "class": "value",
+      "ops": [
+        { "name": "type", "class": "TYPE" },
+        { "name": "value", "class": "VALUE" }
+      ]
+    },
+    {
+      "name": "UntypedNumber",
+      "class": "value",
+      "ops": [
+        { "name": "plaintext", "type": "String" }
+      ]
+    },
+    {
+      "name": "IntLiteral",
+      "class": "value",
+      "ops": [
+        { "name": "width", "type": "IntSizes" },
+        { "name": "is_signed", "type": "bool" },
+        { "name": "value", "type": "uint64_t" }
+      ]
+    },
+    {
+      "name": "FloatLiteral",
+      "class": "value",
+      "description": "C lacks sized float types, so let's just store the raw bits for them",
+      "ops": [
+        { "name": "width", "type": "FloatSizes" },
+        { "name": "value", "type": "uint64_t" }
+      ]
+    },
+    {
+      "name": "StringLiteral",
+      "snake_name": "string_lit",
+      "class": "value",
+      "ops": [
+        { "name": "string", "class": "STRING" }
+      ]
+    },
+    {
+      "name": "True",
+      "snake_name": "true_lit",
+      "class": "value"
+    },
+    {
+      "name": "False",
+      "snake_name": "false_lit",
+      "class": "value"
+    },
+    {
+      "name": "NullPtr",
+      "class": "value",
+      "ops": [
+        { "name": "ptr_type", "class": "TYPE" }
+      ]
+    },
+    {
+      "name": "Composite",
+      "class": "value",
+      "description": [
+        "A value made out of more values.",
+        "Re-ordering values does not count as a computation here !"
+      ],
+      "ops": [
+        { "name": "type", "class": "TYPE" },
+        { "name": "contents", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "Fill",
+      "class": "value",
+      "ops": [
+        { "name": "type", "class": "TYPE" },
+        { "name": "value", "class": "VALUE" }
+      ]
+    },
+    {
+      "name": "Undef",
+      "class": "value",
+      "ops": [
+        { "name": "type", "class": "TYPE" }
+      ]
+    },
+    {
+      "name": "ReflDecl",
+      "class": "value",
+      "description": [
+        "References either a global (yielding a pointer to it), or a constant (yielding a value of the type itself)",
+        "Declarations are not values themselves, this node is required to \"convert\" them."
+      ],
+      "ops": [
+        { "name": "decl", "class": "DECL" }
+      ]
+    },
+    {
+      "name": "FnAddr",
+      "class": "value",
+      "description": "Like RefDecl but for functions, it yields a _function pointer_ !",
+      "ops": [
+        { "name": "fn", "class": "DECL" }
+      ]
+    },
+    {
+      "name": "AntiQuote",
+      "class": "value",
+      "description": [
+        "Allows instructions to appear where values are expected.",
+        "Useful for 'constant' computations"
+      ],
+      "ops": [
+        { "name": "instruction", "class": "INSTRUCTION" }
+      ]
+    },
+    {
+      "name": "Call",
+      "class": "instruction",
+      "ops": [
+        { "name": "callee", "class": "VALUE" },
+        { "name": "args", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "PrimOp",
+      "class": "instruction",
+      "ops": [
+        { "name": "op", "type": "Op" },
+        { "name": "type_arguments", "class": "TYPES" },
+        { "name": "operands", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "If",
+      "snake_name": "if_instr",
+      "class": "instruction",
+      "ops": [
+        { "name": "yield_types", "class": "TYPES" },
+        { "name": "condition", "class": "VALUE" },
+        { "name": "if_true", "class": "ANON_LAMBDA" },
+        { "name": "if_false", "class": "ANON_LAMBDA" }
+      ]
+    },
+    {
+      "name": "Match",
+      "snake_name": "match_instr",
+      "class": "instruction",
+      "ops": [
+        { "name": "yield_types", "class": "TYPES" },
+        { "name": "inspect", "class": "VALUE" },
+        { "name": "literals", "class": "VALUES" },
+        { "name": "cases", "class": "ANON_LAMBDAS" },
+        { "name": "default_case", "class": "ANON_LAMBDA" }
+      ]
+    },
+    {
+      "name": "Loop",
+      "snake_name": "loop_instr",
+      "class": "instruction",
+      "ops": [
+        { "name": "yield_types", "class": "TYPES" },
+        { "name": "body", "class": "ANON_LAMBDA" },
+        { "name": "initial_args", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "Control",
+      "class": "instruction",
+      "ops": [
+        { "name": "yield_types", "class": "TYPES" },
+        { "name": "inside", "class": "ANON_LAMBDA" }
+      ]
+    },
+    {
+      "name": "Block",
+      "class": "instruction",
+      "description": "Used as a helper to insert multiple instructions in place of one",
+      "ops": [
+        { "name": "yield_types", "class": "TYPES" },
+        { "name": "inside", "class": "ANON_LAMBDA" }
+      ]
+    },
+    {
+      "name": "Comment",
+      "class": "instruction",
+      "ops": [
+        { "name": "string", "class": "STRING" }
+      ]
+    },
+    {
+      "name": "Let",
+      "class": "terminator",
+      "constructor": "custom",
+      "ops": [
+        { "name": "instruction", "class": "INSTRUCTION" },
+        { "name": "tail", "class": "tail" }
+      ]
+    },
+    {
+      "name": "LetMut",
+      "class": "terminator",
+      "constructor": "custom",
+      "front-end-only": true,
+      "ops": [
+        { "name": "instruction", "class": "INSTRUCTION" },
+        { "name": "tail", "class": "tail" }
+      ]
+    },
+    {
+      "name": "TailCall",
+      "class": "terminator",
+      "ops": [
+        { "name": "target", "class": "VALUE" },
+        { "name": "args", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "Jump",
+      "class": "terminator",
+      "ops": [
+        { "name": "target", "class": "BASIC_BLOCK" },
+        { "name": "args", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "Branch",
+      "class": "terminator",
+      "description": [
+        "Branches can cause divergence, but they can never cause re-convergence.",
+        "Branch alternatives are made out of Jump terminators"
+      ],
+      "ops": [
+        { "name": "branch_condition", "class": "VALUE" },
+        { "name": "true_jump", "class": "TERMINATOR" },
+        { "name": "false_jump", "class": "TERMINATOR" }
+      ]
+    },
+    {
+      "name": "Switch",
+      "snake_name": "br_switch",
+      "class": "terminator",
+      "description": "N-way variant of Branch. See Branch.",
+      "ops": [
+        { "name": "switch_value", "class": "VALUE" },
+        { "name": "case_values", "class": "VALUES" },
+        { "name": "case_jumps", "class": "TERMINATORS" },
+        { "name": "default_jump", "class": "TERMINATOR" }
+      ]
+    },
+    {
+      "name": "Join",
+      "class": "terminator",
+      "description": [
+        "Join nodes are used to undo the divergence caused by branches",
+        "At join nodes, an explicit mask is used to force a number of divergent execution paths to resume.",
+        "If @p is_indirect is set, the target must be a function pointer. Otherwise, the target must be a function directly."
+      ],
+      "ops": [
+        { "name": "join_point", "class": "VALUE" },
+        { "name": "args", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "MergeContinue",
+      "class": "terminator",
+      "ops": [
+        { "name": "args", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "MergeBreak",
+      "class": "terminator",
+      "ops": [
+        { "name": "args", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "Yield",
+      "class": "terminator",
+      "ops": [
+        { "name": "args", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "Return",
+      "snake_name": "fn_ret",
+      "class": "terminator",
+      "ops": [
+        { "name": "fn", "class": "DECL" },
+        { "name": "args", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "Unreachable",
+      "class": "terminator"
+    },
+    {
+      "name": "Function",
+      "snake_name": "fun",
+      "class": "declaration",
+      "constructor": "custom",
+      "ops": [
+        { "name": "params", "class": "VARIABLES" },
+        { "name": "body", "class": "TERMINATOR" },
+        { "name": "module", "type": "Module*", "ignore": true },
+        { "name": "name", "class": "STRING" },
+        { "name": "return_types", "class": "TYPES" },
+        { "name": "annotations", "class": "ANNOTATIONS" }
+      ]
+    },
+    {
+      "name": "Constant",
+      "class": "declaration",
+      "constructor": "custom",
+      "ops": [
+        { "name": "annotations", "class": "ANNOTATIONS" },
+        { "name": "module", "type": "Module*", "ignore": true },
+        { "name": "name", "class": "STRING" },
+        { "name": "type_hint", "class": "TYPE" },
+        { "name": "value", "class": "VALUE", "ignore": true }
+      ]
+    },
+    {
+      "name": "GlobalVariable",
+      "class": "declaration",
+      "constructor": "custom",
+      "ops": [
+        { "name": "annotations", "class": "ANNOTATIONS" },
+        { "name": "type", "class": "TYPE" },
+        { "name": "module", "type": "Module*", "ignore": true },
+        { "name": "name", "class": "STRING" },
+        { "name": "address_space", "type": "AddressSpace"},
+        { "name": "init", "class": "VALUE", "ignore": true }
+      ]
+    },
+    {
+      "name": "NominalType",
+      "snake_name": "nom_type",
+      "class": "declaration",
+      "constructor": "custom",
+      "type": null,
+      "ops": [
+        { "name": "annotations", "class": "ANNOTATIONS" },
+        { "name": "module", "type": "Module*", "ignore": true },
+        { "name": "name", "class": "STRING" },
+        { "name": "body", "class": "TYPE" }
+      ]
+    },
+    {
+      "name": "Annotation",
+      "class": "annotation",
+      "type": null,
+      "ops": [
+        { "name": "name", "class": "STRING" }
+      ]
+    },
+    {
+      "name": "AnnotationValue",
+      "class": "annotation",
+      "type": null,
+      "ops": [
+        { "name": "name", "class": "STRING" },
+        { "name": "value", "class": "VALUE" }
+      ]
+    },
+    {
+      "name": "AnnotationValues",
+      "class": "annotation",
+      "type": null,
+      "ops": [
+        { "name": "name", "class": "STRING" },
+        { "name": "values", "class": "VALUES" }
+      ]
+    },
+    {
+      "name": "AnnotationCompound",
+      "class": "annotation",
+      "type": null,
+      "ops": [
+        { "name": "name", "class": "STRING" },
+        { "name": "entries", "class": "ANNOTATIONS" }
+      ]
+    },
+    {
+      "name": "BasicBlock",
+      "constructor": "custom",
+      "description": "A named abstraction that lives inside a function and can be jumped to",
+      "ops": [
+        { "name": "params", "class": "VARIABLES" },
+        { "name": "body", "class": "TERMINATOR" },
+        { "name": "fn", "class": "DECL" },
+        { "name": "name", "class": "STRING" }
+      ]
+    },
+    {
+      "name": "AnonLambda",
+      "snake_name": "anon_lam",
+      "constructor": "custom",
+      "description": [
+        "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs",
+        "Most notably, the tails of standard `let` nodes"
+      ],
+      "ops": [
+        { "name": "params", "class": "VARIABLES" },
+        { "name": "body", "class": "TERMINATOR" },
+        { "name": "structured_construct", "type": "STRING", "ignored": true }
+      ]
+    },
+    {
+      "name": "Unbound",
+      "description": "Unbound identifier, obtained by parsing a file",
+      "type": null,
+      "front-end-only": true,
+      "ops": [
+        { "name": "name", "type": "String" }
+      ]
+    },
+    {
+      "name": "UnboundBBs",
+      "description": "A node together with unbound basic blocks it dominates, obtained by parsing a file",
+      "type": null,
+      "front-end-only": true,
+      "ops": [
+        { "name": "body", "class": "TERMINATOR" },
+        { "name": "children_blocks", "class": "BASIC_BLOCKS" }
+      ]
     }
-
   ]
 }
