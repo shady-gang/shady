@@ -285,6 +285,7 @@
       "name": "ConstrainedValue",
       "snake_name": "constrained",
       "class": "value",
+      "type": false,
       "ops": [
         { "name": "type", "class": "TYPE" },
         { "name": "value", "class": "VALUE" }

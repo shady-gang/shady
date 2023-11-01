@@ -239,6 +239,62 @@ static void generate_node_type(Growy* g, json_object* nodes) {
     growy_append_formatted(g, "};\n\n");
 }
 
+static void generate_node_ctor(Growy* g, json_object* nodes, bool definition) {
+    for (size_t i = 0; i < json_object_array_length(nodes); i++) {
+        json_object* node = json_object_array_get_idx(nodes, i);
+
+        String name = json_object_get_string(json_object_object_get(node, "name"));
+        assert(name);
+
+        String constructor = json_object_get_string(json_object_object_get(node, "constructor"));
+        if (constructor && strcmp(constructor, "custom") == 0)
+            continue;
+
+        String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
+        void* alloc = NULL;
+        if (!snake_name) {
+            alloc = snake_name = to_snake_case(name);
+        }
+
+        String ap = definition ? " arena" : "";
+        json_object* ops = json_object_object_get(node, "ops");
+        if (ops)
+            growy_append_formatted(g, "const Node* %s(IrArena*%s, %s%s)", snake_name, ap, name, definition ? " payload" : "");
+        else
+            growy_append_formatted(g, "const Node* %s(IrArena*%s)", snake_name, ap);
+
+        if (definition) {
+            growy_append_formatted(g, " {\n");
+            growy_append_formatted(g, "\tNode node;\n");
+            growy_append_formatted(g, "\tmemset((void*) &node, 0, sizeof(Node));\n");
+            growy_append_formatted(g, "\tnode = (Node) {\n");
+            growy_append_formatted(g, "\t\t.arena = arena,\n");
+            growy_append_formatted(g, "\t\t.tag = %s_TAG,\n", name);
+            if (ops)
+                growy_append_formatted(g, "\t\t.payload.%s = payload,\n", snake_name);
+            json_object* t = json_object_object_get(node, "type");
+            if (!t || json_object_get_boolean(t)) {
+                growy_append_formatted(g, "\t\t.type = arena->config.check_types ? ");
+                if (ops)
+                    growy_append_formatted(g, "check_type_%s(arena, payload)", snake_name);
+                else
+                    growy_append_formatted(g, "check_type_%s(arena)", snake_name);
+                growy_append_formatted(g, ": NULL,\n");
+            } else
+                growy_append_formatted(g, "\t\t.type = NULL,\n");
+            growy_append_formatted(g, "\t};\n");
+            growy_append_formatted(g, "\treturn create_node_helper(arena, node, NULL);\n");
+            growy_append_formatted(g, "}\n\n");
+        } else {
+            growy_append_formatted(g, ";\n");
+        }
+
+        if (alloc)
+            free(alloc);
+    }
+    growy_append_formatted(g, "\n");
+}
+
 static void generate_grammar_header(Growy* g, json_object* shd, json_object* spv) {
     generate_header(g, shd, spv);
 
@@ -252,6 +308,7 @@ static void generate_grammar_header(Growy* g, json_object* shd, json_object* spv
     growy_append_formatted(g, "NodeClass get_node_class_from_tag(NodeTag tag);\n\n");
     generate_node_payloads(g, nodes);
     generate_node_type(g, nodes);
+    generate_node_ctor(g, nodes, false);
 
     for (size_t i = 0; i < json_object_array_length(node_classes); i++) {
         json_object* node_class = json_object_array_get_idx(node_classes, i);
@@ -454,12 +511,6 @@ static void generate_isa_for_class(Growy* g, json_object* nodes, String class, S
 
 static void generate_nodes_code(Growy* g, json_object* shd, json_object* spv) {
     generate_header(g, shd, spv);
-    growy_append_formatted(g, "#include \"shady/ir.h\"\n");
-    growy_append_formatted(g, "#include \"log.h\"\n");
-    growy_append_formatted(g, "#include \"dict.h\"\n");
-    growy_append_formatted(g, "#include <stdbool.h>\n\n");
-    growy_append_formatted(g, "#include <string.h>\n\n");
-    growy_append_formatted(g, "#include <assert.h>\n\n");
 
     json_object* nodes = json_object_object_get(shd, "nodes");
     generate_node_names_string_array(g, nodes);
@@ -508,6 +559,13 @@ static void generate_types_header(Growy* g, json_object* shd, json_object* spv) 
         if (alloc)
             free(alloc);
     }
+}
+
+static void generate_constructors_code(Growy* g, json_object* shd, json_object* spv) {
+    generate_header(g, shd, spv);
+
+    json_object* nodes = json_object_object_get(shd, "nodes");
+    generate_node_ctor(g, nodes, true);
 }
 
 enum {
@@ -580,6 +638,8 @@ int main(int argc, char** argv) {
         generate_nodes_code(g, shd_grammar.root, spv_grammar.root);
     } else if (strcmp(mode, "type-headers") == 0) {
         generate_types_header(g, shd_grammar.root, spv_grammar.root);
+    } else if (strcmp(mode, "constructors-code") == 0) {
+        generate_constructors_code(g, shd_grammar.root, spv_grammar.root);
     } else {
         error_print("Unknown mode '%s'\n", mode);
         exit(-1);

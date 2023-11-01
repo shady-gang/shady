@@ -115,33 +115,7 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     return alloc;
 }
 
-#define LAST_ARG_1(struct_name) ,struct_name in_node
-#define LAST_ARG_0(struct_name)
-
-#define CALL_TYPING_METHOD_11(short_name) arena->config.check_types ? check_type_##short_name(arena, in_node) : NULL
-#define CALL_TYPING_METHOD_01(short_name) NULL
-#define CALL_TYPING_METHOD_10(short_name) arena->config.check_types ? check_type_##short_name(arena) : NULL
-#define CALL_TYPING_METHOD_00(short_name) NULL
-
-#define SET_PAYLOAD_1(short_name) .payload = (union NodesUnion) { .short_name = in_node }
-#define SET_PAYLOAD_0(_)
-
-#define NODE_CTOR_1(has_typing_fn, has_payload, struct_name, short_name) const Node* short_name(IrArena* arena LAST_ARG_##has_payload(struct_name)) { \
-    Node node;                                                                                                                                        \
-    memset((void*) &node, 0, sizeof(Node));                                                                                                           \
-    node = (Node) {                                                                                                                                   \
-        .arena = arena,                                                                                                                               \
-        .type = CALL_TYPING_METHOD_##has_typing_fn##has_payload(short_name),                                                                          \
-        .tag = struct_name##_TAG,                                                                                                                     \
-        SET_PAYLOAD_##has_payload(short_name)                                                                                                         \
-    };                                                                                                                                                \
-    return create_node_helper(arena, node, NULL);                                                                                                           \
-}
-
-#define NODE_CTOR_0(has_typing_fn, has_payload, struct_name, short_name)
-#define NODE_CTOR(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_typing_fn, has_payload, struct_name, short_name)
-NODES(NODE_CTOR)
-#undef NODE_CTOR
+#include "constructors_generated.c"
 
 const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
     Let payload = {

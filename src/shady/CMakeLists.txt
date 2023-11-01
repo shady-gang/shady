@@ -12,15 +12,18 @@ add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h 
 add_custom_target(generate_grammar DEPENDS ${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h)
 add_dependencies(api INTERFACE generate_grammar)
 
-add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/node_generated.c COMMENT "generating shady headers" COMMAND generator node-code ${CMAKE_CURRENT_SOURCE_DIR}/node_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/node_generated.c COMMAND generator node-code ${CMAKE_CURRENT_SOURCE_DIR}/node_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_target(node_generated DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/node_generated.c)
 
-add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/type_generated.h COMMENT "generating type_generated.h" COMMAND generator type-headers ${CMAKE_CURRENT_SOURCE_DIR}/type_generated.h ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
-add_custom_target(generate_type DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/type_generated.h)
+add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/type_generated.h COMMAND generator type-headers ${CMAKE_CURRENT_SOURCE_DIR}/type_generated.h ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_target(type_generated DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/type_generated.h)
+
+add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/constructors_generated.c COMMAND generator constructors-code ${CMAKE_CURRENT_SOURCE_DIR}/constructors_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_target(constructors_generated DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/constructors_generated.c)
 
 set(SHADY_SOURCES
     ir.c
     node.c
-    node_generated.c
     constructors.c
     type.c
     type_helpers.c
@@ -92,7 +95,7 @@ set(SHADY_SOURCES
 add_library(shady SHARED ${SHADY_SOURCES})
 set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-add_dependencies(shady generate_type)
+add_dependencies(shady node_generated type_generated constructors_generated)
 
 if (WIN32)
     if (MSVC)

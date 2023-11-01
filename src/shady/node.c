@@ -181,3 +181,5 @@ bool compare_node(Node** pa, Node** pb) {
         return compare_node_payload(a, b);
     } else return true;
 }
+
+#include "node_generated.c"
