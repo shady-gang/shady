@@ -6,13 +6,18 @@ add_subdirectory(generator)
 
 add_library(api INTERFACE)
 target_include_directories(api INTERFACE "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>")
-#target_sources(api PUBLIC "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h>")
+
+get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
+add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h COMMENT "generating shady headers" COMMAND generator grammar-headers ${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_target(generate_grammar DEPENDS ${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h)
 add_dependencies(api INTERFACE generate_grammar)
 
-set(SHADY_SOURCES
+add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/node_generated.c COMMENT "generating shady headers" COMMAND generator nodes ${CMAKE_CURRENT_SOURCE_DIR}/node_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
 
+set(SHADY_SOURCES
     ir.c
     node.c
+    node_generated.c
     constructors.c
     type.c
     type_helpers.c

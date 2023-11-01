@@ -156,8 +156,6 @@ typedef struct CombinedImageSamplerType_ CombinedImageSamplerType;
 #define CombinedImageSamplerType_Fields(MkField) \
 MkField(1, TYPE, const Type*, image_type)
 
-#include "generated_grammar.h"
-
 typedef struct PtrType_ PtrType;
 #define PtrType_Fields(MkField) \
 MkField(1, POD, AddressSpace, address_space) \
@@ -520,38 +518,7 @@ FT(1, BASIC_BLOCKS)             \
 
 //////////////////////////////// Extracted definitions ////////////////////////////////
 
-// this extracts a tag for each member of the NODES x-macro
-typedef enum NodeTag_ {
-    InvalidNode_TAG,
-#define NODE_GEN_TAG(_, _2, _3, struct_name, short_name) struct_name##_TAG,
-NODES(NODE_GEN_TAG)
-#undef NODE_GEN_TAG
-} NodeTag;
-
-// this thing is used to create the node payloads by writing out their fields
-#define WRITE_FIELD(hash, ft, t, n) t n;
-#define CREATE_PAYLOAD_0(StructName, short_name)
-#define CREATE_PAYLOAD_1(StructName, short_name) struct StructName##_ { StructName##_Fields(WRITE_FIELD) };
-#define CREATE_PAYLOAD(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name) CREATE_PAYLOAD_##has_payload(StructName, short_name)
-NODES(CREATE_PAYLOAD)
-#undef WRITE_FIELD
-#undef CREATE_PAYLOAD_0
-#undef CREATE_PAYLOAD_1
-#undef CREATE_PAYLOAD
-
-/// Node sum-type
-struct Node_ {
-    IrArena* arena;
-    const Type* type;
-    NodeTag tag;
-    union NodesUnion {
-#define NODE_PAYLOAD_1(StructName, short_name) StructName short_name;
-#define NODE_PAYLOAD_0(StructName, short_name)
-#define NODE_PAYLOAD(_, _2, has_payload, struct_name, short_name) NODE_PAYLOAD_##has_payload(struct_name, short_name)
-        NODES(NODE_PAYLOAD)
-#undef NODE_PAYLOAD
-    } payload;
-};
+#include "generated_grammar.h"
 
 extern const char* node_tags[];
 extern const bool node_type_has_payload[];

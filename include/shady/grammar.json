@@ -1,5 +1,5 @@
 {
-  "address_spaces": [
+  "address-spaces": [
     {
       "name": "Generic",
       "llvm-id": 0,
@@ -96,18 +96,38 @@
     }
   ],
   "node-classes": [
-    
+    {
+      "name": "type"
+    },
+    {
+      "name": "value"
+    },
+    {
+      "name": "instruction"
+    },
+    {
+      "name": "terminator"
+    },
+    {
+      "name": "decl"
+    },
+    {
+      "name": "anon_lambda"
+    },
+    {
+      "name": "basic_block"
+    }
   ],
   "nodes": [
     {
       "name": "MaskType",
       "class": "type",
-      "type": null
+      "type": false
     },
     {
       "name": "JoinPointType",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "yield_types", "class": "TYPES" }
       ]
@@ -116,13 +136,13 @@
       "name": "NoRet",
       "snake_name": "noret_type",
       "class": "type",
-      "type": null
+      "type": false
     },
     {
       "name": "Int",
       "snake_name": "int_type",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "width", "type": "IntSizes" },
         { "name": "is_signed", "type": "bool" }
@@ -132,7 +152,7 @@
       "name": "Float",
       "snake_name": "float_type",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "width", "type": "FloatSizes" }
       ]
@@ -141,13 +161,13 @@
       "name": "Bool",
       "snake_name": "bool_type",
       "class": "type",
-      "type": null
+      "type": false
     },
     {
       "name": "RecordType",
       "snake_name": "record_type",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "members", "class": "TYPES" },
         { "name": "names", "class": "STRINGS" },
@@ -158,7 +178,7 @@
       "name": "FnType",
       "snake_name": "fn_type",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "param_types", "class": "TYPES" },
         { "name": "return_types", "class": "TYPES" }
@@ -168,7 +188,7 @@
       "name": "BBType",
       "snake_name": "bb_type",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "param_types", "class": "TYPES" }
       ]
@@ -176,7 +196,7 @@
     {
       "name": "LamType",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "param_types", "class": "TYPES" }
       ]
@@ -184,7 +204,7 @@
     {
       "name": "PtrType",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "address_space", "type": "AddressSpace" },
         { "name": "pointed_type", "class": "TYPE" }
@@ -193,7 +213,7 @@
     {
       "name": "QualifiedType",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "is_uniform", "type": "bool" },
         { "name": "type", "class": "TYPE" }
@@ -202,7 +222,7 @@
     {
       "name": "ArrType",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "element_type", "class": "TYPE" },
         { "name": "size", "class": "VALUE" }
@@ -211,7 +231,7 @@
     {
       "name": "PackType",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "element_type", "class": "TYPE" },
         { "name": "width", "type": "int" }
@@ -220,7 +240,7 @@
     {
       "name": "TypeDeclRef",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "decl", "class": "DECL" }
       ]
@@ -228,7 +248,7 @@
     {
       "name": "ImageType",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "sampled_type", "class": "TYPE" },
         { "name": "dim", "type": "uint32_t" },
@@ -241,12 +261,12 @@
     {
       "name": "SamplerType",
       "class": "type",
-      "type": null
+      "type": false
     },
     {
       "name": "CombinedImageSamplerType",
       "class": "type",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "image_type", "class": "TYPE" }
       ]
@@ -351,7 +371,7 @@
       ]
     },
     {
-      "name": "ReflDecl",
+      "name": "RefDecl",
       "class": "value",
       "description": [
         "References either a global (yielding a pointer to it), or a constant (yielding a value of the type itself)",
@@ -605,7 +625,7 @@
       "snake_name": "nom_type",
       "class": "declaration",
       "constructor": "custom",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "annotations", "class": "ANNOTATIONS" },
         { "name": "module", "type": "Module*", "ignore": true },
@@ -616,7 +636,7 @@
     {
       "name": "Annotation",
       "class": "annotation",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "name", "class": "STRING" }
       ]
@@ -624,7 +644,7 @@
     {
       "name": "AnnotationValue",
       "class": "annotation",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "name", "class": "STRING" },
         { "name": "value", "class": "VALUE" }
@@ -633,7 +653,7 @@
     {
       "name": "AnnotationValues",
       "class": "annotation",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "name", "class": "STRING" },
         { "name": "values", "class": "VALUES" }
@@ -641,8 +661,9 @@
     },
     {
       "name": "AnnotationCompound",
+      "snake_name": "annotations_compound",
       "class": "annotation",
-      "type": null,
+      "type": false,
       "ops": [
         { "name": "name", "class": "STRING" },
         { "name": "entries", "class": "ANNOTATIONS" }
@@ -670,13 +691,13 @@
       "ops": [
         { "name": "params", "class": "VARIABLES" },
         { "name": "body", "class": "TERMINATOR" },
-        { "name": "structured_construct", "type": "STRING", "ignored": true }
+        { "name": "structured_construct", "type": "String", "ignored": true }
       ]
     },
     {
       "name": "Unbound",
       "description": "Unbound identifier, obtained by parsing a file",
-      "type": null,
+      "type": false,
       "front-end-only": true,
       "ops": [
         { "name": "name", "type": "String" }
@@ -685,7 +706,7 @@
     {
       "name": "UnboundBBs",
       "description": "A node together with unbound basic blocks it dominates, obtained by parsing a file",
-      "type": null,
+      "type": false,
       "front-end-only": true,
       "ops": [
         { "name": "body", "class": "TERMINATOR" },

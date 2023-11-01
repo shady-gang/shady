@@ -53,13 +53,6 @@ DeclTag is_declaration(const Node* node) {
     }
 }
 
-const char* node_tags[] = {
-    "invalid",
-#define NODE_NAME(_, _2, _3, _4, str) #str,
-NODES(NODE_NAME)
-#undef NODE_NAME
-};
-
 const char* primop_names[] = {
 #define DECLARE_PRIMOP_NAME(se, str) #str,
 PRIMOPS(DECLARE_PRIMOP_NAME)
@@ -75,13 +68,6 @@ PRIMOPS(PRIMOP_SIDE_EFFECTFUL)
 bool has_primop_got_side_effects(Op op) {
     return primop_side_effects[op];
 }
-
-const bool node_type_has_payload[] = {
-    false,
-#define NODE_HAS_PAYLOAD(_, _2, has_payload, _4, _5) has_payload,
-NODES(NODE_HAS_PAYLOAD)
-#undef NODE_HAS_PAYLOAD
-};
 
 String get_decl_name(const Node* node) {
     switch (node->tag) {
@@ -197,6 +183,8 @@ const Node* get_let_tail(const Node* let) {
     }
 }
 
+KeyHash hash_node_payload(const Node* node);
+
 KeyHash hash_node(Node** pnode) {
     const Node* node = *pnode;
     KeyHash combined;
@@ -213,22 +201,15 @@ KeyHash hash_node(Node** pnode) {
     KeyHash payload_hash = 0;
 
     if (node_type_has_payload[node->tag]) {
-        switch (node->tag) {
-            #define HASH_FIELD_1(ft, t, n) payload_hash ^= hash_murmur(&payload.n, sizeof(payload.n));
-            #define HASH_FIELD_0(ft, t, n)
-            #define HASH_FIELD(dohash, ft, t, n) HASH_FIELD_##dohash(ft, t, n)
-            #define HASH_NODE_FIELDS_1(StructName, short_name) case StructName##_TAG: { StructName payload = node->payload.short_name; StructName##_Fields(HASH_FIELD) break; }
-            #define HASH_NODE_FIELDS_0(StructName, short_name)
-            #define HASH_NODE_FIELDS(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name) HASH_NODE_FIELDS_##has_payload(StructName, short_name)
-            NODES(HASH_NODE_FIELDS)
-            default: payload_hash = hash_murmur(&node->payload, sizeof(node->payload)); break;
-        }
+        payload_hash = hash_node_payload(node);
     }
     combined = tag_hash ^ payload_hash;
 
     end:
     return combined;
 }
+
+bool compare_node_payload(const Node*, const Node*);
 
 bool compare_node(Node** pa, Node** pb) {
     if ((*pa)->tag != (*pb)->tag) return false;
@@ -242,17 +223,6 @@ bool compare_node(Node** pa, Node** pb) {
     #define field(w) eq &= memcmp(&a->payload.w, &b->payload.w, sizeof(a->payload.w)) == 0;
 
     if (node_type_has_payload[a->tag]) {
-        bool eq = true;
-        switch ((*pa)->tag) {
-            #define CMP_FIELD_1(ft, t, n) eq &= memcmp(&a_payload.n, &b_payload.n, sizeof(a_payload.n)) == 0;
-            #define CMP_FIELD_0(ft, t, n)
-            #define CMP_FIELD(dohash, ft, t, n) CMP_FIELD_##dohash(ft, t, n)
-            #define CMP_NODE_FIELDS_1(StructName, short_name) case StructName##_TAG: { StructName a_payload = a->payload.short_name; StructName b_payload = b->payload.short_name; StructName##_Fields(CMP_FIELD) break; }
-            #define CMP_NODE_FIELDS_0(StructName, short_name)
-            #define CMP_NODE_FIELDS(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name) CMP_NODE_FIELDS_##has_payload(StructName, short_name)
-            NODES(CMP_NODE_FIELDS)
-            default: return memcmp(&a->payload, &b->payload, sizeof(a->payload)) == 0;
-        }
-        return eq;
+        return compare_node_payload(a, b);
     } else return true;
 }
