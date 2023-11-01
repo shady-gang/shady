@@ -516,7 +516,7 @@ FT(1, ANON_LAMBDAS)             \
 FT(1, BASIC_BLOCK)              \
 FT(1, BASIC_BLOCKS)             \
 
-//////////////////////////////// Extracted definitions ////////////////////////////////
+//////////////////////////////// Generated definitions ////////////////////////////////
 
 #include "generated_grammar.h"
 
@@ -524,16 +524,6 @@ extern const char* node_tags[];
 extern const bool node_type_has_payload[];
 
 //////////////////////////////// Node categories ////////////////////////////////
-
-TypeTag is_type(const Node*);
-
-ValueTag is_value(const Node*);
-
-TerminatorTag is_terminator(const Node*);
-
-InstructionTag is_instruction(const Node*);
-
-DeclarationTag is_declaration(const Node*);
 
 inline static bool is_nominal(const Node* node) {
     NodeTag tag = node->tag;
@@ -543,5 +533,4 @@ inline static bool is_nominal(const Node* node) {
 }
 
 inline static bool is_anonymous_lambda(const Node* node) { return node->tag == AnonLambda_TAG; }
-inline static bool is_basic_block(const Node* node) { return node->tag == BasicBlock_TAG; }
 inline static bool is_function(const Node* node) { return node->tag == Function_TAG; }

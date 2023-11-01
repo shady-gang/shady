@@ -676,6 +676,7 @@
       "name": "BasicBlock",
       "constructor": "custom",
       "description": "A named abstraction that lives inside a function and can be jumped to",
+      "class": "basic_block",
       "ops": [
         { "name": "params", "class": "VARIABLES" },
         { "name": "body", "class": "TERMINATOR" },

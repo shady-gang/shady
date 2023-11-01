@@ -8,51 +8,6 @@
 #include <string.h>
 #include <assert.h>
 
-TypeTag is_type(const Node* node) {
-    switch (node->tag) {
-#define IS_TYPE(_, _2, _3, name, _4) case name##_TAG: return Type_##name##_TAG;
-TYPE_NODES(IS_TYPE)
-#undef IS_TYPE
-        default: return NotAType;
-    }
-}
-
-ValueTag is_value(const Node* node) {
-    switch (node->tag) {
-#define IS_VALUE(_, _2, _3, name, _4) case name##_TAG: return Value_##name##_TAG;
-        VALUE_NODES(IS_VALUE)
-#undef IS_VALUE
-        default: return NotAValue;
-    }
-}
-
-InstructionTag is_instruction(const Node* node) {
-    switch (node->tag) {
-#define IS_INSTRUCTION(_, _2, _3, name, _4) case name##_TAG: return Instruction_##name##_TAG;
-        INSTRUCTION_NODES(IS_INSTRUCTION)
-#undef IS_INSTRUCTION
-        default: return NotAnInstruction;
-    }
-}
-
-TerminatorTag is_terminator(const Node* node) {
-    switch (node->tag) {
-#define IS_TERMINATOR(_, _2, _3, name, _4) case name##_TAG: return Terminator_##name##_TAG;
-        TERMINATOR_NODES(IS_TERMINATOR)
-#undef IS_TERMINATOR
-        default: return NotATerminator;
-    }
-}
-
-DeclarationTag is_declaration(const Node* node) {
-    switch (node->tag) {
-#define IS_DECL(_, _2, _3, name, _4) case name##_TAG: return Declaration_##name##_TAG;
-        DECL_NODES(IS_DECL)
-#undef IS_DECL
-        default: return NotADeclaration;
-    }
-}
-
 const char* primop_names[] = {
 #define DECLARE_PRIMOP_NAME(se, str) #str,
 PRIMOPS(DECLARE_PRIMOP_NAME)
