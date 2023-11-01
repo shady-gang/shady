@@ -25,7 +25,7 @@ N(1, 1, 1, ArrType, arr_type) \
 N(1, 1, 1, PackType, pack_type) \
 N(1, 0, 1, TypeDeclRef, type_decl_ref) \
 N(1, 0, 1, ImageType, image_type) \
-N(1, 0, 1, SamplerType, sampler_type) \
+N(1, 0, 0, SamplerType, sampler_type) \
 N(1, 0, 1, CombinedImageSamplerType, combined_image_sampler_type) \
 
 #define VALUE_NODES(N) \
@@ -151,9 +151,6 @@ MkField(1, POD, uint32_t, depth) \
 MkField(1, POD, bool, onion) \
 MkField(1, POD, bool, multisample) \
 MkField(1, POD, uint32_t, sampled) \
-
-typedef struct SamplerType_ SamplerType;
-#define SamplerType_Fields(MkField)
 
 typedef struct CombinedImageSamplerType_ CombinedImageSamplerType;
 #define CombinedImageSamplerType_Fields(MkField) \
