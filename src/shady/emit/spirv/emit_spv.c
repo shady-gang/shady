@@ -426,7 +426,7 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
             emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
             return given_id;
         }
-        case NotADecl: error("");
+        case NotADeclaration: error("");
     }
     error("unreachable");
 }

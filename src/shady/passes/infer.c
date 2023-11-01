@@ -124,14 +124,14 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
              ngvar->payload.global_variable.init = infer(ctx, old_gvar->init, qualified_type_helper(imported_ty, true));
              return ngvar;
         }
-        case Decl_NominalType_TAG: {
+        case NominalType_TAG: {
             const NominalType* onom_type = &node->payload.nom_type;
             Node* nnominal_type = nominal_type(ctx->rewriter.dst_module, infer_nodes(ctx, onom_type->annotations), onom_type->name);
             register_processed(&ctx->rewriter, node, nnominal_type);
             nnominal_type->payload.nom_type.body = infer(ctx, onom_type->body, NULL);
             return nnominal_type;
         }
-        case NotADecl: error("not a decl");
+        case NotADeclaration: error("not a decl");
     }
 }
 

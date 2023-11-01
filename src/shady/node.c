@@ -44,12 +44,12 @@ TerminatorTag is_terminator(const Node* node) {
     }
 }
 
-DeclTag is_declaration(const Node* node) {
+DeclarationTag is_declaration(const Node* node) {
     switch (node->tag) {
-#define IS_DECL(_, _2, _3, name, _4) case name##_TAG: return Decl_##name##_TAG;
+#define IS_DECL(_, _2, _3, name, _4) case name##_TAG: return Declaration_##name##_TAG;
         DECL_NODES(IS_DECL)
 #undef IS_DECL
-        default: return NotADecl;
+        default: return NotADeclaration;
     }
 }
 

@@ -109,13 +109,16 @@
       "name": "terminator"
     },
     {
-      "name": "decl"
+      "name": "declaration"
     },
     {
       "name": "anon_lambda"
     },
     {
       "name": "basic_block"
+    },
+    {
+      "name": "annotation"
     }
   ],
   "nodes": [

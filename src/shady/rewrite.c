@@ -207,7 +207,7 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
             new = nominal_type(rewriter->dst_module, new_annotations, old->payload.nom_type.name);
             break;
         }
-        case NotADecl: error("not a decl");
+        case NotADeclaration: error("not a decl");
     }
     assert(new);
     register_processed(rewriter, old, new);
@@ -235,7 +235,7 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             new->payload.nom_type.body = rewrite_node_with_fn(rewriter, old->payload.nom_type.body, rewrite_type);
             break;
         }
-        case NotADecl: error("not a decl");
+        case NotADeclaration: error("not a decl");
     }
 }
 
