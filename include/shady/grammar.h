@@ -525,50 +525,15 @@ extern const bool node_type_has_payload[];
 
 //////////////////////////////// Node categories ////////////////////////////////
 
-typedef enum {
-    NotAType = 0,
-#define X(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) Type_##struct_name##_TAG = struct_name##_TAG,
-TYPE_NODES(X)
-#undef X
-} TypeTag;
-
 TypeTag is_type(const Node*);
-
-typedef enum {
-    NotAValue = 0,
-#define X(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) Value_##struct_name##_TAG = struct_name##_TAG,
-VALUE_NODES(X)
-#undef X
-} ValueTag;
 
 ValueTag is_value(const Node*);
 
-typedef enum {
-    NotATerminator = 0,
-#define X(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) Terminator_##struct_name##_TAG = struct_name##_TAG,
-TERMINATOR_NODES(X)
-#undef X
-} TerminatorTag;
-
 TerminatorTag is_terminator(const Node*);
-
-typedef enum {
-    NotAnInstruction = 0,
-#define X(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) Instruction_##struct_name##_TAG = struct_name##_TAG,
-INSTRUCTION_NODES(X)
-#undef X
-} InstructionTag;
 
 InstructionTag is_instruction(const Node*);
 
-typedef enum {
-    NotADecl = 0,
-#define X(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) Decl_##struct_name##_TAG = struct_name##_TAG,
-DECL_NODES(X)
-#undef X
-} DeclTag;
-
-DeclTag is_declaration(const Node*);
+DeclarationTag is_declaration(const Node*);
 
 inline static bool is_nominal(const Node* node) {
     NodeTag tag = node->tag;
