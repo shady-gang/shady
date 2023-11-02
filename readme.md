@@ -61,25 +61,25 @@ Metal shading language and C backends are on the table in the future.
     * Meta-instructions for conventional structured control flow (`if`, `match`, `loop`), no convergence annotations required
     * Experimental new dynamically structured control flow primitives (paper/writeup coming later)
 * Nodes are either nominal (top-level declarations, variables and basic blocks) or structural (everything else). Structural nodes are immutable and subject to hash-consing and folding ops during construction.
-* Shady is written in standard C11 with extensive use of x-macros to define the grammar, operations etc, and generate much of the boilerplate code (node hashing, rewriting, visitors, ...)
+* Shady is written in standard C11 and requires few dependencies to build: CMake, JSON-C and the SPIRV-Headers.
+
+The grammar is defined in [grammar.json](include/shady/grammar.json), this file is used to define the various nodes in the IR, and generate much of the boilerplate code (node hashing, rewriting, visitors, ...). Some finer concepts are expressed in [ir.h](include/shady/grammar.h) or even [type.h](src/shady/type.h). There is also a number of x-macros used as "rich" enums.
 
 ## Language syntax
 
-The syntax is under construction. See [grammar.md](grammar.md) for a hopefully not-that-outdated grammar file.
-
-Initially the idea was to have C-like syntax, but that proved annoying so the only significant remnant is the type-before-id aesthetic.
-
-The current syntax reflects the IR quite closely, and is not meant to be easy to write real programs in directly. In the future we might add enough syntactic sugar to make that feasible though.
+The textual syntax of the language is C-like in that return types come first. Variance annotations are supported.
+Overall the language is structurally close to SPIR-V and LLVM, very much on purpose.
+There is a 'front-end' (slim) variant of the IR that allows for mutable variables and using instructions as values.
 
 ```
 // line comments are supported
-fn identity varying int(varying i32 i) {
+fn identity varying i32(varying i32 i) {
     return (i);
 };
 
 fn f i32(varying i32 i) {
-    val j = call (identity, i);
-    val k = add (j, 1);
+    val j = call(identity, i);
+    val k = add(j, 1);
     return (k);
 };
 
