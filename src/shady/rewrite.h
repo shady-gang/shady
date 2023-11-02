@@ -6,14 +6,20 @@
 typedef struct Rewriter_ Rewriter;
 
 typedef const Node* (*RewriteNodeFn)(Rewriter*, const Node*);
-typedef const Node* (*RewriteNodeOp)(Rewriter*, NodeClass, const Node*);
+typedef const Node* (*RewriteOpFn)(Rewriter*, NodeClass, const Node*);
 
 const Node* rewrite_node(Rewriter*, const Node*);
 const Node* rewrite_node_with_fn(Rewriter*, const Node*, RewriteNodeFn);
 
+const Node* rewrite_op(Rewriter*, NodeClass, const Node*);
+const Node* rewrite_op_with_fn(Rewriter*, NodeClass, const Node*, RewriteOpFn);
+
 /// Applies the rewriter to all nodes in the collection
 Nodes rewrite_nodes(Rewriter*, Nodes);
 Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn fn);
+
+Nodes rewrite_ops(Rewriter*, NodeClass, Nodes);
+Nodes rewrite_ops_with_fn(Rewriter* rewriter, NodeClass, Nodes values, RewriteOpFn fn);
 
 Strings import_strings(IrArena*, Strings);
 

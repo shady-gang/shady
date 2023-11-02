@@ -48,6 +48,11 @@ void destroy_rewriter(Rewriter* r) {
     destroy_dict(r->decls_map);
 }
 
+const Node* rewrite_node(Rewriter* rewriter, const Node* node) {
+    assert(rewriter->rewrite_fn);
+    return rewrite_node_with_fn(rewriter, node, rewriter->rewrite_fn);
+}
+
 const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNodeFn fn) {
     assert(rewriter->rewrite_fn);
     if (!node)
@@ -68,23 +73,53 @@ const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNo
     return rewritten;
 }
 
-const Node* rewrite_node(Rewriter* rewriter, const Node* node) {
-    return rewrite_node_with_fn(rewriter, node, rewriter->rewrite_fn);
-}
-
-Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
-    size_t count = old_nodes.count;
-    LARRAY(const Node*, arr, count);
-    for (size_t i = 0; i < count; i++)
-        arr[i] = rewrite_node(rewriter, old_nodes.nodes[i]);
-    return nodes(rewriter->dst_arena, count, arr);
-}
-
 Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn fn) {
     LARRAY(const Node*, arr, values.count);
     for (size_t i = 0; i < values.count; i++)
         arr[i] = rewrite_node_with_fn(rewriter, values.nodes[i], fn);
     return nodes(rewriter->dst_arena, values.count, arr);
+}
+
+Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
+    assert(rewriter->rewrite_fn);
+    return rewrite_nodes_with_fn(rewriter, old_nodes, rewriter->rewrite_fn);
+}
+
+const Node* rewrite_op(Rewriter* rewriter, NodeClass class, const Node* node) {
+    assert(rewriter->rewrite_op_fn);
+    return rewrite_op_with_fn(rewriter, class, node, rewriter->rewrite_op_fn);
+}
+
+const Node* rewrite_op_with_fn(Rewriter* rewriter, NodeClass class, const Node* node, RewriteOpFn fn) {
+    assert(rewriter->rewrite_fn);
+    if (!node)
+        return NULL;
+    const Node* found = NULL;
+    if (rewriter->config.search_map) {
+        found = search_processed(rewriter, node);
+    }
+    if (found)
+        return found;
+
+    const Node* rewritten = fn(rewriter, class, node);
+    if (is_declaration(node))
+        return rewritten;
+    if (rewriter->config.write_map) {
+        register_processed(rewriter, node, rewritten);
+    }
+    return rewritten;
+}
+
+Nodes rewrite_ops_with_fn(Rewriter* rewriter, NodeClass class, Nodes values, RewriteOpFn fn) {
+    LARRAY(const Node*, arr, values.count);
+    for (size_t i = 0; i < values.count; i++)
+        arr[i] = rewrite_op_with_fn(rewriter, class, values.nodes[i], fn);
+    return nodes(rewriter->dst_arena, values.count, arr);
+}
+
+Nodes rewrite_ops(Rewriter* rewriter, NodeClass class, Nodes old_nodes) {
+    assert(rewriter->rewrite_op_fn);
+    return rewrite_ops_with_fn(rewriter, class, old_nodes, rewriter->rewrite_op_fn);
 }
 
 const Node* search_processed(const Rewriter* ctx, const Node* old) {
