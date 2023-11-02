@@ -83,24 +83,18 @@ jobs:
       if: startsWith(matrix.os,'windows')
       run: |
         vcpkg install json-c
-        echo "$CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
+        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> "$env:GITHUB_ENV"
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: >
-        echo "Test"
-        
-        echo $CMAKE_PLATFORM_SPECIFIC_ARGS
-        
-        echo "Test2"
-        
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -DSPIRV-Headers_DIR=SPIRV-Headers/install/share/cmake/SPIRV-Headers
-        $CMAKE_PLATFORM_SPECIFIC_ARGS
+        ${{ env.CMAKE_PLATFORM_SPECIFIC_ARGS }}
         -S ${{ github.workspace }}
 
     - name: Build

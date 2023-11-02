@@ -34,10 +34,6 @@ typedef enum {
     FloatTy64
 } FloatSizes;
 
-/// Populated by the parser for the bind pass, should be empty at all other times after that
-/// (use the Scope analysis to figure out the real scope of a function)
-typedef Nodes ChildrenBlocks;
-
 #define EXECUTION_MODELS(EM) \
 EM(Compute,  1) \
 EM(Fragment, 0) \
@@ -54,6 +50,7 @@ ExecutionModel execution_model_from_string(const char*);
 
 //////////////////////////////// Generated definitions ////////////////////////////////
 
+// see grammar.json
 #include "generated_grammar.h"
 
 extern const char* node_tags[];
