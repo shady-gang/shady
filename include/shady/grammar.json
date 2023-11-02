@@ -103,6 +103,10 @@
       "name": "value"
     },
     {
+      "name": "variable",
+      "generate-enum": false
+    },
+    {
       "name": "instruction"
     },
     {
@@ -271,7 +275,7 @@
     {
       "name": "Variable",
       "snake_name": "var",
-      "class": "value",
+      "class": ["value", "variable"],
       "constructor": "custom",
       "ops": [
         { "name": "type", "class": "TYPE" },
