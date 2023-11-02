@@ -122,7 +122,7 @@ Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
     };
 
     const Node* old_entry_point_decl = find_entry_point(src, config);

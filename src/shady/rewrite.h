@@ -5,28 +5,29 @@
 
 typedef struct Rewriter_ Rewriter;
 
-typedef const Node* (*RewriteFn)(Rewriter*, const Node*);
+typedef const Node* (*RewriteNodeFn)(Rewriter*, const Node*);
+typedef const Node* (*RewriteNodeOp)(Rewriter*, NodeClass, const Node*);
 
 const Node* rewrite_node(Rewriter*, const Node*);
-const Node* rewrite_node_with_fn(Rewriter*, const Node*, RewriteFn);
+const Node* rewrite_node_with_fn(Rewriter*, const Node*, RewriteNodeFn);
 
 /// Applies the rewriter to all nodes in the collection
 Nodes rewrite_nodes(Rewriter*, Nodes);
-Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteFn fn);
+Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn fn);
 
 Strings import_strings(IrArena*, Strings);
 
 struct Rewriter_ {
-    RewriteFn rewrite_fn;
+    RewriteNodeFn rewrite_fn;
     struct {
-        RewriteFn rewrite_type;
-        RewriteFn rewrite_value;
-        RewriteFn rewrite_instruction;
-        RewriteFn rewrite_terminator;
-        RewriteFn rewrite_decl;
-        RewriteFn rewrite_anon_lambda;
-        RewriteFn rewrite_basic_block;
-        RewriteFn rewrite_annotation;
+        RewriteNodeFn rewrite_type;
+        RewriteNodeFn rewrite_value;
+        RewriteNodeFn rewrite_instruction;
+        RewriteNodeFn rewrite_terminator;
+        RewriteNodeFn rewrite_decl;
+        RewriteNodeFn rewrite_anon_lambda;
+        RewriteNodeFn rewrite_basic_block;
+        RewriteNodeFn rewrite_annotation;
     } rewrite_field_type;
     IrArena* src_arena;
     IrArena* dst_arena;
@@ -43,7 +44,7 @@ struct Rewriter_ {
     struct Dict* decls_map;
 };
 
-Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn);
+Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
 Rewriter create_importer(Module* src, Module* dst);
 Rewriter create_substituter(Module* arena);
 void destroy_rewriter(Rewriter*);

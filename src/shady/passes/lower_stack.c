@@ -198,7 +198,7 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     stack_ptr_decl->payload.global_variable.init = uint32_literal(a, 0);
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
 
         .config = config,
 

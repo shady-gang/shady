@@ -14,7 +14,7 @@
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-Rewriter create_rewriter(Module* src, Module* dst, RewriteFn fn) {
+Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
     return (Rewriter) {
         .src_arena = src->arena,
         .dst_arena = dst->arena,
@@ -48,7 +48,7 @@ void destroy_rewriter(Rewriter* r) {
     destroy_dict(r->decls_map);
 }
 
-const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteFn fn) {
+const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNodeFn fn) {
     assert(rewriter->rewrite_fn);
     if (!node)
         return NULL;
@@ -80,7 +80,7 @@ Nodes rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
     return nodes(rewriter->dst_arena, count, arr);
 }
 
-Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteFn fn) {
+Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn fn) {
     LARRAY(const Node*, arr, values.count);
     for (size_t i = 0; i < values.count; i++)
         arr[i] = rewrite_node_with_fn(rewriter, values.nodes[i], fn);

@@ -64,7 +64,7 @@ Module* lower_mask(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     assert(mask_type->tag == Int_TAG);
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .zero = int_literal(a, (IntLiteral) { .width = mask_type->payload.int_type.width, .value = 0 }),
         .one = int_literal(a, (IntLiteral) { .width = mask_type->payload.int_type.width, .value = 1 }),
     };

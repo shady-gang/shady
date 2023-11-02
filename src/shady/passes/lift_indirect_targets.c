@@ -100,7 +100,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     insert_dict(const Node*, LiftedCont*, ctx->lifted, cont, lifted_cont);
 
     Context lifting_ctx = *ctx;
-    lifting_ctx.rewriter = create_rewriter(ctx->rewriter.src_module, ctx->rewriter.dst_module, (RewriteFn) process_node);
+    lifting_ctx.rewriter = create_rewriter(ctx->rewriter.src_module, ctx->rewriter.dst_module, (RewriteNodeFn) process_node);
     register_processed_list(&lifting_ctx.rewriter, oparams, new_params);
 
     const Node* payload = var(a, qualified_type_helper(uint32_type(a), false), "sp");
@@ -203,7 +203,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .lifted = new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
         .config = config,
     };

@@ -244,7 +244,7 @@ bool compare_node(const Node**, const Node**);
 
 void opt_simplify_cf(SHADY_UNUSED const CompilerConfig* config, Module* src, Module* dst, bool allow_fn_inlining) {
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .graph = NULL,
         .scope = NULL,
         .fun = NULL,

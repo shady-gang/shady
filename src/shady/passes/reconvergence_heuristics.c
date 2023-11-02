@@ -475,7 +475,7 @@ Module* reconvergence_heuristics(SHADY_UNUSED const CompilerConfig* config, Modu
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .current_fn = NULL,
         .fwd_scope = NULL,
         .back_scope = NULL,

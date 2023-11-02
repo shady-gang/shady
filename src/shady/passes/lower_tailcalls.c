@@ -429,7 +429,7 @@ Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     Node* top_dispatcher_fn = NULL;
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .disable_lowering = false,
         .assigned_fn_ptrs = ptrs,

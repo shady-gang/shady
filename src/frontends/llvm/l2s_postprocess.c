@@ -211,7 +211,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 void postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .p = p,
         .controls = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
     };

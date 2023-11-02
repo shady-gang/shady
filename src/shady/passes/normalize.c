@@ -19,19 +19,19 @@ static const Node* force_to_be_type(Context* ctx, const Node* node);
 
 static const Node* rewrite_value(Context* ctx, const Node* node) {
     Context ctx2 = *ctx;
-    ctx2.rewriter.rewrite_fn = (RewriteFn) force_to_be_value;
+    ctx2.rewriter.rewrite_fn = (RewriteNodeFn) force_to_be_value;
     return ctx2.rewriter.rewrite_fn(&ctx2.rewriter, node);
 }
 
 static const Node* rewrite_type(Context* ctx, const Node* node) {
     Context ctx2 = *ctx;
-    ctx2.rewriter.rewrite_fn = (RewriteFn) force_to_be_type;
+    ctx2.rewriter.rewrite_fn = (RewriteNodeFn) force_to_be_type;
     return ctx2.rewriter.rewrite_fn(&ctx2.rewriter, node);
 }
 
 static const Node* rewrite_something(Context* ctx, const Node* node) {
     Context ctx2 = *ctx;
-    ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
+    ctx2.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
     return ctx2.rewriter.rewrite_fn(&ctx2.rewriter, node);
 }
 
@@ -56,8 +56,8 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
             assert(ctx->bb);
             let_bound = prim_op(a, (PrimOp) {
                 .op = node->payload.prim_op.op,
-                .operands = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.prim_op.operands, (RewriteFn) rewrite_value),
-                .type_arguments = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.prim_op.type_arguments, (RewriteFn) rewrite_something /* TODO: rewire_type ? */),
+                .operands = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.prim_op.operands, (RewriteNodeFn) rewrite_value),
+                .type_arguments = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.prim_op.type_arguments, (RewriteNodeFn) rewrite_something /* TODO: rewire_type ? */),
             });
             break;
         }
@@ -69,7 +69,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
 
             let_bound = call(a, (Call) {
                 .callee = ncallee,
-                .args = rewrite_nodes_with_fn(&ctx->rewriter, oargs, (RewriteFn) rewrite_value),
+                .args = rewrite_nodes_with_fn(&ctx->rewriter, oargs, (RewriteNodeFn) rewrite_value),
             });
             break;
         }
@@ -129,7 +129,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             BodyBuilder* bb = begin_body(a);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
-            ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
+            ctx2.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
 
             new->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
             return new;
@@ -141,7 +141,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             BodyBuilder* bb = begin_body(a);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
-            ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
+            ctx2.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
             new->payload.basic_block.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.basic_block.body));
             return new;
         }
@@ -151,7 +151,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             BodyBuilder* bb = begin_body(a);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
-            ctx2.rewriter.rewrite_fn = (RewriteFn) process_node;
+            ctx2.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
 
             const Node* new_body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.anon_lam.body));
             return lambda(a, new_params, new_body);
@@ -167,15 +167,15 @@ Module* normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .bb = NULL,
     };
 
     ctx.rewriter.config.search_map = false;
     ctx.rewriter.config.write_map = false;
-    ctx.rewriter.rewrite_field_type.rewrite_value = (RewriteFn) rewrite_value;
-    ctx.rewriter.rewrite_field_type.rewrite_type = (RewriteFn) rewrite_type;
-    ctx.rewriter.rewrite_field_type.rewrite_instruction = (RewriteFn) force_to_be_instruction;
+    ctx.rewriter.rewrite_field_type.rewrite_value = (RewriteNodeFn) rewrite_value;
+    ctx.rewriter.rewrite_field_type.rewrite_type = (RewriteNodeFn) rewrite_type;
+    ctx.rewriter.rewrite_field_type.rewrite_instruction = (RewriteNodeFn) force_to_be_instruction;
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);

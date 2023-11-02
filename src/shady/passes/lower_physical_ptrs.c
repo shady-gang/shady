@@ -472,7 +472,7 @@ Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
     };
 

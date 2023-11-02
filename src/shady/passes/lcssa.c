@@ -179,7 +179,7 @@ Module* lcssa(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .current_fn = NULL,
         .lifted_arguments = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node)
     };

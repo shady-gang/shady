@@ -13,7 +13,7 @@ Module* import(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) recreate_node_identity),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) recreate_node_identity),
     };
 
     rewrite_module(&ctx.rewriter);
