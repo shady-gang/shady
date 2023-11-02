@@ -303,6 +303,9 @@ static void generate_node_ctor(Growy* g, json_object* nodes, bool definition) {
         if (has_custom_ctor(node))
             continue;
 
+        if (definition && i > 0)
+            growy_append_formatted(g, "\n");
+
         String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
         void* alloc = NULL;
         if (!snake_name) {
