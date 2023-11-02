@@ -246,7 +246,7 @@ static void generate_node_payloads(Growy* g, Data data, json_object* nodes) {
         if (ops) {
             assert(json_object_get_type(ops) == json_type_array);
             add_comments(g, "", json_object_object_get(node, "description"));
-            growy_append_formatted(g, "typedef struct %s_ {\n", name);
+            growy_append_formatted(g, "typedef struct {\n");
             for (size_t j = 0; j < json_object_array_length(ops); j++) {
                 json_object* op = json_object_array_get_idx(ops, j);
                 String op_name = json_object_get_string(json_object_object_get(op, "name"));
