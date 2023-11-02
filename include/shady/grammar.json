@@ -135,7 +135,7 @@
       "name": "JoinPointType",
       "class": "type",
       "ops": [
-        { "name": "yield_types", "class": "TYPES" }
+        { "name": "yield_types", "class": "type", "list": true }
       ]
     },
     {
@@ -174,8 +174,8 @@
       "snake_name": "record_type",
       "class": "type",
       "ops": [
-        { "name": "members", "class": "TYPES" },
-        { "name": "names", "class": "STRINGS" },
+        { "name": "members", "class": "type", "list": true },
+        { "name": "names", "class": "string", "list": true },
         { "name": "special", "type": "RecordSpecialFlag" }
       ]
     },
@@ -185,8 +185,8 @@
       "class": "type",
       "type": false,
       "ops": [
-        { "name": "param_types", "class": "TYPES" },
-        { "name": "return_types", "class": "TYPES" }
+        { "name": "param_types", "class": "type", "list": true },
+        { "name": "return_types", "class": "type", "list": true }
       ]
     },
     {
@@ -195,7 +195,7 @@
       "class": "type",
       "type": false,
       "ops": [
-        { "name": "param_types", "class": "TYPES" }
+        { "name": "param_types", "class": "type", "list": true }
       ]
     },
     {
@@ -203,7 +203,7 @@
       "class": "type",
       "type": false,
       "ops": [
-        { "name": "param_types", "class": "TYPES" }
+        { "name": "param_types", "class": "type", "list": true }
       ]
     },
     {
@@ -211,7 +211,7 @@
       "class": "type",
       "ops": [
         { "name": "address_space", "type": "AddressSpace" },
-        { "name": "pointed_type", "class": "TYPE" }
+        { "name": "pointed_type", "class": "type" }
       ]
     },
     {
@@ -219,22 +219,22 @@
       "class": "type",
       "ops": [
         { "name": "is_uniform", "type": "bool" },
-        { "name": "type", "class": "TYPE" }
+        { "name": "type", "class": "type" }
       ]
     },
     {
       "name": "ArrType",
       "class": "type",
       "ops": [
-        { "name": "element_type", "class": "TYPE" },
-        { "name": "size", "class": "VALUE" }
+        { "name": "element_type", "class": "type" },
+        { "name": "size", "class": "value" }
       ]
     },
     {
       "name": "PackType",
       "class": "type",
       "ops": [
-        { "name": "element_type", "class": "TYPE" },
+        { "name": "element_type", "class": "type" },
         { "name": "width", "type": "int" }
       ]
     },
@@ -243,7 +243,7 @@
       "class": "type",
       "type": false,
       "ops": [
-        { "name": "decl", "class": "DECL" }
+        { "name": "decl", "class": "declaration" }
       ]
     },
     {
@@ -251,7 +251,7 @@
       "class": "type",
       "type": false,
       "ops": [
-        { "name": "sampled_type", "class": "TYPE" },
+        { "name": "sampled_type", "class": "type" },
         { "name": "dim", "type": "uint32_t" },
         { "name": "depth", "type": "uint32_t" },
         { "name": "onion", "type": "bool" },
@@ -269,7 +269,7 @@
       "class": "type",
       "type": false,
       "ops": [
-        { "name": "image_type", "class": "TYPE" }
+        { "name": "image_type", "class": "type" }
       ]
     },
     {
@@ -278,9 +278,9 @@
       "class": ["value", "variable"],
       "constructor": "custom",
       "ops": [
-        { "name": "type", "class": "TYPE" },
+        { "name": "type", "class": "type" },
         { "name": "id", "type": "VarId" },
-        { "name": "name", "class": "STRING" },
+        { "name": "name", "class": "string" },
         { "name": "abs", "type": "const Node*", "ignore": true },
         { "name": "pindex", "type": "unsigned", "ignore": true }
       ]
@@ -291,8 +291,8 @@
       "class": "value",
       "type": false,
       "ops": [
-        { "name": "type", "class": "TYPE" },
-        { "name": "value", "class": "VALUE" }
+        { "name": "type", "class": "type" },
+        { "name": "value", "class": "value" }
       ]
     },
     {
@@ -325,7 +325,7 @@
       "snake_name": "string_lit",
       "class": "value",
       "ops": [
-        { "name": "string", "class": "STRING" }
+        { "name": "string", "class": "string" }
       ]
     },
     {
@@ -342,7 +342,7 @@
       "name": "NullPtr",
       "class": "value",
       "ops": [
-        { "name": "ptr_type", "class": "TYPE" }
+        { "name": "ptr_type", "class": "type" }
       ]
     },
     {
@@ -353,23 +353,23 @@
         "Re-ordering values does not count as a computation here !"
       ],
       "ops": [
-        { "name": "type", "class": "TYPE" },
-        { "name": "contents", "class": "VALUES" }
+        { "name": "type", "class": "type" },
+        { "name": "contents", "class": "value", "list": true }
       ]
     },
     {
       "name": "Fill",
       "class": "value",
       "ops": [
-        { "name": "type", "class": "TYPE" },
-        { "name": "value", "class": "VALUE" }
+        { "name": "type", "class": "type" },
+        { "name": "value", "class": "value" }
       ]
     },
     {
       "name": "Undef",
       "class": "value",
       "ops": [
-        { "name": "type", "class": "TYPE" }
+        { "name": "type", "class": "type" }
       ]
     },
     {
@@ -380,7 +380,7 @@
         "Declarations are not values themselves, this node is required to \"convert\" them."
       ],
       "ops": [
-        { "name": "decl", "class": "DECL" }
+        { "name": "decl", "class": "declaration" }
       ]
     },
     {
@@ -388,7 +388,7 @@
       "class": "value",
       "description": "Like RefDecl but for functions, it yields a _function pointer_ !",
       "ops": [
-        { "name": "fn", "class": "DECL" }
+        { "name": "fn", "class": "declaration" }
       ]
     },
     {
@@ -399,15 +399,15 @@
         "Useful for 'constant' computations"
       ],
       "ops": [
-        { "name": "instruction", "class": "INSTRUCTION" }
+        { "name": "instruction", "class": "instruction" }
       ]
     },
     {
       "name": "Call",
       "class": "instruction",
       "ops": [
-        { "name": "callee", "class": "VALUE" },
-        { "name": "args", "class": "VALUES" }
+        { "name": "callee", "class": "value" },
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -415,8 +415,8 @@
       "class": "instruction",
       "ops": [
         { "name": "op", "type": "Op" },
-        { "name": "type_arguments", "class": "TYPES" },
-        { "name": "operands", "class": "VALUES" }
+        { "name": "type_arguments", "class": "type", "list": true },
+        { "name": "operands", "class": "value", "list": true }
       ]
     },
     {
@@ -424,10 +424,10 @@
       "snake_name": "if_instr",
       "class": "instruction",
       "ops": [
-        { "name": "yield_types", "class": "TYPES" },
-        { "name": "condition", "class": "VALUE" },
-        { "name": "if_true", "class": "ANON_LAMBDA" },
-        { "name": "if_false", "class": "ANON_LAMBDA" }
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "condition", "class": "value" },
+        { "name": "if_true", "class": "anon_lambda" },
+        { "name": "if_false", "class": "anon_lambda" }
       ]
     },
     {
@@ -435,11 +435,11 @@
       "snake_name": "match_instr",
       "class": "instruction",
       "ops": [
-        { "name": "yield_types", "class": "TYPES" },
-        { "name": "inspect", "class": "VALUE" },
-        { "name": "literals", "class": "VALUES" },
-        { "name": "cases", "class": "ANON_LAMBDAS" },
-        { "name": "default_case", "class": "ANON_LAMBDA" }
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "inspect", "class": "value" },
+        { "name": "literals", "class": "value", "list": true },
+        { "name": "cases", "class": "anon_lambda", "list": true },
+        { "name": "default_case", "class": "anon_lambda" }
       ]
     },
     {
@@ -447,17 +447,17 @@
       "snake_name": "loop_instr",
       "class": "instruction",
       "ops": [
-        { "name": "yield_types", "class": "TYPES" },
-        { "name": "body", "class": "ANON_LAMBDA" },
-        { "name": "initial_args", "class": "VALUES" }
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "body", "class": "anon_lambda" },
+        { "name": "initial_args", "class": "value", "list": true }
       ]
     },
     {
       "name": "Control",
       "class": "instruction",
       "ops": [
-        { "name": "yield_types", "class": "TYPES" },
-        { "name": "inside", "class": "ANON_LAMBDA" }
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "inside", "class": "anon_lambda" }
       ]
     },
     {
@@ -465,15 +465,15 @@
       "class": "instruction",
       "description": "Used as a helper to insert multiple instructions in place of one",
       "ops": [
-        { "name": "yield_types", "class": "TYPES" },
-        { "name": "inside", "class": "ANON_LAMBDA" }
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "inside", "class": "anon_lambda" }
       ]
     },
     {
       "name": "Comment",
       "class": "instruction",
       "ops": [
-        { "name": "string", "class": "STRING" }
+        { "name": "string", "class": "string" }
       ]
     },
     {
@@ -481,8 +481,8 @@
       "class": "terminator",
       "constructor": "custom",
       "ops": [
-        { "name": "instruction", "class": "INSTRUCTION" },
-        { "name": "tail", "class": "tail" }
+        { "name": "instruction", "class": "instruction" },
+        { "name": "tail", "class": "terminator" }
       ]
     },
     {
@@ -491,24 +491,24 @@
       "constructor": "custom",
       "front-end-only": true,
       "ops": [
-        { "name": "instruction", "class": "INSTRUCTION" },
-        { "name": "tail", "class": "tail" }
+        { "name": "instruction", "class": "instruction" },
+        { "name": "tail", "class": "terminator" }
       ]
     },
     {
       "name": "TailCall",
       "class": "terminator",
       "ops": [
-        { "name": "target", "class": "VALUE" },
-        { "name": "args", "class": "VALUES" }
+        { "name": "target", "class": "value" },
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
       "name": "Jump",
       "class": "terminator",
       "ops": [
-        { "name": "target", "class": "BASIC_BLOCK" },
-        { "name": "args", "class": "VALUES" }
+        { "name": "target", "class": "basic_block" },
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -519,9 +519,9 @@
         "Branch alternatives are made out of Jump terminators"
       ],
       "ops": [
-        { "name": "branch_condition", "class": "VALUE" },
-        { "name": "true_jump", "class": "TERMINATOR" },
-        { "name": "false_jump", "class": "TERMINATOR" }
+        { "name": "branch_condition", "class": "value" },
+        { "name": "true_jump", "class": "terminator" },
+        { "name": "false_jump", "class": "terminator" }
       ]
     },
     {
@@ -530,10 +530,10 @@
       "class": "terminator",
       "description": "N-way variant of Branch. See Branch.",
       "ops": [
-        { "name": "switch_value", "class": "VALUE" },
-        { "name": "case_values", "class": "VALUES" },
-        { "name": "case_jumps", "class": "TERMINATORS" },
-        { "name": "default_jump", "class": "TERMINATOR" }
+        { "name": "switch_value", "class": "value" },
+        { "name": "case_values", "class": "value", "list": true },
+        { "name": "case_jumps", "class": "terminator", "list": true },
+        { "name": "default_jump", "class": "terminator" }
       ]
     },
     {
@@ -545,29 +545,29 @@
         "If @p is_indirect is set, the target must be a function pointer. Otherwise, the target must be a function directly."
       ],
       "ops": [
-        { "name": "join_point", "class": "VALUE" },
-        { "name": "args", "class": "VALUES" }
+        { "name": "join_point", "class": "value" },
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
       "name": "MergeContinue",
       "class": "terminator",
       "ops": [
-        { "name": "args", "class": "VALUES" }
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
       "name": "MergeBreak",
       "class": "terminator",
       "ops": [
-        { "name": "args", "class": "VALUES" }
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
       "name": "Yield",
       "class": "terminator",
       "ops": [
-        { "name": "args", "class": "VALUES" }
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -575,8 +575,8 @@
       "snake_name": "fn_ret",
       "class": "terminator",
       "ops": [
-        { "name": "fn", "class": "DECL" },
-        { "name": "args", "class": "VALUES" }
+        { "name": "fn", "class": "declaration" },
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -589,12 +589,12 @@
       "class": "declaration",
       "constructor": "custom",
       "ops": [
-        { "name": "params", "class": "VARIABLES" },
-        { "name": "body", "class": "TERMINATOR" },
+        { "name": "params", "class": "variable", "list": true },
+        { "name": "body", "class": "terminator" },
         { "name": "module", "type": "Module*", "ignore": true },
-        { "name": "name", "class": "STRING" },
-        { "name": "return_types", "class": "TYPES" },
-        { "name": "annotations", "class": "ANNOTATIONS" }
+        { "name": "name", "class": "string" },
+        { "name": "return_types", "class": "type", "list": true },
+        { "name": "annotations", "class": "annotation", "list": true }
       ]
     },
     {
@@ -602,11 +602,11 @@
       "class": "declaration",
       "constructor": "custom",
       "ops": [
-        { "name": "annotations", "class": "ANNOTATIONS" },
+        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "module", "type": "Module*", "ignore": true },
-        { "name": "name", "class": "STRING" },
-        { "name": "type_hint", "class": "TYPE" },
-        { "name": "value", "class": "VALUE", "ignore": true }
+        { "name": "name", "class": "string" },
+        { "name": "type_hint", "class": "type" },
+        { "name": "value", "class": "value", "ignore": true }
       ]
     },
     {
@@ -614,12 +614,12 @@
       "class": "declaration",
       "constructor": "custom",
       "ops": [
-        { "name": "annotations", "class": "ANNOTATIONS" },
-        { "name": "type", "class": "TYPE" },
+        { "name": "annotations", "class": "annotation", "list": true },
+        { "name": "type", "class": "type" },
         { "name": "module", "type": "Module*", "ignore": true },
-        { "name": "name", "class": "STRING" },
+        { "name": "name", "class": "string" },
         { "name": "address_space", "type": "AddressSpace"},
-        { "name": "init", "class": "VALUE", "ignore": true }
+        { "name": "init", "class": "value", "ignore": true }
       ]
     },
     {
@@ -629,10 +629,10 @@
       "constructor": "custom",
       "type": false,
       "ops": [
-        { "name": "annotations", "class": "ANNOTATIONS" },
+        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "module", "type": "Module*", "ignore": true },
-        { "name": "name", "class": "STRING" },
-        { "name": "body", "class": "TYPE" }
+        { "name": "name", "class": "string" },
+        { "name": "body", "class": "type" }
       ]
     },
     {
@@ -640,7 +640,7 @@
       "class": "annotation",
       "type": false,
       "ops": [
-        { "name": "name", "class": "STRING" }
+        { "name": "name", "class": "string" }
       ]
     },
     {
@@ -648,8 +648,8 @@
       "class": "annotation",
       "type": false,
       "ops": [
-        { "name": "name", "class": "STRING" },
-        { "name": "value", "class": "VALUE" }
+        { "name": "name", "class": "string" },
+        { "name": "value", "class": "value" }
       ]
     },
     {
@@ -657,8 +657,8 @@
       "class": "annotation",
       "type": false,
       "ops": [
-        { "name": "name", "class": "STRING" },
-        { "name": "values", "class": "VALUES" }
+        { "name": "name", "class": "string" },
+        { "name": "values", "class": "value", "list": true }
       ]
     },
     {
@@ -667,8 +667,8 @@
       "class": "annotation",
       "type": false,
       "ops": [
-        { "name": "name", "class": "STRING" },
-        { "name": "entries", "class": "ANNOTATIONS" }
+        { "name": "name", "class": "string" },
+        { "name": "entries", "class": "annotation", "list": true }
       ]
     },
     {
@@ -677,10 +677,10 @@
       "description": "A named abstraction that lives inside a function and can be jumped to",
       "class": "basic_block",
       "ops": [
-        { "name": "params", "class": "VARIABLES" },
-        { "name": "body", "class": "TERMINATOR" },
-        { "name": "fn", "class": "DECL" },
-        { "name": "name", "class": "STRING" }
+        { "name": "params", "class": "variable", "list": true },
+        { "name": "body", "class": "terminator" },
+        { "name": "fn", "class": "declaration" },
+        { "name": "name", "class": "string" }
       ]
     },
     {
@@ -692,8 +692,8 @@
         "Most notably, the tails of standard `let` nodes"
       ],
       "ops": [
-        { "name": "params", "class": "VARIABLES" },
-        { "name": "body", "class": "TERMINATOR" },
+        { "name": "params", "class": "variable", "list": true },
+        { "name": "body", "class": "terminator" },
         { "name": "structured_construct", "type": "String", "ignored": true }
       ]
     },
@@ -712,8 +712,8 @@
       "type": false,
       "front-end-only": true,
       "ops": [
-        { "name": "body", "class": "TERMINATOR" },
-        { "name": "children_blocks", "class": "BASIC_BLOCKS" }
+        { "name": "body", "class": "terminator" },
+        { "name": "children_blocks", "class": "basic_block", "list": true }
       ]
     }
   ]
