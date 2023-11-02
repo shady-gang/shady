@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 static size_t init_size = 4096;
 
@@ -33,6 +34,15 @@ void growy_append_bytes(Growy* g, size_t s, const char* bytes) {
 void growy_append_string(Growy* g, const char* str) {
     size_t len = strlen(str);
     growy_append_bytes(g, len, str);
+}
+
+void format_string_internal(const char* str, va_list args, void* uptr, void callback(void*, size_t, char*));
+
+void growy_append_formatted(Growy* g, const char* str, ...) {
+    va_list args;
+    va_start(args, str);
+    format_string_internal(str, args, g, (void(*)(void*, size_t, char*)) growy_append_bytes);
+    va_end(args);
 }
 
 void destroy_growy(Growy* g) {

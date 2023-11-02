@@ -71,6 +71,7 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
             *nargs = append_nodes(a, *nargs, narg);
         }
     }
+    destroy_list(fvs);
 
     if (nparams->count > 0)
         insert_dict(const Node*, Nodes, ctx->lifted_arguments, old, *nparams);
@@ -178,7 +179,7 @@ Module* lcssa(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .current_fn = NULL,
         .lifted_arguments = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node)
     };

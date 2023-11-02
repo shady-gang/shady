@@ -5,16 +5,6 @@
 #include <assert.h>
 #include <string.h>
 
-bool is_annotation(const Node* node) {
-    switch (node->tag) {
-        case Annotation_TAG:
-        case AnnotationValue_TAG:
-        case AnnotationValues_TAG:
-        case AnnotationCompound_TAG: return true;
-        default: return false;
-    }
-}
-
 String get_annotation_name(const Node* node) {
     assert(is_annotation(node));
     switch (node->tag) {

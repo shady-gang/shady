@@ -6,6 +6,7 @@
 
 #include "../shady/rewrite.h"
 #include "../shady/type.h"
+#include "../shady/ir_private.h"
 #include "../shady/analysis/scope.h"
 
 typedef struct {
@@ -169,7 +170,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                                 if (fn->tag == BasicBlock_TAG)
                                     fn = (Node*) fn->payload.basic_block.fn;
                                 assert(fn->tag == Function_TAG);
-                                Node* wrapper = basic_block(a, fn, nargs, format_string(a, "wrapper_to_%s", get_abstraction_name(dst)));
+                                Node* wrapper = basic_block(a, fn, nargs, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name(dst)));
                                 wrapper->payload.basic_block.body = join(a, (Join) {
                                     .args = nargs,
                                     .join_point = join_token
@@ -210,7 +211,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 void postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .p = p,
         .controls = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
     };

@@ -20,7 +20,7 @@ typedef struct {
     struct List* free_list;
 } Context;
 
-static void visit_fv(Context* visitor, const Node* node) {
+static void search_op_for_free_variables(Context* visitor, NodeClass class, const Node* node) {
     assert(node);
     switch (node->tag) {
         case Variable_TAG: {
@@ -33,8 +33,8 @@ static void visit_fv(Context* visitor, const Node* node) {
         }
         case Function_TAG:
         case AnonLambda_TAG:
-        case BasicBlock_TAG: break; // we do not visit the insides of functions/basic blocks, that's what the domtree search is already doing!
-        default: visit_children(&visitor->visitor, node); break;
+        case BasicBlock_TAG: assert(false);
+        default: visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node); break;
     }
 }
 
@@ -62,7 +62,7 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
 
     const Node* body = get_abstraction_body(abs);
     if (body)
-        visit_fv(ctx, body);
+        visit_op(&ctx->visitor, NcTerminator, body);
 
     for (size_t i = 0; i < entries_count_list(cfnode->dominates); i++) {
         CFNode* child = read_list(CFNode*, cfnode->dominates)[i];
@@ -84,7 +84,7 @@ struct List* compute_free_variables(const Scope* scope, const Node* at) {
 
     Context ctx = {
         .visitor = {
-            .visit_fn = (VisitFn) visit_fv,
+            .visit_op_fn = (VisitOpFn) search_op_for_free_variables,
         },
         .bound_set = bound_set,
         .set = set,

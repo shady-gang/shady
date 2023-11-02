@@ -103,7 +103,7 @@ Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
     assert(!config->lower.emulate_subgroup_ops && "TODO");
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
     rewrite_module(&ctx.rewriter);

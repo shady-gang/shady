@@ -23,7 +23,7 @@ static void visit_verify_same_arena(ArenaVerifyVisitor* visitor, const Node* nod
     if (find_key_dict(const Node*, visitor->once, node))
         return;
     insert_set_get_result(const Node*, visitor->once, node);
-    visit_children(&visitor->visitor, node);
+    visit_node_operands(&visitor->visitor, 0, node);
 }
 
 KeyHash hash_node(const Node**);
@@ -33,14 +33,7 @@ static void verify_same_arena(Module* mod) {
     const IrArena* arena = get_module_arena(mod);
     ArenaVerifyVisitor visitor = {
         .visitor = {
-            .visit_fn = (VisitFn) visit_verify_same_arena,
-            .visit_fn_scope_rpo = true,
-
-            // we also need to visit these potentially recursive things
-            // not because we might miss nodes in a well-formed program (we shouldn't)
-            // but rather because we might in a program that isn't.
-            .visit_referenced_decls = true,
-            .visit_cf_targets = true,
+            .visit_node_fn = (VisitNodeFn) visit_verify_same_arena,
         },
         .arena = arena,
         .once = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)

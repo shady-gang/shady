@@ -17,6 +17,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 # required for MSVC
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
 
+cmake_policy(SET CMP0118 NEW)
 add_subdirectory(src)
 
 include(CTest)

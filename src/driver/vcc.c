@@ -66,14 +66,16 @@ int main(int argc, char** argv) {
     char* llvm_result = growy_deconstruct(json_bytes);
     int clang_returned = pclose(stream);
     info_print("Clang returned %d and replied: \n%s", clang_returned, llvm_result);
+    free(llvm_result);
     if (clang_returned)
-        return ClangInvocationFailed;
+        exit(ClangInvocationFailed);
 
     size_t len;
     char* llvm_ir;
     if (!read_file("vcc_tmp.ll", &len, &llvm_ir))
-        return InputFileIOError;
+        exit(InputFileIOError);
     driver_load_source_file(SrcLLVM, len, llvm_ir, mod);
+    free(llvm_ir);
 
     driver_compile(&args, mod);
     info_print("Done\n");

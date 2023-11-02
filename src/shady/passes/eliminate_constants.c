@@ -30,7 +30,7 @@ Module* eliminate_constants(SHADY_UNUSED const CompilerConfig* config, Module* s
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process)
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process)
     };
 
     rewrite_module(&ctx.rewriter);

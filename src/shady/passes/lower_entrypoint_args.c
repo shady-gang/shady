@@ -2,6 +2,7 @@
 
 #include "portability.h"
 #include "log.h"
+#include "util.h"
 
 #include "../rewrite.h"
 #include "../type.h"
@@ -51,7 +52,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
 
     Nodes annotations = mk_nodes(a, annotation_value(a, (AnnotationValue) { .name = "EntryPointArgs", .value = new_entry_point }));
     const Node* type = generate_arg_struct_type(rewriter, old_entry_point->payload.fun.params);
-    String name = format_string(a, "__%s_args", old_entry_point->payload.fun.name);
+    String name = format_string_arena(a->arena, "__%s_args", old_entry_point->payload.fun.name);
     Node* var = global_var(rewriter->dst_module, annotations, type, name, AsExternal);
 
     return ref_decl_helper(a, var);
@@ -98,7 +99,7 @@ Module* lower_entrypoint_args(const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config
     };
     rewrite_module(&ctx.rewriter);

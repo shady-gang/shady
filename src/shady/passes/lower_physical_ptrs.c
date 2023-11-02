@@ -5,8 +5,10 @@
 #include "../ir_private.h"
 #include "../rewrite.h"
 #include "../type.h"
+
 #include "log.h"
 #include "portability.h"
+#include "util.h"
 
 #include "list.h"
 #include "dict.h"
@@ -288,7 +290,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     const Type* return_value_t = qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || (uniform_address && is_addr_space_uniform(a, as)), .type = element_type });
     Nodes return_ts = ser ? empty(a) : singleton(return_value_t);
 
-    String name = format_string(a, "generated_%s_as%d_%s_%s", ser ? "store" : "load", as, uniform_address ? "uniform" : "varying", name_type_safe(a, element_type));
+    String name = format_string_arena(a->arena, "generated_%s_as%d_%s_%s", ser ? "store" : "load", as, uniform_address ? "uniform" : "varying", name_type_safe(a, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(a, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
@@ -440,10 +442,10 @@ static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t
 static void construct_emulated_memory_array(Context* ctx, AddressSpace as, AddressSpace logical_as) {
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
-    String as_name = format_string(a, "as_%d", as);
+    String as_name = format_string_arena(a->arena, "as_%d", as);
     Nodes annotations = singleton(annotation(a, (Annotation) { .name = "Generated" }));
 
-    Node* global_struct_t = nominal_type(m, annotations, format_string(a, "globals_physical_%s_t", as_name));
+    Node* global_struct_t = nominal_type(m, annotations, format_string_arena(a->arena, "globals_physical_%s_t", as_name));
     //global_struct_t->payload.nom_type.body = collect_globals_into_record_type(ctx, as);
     collect_globals_into_record_type(ctx, global_struct_t, as);
 
@@ -460,7 +462,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as, Addre
         }),
     });
 
-    Node* words_array = global_var(m, annotations, words_array_type, format_string(a, "addressable_word_memory_%s", as_name), logical_as);
+    Node* words_array = global_var(m, annotations, words_array_type, format_string_arena(a->arena, "addressable_word_memory_%s", as_name), logical_as);
     *get_emulated_as_word_array(ctx, as) = words_array;
 }
 
@@ -470,7 +472,7 @@ Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
     };
 

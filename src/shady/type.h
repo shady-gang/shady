@@ -20,14 +20,7 @@ bool has_boolean_ops(const Type*);
 bool is_comparable_type(const Type*);
 bool is_ordered_type(const Type*);
 
-#define DEFINE_NODE_CHECK_FN_1_1(struct_name, short_name) const Type* check_type_##short_name(IrArena*, struct_name);
-#define DEFINE_NODE_CHECK_FN_1_0(struct_name, short_name) const Type* check_type_##short_name(IrArena*);
-
-#define DEFINE_NODE_CHECK_FN_1(struct_name, short_name, has_payload) DEFINE_NODE_CHECK_FN_1_##has_payload(struct_name, short_name)
-#define DEFINE_NODE_CHECK_FN_0(struct_name, short_name, _)
-#define DEFINE_NODE_CHECK_FN(_, has_typing_fn, has_payload, struct_name, short_name) DEFINE_NODE_CHECK_FN_##has_typing_fn(struct_name, short_name, has_payload)
-NODES(DEFINE_NODE_CHECK_FN)
-#undef DEFINE_NODE_CHECK_FN
+#include "type_generated.h"
 
 const Type* get_actual_mask_type(IrArena* arena);
 

@@ -2,17 +2,18 @@
 
 #include "log.h"
 #include "portability.h"
+#include "list.h"
+#include "dict.h"
+#include "util.h"
 
 #include "../type.h"
 #include "../rewrite.h"
+#include "../ir_private.h"
 
 #include "../transform/ir_gen_helpers.h"
 #include "../analysis/scope.h"
 #include "../analysis/free_variables.h"
 #include "../analysis/uses.h"
-
-#include "list.h"
-#include "dict.h"
 
 #include <assert.h>
 #include <string.h>
@@ -73,7 +74,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     Nodes oparams = get_abstraction_params(cont);
     const Node* obody = get_abstraction_body(cont);
 
-    String name = is_basic_block(cont) ? format_string(a, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(a, given_name);
+    String name = is_basic_block(cont) ? format_string_arena(a->arena, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(a, given_name);
 
     // Compute the live stuff we'll need
     Scope* scope = new_scope(cont);
@@ -99,7 +100,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     insert_dict(const Node*, LiftedCont*, ctx->lifted, cont, lifted_cont);
 
     Context lifting_ctx = *ctx;
-    lifting_ctx.rewriter = create_rewriter(ctx->rewriter.src_module, ctx->rewriter.dst_module, (RewriteFn) process_node);
+    lifting_ctx.rewriter = create_rewriter(ctx->rewriter.src_module, ctx->rewriter.dst_module, (RewriteNodeFn) process_node);
     register_processed_list(&lifting_ctx.rewriter, oparams, new_params);
 
     const Node* payload = var(a, qualified_type_helper(uint32_type(a), false), "sp");
@@ -181,7 +182,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 if (!is_control_static(ctx->uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
                     const Node* otail = get_let_tail(node);
                     BodyBuilder* bb = begin_body(a);
-                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string(a, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
+                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string_arena(a->arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
                     const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                     const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 
@@ -202,7 +203,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process_node),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .lifted = new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
         .config = config,
     };

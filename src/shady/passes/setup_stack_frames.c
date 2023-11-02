@@ -1,15 +1,15 @@
 #include "passes.h"
 
+#include "log.h"
+#include "portability.h"
+#include "list.h"
+#include "util.h"
+
 #include "../rewrite.h"
 #include "../visit.h"
 #include "../type.h"
-#include "log.h"
-#include "portability.h"
-
+#include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
-#include "../transform/memory_layout.h"
-
-#include "list.h"
 
 #include <assert.h>
 
@@ -30,7 +30,7 @@ typedef struct {
     struct List* members;
 } VContext;
 
-static void collect_allocas(VContext* vctx, const Node* node) {
+static void search_operand_for_alloca(VContext* vctx, const Node* node) {
     IrArena* a = vctx->context->rewriter.dst_arena;
     AddressSpace as;
 
@@ -48,7 +48,7 @@ static void collect_allocas(VContext* vctx, const Node* node) {
 
         const Node* slot = first(bind_instruction_named(vctx->bb, prim_op(a, (PrimOp) {
             .op = lea_op,
-            .operands = mk_nodes(a, vctx->context->entry_base_stack_ptr, slot_offset) }), (String []) {format_string(a, "stack_slot_%d", entries_count_list(vctx->members)) }));
+            .operands = mk_nodes(a, vctx->context->entry_base_stack_ptr, slot_offset) }), (String []) {format_string_arena(a->arena, "stack_slot_%d", entries_count_list(vctx->members)) }));
 
         const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = as });
         slot = gen_reinterpret_cast(vctx->bb, ptr_t, slot);
@@ -58,7 +58,7 @@ static void collect_allocas(VContext* vctx, const Node* node) {
     }
 
     not_alloca:
-    visit_children(&vctx->visitor, node);
+    visit_node_operands(&vctx->visitor, IGNORE_ABSTRACTIONS_MASK, node);
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -75,21 +75,22 @@ static const Node* process(Context* ctx, const Node* node) {
 
             BodyBuilder* bb = begin_body(a);
             if (!ctx2.disable_lowering) {
-                Node* nom_t = nominal_type(m, empty(a), format_string(a, "%s_stack_frame", get_abstraction_name(node)));
-                ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_pointer_op } ), (String []) {format_string(a, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
+                Node* nom_t = nominal_type(m, empty(a), format_string_arena(a->arena, "%s_stack_frame", get_abstraction_name(node)));
+                ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_pointer_op } ), (String []) {format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
                 ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
                 VContext vctx = {
                     .visitor = {
-                        .visit_fn = (VisitFn) collect_allocas,
-                        .visit_fn_scope_rpo = true,
+                        .visit_node_fn = (VisitNodeFn) search_operand_for_alloca,
                     },
                     .context = &ctx2,
                     .bb = bb,
                     .nom_t = nom_t,
                     .members = new_list(const Node*),
                 };
-                if (node->payload.fun.body)
-                    collect_allocas(&vctx, node);
+                if (node->payload.fun.body) {
+                    search_operand_for_alloca(&vctx, node->payload.fun.body);
+                    visit_function_rpo(&vctx.visitor, node);
+                }
                 vctx.nom_t->payload.nom_type.body = record_type(a, (RecordType) {
                     .members = nodes(a, entries_count_list(vctx.members), read_list(const Node*, vctx.members)),
                     .names = strings(a, 0, NULL),
@@ -129,7 +130,7 @@ Module* setup_stack_frames(SHADY_UNUSED const CompilerConfig* config, Module* sr
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
     rewrite_module(&ctx.rewriter);

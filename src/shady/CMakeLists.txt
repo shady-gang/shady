@@ -1,3 +1,32 @@
+add_subdirectory(generator)
+
+# :( see https://gitlab.kitware.com/cmake/cmake/-/issues/18399
+# set_source_files_properties(${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h PROPERTIES GENERATED TRUE)
+#set_property(SOURCE ${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h PROPERTY GENERATED TRUE)
+
+add_subdirectory(api)
+
+get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
+
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/node_generated.c COMMAND generator node-code ${CMAKE_CURRENT_BINARY_DIR}/node_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_target(node_generated DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/node_generated.c)
+
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/type_generated.h COMMAND generator type-headers ${CMAKE_CURRENT_BINARY_DIR}/type_generated.h ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_target(type_generated DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/type_generated.h)
+
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/constructors_generated.c COMMAND generator constructors-code ${CMAKE_CURRENT_BINARY_DIR}/constructors_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_target(constructors_generated DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/constructors_generated.c)
+
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/visit_generated.c COMMAND generator visitor-code ${CMAKE_CURRENT_BINARY_DIR}/visit_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_target(visit_generated DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/visit_generated.c)
+
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/rewrite_generated.c COMMAND generator rewriter-code ${CMAKE_CURRENT_BINARY_DIR}/rewrite_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_target(rewrite_generated DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/rewrite_generated.c)
+
+add_library(shady_generated INTERFACE)
+add_dependencies(shady_generated node_generated type_generated constructors_generated visit_generated rewrite_generated)
+target_include_directories(shady_generated INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>")
+
 set(SHADY_SOURCES
     ir.c
     node.c
@@ -85,4 +114,5 @@ add_subdirectory(emit)
 
 target_link_libraries(shady PUBLIC "api")
 target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:common>")
+target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:shady_generated>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")

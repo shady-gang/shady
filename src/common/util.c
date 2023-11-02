@@ -1,8 +1,10 @@
 #include "util.h"
+#include "arena.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 #define ESCAPE_SEQS(X) \
 X('\\', '\\') \
@@ -98,6 +100,77 @@ bool write_file(const char* filename, size_t size, const char* data) {
 err_post_open:
     fclose(f);
     return false;
+}
+
+enum {
+    ThreadLocalStaticBufferSize = 256
+};
+
+static char static_buffer[ThreadLocalStaticBufferSize];
+
+void format_string_internal(const char* str, va_list args, void* uptr, void callback(void*, size_t, char*)) {
+    size_t buffer_size = ThreadLocalStaticBufferSize;
+    int len;
+    char* tmp;
+    while (true) {
+        if (buffer_size == ThreadLocalStaticBufferSize) {
+            tmp = static_buffer;
+        } else {
+            tmp = malloc(buffer_size);
+        }
+        va_list args_copy;
+        va_copy(args_copy, args);
+        len = vsnprintf(tmp, buffer_size, str, args_copy);
+        if (len < 0 || len >= (int) buffer_size - 1) {
+            buffer_size *= 2;
+            if (tmp != static_buffer)
+                free(tmp);
+            continue;
+        } else {
+            callback(uptr, len, tmp);
+            if (tmp != static_buffer)
+                free(tmp);
+            return;
+        }
+    }
+}
+
+typedef struct { Arena* a; char** result; } InternInArenaPayload;
+
+static void intern_in_arena(InternInArenaPayload* uptr, size_t len, char* tmp) {
+    char* interned = (char*) arena_alloc(uptr->a, len + 1);
+    strncpy(interned, tmp, len);
+    interned[len] = '\0';
+    *uptr->result = interned;
+}
+
+char* format_string_arena(Arena* arena, const char* str, ...) {
+    char* result = NULL;
+    InternInArenaPayload p = { .a = arena, .result = &result };
+    va_list args;
+    va_start(args, str);
+    format_string_internal(str, args, &p, (void(*)(void*, size_t, char*)) intern_in_arena);
+    va_end(args);
+    return result;
+}
+
+typedef struct { char** result; } PutNewPayload;
+
+static void put_in_new(PutNewPayload* uptr, size_t len, char* tmp) {
+    char* allocated = (char*) malloc(len + 1);
+    strncpy(allocated, tmp, len);
+    allocated[len] = '\0';
+    *uptr->result = allocated;
+}
+
+char* format_string_new(const char* str, ...) {
+    char* result = NULL;
+    PutNewPayload p = { .result = &result };
+    va_list args;
+    va_start(args, str);
+    format_string_internal(str, args, &p, (void(*)(void*, size_t, char*)) put_in_new);
+    va_end(args);
+    return result;
 }
 
 bool string_starts_with(const char* string, const char* prefix) {

@@ -3,10 +3,12 @@
 #include "dict.h"
 #include "list.h"
 #include "portability.h"
+#include "util.h"
 #include "log.h"
 
 #include "../rewrite.h"
 #include "../type.h"
+#include "../ir_private.h"
 
 #include "../analysis/scope.h"
 #include "../analysis/callgraph.h"
@@ -183,7 +185,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     // Prepare a join point to replace the old function return
                     Nodes nyield_types = strip_qualifiers(a, rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
                     const Type* jp_type = join_point_type(a, (JoinPointType) { .yield_types = nyield_types });
-                    const Node* join_point = var(a, qualified_type_helper(jp_type, true), format_string(a, "inlined_return_%s", get_abstraction_name(ocallee)));
+                    const Node* join_point = var(a, qualified_type_helper(jp_type, true), format_string_arena(a->arena, "inlined_return_%s", get_abstraction_name(ocallee)));
                     insert_dict_and_get_result(const Node*, const Node*, ctx->inlined_return_sites, ocallee, join_point);
 
                     const Node* nbody = inline_call(ctx, ocallee, nargs, true);
@@ -242,7 +244,7 @@ bool compare_node(const Node**, const Node**);
 
 void opt_simplify_cf(SHADY_UNUSED const CompilerConfig* config, Module* src, Module* dst, bool allow_fn_inlining) {
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .graph = NULL,
         .scope = NULL,
         .fun = NULL,

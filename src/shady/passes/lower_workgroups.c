@@ -1,5 +1,7 @@
 #include "passes.h"
 
+#include "util.h"
+
 #include "../ir_private.h"
 #include "../rewrite.h"
 #include "../type.h"
@@ -59,7 +61,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 // recreate the old entry point, but this time it's not the entry point anymore
                 Nodes nannotations = filter_out_annotation(a, wannotations, "EntryPoint");
                 Nodes nparams = recreate_variables(&ctx->rewriter, node->payload.fun.params);
-                Node* inner = function(m, nparams, format_string(a, "%s_wrapped", get_abstraction_name(node)), nannotations, empty(a));
+                Node* inner = function(m, nparams, format_string_arena(a->arena, "%s_wrapped", get_abstraction_name(node)), nannotations, empty(a));
                 register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
                 inner->payload.fun.body = recreate_node_identity(&ctx->rewriter, node->payload.fun.body);
 
@@ -175,7 +177,7 @@ Module* lower_workgroups(const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) process),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .globals = calloc(sizeof(Node*), PRIMOPS_COUNT),
     };

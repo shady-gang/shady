@@ -54,7 +54,7 @@ static void visit_callsite(CGVisitor* visitor, const Node* callee, const Node* i
     insert_set_get_result(CGEdge, target->callers, edge);
 }
 
-static void visit_node(CGVisitor* visitor, const Node* node) {
+static void search_for_callsites(CGVisitor* visitor, const Node* node) {
     assert(is_abstraction(visitor->abs));
     switch (node->tag) {
         case Function_TAG: {
@@ -64,7 +64,7 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
         case BasicBlock_TAG:
         case AnonLambda_TAG: {
             const Node* old_abs = visitor->abs;
-            visit_children(&visitor->visitor, node);
+            visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node);
             visitor->abs = old_abs;
             break;
         }
@@ -79,8 +79,8 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);
             else
-                visit_node(visitor, callee);
-            visit_nodes(&visitor->visitor, node->payload.call.args);
+                visit_op(&visitor->visitor, NcValue, callee);
+            visit_ops(&visitor->visitor, NcValue, node->payload.call.args);
             break;
         }
         case TailCall_TAG: {
@@ -89,17 +89,17 @@ static void visit_node(CGVisitor* visitor, const Node* node) {
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);
             else
-                visit_node(visitor, callee);
+                visit_node(&visitor->visitor, callee);
             visit_nodes(&visitor->visitor, node->payload.tail_call.args);
             break;
         }
-        default: visit_children(&visitor->visitor, node);
+        default: visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node);
     }
 }
 
 static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
     assert(fn && fn->tag == Function_TAG);
-    CGNode** found = fn ? find_value_dict(const Node*, CGNode*, graph->fn2cgn, fn) : NULL;
+    CGNode** found = find_value_dict(const Node*, CGNode*, graph->fn2cgn, fn);
     if (found)
         return *found;
     CGNode* new = calloc(1, sizeof(CGNode));
@@ -111,16 +111,17 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
 
     CGVisitor v = {
         .visitor = {
-            .visit_fn_scope_rpo = true,
-            .visit_fn = (VisitFn) visit_node
+            .visit_node_fn = (VisitNodeFn) search_for_callsites
         },
         .graph = graph,
         .root = new,
         .abs = fn,
     };
 
-    if (fn)
-        visit_children(&v.visitor, fn);
+    if (fn->payload.fun.body) {
+        search_for_callsites(&v, fn->payload.fun.body);
+        visit_function_rpo(&v.visitor, fn);
+    }
 
     return new;
 }

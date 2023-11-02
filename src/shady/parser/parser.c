@@ -132,7 +132,7 @@ static const Node* accept_numerical_literal(ctxparams) {
     }
 
     if (negate) // add back the - in front
-        str = format_string(arena, "-%s", str);
+        str = format_string_arena(arena->arena, "-%s", str);
 
     const Node* n = untyped_number(arena, (UntypedNumber) {
             .plaintext = str

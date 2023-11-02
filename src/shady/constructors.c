@@ -5,6 +5,7 @@
 #include "portability.h"
 
 #include "dict.h"
+#include "visit.h"
 
 #include <string.h>
 #include <assert.h>
@@ -12,69 +13,24 @@
 Strings import_strings(IrArena*, Strings);
 bool compare_nodes(Nodes* a, Nodes* b);
 
-#define VISIT_FIELD_SCRATCH(t, n)
-#define VISIT_FIELD_POD(t, n)
-#define VISIT_FIELD_STRING(t, n) payload->n = string(arena, payload->n);
-#define VISIT_FIELD_STRINGS(t, n) payload->n = import_strings(arena, payload->n);
-#define VISIT_FIELD_ANNOTATIONS(t, n)
-#define VISIT_FIELD_TYPE(t, n)
-#define VISIT_FIELD_TYPES(t, n)
-#define VISIT_FIELD_VALUE(t, n)
-#define VISIT_FIELD_VALUES(t, n)
-#define VISIT_FIELD_VARIABLES(t, n)
-#define VISIT_FIELD_INSTRUCTION(t, n)
-#define VISIT_FIELD_TERMINATOR(t, n)
-#define VISIT_FIELD_TERMINATORS(t, n)
-#define VISIT_FIELD_ANON_LAMBDA(t, n)
-#define VISIT_FIELD_ANON_LAMBDAS(t, n)
+typedef struct { Visitor visitor; const Node* parent; } VisitorPCV;
 
-#define VISIT_FIELD_DECL(t, n)
-
-#define VISIT_FIELD_BASIC_BLOCK(t, n)
-#define VISIT_FIELD_BASIC_BLOCKS(t, n)
-
-static void pre_construction_validation(IrArena* arena, Node* node) {
-    switch (node->tag) {
-        case InvalidNode_TAG: SHADY_UNREACHABLE;
-        #define VISIT_FIELD(hash, ft, t, n) VISIT_FIELD_##ft(t, n)
-        #define VISIT_NODE_0(StructName, short_name) case StructName##_TAG: break;
-        #define VISIT_NODE_1(StructName, short_name) case StructName##_TAG: { SHADY_UNUSED StructName* payload = &node->payload.short_name; StructName##_Fields(VISIT_FIELD) break; }
-        #define VISIT_NODE(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name) VISIT_NODE_##has_payload(StructName, short_name)
-        NODES(VISIT_NODE)
-    }
+static void post_construction_validation_visit_op(VisitorPCV* v, NodeClass class, const Node* node) {
+    if (class == NcAnon_lambda)
+        ((Node*) node)->payload.anon_lam.structured_construct = v->parent;
 }
-
-#define VISIT_FIELD_SCRATCH(t, n)
-#define VISIT_FIELD_POD(t, n)
-#define VISIT_FIELD_STRING(t, n)
-#define VISIT_FIELD_STRINGS(t, n)
-#define VISIT_FIELD_ANNOTATIONS(t, n)
-#define VISIT_FIELD_TYPE(t, n)
-#define VISIT_FIELD_TYPES(t, n)
-#define VISIT_FIELD_VALUE(t, n)
-#define VISIT_FIELD_VALUES(t, n)
-#define VISIT_FIELD_VARIABLES(t, n)
-#define VISIT_FIELD_INSTRUCTION(t, n)
-#define VISIT_FIELD_TERMINATOR(t, n)
-#define VISIT_FIELD_TERMINATORS(t, n)
-#define VISIT_FIELD_ANON_LAMBDA(t, n) if (payload->n) ((Node*) payload->n)->payload.anon_lam.structured_construct = node;
-#define VISIT_FIELD_ANON_LAMBDAS(t, n) for (size_t i = 0; i < payload->n.count; i++) { ((Node*) payload->n.nodes[i])->payload.anon_lam.structured_construct = node; }
-
-#define VISIT_FIELD_DECL(t, n)
-
-#define VISIT_FIELD_BASIC_BLOCK(t, n)
-#define VISIT_FIELD_BASIC_BLOCKS(t, n)
 
 static void post_construction_validation(IrArena* arena, Node* node) {
-    switch (node->tag) {
-        case InvalidNode_TAG: SHADY_UNREACHABLE;
-        #define VISIT_FIELD(hash, ft, t, n) VISIT_FIELD_##ft(t, n)
-        #define VISIT_NODE_0(StructName, short_name) case StructName##_TAG: break;
-        #define VISIT_NODE_1(StructName, short_name) case StructName##_TAG: { SHADY_UNUSED StructName* payload = &node->payload.short_name; StructName##_Fields(VISIT_FIELD) break; }
-        #define VISIT_NODE(autogen_ctor, has_type_check_fn, has_payload, StructName, short_name) VISIT_NODE_##has_payload(StructName, short_name)
-        NODES(VISIT_NODE)
-    }
+    VisitorPCV v = {
+        .visitor = {
+            .visit_op_fn = (VisitOpFn) post_construction_validation_visit_op
+        },
+        .parent = node,
+    };
+    visit_node_operands(&v.visitor, 0, node);
 }
+
+static void pre_construction_validation(IrArena* arena, Node* node);
 
 static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     pre_construction_validation(arena, &node);
@@ -115,33 +71,7 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     return alloc;
 }
 
-#define LAST_ARG_1(struct_name) ,struct_name in_node
-#define LAST_ARG_0(struct_name)
-
-#define CALL_TYPING_METHOD_11(short_name) arena->config.check_types ? check_type_##short_name(arena, in_node) : NULL
-#define CALL_TYPING_METHOD_01(short_name) NULL
-#define CALL_TYPING_METHOD_10(short_name) arena->config.check_types ? check_type_##short_name(arena) : NULL
-#define CALL_TYPING_METHOD_00(short_name) NULL
-
-#define SET_PAYLOAD_1(short_name) .payload = (union NodesUnion) { .short_name = in_node }
-#define SET_PAYLOAD_0(_)
-
-#define NODE_CTOR_1(has_typing_fn, has_payload, struct_name, short_name) const Node* short_name(IrArena* arena LAST_ARG_##has_payload(struct_name)) { \
-    Node node;                                                                                                                                        \
-    memset((void*) &node, 0, sizeof(Node));                                                                                                           \
-    node = (Node) {                                                                                                                                   \
-        .arena = arena,                                                                                                                               \
-        .type = CALL_TYPING_METHOD_##has_typing_fn##has_payload(short_name),                                                                          \
-        .tag = struct_name##_TAG,                                                                                                                     \
-        SET_PAYLOAD_##has_payload(short_name)                                                                                                         \
-    };                                                                                                                                                \
-    return create_node_helper(arena, node, NULL);                                                                                                           \
-}
-
-#define NODE_CTOR_0(has_typing_fn, has_payload, struct_name, short_name)
-#define NODE_CTOR(autogen_ctor, has_typing_fn, has_payload, struct_name, short_name) NODE_CTOR_##autogen_ctor(has_typing_fn, has_payload, struct_name, short_name)
-NODES(NODE_CTOR)
-#undef NODE_CTOR
+#include "constructors_generated.c"
 
 const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
     Let payload = {

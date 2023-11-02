@@ -129,7 +129,7 @@ Module* lower_callf(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteFn) lower_callf_process),
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) lower_callf_process),
         .disable_lowering = false,
     };
     rewrite_module(&ctx.rewriter);

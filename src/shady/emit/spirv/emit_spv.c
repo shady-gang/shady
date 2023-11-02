@@ -3,6 +3,7 @@
 #include "log.h"
 #include "portability.h"
 #include "growy.h"
+#include "util.h"
 
 #include "shady/builtins.h"
 #include "../../ir_private.h"
@@ -22,7 +23,7 @@ extern SpvBuiltIn spv_builtins[];
 
 void register_result(Emitter* emitter, const Node* node, SpvId id) {
     String result_name = node->payload.var.name;
-    result_name = format_string(emitter->arena, "%s_%d", node->payload.var.name, node->payload.var.id);
+    result_name = format_string_arena(emitter->arena->arena, "%s_%d", node->payload.var.name, node->payload.var.id);
     if (node->tag == Variable_TAG)
         spvb_name(emitter->file_builder, id, result_name);
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, id);
@@ -425,7 +426,7 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
             emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
             return given_id;
         }
-        case NotADecl: error("");
+        case NotADeclaration: error("");
     }
     error("unreachable");
 }

@@ -27,8 +27,10 @@ typedef enum {
 #include "arena.h"
 #include "portability.h"
 #include "dict.h"
+#include "util.h"
 
 #include "../shady/type.h"
+#include "../shady/ir_private.h"
 #include "../shady/transform/ir_gen_helpers.h"
 
 #include <assert.h>
@@ -503,13 +505,13 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             switch ((SpvExecutionModel) instruction[1]) {
                 case SpvExecutionModelGLCompute:
                 case SpvExecutionModelKernel:
-                    type = "compute";
+                    type = "Compute";
                     break;
                 case SpvExecutionModelFragment:
-                    type = "fragment";
+                    type = "Fragment";
                     break;
                 case SpvExecutionModelVertex:
-                    type = "vertex";
+                    type = "Vertex";
                     break;
                 default:
                     error("Unsupported execution model %d", instruction[1])
@@ -633,7 +635,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             for (size_t i = 0; i < members_count; i++) {
                 member_names[i] = get_member_name(parser, result, i);
                 if (!member_names[i])
-                    member_names[i] = format_string(parser->arena, "member%d", i);
+                    member_names[i] = format_string_arena(parser->arena->arena, "member%d", i);
                 member_tys[i] = get_def_type(parser, instruction[2 + i]);
             }
             nominal_type_decl->payload.nom_type.body = record_type(parser->arena, (RecordType) {
@@ -795,7 +797,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 assert(entry_point_name);
                 name = entry_point_name->payload.str;
 
-                if (strcmp(entry_point_type->payload.str, "compute") == 0) {
+                if (strcmp(entry_point_type->payload.str, "Compute") == 0) {
                     SpvDeco* wg_size_dec = find_decoration(parser, result, -2, SpvExecutionModeLocalSize);
                     assert(wg_size_dec && wg_size_dec->payload.literals.count == 3 && "we require kernels decorated with a workgroup size");
                     annotations = append_nodes(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
@@ -805,9 +807,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                                                int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
                                                int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
                     }));
-                } else if (strcmp(entry_point_type->payload.str, "frag") == 0) {
+                } else if (strcmp(entry_point_type->payload.str, "Fragment") == 0) {
 
-                } else if (strcmp(entry_point_type->payload.str, "vertex") == 0) {
+                } else if (strcmp(entry_point_type->payload.str, "Vertex") == 0) {
 
                 } else {
                     warn_print("Unknown entry point type '%s' for '%s'\n", entry_point_type->payload.str, name);
@@ -858,7 +860,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpFunctionParameter: {
             parser->defs[result].type = Value;
             String param_name = get_name(parser, result);
-            param_name = param_name ? param_name : format_string(parser->arena, "param%d", parser->fun_arg_i);
+            param_name = param_name ? param_name : format_string_arena(parser->arena->arena, "param%d", parser->fun_arg_i);
             parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), parser->is_entry_pt), param_name);
             break;
         }
