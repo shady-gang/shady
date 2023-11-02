@@ -24,6 +24,9 @@ add_custom_target(constructors_generated DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/con
 add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/visit_generated.c COMMAND generator visitor-code ${CMAKE_CURRENT_SOURCE_DIR}/visit_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
 add_custom_target(visit_generated DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/visit_generated.c)
 
+add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/rewrite_generated.c COMMAND generator rewriter-code ${CMAKE_CURRENT_SOURCE_DIR}/rewrite_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
+add_custom_target(rewrite_generated DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/rewrite_generated.c)
+
 set(SHADY_SOURCES
     ir.c
     node.c
@@ -98,7 +101,7 @@ set(SHADY_SOURCES
 add_library(shady SHARED ${SHADY_SOURCES})
 set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-add_dependencies(shady node_generated type_generated constructors_generated visit_generated)
+add_dependencies(shady node_generated type_generated constructors_generated visit_generated rewrite_generated)
 
 if (WIN32)
     if (MSVC)

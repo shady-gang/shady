@@ -85,6 +85,7 @@ static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
             found = old_decls.nodes[i];
         }
     }
+    assert(found);
     return found;
 }
 

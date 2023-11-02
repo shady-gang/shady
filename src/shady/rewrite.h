@@ -26,16 +26,6 @@ Strings import_strings(IrArena*, Strings);
 struct Rewriter_ {
     RewriteNodeFn rewrite_fn;
     RewriteOpFn rewrite_op_fn;
-    struct {
-        RewriteNodeFn rewrite_type;
-        RewriteNodeFn rewrite_value;
-        RewriteNodeFn rewrite_instruction;
-        RewriteNodeFn rewrite_terminator;
-        RewriteNodeFn rewrite_decl;
-        RewriteNodeFn rewrite_anon_lambda;
-        RewriteNodeFn rewrite_basic_block;
-        RewriteNodeFn rewrite_annotation;
-    } rewrite_field_type;
     IrArena* src_arena;
     IrArena* dst_arena;
     Module* src_module;
