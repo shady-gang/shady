@@ -30,7 +30,7 @@ typedef struct {
     struct List* members;
 } VContext;
 
-static void collect_allocas(VContext* vctx, const Node* node) {
+static void search_operand_for_alloca(VContext* vctx, const Node* node) {
     IrArena* a = vctx->context->rewriter.dst_arena;
     AddressSpace as;
 
@@ -58,7 +58,7 @@ static void collect_allocas(VContext* vctx, const Node* node) {
     }
 
     not_alloca:
-    visit_children(&vctx->visitor, node);
+    visit_node_operands(&vctx->visitor, IGNORE_ABSTRACTIONS_MASK, node);
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -80,16 +80,17 @@ static const Node* process(Context* ctx, const Node* node) {
                 ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
                 VContext vctx = {
                     .visitor = {
-                        .visit_fn = (VisitFn) collect_allocas,
-                        .visit_fn_scope_rpo = true,
+                        .visit_fn = (VisitNodeFn) search_operand_for_alloca,
                     },
                     .context = &ctx2,
                     .bb = bb,
                     .nom_t = nom_t,
                     .members = new_list(const Node*),
                 };
-                if (node->payload.fun.body)
-                    collect_allocas(&vctx, node);
+                if (node->payload.fun.body) {
+                    search_operand_for_alloca(&vctx, node->payload.fun.body);
+                    visit_function_rpo(&vctx.visitor, node);
+                }
                 vctx.nom_t->payload.nom_type.body = record_type(a, (RecordType) {
                     .members = nodes(a, entries_count_list(vctx.members), read_list(const Node*, vctx.members)),
                     .names = strings(a, 0, NULL),

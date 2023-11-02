@@ -482,7 +482,7 @@
       "constructor": "custom",
       "ops": [
         { "name": "instruction", "class": "instruction" },
-        { "name": "tail", "class": "terminator" }
+        { "name": "tail", "class": "anon_lambda" }
       ]
     },
     {
@@ -492,7 +492,7 @@
       "front-end-only": true,
       "ops": [
         { "name": "instruction", "class": "instruction" },
-        { "name": "tail", "class": "terminator" }
+        { "name": "tail", "class": "anon_lambda" }
       ]
     },
     {

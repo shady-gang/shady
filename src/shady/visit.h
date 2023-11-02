@@ -4,21 +4,26 @@
 #include "shady/ir.h"
 
 typedef struct Visitor_ Visitor;
-typedef void (*VisitFn)(Visitor*, const Node*);
+typedef void (*VisitNodeFn)(Visitor*, const Node*);
+typedef void (*VisitOpFn)(Visitor*, NodeClass, const Node*);
 
 struct Visitor_ {
-   VisitFn visit_fn;
-   // Enabling this will make visit_children build the scope of functions and look at their continuations in RPO
-   bool visit_fn_scope_rpo;
-   // Enabling this will make visit_children visit control flow targets
-   bool visit_cf_targets;
-   // Enabling this will make visit_children visit references to other declarations (visit_module will still visit those at the top)
-   bool visit_referenced_decls;
+   VisitNodeFn visit_fn;
+   VisitOpFn visit_op;
 };
 
-void visit_children(Visitor*, const Node*);
-void visit_fn_blocks_except_head(Visitor*, const Node*);
-void visit_nodes(Visitor* visitor, Nodes nodes);
+void visit_node_operands(Visitor*, NodeClass exclude, const Node*);
 void visit_module(Visitor* visitor, Module*);
+
+void visit_node(Visitor* visitor, const Node*);
+void visit_nodes(Visitor* visitor, Nodes nodes);
+
+void visit_op(Visitor* visitor, NodeClass, const Node*);
+void visit_ops(Visitor* visitor, NodeClass, Nodes nodes);
+
+// visits the abstractions in the function, _except_ for the entry block (ie the function itself)
+void visit_function_rpo(Visitor* visitor, const Node* function);
+// use this in visit_node_operands to avoid visiting nodes in non-rpo order
+#define IGNORE_ABSTRACTIONS_MASK NcBasic_block | NcAnon_lambda | NcDeclaration
 
 #endif
