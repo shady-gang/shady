@@ -74,7 +74,7 @@ jobs:
     #  with:
     #    with_clang: true
 
-    - name: Install json-c (vcpkg)
+    - name: Install json-c (apt)
       if: startsWith(matrix.os,'ubuntu')
       run: |
         sudo apt install libjson-c-dev

@@ -27,6 +27,9 @@ add_custom_target(visit_generated DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/visit_gene
 add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/rewrite_generated.c COMMAND generator rewriter-code ${CMAKE_CURRENT_SOURCE_DIR}/rewrite_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS generator ${CMAKE_SOURCE_DIR}/include/shady/grammar.json VERBATIM)
 add_custom_target(rewrite_generated DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/rewrite_generated.c)
 
+add_library(shady_generated INTERFACE)
+add_dependencies(shady_generated node_generated type_generated constructors_generated visit_generated rewrite_generated)
+
 set(SHADY_SOURCES
     ir.c
     node.c
@@ -101,8 +104,6 @@ set(SHADY_SOURCES
 add_library(shady SHARED ${SHADY_SOURCES})
 set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-add_dependencies(shady node_generated type_generated constructors_generated visit_generated rewrite_generated)
-
 if (WIN32)
     if (MSVC)
         target_link_options(shady PUBLIC /STACK:33554432)
@@ -116,4 +117,5 @@ add_subdirectory(emit)
 
 target_link_libraries(shady PUBLIC "api")
 target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:common>")
+target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:shady_generated>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
