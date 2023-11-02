@@ -19,6 +19,7 @@ Strings import_strings(IrArena*, Strings);
 
 struct Rewriter_ {
     RewriteNodeFn rewrite_fn;
+    RewriteOpFn rewrite_op_fn;
     struct {
         RewriteNodeFn rewrite_type;
         RewriteNodeFn rewrite_value;

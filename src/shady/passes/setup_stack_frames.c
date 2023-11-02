@@ -80,7 +80,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
                 VContext vctx = {
                     .visitor = {
-                        .visit_fn = (VisitNodeFn) search_operand_for_alloca,
+                        .visit_node_fn = (VisitNodeFn) search_operand_for_alloca,
                     },
                     .context = &ctx2,
                     .bb = bb,

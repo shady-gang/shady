@@ -33,7 +33,7 @@ static void verify_same_arena(Module* mod) {
     const IrArena* arena = get_module_arena(mod);
     ArenaVerifyVisitor visitor = {
         .visitor = {
-            .visit_fn = (VisitNodeFn) visit_verify_same_arena,
+            .visit_node_fn = (VisitNodeFn) visit_verify_same_arena,
         },
         .arena = arena,
         .once = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)

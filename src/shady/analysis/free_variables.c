@@ -84,7 +84,7 @@ struct List* compute_free_variables(const Scope* scope, const Node* at) {
 
     Context ctx = {
         .visitor = {
-            .visit_op = (VisitOpFn) search_op_for_free_variables,
+            .visit_op_fn = (VisitOpFn) search_op_for_free_variables,
         },
         .bound_set = bound_set,
         .set = set,

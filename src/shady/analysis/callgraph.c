@@ -111,7 +111,7 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
 
     CGVisitor v = {
         .visitor = {
-            .visit_fn = (VisitNodeFn) search_for_callsites
+            .visit_node_fn = (VisitNodeFn) search_for_callsites
         },
         .graph = graph,
         .root = new,

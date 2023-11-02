@@ -6,9 +6,9 @@
 #include <assert.h>
 
 void visit_node(Visitor* visitor, const Node* node) {
-    assert(visitor->visit_fn);
+    assert(visitor->visit_node_fn);
     if (node)
-        visitor->visit_fn(visitor, node);
+        visitor->visit_node_fn(visitor, node);
 }
 
 void visit_nodes(Visitor* visitor, Nodes nodes) {
@@ -20,10 +20,10 @@ void visit_nodes(Visitor* visitor, Nodes nodes) {
 void visit_op(Visitor* visitor, NodeClass class, const Node* op) {
     if (!op)
         return;
-    if (visitor->visit_op)
-        visitor->visit_op(visitor, class, op);
+    if (visitor->visit_op_fn)
+        visitor->visit_op_fn(visitor, class, op);
     else
-        visitor->visit_fn(visitor, op);
+        visitor->visit_node_fn(visitor, op);
 }
 
 void visit_ops(Visitor* visitor, NodeClass class, Nodes ops) {
