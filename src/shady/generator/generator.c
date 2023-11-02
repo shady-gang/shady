@@ -893,8 +893,11 @@ int main(int argc, char** argv) {
     size_t final_size = growy_size(g);
     growy_append_bytes(g, 1, (char[]) { 0 });
     char* generated = growy_deconstruct(g);
-    info_print("debug: %s\n", generated);
-    write_file(dst_file, final_size, generated);
+    debug_print("debug: %s\n", generated);
+    if (!write_file(dst_file, final_size, generated)) {
+        error_print("Failed to write file '%s'\n", dst_file);
+        error_die();
+    }
     free(shd_grammar.contents);
     free(spv_grammar.contents);
     free(generated);

@@ -51,7 +51,7 @@ ExecutionModel execution_model_from_string(const char*);
 //////////////////////////////// Generated definitions ////////////////////////////////
 
 // see grammar.json
-#include "generated_grammar.h"
+#include "grammar_generated.h"
 
 extern const char* node_tags[];
 extern const bool node_type_has_payload[];
