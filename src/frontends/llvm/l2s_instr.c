@@ -38,6 +38,20 @@ static Nodes reinterpret_operands(BodyBuilder* b, Nodes ops, const Type* dst_t) 
     return nodes(a, ops.count, nops);
 }
 
+LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
+    while (true) {
+        if (LLVMIsAInstruction(v) || LLVMIsAConstantExpr(v)) {
+            if (LLVMGetInstructionOpcode(v) == LLVMBitCast) {
+                LLVMTypeRef t = LLVMTypeOf(v);
+                if (LLVMGetTypeKind(t) == LLVMPointerTypeKind)
+                    v = LLVMGetOperand(v, 0);
+            }
+        }
+        break;
+    }
+    return v;
+}
+
 /// instr may be an instruction or a constantexpr
 EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
     Node* fn = fn_or_bb;
@@ -309,6 +323,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
         case LLVMCall: {
             unsigned num_args = LLVMGetNumArgOperands(instr);
             LLVMValueRef callee = LLVMGetCalledValue(instr);
+            callee = remove_ptr_bitcasts(p, callee);
             assert(num_args + 1 == num_ops);
             String intrinsic = is_llvm_intrinsic(callee);
             if (!intrinsic)
@@ -319,6 +334,12 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 if (strcmp(intrinsic, "llvm.dbg.label") == 0) {
                     // TODO
                     return (EmittedInstr) {};
+                }
+                if (string_starts_with(intrinsic, "llvm.memcpy")) {
+                    Nodes ops = convert_operands(p, num_ops, instr);
+                    num_results = 0;
+                    r = prim_op_helper(a, memcpy_op, empty(a), nodes(a, 3, ops.nodes));
+                    break;
                 }
 
                 String ostr = intrinsic;
@@ -345,6 +366,9 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                         error_die();
                     }
                 }
+
+                error_print("Unhandled intrinsic '%s'\n", intrinsic);
+                error_die();
             }
             if (r)
                 break;

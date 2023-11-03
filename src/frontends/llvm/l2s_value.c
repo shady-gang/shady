@@ -75,8 +75,8 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         case LLVMBlockAddressValueKind:
             break;
         case LLVMConstantExprValueKind: {
-            BodyBuilder* bb = begin_body(a);
-            EmittedInstr emitted = convert_instruction(p, NULL, bb, v);
+            //BodyBuilder* bb = begin_body(a);
+            EmittedInstr emitted = convert_instruction(p, NULL, NULL, v);
             r = anti_quote_helper(a, emitted.instruction);
             break;
         }
@@ -136,6 +136,10 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             return composite_helper(a, t, nodes(a, arr_size, elements));
         }
         case LLVMConstantIntValueKind: {
+            if (t->tag == Bool_TAG) {
+                unsigned long long value = LLVMConstIntGetZExtValue(v);
+                return value ? true_lit(a) : false_lit(a);
+            }
             assert(t->tag == Int_TAG);
             unsigned long long value = LLVMConstIntGetZExtValue(v);
             switch (t->payload.int_type.width) {

@@ -112,8 +112,8 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     Node* f = function(p->dst, params, LLVMGetValueName(fn), empty(a), fn_type->payload.fn_type.return_types);
     const Node* r = f;
     if (UNTYPED_POINTERS) {
-        const Type* generic_ptr_t = ptr_type(a, (PtrType) {.pointed_type = uint8_type(a), .address_space = AsGeneric});
-        r = anti_quote_helper(a, prim_op_helper(a, reinterpret_op, singleton(generic_ptr_t), singleton(r)));
+        //const Type* generic_ptr_t = ptr_type(a, (PtrType) {.pointed_type = uint8_type(a), .address_space = AsGeneric});
+        //r = anti_quote_helper(a, prim_op_helper(a, reinterpret_op, singleton(generic_ptr_t), singleton(r)));
     }
     insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
 
