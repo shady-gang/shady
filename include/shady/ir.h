@@ -66,6 +66,7 @@ const Node* get_declaration(const Module*, String);
 
 typedef struct {
     bool name_bound;
+    bool check_op_classes;
     bool check_types;
     bool allow_fold;
     bool validate_builtin_types; // do @Builtins variables need to match their type in builtins.h ?

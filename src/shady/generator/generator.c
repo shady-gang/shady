@@ -642,13 +642,35 @@ static void generate_pre_construction_validation(Growy* g, Data data) {
                 json_object* op = json_object_array_get_idx(ops, j);
                 String op_name = json_object_get_string(json_object_object_get(op, "name"));
                 String class = json_object_get_string(json_object_object_get(op, "class"));
-                if (!class || strcmp(class, "string") != 0)
-                    continue; // we only care about strings actually
+                if (!class)
+                    continue;
                 bool list = json_object_get_boolean(json_object_object_get(op, "list"));
-                if (!list)
-                    growy_append_formatted(g, "\t\tnode->payload.%s.%s = string(arena, node->payload.%s.%s);\n", snake_name, op_name, snake_name, op_name);
-                else
-                    growy_append_formatted(g, "\t\tnode->payload.%s.%s = import_strings(arena, node->payload.%s.%s);\n", snake_name, op_name, snake_name, op_name);
+                if (strcmp(class, "string") == 0) {
+                    if (!list)
+                        growy_append_formatted(g, "\t\tnode->payload.%s.%s = string(arena, node->payload.%s.%s);\n", snake_name, op_name, snake_name, op_name);
+                    else
+                        growy_append_formatted(g, "\t\tnode->payload.%s.%s = import_strings(arena, node->payload.%s.%s);\n", snake_name, op_name, snake_name, op_name);
+                } else {
+                    String cap = capitalize(class);
+                    growy_append_formatted(g, "\t\t{\n");
+                    String extra = "";
+                    if (list) {
+                        growy_append_formatted(g, "\t\t\tNodes ops = node->payload.%s.%s;\n", snake_name, op_name);
+                        growy_append_formatted(g, "\t\t\tfor (size_t i = 0; i < ops.count; i++) {\n");
+                        growy_append_formatted(g, "\t\t\tconst Node* op = ops.nodes[i];\n");
+                        extra = "\t";
+                    }
+                    if (!list)
+                        growy_append_formatted(g, "\t\t\tconst Node* op = node->payload.%s.%s;\n", snake_name, op_name);
+                    growy_append_formatted(g, "%s\t\t\tif (arena->config.check_op_classes && op != NULL && !is_%s(op)) {\n", extra, class);
+                    growy_append_formatted(g, "%s\t\t\t\terror_print(\"Invalid '%s' operand for node '%s', expected a %s\");\n", extra, op_name, name, class);
+                    growy_append_formatted(g, "%s\t\t\t\terror_die();\n", extra);
+                    growy_append_formatted(g, "%s\t\t\t}\n", extra);
+                    if (list)
+                        growy_append_formatted(g, "\t\t\t}\n");
+                    free(cap);
+                    growy_append_formatted(g, "\t\t}\n");
+                }
             }
         }
         growy_append_formatted(g, "\t\tbreak;\n");
