@@ -207,8 +207,8 @@ static void visit_terminator(const VisitCtx* ctx, const Node* terminator) {
                 const Node* abs = jp->payload.var.abs;
                 assert(abs);
                 // check if it's a join point for a control body ...
-                if (abs->tag == AnonLambda_TAG) {
-                    const Node* structured_construct = abs->payload.anon_lam.structured_construct;
+                if (abs->tag == Case_TAG) {
+                    const Node* structured_construct = abs->payload.case_.structured_construct;
                     assert(structured_construct);
                     if (structured_construct->tag == Control_TAG) {
                         // ok cool it is. let's find who binds that body (it must be a Let node, by virtue of our grammar) and take that guy's tail
@@ -296,7 +296,7 @@ void destroy_uses_scope(ScopeUses* u) {
 bool is_control_static(ScopeUses* uses, const Node* control) {
     assert(control->tag == Control_TAG);
     const Node* inside = control->payload.control.inside;
-    assert(is_anonymous_lambda(inside));
+    assert(is_case(inside));
     const Node* jp = first(get_abstraction_params(inside));
     Uses* param_uses = *find_value_dict(const Node*, Uses*, uses->map, jp);
     return !param_uses->escapes_defining_block && !param_uses->in_non_callee_position;

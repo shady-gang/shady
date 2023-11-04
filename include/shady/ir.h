@@ -198,7 +198,7 @@ Type* nominal_type(Module*, Nodes annotations, String name);
 
 // basic blocks, lambdas and their helpers
 Node* basic_block(IrArena*, Node* function, Nodes params, const char* name);
-const Node* lambda(IrArena*, Nodes params, const Node* body);
+const Node* case_(IrArena* a, Nodes params, const Node* body);
 
 /// Used to build a chain of let
 typedef struct BodyBuilder_ BodyBuilder;

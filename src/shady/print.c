@@ -200,7 +200,7 @@ static void print_dominated_bbs(PrinterCtx* ctx, const CFNode* dominator) {
     assert(dominator);
     for (size_t i = 0; i < dominator->dominates->elements_count; i++) {
         const CFNode* cfnode = read_list(const CFNode*, dominator->dominates)[i];
-        // ignore lambdas that make up basic structural dominance
+        // ignore cases that make up basic structural dominance
         if (find_key_dict(const Node*, dominator->structurally_dominated, cfnode->node))
             continue;
         assert(is_basic_block(cfnode->node));
@@ -226,12 +226,12 @@ static void print_abs_body(PrinterCtx* ctx, const Node* block) {
     }
 }
 
-static void print_lambda_body(PrinterCtx* ctx, const Node* lam) {
-    assert(is_anonymous_lambda(lam));
+static void print_case_body(PrinterCtx* ctx, const Node* case_) {
+    assert(is_case(case_));
     printf(" {");
     indent(ctx->printer);
     printf("\n");
-    print_abs_body(ctx, lam);
+    print_abs_body(ctx, case_);
     deindent(ctx->printer);
     printf("\n}");
 }
@@ -346,7 +346,7 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case LamType_TAG: {
-            printf("lambda");
+            printf("case_");
             print_param_types(ctx, node->payload.lam_type.param_types);
             break;
         }
@@ -615,12 +615,12 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("(");
             print_node(node->payload.if_instr.condition);
             printf(") ");
-            print_lambda_body(ctx, node->payload.if_instr.if_true);
+            print_case_body(ctx, node->payload.if_instr.if_true);
             if (node->payload.if_instr.if_false) {
                 printf(GREEN);
                 printf(" else ");
                 printf(RESET);
-                print_lambda_body(ctx, node->payload.if_instr.if_false);
+                print_case_body(ctx, node->payload.if_instr.if_false);
             }
             break;
         } case Loop_TAG: {
@@ -629,9 +629,9 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(RESET);
             print_yield_types(ctx, node->payload.loop_instr.yield_types);
             const Node* body = node->payload.loop_instr.body;
-            assert(is_anonymous_lambda(body));
-            print_param_list(ctx, body->payload.anon_lam.params, &node->payload.loop_instr.initial_args);
-            print_lambda_body(ctx, body);
+            assert(is_case(body));
+            print_param_list(ctx, body->payload.case_.params, &node->payload.loop_instr.initial_args);
+            print_case_body(ctx, body);
             break;
         } case Match_TAG: {
             printf(GREEN);
@@ -651,7 +651,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
                 printf(" ");
                 print_node(node->payload.match_instr.literals.nodes[i]);
                 printf(": ");
-                print_lambda_body(ctx, node->payload.match_instr.cases.nodes[i]);
+                print_case_body(ctx, node->payload.match_instr.cases.nodes[i]);
             }
 
             printf("\n");
@@ -659,7 +659,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("default");
             printf(RESET);
             printf(": ");
-            print_lambda_body(ctx, node->payload.match_instr.default_case);
+            print_case_body(ctx, node->payload.match_instr.default_case);
 
             deindent(ctx->printer);
             printf("\n}");
@@ -673,14 +673,14 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("control");
             printf(RESET);
             print_yield_types(ctx, node->payload.control.yield_types);
-            print_param_list(ctx, node->payload.control.inside->payload.anon_lam.params, NULL);
-            print_lambda_body(ctx, node->payload.control.inside);
+            print_param_list(ctx, node->payload.control.inside->payload.case_.params, NULL);
+            print_case_body(ctx, node->payload.control.inside);
             break;
         } case Block_TAG: {
             printf(BGREEN);
             printf("block");
             printf(RESET);
-            print_lambda_body(ctx, node->payload.block.inside);
+            print_case_body(ctx, node->payload.block.inside);
             break;
         }
     }
@@ -701,15 +701,15 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             const Node* instruction = get_let_instruction(node);
             const Node* tail = get_let_tail(node);
             if (!ctx->config.reparseable) {
-                // if the let tail is a lambda, we apply some syntactic sugar
-                if (tail->payload.anon_lam.params.count > 0) {
+                // if the let tail is a case, we apply some syntactic sugar
+                if (tail->payload.case_.params.count > 0) {
                     printf(GREEN);
                     if (tag == LetMut_TAG)
                         printf("var");
                     else
                         printf("val");
                     printf(RESET);
-                    Nodes params = tail->payload.anon_lam.params;
+                    Nodes params = tail->payload.case_.params;
                     for (size_t i = 0; i < params.count; i++) {
                         if (tag == LetMut_TAG || !ctx->config.reparseable) {
                             printf(" ");
@@ -913,11 +913,11 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         print_instruction(ctx, node);
     else if (is_terminator(node))
         print_terminator(ctx, node);
-    else if (node->tag == AnonLambda_TAG) {
+    else if (node->tag == Case_TAG) {
         printf(BYELLOW);
-        printf("lambda ");
+        printf("case_ ");
         printf(RESET);
-        print_param_list(ctx, node->payload.anon_lam.params, NULL);
+        print_param_list(ctx, node->payload.case_.params, NULL);
         indent(ctx->printer);
         printf(" {\n");
         print_abs_body(ctx, node);

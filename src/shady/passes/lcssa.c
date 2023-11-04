@@ -90,7 +90,7 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
     LARRAY(const Node*, old_children, entries_count_list(n->dominates));
     for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
         CFNode* c = read_list(CFNode*, n->dominates)[i];
-        if (is_anonymous_lambda(c->node))
+        if (is_case(c->node))
             continue;
         old_children[children_count++] = c->node;
     }
@@ -160,10 +160,10 @@ const Node* process_node(Context* ctx, const Node* old) {
         case BasicBlock_TAG: {
             assert(false);
         }
-        case AnonLambda_TAG: {
+        case Case_TAG: {
             Nodes nparams = recreate_variables(&ctx->rewriter, get_abstraction_params(old));
             register_processed_list(&ctx->rewriter, get_abstraction_params(old), nparams);
-            return lambda(a, nparams, process_abstraction_body(ctx, old, get_abstraction_body(old)));
+            return case_(a, nparams, process_abstraction_body(ctx, old, get_abstraction_body(old)));
         }
     }
 

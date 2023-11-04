@@ -95,7 +95,7 @@ static bool is_structural_edge(CFEdgeType edge_type) { return edge_type != Forwa
 /// Adds an edge to somewhere inside a basic block
 static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type) {
     assert(!is_function(dst));
-    assert(is_structural_edge(type) == is_anonymous_lambda(dst));
+    assert(is_structural_edge(type) == (bool) is_case(dst));
     if (ctx->lt && !in_loop(ctx->lt, ctx->entry, dst))
         return;
     if (ctx->lt && dst == ctx->entry)
@@ -103,8 +103,8 @@ static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, C
 
     CFNode* src_node = get_or_enqueue(ctx, src);
     CFNode* dst_node = get_or_enqueue(ctx, dst);
-    if (is_anonymous_lambda(dst)) {
-        assert(entries_count_list(dst_node->pred_edges) == 0 && "anonymous lambdas can only be used once");
+    if (is_case(dst)) {
+        assert(entries_count_list(dst_node->pred_edges) == 0 && "cases can only be used once");
     }
     CFEdge edge = {
         .type = type,
@@ -465,7 +465,7 @@ static CFNode* get_let_pred(const CFNode* n) {
         CFEdge pred = read_list(CFEdge, n->pred_edges)[0];
         assert(pred.dst == n);
         if (pred.type == LetTailEdge && entries_count_list(pred.src->succ_edges) == 1) {
-            assert(is_anonymous_lambda(n->node));
+            assert(is_case(n->node));
             return pred.src;
         }
     }
@@ -481,7 +481,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
         return;
 
     String color = "black";
-    if (is_anonymous_lambda(bb))
+    if (is_case(bb))
         color = "green";
     else if (is_basic_block(bb))
         color = "blue";
@@ -503,7 +503,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
         let_chain_end = read_list(CFEdge, let_chain_end->succ_edges)[0].dst;
         const Node* abs = body->payload.let.tail;
         assert(let_chain_end->node == abs);
-        assert(is_anonymous_lambda(abs));
+        assert(is_case(abs));
         body = get_abstraction_body(abs);
     }
 

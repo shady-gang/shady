@@ -89,7 +89,7 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
 
 bool is_abstraction(const Node* node) {
     NodeTag tag = node->tag;
-    return tag == Function_TAG || tag == BasicBlock_TAG || tag == AnonLambda_TAG;
+    return tag == Function_TAG || tag == BasicBlock_TAG || tag == Case_TAG;
 }
 
 String get_abstraction_name(const Node* abs) {
@@ -97,7 +97,7 @@ String get_abstraction_name(const Node* abs) {
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.name;
         case BasicBlock_TAG: return abs->payload.basic_block.name;
-        case AnonLambda_TAG: return "anonymous";
+        case Case_TAG: return "case";
         default: assert(false);
     }
 }
@@ -107,7 +107,7 @@ const Node* get_abstraction_body(const Node* abs) {
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.body;
         case BasicBlock_TAG: return abs->payload.basic_block.body;
-        case AnonLambda_TAG: return abs->payload.anon_lam.body;
+        case Case_TAG: return abs->payload.case_.body;
         default: assert(false);
     }
 }
@@ -117,7 +117,7 @@ Nodes get_abstraction_params(const Node* abs) {
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.params;
         case BasicBlock_TAG: return abs->payload.basic_block.params;
-        case AnonLambda_TAG: return abs->payload.anon_lam.params;
+        case Case_TAG: return abs->payload.case_.params;
         default: assert(false);
     }
 }

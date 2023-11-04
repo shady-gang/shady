@@ -1103,8 +1103,8 @@ const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
 const Type* check_type_control(IrArena* arena, Control control) {
     ensure_types_are_data_types(&control.yield_types);
     // TODO check it then !
-    assert(is_anonymous_lambda(control.inside));
-    const Node* join_point = first(control.inside->payload.anon_lam.params);
+    assert(is_case(control.inside));
+    const Node* join_point = first(control.inside->payload.case_.params);
 
     const Type* join_point_type = join_point->type;
     bool join_point_uniform = deconstruct_qualified_type(&join_point_type);
@@ -1121,14 +1121,14 @@ const Type* check_type_control(IrArena* arena, Control control) {
 
 const Type* check_type_block(IrArena* arena, Block payload) {
     ensure_types_are_value_types(&payload.yield_types);
-    assert(is_anonymous_lambda(payload.inside));
-    assert(payload.inside->payload.anon_lam.params.count == 0);
+    assert(is_case(payload.inside));
+    assert(payload.inside->payload.case_.params.count == 0);
 
     /*const Node* lam = payload.inside;
     const Node* yield_instr = NULL;
     while (true) {
-        assert(lam->tag == AnonLambda_TAG);
-        const Node* terminator = lam->payload.anon_lam.body;
+        assert(lam->tag == Case_TAG);
+        const Node* terminator = lam->payload.case_.body;
         switch (terminator->tag) {
             case Let_TAG: {
                 lam = terminator->payload.let.tail;
@@ -1152,9 +1152,9 @@ const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
 
 const Type* check_type_let(IrArena* arena, Let let) {
     assert(is_instruction(let.instruction));
-    assert(is_anonymous_lambda(let.tail));
+    assert(is_case(let.tail));
     Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
-    Nodes param_types = get_variables_types(arena, let.tail->payload.anon_lam.params);
+    Nodes param_types = get_variables_types(arena, let.tail->payload.case_.params);
 
     check_arguments_types_against_parameters_helper(param_types, produced_types);
     return noret_type(arena);
@@ -1257,7 +1257,7 @@ const Type* check_type_basic_block(IrArena* arena, BasicBlock bb) {
     return bb_type(arena, (BBType) { .param_types = get_variables_types(arena, (&bb)->params) });
 }
 
-const Type* check_type_anon_lam(IrArena* arena, AnonLambda lam) {
+const Type* check_type_case_(IrArena* arena, Case lam) {
     return lam_type(arena, (LamType) { .param_types = get_variables_types(arena, (&lam)->params) });
 }
 

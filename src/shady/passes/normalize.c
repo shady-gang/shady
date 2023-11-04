@@ -77,7 +77,7 @@ static const Node* process_op(Context* ctx, NodeClass class, const Node* node) {
             break;
         case NcDeclaration:
             break;
-        case NcAnon_lambda:
+        case NcCase:
             break;
         case NcBasic_block:
             break;
@@ -119,16 +119,16 @@ static const Node* process_node(Context* ctx, const Node* node) {
             new->payload.basic_block.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.basic_block.body));
             return new;
         }
-        case AnonLambda_TAG: {
-            Nodes new_params = recreate_variables(&ctx->rewriter, node->payload.anon_lam.params);
-            register_processed_list(&ctx->rewriter, node->payload.anon_lam.params, new_params);
+        case Case_TAG: {
+            Nodes new_params = recreate_variables(&ctx->rewriter, node->payload.case_.params);
+            register_processed_list(&ctx->rewriter, node->payload.case_.params, new_params);
             BodyBuilder* bb = begin_body(a);
             Context ctx2 = *ctx;
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
 
-            const Node* new_body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.anon_lam.body));
-            return lambda(a, new_params, new_body);
+            const Node* new_body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.case_.body));
+            return case_(a, new_params, new_body);
         }
         default: break;
     }

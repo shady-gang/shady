@@ -194,7 +194,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
                     return control(a, (Control) {
                         .yield_types = nyield_types,
-                        .inside = lambda(a, singleton(join_point), nbody)
+                        .inside = case_(a, singleton(join_point), nbody)
                     });
                 }
             }
@@ -234,7 +234,7 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 
     const Node* new = recreate_node_identity(&ctx->rewriter, node);
-    if (node->tag == AnonLambda_TAG)
+    if (node->tag == Case_TAG)
         register_processed(&ctx->rewriter, node, new);
     return new;
 }

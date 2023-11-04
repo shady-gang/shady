@@ -269,33 +269,33 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
     }
 }
 
-static const Node* _infer_anonymous_lambda(Context* ctx, const Node* node, const Node* expected) {
+static const Node* _infer_case(Context* ctx, const Node* node, const Node* expected) {
     IrArena* a = ctx->rewriter.dst_arena;
-    assert(is_anonymous_lambda(node));
+    assert(is_case(node));
     assert(expected);
     Nodes inferred_arg_type = unwrap_multiple_yield_types(a, expected);
-    assert(inferred_arg_type.count == node->payload.anon_lam.params.count || node->payload.anon_lam.params.count == 0);
+    assert(inferred_arg_type.count == node->payload.case_.params.count || node->payload.case_.params.count == 0);
 
     Context body_context = *ctx;
     LARRAY(const Node*, nparams, inferred_arg_type.count);
     for (size_t i = 0; i < inferred_arg_type.count; i++) {
-        if (node->payload.anon_lam.params.count == 0) {
+        if (node->payload.case_.params.count == 0) {
             // syntax sugar: make up a parameter if there was none
             nparams[i] = var(a, inferred_arg_type.nodes[i], unique_name(a, "_"));
         } else {
-            const Variable* old_param = &node->payload.anon_lam.params.nodes[i]->payload.var;
+            const Variable* old_param = &node->payload.case_.params.nodes[i]->payload.var;
             // for the param type: use the inferred one if none is already provided
             // if one is provided, check the inferred argument type is a subtype of the param type
             const Type* param_type = infer(ctx, old_param->type, NULL);
             param_type = param_type ? param_type : inferred_arg_type.nodes[i];
             assert(is_subtype(param_type, inferred_arg_type.nodes[i]));
             nparams[i] = var(a, param_type, old_param->name);
-            register_processed(&body_context.rewriter, node->payload.anon_lam.params.nodes[i], nparams[i]);
+            register_processed(&body_context.rewriter, node->payload.case_.params.nodes[i], nparams[i]);
         }
     }
 
-    const Node* new_body = infer(&body_context, node->payload.anon_lam.body, NULL);
-    return lambda(a, nodes(a, inferred_arg_type.count, nparams), new_body);
+    const Node* new_body = infer(&body_context, node->payload.case_.body, NULL);
+    return case_(a, nodes(a, inferred_arg_type.count, nparams), new_body);
 }
 
 static const Node* _infer_basic_block(Context* ctx, const Node* node) {
@@ -578,7 +578,7 @@ static const Node* _infer_control(Context* ctx, const Node* node, const Type* ex
     const Node* jp = var(a, jpt, ojp->payload.var.name);
     register_processed(&ctx->rewriter, ojp, jp);
 
-    const Node* nlam = lambda(a, singleton(jp), infer(&joinable_ctx, get_abstraction_body(olam), NULL));
+    const Node* nlam = case_(a, singleton(jp), infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 
     return control(a, (Control) {
         .yield_types = yield_types,
@@ -594,7 +594,7 @@ static const Node* _infer_block(Context* ctx, const Node* node, const Type* expe
     Nodes nyield_types = infer_nodes(ctx, node->payload.block.yield_types);
     block_inside_ctx.merge_types = &nyield_types;
     const Node* olam = node->payload.block.inside;
-    const Node* nlam = lambda(a, empty(a), infer(&block_inside_ctx, get_abstraction_body(olam), NULL));
+    const Node* nlam = case_(a, empty(a), infer(&block_inside_ctx, get_abstraction_body(olam), NULL));
 
     return block(a, (Block) {
         .yield_types = nyield_types,
@@ -624,7 +624,7 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
         case NotATerminator: assert(false);
         case Let_TAG: {
             const Node* otail = node->payload.let.tail;
-            Nodes annotated_types = get_variables_types(a, otail->payload.anon_lam.params);
+            Nodes annotated_types = get_variables_types(a, otail->payload.case_.params);
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(a, annotated_types));
             Nodes inferred_yield_types = unwrap_multiple_yield_types(a, inferred_instruction->type);
             for (size_t i = 0; i < inferred_yield_types.count; i++) {
@@ -740,9 +740,9 @@ static const Node* process(Context* src_ctx, const Node* node) {
     } else if (is_annotation(node)) {
         assert(expect == NULL);
         return _infer_annotation(&ctx, node);
-    } else if (is_anonymous_lambda(node)) {
+    } else if (is_case(node)) {
         assert(expect != NULL);
-        return _infer_anonymous_lambda(&ctx, node, expect);
+        return _infer_case(&ctx, node, expect);
     } else if (is_basic_block(node)) {
         return _infer_basic_block(&ctx, node);
     }

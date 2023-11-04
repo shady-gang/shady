@@ -108,7 +108,7 @@ static const Node* process(Context* ctx, const Node* node) {
             return new;
         }
         case Control_TAG: {
-            const Node* old_jp = first(node->payload.control.inside->payload.anon_lam.params);
+            const Node* old_jp = first(node->payload.control.inside->payload.case_.params);
             assert(old_jp->tag == Variable_TAG);
             Uses* jp_uses = *find_value_dict(const Node*, Uses*, ctx->uses->map, old_jp);
             if (jp_uses->escapes_defining_block) {
@@ -125,8 +125,8 @@ static const Node* process(Context* ctx, const Node* node) {
             if (old_jp->tag == Variable_TAG) {
                 const Node* abs = old_jp->payload.var.abs;
                 assert(abs);
-                if (abs->tag == AnonLambda_TAG) {
-                    const Node* structured = abs->payload.anon_lam.structured_construct;
+                if (abs->tag == Case_TAG) {
+                    const Node* structured = abs->payload.case_.structured_construct;
                     assert(structured);
                     // this join point is defined by a control - we can be a leaf :)
                     if (structured->tag == Control_TAG)

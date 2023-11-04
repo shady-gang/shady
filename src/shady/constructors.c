@@ -16,8 +16,8 @@ bool compare_nodes(Nodes* a, Nodes* b);
 typedef struct { Visitor visitor; const Node* parent; } VisitorPCV;
 
 static void post_construction_validation_visit_op(VisitorPCV* v, NodeClass class, const Node* node) {
-    if (class == NcAnon_lambda)
-        ((Node*) node)->payload.anon_lam.structured_construct = v->parent;
+    if (class == NcCase)
+        ((Node*) node)->payload.case_.structured_construct = v->parent;
 }
 
 static void post_construction_validation(IrArena* arena, Node* node) {
@@ -221,8 +221,8 @@ Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
     return bb;
 }
 
-const Node* lambda(IrArena* a, Nodes params, const Node* body) {
-    AnonLambda payload = {
+const Node* case_(IrArena* a, Nodes params, const Node* body) {
+    Case payload = {
         .params = params,
         .body = body,
     };
@@ -231,9 +231,9 @@ const Node* lambda(IrArena* a, Nodes params, const Node* body) {
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = a,
-        .type = a->config.check_types ? check_type_anon_lam(a, payload) : NULL,
-        .tag = AnonLambda_TAG,
-        .payload.anon_lam = payload
+        .type = a->config.check_types ? check_type_case_(a, payload) : NULL,
+        .tag = Case_TAG,
+        .payload.case_ = payload
     };
 
     bool fresh;

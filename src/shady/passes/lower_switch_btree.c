@@ -84,14 +84,14 @@ static const Node* generate_default_fallback_case(Context* ctx) {
     LARRAY(const Node*, undefs, ctx->yield_types.count);
     for (size_t i = 0; i < ctx->yield_types.count; i++)
         undefs[i] = undef(a, (Undef) { .type = ctx->yield_types.nodes[i] });
-    return lambda(a, empty(a), finish_body(bb, yield(a, (Yield) { .args = nodes(a, ctx->yield_types.count, undefs) })));
+    return case_(a, empty(a), finish_body(bb, yield(a, (Yield) {.args = nodes(a, ctx->yield_types.count, undefs)})));
 }
 
 static const Node* wrap_instr_in_lambda(const Node* instr) {
     IrArena* a = instr->arena;
     BodyBuilder* bb = begin_body(a);
     Nodes values = bind_instruction(bb, instr);
-    return lambda(a, empty(a), finish_body(bb, yield(a, (Yield) { .args = values })));
+    return case_(a, empty(a), finish_body(bb, yield(a, (Yield) {.args = values})));
 }
 
 static const Node* generate_decision_tree(Context* ctx, TreeNode* n, uint64_t min, uint64_t max) {
@@ -117,7 +117,7 @@ static const Node* generate_decision_tree(Context* ctx, TreeNode* n, uint64_t mi
             .if_false = body,
         });
         Nodes values = bind_instruction(bb, instr);
-        body = lambda(a, empty(a), finish_body(bb, yield(a, (Yield) { .args = values })));
+        body = case_(a, empty(a), finish_body(bb, yield(a, (Yield) {.args = values})));
     }
 
     if (max > n->key) {
@@ -129,7 +129,7 @@ static const Node* generate_decision_tree(Context* ctx, TreeNode* n, uint64_t mi
             .if_false = body,
         });
         Nodes values = bind_instruction(bb, instr);
-        body = lambda(a, empty(a), finish_body(bb, yield(a, (Yield) { .args = values })));
+        body = case_(a, empty(a), finish_body(bb, yield(a, (Yield) {.args = values})));
     }
 
     return body;
@@ -172,8 +172,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 .yield_types = ctx2.yield_types,
                 .condition = gen_load(bb, run_default_case),
                 .if_true = rewrite_node(&ctx->rewriter, node->payload.match_instr.default_case),
-                .if_false = lambda(a, empty(a), yield(a, (Yield) {
-                    .args = matched_results,
+                .if_false = case_(a, empty(a), yield(a, (Yield) {
+                        .args = matched_results,
                 }))
             }));
 

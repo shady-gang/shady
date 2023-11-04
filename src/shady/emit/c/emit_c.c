@@ -329,9 +329,9 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             emit_instruction(emitter, block_printer, instruction, ioutputs);
 
             const Node* tail = get_let_tail(terminator);
-            assert(tail->tag == AnonLambda_TAG);
+            assert(tail->tag == Case_TAG);
 
-            const Nodes tail_params = tail->payload.anon_lam.params;
+            const Nodes tail_params = tail->payload.case_.params;
             assert(tail_params.count == yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
                 bool mut = false;
@@ -383,7 +383,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                     default: assert(false);
                 }
             }
-            emit_terminator(emitter, block_printer, tail->payload.anon_lam.body);
+            emit_terminator(emitter, block_printer, tail->payload.case_.body);
 
             break;
         }

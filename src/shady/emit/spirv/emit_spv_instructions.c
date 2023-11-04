@@ -444,13 +444,13 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builde
 
     BBBuilder true_bb = spvb_begin_bb(fn_builder, true_id);
     spvb_add_bb(fn_builder, true_bb);
-    assert(is_anonymous_lambda(if_instr.if_true));
-    emit_terminator(emitter, fn_builder, true_bb, merge_targets_branches, if_instr.if_true->payload.anon_lam.body);
+    assert(is_case(if_instr.if_true));
+    emit_terminator(emitter, fn_builder, true_bb, merge_targets_branches, if_instr.if_true->payload.case_.body);
     if (if_instr.if_false) {
         BBBuilder false_bb = spvb_begin_bb(fn_builder, false_id);
         spvb_add_bb(fn_builder, false_bb);
-        assert(is_anonymous_lambda(if_instr.if_false));
-        emit_terminator(emitter, fn_builder, false_bb, merge_targets_branches, if_instr.if_false->payload.anon_lam.body);
+        assert(is_case(if_instr.if_false));
+        emit_terminator(emitter, fn_builder, false_bb, merge_targets_branches, if_instr.if_false->payload.case_.body);
     }
 
     spvb_add_bb(fn_builder, join_bb);
@@ -505,14 +505,14 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
     for (size_t i = 0; i < match.cases.count; i++) {
         BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * literal_case_entry_size + literal_width]);
         const Node* case_body = match.cases.nodes[i];
-        assert(is_anonymous_lambda(case_body));
+        assert(is_case(case_body));
         spvb_add_bb(fn_builder, case_bb);
-        emit_terminator(emitter, fn_builder, case_bb, merge_targets_branches, case_body->payload.anon_lam.body);
+        emit_terminator(emitter, fn_builder, case_bb, merge_targets_branches, case_body->payload.case_.body);
     }
     BBBuilder default_bb = spvb_begin_bb(fn_builder, default_id);
-    assert(is_anonymous_lambda(match.default_case));
+    assert(is_case(match.default_case));
     spvb_add_bb(fn_builder, default_bb);
-    emit_terminator(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case->payload.anon_lam.body);
+    emit_terminator(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case->payload.case_.body);
 
     spvb_add_bb(fn_builder, join_bb);
     *bb_builder = join_bb;
@@ -523,8 +523,8 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     assert(yield_types.count == results_count);
 
     const Node* body = loop_instr.body;
-    assert(is_anonymous_lambda(body));
-    Nodes body_params = body->payload.anon_lam.params;
+    assert(is_case(body));
+    Nodes body_params = body->payload.case_.params;
 
     // First we create all the basic blocks we'll need
     SpvId header_id = spvb_fresh_id(emitter->file_builder);
@@ -588,7 +588,7 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     merge_targets_branches.continue_phis = loop_continue_phis;
     merge_targets_branches.break_target = next_id;
     merge_targets_branches.break_phis = loop_break_phis;
-    emit_terminator(emitter, fn_builder, body_builder, merge_targets_branches, body->payload.anon_lam.body);
+    emit_terminator(emitter, fn_builder, body_builder, merge_targets_branches, body->payload.case_.body);
 
     // the continue block just jumps back into the header
     spvb_branch(continue_builder, header_id);

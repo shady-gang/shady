@@ -519,13 +519,13 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect(accept_token(ctx, rpar_tok));
             const Node* merge = config.front_end ? yield(arena, (Yield) { .args = nodes(arena, 0, NULL) }) : NULL;
 
-            const Node* if_true = lambda(arena, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
+            const Node* if_true = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
 
             // else defaults to an empty body
             bool has_else = accept_token(ctx, else_tok);
             const Node* if_false = NULL;
             if (has_else) {
-                if_false = lambda(arena, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
+                if_false = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
             }
             return if_instr(arena, (If) {
                 .yield_types = yield_types,
@@ -542,7 +542,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect_parameters(ctx, &parameters, &default_values);
             // by default loops continue forever
             const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
-            const Node* body = lambda(arena, parameters, expect_body(ctx, fn, default_loop_end_behaviour));
+            const Node* body = case_(arena, parameters, expect_body(ctx, fn, default_loop_end_behaviour));
 
             return loop_instr(arena, (Loop) {
                 .initial_args = default_values,
@@ -560,7 +560,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
                 .yield_types = yield_types,
             }), str);
             expect(accept_token(ctx, rpar_tok));
-            const Node* body = lambda(arena, singleton(param), expect_body(ctx, fn, NULL));
+            const Node* body = case_(arena, singleton(param), expect_body(ctx, fn, NULL));
             return control(arena, (Control) {
                 .inside = body,
                 .yield_types = yield_types
@@ -695,14 +695,14 @@ static bool accept_non_terminator_instr(ctxparams, BodyBuilder* bb, Node* fn) {
     return true;
 }
 
-static const Node* accept_anonymous_lambda(ctxparams, Node* fn) {
+static const Node* accept_case(ctxparams, Node* fn) {
     if (!accept_token(ctx, lambda_tok))
         return NULL;
 
     Nodes params;
     expect_parameters(ctx, &params, NULL);
     const Node* body = expect_body(ctx, fn, NULL);
-    return lambda(arena, params, body);
+    return case_(arena, params, body);
 }
 
 static const Node* expect_jump(ctxparams) {
@@ -725,7 +725,7 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
             expect(accept_token(ctx, in_tok));
             switch (tag) {
                 case let_tok: {
-                    const Node* lam = accept_anonymous_lambda(ctx, fn);
+                    const Node* lam = accept_case(ctx, fn);
                     expect(lam);
                     return let(arena, instruction, lam);
                 }

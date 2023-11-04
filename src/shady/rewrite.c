@@ -270,8 +270,8 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
 }
 
 static const Node* rebind_results(Rewriter* rewriter, const Node* ninstruction, const Node* olam) {
-    assert(olam->tag == AnonLambda_TAG);
-    Nodes oparams = olam->payload.anon_lam.params;
+    assert(olam->tag == Case_TAG);
+    Nodes oparams = olam->payload.case_.params;
     Nodes ntypes = unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type);
     assert(ntypes.count == oparams.count);
     LARRAY(const Node*, new_params, oparams.count);
@@ -279,8 +279,8 @@ static const Node* rebind_results(Rewriter* rewriter, const Node* ninstruction, 
         new_params[i] = var(rewriter->dst_arena, ntypes.nodes[i], oparams.nodes[i]->payload.var.name);
         register_processed(rewriter, oparams.nodes[i], new_params[i]);
     }
-    const Node* nbody = rewrite_node(rewriter, olam->payload.anon_lam.body);
-    const Node* tail = lambda(rewriter->dst_arena, nodes(rewriter->dst_arena, oparams.count, new_params), nbody);
+    const Node* nbody = rewrite_node(rewriter, olam->payload.case_.body);
+    const Node* tail = case_(rewriter->dst_arena, nodes(rewriter->dst_arena, oparams.count, new_params), nbody);
     return tail;
 }
 
@@ -307,25 +307,25 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Let_TAG: {
             const Node* instruction = rewrite_op_helper(rewriter, NcInstruction, node->payload.let.instruction);
             if (arena->config.allow_fold && rewriter->config.fold_quote && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
-                Nodes old_params = node->payload.let.tail->payload.anon_lam.params;
+                Nodes old_params = node->payload.let.tail->payload.case_.params;
                 Nodes new_args = instruction->payload.prim_op.operands;
                 assert(old_params.count == new_args.count);
                 register_processed_list(rewriter, old_params, new_args);
-                return rewrite_node(rewriter, node->payload.let.tail->payload.anon_lam.body);
+                return rewrite_node(rewriter, node->payload.let.tail->payload.case_.body);
             }
             const Node* tail;
             if (rewriter->config.rebind_let)
                 tail = rebind_results(rewriter, instruction, node->payload.let.tail);
             else
-                tail = rewrite_op_helper(rewriter, NcAnon_lambda, node->payload.let.tail);
+                tail = rewrite_op_helper(rewriter, NcCase, node->payload.let.tail);
             return let(arena, instruction, tail);
         }
         case LetMut_TAG: error("De-sugar this by hand")
-        case AnonLambda_TAG: {
-            Nodes params = recreate_variables(rewriter, node->payload.anon_lam.params);
-            register_processed_list(rewriter, node->payload.anon_lam.params, params);
-            const Node* nterminator = rewrite_op_helper(rewriter, NcTerminator, node->payload.anon_lam.body);
-            const Node* nlam = lambda(rewriter->dst_arena, params, nterminator);
+        case Case_TAG: {
+            Nodes params = recreate_variables(rewriter, node->payload.case_.params);
+            register_processed_list(rewriter, node->payload.case_.params, params);
+            const Node* nterminator = rewrite_op_helper(rewriter, NcTerminator, node->payload.case_.body);
+            const Node* nlam = case_(rewriter->dst_arena, params, nterminator);
             // register_processed(rewriter, node, nlam);
             return nlam;
         }

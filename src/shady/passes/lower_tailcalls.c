@@ -115,7 +115,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 if (old->payload.fun.body) {
                     const Node* nbody = rewrite_node(&ctx2.rewriter, old->payload.fun.body);
                     if (entry_point_annotation) {
-                        const Node* lam = lambda(a, empty(a), nbody);
+                        const Node* lam = case_(a, empty(a), nbody);
                         nbody = let(a, call(a, (Call) { .callee = fn_addr_helper(a, ctx2.init_fn), .args = empty(a)}), lam);
                     }
                     fun->payload.fun.body = nbody;
@@ -254,7 +254,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 });
                 const Node* new_jp = var(a, qualified_type_helper(new_jp_type, true), old_jp->payload.var.name);
                 register_processed(&ctx->rewriter, old_jp, new_jp);
-                const Node* new_body = lambda(a, singleton(new_jp), rewrite_node(&ctx->rewriter, get_abstraction_body(old_inside)));
+                const Node* new_body = case_(a, singleton(new_jp), rewrite_node(&ctx->rewriter, get_abstraction_body(old_inside)));
                 return control(a, (Control) {
                     .yield_types = rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types),
                     .inside = new_body,
@@ -306,7 +306,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
         const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, empty(a), mk_nodes(a, iterations_count_param, int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
-        const Node* bail_true_lam = lambda(a, empty(a), break_terminator);
+        const Node* bail_true_lam = case_(a, empty(a), break_terminator);
         const Node* bail_if = if_instr(a, (If) {
             .condition = bail_condition,
             .if_true = bail_true_lam,
@@ -326,7 +326,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         bind_instruction(zero_if_case_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: kill thread %d:%d\n" }), sid, local_id) }));
     }
-    const Node* zero_if_true_lam = lambda(a, empty(a), finish_body(zero_if_case_builder, break_terminator));
+    const Node* zero_if_true_lam = case_(a, empty(a), finish_body(zero_if_case_builder, break_terminator));
     const Node* zero_if_instruction = if_instr(a, (If) {
         .condition = should_run,
         .if_true = zero_if_true_lam,
@@ -339,7 +339,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         bind_instruction(zero_case_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: thread %d:%d escaped death!\n" }), sid, local_id) }));
     }
 
-    const Node* zero_case_lam = lambda(a, nodes(a, 0, NULL), finish_body(zero_case_builder, continue_terminator));
+    const Node* zero_case_lam = case_(a, nodes(a, 0, NULL), finish_body(zero_case_builder, continue_terminator));
     const Node* zero_lit = uint64_literal(a, 0);
     append_list(const Node*, literals, zero_lit);
     append_list(const Node*, cases, zero_case_lam);
@@ -362,7 +362,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .callee = fn_addr_helper(a, find_processed(&ctx->rewriter, decl)),
                 .args = nodes(a, 0, NULL)
             }));
-            const Node* if_true_lam = lambda(a, empty(a), finish_body(if_builder, yield(a, (Yield) { .args = nodes(a, 0, NULL) })));
+            const Node* if_true_lam = case_(a, empty(a), finish_body(if_builder, yield(a, (Yield) {.args = nodes(a, 0, NULL)})));
             const Node* if_instruction = if_instr(a, (If) {
                 .condition = should_run,
                 .if_true = if_true_lam,
@@ -372,14 +372,14 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             BodyBuilder* case_builder = begin_body(a);
             bind_instruction(case_builder, if_instruction);
-            const Node* case_lam = lambda(a, nodes(a, 0, NULL), finish_body(case_builder, continue_terminator));
+            const Node* case_lam = case_(a, nodes(a, 0, NULL), finish_body(case_builder, continue_terminator));
 
             append_list(const Node*, literals, fn_lit);
             append_list(const Node*, cases, case_lam);
         }
     }
 
-    const Node* default_case_lam = lambda(a, nodes(a, 0, NULL), unreachable(a));
+    const Node* default_case_lam = case_(a, nodes(a, 0, NULL), unreachable(a));
 
     bind_instruction(loop_body_builder, match_instr(a, (Match) {
         .yield_types = nodes(a, 0, NULL),
@@ -392,7 +392,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     destroy_list(literals);
     destroy_list(cases);
 
-    const Node* loop_inside_lam = lambda(a, count_iterations ? singleton(iterations_count_param) : nodes(a, 0, NULL), finish_body(loop_body_builder, unreachable(a)));
+    const Node* loop_inside_lam = case_(a, count_iterations ? singleton(iterations_count_param) : nodes(a, 0, NULL), finish_body(loop_body_builder, unreachable(a)));
 
     const Node* the_loop = loop_instr(a, (Loop) {
         .yield_types = nodes(a, 0, NULL),

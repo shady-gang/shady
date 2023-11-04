@@ -184,14 +184,14 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         }
         case Let_TAG: {
             const Node* tail = get_let_tail(terminator);
-            Nodes params = tail->payload.anon_lam.params;
+            Nodes params = tail->payload.case_.params;
             LARRAY(SpvId, results, params.count);
             emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, get_let_instruction(terminator), params.count, results);
-            assert(tail->tag == AnonLambda_TAG);
+            assert(tail->tag == Case_TAG);
 
             for (size_t i = 0; i < params.count; i++)
                 register_result(emitter, params.nodes[i], results[i]);
-            emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, tail->payload.anon_lam.body);
+            emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, tail->payload.case_.body);
             return;
         }
         case Jump_TAG: {
@@ -297,7 +297,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
             CFNode* cfnode = read_list(CFNode*, scope->contents)[i];
             assert(cfnode);
             const Node* bb = cfnode->node;
-            if (is_anonymous_lambda(bb))
+            if (is_case(bb))
                 continue;
             assert(is_basic_block(bb) || bb == node);
             SpvId bb_id = spvb_fresh_id(emitter->file_builder);
@@ -321,7 +321,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
             CFNode* cfnode = scope->rpo[i];
             if (i == 0)
                 assert(cfnode == scope->entry);
-            if (is_anonymous_lambda(cfnode->node))
+            if (is_case(cfnode->node))
                 continue;
             emit_basic_block(emitter, fn_builder, scope, cfnode);
         }

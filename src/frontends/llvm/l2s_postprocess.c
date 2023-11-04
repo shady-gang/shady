@@ -44,8 +44,8 @@ static const Node* wrap_in_controls(Context* ctx, Controls* controls, const Node
         Nodes nparams = nodes(a, o_dst_params.count, new_control_params);
         body = let(a, control(a, (Control) {
             .yield_types = get_variables_types(a, o_dst_params),
-            .inside = lambda(a, singleton(token), body)
-        }), lambda(a, nparams, jump_helper(a, rewrite_node(&ctx->rewriter, dst), nparams)));
+            .inside = case_(a, singleton(token), body)
+        }), case_(a, nparams, jump_helper(a, rewrite_node(&ctx->rewriter, dst), nparams)));
     }
     return body;
 }

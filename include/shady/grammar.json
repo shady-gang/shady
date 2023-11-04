@@ -116,7 +116,7 @@
       "name": "declaration"
     },
     {
-      "name": "anon_lambda"
+      "name": "case"
     },
     {
       "name": "basic_block"
@@ -426,8 +426,8 @@
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "condition", "class": "value" },
-        { "name": "if_true", "class": "anon_lambda" },
-        { "name": "if_false", "class": "anon_lambda" }
+        { "name": "if_true", "class": "case" },
+        { "name": "if_false", "class": "case" }
       ]
     },
     {
@@ -438,8 +438,8 @@
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "inspect", "class": "value" },
         { "name": "literals", "class": "value", "list": true },
-        { "name": "cases", "class": "anon_lambda", "list": true },
-        { "name": "default_case", "class": "anon_lambda" }
+        { "name": "cases", "class": "case", "list": true },
+        { "name": "default_case", "class": "case" }
       ]
     },
     {
@@ -448,7 +448,7 @@
       "class": "instruction",
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
-        { "name": "body", "class": "anon_lambda" },
+        { "name": "body", "class": "case" },
         { "name": "initial_args", "class": "value", "list": true }
       ]
     },
@@ -457,7 +457,7 @@
       "class": "instruction",
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inside", "class": "anon_lambda" }
+        { "name": "inside", "class": "case" }
       ]
     },
     {
@@ -466,7 +466,7 @@
       "description": "Used as a helper to insert multiple instructions in place of one",
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inside", "class": "anon_lambda" }
+        { "name": "inside", "class": "case" }
       ]
     },
     {
@@ -482,7 +482,7 @@
       "constructor": "custom",
       "ops": [
         { "name": "instruction", "class": "instruction" },
-        { "name": "tail", "class": "anon_lambda" }
+        { "name": "tail", "class": "case" }
       ]
     },
     {
@@ -492,7 +492,7 @@
       "front-end-only": true,
       "ops": [
         { "name": "instruction", "class": "instruction" },
-        { "name": "tail", "class": "anon_lambda" }
+        { "name": "tail", "class": "case" }
       ]
     },
     {
@@ -684,9 +684,10 @@
       ]
     },
     {
-      "name": "AnonLambda",
-      "snake_name": "anon_lam",
+      "name": "Case",
+      "snake_name": "case_",
       "constructor": "custom",
+      "class": "case",
       "description": [
         "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs",
         "Most notably, the tails of standard `let` nodes"

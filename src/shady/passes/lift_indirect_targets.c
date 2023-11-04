@@ -65,7 +65,7 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, struct L
 }
 
 static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name) {
-    assert(is_basic_block(cont) || is_anonymous_lambda(cont));
+    assert(is_basic_block(cont) || is_case(cont));
     LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, cont);
     if (found)
         return *found;
@@ -178,7 +178,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* oinstruction = get_let_instruction(node);
             if (oinstruction->tag == Control_TAG) {
                 const Node* oinside = oinstruction->payload.control.inside;
-                assert(is_anonymous_lambda(oinside));
+                assert(is_case(oinside));
                 if (!is_control_static(ctx->uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
                     const Node* otail = get_let_tail(node);
                     BodyBuilder* bb = begin_body(a);

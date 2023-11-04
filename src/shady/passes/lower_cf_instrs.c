@@ -46,11 +46,11 @@ static const Node* process_let(Context* ctx, const Node* node) {
             join_context.join_points.join_point_selection_merge = join_point;
 
             Node* true_block = basic_block(a, ctx->current_fn, nodes(a, 0, NULL), unique_name(a, "if_true"));
-            true_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_true->payload.anon_lam.body);
+            true_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_true->payload.case_.body);
 
             Node* flse_block = basic_block(a, ctx->current_fn, nodes(a, 0, NULL), unique_name(a, "if_false"));
             if (has_false_branch)
-                flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_false->payload.anon_lam.body);
+                flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_false->payload.case_.body);
             else {
                 assert(yield_types.count == 0);
                 flse_block->payload.basic_block.body = join(a, (Join) { .join_point = join_point, .args = nodes(a, 0, NULL) });
@@ -62,16 +62,16 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 .false_jump = jump_helper(a, flse_block, empty(a)),
             });
 
-            const Node* control_lam = lambda(a, nodes(a, 1, (const Node*[]) {join_point }), control_body);
+            const Node* control_lam = case_(a, nodes(a, 1, (const Node* []) {join_point}), control_body);
             new_instruction = control(a, (Control) { .yield_types = yield_types, .inside = control_lam });
             break;
         }
         case Loop_TAG: {
             const Node* old_loop_body = old_instruction->payload.loop_instr.body;
-            assert(is_anonymous_lambda(old_loop_body));
+            assert(is_case(old_loop_body));
 
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_variables_types(a, old_loop_body->payload.anon_lam.params));
+            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_variables_types(a, old_loop_body->payload.case_.params));
             param_types = strip_qualifiers(a, param_types);
 
             const Type* break_jp_type = qualified_type(a, (QualifiedType) {
@@ -88,12 +88,12 @@ static const Node* process_let(Context* ctx, const Node* node) {
             join_context.join_points.join_point_loop_break = break_point;
             join_context.join_points.join_point_loop_continue = continue_point;
 
-            Nodes new_params = recreate_variables(&ctx->rewriter, old_loop_body->payload.anon_lam.params);
+            Nodes new_params = recreate_variables(&ctx->rewriter, old_loop_body->payload.case_.params);
             Node* loop_body = basic_block(a, ctx->current_fn, new_params, unique_name(a, "loop_body"));
-            register_processed_list(&join_context.rewriter, old_loop_body->payload.anon_lam.params, loop_body->payload.basic_block.params);
+            register_processed_list(&join_context.rewriter, old_loop_body->payload.case_.params, loop_body->payload.basic_block.params);
 
-            const Node* inner_control_body = rewrite_node(&join_context.rewriter, old_loop_body->payload.anon_lam.body);
-            const Node* inner_control_lam = lambda(a, nodes(a, 1, (const Node*[]) {continue_point }), inner_control_body);
+            const Node* inner_control_body = rewrite_node(&join_context.rewriter, old_loop_body->payload.case_.body);
+            const Node* inner_control_lam = case_(a, nodes(a, 1, (const Node* []) {continue_point}), inner_control_body);
 
             BodyBuilder* bb = begin_body(a);
             const Node* inner_control = control(a, (Control) {
@@ -109,7 +109,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 .target = loop_body,
                 .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.initial_args),
             });
-            const Node* outer_body = lambda(a, nodes(a, 1, (const Node*[]) {break_point }), initial_jump);
+            const Node* outer_body = case_(a, nodes(a, 1, (const Node* []) {break_point}), initial_jump);
             new_instruction = control(a, (Control) { .yield_types = yield_types, .inside = outer_body });
             break;
         }

@@ -147,8 +147,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                         exit_wrappers[i] = pre_join_exit_bb;
                         break;
                     }
-                    case AnonLambda_TAG:
-                        exit_wrappers[i] = lambda(arena, exit_wrapper_params, exit_wrapper_body);
+                    case Case_TAG:
+                        exit_wrappers[i] = case_(arena, exit_wrapper_params, exit_wrapper_body);
                         break;
                     default:
                         assert(false);
@@ -168,8 +168,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     continue_wrapper = pre_join_continue_bb;
                     break;
                 }
-                case AnonLambda_TAG:
-                    continue_wrapper = lambda(arena, continue_wrapper_params, continue_wrapper_body);
+                case Case_TAG:
+                    continue_wrapper = case_(arena, continue_wrapper_params, continue_wrapper_body);
                     break;
                 default:
                     assert(false);
@@ -211,7 +211,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             BodyBuilder* inner_bb = begin_body(arena);
             const Node* inner_control = control (arena, (Control) {
-                .inside = lambda(arena, singleton(join_token_continue), loop_body),
+                .inside = case_(arena, singleton(join_token_continue), loop_body),
                 .yield_types = inner_yield_types
             });
             Nodes inner_control_results = bind_instruction(inner_bb, inner_control);
@@ -223,9 +223,9 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     .args = inner_control_results
             }));
             const Node* outer_control = control (arena, (Control) {
-                .inside = lambda(arena, singleton(join_token_exit), jump(arena, (Jump) {
-                    .target = loop_outer,
-                    .args = nparams
+                .inside = case_(arena, singleton(join_token_exit), jump(arena, (Jump) {
+                        .target = loop_outer,
+                        .args = nparams
                 })),
                 .yield_types = empty(arena)
             });
@@ -254,7 +254,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                             .args = nodes(arena, exit_allocas[i].count, recovered_args),
                     }));
                 } else {
-                    assert(recreated_exit->tag == AnonLambda_TAG);
+                    assert(recreated_exit->tag == Case_TAG);
                     exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_allocas[i].count, recovered_args)), recreated_exit));
                 }
                 exit_jumps[i] = jump_helper(arena, exit_bb, empty(arena));
@@ -280,8 +280,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     loop_container = bb;
                     break;
                 }
-                case AnonLambda_TAG:
-                    loop_container = lambda(arena, nparams, outer_body);
+                case Case_TAG:
+                    loop_container = case_(arena, nparams, outer_body);
                     break;
                 default:
                     assert(false);
@@ -318,7 +318,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             destroy_loop_tree(ctx->current_looptree);
             return new;
         }
-        case AnonLambda_TAG:
+        case Case_TAG:
         case BasicBlock_TAG:
             if (!ctx->current_fn || !lookup_annotation(ctx->current_fn, "Restructure"))
                 break;
@@ -438,7 +438,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (cached)
                 register_processed(rewriter, idom, cached);
 
-            const Node* control_inner = lambda(arena, singleton(join_token), inner_terminator);
+            const Node* control_inner = case_(arena, singleton(join_token), inner_terminator);
             const Node* new_target = control(arena, (Control) {
                 .inside = control_inner,
                 .yield_types = yield_types
@@ -453,12 +453,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
                         .args = lambda_args
                     });
 
-                    const Node* anon_lam = lambda(arena, lambda_args, outer_terminator);
-                    const Node* empty_let = let(arena, new_target, anon_lam);
+                    const Node* c = case_(arena, lambda_args, outer_terminator);
+                    const Node* empty_let = let(arena, new_target, c);
 
                     return empty_let;
                 }
-                case AnonLambda_TAG:
+                case Case_TAG:
                     return let(arena, new_target, recreated_join);
                 default:
                     assert(false);

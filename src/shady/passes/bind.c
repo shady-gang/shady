@@ -125,12 +125,12 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
     const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.let.instruction);
 
     const Node* old_lam = node->payload.let.tail;
-    assert(old_lam && is_anonymous_lambda(old_lam));
+    assert(old_lam && is_case(old_lam));
 
     BodyBuilder* bb = begin_body(a);
 
-    Nodes initial_values = bind_instruction_outputs_count(bb, ninstruction, old_lam->payload.anon_lam.params.count, NULL, false);
-    Nodes old_params = old_lam->payload.anon_lam.params;
+    Nodes initial_values = bind_instruction_outputs_count(bb, ninstruction, old_lam->payload.case_.params.count, NULL, false);
+    Nodes old_params = old_lam->payload.case_.params;
     for (size_t i = 0; i < old_params.count; i++) {
         const Node* oparam = old_params.nodes[i];
         const Type* type_annotation = oparam->payload.var.type;
@@ -151,7 +151,7 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
         debugv_print("Lowered mutable variable %s\n", oparam->payload.var.name);
     }
 
-    const Node* terminator = rewrite_node(&body_infer_ctx.rewriter, old_lam->payload.anon_lam.body);
+    const Node* terminator = rewrite_node(&body_infer_ctx.rewriter, old_lam->payload.case_.body);
     return finish_body(bb, terminator);
 }
 
@@ -277,14 +277,14 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             new_bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, node->payload.basic_block.body);
             return new_bb;
         }
-        case AnonLambda_TAG: {
-            Nodes old_params = node->payload.anon_lam.params;
+        case Case_TAG: {
+            Nodes old_params = node->payload.case_.params;
             Nodes new_params = recreate_variables(&ctx->rewriter, old_params);
             for (size_t i = 0; i < new_params.count; i++)
                 add_binding(ctx, false, old_params.nodes[i]->payload.var.name, new_params.nodes[i]);
             register_processed_list(&ctx->rewriter, old_params, new_params);
-            const Node* new_body = rewrite_node(&ctx->rewriter, node->payload.anon_lam.body);
-            return lambda(a, new_params, new_body);
+            const Node* new_body = rewrite_node(&ctx->rewriter, node->payload.case_.body);
+            return case_(a, new_params, new_body);
         }
         case LetMut_TAG: return desugar_let_mut(ctx, node);
         case Return_TAG: {

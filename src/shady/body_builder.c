@@ -115,7 +115,7 @@ const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
     size_t stack_size = entries_count_list(bb->stack);
     for (size_t i = stack_size - 1; i < stack_size; i--) {
         StackEntry entry = read_list(StackEntry, bb->stack)[i];
-        const Node* lam = lambda(bb->arena, entry.vars, terminator);
+        const Node* lam = case_(bb->arena, entry.vars, terminator);
         terminator = (entry.mut ? let_mut : let)(bb->arena, entry.instr, lam);
     }
 
@@ -127,7 +127,7 @@ const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
 const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
     IrArena* arena = bb->arena;
     const Node* terminator = yield(arena, (Yield) { .args = values });
-    const Node* lam = lambda(arena, empty(arena), finish_body(bb, terminator));
+    const Node* lam = case_(arena, empty(arena), finish_body(bb, terminator));
     return block(arena, (Block) {
         .yield_types = get_values_types(arena, values),
         .inside = lam,

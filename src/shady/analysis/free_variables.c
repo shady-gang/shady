@@ -32,7 +32,7 @@ static void search_op_for_free_variables(Context* visitor, NodeClass class, cons
             break;
         }
         case Function_TAG:
-        case AnonLambda_TAG:
+        case Case_TAG:
         case BasicBlock_TAG: assert(false);
         default: visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node); break;
     }
@@ -41,7 +41,7 @@ static void search_op_for_free_variables(Context* visitor, NodeClass class, cons
 static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
     const Node* abs = cfnode->node;
 
-    bool is_named = abs->tag != AnonLambda_TAG;
+    bool is_named = abs->tag != Case_TAG;
 
     if (is_named) {
         for (int i = 0; i < depth; i++)

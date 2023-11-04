@@ -38,7 +38,7 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
         case Variable_TAG: {
             const Node* abs = src->payload.var.abs;
             if (abs) {
-                const Node* construct = abs->payload.anon_lam.structured_construct;
+                const Node* construct = abs->payload.case_.structured_construct;
                 if (construct && construct->tag == Let_TAG) {
                     return get_req_cast(ctx, construct->payload.let.instruction);
                 }

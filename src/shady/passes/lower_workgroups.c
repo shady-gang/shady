@@ -130,14 +130,14 @@ static const Node* process(Context* ctx, const Node* node) {
                         bind_instruction(body_bb, if_instr(a, (If) {
                                 .yield_types = empty(a),
                                 .condition = gen_primop_e(body_bb, gte_op, empty(a), mk_nodes(a, params[dim], maxes[dim])),
-                                .if_true = lambda(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)})),
+                                .if_true = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)})),
                                 .if_false = NULL
                         }));
                         bind_instruction(body_bb, instr);
                         const Node* loop = loop_instr(a, (Loop) {
                                 .yield_types = empty(a),
                                 .initial_args = singleton(uint32_literal(a, 0)),
-                                .body = lambda(a, singleton(params[dim]), finish_body(body_bb, merge_continue(a, (MergeContinue) {.args = singleton(gen_primop_e(body_bb, add_op, empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1))))})))
+                                .body = case_(a, singleton(params[dim]), finish_body(body_bb, merge_continue(a, (MergeContinue) {.args = singleton(gen_primop_e(body_bb, add_op, empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1))))})))
                         });
                         instr = loop;
                     }

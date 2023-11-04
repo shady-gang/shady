@@ -62,7 +62,7 @@ static void search_for_callsites(CGVisitor* visitor, const Node* node) {
             break;
         }
         case BasicBlock_TAG:
-        case AnonLambda_TAG: {
+        case Case_TAG: {
             const Node* old_abs = visitor->abs;
             visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node);
             visitor->abs = old_abs;
