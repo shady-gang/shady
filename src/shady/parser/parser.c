@@ -871,7 +871,7 @@ static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminat
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL);
             Node* continuation = basic_block(arena, fn, parameters, name);
-            continuation->payload.fun.body = expect_body(ctx, fn, NULL);
+            continuation->payload.basic_block.body = expect_body(ctx, fn, NULL);
             append_list(Node*, conts, continuation);
         }
 
