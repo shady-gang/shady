@@ -589,12 +589,12 @@
       "class": "declaration",
       "constructor": "custom",
       "ops": [
-        { "name": "params", "class": "variable", "list": true },
-        { "name": "body", "class": "terminator" },
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
-        { "name": "return_types", "class": "type", "list": true },
-        { "name": "annotations", "class": "annotation", "list": true }
+        { "name": "annotations", "class": "annotation", "list": true },
+        { "name": "params", "class": "variable", "list": true },
+        { "name": "body", "class": "terminator" },
+        { "name": "return_types", "class": "type", "list": true }
       ]
     },
     {
@@ -602,9 +602,9 @@
       "class": "declaration",
       "constructor": "custom",
       "ops": [
-        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
+        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type_hint", "class": "type" },
         { "name": "value", "class": "value", "ignore": true }
       ]
@@ -614,10 +614,10 @@
       "class": "declaration",
       "constructor": "custom",
       "ops": [
-        { "name": "annotations", "class": "annotation", "list": true },
-        { "name": "type", "class": "type" },
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
+        { "name": "annotations", "class": "annotation", "list": true },
+        { "name": "type", "class": "type" },
         { "name": "address_space", "type": "AddressSpace"},
         { "name": "init", "class": "value", "ignore": true }
       ]
@@ -629,9 +629,9 @@
       "constructor": "custom",
       "type": false,
       "ops": [
-        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
+        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "body", "class": "type" }
       ]
     },
