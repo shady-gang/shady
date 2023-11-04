@@ -11,7 +11,7 @@ String get_annotation_name(const Node* node) {
         case Annotation_TAG:      return node->payload.annotation.name;
         case AnnotationValue_TAG: return node->payload.annotation_value.name;
         case AnnotationValues_TAG: return node->payload.annotation_values.name;
-        case AnnotationCompound_TAG: return node->payload.annotations_compound.name;
+        case AnnotationCompound_TAG: return node->payload.annotation_compound.name;
         default: return false;
     }
 }
