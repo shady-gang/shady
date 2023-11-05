@@ -370,11 +370,15 @@ static void generate_grammar_header(Growy* g, Data data) {
         json_object* node_class = json_object_array_get_idx(node_classes, i);
         String name = json_object_get_string(json_object_object_get(node_class, "name"));
         assert(name);
-        String capitalized = capitalize(name);
-        generate_node_tags_for_class(g, nodes, name, capitalized);
-
-        growy_append_formatted(g, "%sTag is_%s(const Node*);\n", capitalized, name);
-        free(capitalized);
+        json_object* generate_enum = json_object_object_get(node_class, "generate-enum");
+        if (!generate_enum || json_object_get_boolean(generate_enum)) {
+            String capitalized = capitalize(name);
+            generate_node_tags_for_class(g, nodes, name, capitalized);
+            growy_append_formatted(g, "%sTag is_%s(const Node*);\n", capitalized, name);
+            free(capitalized);
+        } else {
+            growy_append_formatted(g, "bool is_%s(const Node*);\n", name);
+        }
     }
 }
 
@@ -560,12 +564,20 @@ static void generate_node_class_from_tag(Growy* g, json_object* nodes) {
     growy_append_formatted(g, "}\n");
 }
 
-static void generate_isa_for_class(Growy* g, json_object* nodes, String class, String capitalized_class) {
+static void generate_isa_for_class(Growy* g, json_object* nodes, String class, String capitalized_class, bool use_enum) {
     assert(json_object_get_type(nodes) == json_type_array);
-    growy_append_formatted(g, "%sTag is_%s(const Node* node) {\n", capitalized_class, class);
+    if (use_enum)
+        growy_append_formatted(g, "%sTag is_%s(const Node* node) {\n", capitalized_class, class);
+    else
+        growy_append_formatted(g, "bool is_%s(const Node* node) {\n", class);
     growy_append_formatted(g, "\tif (get_node_class_from_tag(node->tag) & Nc%s)\n", capitalized_class);
-    growy_append_formatted(g, "\t\treturn (%sTag) node->tag;\n", capitalized_class);
-    growy_append_formatted(g, "\treturn (%sTag) 0;\n", capitalized_class);
+    if (use_enum) {
+        growy_append_formatted(g, "\t\treturn (%sTag) node->tag;\n", capitalized_class);
+        growy_append_formatted(g, "\treturn (%sTag) 0;\n", capitalized_class);
+    } else {
+        growy_append_formatted(g, "\t\treturn true;\n", capitalized_class);
+        growy_append_formatted(g, "\treturn false;\n", capitalized_class);
+    }
     growy_append_formatted(g, "}\n\n");
 }
 
@@ -584,9 +596,10 @@ static void generate_nodes_code(Growy* g, Data data) {
         json_object* node_class = json_object_array_get_idx(node_classes, i);
         String name = json_object_get_string(json_object_object_get(node_class, "name"));
         assert(name);
-        String capitalized = capitalize(name);
-        generate_isa_for_class(g, nodes, name, capitalized);
 
+        json_object* generate_enum = json_object_object_get(node_class, "generate-enum");
+        String capitalized = capitalize(name);
+        generate_isa_for_class(g, nodes, name, capitalized, !generate_enum || json_object_get_boolean(generate_enum));
         free(capitalized);
     }
 }
