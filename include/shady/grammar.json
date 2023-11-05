@@ -123,6 +123,10 @@
     },
     {
       "name": "annotation"
+    },
+    {
+      "name": "jump",
+      "generate-enum": false
     }
   ],
   "nodes": [
@@ -505,7 +509,7 @@
     },
     {
       "name": "Jump",
-      "class": "terminator",
+      "class": ["terminator", "jump"],
       "ops": [
         { "name": "target", "class": "basic_block" },
         { "name": "args", "class": "value", "list": true }
@@ -520,8 +524,8 @@
       ],
       "ops": [
         { "name": "branch_condition", "class": "value" },
-        { "name": "true_jump", "class": "terminator" },
-        { "name": "false_jump", "class": "terminator" }
+        { "name": "true_jump", "class": "jump" },
+        { "name": "false_jump", "class": "jump" }
       ]
     },
     {
@@ -532,8 +536,8 @@
       "ops": [
         { "name": "switch_value", "class": "value" },
         { "name": "case_values", "class": "value", "list": true },
-        { "name": "case_jumps", "class": "terminator", "list": true },
-        { "name": "default_jump", "class": "terminator" }
+        { "name": "case_jumps", "class": "jump", "list": true },
+        { "name": "default_jump", "class": "jump" }
       ]
     },
     {
