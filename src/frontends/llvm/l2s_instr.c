@@ -329,6 +329,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             if (!intrinsic)
                 intrinsic = is_shady_intrinsic(callee);
             if (intrinsic) {
+                assert(LLVMIsAFunction(callee));
                 if (strcmp(intrinsic, "llvm.dbg.declare") == 0)
                     return (EmittedInstr) {};
                 if (strcmp(intrinsic, "llvm.dbg.label") == 0) {
@@ -340,6 +341,33 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                     num_results = 0;
                     r = prim_op_helper(a, memcpy_op, empty(a), nodes(a, 3, ops.nodes));
                     break;
+                }
+
+                typedef struct {
+                    bool is_byval;
+                } DecodedParamAttr;
+
+                size_t params_count = 0;
+                for (LLVMValueRef oparam = LLVMGetFirstParam(callee); oparam && oparam <= LLVMGetLastParam(callee); oparam = LLVMGetNextParam(oparam)) {
+                    params_count++;
+                }
+                LARRAY(DecodedParamAttr, decoded, params_count);
+                memset(decoded, 0, sizeof(DecodedParamAttr) * params_count);
+                size_t param_index = 0;
+                for (LLVMValueRef oparam = LLVMGetFirstParam(callee); oparam && oparam <= LLVMGetLastParam(callee); oparam = LLVMGetNextParam(oparam)) {
+                    size_t num_attrs = LLVMGetAttributeCountAtIndex(callee, param_index + 1);
+                    LARRAY(LLVMAttributeRef, attrs, num_attrs);
+                    LLVMGetAttributesAtIndex(callee, param_index + 1, attrs);
+                    bool is_byval = false;
+                    for (size_t i = 0; i < num_attrs; i++) {
+                        LLVMAttributeRef attr = attrs[i];
+                        size_t k = LLVMGetEnumAttributeKind(attr);
+                        size_t e = LLVMGetEnumAttributeKindForName("byval", 5);
+                        // printf("p = %zu, i = %zu, k = %zu, e = %zu\n", param_index, i, k, e);
+                        if (k == e)
+                            decoded[param_index].is_byval = true;
+                    }
+                    param_index++;
                 }
 
                 String ostr = intrinsic;
@@ -358,8 +386,15 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                             }
                         }
                         assert(i != PRIMOPS_COUNT);
-                        Nodes ops = convert_operands(p, num_ops, instr);
-                        r = prim_op_helper(a, op, empty(a), nodes(a, num_args, ops.nodes));
+                        Nodes ops = convert_operands(p, num_args, instr);
+                        LARRAY(const Node*, processed_ops, ops.count);
+                        for (i = 0; i < num_args; i++) {
+                            if (decoded[i].is_byval)
+                                processed_ops[i] = first(bind_instruction_outputs_count(b, prim_op_helper(a, load_op, empty(a), singleton(ops.nodes[i])), 1, NULL, false));
+                            else
+                                processed_ops[i] = ops.nodes[i];
+                        }
+                        r = prim_op_helper(a, op, empty(a), nodes(a, num_args, processed_ops));
                         break;
                     } else {
                         error_print("Unrecognised shady intrinsic '%s'\n", keyword);

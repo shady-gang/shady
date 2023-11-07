@@ -5,6 +5,7 @@
 #include "util.h"
 
 #include "llvm-c/IRReader.h"
+#include "portability.h"
 
 #include <assert.h>
 #include <string.h>
