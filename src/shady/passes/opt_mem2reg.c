@@ -3,6 +3,7 @@
 #include "portability.h"
 #include "dict.h"
 #include "arena.h"
+#include "log.h"
 
 #include "../analysis/scope.h"
 #include "../rewrite.h"
@@ -21,18 +22,23 @@ typedef struct {
 typedef struct KB KnowledgeBase;
 
 struct KB {
-    const Node* abs; // debug
+    CFNode* cfnode;
     // when the associated node has exactly one parent edge, we can safely assume what held true
     // for it will hold true for this one too, unless we have conflicting information
     const KnowledgeBase* dominator_kb;
     struct Dict* map;
+    struct Dict* potential_additional_params;
     Arena* a;
 };
 
 typedef struct {
     Rewriter rewriter;
+    Scope* scope;
     struct Dict* abs_to_kb;
     const Node* abs;
+    Arena* a;
+
+    struct Dict* bb_new_args;
 } Context;
 
 static const Knowledge* read_node_knowledge(const KnowledgeBase* kb, const Node* n) {
@@ -71,6 +77,26 @@ static void insert_node_knowledge(KnowledgeBase* kb, const Node* n, Knowledge* k
     insert_dict(const Node*, Knowledge*, kb->map, n, k);
 }
 
+static const Node* get_ptr_known_value_(Context* ctx, const KnowledgeBase* kb, const Node* n, bool import) {
+    const Knowledge* k = read_node_knowledge(kb, n);
+    if (k && !*k->ptr_leaks_ever) {
+        if (k->ptr_value) {
+            if (import && k->ptr_value->arena == ctx->rewriter.src_arena)
+               return rewrite_node(&ctx->rewriter, k->ptr_value);
+            return k->ptr_value;
+        }
+    }
+    return NULL;
+}
+
+static bool has_ptr_known_value(Context* ctx, const KnowledgeBase* kb, const Node* n) {
+    return get_ptr_known_value_(ctx, kb, n, false) != NULL;
+}
+
+static const Node* get_ptr_known_value(Context* ctx, const KnowledgeBase* kb, const Node* n) {
+    return get_ptr_known_value_(ctx, kb, n, true);
+}
+
 typedef struct {
     Visitor visitor;
     KnowledgeBase* kb;
@@ -104,6 +130,22 @@ static void visit_instruction(KnowledgeBase* kb, const Node* instruction, Nodes 
                     Knowledge* k = get_node_knowledge(kb, instruction, true);
                     insert_node_knowledge(kb, first(results), k);
                     k->ptr_value = undef(a, (Undef) { .type = first(payload.type_arguments) });
+                    break;
+                }
+                case load_op: {
+                    const Node* ptr = first(payload.operands);
+                    const Knowledge* k = read_node_knowledge(kb, ptr);
+                    if (!k || !k->ptr_value) {
+                        const KnowledgeBase* phi_kb = kb;
+                        while (phi_kb->dominator_kb) {
+                            phi_kb = phi_kb->dominator_kb;
+                        }
+                        debug_print("mem2reg: It'd sure be nice to know the value of ");
+                        log_node(DEBUG, first(payload.operands));
+                        debug_print(" at phi-like node %s.\n", get_abstraction_name(phi_kb->cfnode->node));
+                        // log_node(DEBUG, phi_location->node);
+                        insert_set_get_key(const Node*, phi_kb->potential_additional_params, ptr);
+                    }
                     break;
                 }
                 case store_op: {
@@ -143,6 +185,8 @@ static void visit_instruction(KnowledgeBase* kb, const Node* instruction, Nodes 
 }
 
 static void visit_terminator(KBVisitor* v, const Node* old) {
+    if (!old)
+        return;
     switch (is_terminator(old)) {
         case Terminator_LetMut_TAG:
         case NotATerminator: assert(false);
@@ -167,7 +211,8 @@ static void visit_terminator(KBVisitor* v, const Node* old) {
         }
         case Terminator_Branch_TAG:
         case Terminator_Switch_TAG: {
-            visit_node_operands(&v->visitor, ~NcJump, old);
+            KBVisitor jumps_visitor = { .visitor = { .visit_node_fn = (VisitNodeFn) visit_terminator }, .kb = v->kb };
+            visit_node_operands(&jumps_visitor.visitor, ~NcJump, old);
             break;
         }
         case Terminator_Unreachable_TAG:
@@ -183,12 +228,25 @@ static void visit_terminator(KBVisitor* v, const Node* old) {
 KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
+static void destroy_kb(KnowledgeBase* kb) {
+    destroy_dict(kb->map);
+    destroy_dict(kb->potential_additional_params);
+}
+
+static KnowledgeBase* get_kb(Context* ctx, const Node* abs) {
+    KnowledgeBase** found = find_value_dict(const Node*, KnowledgeBase*, ctx->abs_to_kb, abs);
+    assert(found);
+    return *found;
+}
+
 static void visit_cfnode(Context* ctx, CFNode* node, CFNode* dominator) {
     const Node* oabs = node->node;
-    KnowledgeBase kb = {
-        .abs = node->node,
-        .a = new_arena(),
+    KnowledgeBase* kb = arena_alloc(ctx->a, sizeof(KnowledgeBase));
+    *kb = (KnowledgeBase) {
+        .cfnode = node,
+        .a = ctx->a,
         .map = new_dict(const Node*, Knowledge*, (HashFn) hash_node, (CmpFn) compare_node),
+        .potential_additional_params = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .dominator_kb = NULL,
     };
     if (entries_count_list(node->pred_edges) == 1) {
@@ -196,14 +254,14 @@ static void visit_cfnode(Context* ctx, CFNode* node, CFNode* dominator) {
         CFEdge edge = read_list(CFEdge, node->pred_edges)[0];
         assert(edge.dst == node);
         assert(edge.src == dominator);
-        const KnowledgeBase* parent_kb = find_value_dict(const Node*, KnowledgeBase, ctx->abs_to_kb, dominator->node);
+        const KnowledgeBase* parent_kb = get_kb(ctx, dominator->node);
         assert(parent_kb->map);
-        kb.dominator_kb = parent_kb;
+        kb->dominator_kb = parent_kb;
     }
-    assert(kb.map);
-    insert_dict(const Node*, KnowledgeBase, ctx->abs_to_kb, node->node, kb);
+    assert(kb->map);
+    insert_dict(const Node*, KnowledgeBase*, ctx->abs_to_kb, node->node, kb);
 
-    KBVisitor v = { .visitor = { .visit_op_fn = (VisitOpFn) register_parameters }, .kb = &kb };
+    KBVisitor v = { .visitor = { .visit_op_fn = (VisitOpFn) register_parameters }, .kb = kb };
     visit_node_operands(&v.visitor, ~NcVariable, oabs);
 
     assert(is_abstraction(oabs));
@@ -218,19 +276,19 @@ static void visit_cfnode(Context* ctx, CFNode* node, CFNode* dominator) {
 static const Node* process(Context* ctx, const Node* old) {
     assert(old);
     Context fn_ctx = *ctx;
-    if (old->tag == Function_TAG) {
+    if (old->tag == Function_TAG && !lookup_annotation(old, "Internal")) {
         Scope* s = new_scope(old);
         ctx = &fn_ctx;
-        fn_ctx.abs_to_kb = new_dict(const Node*, KnowledgeBase, (HashFn) hash_node, (CmpFn) compare_node);
+        fn_ctx.scope = s;
+        fn_ctx.abs_to_kb = new_dict(const Node*, KnowledgeBase**, (HashFn) hash_node, (CmpFn) compare_node);
         visit_cfnode(&fn_ctx, s->entry, NULL);
         fn_ctx.abs = old;
         const Node* new_fn = recreate_node_identity(&fn_ctx.rewriter, old);
         destroy_scope(s);
         size_t i = 0;
-        KnowledgeBase kb;
+        KnowledgeBase* kb;
         while (dict_iter(fn_ctx.abs_to_kb, &i, NULL, &kb)) {
-            destroy_dict(kb.map);
-            destroy_arena(kb.a);
+            destroy_kb(kb);
         }
         destroy_dict(fn_ctx.abs_to_kb);
         return new_fn;
@@ -240,10 +298,13 @@ static const Node* process(Context* ctx, const Node* old) {
     }
 
     KnowledgeBase* kb = NULL;
-    if (ctx->abs) {
-        kb = find_value_dict(const Node*, KnowledgeBase, ctx->abs_to_kb, ctx->abs);
+    if (ctx->abs && ctx->abs_to_kb) {
+        kb = get_kb(ctx, ctx->abs);
         assert(kb);
     }
+
+    if (!kb)
+        return recreate_node_identity(&ctx->rewriter, old);
 
     IrArena* a = ctx->rewriter.dst_arena;
     switch (old->tag) {
@@ -251,12 +312,12 @@ static const Node* process(Context* ctx, const Node* old) {
             PrimOp payload = old->payload.prim_op;
             switch (payload.op) {
                 case load_op: {
-                    const Knowledge* k = read_node_knowledge(kb, first(payload.operands));
-                    if (k && k->ptr_value && !*k->ptr_leaks_ever)
-                        return quote_helper(a, singleton(rewrite_node(&ctx->rewriter, k->ptr_value)));
+                    const Node* known_value = get_ptr_known_value(ctx, kb, first(payload.operands));
+                    if (known_value)
+                        return quote_helper(a, singleton(known_value));
                     break;
                 }
-                case store_op: {
+                /*case store_op: {
                     const Knowledge* k = read_node_knowledge(kb, first(payload.operands));
                     if (k && !*k->ptr_leaks_ever)
                         return quote_helper(a, empty(a));
@@ -267,9 +328,73 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k && !*k->ptr_leaks_ever)
                         return quote_helper(a, singleton(undef(a, (Undef) { .type = get_unqualified_type(rewrite_node(&ctx->rewriter, old->type)) })));
                     break;
-                }
+                }*/
                 default: break;
             }
+            break;
+        }
+        case BasicBlock_TAG: {
+            CFNode* cfnode = scope_lookup(ctx->scope, old);
+            size_t i = 0;
+            const Node* ptr;
+            Nodes params = recreate_variables(&ctx->rewriter, get_abstraction_params(old));
+            register_processed_list(&ctx->rewriter, get_abstraction_params(old), params);
+            Nodes ptrs = empty(ctx->rewriter.src_arena);
+            while (dict_iter(kb->potential_additional_params, &i, &ptr, NULL)) {
+                // check if all the edges have a value for this!
+                for (size_t j = 0; j < entries_count_list(cfnode->pred_edges); j++) {
+                    CFEdge edge = read_list(CFEdge, cfnode->pred_edges)[j];
+                    if (edge.type == StructuredPseudoExitEdge)
+                        continue; // these are not real edges...
+                    KnowledgeBase* kb_at_src = get_kb(ctx, edge.src->node);
+                    if (has_ptr_known_value(ctx, kb_at_src, ptr)) {
+                        log_node(DEBUG, ptr);
+                        debug_print(" has a known value in %s ...\n", get_abstraction_name(edge.src->node));
+                    } else
+                        goto next_potential_param;
+                }
+
+                log_node(DEBUG, ptr);
+                debug_print(" has a known value in all predecessors! Turning it into a new parameter.\n");
+                const Type* t = rewrite_node(&ctx->rewriter, ptr->type);
+                bool u = deconstruct_qualified_type(&t);
+                deconstruct_pointer_type(&t);
+                const Node* param = var(a, qualified_type_helper(t, u), unique_name(a, "ssa_phi"));
+                params = append_nodes(a, params, param);
+                ptrs = append_nodes(ctx->rewriter.src_arena, ptrs, ptr);
+
+                Knowledge* k = get_node_knowledge(kb, ptr, true);
+                assert(!k->ptr_value && "if we had a value already, we wouldn't be creating a param!");
+                k->ptr_value = param;
+
+                next_potential_param: continue;
+            }
+
+            if (ptrs.count > 0) {
+                insert_dict(const Node*, Nodes, ctx->bb_new_args, old, ptrs);
+            }
+
+            Node* fn = (Node*) rewrite_node(&ctx->rewriter, ctx->scope->entry->node);
+            Node* bb = basic_block(a, fn, params, get_abstraction_name(old));
+            register_processed(&ctx->rewriter, old, bb);
+            bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, get_abstraction_body(old));
+            return bb;
+        }
+        case Jump_TAG: {
+            const Node* new_bb = rewrite_node(&ctx->rewriter, old->payload.jump.target);
+            Nodes args = rewrite_nodes(&ctx->rewriter, old->payload.jump.args);
+
+            Nodes* additional_ssa_params = find_value_dict(const Node*, Nodes, ctx->bb_new_args, old->payload.jump.target);
+            if (additional_ssa_params) {
+                for (size_t i = 0; i < additional_ssa_params->count; i++) {
+                    const Node* ptr = additional_ssa_params->nodes[i];
+                    const Node* value = get_ptr_known_value(ctx, kb, ptr);
+                    assert(value);
+                    args = append_nodes(a, args, value);
+                }
+            }
+
+            return jump_helper(a, new_bb, args);
         }
         default: break;
     }
@@ -284,6 +409,8 @@ Module* opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module* src) {
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .bb_new_args = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
+        .a = new_arena(),
     };
 
     ctx.rewriter.config.fold_quote = false;
@@ -291,5 +418,7 @@ Module* opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module* src) {
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    destroy_dict(ctx.bb_new_args);
+    destroy_arena(ctx.a);
     return dst;
 }

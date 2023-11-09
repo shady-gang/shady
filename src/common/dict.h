@@ -37,7 +37,7 @@ bool remove_dict_impl(struct Dict* dict, void* key);
 void* insert_dict_and_get_value_impl(struct Dict*, void* key, void* value);
 
 #define insert_dict_and_get_key(K, V, dict, key, value) *(K*) insert_dict_and_get_key_impl(dict, (void*) (&(key)), (void*) (&(value)))
-#define      insert_set_get_key(K, dict, key)           *(K*) insert_dict_impl_and_get_key(dict, (void*) (&(key)), NULL)
+#define      insert_set_get_key(K, dict, key)           *(K*) insert_dict_and_get_key_impl(dict, (void*) (&(key)), NULL)
 void* insert_dict_and_get_key_impl(struct Dict*, void* key, void* value);
 
 #define insert_dict_and_get_result(K, V, dict, key, value) insert_dict_and_get_result_impl(dict, (void*) (&(key)), (void*) (&(value)))
