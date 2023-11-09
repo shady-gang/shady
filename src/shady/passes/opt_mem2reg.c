@@ -12,12 +12,15 @@
 #include "../analysis/uses.h"
 
 typedef struct {
-    CFNode* alloc_in;
     AddressSpace as;
+    bool ptr_leaks_ever;
+} PtrSourceKnowledge;
+
+typedef struct {
     const Node* ptr_value;
     bool ptr_has_leaked;
-    bool* ptr_leaks_ever;
-} Knowledge;
+    PtrSourceKnowledge* source;
+} PtrKnowledge;
 
 typedef struct KB KnowledgeBase;
 
@@ -41,60 +44,60 @@ typedef struct {
     struct Dict* bb_new_args;
 } Context;
 
-static const Knowledge* read_node_knowledge(const KnowledgeBase* kb, const Node* n) {
-    Knowledge** found = find_value_dict(const Node*, Knowledge*, kb->map, n);
+static PtrKnowledge* get_last_valid_ptr_knowledge(const KnowledgeBase* kb, const Node* n) {
+    PtrKnowledge** found = find_value_dict(const Node*, PtrKnowledge*, kb->map, n);
     if (found)
         return *found;
-    if (kb->dominator_kb) {
-        return read_node_knowledge(kb->dominator_kb, n);
-    }
-    return NULL;
-}
-
-static Knowledge* get_node_knowledge(KnowledgeBase* kb, const Node* n, bool create_if_missing) {
-    Knowledge** found = find_value_dict(const Node*, Knowledge*, kb->map, n);
-    if (found)
-        return *found;
-    const Knowledge* old_k = NULL;
+    PtrKnowledge* k = NULL;
     if (kb->dominator_kb)
-        old_k = read_node_knowledge(kb->dominator_kb, n);
-    if (!create_if_missing)
-        return NULL;
-    Knowledge* k = arena_alloc(kb->a, sizeof(Knowledge));
-    if (old_k) {
-        // copy the previous knowledge we had about the node
-        *k = *old_k;
-    } else {
-        k->ptr_leaks_ever = arena_alloc(kb->a, sizeof(bool));
-    }
-    insert_dict(const Node*, Knowledge*, kb->map, n, k);
+        k = get_last_valid_ptr_knowledge(kb->dominator_kb, n);
     return k;
 }
 
-static void insert_node_knowledge(KnowledgeBase* kb, const Node* n, Knowledge* k) {
-    Knowledge** found = find_value_dict(const Node*, Knowledge*, kb->map, n);
-    assert(!found);
-    insert_dict(const Node*, Knowledge*, kb->map, n, k);
+static PtrKnowledge* create_ptr_knowledge(KnowledgeBase* kb, const Node* n) {
+    PtrKnowledge* k = arena_alloc(kb->a, sizeof(PtrKnowledge));
+    PtrSourceKnowledge* sk = arena_alloc(kb->a, sizeof(PtrSourceKnowledge));
+    *k = (PtrKnowledge) { .source = sk };
+    *sk = (PtrSourceKnowledge) { 0 };
+    bool fresh = insert_dict(const Node*, PtrKnowledge*, kb->map, n, k);
+    assert(fresh);
+    return k;
 }
 
-static const Node* get_ptr_known_value_(Context* ctx, const KnowledgeBase* kb, const Node* n, bool import) {
-    const Knowledge* k = read_node_knowledge(kb, n);
-    if (k && !*k->ptr_leaks_ever) {
+static PtrKnowledge* update_ptr_knowledge(KnowledgeBase* kb, const Node* n, PtrKnowledge* existing) {
+    PtrKnowledge* prev = get_last_valid_ptr_knowledge(kb, n);
+    PtrKnowledge* k = arena_alloc(kb->a, sizeof(PtrKnowledge));
+    *k = *prev; // copy the data
+    bool fresh = insert_dict(const Node*, PtrKnowledge*, kb->map, n, k);
+    assert(fresh);
+    return k;
+}
+
+static void insert_ptr_knowledge(KnowledgeBase* kb, const Node* n, PtrKnowledge* k) {
+    PtrKnowledge** found = find_value_dict(const Node*, PtrKnowledge*, kb->map, n);
+    assert(!found);
+    insert_dict(const Node*, PtrKnowledge*, kb->map, n, k);
+}
+
+static const Node* get_ptr_known_value_(const KnowledgeBase* kb, const Node* n) {
+    const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, n);
+    if (k && !k->ptr_has_leaked) {
         if (k->ptr_value) {
-            if (import && k->ptr_value->arena == ctx->rewriter.src_arena)
-               return rewrite_node(&ctx->rewriter, k->ptr_value);
             return k->ptr_value;
         }
     }
     return NULL;
 }
 
-static bool has_ptr_known_value(Context* ctx, const KnowledgeBase* kb, const Node* n) {
-    return get_ptr_known_value_(ctx, kb, n, false) != NULL;
+static bool has_ptr_known_value(const KnowledgeBase* kb, const Node* n) {
+    return get_ptr_known_value_(kb, n) != NULL;
 }
 
 static const Node* get_ptr_known_value(Context* ctx, const KnowledgeBase* kb, const Node* n) {
-    return get_ptr_known_value_(ctx, kb, n, true);
+    const Node* v = get_ptr_known_value_(kb, n);
+    if (v && v->arena == ctx->rewriter.src_arena)
+        return rewrite_node(&ctx->rewriter, v);
+    return NULL;
 }
 
 typedef struct {
@@ -104,15 +107,15 @@ typedef struct {
 
 static void register_parameters(KBVisitor* v, NodeTag tag, const Node* n) {
     assert(tag == NcVariable);
-    Knowledge* k = get_node_knowledge(v->kb, n, true);
+    PtrKnowledge* k = create_ptr_knowledge(v->kb, n);
 }
 
 static void tag_as_leaking_values(KBVisitor* v, NodeTag tag, const Node* n) {
     assert(tag == NcValue);
-    Knowledge* k = get_node_knowledge(v->kb, n, false);
+    PtrKnowledge* k = get_last_valid_ptr_knowledge(v->kb, n);
     if (k) {
         k->ptr_has_leaked = true;
-        *k->ptr_leaks_ever = true;
+        k->source->ptr_leaks_ever = true;
     }
 }
 
@@ -127,14 +130,18 @@ static void visit_instruction(KnowledgeBase* kb, const Node* instruction, Nodes 
             switch (payload.op) {
                 case alloca_logical_op:
                 case alloca_op: {
-                    Knowledge* k = get_node_knowledge(kb, instruction, true);
-                    insert_node_knowledge(kb, first(results), k);
+                    PtrKnowledge* k = create_ptr_knowledge(kb, instruction);
+                    const Type* t = instruction->type;
+                    deconstruct_qualified_type(&t);
+                    assert(t->tag == PtrType_TAG);
+                    k->source->as = t->payload.ptr_type.address_space;
+                    insert_ptr_knowledge(kb, first(results), k);
                     k->ptr_value = undef(a, (Undef) { .type = first(payload.type_arguments) });
                     break;
                 }
                 case load_op: {
                     const Node* ptr = first(payload.operands);
-                    const Knowledge* k = read_node_knowledge(kb, ptr);
+                    const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
                     if (!k || !k->ptr_value) {
                         const KnowledgeBase* phi_kb = kb;
                         while (phi_kb->dominator_kb) {
@@ -149,15 +156,16 @@ static void visit_instruction(KnowledgeBase* kb, const Node* instruction, Nodes 
                     break;
                 }
                 case store_op: {
-                    Knowledge* k = get_node_knowledge(kb, first(payload.operands), true);
-                    k->ptr_value = payload.operands.nodes[1];
+                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, first(payload.operands));
+                    if (k)
+                        k->ptr_value = payload.operands.nodes[1];
                     break; // let's take care of dead stores another time
                 }
                 case reinterpret_op: {
                     // if we have knowledge on a particular ptr, the same knowledge propagates if we bitcast it!
-                    Knowledge* k = get_node_knowledge(kb, first(payload.operands), false);
+                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, first(payload.operands));
                     if (k)
-                        insert_node_knowledge(kb, first(results), k);
+                        insert_ptr_knowledge(kb, first(results), k);
                     break;
                 }
                 case memcpy_op: {
@@ -179,9 +187,6 @@ static void visit_instruction(KnowledgeBase* kb, const Node* instruction, Nodes 
             assert(false && "unsupported");
             break;
     }
-
-    /*const Node* new_instr = rewrite_node(&ctx->rewriter, instruction);
-    return new_instr;*/
 }
 
 static void visit_terminator(KBVisitor* v, const Node* old) {
@@ -245,7 +250,7 @@ static void visit_cfnode(Context* ctx, CFNode* node, CFNode* dominator) {
     *kb = (KnowledgeBase) {
         .cfnode = node,
         .a = ctx->a,
-        .map = new_dict(const Node*, Knowledge*, (HashFn) hash_node, (CmpFn) compare_node),
+        .map = new_dict(const Node*, PtrKnowledge*, (HashFn) hash_node, (CmpFn) compare_node),
         .potential_additional_params = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .dominator_kb = NULL,
     };
@@ -261,10 +266,11 @@ static void visit_cfnode(Context* ctx, CFNode* node, CFNode* dominator) {
     assert(kb->map);
     insert_dict(const Node*, KnowledgeBase*, ctx->abs_to_kb, node->node, kb);
 
-    KBVisitor v = { .visitor = { .visit_op_fn = (VisitOpFn) register_parameters }, .kb = kb };
-    visit_node_operands(&v.visitor, ~NcVariable, oabs);
+    // KBVisitor v = { .visitor = { .visit_op_fn = (VisitOpFn) register_parameters }, .kb = kb };
+    // visit_node_operands(&v.visitor, ~NcVariable, oabs);
 
     assert(is_abstraction(oabs));
+    KBVisitor v = { .visitor = { .visit_op_fn = (VisitOpFn) NULL }, .kb = kb };
     visit_terminator(&v, get_abstraction_body(oabs));
 
     for (size_t i = 0; i < entries_count_list(node->dominates); i++) {
@@ -341,21 +347,33 @@ static const Node* process(Context* ctx, const Node* old) {
             register_processed_list(&ctx->rewriter, get_abstraction_params(old), params);
             Nodes ptrs = empty(ctx->rewriter.src_arena);
             while (dict_iter(kb->potential_additional_params, &i, &ptr, NULL)) {
+                PtrSourceKnowledge* source = NULL;
+                PtrKnowledge uk = { 0 };
                 // check if all the edges have a value for this!
                 for (size_t j = 0; j < entries_count_list(cfnode->pred_edges); j++) {
                     CFEdge edge = read_list(CFEdge, cfnode->pred_edges)[j];
                     if (edge.type == StructuredPseudoExitEdge)
                         continue; // these are not real edges...
                     KnowledgeBase* kb_at_src = get_kb(ctx, edge.src->node);
-                    if (has_ptr_known_value(ctx, kb_at_src, ptr)) {
+
+                    if (has_ptr_known_value(kb_at_src, ptr)) {
                         log_node(DEBUG, ptr);
                         debug_print(" has a known value in %s ...\n", get_abstraction_name(edge.src->node));
                     } else
                         goto next_potential_param;
+
+                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb_at_src, ptr);
+                    if (!source)
+                        source = k->source;
+                    else
+                        assert(source == k->source);
+
+                    uk.ptr_has_leaked |= k->ptr_has_leaked;
                 }
 
                 log_node(DEBUG, ptr);
                 debug_print(" has a known value in all predecessors! Turning it into a new parameter.\n");
+
                 const Type* t = rewrite_node(&ctx->rewriter, ptr->type);
                 bool u = deconstruct_qualified_type(&t);
                 deconstruct_pointer_type(&t);
@@ -363,9 +381,13 @@ static const Node* process(Context* ctx, const Node* old) {
                 params = append_nodes(a, params, param);
                 ptrs = append_nodes(ctx->rewriter.src_arena, ptrs, ptr);
 
-                Knowledge* k = get_node_knowledge(kb, ptr, true);
-                assert(!k->ptr_value && "if we had a value already, we wouldn't be creating a param!");
-                k->ptr_value = param;
+                PtrKnowledge* k = arena_alloc(ctx->a, sizeof(PtrKnowledge));
+                *k = (PtrKnowledge) {
+                    .ptr_value = param,
+                    .source = source,
+                    .ptr_has_leaked = uk.ptr_has_leaked
+                };
+                insert_ptr_knowledge(kb, ptr, k);
 
                 next_potential_param: continue;
             }
