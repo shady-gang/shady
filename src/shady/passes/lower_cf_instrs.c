@@ -2,23 +2,22 @@
 
 #include "log.h"
 #include "portability.h"
+#include "dict.h"
+
 #include "../type.h"
 #include "../rewrite.h"
+#include "../analysis/scope.h"
 
 #include <assert.h>
-
-typedef struct {
-    const Node* join_point_selection_merge;
-    const Node* join_point_switch_merge;
-    const Node* join_point_loop_break;
-    const Node* join_point_loop_continue;
-} JoinPoints;
 
 typedef struct Context_ {
     Rewriter rewriter;
     bool disable_lowering;
-    JoinPoints join_points;
     Node* current_fn;
+
+    struct Dict* structured_join_tokens;
+    Scope* scope;
+    const Node* abs;
 } Context;
 
 static const Node* process_node(Context* ctx, const Node* node);
@@ -43,15 +42,18 @@ static const Node* process_let(Context* ctx, const Node* node) {
             });
             const Node* join_point = var(a, jp_type, "if_join");
             Context join_context = *ctx;
-            join_context.join_points.join_point_selection_merge = join_point;
+            Nodes jps = singleton(join_point);
+            insert_dict(const Node*, Nodes, ctx->structured_join_tokens, old_instruction, jps);
 
             Node* true_block = basic_block(a, ctx->current_fn, nodes(a, 0, NULL), unique_name(a, "if_true"));
+            join_context.abs = old_instruction->payload.if_instr.if_true;
             true_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_true->payload.case_.body);
 
             Node* flse_block = basic_block(a, ctx->current_fn, nodes(a, 0, NULL), unique_name(a, "if_false"));
-            if (has_false_branch)
+            if (has_false_branch) {
+                join_context.abs = old_instruction->payload.if_instr.if_false;
                 flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_false->payload.case_.body);
-            else {
+            } else {
                 assert(yield_types.count == 0);
                 flse_block->payload.basic_block.body = join(a, (Join) { .join_point = join_point, .args = nodes(a, 0, NULL) });
             }
@@ -66,6 +68,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             new_instruction = control(a, (Control) { .yield_types = yield_types, .inside = control_lam });
             break;
         }
+        // TODO: match
         case Loop_TAG: {
             const Node* old_loop_body = old_instruction->payload.loop_instr.body;
             assert(is_case(old_loop_body));
@@ -85,13 +88,14 @@ static const Node* process_let(Context* ctx, const Node* node) {
             const Node* break_point = var(a, break_jp_type, "loop_break_point");
             const Node* continue_point = var(a, continue_jp_type, "loop_continue_point");
             Context join_context = *ctx;
-            join_context.join_points.join_point_loop_break = break_point;
-            join_context.join_points.join_point_loop_continue = continue_point;
+            Nodes jps = mk_nodes(a, break_point, continue_point);
+            insert_dict(const Node*, Nodes, ctx->structured_join_tokens, old_instruction, jps);
 
             Nodes new_params = recreate_variables(&ctx->rewriter, old_loop_body->payload.case_.params);
             Node* loop_body = basic_block(a, ctx->current_fn, new_params, unique_name(a, "loop_body"));
             register_processed_list(&join_context.rewriter, old_loop_body->payload.case_.params, loop_body->payload.basic_block.params);
 
+            join_context.abs = old_loop_body;
             const Node* inner_control_body = rewrite_node(&join_context.rewriter, old_loop_body->payload.case_.body);
             const Node* inner_control_lam = case_(a, nodes(a, 1, (const Node* []) {continue_point}), inner_control_body);
 
@@ -132,28 +136,55 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     IrArena* a = ctx->rewriter.dst_arena;
 
+    Context sub_ctx = *ctx;
     if (node->tag == Function_TAG) {
         Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
-        Context sub_ctx = *ctx;
         sub_ctx.disable_lowering = lookup_annotation(fun, "Structured");
         sub_ctx.current_fn = fun;
-        sub_ctx.join_points = (JoinPoints) {
-            .join_point_selection_merge = NULL,
-            .join_point_switch_merge = NULL,
-            .join_point_loop_break = NULL,
-            .join_point_loop_continue = NULL,
-        };
+        sub_ctx.scope = new_scope(node);
+        sub_ctx.abs = node;
         fun->payload.fun.body = rewrite_node(&sub_ctx.rewriter, node->payload.fun.body);
+        destroy_scope(sub_ctx.scope);
         return fun;
+    }
+
+    if (is_abstraction(node)) {
+        sub_ctx.abs = node;
+        ctx = &sub_ctx;
     }
 
     if (ctx->disable_lowering)
         return recreate_node_identity(&ctx->rewriter, node);
 
+    CFNode* cfnode = ctx->abs ? scope_lookup(ctx->scope, ctx->abs) : NULL;
     switch (node->tag) {
         case Let_TAG: return process_let(ctx, node);
         case Yield_TAG: {
-            const Node* jp = ctx->join_points.join_point_selection_merge;
+            assert(cfnode);
+            CFNode* dom = cfnode->idom;
+            const Node* selection_instr = NULL;
+            while (dom) {
+                const Node* body = get_abstraction_body(dom->node);
+                if (body->tag == Let_TAG) {
+                    const Node* instr = get_let_instruction(body);
+                    if (instr->tag == If_TAG || instr->tag == Match_TAG) {
+                        selection_instr = instr;
+                        break;
+                    }
+                }
+                dom = dom->idom;
+            }
+
+            if (!selection_instr) {
+                error_print("Scoping error: Failed to find a dominating selection construct for ");
+                log_node(ERROR, node);
+                error_print(".\n");
+                error_die();
+            }
+
+            Nodes* jps = find_value_dict(const Node*, Nodes, ctx->structured_join_tokens, selection_instr);
+            assert(jps && jps->count == 1);
+            const Node* jp = first(*jps);
             assert(jp);
             return join(a, (Join) {
                 .join_point = jp,
@@ -161,7 +192,31 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
         }
         case MergeContinue_TAG: {
-            const Node* jp = ctx->join_points.join_point_loop_continue;
+            assert(cfnode);
+            CFNode* dom = cfnode->idom;
+            const Node* selection_instr = NULL;
+            while (dom) {
+                const Node* body = get_abstraction_body(dom->node);
+                if (body->tag == Let_TAG) {
+                    const Node* instr = get_let_instruction(body);
+                    if (instr->tag == Loop_TAG) {
+                        selection_instr = instr;
+                        break;
+                    }
+                }
+                dom = dom->idom;
+            }
+
+            if (!selection_instr) {
+                error_print("Scoping error: Failed to find a dominating selection construct for ");
+                log_node(ERROR, node);
+                error_print(".\n");
+                error_die();
+            }
+
+            Nodes* jps = find_value_dict(const Node*, Nodes, ctx->structured_join_tokens, selection_instr);
+            assert(jps && jps->count == 2);
+            const Node* jp = jps->nodes[1];
             assert(jp);
             return join(a, (Join) {
                 .join_point = jp,
@@ -169,7 +224,31 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
         }
         case MergeBreak_TAG: {
-            const Node* jp = ctx->join_points.join_point_loop_break;
+            assert(cfnode);
+            CFNode* dom = cfnode->idom;
+            const Node* selection_instr = NULL;
+            while (dom) {
+                const Node* body = get_abstraction_body(dom->node);
+                if (body->tag == Let_TAG) {
+                    const Node* instr = get_let_instruction(body);
+                    if (instr->tag == Loop_TAG) {
+                        selection_instr = instr;
+                        break;
+                    }
+                }
+                dom = dom->idom;
+            }
+
+            if (!selection_instr) {
+                error_print("Scoping error: Failed to find a dominating selection construct for ");
+                log_node(ERROR, node);
+                error_print(".\n");
+                error_die();
+            }
+
+            Nodes* jps = find_value_dict(const Node*, Nodes, ctx->structured_join_tokens, selection_instr);
+            assert(jps && jps->count == 2);
+            const Node* jp = first(*jps);
             assert(jp);
             return join(a, (Join) {
                 .join_point = jp,
@@ -180,15 +259,22 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 }
 
+KeyHash hash_node(const Node**);
+bool compare_node(const Node**, const Node**);
+
 Module* lower_cf_instrs(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .structured_join_tokens = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
     };
+    ctx.rewriter.config.rebind_let = false;
+    ctx.rewriter.config.fold_quote = false;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    destroy_dict(ctx.structured_join_tokens);
     return dst;
 }
 
