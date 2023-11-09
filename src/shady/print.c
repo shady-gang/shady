@@ -240,7 +240,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     assert(is_function(node));
 
     PrinterCtx sub_ctx = *ctx;
-    if (node->arena->config.name_bound) {
+    if (node->arena->config.check_op_classes) {
         Scope* scope = new_scope(node);
         sub_ctx.scope = scope;
         sub_ctx.fn = node;
@@ -267,7 +267,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     deindent(ctx->printer);
     printf("\n}");
 
-    if (node->arena->config.name_bound) {
+    if (node->arena->config.check_op_classes) {
         if (sub_ctx.uses)
             destroy_uses_scope(sub_ctx.uses);
         destroy_scope(sub_ctx.scope);

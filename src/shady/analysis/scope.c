@@ -128,7 +128,7 @@ static void add_jump_edge(ScopeBuildContext* ctx, const Node* src, const Node* j
 
 static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction, const Node* let_tail) {
     switch (is_instruction(instruction)) {
-        case NotAnInstruction: if (instruction->arena->config.check_types) { error("Grammar problem"); } break;
+        case NotAnInstruction: error("Grammar problem");
         case Instruction_Call_TAG:
         case Instruction_PrimOp_TAG:
         case Instruction_Comment_TAG:
