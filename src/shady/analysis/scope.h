@@ -5,13 +5,15 @@
 typedef struct CFNode_ CFNode;
 
 typedef enum {
-    ForwardEdge,
+    JumpEdge,
     LetTailEdge,
-    ControlBodyEdge,
-    IfBodyEdge,
-    MatchBodyEdge,
-    LoopBodyEdge,
-    BlockBodyEdge,
+    StructuredEnterBodyEdge,
+    StructuredLeaveBodyEdge,
+    /// Join points might leak, and as a consequence, there might be no static edge to the
+    /// tail of the enclosing let, which would make it look like dead code.
+    /// This edge type accounts for that risk, they can be ignored where more precise info is available
+    /// (see is_control_static for example)
+    StructuredPseudoExitEdge,
 } CFEdgeType;
 
 typedef struct {
@@ -46,7 +48,7 @@ struct CFNode_ {
      * @ref List of @ref CFNode*
      */
     struct List* dominates;
-    struct Dict* structurally_dominated;
+    struct Dict* structurally_dominates;
 };
 
 typedef struct Arena_ Arena;

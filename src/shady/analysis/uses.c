@@ -268,7 +268,7 @@ static void visit_domtree(const VisitCtx* ctx, CFNode* n) {
         assert(body);
         CFNode* child = read_list(CFNode*, n->dominates)[i];
         // structural dominance is taken care of by the visitor code
-        if (!find_key_dict(const Node*, n->structurally_dominated, child->node))
+        if (!find_key_dict(const Node*, n->structurally_dominates, child->node))
            visit_domtree(ctx, child);
     }
 }

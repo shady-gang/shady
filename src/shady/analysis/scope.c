@@ -36,6 +36,8 @@ typedef struct {
     struct Dict* nodes;
     struct List* queue;
     struct List* contents;
+
+    struct Dict* join_point_values;
 } ScopeBuildContext;
 
 CFNode* scope_lookup(Scope* scope, const Node* block) {
@@ -62,7 +64,7 @@ static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
         .rpo_index = SIZE_MAX,
         .idom = NULL,
         .dominates = NULL,
-        .structurally_dominated = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .structurally_dominates = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
     assert(abs && new->node);
     insert_dict(const Node*, CFNode*, ctx->nodes, abs, new);
@@ -90,7 +92,7 @@ static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
     return false;
 }
 
-static bool is_structural_edge(CFEdgeType edge_type) { return edge_type != ForwardEdge; }
+static bool is_structural_edge(CFEdgeType edge_type) { return edge_type != JumpEdge; }
 
 /// Adds an edge to somewhere inside a basic block
 static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type) {
@@ -115,43 +117,50 @@ static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, C
     append_list(CFEdge, dst_node->pred_edges, edge);
 }
 
-static void add_structural_edge(ScopeBuildContext* ctx, CFNode* parent, const Node* dst, CFEdgeType type) {
+static void add_structural_dominance_edge(ScopeBuildContext* ctx, CFNode* parent, const Node* dst, CFEdgeType type) {
     add_edge(ctx, parent->node, dst, type);
-    insert_set_get_result(const Node*, parent->structurally_dominated, dst);
+    insert_set_get_result(const Node*, parent->structurally_dominates, dst);
 }
 
-static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction) {
+static void add_jump_edge(ScopeBuildContext* ctx, const Node* src, const Node* j) {
+    assert(j->tag == Jump_TAG);
+    const Node* target = j->payload.jump.target;
+    add_edge(ctx, src, target, JumpEdge);
+}
+
+static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction, const Node* let_tail) {
     switch (is_instruction(instruction)) {
         case NotAnInstruction: if (instruction->arena->config.check_types) { error("Grammar problem"); } break;
         case Instruction_Call_TAG:
         case Instruction_PrimOp_TAG:
-        case Instruction_Comment_TAG: break;
+        case Instruction_Comment_TAG:
+            add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
+            return;
+        case Instruction_Block_TAG:
+            add_structural_dominance_edge(ctx, parent, instruction->payload.block.inside, StructuredEnterBodyEdge);
+            add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
+            return;
         case Instruction_If_TAG:
-            add_structural_edge(ctx, parent, instruction->payload.if_instr.if_true, IfBodyEdge);
+            add_structural_dominance_edge(ctx, parent, instruction->payload.if_instr.if_true, StructuredEnterBodyEdge);
             if(instruction->payload.if_instr.if_false)
-                add_structural_edge(ctx, parent, instruction->payload.if_instr.if_false, IfBodyEdge);
+                add_structural_dominance_edge(ctx, parent, instruction->payload.if_instr.if_false, StructuredEnterBodyEdge);
             break;
         case Instruction_Match_TAG:
             for (size_t i = 0; i < instruction->payload.match_instr.cases.count; i++)
-                add_structural_edge(ctx, parent, instruction->payload.match_instr.cases.nodes[i], MatchBodyEdge);
-            add_structural_edge(ctx, parent, instruction->payload.match_instr.default_case, MatchBodyEdge);
+                add_structural_dominance_edge(ctx, parent, instruction->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
+            add_structural_dominance_edge(ctx, parent, instruction->payload.match_instr.default_case, StructuredEnterBodyEdge);
             break;
         case Instruction_Loop_TAG:
-            add_structural_edge(ctx, parent, instruction->payload.loop_instr.body, LoopBodyEdge);
+            add_structural_dominance_edge(ctx, parent, instruction->payload.loop_instr.body, StructuredEnterBodyEdge);
             break;
         case Instruction_Control_TAG:
-            add_structural_edge(ctx, parent, instruction->payload.control.inside, ControlBodyEdge);
-            break;
-        case Instruction_Block_TAG:
-            add_structural_edge(ctx, parent, instruction->payload.block.inside, BlockBodyEdge);
+            add_structural_dominance_edge(ctx, parent, instruction->payload.control.inside, StructuredEnterBodyEdge);
+            const Node* param = first(get_abstraction_params(instruction->payload.control.inside));
+            CFNode* let_tail_cfnode = get_or_enqueue(ctx, let_tail);
+            insert_dict(const Node*, CFNode*, ctx->join_point_values, param, let_tail_cfnode);
             break;
     }
-}
-
-static void process_jump_edge(ScopeBuildContext* ctx, const Node* src, const Node* j) {
-    assert(j->tag == Jump_TAG);
-    const Node* target = j->payload.jump.target;
-    add_edge(ctx, src, target, ForwardEdge);
+    add_structural_dominance_edge(ctx, parent, let_tail, StructuredPseudoExitEdge);
 }
 
 static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
@@ -162,36 +171,37 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     if (!terminator)
         return;
     switch (is_terminator(terminator)) {
+        case LetMut_TAG:
+        case Let_TAG: {
+            const Node* target = get_let_tail(terminator);
+            process_instruction(ctx, node, get_let_instruction(terminator), target);
+            break;
+        }
         case Jump_TAG: {
-            process_jump_edge(ctx, abs, terminator);
+            add_jump_edge(ctx, abs, terminator);
             break;
         }
         case Branch_TAG: {
-            process_jump_edge(ctx, abs, terminator->payload.branch.true_jump);
-            process_jump_edge(ctx, abs, terminator->payload.branch.false_jump);
+            add_jump_edge(ctx, abs, terminator->payload.branch.true_jump);
+            add_jump_edge(ctx, abs, terminator->payload.branch.false_jump);
             break;
         }
         case Switch_TAG: {
             for (size_t i = 0; i < terminator->payload.br_switch.case_jumps.count; i++)
-                process_jump_edge(ctx, abs, terminator->payload.br_switch.case_jumps.nodes[i]);
-            process_jump_edge(ctx, abs, terminator->payload.br_switch.default_jump);
-            break;
-        }
-        case LetMut_TAG:
-        case Let_TAG: {
-            process_instruction(ctx, node, get_let_instruction(terminator));
-            const Node* target = get_let_tail(terminator);
-            add_structural_edge(ctx, node, target, LetTailEdge);
+                add_jump_edge(ctx, abs, terminator->payload.br_switch.case_jumps.nodes[i]);
+            add_jump_edge(ctx, abs, terminator->payload.br_switch.default_jump);
             break;
         }
         case Join_TAG: {
+            CFNode** dst = find_value_dict(const Node*, CFNode*, ctx->join_point_values, terminator->payload.join.join_point);
+            if (dst)
+                add_edge(ctx, node->node, (*dst)->node, StructuredLeaveBodyEdge);
             break;
         }
+        case Yield_TAG:
         case MergeContinue_TAG:
-        case MergeBreak_TAG:
-        case Yield_TAG: {
-            // error("TODO: only allow this if we have traversed structured constructs...")
-            break;
+        case MergeBreak_TAG: {
+            break; // TODO i guess
         }
         case TailCall_TAG:
         case Return_TAG:
@@ -243,7 +253,7 @@ static void flip_scope(Scope* scope) {
                     };
 
                     CFEdge prev_entry_edge = {
-                        .type = ForwardEdge,
+                        .type = JumpEdge,
                         .src = new_entry,
                         .dst = scope->entry
                     };
@@ -253,7 +263,7 @@ static void flip_scope(Scope* scope) {
                 }
 
                 CFEdge new_edge = {
-                    .type = ForwardEdge,
+                    .type = JumpEdge,
                     .src = scope->entry,
                     .dst = cur
                 };
@@ -281,6 +291,7 @@ Scope* new_scope_impl(const Node* entry, LoopTree* lt, bool flipped) {
         .entry = entry,
         .lt = lt,
         .nodes = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
+        .join_point_values = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
         .queue = new_list(CFNode*),
         .contents = new_list(CFNode*),
     };
@@ -293,6 +304,7 @@ Scope* new_scope_impl(const Node* entry, LoopTree* lt, bool flipped) {
     }
 
     destroy_list(context.queue);
+    destroy_dict(context.join_point_values);
 
     Scope* scope = calloc(sizeof(Scope), 1);
     *scope = (Scope) {
@@ -323,8 +335,8 @@ void destroy_scope(Scope* scope) {
         destroy_list(node->succ_edges);
         if (node->dominates)
             destroy_list(node->dominates);
-        if (node->structurally_dominated)
-            destroy_dict(node->structurally_dominated);
+        if (node->structurally_dominates)
+            destroy_dict(node->structurally_dominates);
     }
     if (!entry_destroyed) {
         destroy_list(scope->entry->pred_edges);
@@ -517,7 +529,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
 
     for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
         CFNode* d = read_list(CFNode*, n->dominates)[i];
-        if (!find_key_dict(const Node*, n->structurally_dominated, d->node))
+        if (!find_key_dict(const Node*, n->structurally_dominates, d->node))
             dump_cf_node(output, d);
     }
 }
@@ -552,11 +564,10 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
 
             String edge_color = "black";
             switch (edge.type) {
-                case LetTailEdge:     edge_color = "green"; break;
-                case ControlBodyEdge: edge_color = "red"; break;
-                case IfBodyEdge:
-                case MatchBodyEdge:   edge_color = "orange"; break;
-                case BlockBodyEdge:   edge_color = "darkred"; break;
+                case LetTailEdge:             edge_color = "green"; break;
+                case StructuredEnterBodyEdge: edge_color = "blue"; break;
+                case StructuredLeaveBodyEdge: edge_color = "red"; break;
+                case StructuredPseudoExitEdge: edge_color = "darkred"; break;
                 default: break;
             }
 
