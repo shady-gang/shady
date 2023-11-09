@@ -762,6 +762,7 @@ Module* infer_program(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     };
     ctx.rewriter.config.search_map = false;
     ctx.rewriter.config.write_map = false;
+    ctx.rewriter.config.rebind_let = true;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     return dst;

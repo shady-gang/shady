@@ -107,6 +107,7 @@ RewritePass mark_leaf_functions;
 RewritePass opt_inline_jumps;
 /// In addition, also inlines function calls according to heuristics
 RewritePass opt_inline;
+RewritePass opt_mem2reg;
 
 /// Try to identify reconvergence points throughout the program for unstructured control flow programs
 RewritePass reconvergence_heuristics;

@@ -88,6 +88,7 @@ set(SHADY_SOURCES
     passes/opt_inline.c
     passes/opt_stack.c
     passes/opt_restructure.c
+    passes/opt_mem2reg.c
     passes/reconvergence_heuristics.c
     passes/simt2d.c
     passes/specialize_entry_point.c
