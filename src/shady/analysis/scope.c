@@ -96,6 +96,7 @@ static bool is_structural_edge(CFEdgeType edge_type) { return edge_type != JumpE
 
 /// Adds an edge to somewhere inside a basic block
 static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type) {
+    assert(is_abstraction(src) && is_abstraction(dst));
     assert(!is_function(dst));
     assert(is_structural_edge(type) == (bool) is_case(dst));
     if (ctx->lt && !in_loop(ctx->lt, ctx->entry, dst))
@@ -105,9 +106,6 @@ static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, C
 
     CFNode* src_node = get_or_enqueue(ctx, src);
     CFNode* dst_node = get_or_enqueue(ctx, dst);
-    if (is_case(dst)) {
-        assert(entries_count_list(dst_node->pred_edges) == 0 && "cases can only be used once");
-    }
     CFEdge edge = {
         .type = type,
         .src = src_node,
@@ -281,6 +279,36 @@ static void flip_scope(Scope* scope) {
     }
 }
 
+static void validate_scope(Scope* scope) {
+    for (size_t i = 0; i < scope->size; i++) {
+        CFNode* node = read_list(CFNode*, scope->contents)[i];
+        if (is_case(node->node)) {
+            size_t structured_body_uses = 0;
+            for (size_t j = 0; j < entries_count_list(node->pred_edges); j++) {
+                CFEdge edge = read_list(CFEdge, node->pred_edges)[j];
+                switch (edge.type) {
+                    case JumpEdge:
+                        error_print("Error: cases cannot be jumped to directly.");
+                        error_die();
+                    case LetTailEdge:
+                        structured_body_uses += 1;
+                        break;
+                    case StructuredEnterBodyEdge:
+                        structured_body_uses += 1;
+                        break;
+                    case StructuredPseudoExitEdge:
+                        structured_body_uses += 1;
+                    case StructuredLeaveBodyEdge:
+                        break;
+                }
+            }
+            if (structured_body_uses != 1 && node != scope->entry /* this exception exists since we might build scopes rooted in cases */) {
+                error_print("reachable cases must be used be as bodies exactly once (actual uses: %zu)", structured_body_uses);
+                error_die();
+            }
+        }
+    }
+}
 
 Scope* new_scope_impl(const Node* entry, LoopTree* lt, bool flipped) {
     assert(is_abstraction(entry));
@@ -316,6 +344,8 @@ Scope* new_scope_impl(const Node* entry, LoopTree* lt, bool flipped) {
         .map = context.nodes,
         .rpo = NULL
     };
+
+    validate_scope(scope);
 
     if (flipped)
         flip_scope(scope);
