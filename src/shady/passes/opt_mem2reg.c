@@ -14,6 +14,7 @@
 typedef struct {
     AddressSpace as;
     bool ptr_leaks_ever;
+    const Type* type;
 } PtrSourceKnowledge;
 
 typedef struct {
@@ -132,9 +133,12 @@ static void visit_instruction(KnowledgeBase* kb, const Node* instruction, Nodes 
                 case alloca_op: {
                     PtrKnowledge* k = create_ptr_knowledge(kb, instruction);
                     const Type* t = instruction->type;
-                    deconstruct_qualified_type(&t);
+                    bool u = deconstruct_qualified_type(&t);
                     assert(t->tag == PtrType_TAG);
                     k->source->as = t->payload.ptr_type.address_space;
+                    deconstruct_pointer_type(&t);
+                    k->source->type = qualified_type_helper(t, u);
+
                     insert_ptr_knowledge(kb, first(results), k);
                     k->ptr_value = undef(a, (Undef) { .type = first(payload.type_arguments) });
                     break;
@@ -374,10 +378,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 log_node(DEBUG, ptr);
                 debug_print(" has a known value in all predecessors! Turning it into a new parameter.\n");
 
-                const Type* t = rewrite_node(&ctx->rewriter, ptr->type);
-                bool u = deconstruct_qualified_type(&t);
-                deconstruct_pointer_type(&t);
-                const Node* param = var(a, qualified_type_helper(t, u), unique_name(a, "ssa_phi"));
+                const Node* param = var(a, rewrite_node(&ctx->rewriter, source->type), unique_name(a, "ssa_phi"));
                 params = append_nodes(a, params, param);
                 ptrs = append_nodes(ctx->rewriter.src_arena, ptrs, ptr);
 
