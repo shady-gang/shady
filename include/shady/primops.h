@@ -84,6 +84,7 @@ P(0, subgroup_ballot)                  \
 P(1, assign)                \
 P(1, subscript)             \
 P(1, deref)                 \
+P(1, addrof)                \
 
 #define PRIMOPS(P)              \
 P(0, quote)                     \

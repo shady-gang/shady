@@ -308,6 +308,9 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                     .op = extract_op,
                     .operands = mk_nodes(a, rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[0]), rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]))
                 });
+            } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == addrof_op) {
+                const Node* target_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);
+                return target_ptr;
             }
             return recreate_node_identity(&ctx->rewriter, node);
         }
