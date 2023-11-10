@@ -516,6 +516,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     switch (prim_op.op) {
         case deref_op:
         case assign_op:
+        case addrof_op:
         case subscript_op: error("These ops are only allowed in untyped IR before desugaring. They don't type to anything.");
         case quote_op: {
             assert(prim_op.type_arguments.count == 0);
