@@ -305,8 +305,7 @@ static bool is_transparent_pointer_type(const Type* t) {
     return is_physical_as(as);
 }
 
-/// Oracle of what casts are legal
-static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
+bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
     assert(is_data_type(src_type) && is_data_type(dst_type));
     if (src_type == dst_type)
         return true; // folding will eliminate those, but we need to pass type-checking first :)
@@ -325,8 +324,7 @@ static bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type
     return true;
 }
 
-/// Oracle of what casts are legal
-static bool is_conversion_legal(const Type* src_type, const Type* dst_type) {
+bool is_conversion_legal(const Type* src_type, const Type* dst_type) {
     assert(is_data_type(src_type) && is_data_type(dst_type));
     if (!(is_arithm_type(src_type) || is_transparent_pointer_type(src_type) && get_type_bitwidth(src_type) == get_type_bitwidth(dst_type)))
         return false;

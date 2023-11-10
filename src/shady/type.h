@@ -20,6 +20,9 @@ bool has_boolean_ops(const Type*);
 bool is_comparable_type(const Type*);
 bool is_ordered_type(const Type*);
 
+bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type);
+bool is_conversion_legal(const Type* src_type, const Type* dst_type);
+
 #include "type_generated.h"
 
 const Type* get_actual_mask_type(IrArena* arena);

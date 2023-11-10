@@ -10,6 +10,7 @@
 #include "../visit.h"
 #include "../type.h"
 #include "../analysis/uses.h"
+#include "../transform/ir_gen_helpers.h"
 
 typedef struct {
     AddressSpace as;
@@ -312,19 +313,30 @@ static const Node* process(Context* ctx, const Node* old) {
         kb = get_kb(ctx, ctx->abs);
         assert(kb);
     }
-
     if (!kb)
         return recreate_node_identity(&ctx->rewriter, old);
 
     IrArena* a = ctx->rewriter.dst_arena;
+
     switch (old->tag) {
         case PrimOp_TAG: {
             PrimOp payload = old->payload.prim_op;
             switch (payload.op) {
                 case load_op: {
-                    const Node* known_value = get_ptr_known_value(ctx, kb, first(payload.operands));
-                    if (known_value)
-                        return quote_helper(a, singleton(known_value));
+                    const Node* ptr = first(payload.operands);
+                    const Node* known_value = get_ptr_known_value(ctx, kb, ptr);
+                    if (known_value) {
+                        const Type* known_value_t = known_value->type;
+                        bool kv_u = deconstruct_qualified_type(&known_value_t);
+
+                        // PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
+                        const Type* load_result_t = ptr->type;
+                        bool lrt_u = deconstruct_qualified_type(&load_result_t);
+                        deconstruct_pointer_type(&load_result_t);
+                        assert(!lrt_u || kv_u);
+                        if (is_reinterpret_cast_legal(load_result_t, known_value_t))
+                            return prim_op_helper(a, reinterpret_op, singleton(rewrite_node(&ctx->rewriter, load_result_t)), singleton(known_value));
+                    }
                     break;
                 }
                 /*case store_op: {
@@ -372,6 +384,20 @@ static const Node* process(Context* ctx, const Node* old) {
                     else
                         assert(source == k->source);
 
+                    const Type* kv_type = get_ptr_known_value_(kb_at_src, ptr)->type;
+                    deconstruct_qualified_type(&kv_type);
+                    const Type* alloca_type_t = source->type;
+                    deconstruct_qualified_type(&alloca_type_t);
+                    if (kv_type != source->type && !is_reinterpret_cast_legal(kv_type, alloca_type_t)) {
+                        log_node(DEBUG, ptr);
+                        debug_print(" has a known value in %s, but it's type ", get_abstraction_name(edge.src->node));
+                        log_node(DEBUG, kv_type);
+                        debug_print(" cannot be reinterpreted into the alloca type ");
+                        log_node(DEBUG, source->type);
+                        debug_print("\n.");
+                        goto next_potential_param;
+                    }
+
                     uk.ptr_has_leaked |= k->ptr_has_leaked;
                 }
 
@@ -409,12 +435,40 @@ static const Node* process(Context* ctx, const Node* old) {
 
             Nodes* additional_ssa_params = find_value_dict(const Node*, Nodes, ctx->bb_new_args, old->payload.jump.target);
             if (additional_ssa_params) {
+                assert(additional_ssa_params->count > 0);
+
+                LARRAY(const Type*, tr_params_arr, args.count);
+                for (size_t i = 0; i < args.count; i++)
+                    tr_params_arr[i] = var(a, args.nodes[i]->type, args.nodes[i]->payload.var.name);
+                Nodes tr_params = nodes(a, args.count, tr_params_arr);
+                // Nodes tr_params = recreate_variables(&ctx->rewriter, get_abstraction_params(new_bb));
+                // tr_params = nodes(a, args.count, tr_params.nodes);
+                Node* fn = (Node*) rewrite_node(&ctx->rewriter, ctx->scope->entry->node);
+                Node* trampoline = basic_block(a, fn, tr_params, format_string_interned(a, "%s_trampoline", get_abstraction_name(new_bb)));
+                Nodes tr_args = args;
+                BodyBuilder* bb = begin_body(a);
+
                 for (size_t i = 0; i < additional_ssa_params->count; i++) {
                     const Node* ptr = additional_ssa_params->nodes[i];
                     const Node* value = get_ptr_known_value(ctx, kb, ptr);
+
+                    const Type* known_value_t = value->type;
+                    deconstruct_qualified_type(&known_value_t);
+
+                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
+                    const Type* alloca_type_t = k->source->type;
+                    deconstruct_qualified_type(&alloca_type_t);
+
+                    if (alloca_type_t != known_value_t && is_reinterpret_cast_legal(alloca_type_t, known_value_t))
+                        value = first(gen_primop(bb, reinterpret_op, singleton(rewrite_node(&ctx->rewriter, alloca_type_t)), singleton(value)));
+
                     assert(value);
                     args = append_nodes(a, args, value);
                 }
+
+                trampoline->payload.basic_block.body = finish_body(bb, jump_helper(a, new_bb, args));
+
+                return jump_helper(a, trampoline, tr_args);
             }
 
             return jump_helper(a, new_bb, args);
