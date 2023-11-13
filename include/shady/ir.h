@@ -266,6 +266,10 @@ struct CompilerConfig_ {
         ExecutionModel execution_model;
         uint32_t subgroup_size;
     } specialization;
+
+    struct {
+        struct { void* uptr; void (*fn)(void*, String, Module*); } after_pass;
+    } hooks;
 };
 
 CompilerConfig default_compiler_config();

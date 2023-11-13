@@ -36,6 +36,18 @@ void destroy_rewriter(Rewriter* r) {
     destroy_dict(r->decls_map);
 }
 
+Rewriter create_importer(Module* src, Module* dst) {
+    return create_rewriter(src, dst, recreate_node_identity);
+}
+
+Module* rebuild_module(Module* src) {
+    IrArena* a = get_module_arena(src);
+    Module* dst = new_module(a, get_module_name(src));
+    Rewriter r = create_importer(src, dst);
+    rewrite_module(&r);
+    return dst;
+}
+
 const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNodeFn fn) {
     assert(rewriter->rewrite_fn);
     if (!node)

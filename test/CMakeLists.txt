@@ -30,12 +30,11 @@ list(APPEND BASIC_TESTS reconvergence_heuristics/loops2.slim)
 list(APPEND BASIC_TESTS reconvergence_heuristics/multi_exit_loop.slim)
 list(APPEND BASIC_TESTS reconvergence_heuristics/nested_loops.slim)
 
-list(APPEND BASIC_TESTS opt/mem2reg1.slim)
-list(APPEND BASIC_TESTS opt/mem2reg2.slim)
-
 foreach(T IN LISTS BASIC_TESTS)
     add_test(NAME "test/${T}" COMMAND slim ${PROJECT_SOURCE_DIR}/test/${T} -o test.spv)
 endforeach()
+
+add_subdirectory(opt)
 
 function(spv_outputting_test)
     cmake_parse_arguments(PARSE_ARGV 0 F "" "NAME;COMPILER" "EXTRA_ARGS" )
