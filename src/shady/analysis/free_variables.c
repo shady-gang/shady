@@ -20,7 +20,7 @@ typedef struct {
     struct List* free_list;
 } Context;
 
-static void search_op_for_free_variables(Context* visitor, NodeClass class, const Node* node) {
+static void search_op_for_free_variables(Context* visitor, NodeClass class, String op_name, const Node* node) {
     assert(node);
     switch (node->tag) {
         case Variable_TAG: {
@@ -62,7 +62,7 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
 
     const Node* body = get_abstraction_body(abs);
     if (body)
-        visit_op(&ctx->visitor, NcTerminator, body);
+        visit_op(&ctx->visitor, NcTerminator, "body", body);
 
     for (size_t i = 0; i < entries_count_list(cfnode->dominates); i++) {
         CFNode* child = read_list(CFNode*, cfnode->dominates)[i];

@@ -15,7 +15,7 @@ bool compare_nodes(Nodes* a, Nodes* b);
 
 typedef struct { Visitor visitor; const Node* parent; } VisitorPCV;
 
-static void post_construction_validation_visit_op(VisitorPCV* v, NodeClass class, const Node* node) {
+static void post_construction_validation_visit_op(VisitorPCV* v, NodeClass class, SHADY_UNUSED String op_name, const Node* node) {
     if (class == NcCase)
         ((Node*) node)->payload.case_.structured_construct = v->parent;
 }

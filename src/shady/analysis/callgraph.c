@@ -79,8 +79,8 @@ static void search_for_callsites(CGVisitor* visitor, const Node* node) {
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);
             else
-                visit_op(&visitor->visitor, NcValue, callee);
-            visit_ops(&visitor->visitor, NcValue, node->payload.call.args);
+                visit_op(&visitor->visitor, NcValue, "callee", callee);
+            visit_ops(&visitor->visitor, NcValue, "args", node->payload.call.args);
             break;
         }
         case TailCall_TAG: {

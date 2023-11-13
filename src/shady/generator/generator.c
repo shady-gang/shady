@@ -736,9 +736,9 @@ static void generate_visitor_code(Growy* g, Data data) {
                 if (!ignore) {
                     growy_append_formatted(g, "\t\tif ((exclude & Nc%s) == 0)\n", class_cap);
                     if (list)
-                        growy_append_formatted(g, "\t\t\tvisit_ops(visitor, Nc%s, payload.%s);\n", class_cap, op_name);
+                        growy_append_formatted(g, "\t\t\tvisit_ops(visitor, Nc%s, \"%s\", payload.%s);\n", class_cap, op_name, op_name);
                     else
-                        growy_append_formatted(g, "\t\t\tvisit_op(visitor, Nc%s, payload.%s);\n", class_cap, op_name);
+                        growy_append_formatted(g, "\t\t\tvisit_op(visitor, Nc%s, \"%s\", payload.%s);\n", class_cap, op_name, op_name);
                 }
                 free(class_cap);
             }
@@ -814,9 +814,9 @@ static void generate_rewriter_default_fns(Growy* g, json_object* nodes) {
 
                 String class_cap = capitalize(class);
                 if (list)
-                    growy_append_formatted(g, "\t\t\tpayload.%s = rewrite_ops_helper(rewriter, Nc%s, old_payload.%s);\n", op_name, class_cap, op_name);
+                    growy_append_formatted(g, "\t\t\tpayload.%s = rewrite_ops_helper(rewriter, Nc%s, \"%s\", old_payload.%s);\n", op_name, class_cap, op_name, op_name);
                 else
-                    growy_append_formatted(g, "\t\t\tpayload.%s = rewrite_op_helper(rewriter, Nc%s, old_payload.%s);\n", op_name, class_cap, op_name);
+                    growy_append_formatted(g, "\t\t\tpayload.%s = rewrite_op_helper(rewriter, Nc%s, \"%s\", old_payload.%s);\n", op_name, class_cap, op_name, op_name);
                 free(class_cap);
             }
             growy_append_formatted(g, "\t\t\treturn %s(rewriter->dst_arena, payload);\n", snake_name);

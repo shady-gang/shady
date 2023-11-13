@@ -45,10 +45,10 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
     return value;
 }
 
-static const Node* process_op(Context* ctx, NodeClass class, const Node* node) {
+static const Node* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED String op_name, const Node* node) {
     if (node == NULL) return NULL;
     IrArena* a = ctx->rewriter.dst_arena;
-    switch (class) {
+    switch (op_class) {
         case NcType: {
             switch (node->tag) {
                 case NominalType_TAG: {
@@ -82,6 +82,8 @@ static const Node* process_op(Context* ctx, NodeClass class, const Node* node) {
         case NcBasic_block:
             break;
         case NcAnnotation:
+            break;
+        case NcJump:
             break;
     }
     return process_node(ctx, node);

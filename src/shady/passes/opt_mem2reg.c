@@ -107,12 +107,12 @@ typedef struct {
     KnowledgeBase* kb;
 } KBVisitor;
 
-static void register_parameters(KBVisitor* v, NodeTag tag, const Node* n) {
+static void register_parameters(KBVisitor* v, NodeTag tag, String op_name, const Node* n) {
     assert(tag == NcVariable);
     PtrKnowledge* k = create_ptr_knowledge(v->kb, n);
 }
 
-static void tag_as_leaking_values(KBVisitor* v, NodeTag tag, const Node* n) {
+static void tag_as_leaking_values(KBVisitor* v, NodeTag tag, String op_name, const Node* n) {
     assert(tag == NcValue);
     PtrKnowledge* k = get_last_valid_ptr_knowledge(v->kb, n);
     if (k) {

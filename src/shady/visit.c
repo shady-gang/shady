@@ -17,18 +17,18 @@ void visit_nodes(Visitor* visitor, Nodes nodes) {
     }
 }
 
-void visit_op(Visitor* visitor, NodeClass class, const Node* op) {
+void visit_op(Visitor* visitor, NodeClass op_class, String op_name, const Node* op) {
     if (!op)
         return;
     if (visitor->visit_op_fn)
-        visitor->visit_op_fn(visitor, class, op);
+        visitor->visit_op_fn(visitor, op_class, op_name, op);
     else
         visitor->visit_node_fn(visitor, op);
 }
 
-void visit_ops(Visitor* visitor, NodeClass class, Nodes ops) {
+void visit_ops(Visitor* visitor, NodeClass op_class, String op_name, Nodes ops) {
     for (size_t i = 0; i < ops.count; i++)
-        visit_op(visitor, class, ops.nodes[i]);
+        visit_op(visitor, op_class, op_name, ops.nodes[i]);
 }
 
 void visit_function_rpo(Visitor* visitor, const Node* function) {
