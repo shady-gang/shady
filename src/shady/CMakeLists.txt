@@ -52,6 +52,7 @@ set(SHADY_SOURCES
     analysis/callgraph.c
     analysis/uses.c
     analysis/looptree.c
+    analysis/leak.c
 
     transform/memory_layout.c
     transform/ir_gen_helpers.c

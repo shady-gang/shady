@@ -7,24 +7,19 @@
 #include "dict.h"
 #include "arena.h"
 
-typedef struct {
-    CFNode* defined;
-    size_t uses_count;
-    bool escapes_defining_block;
-    // Join tokens care about this
-    bool in_non_callee_position;
-    bool sealed;
-} Uses;
+typedef struct UsesMap_ UsesMap;
 
-typedef struct {
-    Scope* scope;
-    Arena* arena;
-    struct Dict* map;
-} ScopeUses;
+const UsesMap* create_uses_map(const Node* root, NodeClass exclude);
+void destroy_uses_map(const UsesMap*);
 
-ScopeUses* analyse_uses_scope(Scope*);
-void destroy_uses_scope(ScopeUses*);
+typedef struct Use_ Use;
+struct Use_ {
+    const Node* user;
+    NodeClass operand_class;
+    String operand_name;
+    const Use* next_use;
+};
 
-bool is_control_static(ScopeUses*, const Node* control);
+const Use* get_first_use(const UsesMap*, const Node*);
 
 #endif

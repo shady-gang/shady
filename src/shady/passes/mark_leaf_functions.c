@@ -9,6 +9,7 @@
 #include "../analysis/callgraph.h"
 #include "../analysis/scope.h"
 #include "../analysis/uses.h"
+#include "../analysis/leak.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -17,7 +18,7 @@ typedef struct {
 
     bool is_leaf;
     Scope* scope;
-    ScopeUses* uses;
+    const UsesMap* scope_uses;
 } Context;
 
 typedef struct {
@@ -86,7 +87,7 @@ static const Node* process(Context* ctx, const Node* node) {
             CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
             fn_ctx.is_leaf = is_leaf_fn(ctx, fn_node);
             fn_ctx.scope = new_scope(node);
-            fn_ctx.uses = analyse_uses_scope(fn_ctx.scope);
+            fn_ctx.scope_uses = create_uses_map(node, (NcDeclaration | NcType));
             ctx = &fn_ctx;
 
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
@@ -103,17 +104,14 @@ static const Node* process(Context* ctx, const Node* node) {
                 }));
             }
 
-            destroy_uses_scope(fn_ctx.uses);
+            destroy_uses_map(fn_ctx.scope_uses);
             destroy_scope(fn_ctx.scope);
             return new;
         }
         case Control_TAG: {
-            const Node* old_jp = first(node->payload.control.inside->payload.case_.params);
-            assert(old_jp->tag == Variable_TAG);
-            Uses* jp_uses = *find_value_dict(const Node*, Uses*, ctx->uses->map, old_jp);
-            if (jp_uses->escapes_defining_block) {
+            if (!is_control_static(ctx->scope_uses, node)) {
                 debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->scope->entry->node));
-                log_node(DEBUGV, old_jp);
+                log_node(DEBUGV, first(node->payload.control.inside->payload.case_.params));
                 debugv_print("escapes its control block, preventing restructuring.\n");
                 ctx->is_leaf = false;
             }

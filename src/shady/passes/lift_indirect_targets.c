@@ -14,6 +14,7 @@
 #include "../analysis/scope.h"
 #include "../analysis/free_variables.h"
 #include "../analysis/uses.h"
+#include "../analysis/leak.h"
 
 #include <assert.h>
 #include <string.h>
@@ -24,7 +25,7 @@ bool compare_node(Node**, Node**);
 typedef struct Context_ {
     Rewriter rewriter;
     Scope* scope;
-    ScopeUses* uses;
+    const UsesMap* scope_uses;
 
     struct Dict* lifted;
     bool disable_lowering;
@@ -164,13 +165,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Function_TAG: {
             Context fn_ctx = *ctx;
             fn_ctx.scope = new_scope(node);
-            fn_ctx.uses = analyse_uses_scope(fn_ctx.scope);
+            fn_ctx.scope_uses = create_uses_map(node, (NcDeclaration | NcType));
             ctx = &fn_ctx;
 
             Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
             recreate_decl_body_identity(&ctx->rewriter, node, new);
 
-            destroy_uses_scope(ctx->uses);
+            destroy_uses_map(ctx->scope_uses);
             destroy_scope(ctx->scope);
             return new;
         }
@@ -179,7 +180,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (oinstruction->tag == Control_TAG) {
                 const Node* oinside = oinstruction->payload.control.inside;
                 assert(is_case(oinside));
-                if (!is_control_static(ctx->uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
+                if (!is_control_static(ctx->scope_uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
                     const Node* otail = get_let_tail(node);
                     BodyBuilder* bb = begin_body(a);
                     LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string_arena(a->arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));

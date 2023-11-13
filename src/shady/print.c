@@ -1,6 +1,7 @@
 #include "ir_private.h"
 #include "analysis/scope.h"
 #include "analysis/uses.h"
+#include "analysis/leak.h"
 
 #include "log.h"
 #include "list.h"
@@ -30,7 +31,7 @@ struct PrinterCtx_ {
     Printer* printer;
     const Node* fn;
     Scope* scope;
-    ScopeUses* uses;
+    const UsesMap* scope_uses;
     long int min_rpo;
     PrintConfig config;
 };
@@ -245,7 +246,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
         sub_ctx.scope = scope;
         sub_ctx.fn = node;
         if (node->arena->config.check_types && node->arena->config.allow_fold) {
-            sub_ctx.uses = analyse_uses_scope(sub_ctx.scope);
+            sub_ctx.scope_uses = create_uses_map(node, (NcDeclaration | NcType));
         }
     }
     ctx = &sub_ctx;
@@ -268,8 +269,8 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     printf("\n}");
 
     if (node->arena->config.check_op_classes) {
-        if (sub_ctx.uses)
-            destroy_uses_scope(sub_ctx.uses);
+        if (sub_ctx.scope_uses)
+            destroy_uses_map(sub_ctx.scope_uses);
         destroy_scope(sub_ctx.scope);
     }
 }
@@ -445,10 +446,10 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case Variable_TAG:
-            if (ctx->uses) {
-                if ((*find_value_dict(const Node*, Uses*, ctx->uses->map, node))->escapes_defining_block)
-                    printf(MANGENTA);
-                else
+            if (ctx->scope_uses) {
+                // if ((*find_value_dict(const Node*, Uses*, ctx->uses->map, node))->escapes_defining_block)
+                //     printf(MANGENTA);
+                // else
                     printf(YELLOW);
             } else
                 printf(YELLOW);
@@ -570,7 +571,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
         case Value_AntiQuote_TAG: {
             PrinterCtx sub_ctx = *ctx;
             sub_ctx.scope = NULL;
-            sub_ctx.uses = NULL;
+            sub_ctx.scope_uses = NULL;
             ctx = &sub_ctx;
             printf(BBLUE);
             printf("anti_quote ");
@@ -666,8 +667,8 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             break;
         } case Control_TAG: {
             printf(BGREEN);
-            if (ctx->uses) {
-                if (is_control_static(ctx->uses, node))
+            if (ctx->scope_uses) {
+                if (is_control_static(ctx->scope_uses, node))
                     printf("static ");
             }
             printf("control");

@@ -10,6 +10,7 @@
 
 #include "../analysis/scope.h"
 #include "../analysis/uses.h"
+#include "../analysis/leak.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include "list.h"
@@ -28,7 +29,7 @@ typedef struct Context_ {
     FnPtr* next_fn_ptr;
 
     Scope* scope;
-    ScopeUses* uses;
+    const UsesMap* scope_uses;
 
     Node** top_dispatcher_fn;
     Node* init_fn;
@@ -103,7 +104,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Context ctx2 = *ctx;
             ctx2.scope = new_scope(old);
-            ctx2.uses = analyse_uses_scope(ctx2.scope);
+            ctx2.scope_uses = create_uses_map(old, (NcDeclaration | NcType));
             ctx = &ctx2;
 
             const Node* entry_point_annotation = lookup_annotation_list(old->payload.fun.annotations, "EntryPoint");
@@ -121,7 +122,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     fun->payload.fun.body = nbody;
                 }
 
-                destroy_uses_scope(ctx2.uses);
+                destroy_uses_map(ctx2.scope_uses);
                 destroy_scope(ctx2.scope);
                 return fun;
             }
@@ -152,7 +153,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 register_processed(&ctx->rewriter, old_param, popped);
             }
             fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
-            destroy_uses_scope(ctx2.uses);
+            destroy_uses_map(ctx2.scope_uses);
             destroy_scope(ctx2.scope);
             return fun;
         }
@@ -242,7 +243,7 @@ static const Node* process(Context* ctx, const Node* old) {
             break;
         }
         case Control_TAG: {
-            if (is_control_static(ctx->uses, old)) {
+            if (is_control_static(ctx->scope_uses, old)) {
                 const Node* old_inside = old->payload.control.inside;
                 const Node* old_jp = first(get_abstraction_params(old_inside));
                 assert(old_jp->tag == Variable_TAG);

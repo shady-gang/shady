@@ -4,6 +4,7 @@
 #include "../analysis/scope.h"
 #include "../analysis/looptree.h"
 #include "../analysis/uses.h"
+#include "../analysis/leak.h"
 #include "../analysis/free_variables.h"
 
 #include "portability.h"
@@ -14,7 +15,7 @@ typedef struct Context_ {
     Rewriter rewriter;
     const Node* current_fn;
     Scope* scope;
-    ScopeUses* uses;
+    const UsesMap* scope_uses;
     LoopTree* loop_tree;
     struct Dict* lifted_arguments;
 } Context;
@@ -56,10 +57,10 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
     struct List* fvs = compute_free_variables(ctx->scope, old);
     for (size_t i = 0; i < entries_count_list(fvs); i++) {
         const Node* fv = read_list(const Node*, fvs)[i];
-        Uses* uses = *find_value_dict(const Node*, Uses*, ctx->uses->map, fv);
-        const CFNode* defining_block = uses->defined;
-        assert(defining_block);
-        const LTNode* defining_loop = get_loop(looptree_lookup(ctx->loop_tree, defining_block->node));
+        const Node* defining_abs = get_binding_abstraction(ctx->scope_uses, fv);
+        const CFNode* defining_cf_node = scope_lookup(ctx->scope, defining_abs);
+        assert(defining_cf_node);
+        const LTNode* defining_loop = get_loop(looptree_lookup(ctx->loop_tree, defining_cf_node->node));
         if (!is_child(defining_loop, bb_loop)) {
             // that's it, that variable is leaking !
             debug_print("lcssa: %s is used outside of the loop that defines it\n", fv->payload.var.name);
@@ -135,14 +136,14 @@ const Node* process_node(Context* ctx, const Node* old) {
 
             ctx->current_fn = old;
             ctx->scope = new_scope(old);
-            ctx->uses = analyse_uses_scope(ctx->scope);
+            ctx->scope_uses = create_uses_map(old, (NcDeclaration | NcType));
             ctx->loop_tree = build_loop_tree(ctx->scope);
 
             Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
             new->payload.fun.body = process_abstraction_body(ctx, old, get_abstraction_body(old));
 
             destroy_loop_tree(ctx->loop_tree);
-            destroy_uses_scope(ctx->uses);
+            destroy_uses_map(ctx->scope_uses);
             destroy_scope(ctx->scope);
             return new;
         }
@@ -165,6 +166,7 @@ const Node* process_node(Context* ctx, const Node* old) {
             register_processed_list(&ctx->rewriter, get_abstraction_params(old), nparams);
             return case_(a, nparams, process_abstraction_body(ctx, old, get_abstraction_body(old)));
         }
+        default: break;
     }
 
     return recreate_node_identity(&ctx->rewriter, old);
