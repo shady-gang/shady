@@ -496,7 +496,7 @@ Module* opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module* src) {
         destroy_dict(ctx.bb_new_args);
         destroy_arena(ctx.a);
 
-        //dst = rebuild_module(dst);
+        dst = rebuild_module(dst);
         src = dst;
     }
 
