@@ -10,13 +10,42 @@
 #include <assert.h>
 #include <string.h>
 
+typedef struct {
+    char* tmp_filename;
+    bool delete_tmp_file;
+} VccOptions;
+
+static void cli_parse_vcc_args(VccOptions* options, int* pargc, char** argv) {
+    int argc = *pargc;
+
+    for (int i = 1; i < argc; i++) {
+        if (argv[i] == NULL)
+            continue;
+        else if (strcmp(argv[i], "--vcc-keep-tmp-file") == 0) {
+            argv[i] = NULL;
+            options->delete_tmp_file = false;
+            options->tmp_filename = "vcc_tmp.ll";
+            continue;
+        }
+    }
+
+    cli_pack_remaining_args(pargc, argv);
+}
+
+uint32_t hash_murmur(const void* data, size_t size);
+
 int main(int argc, char** argv) {
     platform_specific_terminal_init_extras();
 
     DriverConfig args = default_driver_config();
+    VccOptions vcc_options = {
+        .tmp_filename = NULL,
+        .delete_tmp_file = true
+    };
     cli_parse_driver_arguments(&args, &argc, argv);
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&args.config, &argc, argv);
+    cli_parse_vcc_args(&vcc_options, &argc, argv);
     cli_parse_input_files(args.input_filenames, &argc, argv);
 
     if (entries_count_list(args.input_filenames) == 0) {
@@ -32,12 +61,26 @@ int main(int argc, char** argv) {
     if (clang_retval != 0)
     error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
 
+    size_t num_source_files = entries_count_list(args.input_filenames);
+    if (!vcc_options.tmp_filename) {
+        vcc_options.tmp_filename = alloca(33);
+        vcc_options.tmp_filename[32] = '\0';
+        uint32_t hash = 0;
+        for (size_t i = 0; i < num_source_files; i++) {
+            String filename = read_list(const char*, args.input_filenames)[i];
+            hash ^= hash_murmur(filename, strlen(filename));
+        }
+        srand(hash);
+        for (size_t i = 0; i < 32; i++) {
+            vcc_options.tmp_filename[i] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"[rand() % (10 + 26 * 2)];
+        }
+    }
+
     Growy* g = new_growy();
     growy_append_string(g, "clang");
     growy_append_string(g, " -c -emit-llvm -S -g -O0 -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown");
-    growy_append_string(g, " -o vcc_tmp.ll");
+    growy_append_formatted(g, " -o %s", vcc_options.tmp_filename);
 
-    size_t num_source_files = entries_count_list(args.input_filenames);
     for (size_t i = 0; i < num_source_files; i++) {
         String filename = read_list(const char*, args.input_filenames)[i];
 
@@ -72,10 +115,13 @@ int main(int argc, char** argv) {
 
     size_t len;
     char* llvm_ir;
-    if (!read_file("vcc_tmp.ll", &len, &llvm_ir))
+    if (!read_file(vcc_options.tmp_filename, &len, &llvm_ir))
         exit(InputFileIOError);
     driver_load_source_file(SrcLLVM, len, llvm_ir, mod);
     free(llvm_ir);
+
+    if (vcc_options.delete_tmp_file)
+        remove(vcc_options.tmp_filename);
 
     driver_compile(&args, mod);
     info_print("Done\n");
