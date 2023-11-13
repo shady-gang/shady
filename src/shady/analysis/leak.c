@@ -35,6 +35,15 @@ const Node* get_binding_abstraction(const UsesMap* map, const Node* var) {
     return binding_use->user;
 }
 
+bool if_any_use(const UsesMap* map, const Node* value, void* uptr, IfAnyUseFn fn) {
+    const Use* use = get_first_use(map, value);
+    for (;use; use = use->next_use) {
+        if (fn(uptr, use))
+            return true;
+    }
+    return false;
+}
+
 bool is_control_static(const UsesMap* map, const Node* control) {
     assert(control->tag == Control_TAG);
     const Node* inside = control->payload.control.inside;

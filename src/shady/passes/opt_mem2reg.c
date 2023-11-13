@@ -6,15 +6,18 @@
 #include "log.h"
 
 #include "../analysis/scope.h"
+#include "../analysis/uses.h"
 #include "../rewrite.h"
 #include "../visit.h"
 #include "../type.h"
 #include "../analysis/uses.h"
+#include "../analysis/leak.h"
 #include "../transform/ir_gen_helpers.h"
 
 typedef struct {
     AddressSpace as;
-    bool ptr_leaks_ever;
+    bool leaks;
+    bool ever_read_from;
     const Type* type;
 } PtrSourceKnowledge;
 
@@ -39,6 +42,7 @@ struct KB {
 typedef struct {
     Rewriter rewriter;
     Scope* scope;
+    const UsesMap* scope_uses;
     struct Dict* abs_to_kb;
     const Node* abs;
     Arena* a;
@@ -83,7 +87,7 @@ static void insert_ptr_knowledge(KnowledgeBase* kb, const Node* n, PtrKnowledge*
 
 static const Node* get_ptr_known_value_(const KnowledgeBase* kb, const Node* n) {
     const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, n);
-    if (k && !k->ptr_has_leaked) {
+    if (k && !k->ptr_has_leaked && !k->source->leaks) {
         if (k->ptr_value) {
             return k->ptr_value;
         }
@@ -99,29 +103,39 @@ static const Node* get_ptr_known_value(Context* ctx, const KnowledgeBase* kb, co
     const Node* v = get_ptr_known_value_(kb, n);
     if (v && v->arena == ctx->rewriter.src_arena)
         return rewrite_node(&ctx->rewriter, v);
-    return NULL;
+    return v;
 }
 
 typedef struct {
-    Visitor visitor;
-    KnowledgeBase* kb;
-} KBVisitor;
+    const Node* value;
+} IsLeakingCtx;
 
-static void register_parameters(KBVisitor* v, NodeTag tag, String op_name, const Node* n) {
-    assert(tag == NcVariable);
-    PtrKnowledge* k = create_ptr_knowledge(v->kb, n);
-}
-
-static void tag_as_leaking_values(KBVisitor* v, NodeTag tag, String op_name, const Node* n) {
-    assert(tag == NcValue);
-    PtrKnowledge* k = get_last_valid_ptr_knowledge(v->kb, n);
-    if (k) {
-        k->ptr_has_leaked = true;
-        k->source->ptr_leaks_ever = true;
+static bool is_leaking(IsLeakingCtx* ctx, const Use* use) {
+    if (is_abstraction(use->user) && use->operand_class == NcVariable)
+        return false;
+    if (use->user->tag == PrimOp_TAG) {
+        PrimOp payload = use->user->payload.prim_op;
+        switch (payload.op) {
+            case load_op: return false; // loads don't leak the address.
+            case store_op: return payload.operands.nodes[1] == ctx->value; // stores leak the value if it's stored
+            case lea_op: return false; // TODO: allow lea and follow them
+            default: break;
+        }
+        switch (payload.op) {
+#define P0(name) case name##_op: return false;
+#define P1(name)
+#define P(has_side_effects, name) P##has_side_effects(name)
+            PRIMOPS(P)
+            default: break;
+        }
     }
+    if (use->user->tag == Composite_TAG) {
+        // todo...
+    }
+    return true;
 }
 
-static void visit_instruction(KnowledgeBase* kb, const Node* instruction, Nodes results) {
+static void visit_instruction(Context* ctx, KnowledgeBase* kb, const Node* instruction, Nodes results) {
     IrArena* a = instruction->arena;
     switch (is_instruction(instruction)) {
         case NotAnInstruction: assert(is_instruction(instruction));
@@ -133,6 +147,14 @@ static void visit_instruction(KnowledgeBase* kb, const Node* instruction, Nodes 
                 case alloca_logical_op:
                 case alloca_op: {
                     PtrKnowledge* k = create_ptr_knowledge(kb, instruction);
+                    IsLeakingCtx is_leaking_ctx = {
+                        .value = first(results)
+                    };
+                    k->source->leaks = if_any_use(ctx->scope_uses, first(results), &is_leaking_ctx, (IfAnyUseFn) is_leaking);
+                    if (k->source->leaks) {
+                        log_node(DEBUGV, is_leaking_ctx.value);
+                        debugv_print(" is leaking so it will not be eliminated.\n");
+                    }
                     const Type* t = instruction->type;
                     bool u = deconstruct_qualified_type(&t);
                     assert(t->tag == PtrType_TAG);
@@ -147,6 +169,8 @@ static void visit_instruction(KnowledgeBase* kb, const Node* instruction, Nodes 
                 case load_op: {
                     const Node* ptr = first(payload.operands);
                     const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
+                    if (k)
+                        k->source->ever_read_from = true;
                     if (!k || !k->ptr_value) {
                         const KnowledgeBase* phi_kb = kb;
                         while (phi_kb->dominator_kb) {
@@ -194,7 +218,7 @@ static void visit_instruction(KnowledgeBase* kb, const Node* instruction, Nodes 
     }
 }
 
-static void visit_terminator(KBVisitor* v, const Node* old) {
+static void visit_terminator(Context* ctx, KnowledgeBase* kb, const Node* old) {
     if (!old)
         return;
     switch (is_terminator(old)) {
@@ -202,35 +226,10 @@ static void visit_terminator(KBVisitor* v, const Node* old) {
         case NotATerminator: assert(false);
         case Terminator_Let_TAG: {
             const Node* otail = get_let_tail(old);
-            visit_instruction(v->kb, get_let_instruction(old), get_abstraction_params(otail));
+            visit_instruction(ctx, kb, get_let_instruction(old), get_abstraction_params(otail));
             break;
         }
-        case Terminator_TailCall_TAG:
-        case Terminator_Return_TAG:
-        indirect_join: {
-            KBVisitor leaking_visitor = { .visitor = { .visit_op_fn = (VisitOpFn) tag_as_leaking_values }, .kb = v->kb };
-            visit_node_operands(&leaking_visitor.visitor, ~NcValue, old);
-            break;
-        }
-        case Terminator_Join_TAG:
-            goto indirect_join; // TODO
-            break;
-        case Terminator_Jump_TAG: {
-
-            break;
-        }
-        case Terminator_Branch_TAG:
-        case Terminator_Switch_TAG: {
-            KBVisitor jumps_visitor = { .visitor = { .visit_node_fn = (VisitNodeFn) visit_terminator }, .kb = v->kb };
-            visit_node_operands(&jumps_visitor.visitor, ~NcJump, old);
-            break;
-        }
-        case Terminator_Unreachable_TAG:
-            break;
-        case Terminator_MergeContinue_TAG:
-        case Terminator_MergeBreak_TAG:
-        case Terminator_Yield_TAG:
-            assert(false && "unsupported");
+        default:
             break;
     }
 }
@@ -270,13 +269,8 @@ static void visit_cfnode(Context* ctx, CFNode* node, CFNode* dominator) {
     }
     assert(kb->map);
     insert_dict(const Node*, KnowledgeBase*, ctx->abs_to_kb, node->node, kb);
-
-    // KBVisitor v = { .visitor = { .visit_op_fn = (VisitOpFn) register_parameters }, .kb = kb };
-    // visit_node_operands(&v.visitor, ~NcVariable, oabs);
-
     assert(is_abstraction(oabs));
-    KBVisitor v = { .visitor = { .visit_op_fn = (VisitOpFn) NULL }, .kb = kb };
-    visit_terminator(&v, get_abstraction_body(oabs));
+    visit_terminator(ctx, kb, get_abstraction_body(oabs));
 
     for (size_t i = 0; i < entries_count_list(node->dominates); i++) {
         CFNode* dominated = read_list(CFNode*, node->dominates)[i];
@@ -288,14 +282,15 @@ static const Node* process(Context* ctx, const Node* old) {
     assert(old);
     Context fn_ctx = *ctx;
     if (old->tag == Function_TAG && !lookup_annotation(old, "Internal")) {
-        Scope* s = new_scope(old);
         ctx = &fn_ctx;
-        fn_ctx.scope = s;
+        fn_ctx.scope = new_scope(old);
+        fn_ctx.scope_uses = create_uses_map(old, (NcDeclaration | NcType));
         fn_ctx.abs_to_kb = new_dict(const Node*, KnowledgeBase**, (HashFn) hash_node, (CmpFn) compare_node);
-        visit_cfnode(&fn_ctx, s->entry, NULL);
+        visit_cfnode(&fn_ctx, fn_ctx.scope->entry, NULL);
         fn_ctx.abs = old;
         const Node* new_fn = recreate_node_identity(&fn_ctx.rewriter, old);
-        destroy_scope(s);
+        destroy_scope(fn_ctx.scope);
+        destroy_uses_map(fn_ctx.scope_uses);
         size_t i = 0;
         KnowledgeBase* kb;
         while (dict_iter(fn_ctx.abs_to_kb, &i, NULL, &kb)) {
@@ -339,18 +334,18 @@ static const Node* process(Context* ctx, const Node* old) {
                     }
                     break;
                 }
-                /*case store_op: {
-                    const Knowledge* k = read_node_knowledge(kb, first(payload.operands));
-                    if (k && !*k->ptr_leaks_ever)
+                case store_op: {
+                    const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, first(payload.operands));
+                    if (k && !k->source->leaks && !k->source->ever_read_from)
                         return quote_helper(a, empty(a));
                     break;
                 }
                 case alloca_op: {
-                    const Knowledge* k = read_node_knowledge(kb, old);
-                    if (k && !*k->ptr_leaks_ever)
+                    const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, old);
+                    if (k && !k->source->leaks && !k->source->ever_read_from)
                         return quote_helper(a, singleton(undef(a, (Undef) { .type = get_unqualified_type(rewrite_node(&ctx->rewriter, old->type)) })));
                     break;
-                }*/
+                }
                 default: break;
             }
             break;
@@ -482,20 +477,28 @@ static const Node* process(Context* ctx, const Node* old) {
 Module* opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     IrArena* a = new_ir_arena(aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = src;
 
-    Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
-        .bb_new_args = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
-        .a = new_arena(),
-    };
+    for (size_t round = 0; round < 2; round++) {
+        dst = new_module(a, get_module_name(src));
 
-    ctx.rewriter.config.fold_quote = false;
-    ctx.rewriter.config.rebind_let = false;
+        Context ctx = {
+            .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+            .bb_new_args = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
+            .a = new_arena(),
+        };
 
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
-    destroy_dict(ctx.bb_new_args);
-    destroy_arena(ctx.a);
+        ctx.rewriter.config.fold_quote = false;
+        ctx.rewriter.config.rebind_let = false;
+
+        rewrite_module(&ctx.rewriter);
+        destroy_rewriter(&ctx.rewriter);
+        destroy_dict(ctx.bb_new_args);
+        destroy_arena(ctx.a);
+
+        //dst = rebuild_module(dst);
+        src = dst;
+    }
+
     return dst;
 }

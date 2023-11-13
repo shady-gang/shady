@@ -62,7 +62,7 @@ P(1, set_stack_pointer)         \
 P(1, alloca)              \
 P(1, alloca_logical)      \
 P(1, alloca_subgroup)     \
-P(0, load)                \
+P(1, load)                \
 P(1, store)               \
 P(0, lea)                 \
 P(1, memcpy)              \
