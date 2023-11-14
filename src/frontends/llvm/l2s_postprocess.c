@@ -191,16 +191,22 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return recreate_node_identity(&ctx->rewriter, node);
         }
         case GlobalVariable_TAG: {
-            Node* decl = (Node*) recreate_node_identity(&ctx->rewriter, node);
-            Nodes annotations = decl->payload.global_variable.annotations;
+            AddressSpace as = node->payload.global_variable.address_space;
+            const Node* old_init = node->payload.global_variable.init;
+            Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations);
+            const Type* type = rewrite_node(&ctx->rewriter, node->payload.global_variable.type);
             ParsedAnnotation* an = find_annotation(ctx->p, node);
             while (an) {
                 annotations = append_nodes(a, annotations, an->payload);
                 if (strcmp(get_annotation_name(an->payload), "Builtin") == 0)
-                    decl->payload.global_variable.init = NULL;
+                    old_init = NULL;
+                if (strcmp(get_annotation_name(an->payload), "UniformConstant") == 0)
+                    as = AsUniformConstant;
                 an = an->next;
             }
-            decl->payload.global_variable.annotations = annotations;
+            Node* decl = global_var(ctx->rewriter.dst_module, annotations, type, get_decl_name(node), as);
+            if (old_init)
+                decl->payload.global_variable.init = rewrite_node(&ctx->rewriter, old_init);
             return decl;
         }
         default: break;
