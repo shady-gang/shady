@@ -92,6 +92,9 @@ bool is_subtype(const Type* supertype, const Type* type) {
         } case PtrType_TAG: {
             if (supertype->payload.ptr_type.address_space != type->payload.ptr_type.address_space)
                 return false;
+            // if either pointer type is untyped, both need to be
+            if (supertype->arena->config.untyped_ptrs && (!supertype->payload.ptr_type.pointed_type || !type->payload.ptr_type.pointed_type))
+                return !supertype->payload.ptr_type.pointed_type && !type->payload.ptr_type.pointed_type;
             return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
         }
         case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width && supertype->payload.int_type.is_signed == type->payload.int_type.is_signed;
@@ -379,6 +382,7 @@ const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
 }
 
 const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
+    assert((arena->config.untyped_ptrs || ptr_type.pointed_type) && "Shady does not support untyped pointers, but can infer them, see infer.c");
     if (!arena->config.allow_subgroup_memory) {
         assert(ptr_type.address_space != AsSubgroupPhysical);
         assert(ptr_type.address_space != AsSubgroupLogical);
@@ -712,6 +716,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(ptr_type->tag == PtrType_TAG);
             const PtrType* ptr_type_payload = &ptr_type->payload.ptr_type;
             const Type* elem_type = ptr_type_payload->pointed_type;
+            assert(elem_type);
             elem_type = maybe_packed_type_helper(elem_type, width);
             // we don't enforce uniform stores - but we care about storing the right thing :)
             const Type* val_expected_type = qualified_type(arena, (QualifiedType) {
