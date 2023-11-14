@@ -85,24 +85,15 @@ static void insert_ptr_knowledge(KnowledgeBase* kb, const Node* n, PtrKnowledge*
     insert_dict(const Node*, PtrKnowledge*, kb->map, n, k);
 }
 
-static const Node* get_ptr_known_value_(const KnowledgeBase* kb, const Node* n) {
-    const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, n);
+static const Node* get_known_value(Rewriter* r, const PtrKnowledge* k) {
+    const Node* v = NULL;
     if (k && !k->ptr_has_leaked && !k->source->leaks) {
         if (k->ptr_value) {
-            return k->ptr_value;
+            v = k->ptr_value;
         }
     }
-    return NULL;
-}
-
-static bool has_ptr_known_value(const KnowledgeBase* kb, const Node* n) {
-    return get_ptr_known_value_(kb, n) != NULL;
-}
-
-static const Node* get_ptr_known_value(Context* ctx, const KnowledgeBase* kb, const Node* n) {
-    const Node* v = get_ptr_known_value_(kb, n);
-    if (v && v->arena == ctx->rewriter.src_arena)
-        return rewrite_node(&ctx->rewriter, v);
+    if (r && v && v->arena != r->dst_arena)
+        return rewrite_node(r, v);
     return v;
 }
 
@@ -347,12 +338,12 @@ static const Node* process(Context* ctx, const Node* old) {
             switch (payload.op) {
                 case load_op: {
                     const Node* ptr = first(payload.operands);
-                    const Node* known_value = get_ptr_known_value(ctx, kb, ptr);
+                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
+                    const Node* known_value = get_known_value(&ctx->rewriter, k);
                     if (known_value) {
                         const Type* known_value_t = known_value->type;
                         bool kv_u = deconstruct_qualified_type(&known_value_t);
 
-                        // PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
                         const Type* load_result_t = ptr->type;
                         bool lrt_u = deconstruct_qualified_type(&load_result_t);
                         deconstruct_pointer_type(&load_result_t);
@@ -395,7 +386,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         continue; // these are not real edges...
                     KnowledgeBase* kb_at_src = get_kb(ctx, edge.src->node);
 
-                    if (has_ptr_known_value(kb_at_src, ptr)) {
+                    if (get_known_value(NULL, get_last_valid_ptr_knowledge(kb_at_src, ptr))) {
                         log_node(DEBUG, ptr);
                         debug_print(" has a known value in %s ...\n", get_abstraction_name(edge.src->node));
                     } else
@@ -407,7 +398,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     else
                         assert(source == k->source);
 
-                    const Type* kv_type = get_ptr_known_value_(kb_at_src, ptr)->type;
+                    const Type* kv_type = get_known_value(NULL, get_last_valid_ptr_knowledge(kb_at_src, ptr))->type;
                     deconstruct_qualified_type(&kv_type);
                     const Type* alloca_type_t = source->type;
                     deconstruct_qualified_type(&alloca_type_t);
@@ -464,8 +455,6 @@ static const Node* process(Context* ctx, const Node* old) {
                 for (size_t i = 0; i < args.count; i++)
                     tr_params_arr[i] = var(a, args.nodes[i]->type, args.nodes[i]->payload.var.name);
                 Nodes tr_params = nodes(a, args.count, tr_params_arr);
-                // Nodes tr_params = recreate_variables(&ctx->rewriter, get_abstraction_params(new_bb));
-                // tr_params = nodes(a, args.count, tr_params.nodes);
                 Node* fn = (Node*) rewrite_node(&ctx->rewriter, ctx->scope->entry->node);
                 Node* trampoline = basic_block(a, fn, tr_params, format_string_interned(a, "%s_trampoline", get_abstraction_name(new_bb)));
                 Nodes tr_args = args;
@@ -473,12 +462,12 @@ static const Node* process(Context* ctx, const Node* old) {
 
                 for (size_t i = 0; i < additional_ssa_params->count; i++) {
                     const Node* ptr = additional_ssa_params->nodes[i];
-                    const Node* value = get_ptr_known_value(ctx, kb, ptr);
+                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
+                    const Node* value = get_known_value(&ctx->rewriter, k);
 
                     const Type* known_value_t = value->type;
                     deconstruct_qualified_type(&known_value_t);
 
-                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
                     const Type* alloca_type_t = k->source->type;
                     deconstruct_qualified_type(&alloca_type_t);
 
