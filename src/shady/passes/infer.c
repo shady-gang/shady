@@ -64,13 +64,20 @@ static const Node* _infer_annotation(Context* ctx, const Node* node) {
 }
 
 static const Node* _infer_type(Context* ctx, const Type* type) {
+    IrArena* a = ctx->rewriter.dst_arena;
     switch (type->tag) {
         case ArrType_TAG: {
             const Node* size = infer(ctx, type->payload.arr_type.size, NULL);
-            return arr_type(ctx->rewriter.dst_arena, (ArrType) {
+            return arr_type(a, (ArrType) {
                 .size = size,
                 .element_type = infer(ctx, type->payload.arr_type.element_type, NULL)
             });
+        }
+        case PtrType_TAG: {
+            const Node* element_type = infer(ctx, type->payload.ptr_type.pointed_type, NULL);
+            if (!element_type)
+                element_type = unit_type(a);
+            return ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = type->payload.ptr_type.address_space });
         }
         default: return recreate_node_identity(&ctx->rewriter, type);
     }
@@ -287,7 +294,9 @@ static const Node* _infer_case(Context* ctx, const Node* node, const Node* expec
             // for the param type: use the inferred one if none is already provided
             // if one is provided, check the inferred argument type is a subtype of the param type
             const Type* param_type = infer(ctx, old_param->type, NULL);
-            param_type = param_type ? param_type : inferred_arg_type.nodes[i];
+            // and do not use the provided param type if it is an untyped ptr
+            if (!param_type || param_type->tag != PtrType_TAG || param_type->payload.ptr_type.pointed_type)
+                param_type = inferred_arg_type.nodes[i];
             assert(is_subtype(param_type, inferred_arg_type.nodes[i]));
             nparams[i] = var(a, param_type, old_param->name);
             register_processed(&body_context.rewriter, node->payload.case_.params.nodes[i], nparams[i]);
@@ -323,13 +332,17 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
     return bb;
 }
 
-static const Node* untyped_pointer_recover_helper(const Node* ptr, const Type* t) {
+static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* element_type) {
+    assert(element_type);
+    IrArena* a = untyped_ptr_t->arena;
+    assert(untyped_ptr_t->tag == PtrType_TAG);
+    const Type* typed_ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = untyped_ptr_t->payload.ptr_type.address_space });
+    return typed_ptr_t;
+}
+
+static const Node* reinterpret_cast_helper(const Node* ptr, const Type* typed_ptr_t) {
     IrArena* a = ptr->arena;
-    const Type* ptr_t = ptr->type;
-    deconstruct_qualified_type(&ptr_t);
-    assert(ptr_t->tag == PtrType_TAG);
     BodyBuilder* bb = begin_body(a);
-    const Type* typed_ptr_t = ptr_type(a, (PtrType) { .pointed_type = t, .address_space = ptr_t->payload.ptr_type.address_space });
     ptr = gen_reinterpret_cast(bb, typed_ptr_t, ptr);
     return anti_quote_helper(a, yield_values_and_wrap_in_block(bb, singleton(ptr)));
 }
@@ -343,19 +356,20 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
     for (size_t i = 0; i < node->payload.prim_op.operands.count; i++)
         assert(node->payload.prim_op.operands.nodes[i] && is_value(node->payload.prim_op.operands.nodes[i]));
 
-    Nodes type_args = infer_nodes(ctx, node->payload.prim_op.type_arguments);
+    Nodes old_type_args = node->payload.prim_op.type_arguments;
+    Nodes type_args = infer_nodes(ctx, old_type_args);
     Nodes old_operands = node->payload.prim_op.operands;
 
-    LARRAY(const Node*, new_inputs_scratch, old_operands.count);
-    Nodes input_types;
+    LARRAY(const Node*, new_operands, old_operands.count);
+    Nodes input_types = empty(a);
     switch (node->payload.prim_op.op) {
         case push_stack_op: {
             assert(old_operands.count == 1);
             assert(type_args.count == 1);
             const Type* element_type = type_args.nodes[0];
             assert(is_data_type(element_type));
-            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], qualified_type_helper(element_type, false));
-            goto skip_input_types;
+            new_operands[0] = infer(ctx, old_operands.nodes[0], qualified_type_helper(element_type, false));
+            goto rebuild;
         }
         case pop_stack_op: {
             assert(old_operands.count == 0);
@@ -363,32 +377,37 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             const Type* element_type = type_args.nodes[0];
             assert(is_data_type(element_type));
             //new_inputs_scratch[0] = element_type;
-            goto skip_input_types;
+            goto rebuild;
         }
         case load_op: {
             assert(old_operands.count == 1);
             assert(type_args.count <= 1);
-            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
+            new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
             if (type_args.count == 1) {
                 // typed loads - normalise to typed ptrs instead by generating an extra cast!
-                new_inputs_scratch[0] = untyped_pointer_recover_helper(new_inputs_scratch[0], first(type_args));
+                const Type* ptr_type = get_unqualified_type(new_operands[0]->type);
+                ptr_type = type_untyped_ptr(ptr_type, first(type_args));
+                new_operands[0] = reinterpret_cast_helper(new_operands[0], ptr_type);
                 type_args = empty(a);
             }
-            goto skip_input_types;
+            goto rebuild;
         }
         case store_op: {
             assert(old_operands.count == 2);
             assert(type_args.count <= 1);
-            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
+            new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
+            const Type* ptr_type = get_unqualified_type(new_operands[0]->type);
             if (type_args.count == 1) {
                 // typed loads - normalise to typed ptrs instead by generating an extra cast!
-                new_inputs_scratch[0] = untyped_pointer_recover_helper(new_inputs_scratch[0], first(type_args));
+                ptr_type = type_untyped_ptr(ptr_type, first(type_args));
+                new_operands[0] = reinterpret_cast_helper(new_operands[0], ptr_type);
                 type_args = empty(a);
             }
-            const Type* ptr_type = get_unqualified_type(new_inputs_scratch[0]->type);
             assert(ptr_type->tag == PtrType_TAG);
-            new_inputs_scratch[1] = infer(ctx, old_operands.nodes[1], qualified_type_helper((&ptr_type->payload.ptr_type)->pointed_type, false));
-            goto skip_input_types;
+            const Type* element_t = ptr_type->payload.ptr_type.pointed_type;
+            assert(element_t);
+            new_operands[1] = infer(ctx, old_operands.nodes[1], qualified_type_helper(element_t, false));
+            goto rebuild;
         }
         case alloca_op: {
             assert(type_args.count == 1);
@@ -396,26 +415,44 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             const Type* element_type = type_args.nodes[0];
             assert(is_type(element_type));
             assert(is_data_type(element_type));
-            goto skip_input_types;
+            goto rebuild;
+        }
+        case reinterpret_op:
+        case convert_op: {
+            new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
+            const Type* src_pointer_type = get_unqualified_type(new_operands[0]->type);
+            const Type* old_dst_pointer_type = first(old_type_args);
+            const Type* dst_pointer_type = first(type_args);
+            if (old_dst_pointer_type->tag == PtrType_TAG && !old_dst_pointer_type->payload.ptr_type.pointed_type) {
+                const Type* element_type = uint8_type(a);
+                if (src_pointer_type->tag == PtrType_TAG && src_pointer_type->payload.ptr_type.pointed_type) {
+                    // element_type = infer(ctx, old_src_pointer_type->payload.ptr_type.pointed_type, NULL);
+                    element_type = src_pointer_type->payload.ptr_type.pointed_type;
+                }
+                dst_pointer_type = type_untyped_ptr(dst_pointer_type, element_type);
+                type_args = change_node_at_index(a, type_args, 0, dst_pointer_type);
+            }
+
+            goto rebuild;
         }
         case lea_op: {
             assert(old_operands.count >= 2);
             assert(type_args.count <= 1);
-            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
-            new_inputs_scratch[1] = infer(ctx, old_operands.nodes[1], NULL);
+            new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
+            new_operands[1] = infer(ctx, old_operands.nodes[1], NULL);
             for (size_t i = 2; i < old_operands.count; i++) {
-                new_inputs_scratch[i] = infer(ctx, old_operands.nodes[i], NULL);
+                new_operands[i] = infer(ctx, old_operands.nodes[i], NULL);
             }
 
-            const Type* base_datatype = remove_uniformity_qualifier(new_inputs_scratch[0]->type);
+            const Type* base_datatype = remove_uniformity_qualifier(new_operands[0]->type);
             assert(base_datatype->tag == PtrType_TAG);
             AddressSpace as = deconstruct_pointer_type(&base_datatype);
             if (type_args.count == 1) {
-                base_datatype = ptr_type(a, (PtrType) { .pointed_type = first(type_args), .address_space = as });
-                new_inputs_scratch[0] = untyped_pointer_recover_helper(new_inputs_scratch[0], first(type_args));
+                base_datatype = type_untyped_ptr(base_datatype, first(type_args));
+                new_operands[0] = reinterpret_cast_helper(new_operands[0], base_datatype);
                 type_args = empty(a);
             }
-            const IntLiteral* lit = resolve_to_literal(new_inputs_scratch[1]);
+            const IntLiteral* lit = resolve_to_literal(new_operands[1]);
             if ((!lit || lit->value) != 0 && base_datatype->tag != ArrType_TAG) {
                 warn_print("LEA used on a pointer to a non-array type!\n");
                 BodyBuilder* bb = begin_body(a);
@@ -428,10 +465,10 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                             .size = NULL
                         }),
                     })),
-                    .operands = singleton(new_inputs_scratch[0]),
+                    .operands = singleton(new_operands[0]),
                 })));
-                Nodes final_lea_ops = mk_nodes(a, cast_base, new_inputs_scratch[1], int32_literal(a, 0));
-                final_lea_ops = concat_nodes(a, final_lea_ops, nodes(a, old_operands.count - 2, new_inputs_scratch + 2));
+                Nodes final_lea_ops = mk_nodes(a, cast_base, new_operands[1], int32_literal(a, 0));
+                final_lea_ops = concat_nodes(a, final_lea_ops, nodes(a, old_operands.count - 2, new_operands + 2));
                 const Node* rslt = first(bind_instruction(bb, prim_op(a, (PrimOp) {
                         .op = lea_op,
                         .type_arguments = empty(a),
@@ -439,7 +476,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                 })));
                 return yield_values_and_wrap_in_block(bb, singleton(rslt));
             }
-            goto skip_input_types;
+            goto rebuild;
         }
         case empty_mask_op:
         case subgroup_active_mask_op:
@@ -447,8 +484,8 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             input_types = nodes(a, 0, NULL);
             break;
         case subgroup_broadcast_first_op:
-            new_inputs_scratch[0] = infer(ctx, old_operands.nodes[0], NULL);
-            goto skip_input_types;
+            new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
+            goto rebuild;
         case subgroup_ballot_op:
             input_types = singleton(qualified_type_helper(bool_type(a), false));
             break;
@@ -458,21 +495,21 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
         }
         default: {
             for (size_t i = 0; i < old_operands.count; i++) {
-                new_inputs_scratch[i] = old_operands.nodes[i] ? infer(ctx, old_operands.nodes[i], NULL) : NULL;
+                new_operands[i] = old_operands.nodes[i] ? infer(ctx, old_operands.nodes[i], NULL) : NULL;
             }
-            goto skip_input_types;
+            goto rebuild;
         }
     }
 
     assert(input_types.count == old_operands.count);
     for (size_t i = 0; i < input_types.count; i++)
-        new_inputs_scratch[i] = infer(ctx, old_operands.nodes[i], input_types.nodes[i]);
+        new_operands[i] = infer(ctx, old_operands.nodes[i], input_types.nodes[i]);
 
-    skip_input_types:
+    rebuild:
     return prim_op(a, (PrimOp) {
         .op = node->payload.prim_op.op,
         .type_arguments = type_args,
-        .operands = nodes(a, old_operands.count, new_inputs_scratch)
+        .operands = nodes(a, old_operands.count, new_operands)
     });
 }
 
@@ -753,6 +790,7 @@ Module* infer_program(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     assert(!aconfig.check_types);
     aconfig.check_types = true;
+    aconfig.untyped_ptrs = false;
     aconfig.allow_fold = true; // TODO was moved here because a refactor, does this cause issues ?
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
