@@ -108,18 +108,41 @@ static const Node* get_ptr_known_value(Context* ctx, const KnowledgeBase* kb, co
 
 typedef struct {
     const Node* value;
+    const UsesMap* scope_uses;
 } IsLeakingCtx;
 
 static bool is_leaking(IsLeakingCtx* ctx, const Use* use) {
     if (is_abstraction(use->user) && use->operand_class == NcVariable)
         return false;
+    if (use->user->tag == Let_TAG && use->operand_class == NcInstruction) {
+        Nodes vars = get_abstraction_params(get_let_tail(use->user));
+        for (size_t i = 0; i < vars.count; i++) {
+            debugv_print("mem2reg leak analysis: following let-bound variable: ");
+            log_node(DEBUGV, vars.nodes[i]);
+            debugv_print(".\n");
+            IsLeakingCtx is_leaking_ctx = {
+                .value = vars.nodes[i],
+                    .scope_uses = ctx->scope_uses,
+            };
+            return if_any_use(ctx->scope_uses, is_leaking_ctx.value, &is_leaking_ctx, (IfAnyUseFn) is_leaking);
+        }
+    }
     if (use->user->tag == PrimOp_TAG) {
         PrimOp payload = use->user->payload.prim_op;
         switch (payload.op) {
             case load_op: return false; // loads don't leak the address.
             case store_op: return payload.operands.nodes[1] == ctx->value; // stores leak the value if it's stored
+            case reinterpret_op: {
+                debugv_print("mem2reg leak analysis: following reinterpret instr: ");
+                log_node(DEBUGV, use->user);
+                debugv_print(".\n");
+                IsLeakingCtx is_leaking_ctx = {
+                    .value = use->user,
+                    .scope_uses = ctx->scope_uses,
+                };
+                return if_any_use(ctx->scope_uses, is_leaking_ctx.value, &is_leaking_ctx, (IfAnyUseFn) is_leaking);
+            }
             case lea_op:
-            case reinterpret_op:
             case convert_op: return true; //TODO: follow where those derived pointers are used and establish whether they leak themselves
             default: break;
         }
@@ -150,13 +173,16 @@ static void visit_instruction(Context* ctx, KnowledgeBase* kb, const Node* instr
                 case alloca_op: {
                     PtrKnowledge* k = create_ptr_knowledge(kb, instruction);
                     IsLeakingCtx is_leaking_ctx = {
-                        .value = first(results)
+                        .value = first(results),
+                        .scope_uses = ctx->scope_uses,
                     };
                     k->source->leaks = if_any_use(ctx->scope_uses, first(results), &is_leaking_ctx, (IfAnyUseFn) is_leaking);
-                    if (k->source->leaks) {
-                        log_node(DEBUGV, is_leaking_ctx.value);
+                    debugv_print("mem2reg: ");
+                    log_node(DEBUGV, is_leaking_ctx.value);
+                    if (k->source->leaks)
                         debugv_print(" is leaking so it will not be eliminated.\n");
-                    }
+                    else
+                        debugv_print(" was found to not leak.\n");
                     const Type* t = instruction->type;
                     bool u = deconstruct_qualified_type(&t);
                     assert(t->tag == PtrType_TAG);
