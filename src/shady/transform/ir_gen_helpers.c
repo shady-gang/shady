@@ -200,15 +200,9 @@ const Node* convert_int_extend_according_to_dst_t(BodyBuilder* bb, const Type* d
 const Node* get_default_zero_value(IrArena* a, const Type* t) {
     switch (is_type(t)) {
         case NotAType: error("")
-        case Type_MaskType_TAG:
-        case Type_JoinPointType_TAG: error("TODO");
-        case Type_NoRet_TAG: error("Has no values (let alone a default one!)");
         case Type_Int_TAG: return int_literal(a, (IntLiteral) { .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed, .value = 0 });
         case Type_Float_TAG: return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = 0 });
         case Type_Bool_TAG: return false_lit(a);
-        case Type_FnType_TAG:
-        case Type_BBType_TAG:
-        case Type_LamType_TAG: error("These are symbolic and lack concrete values, so no defaults either.");
         case Type_PtrType_TAG: return null_ptr(a, (NullPtr) { .ptr_type = t });
         case Type_QualifiedType_TAG: return get_default_zero_value(a, t->payload.qualified_type.type);
         case Type_RecordType_TAG:
@@ -221,6 +215,7 @@ const Node* get_default_zero_value(IrArena* a, const Type* t) {
                 elems[i] = get_default_zero_value(a, elem_tys.nodes[i]);
             return composite_helper(a, t, nodes(a, elem_tys.count, elems));
         }
-        default: assert(false);
+        default: break;
     }
+    return NULL;
 }
