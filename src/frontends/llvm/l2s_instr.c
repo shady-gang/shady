@@ -4,6 +4,8 @@
 #include "log.h"
 #include "dict.h"
 
+#include "../shady/type.h"
+
 #include "llvm-c/DebugInfo.h"
 
 static Nodes convert_operands(Parser* p, size_t num_ops, LLVMValueRef v) {
@@ -223,10 +225,19 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             r = prim_op_helper(a, reinterpret_op, singleton(t), convert_operands(p, num_ops, instr));
             break;
         case LLVMZExt: {
-            // reinterpret as unsigned, convert to change size, reinterpret back to target T
-            const Type* unsigned_t = change_int_t_sign(t, false);
-            r = prim_op_helper(a, convert_op, singleton(unsigned_t), reinterpret_operands(b, convert_operands(p, num_ops, instr), unsigned_t));
-            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R(unsigned_t));
+            const Type* src_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            Nodes ops = convert_operands(p, num_ops, instr);
+            if (src_t->tag == Bool_TAG) {
+                assert(t->tag == Int_TAG);
+                const Node* zero = int_literal(a, (IntLiteral) { .value = 0, .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed });
+                const Node* one  = int_literal(a, (IntLiteral) { .value = 1, .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed });
+                r = prim_op_helper(a, select_op, empty(a), mk_nodes(a, first(ops), one, zero));
+            } else {
+                // reinterpret as unsigned, convert to change size, reinterpret back to target T
+                const Type* unsigned_t = change_int_t_sign(t, false);
+                r = prim_op_helper(a, convert_op, singleton(unsigned_t), reinterpret_operands(b, ops, unsigned_t));
+                r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R(unsigned_t));
+            }
             break;
         } case LLVMSExt: {
             // reinterpret as signed, convert to change size, reinterpret back to target T
@@ -311,8 +322,34 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             r = prim_op_helper(a, op, empty(a), ops);
             break;
         }
-        case LLVMFCmp:
-            goto unimplemented;
+        case LLVMFCmp: {
+            Op op;
+            bool cast_to_signed = false;
+            switch(LLVMGetFCmpPredicate(instr)) {
+                case LLVMRealOEQ:
+                    op = eq_op;
+                    break;
+                case LLVMRealONE:
+                    op = neq_op;
+                    break;
+                case LLVMRealOGT:
+                    op = gt_op;
+                    break;
+                case LLVMRealOGE:
+                    op = gte_op;
+                    break;
+                case LLVMRealOLT:
+                    op = lt_op;
+                    break;
+                case LLVMRealOLE:
+                    op = lte_op;
+                    break;
+                default: goto unimplemented;
+            }
+            Nodes ops = convert_operands(p, num_ops, instr);
+            r = prim_op_helper(a, op, empty(a), ops);
+            break;
+        }
         case LLVMPHI:
             assert(false && "We deal with phi nodes before, there shouldn't be one here");
             break;
@@ -415,7 +452,8 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             break;
         }
         case LLVMSelect:
-            goto unimplemented;
+            r = prim_op_helper(a, select_op, empty(a), convert_operands(p, num_ops, instr));
+            break;
         case LLVMUserOp1:
             goto unimplemented;
         case LLVMUserOp2:
