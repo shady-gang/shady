@@ -205,7 +205,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 an = an->next;
             }
             Node* decl = global_var(ctx->rewriter.dst_module, annotations, type, get_decl_name(node), as);
-            if (old_init)
+            if (old_init && is_physical_as(as))
                 decl->payload.global_variable.init = rewrite_node(&ctx->rewriter, old_init);
             return decl;
         }
