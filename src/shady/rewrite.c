@@ -45,6 +45,7 @@ Module* rebuild_module(Module* src) {
     Module* dst = new_module(a, get_module_name(src));
     Rewriter r = create_importer(src, dst);
     rewrite_module(&r);
+    destroy_rewriter(&r);
     return dst;
 }
 
