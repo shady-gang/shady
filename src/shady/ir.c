@@ -143,6 +143,14 @@ Nodes concat_nodes(IrArena* arena, Nodes a, Nodes b) {
     return nodes(arena, j, tmp);
 }
 
+Nodes change_node_at_index(IrArena* arena, Nodes old, size_t i, const Node* n) {
+    LARRAY(const Node*, tmp, old.count);
+    for (size_t j = 0; j < old.count; j++)
+        tmp[j] = old.nodes[i];
+    tmp[i] = n;
+    return nodes(arena, old.count, tmp);
+}
+
 /// takes care of structural sharing
 static const char* string_impl(IrArena* arena, size_t size, const char* zero_terminated) {
     const char* ptr = zero_terminated;
