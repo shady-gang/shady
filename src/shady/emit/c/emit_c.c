@@ -157,6 +157,16 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                 emitted = format_string_arena(emitter->arena->arena, "%" PRIi64, value->payload.int_literal.value);
             else
                 emitted = format_string_arena(emitter->arena->arena, "%" PRIu64, value->payload.int_literal.value);
+
+            bool is_long = value->payload.int_literal.width == IntTy64;
+            bool is_signed = value->payload.int_literal.is_signed;
+            if (emitter->config.dialect == GLSL) {
+                if (!is_signed)
+                    emitted = format_string_arena(emitter->arena->arena, "%sU", emitted);
+                if (is_long)
+                    emitted = format_string_arena(emitter->arena->arena, "%sL", emitted);
+            }
+
             break;
         }
         case Value_FloatLiteral_TAG: {
@@ -243,7 +253,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                     if (type->tag != PackType_TAG)
                         goto no_compound_literals;
                     // GLSL doesn't have compound literals, but it does have constructor syntax for vectors
-                    emitted = format_string_arena(emitter->arena->arena, "%s(%s)", type, emitted);
+                    emitted = format_string_arena(emitter->arena->arena, "%s(%s)", emit_type(emitter, value->type, NULL), emitted);
                     break;
             }
 
@@ -520,6 +530,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             String address_space_prefix = NULL;
             switch (decl->payload.global_variable.address_space) {
                 case AsGeneric:
+                    break;
                 case AsSubgroupLogical:
                 case AsSubgroupPhysical:
                     switch (emitter->config.dialect) {
@@ -558,7 +569,10 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     break;
                 case AsInput:
                 case AsUInput:
+                    address_space_prefix = "in ";
+                    break;
                 case AsOutput:
+                    address_space_prefix = "out ";
                     break;
                 case AsUniform:
                 case AsImage:
@@ -716,7 +730,7 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
             print(finalp, "\n#include <math.h>");
             break;
         case GLSL:
-            print(finalp, "#extension GL_ARB_compute_shader: require\n");
+            print(finalp, "#extension GL_ARB_gpu_shader_int64: require\n");
             print(finalp, "#define ubyte uint\n");
             print(finalp, "#define uchar uint\n");
             print(finalp, "#define ulong uint\n");
@@ -732,6 +746,8 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
     print(finalp, "\n/* definitions: */\n");
     growy_append_bytes(final, growy_size(fn_defs_g), growy_data(fn_defs_g));
 
+    print(finalp, "\n");
+    print(finalp, "\n");
     print(finalp, "\n");
 
     destroy_growy(type_decls_g);

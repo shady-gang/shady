@@ -297,7 +297,10 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 switch (is_type(pointee_type)) {
                     case ArrType_TAG: {
                         CTerm index = emit_value(emitter, p, selector);
-                        acc = term_from_cvar(format_string_arena(arena->arena, "(%s.arr[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
+                        if (emitter->config.dialect == GLSL)
+                            acc = term_from_cvar(format_string_arena(arena->arena, "(%s.arr[int(%s)])", deref_term(emitter, acc), to_cvalue(emitter, index)));
+                        else
+                            acc = term_from_cvar(format_string_arena(arena->arena, "(%s.arr[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
                         curr_ptr_type = ptr_type(arena, (PtrType) {
                                 .pointed_type = pointee_type->payload.arr_type.element_type,
                                 .address_space = curr_ptr_type->payload.ptr_type.address_space
@@ -398,9 +401,37 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     outputs.binding[0] = NoBinding;
                     break;
                 }
-                case GLSL:
-                    error("TODO");
-                    break;
+                case GLSL: {
+                    String n = NULL;
+                    if (dst_type->tag == Float_TAG) {
+                        assert(src_type->tag == Int_TAG);
+                        switch (dst_type->payload.float_type.width) {
+                            case FloatTy16: break;
+                            case FloatTy32: n = src_type->payload.int_type.is_signed ? "intBitsToFloat" : "uintBitsToFloat";
+                                break;
+                            case FloatTy64: break;
+                        }
+                    } else if (dst_type->tag == Int_TAG) {
+                        assert(src_type->tag == Float_TAG);
+                        switch (src_type->payload.float_type.width) {
+                            case FloatTy16: break;
+                            case FloatTy32: n = dst_type->payload.int_type.is_signed ? "floatBitsToInt" : "floatBitsToUint";
+                                break;
+                            case FloatTy64: break;
+                        }
+                    }
+                    if (n) {
+                        outputs.results[0] = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", n, to_cvalue(emitter, src_value)));
+                        outputs.binding[0] = LetBinding;
+                        break;
+                    }
+                    error_print("glsl: unsupported bit cast from ");
+                    log_node(ERROR, src_type);
+                    error_print(" to ");
+                    log_node(ERROR, dst_type);
+                    error_print(".\n");
+                    error_die();
+                }
                 case ISPC: {
                     if (dst_type->tag == Float_TAG) {
                         assert(src_type->tag == Int_TAG);
@@ -464,9 +495,18 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                             acc = format_string_arena(emitter->arena->arena, "(%s.%s)", acc, names.strings[static_index->value]);
                         break;
                     }
-                    case Type_ArrType_TAG:
                     case Type_PackType_TAG: {
-                        acc = format_string_arena(emitter->arena->arena, "(%s.arr[%s])", acc, to_cvalue(emitter, emit_value(emitter, p, index)));
+                        assert(static_index);
+                        assert(static_index->value < 4 && static_index->value < t->payload.pack_type.width);
+                        String suffixes = "xyzw";
+                        acc = format_string_arena(emitter->arena->arena, "(%s.%c)", acc, suffixes[static_index->value]);
+                        break;
+                    }
+                    case Type_ArrType_TAG: {
+                        if (emitter->config.dialect == GLSL)
+                            acc = format_string_arena(emitter->arena->arena, "(%s.arr[int(%s)])", acc, to_cvalue(emitter, emit_value(emitter, p, index)));
+                        else
+                            acc = format_string_arena(emitter->arena->arena, "(%s.arr[%s])", acc, to_cvalue(emitter, emit_value(emitter, p, index)));
                         break;
                     }
                     default:
@@ -562,9 +602,12 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
             print(paramsp, ", ");
     }
 
-    CValue callee;
-    if (call->tag == Call_TAG)
-        callee = to_cvalue(emitter, emit_value(emitter, p, call->payload.call.callee));
+    CValue e_callee;
+    const Node* callee = call->payload.call.callee;
+    if (callee->tag == FnAddr_TAG)
+        e_callee = get_decl_name(callee->payload.fn_addr.fn);
+    else
+        e_callee = to_cvalue(emitter, emit_value(emitter, p, callee));
 
     String params = printer_growy_unwrap(paramsp);
 
@@ -572,17 +615,17 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
     assert(yield_types.count == outputs.count);
     if (yield_types.count > 1) {
         String named = unique_name(emitter->arena, "result");
-        print(p, "\n%s = %s(%s);", emit_type(emitter, call->type, named), callee, params);
+        print(p, "\n%s = %s(%s);", emit_type(emitter, call->type, named), e_callee, params);
         for (size_t i = 0; i < yield_types.count; i++) {
             outputs.results[i] = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s->_%d", named, i));
             // we have let-bound the actual result already, and extracting their components can be done inline
             outputs.binding[i] = NoBinding;
         }
     } else if (yield_types.count == 1) {
-        outputs.results[0] = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", callee, params));
+        outputs.results[0] = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", e_callee, params));
         outputs.binding[0] = LetBinding;
     } else {
-        print(p, "\n%s(%s);", callee, params);
+        print(p, "\n%s(%s);", e_callee, params);
     }
     free_tmp_str(params);
 }

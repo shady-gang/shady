@@ -148,15 +148,15 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                 }
                 case GLSL:
                     switch (type->payload.int_type.width) {
-                        case IntTy8:  warn_print("vanilla GLSL does not support 8-bit integers");
+                        case IntTy8:  warn_print("vanilla GLSL does not support 8-bit integers\n");
                             emitted = "ubyte";
                             break;
-                        case IntTy16: warn_print("vanilla GLSL does not support 16-bit integers");
+                        case IntTy16: warn_print("vanilla GLSL does not support 16-bit integers\n");
                             emitted = "ushort";
                             break;
                         case IntTy32: emitted = "uint";   break;
-                        case IntTy64: warn_print("vanilla GLSL does not support 64-bit integers");
-                            emitted = "ulong";
+                        case IntTy64: warn_print("vanilla GLSL does not support 64-bit integers\n");
+                            emitted = "uint64_t";
                             break;
                     }
                     break;
