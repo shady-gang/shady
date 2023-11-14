@@ -112,10 +112,6 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     assert(fn_type->payload.fn_type.param_types.count == params.count);
     Node* f = function(p->dst, params, LLVMGetValueName(fn), empty(a), fn_type->payload.fn_type.return_types);
     const Node* r = f;
-    if (UNTYPED_POINTERS) {
-        //const Type* generic_ptr_t = ptr_type(a, (PtrType) {.pointed_type = uint8_type(a), .address_space = AsGeneric});
-        //r = anti_quote_helper(a, prim_op_helper(a, reinterpret_op, singleton(generic_ptr_t), singleton(r)));
-    }
     insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
 
     if (LLVMCountBasicBlocks(fn) > 0) {
@@ -165,11 +161,6 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
 
     assert(decl && is_declaration(decl));
     const Node* r = ref_decl_helper(a, decl);
-
-    if (decl->tag == GlobalVariable_TAG && UNTYPED_POINTERS && is_physical_as(decl->payload.global_variable.address_space)) {
-        const Type* generic_ptr_t = ptr_type(a, (PtrType) {.pointed_type = uint8_type(a), .address_space = AsGeneric});
-        r = anti_quote_helper(a, prim_op_helper(a, reinterpret_op, singleton(generic_ptr_t), singleton(r)));
-    }
 
     insert_dict(LLVMValueRef, const Node*, p->map, global, r);
     return r;

@@ -88,7 +88,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
         }
         case LLVMPointerTypeKind: {
             AddressSpace as = convert_llvm_address_space(LLVMGetPointerAddressSpace(t));
-            const Type* pointee = uint8_type(a);
+            const Type* pointee = NULL;
 #if !UNTYPED_POINTERS
             LLVMTypeRef element_type = LLVMGetElementType(t);
             pointee = convert_type(p, element_type);
