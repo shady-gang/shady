@@ -7,12 +7,14 @@
 
 #include "../analysis/scope.h"
 #include "../analysis/uses.h"
+#include "../analysis/leak.h"
+#include "../analysis/verify.h"
+
+#include "../transform/ir_gen_helpers.h"
+
 #include "../rewrite.h"
 #include "../visit.h"
 #include "../type.h"
-#include "../analysis/uses.h"
-#include "../analysis/leak.h"
-#include "../transform/ir_gen_helpers.h"
 
 typedef struct {
     AddressSpace as;
@@ -22,6 +24,7 @@ typedef struct {
 } PtrSourceKnowledge;
 
 typedef struct {
+    const Node* ptr_address;
     const Node* ptr_value;
     bool ptr_has_leaked;
     PtrSourceKnowledge* source;
@@ -60,20 +63,19 @@ static PtrKnowledge* get_last_valid_ptr_knowledge(const KnowledgeBase* kb, const
     return k;
 }
 
-static PtrKnowledge* create_ptr_knowledge(KnowledgeBase* kb, const Node* n) {
+static PtrKnowledge* create_ptr_knowledge(KnowledgeBase* kb, const Node* instruction, const Node* address_value) {
     PtrKnowledge* k = arena_alloc(kb->a, sizeof(PtrKnowledge));
     PtrSourceKnowledge* sk = arena_alloc(kb->a, sizeof(PtrSourceKnowledge));
-    *k = (PtrKnowledge) { .source = sk };
+    *k = (PtrKnowledge) { .source = sk, .ptr_address = address_value };
     *sk = (PtrSourceKnowledge) { 0 };
-    bool fresh = insert_dict(const Node*, PtrKnowledge*, kb->map, n, k);
+    bool fresh = insert_dict(const Node*, PtrKnowledge*, kb->map, instruction, k);
     assert(fresh);
     return k;
 }
 
 static PtrKnowledge* update_ptr_knowledge(KnowledgeBase* kb, const Node* n, PtrKnowledge* existing) {
-    PtrKnowledge* prev = get_last_valid_ptr_knowledge(kb, n);
     PtrKnowledge* k = arena_alloc(kb->a, sizeof(PtrKnowledge));
-    *k = *prev; // copy the data
+    *k = *existing; // copy the data
     bool fresh = insert_dict(const Node*, PtrKnowledge*, kb->map, n, k);
     assert(fresh);
     return k;
@@ -90,6 +92,18 @@ static const Node* get_known_value(Rewriter* r, const PtrKnowledge* k) {
     if (k && !k->ptr_has_leaked && !k->source->leaks) {
         if (k->ptr_value) {
             v = k->ptr_value;
+        }
+    }
+    if (r && v && v->arena != r->dst_arena)
+        return rewrite_node(r, v);
+    return v;
+}
+
+static const Node* get_known_address(Rewriter* r, const PtrKnowledge* k) {
+    const Node* v = NULL;
+    if (k) {
+        if (k->ptr_address) {
+            v = k->ptr_address;
         }
     }
     if (r && v && v->arena != r->dst_arena)
@@ -162,12 +176,13 @@ static void visit_instruction(Context* ctx, KnowledgeBase* kb, const Node* instr
             switch (payload.op) {
                 case alloca_logical_op:
                 case alloca_op: {
-                    PtrKnowledge* k = create_ptr_knowledge(kb, instruction);
+                    const Node* optr = first(results);
+                    PtrKnowledge* k = create_ptr_knowledge(kb, instruction, optr);
                     IsLeakingCtx is_leaking_ctx = {
-                        .value = first(results),
+                        .value = optr,
                         .scope_uses = ctx->scope_uses,
                     };
-                    k->source->leaks = if_any_use(ctx->scope_uses, first(results), &is_leaking_ctx, (IfAnyUseFn) is_leaking);
+                    k->source->leaks = if_any_use(ctx->scope_uses, optr, &is_leaking_ctx, (IfAnyUseFn) is_leaking);
                     debugv_print("mem2reg: ");
                     log_node(DEBUGV, is_leaking_ctx.value);
                     if (k->source->leaks)
@@ -181,7 +196,7 @@ static void visit_instruction(Context* ctx, KnowledgeBase* kb, const Node* instr
                     deconstruct_pointer_type(&t);
                     k->source->type = qualified_type_helper(t, u);
 
-                    insert_ptr_knowledge(kb, first(results), k);
+                    insert_ptr_knowledge(kb, optr, k);
                     k->ptr_value = undef(a, (Undef) { .type = first(payload.type_arguments) });
                     break;
                 }
@@ -212,12 +227,27 @@ static void visit_instruction(Context* ctx, KnowledgeBase* kb, const Node* instr
                 case reinterpret_op: {
                     // if we have knowledge on a particular ptr, the same knowledge propagates if we bitcast it!
                     PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, first(payload.operands));
-                    if (k)
+                    if (k) {
+                        k = update_ptr_knowledge(kb, instruction, k);
+                        k->ptr_address = first(results);
                         insert_ptr_knowledge(kb, first(results), k);
+                    }
                     break;
                 }
-                case memcpy_op: {
-
+                case convert_op: {
+                    // if we convert a pointer to generic AS, we'd like to use the old address instead where possible
+                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, first(payload.operands));
+                    if (k) {
+                        debug_print("mem2reg: the converted ptr ");
+                        log_node(DEBUG, first(results));
+                        debug_print(" is the same as ");
+                        log_node(DEBUG, first(payload.operands));
+                        debug_print(".\n");
+                        k = update_ptr_knowledge(kb, instruction, k);
+                        k->ptr_address = first(payload.operands);
+                        insert_ptr_knowledge(kb, first(results), k);
+                    }
+                    break;
                 }
                 default: break;
             }
@@ -351,12 +381,21 @@ static const Node* process(Context* ctx, const Node* old) {
                         if (is_reinterpret_cast_legal(load_result_t, known_value_t))
                             return prim_op_helper(a, reinterpret_op, singleton(rewrite_node(&ctx->rewriter, load_result_t)), singleton(known_value));
                     }
+                    const Node* other_ptr = get_known_address(&ctx->rewriter, k);
+                    if (other_ptr && ptr != other_ptr) {
+                        return prim_op_helper(a, load_op, empty(a), singleton(other_ptr));
+                    }
                     break;
                 }
                 case store_op: {
-                    const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, first(payload.operands));
+                    const Node* ptr = first(payload.operands);
+                    const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
                     if (k && !k->source->leaks && !k->source->ever_read_from)
                         return quote_helper(a, empty(a));
+                    const Node* other_ptr = get_known_address(&ctx->rewriter, k);
+                    if (other_ptr && ptr != other_ptr) {
+                        return prim_op_helper(a, store_op, empty(a), mk_nodes(a, other_ptr, rewrite_node(&ctx->rewriter, payload.operands.nodes[1])));
+                    }
                     break;
                 }
                 case alloca_op: {
@@ -512,6 +551,8 @@ Module* opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module* src) {
         destroy_rewriter(&ctx.rewriter);
         destroy_dict(ctx.bb_new_args);
         destroy_arena(ctx.a);
+
+        verify_module(dst);
 
         dst = rebuild_module(dst);
         src = dst;
