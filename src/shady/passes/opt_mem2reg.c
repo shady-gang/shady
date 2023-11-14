@@ -118,7 +118,9 @@ static bool is_leaking(IsLeakingCtx* ctx, const Use* use) {
         switch (payload.op) {
             case load_op: return false; // loads don't leak the address.
             case store_op: return payload.operands.nodes[1] == ctx->value; // stores leak the value if it's stored
-            case lea_op: return false; // TODO: allow lea and follow them
+            case lea_op:
+            case reinterpret_op:
+            case convert_op: return true; //TODO: follow where those derived pointers are used and establish whether they leak themselves
             default: break;
         }
         switch (payload.op) {
