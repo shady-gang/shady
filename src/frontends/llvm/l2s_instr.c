@@ -391,6 +391,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                                 processed_ops[i] = ops.nodes[i];
                         }
                         r = prim_op_helper(a, op, empty(a), nodes(a, num_args, processed_ops));
+                        free(str);
                         break;
                     } else {
                         error_print("Unrecognised shady intrinsic '%s'\n", keyword);
