@@ -9,6 +9,8 @@
 #include "../../ir_private.h"
 #include "../../compile.h"
 
+#include "../../transform/ir_gen_helpers.h"
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -191,6 +193,8 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case Value_True_TAG: return term_from_cvalue("true");
         case Value_False_TAG: return term_from_cvalue("false");
         case Value_Undef_TAG: {
+            if (emitter->config.dialect == GLSL)
+                return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
             String name = unique_name(emitter->arena, "undef");
             emit_global_variable_definition(emitter, "", name, value->payload.undef.type, true, true, NULL);
             emitted = name;

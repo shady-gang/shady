@@ -198,7 +198,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     assert(node->tag == PrimOp_TAG);
     IrArena* arena = emitter->arena;
     const PrimOp* prim_op = &node->payload.prim_op;
-    CTerm term = term_from_cvalue("/* todo */");
+    CTerm term = term_from_cvalue(format_string_interned(emitter->arena, "/* todo %s */", primop_names[prim_op->op]));
     const ISelTableEntry* isel_entry = lookup_entry(emitter, prim_op->op);
     switch (prim_op->op) {
         case deref_op:
@@ -412,6 +412,11 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                             case FloatTy64: break;
                         }
                     } else if (dst_type->tag == Int_TAG) {
+                        if (src_type->tag == Int_TAG) {
+                            outputs.results[0] = src_value;
+                            outputs.binding[0] = NoBinding;
+                            break;
+                        }
                         assert(src_type->tag == Float_TAG);
                         switch (src_type->payload.float_type.width) {
                             case FloatTy16: break;
@@ -472,6 +477,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 String dst = unique_name(arena, "modified");
                 print(p, "\n%s = %s;", c_emit_type(emitter, node->type, dst), acc);
                 acc = dst;
+                term = term_from_cvalue(dst);
             }
 
             const Type* t = get_unqualified_type(first(prim_op->operands)->type);
