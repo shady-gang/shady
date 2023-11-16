@@ -31,13 +31,11 @@ SpvStorageClass emit_addr_space(AddressSpace address_space) {
         case AsImage:                        return SpvStorageClassImage;
         case AsUniformConstant:              return SpvStorageClassUniformConstant;
 
-        case AsExternal:
-        case AsGeneric:
-        case AsSubgroupLogical:
-        case AsSharedPhysical:
-        case AsSubgroupPhysical:
-        case AsPrivatePhysical: error("This should have been lowered before");
-        case NumAddressSpaces: error("These are not usable address spaces")
+        default: {
+            error_print("Cannot emit address space %s.\n", get_address_space_name(address_space));
+            error_die();
+            SHADY_UNREACHABLE;
+        }
     }
 }
 

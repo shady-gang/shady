@@ -585,7 +585,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 case AsFunctionLogical:
                 case AsPushConstant:
                     break; // error("These only make sense for SPIR-V !")
-                case NumAddressSpaces: error("");
+                default: error("Unhandled address space");
             }
 
             if (!address_space_prefix) {

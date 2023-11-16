@@ -63,52 +63,6 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node);
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static void print_address_space_prefix(PrinterCtx* ctx, AddressSpace as, bool expects_physical) {
-    bool physical = is_physical_as(as);
-    if (expects_physical != physical) {
-        printf(BLUE);
-        if (physical)
-            printf("physical");
-        else
-            printf("logical");
-        printf(RESET);
-        printf(" ");
-    }
-}
-
-static void print_address_space(PrinterCtx* ctx, AddressSpace as) {
-    printf(BLUE);
-    switch (as) {
-        case AsGeneric:                  printf("generic"); break;
-
-        case AsPrivateLogical:
-        case AsPrivatePhysical:          printf("private"); break;
-
-        case AsSubgroupLogical:
-        case AsSubgroupPhysical:        printf("subgroup"); break;
-
-        case AsSharedLogical:
-        case AsSharedPhysical:            printf("shared"); break;
-
-        case AsGlobalLogical:
-        case AsGlobalPhysical:            printf("global"); break;
-
-        case AsInput:                      printf("input"); break;
-        case AsUInput:             printf("input_uniform"); break;
-        case AsOutput:                    printf("output"); break;
-        case AsExternal:                printf("external"); break;
-
-        case AsFunctionLogical :      printf("function"); break;
-        case AsPushConstant:     printf("push_constant"); break;
-        case AsShaderStorageBufferObject: printf("ssbo"); break;
-        case AsUniform:                    printf("ubo"); break;
-        case AsImage:                    printf("image"); break;
-        case AsUniformConstant:  printf("uniform_constant"); break;
-        case NumAddressSpaces: error("");
-    }
-    printf(RESET);
-}
-
 static void print_param_list(PrinterCtx* ctx, Nodes params, const Nodes* defaults) {
     if (defaults != NULL)
         assert(defaults->count == params.count);
@@ -355,8 +309,9 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             printf("ptr");
             printf(RESET);
             printf("(");
-            print_address_space_prefix(ctx, node->payload.ptr_type.address_space, true);
-            print_address_space(ctx, node->payload.ptr_type.address_space);
+            printf(BLUE);
+            printf(get_address_space_name(node->payload.ptr_type.address_space));
+            printf(RESET);
             printf(", ");
             print_node(node->payload.ptr_type.pointed_type);
             printf(")");
@@ -838,8 +793,9 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
         case GlobalVariable_TAG: {
             const GlobalVariable* gvar = &node->payload.global_variable;
             print_annotations(ctx, gvar->annotations);
-            print_address_space_prefix(ctx, gvar->address_space, false);
-            print_address_space(ctx, gvar->address_space);
+            printf(BLUE);
+            printf(get_address_space_name(gvar->address_space));
+            printf(RESET);
             printf(" ");
             print_node(gvar->type);
             printf(BYELLOW);
