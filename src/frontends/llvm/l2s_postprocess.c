@@ -65,7 +65,7 @@ bool lexical_scope_is_nested(Nodes scope, Nodes parentMaybe) {
 
 bool compare_nodes(Nodes* a, Nodes* b);
 
-static const Node* process_node(Context* ctx, const Node* node) {
+static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Variable_TAG: return var(a, node->payload.var.type ? qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.var.type), false) : NULL, node->payload.var.name);
@@ -98,7 +98,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 an = an->next;
             }
             decl->payload.fun.annotations = annotations;
-            decl->payload.fun.body = wrap_in_controls(ctx, &controls, decl->payload.fun.body);
+            // decl->payload.fun.body = wrap_in_controls(ctx, &controls, decl->payload.fun.body);
             destroy_scope(fn_ctx.curr_scope);
             return decl;
         }
@@ -108,7 +108,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Controls controls;
             initialize_controls(ctx, &controls, node);
             Node* new_bb = (Node*) recreate_node_identity(&bb_ctx.rewriter, node);
-            new_bb->payload.basic_block.body = wrap_in_controls(ctx, &controls, new_bb->payload.basic_block.body);
+            // new_bb->payload.basic_block.body = wrap_in_controls(ctx, &controls, new_bb->payload.basic_block.body);
             return new_bb;
         }
         case Jump_TAG: {
@@ -188,7 +188,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     dom = dom->idom;
                 }
             }
-            return recreate_node_identity(&ctx->rewriter, node);
+            break;
         }
         case GlobalVariable_TAG: {
             AddressSpace as = node->payload.global_variable.address_space;
@@ -211,7 +211,19 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         default: break;
     }
+
+    if (op_class == NcTerminator && node->tag != Let_TAG) {
+        Controls** found = find_value_dict(const Node, Controls*, ctx->controls, ctx->old_fn_or_bb);
+        assert(found);
+        Controls* controls = *found;
+        return wrap_in_controls(ctx, controls, recreate_node_identity(&ctx->rewriter, node));
+    }
+
     return recreate_node_identity(&ctx->rewriter, node);
+}
+
+static const Node* process_node(Context* ctx, const Node* old) {
+    return process_op(ctx, 0, NULL, old);
 }
 
 void postprocess(Parser* p, Module* src, Module* dst) {
@@ -222,6 +234,7 @@ void postprocess(Parser* p, Module* src, Module* dst) {
         .controls = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
+    ctx.rewriter.rewrite_op_fn = (RewriteOpFn) process_op;
     ctx.rewriter.config.process_variables = true;
     // ctx.rewriter.config.search_map = false;
     // ctx.rewriter.config.write_map = false;
