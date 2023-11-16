@@ -19,7 +19,7 @@
 typedef struct {
     AddressSpace as;
     bool leaks;
-    bool ever_read_from;
+    bool read_from;
     const Type* type;
 } PtrSourceKnowledge;
 
@@ -111,58 +111,60 @@ static const Node* get_known_address(Rewriter* r, const PtrKnowledge* k) {
     return v;
 }
 
-typedef struct {
-    const Node* value;
-    const UsesMap* scope_uses;
-} IsLeakingCtx;
-
-static bool is_leaking(IsLeakingCtx* ctx, const Use* use) {
-    if (is_abstraction(use->user) && use->operand_class == NcVariable)
-        return false;
-    if (use->user->tag == Let_TAG && use->operand_class == NcInstruction) {
-        Nodes vars = get_abstraction_params(get_let_tail(use->user));
-        for (size_t i = 0; i < vars.count; i++) {
-            debugv_print("mem2reg leak analysis: following let-bound variable: ");
-            log_node(DEBUGV, vars.nodes[i]);
-            debugv_print(".\n");
-            IsLeakingCtx is_leaking_ctx = {
-                .value = vars.nodes[i],
-                    .scope_uses = ctx->scope_uses,
-            };
-            return if_any_use(ctx->scope_uses, is_leaking_ctx.value, &is_leaking_ctx, (IfAnyUseFn) is_leaking);
-        }
-    }
-    if (use->user->tag == PrimOp_TAG) {
-        PrimOp payload = use->user->payload.prim_op;
-        switch (payload.op) {
-            case load_op: return false; // loads don't leak the address.
-            case store_op: return payload.operands.nodes[1] == ctx->value; // stores leak the value if it's stored
-            case reinterpret_op: {
-                debugv_print("mem2reg leak analysis: following reinterpret instr: ");
-                log_node(DEBUGV, use->user);
+static void visit_ptr_uses(const Node* ptr_value, PtrSourceKnowledge* k, const UsesMap* map) {
+    const Use* use = get_first_use(map, ptr_value);
+    for (;use; use = use->next_use) {
+        if (is_abstraction(use->user) && use->operand_class == NcVariable)
+            continue;
+        else if (use->user->tag == Let_TAG && use->operand_class == NcInstruction) {
+            Nodes vars = get_abstraction_params(get_let_tail(use->user));
+            for (size_t i = 0; i < vars.count; i++) {
+                debugv_print("mem2reg leak analysis: following let-bound variable: ");
+                log_node(DEBUGV, vars.nodes[i]);
                 debugv_print(".\n");
-                IsLeakingCtx is_leaking_ctx = {
-                    .value = use->user,
-                    .scope_uses = ctx->scope_uses,
-                };
-                return if_any_use(ctx->scope_uses, is_leaking_ctx.value, &is_leaking_ctx, (IfAnyUseFn) is_leaking);
+                visit_ptr_uses(vars.nodes[i], k, map);
             }
-            case lea_op:
-            case convert_op: return true; //TODO: follow where those derived pointers are used and establish whether they leak themselves
-            default: break;
-        }
-        switch (payload.op) {
-#define P0(name) case name##_op: return false;
-#define P1(name)
-#define P(has_side_effects, name) P##has_side_effects(name)
-            PRIMOPS(P)
-            default: break;
+        } else if (use->user->tag == PrimOp_TAG) {
+            PrimOp payload = use->user->payload.prim_op;
+            switch (payload.op) {
+                case load_op: {
+                    k->read_from = true;
+                    continue; // loads don't leak the address.
+                }
+                case store_op: {
+                    // stores leak the value if it's stored
+                    if (ptr_value == payload.operands.nodes[1])
+                        k->leaks = true;
+                    continue;
+                }
+                case reinterpret_op: {
+                    debugv_print("mem2reg leak analysis: following reinterpret instr: ");
+                    log_node(DEBUGV, use->user);
+                    debugv_print(".\n");
+                    visit_ptr_uses(use->user, k, map);
+                    continue;
+                }
+                case lea_op:
+                case convert_op: {
+                    //TODO: follow where those derived pointers are used and establish whether they leak themselves
+                    k->leaks = true;
+                    continue;
+                } default: break;
+            }
+            switch (payload.op) {
+    #define P0(name) break;
+    #define P1(name) case name##_op: k->leaks = true; break;
+    #define P(has_side_effects, name) P##has_side_effects(name)
+                PRIMOPS(P)
+                default: break;
+            }
+        } else if (use->user->tag == Composite_TAG) {
+            // todo...
+            k->leaks = true;
+        } else {
+            k->leaks = true;
         }
     }
-    if (use->user->tag == Composite_TAG) {
-        // todo...
-    }
-    return true;
 }
 
 static void visit_instruction(Context* ctx, KnowledgeBase* kb, const Node* instruction, Nodes results) {
@@ -178,13 +180,9 @@ static void visit_instruction(Context* ctx, KnowledgeBase* kb, const Node* instr
                 case alloca_op: {
                     const Node* optr = first(results);
                     PtrKnowledge* k = create_ptr_knowledge(kb, instruction, optr);
-                    IsLeakingCtx is_leaking_ctx = {
-                        .value = optr,
-                        .scope_uses = ctx->scope_uses,
-                    };
-                    k->source->leaks = if_any_use(ctx->scope_uses, optr, &is_leaking_ctx, (IfAnyUseFn) is_leaking);
+                    visit_ptr_uses(optr, k->source, ctx->scope_uses);
                     debugv_print("mem2reg: ");
-                    log_node(DEBUGV, is_leaking_ctx.value);
+                    log_node(DEBUGV, optr);
                     if (k->source->leaks)
                         debugv_print(" is leaking so it will not be eliminated.\n");
                     else
@@ -203,8 +201,6 @@ static void visit_instruction(Context* ctx, KnowledgeBase* kb, const Node* instr
                 case load_op: {
                     const Node* ptr = first(payload.operands);
                     const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
-                    if (k)
-                        k->source->ever_read_from = true;
                     if (!k || !k->ptr_value) {
                         const KnowledgeBase* phi_kb = kb;
                         while (phi_kb->dominator_kb) {
@@ -390,7 +386,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 case store_op: {
                     const Node* ptr = first(payload.operands);
                     const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
-                    if (k && !k->source->leaks && !k->source->ever_read_from)
+                    if (k && !k->source->leaks && !k->source->read_from)
                         return quote_helper(a, empty(a));
                     const Node* other_ptr = get_known_address(&ctx->rewriter, k);
                     if (other_ptr && ptr != other_ptr) {
@@ -400,7 +396,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 }
                 case alloca_op: {
                     const PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, old);
-                    if (k && !k->source->leaks && !k->source->ever_read_from)
+                    if (k && !k->source->leaks && !k->source->read_from)
                         return quote_helper(a, singleton(undef(a, (Undef) { .type = get_unqualified_type(rewrite_node(&ctx->rewriter, old->type)) })));
                     break;
                 }
