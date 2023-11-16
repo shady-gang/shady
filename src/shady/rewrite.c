@@ -324,7 +324,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 Nodes new_args = instruction->payload.prim_op.operands;
                 assert(old_params.count == new_args.count);
                 register_processed_list(rewriter, old_params, new_args);
-                return rewrite_node(rewriter, node->payload.let.tail->payload.case_.body);
+                return rewrite_op_helper(rewriter, NcTerminator, "body", node->payload.let.tail->payload.case_.body);
             }
             const Node* tail;
             if (rewriter->config.rebind_let)
