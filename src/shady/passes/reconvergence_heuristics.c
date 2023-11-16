@@ -482,8 +482,6 @@ Module* reconvergence_heuristics(SHADY_UNUSED const CompilerConfig* config, Modu
         .current_looptree = NULL,
     };
 
-    ctx.rewriter.config.rebind_let = false;
-
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     return dst;

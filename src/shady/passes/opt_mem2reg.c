@@ -541,7 +541,6 @@ Module* opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module* src) {
         };
 
         ctx.rewriter.config.fold_quote = false;
-        ctx.rewriter.config.rebind_let = false;
 
         rewrite_module(&ctx.rewriter);
         destroy_rewriter(&ctx.rewriter);

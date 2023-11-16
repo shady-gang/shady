@@ -70,6 +70,7 @@ Module* spirv_map_entrypoint_args(SHADY_UNUSED const CompilerConfig* config, Mod
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config
     };
+    ctx.rewriter.config.rebind_let = true;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     return dst;

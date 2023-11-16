@@ -59,6 +59,7 @@ Module* lower_memory_layout(SHADY_UNUSED const CompilerConfig* config, Module* s
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process)
     };
+    ctx.rewriter.config.rebind_let = true;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     return dst;

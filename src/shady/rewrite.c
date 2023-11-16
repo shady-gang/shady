@@ -22,7 +22,7 @@ Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
         .config = {
             .search_map = true,
             //.write_map = true,
-            .rebind_let = dst->arena->config.check_types,
+            .rebind_let = false,
             .fold_quote = true,
         },
         .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
