@@ -93,6 +93,9 @@
     {
       "name": "Image",
       "llvm-id": 397
+    },
+    {
+      "name": "DebugInfo"
     }
   ],
   "node-classes": [

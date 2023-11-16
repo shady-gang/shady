@@ -2,6 +2,7 @@
 
 #include "portability.h"
 #include "log.h"
+#include "dict.h"
 
 #include "llvm-c/DebugInfo.h"
 
@@ -23,9 +24,14 @@ static Nodes convert_mdnode_operands(Parser* p, LLVMValueRef mdnode) {
 static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, String name) {
     // printf("%s\n", name);
     IrArena* a = get_module_arena(p->dst);
+    Node* g = global_var(p->dst, singleton(annotation(a, (Annotation) { .name = "SkipOnInfer" })), NULL, name, AsDebugInfo);
+    const Node* r = ref_decl_helper(a, g);
+    insert_dict(LLVMValueRef, const Type*, p->map, v, r);
+
     Nodes args = convert_mdnode_operands(p, v);
-    args = prepend_nodes(a, args, string_lit_helper(a, name));
-    return tuple_helper(a, args);
+    g->payload.global_variable.init = tuple_helper(a, args);
+    // args = prepend_nodes(a, args, string_lit_helper(a, name));
+    return r;
 }
 
 #define LLVM_DI_METADATA_NODES(N) \

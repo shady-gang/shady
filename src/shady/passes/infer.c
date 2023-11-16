@@ -89,6 +89,9 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
     if (already_done)
         return already_done;
 
+    if (lookup_annotation(node, "SkipOnInfer"))
+        return NULL;
+
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_declaration(node)) {
         case Function_TAG: {
