@@ -66,6 +66,7 @@ P(1, load)                \
 P(1, store)               \
 P(0, lea)                 \
 P(1, memcpy)              \
+P(1, memset)              \
 
 #define LAYOUT_PRIMOPS(P) \
 P(0, size_of)             \

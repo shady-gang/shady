@@ -377,6 +377,12 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                     r = prim_op_helper(a, memcpy_op, empty(a), nodes(a, 3, ops.nodes));
                     break;
                 }
+                if (string_starts_with(intrinsic, "llvm.memset")) {
+                    Nodes ops = convert_operands(p, num_ops, instr);
+                    num_results = 0;
+                    r = prim_op_helper(a, memset_op, empty(a), nodes(a, 3, ops.nodes));
+                    break;
+                }
 
                 typedef struct {
                     bool is_byval;
