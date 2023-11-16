@@ -205,6 +205,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                 an = an->next;
             }
             Node* decl = global_var(ctx->rewriter.dst_module, annotations, type, get_decl_name(node), as);
+            register_processed(&ctx->rewriter, node, decl);
             if (old_init)
                 decl->payload.global_variable.init = rewrite_node(&ctx->rewriter, old_init);
             return decl;

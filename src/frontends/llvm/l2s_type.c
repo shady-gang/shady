@@ -61,7 +61,6 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
                 decl = nominal_type(p->dst, empty(a), name);
                 result = type_decl_ref_helper(a, decl);
                 insert_dict(LLVMTypeRef, const Type*, p->map, t, result);
-                return result;
             }
 
             unsigned size = LLVMCountStructElementTypes(t);
