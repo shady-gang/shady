@@ -965,7 +965,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 2);
             const Node* join_point = first(prim_op.operands);
             assert(is_qualified_type_uniform(join_point->type));
-            return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = prim_op.type_arguments }), .is_uniform = true });
+            return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = prim_op.type_arguments }), .is_uniform = false });
         }
         case default_join_point_op: {
             assert(prim_op.operands.count == 0);
@@ -1111,8 +1111,8 @@ const Type* check_type_control(IrArena* arena, Control control) {
     const Node* join_point = first(control.inside->payload.case_.params);
 
     const Type* join_point_type = join_point->type;
-    bool join_point_uniform = deconstruct_qualified_type(&join_point_type);
-    assert(join_point_uniform && join_point_type->tag == JoinPointType_TAG);
+    deconstruct_qualified_type(&join_point_type);
+    assert(join_point_type->tag == JoinPointType_TAG);
 
     Nodes join_point_yield_types = join_point_type->payload.join_point_type.yield_types;
     assert(join_point_yield_types.count == control.yield_types.count);
@@ -1213,8 +1213,7 @@ const Type* check_type_join(IrArena* arena, Join join) {
 
     const Type* join_target_type = join.join_point->type;
 
-    bool join_target_uniform = deconstruct_qualified_type(&join_target_type);
-    assert(join_target_uniform);
+    deconstruct_qualified_type(&join_target_type);
     assert(join_target_type->tag == JoinPointType_TAG);
 
     Nodes join_point_param_types = join_target_type->payload.join_point_type.yield_types;

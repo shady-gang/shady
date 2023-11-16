@@ -38,7 +38,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
             const Type* jp_type = qualified_type(a, (QualifiedType) {
                 .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
-                .is_uniform = true,
+                .is_uniform = false,
             });
             const Node* join_point = var(a, jp_type, "if_join");
             Context join_context = *ctx;
@@ -79,11 +79,11 @@ static const Node* process_let(Context* ctx, const Node* node) {
 
             const Type* break_jp_type = qualified_type(a, (QualifiedType) {
                 .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
-                .is_uniform = true,
+                .is_uniform = false,
             });
             const Type* continue_jp_type = qualified_type(a, (QualifiedType) {
                 .type = join_point_type(a, (JoinPointType) { .yield_types = param_types }),
-                .is_uniform = true,
+                .is_uniform = false,
             });
             const Node* break_point = var(a, break_jp_type, "loop_break_point");
             const Node* continue_point = var(a, continue_jp_type, "loop_continue_point");

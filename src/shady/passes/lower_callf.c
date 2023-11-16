@@ -45,7 +45,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             if (lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
                 ctx2.return_jp = gen_primop_e(bb, default_join_point_op, empty(a), empty(a));
             } else {
-                const Node* jp_variable = var(a, qualified_type_helper(jp_type, true), "return_jp");
+                const Node* jp_variable = var(a, qualified_type_helper(jp_type, false), "return_jp");
                 nparams = append_nodes(a, nparams, jp_variable);
                 ctx2.return_jp = jp_variable;
             }
@@ -104,7 +104,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             // Create the body of the control that receives the appropriately typed join point
             const Type* jp_type = qualified_type(a, (QualifiedType) {
                     .type = join_point_type(a, (JoinPointType) { .yield_types = strip_qualifiers(a, returned_types) }),
-                    .is_uniform = true
+                    .is_uniform = false
             });
             const Node* jp = var(a, jp_type, "fn_return_point");
 
