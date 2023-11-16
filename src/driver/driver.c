@@ -106,22 +106,23 @@ ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
 }
 
 ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
-    info_print("Parsed program successfully: \n");
-    log_module(INFO, &args->config, mod);
+    debugv_print("Parsed program successfully: \n");
+    log_module(DEBUGV, &args->config, mod);
 
     CompilationResult result = run_compiler_passes(&args->config, &mod);
     if (result != CompilationNoError) {
         error_print("Compilation pipeline failed, errcode=%d\n", (int) result);
         exit(result);
     }
-    info_print("Ran all passes successfully\n");
+    debug_print("Ran all passes successfully\n");
+    log_module(DEBUG, &args->config, mod);
 
     if (args->cfg_output_filename) {
         FILE* f = fopen(args->cfg_output_filename, "wb");
         assert(f);
         dump_cfg(f, mod);
         fclose(f);
-        info_print("CFG dumped\n");
+        debug_print("CFG dumped\n");
     }
 
     if (args->loop_tree_output_filename) {
@@ -129,7 +130,7 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
         assert(f);
         dump_loop_trees(f, mod);
         fclose(f);
-        info_print("Loop tree dumped\n");
+        debug_print("Loop tree dumped\n");
     }
 
     if (args->shd_output_filename) {
@@ -141,7 +142,7 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);
         fclose(f);
-        info_print("IR dumped\n");
+        debug_print("IR dumped\n");
     }
 
     if (args->output_filename) {
@@ -166,6 +167,7 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
                 emit_c(args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
         }
+        debug_print("Wrote result to %s\n", args->output_filename);
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);
         fclose(f);
