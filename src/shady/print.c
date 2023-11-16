@@ -846,7 +846,7 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(" %s", nom->name);
             printf(RESET);
             printf(" = ");
-            print_type(ctx, nom->body);
+            print_node(nom->body);
             printf(";\n\n");
             break;
         }
