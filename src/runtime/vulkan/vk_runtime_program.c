@@ -77,7 +77,10 @@ static bool extract_parameters_info(VkrSpecProgram* program) {
         error_print("EntryPointArgs annotation must contain exactly one value\n");
         return false;
     }
-    if (args_struct_annotation->payload.annotation_value.value != entry_point_function) {
+
+    const Node* annotation_fn = args_struct_annotation->payload.annotation_value.value;
+    assert(annotation_fn->tag == FnAddr_TAG);
+    if (annotation_fn->payload.fn_addr.fn != entry_point_function) {
         error_print("EntryPointArgs annotation refers to different EntryPoint\n");
         return false;
     }
