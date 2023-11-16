@@ -222,8 +222,6 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             break;
         }
         case LLVMTrunc:
-            r = prim_op_helper(a, reinterpret_op, singleton(t), convert_operands(p, num_ops, instr));
-            break;
         case LLVMZExt: {
             const Type* src_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             Nodes ops = convert_operands(p, num_ops, instr);
@@ -234,9 +232,10 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 r = prim_op_helper(a, select_op, empty(a), mk_nodes(a, first(ops), one, zero));
             } else {
                 // reinterpret as unsigned, convert to change size, reinterpret back to target T
-                const Type* unsigned_t = change_int_t_sign(t, false);
-                r = prim_op_helper(a, convert_op, singleton(unsigned_t), reinterpret_operands(b, ops, unsigned_t));
-                r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R(unsigned_t));
+                const Type* unsigned_src_t = change_int_t_sign(src_t, true);
+                const Type* unsigned_dst_t = change_int_t_sign(t, false);
+                r = prim_op_helper(a, convert_op, singleton(unsigned_dst_t), reinterpret_operands(b, ops, unsigned_src_t));
+                r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R(unsigned_dst_t));
             }
             break;
         } case LLVMSExt: {
