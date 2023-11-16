@@ -241,9 +241,11 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             break;
         } case LLVMSExt: {
             // reinterpret as signed, convert to change size, reinterpret back to target T
-            const Type* signed_t = change_int_t_sign(t, true);
-            r = prim_op_helper(a, convert_op, singleton(signed_t), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
-            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R(signed_t));
+            const Type* src_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            const Type* signed_src_t = change_int_t_sign(src_t, true);
+            const Type* signed_dst_t = change_int_t_sign(t, true);
+            r = prim_op_helper(a, convert_op, singleton(signed_dst_t), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_src_t));
+            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R(signed_dst_t));
             break;
         } case LLVMFPToUI:
         case LLVMFPToSI:
