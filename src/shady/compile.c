@@ -68,8 +68,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
         RUN_PASS(bind_program)
     RUN_PASS(normalize)
 
-    RUN_PASS(infer_program)
     RUN_PASS(normalize_builtins);
+    RUN_PASS(infer_program)
 
     RUN_PASS(opt_inline_jumps)
 

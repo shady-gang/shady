@@ -23,7 +23,7 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
                 Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
                 assert(b != BuiltinsCount);
                 const Type* expected_t = get_builtin_type(a, b);
-                const Type* actual_t = get_unqualified_type(rewrite_node(&ctx->rewriter, src)->type);
+                const Type* actual_t = rewrite_node(&ctx->rewriter, src)->payload.global_variable.type;
                 if (expected_t != actual_t) {
                     log_string(INFO, "normalize_builtins: found builtin decl '%s' not matching expected type: '", global_variable.name);
                     log_node(INFO, expected_t);
@@ -35,6 +35,7 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
             }
             break;
         }
+        case RefDecl_TAG: return get_req_cast(ctx, src->payload.ref_decl.decl);
         case Variable_TAG: {
             const Node* abs = src->payload.var.abs;
             if (abs) {
@@ -52,7 +53,7 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
                 if (src_req_cast) {
                     bool u = deconstruct_qualified_type(&src_req_cast);
                     enter_composite(&src_req_cast, &u, nodes(a, prim_op.operands.count - 2, &prim_op.operands.nodes[2]), false);
-                    return qualified_type_helper(src_req_cast, u);
+                    return src_req_cast;
                 }
             }
         }
@@ -89,6 +90,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 case load_op: {
                     const Type* req_cast = get_req_cast(ctx, first(node->payload.prim_op.operands));
                     if (req_cast) {
+                        assert(is_data_type(req_cast));
                         BodyBuilder* bb = begin_body(a);
                         const Node* r = first(bind_instruction(bb, recreate_node_identity(&ctx->rewriter, node)));
                         const Node* r2 = first(gen_primop(bb, reinterpret_op, singleton(req_cast), singleton(r)));
