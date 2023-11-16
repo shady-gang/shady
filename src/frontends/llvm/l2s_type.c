@@ -92,8 +92,6 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
 #if !UNTYPED_POINTERS
             LLVMTypeRef element_type = LLVMGetElementType(t);
             pointee = convert_type(p, element_type);
-            if (LLVMGetTypeKind(element_type) == LLVMStructTypeKind && LLVMGetStructName(element_type) && string_starts_with(LLVMGetStructName(element_type), "struct.__shady_builtin"))
-                return pointee;
 #endif
             return ptr_type(a, (PtrType) {
                 .address_space = as,
