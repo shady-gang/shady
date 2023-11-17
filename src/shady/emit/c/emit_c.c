@@ -298,7 +298,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             emit_decl(emitter, decl);
 
             if (emitter->config.dialect == ISPC && decl->tag == GlobalVariable_TAG) {
-                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space)) {
+                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !is_decl_builtin(decl)) {
                     assert(block_printer && "ISPC backend cannot statically refer to a varying global variable");
                     // hack for ISPC: there is no nice way to get a set of varying pointers (instead of a "pointer to a varying") pointing to a varying global
                     String interm = unique_name(emitter->arena, "intermediary_ptr_value");
@@ -506,24 +506,11 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
 
             const GlobalVariable* gvar = &decl->payload.global_variable;
-            Builtin b = BuiltinsCount;
-            for (size_t i = 0; i < gvar->annotations.count; i++) {
-                const Node* a = gvar->annotations.nodes[i];
-                assert(is_annotation(a));
-                if (strcmp(get_annotation_name(a), "Builtin") == 0) {
-                    String builtin_name = get_annotation_string_payload(a);
-                    assert(builtin_name);
-                    b = get_builtin_by_name(builtin_name);
-                    assert(b != BuiltinsCount);
-                    name = builtin_name;
-                    decl_center = builtin_name;
-                    //register_emitted(emitter, decl, emit_c_builtin(emitter, p, b));
-                    //return;
-                }
+            if (is_decl_builtin(decl)) {
+                Builtin b = get_decl_builtin(decl);
+                register_emitted(emitter, decl, emit_c_builtin(emitter, b));
+                return;
             }
-
-            if (b == BuiltinSubgroupLocalInvocationId)
-                init = "programIndex";
 
             decl_type = decl->payload.global_variable.type;
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs

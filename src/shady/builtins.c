@@ -56,3 +56,16 @@ Builtin get_builtin_by_spv_id(SpvBuiltIn id) {
     }
     return b;
 }
+
+Builtin get_decl_builtin(const Node* decl) {
+    const Node* a = lookup_annotation(decl, "Builtin");
+    if (!a)
+        return BuiltinsCount;
+    String payload = get_annotation_string_payload(a);
+    return get_builtin_by_name(payload);
+}
+
+
+bool is_decl_builtin(const Node* decl) {
+    return get_decl_builtin(decl) != BuiltinsCount;
+}

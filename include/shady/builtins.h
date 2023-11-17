@@ -49,4 +49,7 @@ Builtin get_builtin_by_name(String);
 typedef enum SpvBuiltIn_ SpvBuiltIn;
 Builtin get_builtin_by_spv_id(SpvBuiltIn id);
 
+bool is_decl_builtin(const Node*);
+Builtin get_decl_builtin(const Node*);
+
 #endif
