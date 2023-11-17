@@ -49,7 +49,7 @@ static const Node* process(Context* ctx, const Node* node) {
             Context ctx2 = *ctx;
             ctx2.is_entry_point = false;
             const Node* epa = lookup_annotation(node, "EntryPoint");
-            if (epa && strcmp(get_annotation_string_payload(epa), "compute") == 0) {
+            if (epa && strcmp(get_annotation_string_payload(epa), "Compute") == 0) {
                 ctx2.is_entry_point = true;
                 assert(node->payload.fun.return_types.count == 0 && "entry points do not return at this stage");
 
