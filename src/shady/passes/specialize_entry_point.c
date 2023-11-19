@@ -52,7 +52,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Constant_TAG: {
             Node* ncnst = (Node*) recreate_node_identity(&ctx->rewriter, node);
             if (strcmp(get_decl_name(ncnst), "SUBGROUP_SIZE") == 0) {
-                ncnst->payload.constant.value = uint32_literal(a, a->config.specializations.subgroup_size);
+                ncnst->payload.constant.instruction = quote_helper(a, singleton(uint32_literal(a, a->config.specializations.subgroup_size)));
             } else if (strcmp(get_decl_name(ncnst), "SUBGROUPS_PER_WG") == 0) {
                 if (ctx->old_wg_size_annotation) {
                     // SUBGROUPS_PER_WG = (NUMBER OF INVOCATIONS IN SUBGROUP / SUBGROUP SIZE)
@@ -64,7 +64,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / a->config.specializations.subgroup_size;
                     if (subgroups_per_wg == 0)
                         subgroups_per_wg = 1; // uh-oh
-                    ncnst->payload.constant.value = uint32_literal(a, subgroups_per_wg);
+                    ncnst->payload.constant.instruction = quote_helper(a, singleton(uint32_literal(a, subgroups_per_wg)));
                 }
             }
             return ncnst;

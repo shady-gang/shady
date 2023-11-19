@@ -265,7 +265,7 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             break;
         }
         case Constant_TAG: {
-            new->payload.constant.value = rewrite_op_helper(rewriter, NcValue, "value", old->payload.constant.value);
+            new->payload.constant.instruction = rewrite_op_helper(rewriter, NcInstruction, "instruction", old->payload.constant.instruction);
             // TODO check type now ?
             break;
         }

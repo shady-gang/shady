@@ -873,6 +873,7 @@ static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminat
         while (true) {
             if (!accept_token(ctx, cont_tok))
                 break;
+            assert(fn);
             const char* name = accept_identifier(ctx);
 
             Nodes parameters;
@@ -959,13 +960,13 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
     const char* id = accept_identifier(ctx);
     expect(id);
     expect(accept_token(ctx, equal_tok));
-    const Node* definition = accept_value(ctx);
+    const Node* definition = accept_instruction(ctx, NULL, false);
     expect(definition);
 
     expect(accept_token(ctx, semi_tok));
 
     Node* cnst = constant(mod, annotations, type, id);
-    cnst->payload.constant.value = definition;
+    cnst->payload.constant.instruction = definition;
     return cnst;
 }
 

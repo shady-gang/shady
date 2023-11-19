@@ -115,13 +115,12 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
             const Constant* oconstant = &node->payload.constant;
             const Type* imported_hint = infer(ctx, oconstant->type_hint, NULL);
             assert(is_data_type(imported_hint));
-            const Node* typed_value = infer(ctx, oconstant->value, qualified_type_helper(imported_hint, true));
-            assert(is_value(typed_value));
-            imported_hint = get_unqualified_type(typed_value->type);
+            const Node* instruction = infer(ctx, oconstant->instruction, qualified_type_helper(imported_hint, true));
+            imported_hint = get_unqualified_type(instruction->type);
 
             Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
             register_processed(&ctx->rewriter, node, nconstant);
-            nconstant->payload.constant.value = typed_value;
+            nconstant->payload.constant.instruction = instruction;
 
             return nconstant;
         }

@@ -56,10 +56,18 @@ int64_t get_int_literal_value(const Node* node, bool sign_extend) {
     }
 }
 
+const Node* get_quoted_value(const Node* instruction) {
+    if (instruction->payload.prim_op.op == quote_op)
+        return first(instruction->payload.prim_op.operands);
+    return NULL;
+}
+
 const IntLiteral* resolve_to_literal(const Node* node) {
+    if (!node)
+        return NULL;
     while (true) {
         switch (node->tag) {
-            case Constant_TAG:   return resolve_to_literal(node->payload.constant.value);
+            case Constant_TAG:   return resolve_to_literal(get_quoted_value(node->payload.constant.instruction));
             case RefDecl_TAG:    return resolve_to_literal(node->payload.ref_decl.decl);
             case IntLiteral_TAG: return &node->payload.int_literal;
             default: return NULL;
@@ -78,7 +86,7 @@ static bool is_zero(const Node* node) {
 
 const char* get_string_literal(IrArena* arena, const Node* node) {
     switch (node->tag) {
-        case Constant_TAG:   return get_string_literal(arena, node->payload.constant.value);
+        case Constant_TAG:   return get_string_literal(arena, get_quoted_value(node->payload.constant.instruction));
         case RefDecl_TAG:    return get_string_literal(arena, node->payload.ref_decl.decl);
         case Variable_TAG: {
             if (node->payload.var.pindex != 0)
@@ -147,6 +155,17 @@ const Node* get_abstraction_body(const Node* abs) {
         case Function_TAG: return abs->payload.fun.body;
         case BasicBlock_TAG: return abs->payload.basic_block.body;
         case Case_TAG: return abs->payload.case_.body;
+        default: assert(false);
+    }
+}
+
+void set_abstraction_body(Node* abs, const Node* body) {
+    assert(is_abstraction(abs));
+    assert(!body || is_terminator(body));
+    switch (abs->tag) {
+        case Function_TAG: abs->payload.fun.body = body; break;
+        case BasicBlock_TAG: abs->payload.basic_block.body = body; break;
+        case Case_TAG: abs->payload.case_.body = body; break;
         default: assert(false);
     }
 }

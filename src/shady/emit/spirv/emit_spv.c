@@ -122,7 +122,9 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
                     break;
                 }
                 case Constant_TAG: {
-                    new = emit_value(emitter, NULL, decl->payload.constant.value);
+                    const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
+                    assert(init_value && "TODO: support some measure of constant expressions");
+                    new = emit_value(emitter, NULL, init_value);
                     break;
                 }
                 default: error("RefDecl must reference a constant or global");

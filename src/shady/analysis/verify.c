@@ -73,7 +73,7 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
             break;
         }
         case Constant_TAG: {
-            const Type* t = n->payload.constant.value->type;
+            const Type* t = n->payload.constant.instruction->type;
             bool u = deconstruct_qualified_type(&t);
             assert(u);
             assert(is_subtype(n->payload.constant.type_hint, t));

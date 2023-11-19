@@ -169,7 +169,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
             const Constant* cnst = &decl->payload.constant;
             Node* bound = constant(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, cnst->annotations), rewrite_node(&ctx->rewriter, decl->payload.constant.type_hint), cnst->name);
             register_processed(&ctx->rewriter, decl, bound);
-            bound->payload.constant.value = rewrite_node(&ctx->rewriter, decl->payload.constant.value);
+            bound->payload.constant.instruction = rewrite_node(&ctx->rewriter, decl->payload.constant.instruction);
             return bound;
         }
         case Function_TAG: {

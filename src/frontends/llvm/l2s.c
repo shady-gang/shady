@@ -156,7 +156,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     } else {
         const Type* type = convert_type(p, LLVMTypeOf(global));
         decl = constant(p->dst, empty(a), type, name);
-        decl->payload.constant.value = convert_value(p, global);
+        decl->payload.constant.instruction = convert_value(p, global);
     }
 
     assert(decl && is_declaration(decl));

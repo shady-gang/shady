@@ -114,6 +114,7 @@ ArenaConfig get_arena_config(const IrArena*);
 /// Get the name out of a global variable, function or constant
 String get_decl_name(const Node*);
 
+const Node* get_quoted_value(const Node* instruction);
 const IntLiteral* resolve_to_literal(const Node*);
 
 int64_t get_int_literal_value(const Node*, bool sign_extend);
@@ -138,6 +139,8 @@ bool        is_abstraction        (const Node*);
 String      get_abstraction_name  (const Node* abs);
 const Node* get_abstraction_body  (const Node* abs);
 Nodes       get_abstraction_params(const Node* abs);
+
+void        set_abstraction_body  (Node* abs, const Node* body);
 
 const Node* get_let_instruction(const Node* let);
 const Node* get_let_tail(const Node* let);

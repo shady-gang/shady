@@ -258,7 +258,7 @@ Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
         .annotations = annotations,
         .name = string(arena, name),
         .type_hint = hint,
-        .value = NULL,
+        .instruction = NULL,
     };
     Node node;
     memset((void*) &node, 0, sizeof(Node));

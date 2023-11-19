@@ -819,7 +819,10 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(" %s", cnst->name);
             printf(RESET);
             printf(" = ");
-            print_node(cnst->value);
+            if (get_quoted_value(cnst->instruction))
+                print_node(get_quoted_value(cnst->instruction));
+            else
+                print_node(cnst->instruction);
             printf(";\n");
             break;
         }

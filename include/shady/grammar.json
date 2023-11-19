@@ -608,12 +608,13 @@
       "name": "Constant",
       "class": "declaration",
       "constructor": "custom",
+      "description": "Constants are used to express possibly complicated compile-time expressions",
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type_hint", "class": "type" },
-        { "name": "value", "class": "value", "ignore": true }
+        { "name": "instruction", "class": "instruction", "ignore": true }
       ]
     },
     {

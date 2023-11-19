@@ -414,9 +414,7 @@ static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t
         BodyBuilder* bb = begin_body(a);
         const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(size_t_literal(ctx,  members_count)));
         // const Node* offset_in_words = bytes_to_words(ctx, bb, offset);
-        cnst->payload.constant.value = anti_quote(a, (AntiQuote) {
-            .instruction = yield_values_and_wrap_in_block(bb, singleton(offset))
-        });
+        cnst->payload.constant.instruction = yield_values_and_wrap_in_block(bb, singleton(offset));
 
         register_processed(&ctx->rewriter, decl, cnst);
 
