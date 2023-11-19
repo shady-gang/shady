@@ -504,11 +504,6 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
     });
 }
 
-const Type* check_type_anti_quote(IrArena* arena, AntiQuote payload) {
-    assert(is_instruction(payload.instruction));
-    return payload.instruction->type;
-}
-
 const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     for (size_t i = 0; i < prim_op.type_arguments.count; i++) {
         const Node* ta = prim_op.type_arguments.nodes[i];

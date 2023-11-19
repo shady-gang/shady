@@ -187,7 +187,6 @@ const Node* tuple_helper(IrArena*, Nodes contents);
 const Node* composite_helper(IrArena*, const Type*, Nodes contents);
 const Node* fn_addr_helper(IrArena*, const Node* fn);
 const Node* ref_decl_helper(IrArena*, const Node* decl);
-const Node* anti_quote_helper(IrArena*, const Node* instr);
 const Node* string_lit_helper(IrArena* a, String s);
 const Node* annotation_value_helper(IrArena* a, String n, const Node* v);
 

@@ -250,14 +250,6 @@ const Node* fold_node(IrArena* arena, const Node* node) {
             }
             break;
         }
-        case AntiQuote_TAG: {
-            const Node* instr = node->payload.anti_quote.instruction;
-            if (instr->tag == PrimOp_TAG && instr->payload.prim_op.op == quote_op) {
-                assert(instr->payload.prim_op.operands.count == 1);
-                return first(instr->payload.prim_op.operands);
-            }
-            break;
-        }
         case If_TAG: {
             If payload = node->payload.if_instr;
             const Node* false_case = payload.if_false;

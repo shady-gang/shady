@@ -148,10 +148,6 @@ const Node* ref_decl_helper(IrArena* a, const Node* decl) {
     return ref_decl(a, (RefDecl) { .decl = decl });
 }
 
-const Node* anti_quote_helper(IrArena* a, const Node* instr) {
-    return anti_quote(a, (AntiQuote) { .instruction = instr });
-}
-
 const Node* type_decl_ref_helper(IrArena* a, const Node* decl) {
     return type_decl_ref(a, (TypeDeclRef) { .decl = decl });
 }

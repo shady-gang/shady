@@ -150,7 +150,6 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
 
     switch (is_value(value)) {
         case NotAValue: assert(false);
-        case Value_AntiQuote_TAG:
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG: error("lower me");
         case Value_Variable_TAG: error("variables need to be emitted beforehand");

@@ -523,17 +523,6 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf((char*) get_decl_name(node->payload.fn_addr.fn));
             printf(RESET);
             break;
-        case Value_AntiQuote_TAG: {
-            PrinterCtx sub_ctx = *ctx;
-            sub_ctx.scope = NULL;
-            sub_ctx.scope_uses = NULL;
-            ctx = &sub_ctx;
-            printf(BBLUE);
-            printf("anti_quote ");
-            printf(RESET);
-            print_node(node->payload.anti_quote.instruction);
-            break;
-        }
     }
 }
 

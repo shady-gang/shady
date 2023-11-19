@@ -453,11 +453,14 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as, Addre
     const Node* size_in_words = bytes_to_words(ctx, bb, size_of);
 
     const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
+    const Type* ptr_size_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
+
+    Node* constant_decl = constant(m, annotations, ptr_size_type, format_string_interned(a, "globals_physical_%s_size", as_name));
+    constant_decl->payload.constant.instruction = yield_values_and_wrap_in_block(bb, singleton(size_in_words));
+
     const Type* words_array_type = arr_type(a, (ArrType) {
         .element_type = word_type,
-        .size = anti_quote(a, (AntiQuote) {
-            .instruction = yield_values_and_wrap_in_block(bb, singleton(size_in_words))
-        }),
+        .size = ref_decl_helper(a, constant_decl)
     });
 
     Node* words_array = global_var(m, annotations, words_array_type, format_string_arena(a->arena, "addressable_word_memory_%s", as_name), logical_as);

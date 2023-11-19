@@ -399,17 +399,6 @@
       ]
     },
     {
-      "name": "AntiQuote",
-      "class": "value",
-      "description": [
-        "Allows instructions to appear where values are expected.",
-        "Useful for 'constant' computations"
-      ],
-      "ops": [
-        { "name": "instruction", "class": "instruction" }
-      ]
-    },
-    {
       "name": "Call",
       "class": "instruction",
       "ops": [
