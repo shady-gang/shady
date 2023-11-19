@@ -440,7 +440,7 @@ static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t
 static void construct_emulated_memory_array(Context* ctx, AddressSpace as, AddressSpace logical_as) {
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
-    String as_name = format_string_arena(a->arena, "as_%d", as);
+    String as_name = get_address_space_name(as);
     Nodes annotations = singleton(annotation(a, (Annotation) { .name = "Generated" }));
 
     Node* global_struct_t = nominal_type(m, annotations, format_string_arena(a->arena, "globals_physical_%s_t", as_name));
