@@ -47,7 +47,7 @@ void register_result(Emitter*, const Node*, SpvId id);
 
 SpvId get_extended_instruction_set(Emitter*, const char*);
 
-SpvStorageClass emit_addr_space(AddressSpace address_space);
+SpvStorageClass emit_addr_space(Emitter*, AddressSpace address_space);
 // SPIR-V doesn't have multiple return types, this bridges the gap...
 SpvId nodes_to_codom(Emitter* emitter, Nodes return_types);
 const Type* normalize_type(Emitter* emitter, const Type* type);

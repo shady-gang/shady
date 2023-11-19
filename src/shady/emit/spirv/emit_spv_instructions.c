@@ -227,6 +227,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             SpvId final_result = spvb_op(bb_builder, SpvOpBitwiseOr, emit_type(emitter, uint64_type(emitter->arena)), 2, (SpvId []) { low64, hi64 });
             assert(results_count == 1);
             results[0] = final_result;
+            spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
             return;
         }
         case subgroup_broadcast_first_op: {
@@ -245,12 +246,14 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
 
             assert(results_count == 1);
             results[0] = result;
+            spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
             return;
         }
         case subgroup_reduce_sum_op: {
             SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
             assert(results_count == 1);
             results[0] = spvb_non_uniform_iadd(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup, SpvGroupOperationReduce, NULL);
+            spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformArithmetic);
             return;
         }
         case subgroup_elect_first_op: {
@@ -259,6 +262,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             SpvId result = spvb_elect(bb_builder, result_t, scope_subgroup);
             assert(results_count == 1);
             results[0] = result;
+            spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniform);
             return;
         }
         case insert_op:

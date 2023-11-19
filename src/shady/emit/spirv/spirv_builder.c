@@ -92,7 +92,7 @@ struct SpvbFileBuilder_ {
     struct Dict* capabilities_set;
 };
 
-static KeyHash hash_u32(uint32_t* p) { return hash_murmur(&p, sizeof(uint32_t)); }
+static KeyHash hash_u32(uint32_t* p) { return hash_murmur(p, sizeof(uint32_t)); }
 static bool compare_u32s(uint32_t* a, uint32_t* b) { return *a == *b; }
 
 SpvbFileBuilder* spvb_begin() {

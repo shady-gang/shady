@@ -15,13 +15,15 @@
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-SpvStorageClass emit_addr_space(AddressSpace address_space) {
+SpvStorageClass emit_addr_space(Emitter* emitter, AddressSpace address_space) {
     switch(address_space) {
         case AsGlobalLogical:                return SpvStorageClassStorageBuffer;
         case AsSharedLogical:                return SpvStorageClassWorkgroup;
         case AsPrivateLogical:               return SpvStorageClassPrivate;
         case AsFunctionLogical:              return SpvStorageClassFunction;
-        case AsGlobalPhysical:               return SpvStorageClassPhysicalStorageBuffer;
+        case AsGlobalPhysical:
+            spvb_capability(emitter->file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
+            return SpvStorageClassPhysicalStorageBuffer;
         case AsInput:
         case AsUInput:                       return SpvStorageClassInput;
         case AsOutput:                       return SpvStorageClassOutput;
@@ -141,7 +143,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             break;
         } case PtrType_TAG: {
             SpvId pointee = emit_type(emitter, type->payload.ptr_type.pointed_type);
-            SpvStorageClass sc = emit_addr_space(type->payload.ptr_type.address_space);
+            SpvStorageClass sc = emit_addr_space(emitter, type->payload.ptr_type.address_space);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
             //if (is_physical_as(type->payload.ptr_type.address_space) && type->payload.ptr_type.pointed_type->tag == ArrType_TAG) {
             //    TypeMemLayout elem_mem_layout = get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);

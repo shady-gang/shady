@@ -354,7 +354,7 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
             if (gvar->init)
                 init = emit_value(emitter, NULL, gvar->init);
             assert(!is_physical_as(gvar->address_space));
-            SpvStorageClass storage_class = emit_addr_space(gvar->address_space);
+            SpvStorageClass storage_class = emit_addr_space(emitter, gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), storage_class, false, init);
 
             Builtin b = BuiltinsCount;
@@ -564,10 +564,6 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
         spvb_capability(file_builder, SpvCapabilityLinkage);
 
     spvb_capability(file_builder, SpvCapabilityShader);
-    spvb_capability(file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
-    spvb_capability(file_builder, SpvCapabilityGroupNonUniform);
-    spvb_capability(file_builder, SpvCapabilityGroupNonUniformBallot);
-    spvb_capability(file_builder, SpvCapabilityGroupNonUniformArithmetic);
 
     *output_size = spvb_finish(file_builder, output);
 
