@@ -956,8 +956,6 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].node = get_def_ssa_value(parser, instruction[3]);
             break;
         }
-        case SpvOpConvertPtrToU:
-        case SpvOpConvertUToPtr:
         case SpvOpConvertFToU:
         case SpvOpConvertFToS:
         case SpvOpConvertUToF:
@@ -976,6 +974,8 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }), 1, NULL, false));
             break;
         }
+        case SpvOpConvertPtrToU:
+        case SpvOpConvertUToPtr:
         case SpvOpBitcast: {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             const Type* dst_t = get_def_type(parser, result_t);

@@ -300,46 +300,51 @@ bool is_ordered_type(const Type* t) {
     return is_arithm_type(t);
 }
 
-static bool is_transparent_pointer_type(const Type* t) {
+bool is_physical_ptr_type(const Type* t) {
     if (t->tag != PtrType_TAG)
         return false;
     AddressSpace as = t->payload.ptr_type.address_space;
-    // it's illegal to reinterpret from/into a Generic pointer because they have a tag
     return is_physical_as(as);
+}
+
+bool is_generic_ptr_type(const Type* t) {
+    if (t->tag != PtrType_TAG)
+        return false;
+    AddressSpace as = t->payload.ptr_type.address_space;
+    return as == AsGeneric;
 }
 
 bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
     assert(is_data_type(src_type) && is_data_type(dst_type));
     if (src_type == dst_type)
         return true; // folding will eliminate those, but we need to pass type-checking first :)
-    if (!(is_arithm_type(src_type) || src_type->tag == MaskType_TAG || is_transparent_pointer_type(src_type)))
+    if (!(is_arithm_type(src_type) || src_type->tag == MaskType_TAG || is_physical_ptr_type(src_type)))
         return false;
-    if (!(is_arithm_type(dst_type) || dst_type->tag == MaskType_TAG || is_transparent_pointer_type(dst_type)))
+    if (!(is_arithm_type(dst_type) || dst_type->tag == MaskType_TAG || is_physical_ptr_type(dst_type)))
         return false;
     assert(get_type_bitwidth(src_type) == get_type_bitwidth(dst_type));
-    if (is_transparent_pointer_type(src_type) && is_transparent_pointer_type(dst_type)) {
-        AddressSpace src_as = src_type->payload.ptr_type.address_space;
-        AddressSpace dst_as = dst_type->payload.ptr_type.address_space;
-        // either both pointers need to be in the generic address space, and we're only casting the element type, OR neither can be
-        if ((src_as == AsGeneric) != (dst_as == AsGeneric))
-            return false;
-    }
+    // either both pointers need to be in the generic address space, and we're only casting the element type, OR neither can be
+    if ((is_physical_ptr_type(src_type) && is_physical_ptr_type(dst_type)) && (is_generic_ptr_type(src_type) != is_generic_ptr_type(dst_type)))
+        return false;
     return true;
 }
 
 bool is_conversion_legal(const Type* src_type, const Type* dst_type) {
     assert(is_data_type(src_type) && is_data_type(dst_type));
-    if (!(is_arithm_type(src_type) || is_transparent_pointer_type(src_type) && get_type_bitwidth(src_type) == get_type_bitwidth(dst_type)))
+    if (!(is_arithm_type(src_type) || (is_physical_ptr_type(src_type) && get_type_bitwidth(src_type) == get_type_bitwidth(dst_type))))
         return false;
-    if (!(is_arithm_type(dst_type) || is_transparent_pointer_type(dst_type) && get_type_bitwidth(src_type) == get_type_bitwidth(dst_type)))
+    if (!(is_arithm_type(dst_type) || (is_physical_ptr_type(dst_type) && get_type_bitwidth(src_type) == get_type_bitwidth(dst_type))))
         return false;
-    if (is_transparent_pointer_type(src_type) && is_transparent_pointer_type(dst_type)) {
+    // we only allow ptr-ptr conversions, use reinterpret otherwise
+    if (is_physical_ptr_type(src_type) != is_physical_ptr_type(dst_type))
+        return false;
+    // exactly one of the pointers needs to be in the generic address space
+    if (is_generic_ptr_type(src_type) && is_generic_ptr_type(dst_type))
+        return false;
+    // element types have to match (use reinterpret_cast for changing it)
+    if (is_physical_ptr_type(src_type) && is_physical_ptr_type(dst_type)) {
         AddressSpace src_as = src_type->payload.ptr_type.address_space;
         AddressSpace dst_as = dst_type->payload.ptr_type.address_space;
-        // exactly one of the pointers needs to be in the generic address space
-        if ((src_as == AsGeneric) == (dst_as == AsGeneric))
-            return false;
-        // element types have to match (use reinterpret_cast for changing it)
         if (src_type->payload.ptr_type.pointed_type != dst_type->payload.ptr_type.pointed_type)
             return false;
     }

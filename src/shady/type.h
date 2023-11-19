@@ -19,6 +19,8 @@ bool is_shiftable_type(const Type*);
 bool has_boolean_ops(const Type*);
 bool is_comparable_type(const Type*);
 bool is_ordered_type(const Type*);
+bool is_physical_ptr_type(const Type* t);
+bool is_generic_ptr_type(const Type* t);
 
 bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type);
 bool is_conversion_legal(const Type* src_type, const Type* dst_type);

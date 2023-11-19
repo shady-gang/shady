@@ -363,6 +363,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
     Nodes type_args = infer_nodes(ctx, old_type_args);
     Nodes old_operands = node->payload.prim_op.operands;
 
+    Op op = node->payload.prim_op.op;
     LARRAY(const Node*, new_operands, old_operands.count);
     Nodes input_types = empty(a);
     switch (node->payload.prim_op.op) {
@@ -426,6 +427,10 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             const Type* src_pointer_type = get_unqualified_type(new_operands[0]->type);
             const Type* old_dst_pointer_type = first(old_type_args);
             const Type* dst_pointer_type = first(type_args);
+
+            if (is_generic_ptr_type(src_pointer_type) != is_generic_ptr_type(dst_pointer_type))
+                op = convert_op;
+
             if (old_dst_pointer_type->tag == PtrType_TAG && !old_dst_pointer_type->payload.ptr_type.pointed_type) {
                 const Type* element_type = uint8_type(a);
                 if (src_pointer_type->tag == PtrType_TAG && src_pointer_type->payload.ptr_type.pointed_type) {
@@ -510,7 +515,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
 
     rebuild:
     return prim_op(a, (PrimOp) {
-        .op = node->payload.prim_op.op,
+        .op = op,
         .type_arguments = type_args,
         .operands = nodes(a, old_operands.count, new_operands)
     });
