@@ -101,7 +101,12 @@ bool is_subtype(const Type* supertype, const Type* type) {
         case ArrType_TAG: {
             if (!is_subtype(supertype->payload.arr_type.element_type, type->payload.arr_type.element_type))
                 return false;
-            return supertype->payload.arr_type.size == type->payload.arr_type.size || !supertype->payload.arr_type.size || get_int_literal_value(supertype->payload.arr_type.size, false) == 0;
+            // unsized arrays are supertypes of sized arrays (even though they're not datatypes...)
+            // TODO: maybe change this so it's only valid when talking about to pointer-to-arrays
+            const IntLiteral* size_literal = resolve_to_literal(supertype->payload.arr_type.size);
+            if (size_literal && size_literal->value == 0)
+                return true;
+            return supertype->payload.arr_type.size == type->payload.arr_type.size || !supertype->payload.arr_type.size;
         }
         case PackType_TAG: {
             if (!is_subtype(supertype->payload.pack_type.element_type, type->payload.pack_type.element_type))
