@@ -215,6 +215,7 @@ void spvb_set_version(SpvbFileBuilder* file_builder, uint8_t major, uint8_t mino
 }
 
 void spvb_set_addressing_model(SpvbFileBuilder* file_builder, SpvAddressingModel model) {
+    assert(file_builder->addressing_model == SpvAddressingModelLogical || file_builder->addressing_model == model);
     file_builder->addressing_model = model;
 }
 
