@@ -77,8 +77,8 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     IrArena* a = ctx->rewriter.dst_arena;
     String name;
     switch (which) {
-        case LoadFn: name = format_string_interned(a, "generated_generic_load_%s", name_type_safe(a, t)); break;
-        case StoreFn: name = format_string_interned(a, "generated_generic_store_%s", name_type_safe(a, t)); break;
+        case LoadFn: name = format_string_interned(a, "generated_load_Generic_%s", name_type_safe(a, t)); break;
+        case StoreFn: name = format_string_interned(a, "generated_store_Generic_%s", name_type_safe(a, t)); break;
     }
 
     const Node** found = find_value_dict(String, const Node*, ctx->fns, name);

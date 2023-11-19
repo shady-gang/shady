@@ -290,7 +290,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     const Type* return_value_t = qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || (uniform_address && is_addr_space_uniform(a, as)), .type = element_type });
     Nodes return_ts = ser ? empty(a) : singleton(return_value_t);
 
-    String name = format_string_arena(a->arena, "generated_%s_as%d_%s_%s", ser ? "store" : "load", as, uniform_address ? "uniform" : "varying", name_type_safe(a, element_type));
+    String name = format_string_arena(a->arena, "generated_%s_%s_%s_%s", ser ? "store" : "load", get_address_space_name(as), uniform_address ? "uniform" : "varying", name_type_safe(a, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(a, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
