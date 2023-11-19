@@ -343,11 +343,10 @@ static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* eleme
     return typed_ptr_t;
 }
 
-static const Node* reinterpret_cast_helper(const Node* ptr, const Type* typed_ptr_t) {
+static const Node* reinterpret_cast_helper(BodyBuilder* bb, const Node* ptr, const Type* typed_ptr_t) {
     IrArena* a = ptr->arena;
-    BodyBuilder* bb = begin_body(a);
     ptr = gen_reinterpret_cast(bb, typed_ptr_t, ptr);
-    return anti_quote_helper(a, yield_values_and_wrap_in_block(bb, singleton(ptr)));
+    return ptr;
 }
 
 static const Node* _infer_primop(Context* ctx, const Node* node, const Type* expected_type) {
@@ -363,6 +362,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
     Nodes type_args = infer_nodes(ctx, old_type_args);
     Nodes old_operands = node->payload.prim_op.operands;
 
+    BodyBuilder* bb = begin_body(a);
     Op op = node->payload.prim_op.op;
     LARRAY(const Node*, new_operands, old_operands.count);
     Nodes input_types = empty(a);
@@ -391,7 +391,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                 // typed loads - normalise to typed ptrs instead by generating an extra cast!
                 const Type* ptr_type = get_unqualified_type(new_operands[0]->type);
                 ptr_type = type_untyped_ptr(ptr_type, first(type_args));
-                new_operands[0] = reinterpret_cast_helper(new_operands[0], ptr_type);
+                new_operands[0] = reinterpret_cast_helper(bb, new_operands[0], ptr_type);
                 type_args = empty(a);
             }
             goto rebuild;
@@ -404,7 +404,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             if (type_args.count == 1) {
                 // typed loads - normalise to typed ptrs instead by generating an extra cast!
                 ptr_type = type_untyped_ptr(ptr_type, first(type_args));
-                new_operands[0] = reinterpret_cast_helper(new_operands[0], ptr_type);
+                new_operands[0] = reinterpret_cast_helper(bb, new_operands[0], ptr_type);
                 type_args = empty(a);
             }
             assert(ptr_type->tag == PtrType_TAG);
@@ -457,13 +457,12 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             AddressSpace as = deconstruct_pointer_type(&base_datatype);
             if (type_args.count == 1) {
                 base_datatype = type_untyped_ptr(base_datatype, first(type_args));
-                new_operands[0] = reinterpret_cast_helper(new_operands[0], base_datatype);
+                new_operands[0] = reinterpret_cast_helper(bb, new_operands[0], base_datatype);
                 type_args = empty(a);
             }
             const IntLiteral* lit = resolve_to_literal(new_operands[1]);
             if ((!lit || lit->value) != 0 && base_datatype->tag != ArrType_TAG) {
                 warn_print("LEA used on a pointer to a non-array type!\n");
-                BodyBuilder* bb = begin_body(a);
                 const Node* cast_base = first(bind_instruction(bb, prim_op(a, (PrimOp) {
                     .op = reinterpret_op,
                     .type_arguments = singleton(ptr_type(a, (PtrType) {
@@ -521,12 +520,14 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
     for (size_t i = 0; i < input_types.count; i++)
         new_operands[i] = infer(ctx, old_operands.nodes[i], input_types.nodes[i]);
 
-    rebuild:
-    return prim_op(a, (PrimOp) {
-        .op = op,
-        .type_arguments = type_args,
-        .operands = nodes(a, old_operands.count, new_operands)
-    });
+    rebuild: {
+        const Node* new_instruction = prim_op(a, (PrimOp) {
+                .op = op,
+                .type_arguments = type_args,
+                .operands = nodes(a, old_operands.count, new_operands)
+        });
+        return yield_values_and_wrap_in_block(bb, bind_instruction(bb, new_instruction));
+    }
 }
 
 static const Node* _infer_indirect_call(Context* ctx, const Node* node, const Type* expected_type) {
