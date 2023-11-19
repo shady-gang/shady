@@ -22,6 +22,7 @@ SpvStorageClass emit_addr_space(Emitter* emitter, AddressSpace address_space) {
         case AsPrivateLogical:               return SpvStorageClassPrivate;
         case AsFunctionLogical:              return SpvStorageClassFunction;
         case AsGlobalPhysical:
+            spvb_extension(emitter->file_builder, "SPV_KHR_physical_storage_buffer");
             spvb_capability(emitter->file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
             return SpvStorageClassPhysicalStorageBuffer;
         case AsInput:

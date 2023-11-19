@@ -554,7 +554,6 @@ void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char**
     emitter.void_t = spvb_void_type(emitter.file_builder);
 
     spvb_extension(file_builder, "SPV_KHR_non_semantic_info");
-    spvb_extension(file_builder, "SPV_KHR_physical_storage_buffer");
 
     Nodes decls = get_module_declarations(mod);
     emit_decls(&emitter, decls);

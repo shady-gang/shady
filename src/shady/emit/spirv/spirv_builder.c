@@ -90,10 +90,14 @@ struct SpvbFileBuilder_ {
     SpvbSectionBuilder fn_defs;
 
     struct Dict* capabilities_set;
+    struct Dict* extensions_set;
 };
 
 static KeyHash hash_u32(uint32_t* p) { return hash_murmur(p, sizeof(uint32_t)); }
 static bool compare_u32s(uint32_t* a, uint32_t* b) { return *a == *b; }
+
+KeyHash hash_string(const char** string);
+bool compare_string(const char** a, const char** b);
 
 SpvbFileBuilder* spvb_begin() {
     SpvbFileBuilder* file_builder = (SpvbFileBuilder*) malloc(sizeof(SpvbFileBuilder));
@@ -113,6 +117,7 @@ SpvbFileBuilder* spvb_begin() {
         .fn_defs = new_growy(),
 
         .capabilities_set = new_set(SpvCapability, (HashFn) hash_u32, (CmpFn) compare_u32s),
+        .extensions_set = new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
     };
     return file_builder;
 }
@@ -185,6 +190,7 @@ size_t spvb_finish(SpvbFileBuilder* file_builder, char** output) {
     destroy_growy(file_builder->capabilities);
 
     destroy_dict(file_builder->capabilities_set);
+    destroy_dict(file_builder->extensions_set);
 
     free(file_builder);
 
@@ -223,8 +229,10 @@ void spvb_capability(SpvbFileBuilder* file_builder, SpvCapability cap) {
 
 #define target_data file_builder->extensions
 void spvb_extension(SpvbFileBuilder* file_builder, const char* name) {
-    op(SpvOpExtension, 1 + div_roundup(strlen(name) + 1, 4));
-    literal_name(name);
+    if (insert_set_get_result(char*, file_builder->extensions_set, name)) {
+        op(SpvOpExtension, 1 + div_roundup(strlen(name) + 1, 4));
+        literal_name(name);
+    }
 }
 #undef target_data
 
