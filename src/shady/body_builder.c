@@ -124,14 +124,31 @@ const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
     return terminator;
 }
 
-const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
+const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, Nodes values, const Nodes* types) {
     IrArena* arena = bb->arena;
+    assert(arena->config.check_types || types);
     const Node* terminator = yield(arena, (Yield) { .args = values });
     const Node* lam = case_(arena, empty(arena), finish_body(bb, terminator));
     return block(arena, (Block) {
-        .yield_types = get_values_types(arena, values),
+        .yield_types = arena->config.check_types ? get_values_types(arena, values) : *types,
         .inside = lam,
     });
+}
+
+const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
+    return yield_values_and_wrap_in_block_explicit_return_types(bb, values, NULL);
+}
+
+const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, const Node* instruction, const Nodes* types) {
+    size_t stack_size = entries_count_list(bb->stack);
+    if (stack_size == 0)
+        return instruction;
+    Nodes bound = bind_internal(bb, instruction, false, types ? types->count : SIZE_MAX, types ? types->nodes : NULL, NULL);
+    return yield_values_and_wrap_in_block_explicit_return_types(bb, bound, types);
+}
+
+const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node* instruction) {
+    return bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, instruction, NULL);
 }
 
 void cancel_body(BodyBuilder* bb) {

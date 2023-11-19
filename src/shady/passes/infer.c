@@ -475,12 +475,12 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                 })));
                 Nodes final_lea_ops = mk_nodes(a, cast_base, new_operands[1], int32_literal(a, 0));
                 final_lea_ops = concat_nodes(a, final_lea_ops, nodes(a, old_operands.count - 2, new_operands + 2));
-                const Node* rslt = first(bind_instruction(bb, prim_op(a, (PrimOp) {
+                const Node* instruction = prim_op(a, (PrimOp) {
                         .op = lea_op,
                         .type_arguments = empty(a),
                         .operands = final_lea_ops
-                })));
-                return yield_values_and_wrap_in_block(bb, singleton(rslt));
+                });
+                return bind_last_instruction_and_wrap_in_block(bb, instruction);
             }
             goto rebuild;
         }
@@ -525,7 +525,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                 .type_arguments = type_args,
                 .operands = nodes(a, old_operands.count, new_operands)
         });
-        return yield_values_and_wrap_in_block(bb, bind_instruction(bb, new_instruction));
+        return bind_last_instruction_and_wrap_in_block(bb, new_instruction);
     }
 }
 
