@@ -215,9 +215,12 @@ static void visit_instruction(Context* ctx, KnowledgeBase* kb, const Node* instr
                     break;
                 }
                 case store_op: {
-                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, first(payload.operands));
-                    if (k)
+                    const Node* ptr = first(payload.operands);
+                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, ptr);
+                    if (k) {
+                        k = update_ptr_knowledge(kb, ptr, k);
                         k->ptr_value = payload.operands.nodes[1];
+                    }
                     break; // let's take care of dead stores another time
                 }
                 case reinterpret_op: {
