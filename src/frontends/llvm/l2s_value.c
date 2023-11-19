@@ -75,10 +75,17 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         case LLVMBlockAddressValueKind:
             break;
         case LLVMConstantExprValueKind: {
-            //BodyBuilder* bb = begin_body(a);
-            EmittedInstr emitted = convert_instruction(p, NULL, NULL, v);
-            r = anti_quote_helper(a, emitted.instruction);
-            break;
+            String name = LLVMGetValueName(v);
+            if (!name || strlen(name) == 0)
+                name = unique_name(a, "constant_expr");
+            Node* decl = constant(p->dst, singleton(annotation(a, (Annotation) { .name = "SkipOnInfer" })), NULL, name);
+            r = decl;
+            insert_dict(LLVMTypeRef, const Type*, p->map, v, r);
+            BodyBuilder* bb = begin_body(a);
+            EmittedInstr emitted = convert_instruction(p, NULL, bb, v);
+            Nodes types = singleton(convert_type(p, LLVMTypeOf(v)));
+            decl->payload.constant.instruction = bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, emitted.instruction, &types);
+            return r;
         }
         case LLVMConstantDataArrayValueKind: {
             assert(t->tag == ArrType_TAG);

@@ -85,6 +85,8 @@ static bool is_zero(const Node* node) {
 }
 
 const char* get_string_literal(IrArena* arena, const Node* node) {
+    if (!node)
+        return NULL;
     switch (node->tag) {
         case Constant_TAG:   return get_string_literal(arena, get_quoted_value(node->payload.constant.instruction));
         case RefDecl_TAG:    return get_string_literal(arena, node->payload.ref_decl.decl);

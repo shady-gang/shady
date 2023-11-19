@@ -35,8 +35,8 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
         assert(entry->tag == Composite_TAG);
         const Node* annotation_payload = entry->payload.composite.contents.nodes[1];
         // eliminate dummy reinterpret cast
-        if (annotation_payload->tag == AntiQuote_TAG) {
-            const Node* instr = annotation_payload->payload.anti_quote.instruction;
+        if (annotation_payload->tag == Constant_TAG) {
+            const Node* instr = annotation_payload->payload.constant.instruction;
             assert(instr->tag == PrimOp_TAG);
             switch (instr->payload.prim_op.op) {
                 case reinterpret_op:
@@ -56,8 +56,11 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
         memcpy(str, ostr, strlen(ostr) + 1);
         if (strcmp(strtok(str, "::"), "shady") == 0) {
             const Node* target = entry->payload.composite.contents.nodes[0];
-            while (target->tag == AntiQuote_TAG) {
-                const Node* instr = target->payload.anti_quote.instruction;
+            if (target->tag == RefDecl_TAG) {
+                target = target->payload.ref_decl.decl;
+            }
+            while (target->tag == Constant_TAG) {
+                const Node* instr = target->payload.constant.instruction;
                 assert(instr->tag == PrimOp_TAG);
                 switch (instr->payload.prim_op.op) {
                     case reinterpret_op:

@@ -114,8 +114,13 @@ static const Node* _infer_decl(Context* ctx, const Node* node) {
         case Constant_TAG: {
             const Constant* oconstant = &node->payload.constant;
             const Type* imported_hint = infer(ctx, oconstant->type_hint, NULL);
-            assert(is_data_type(imported_hint));
-            const Node* instruction = infer(ctx, oconstant->instruction, qualified_type_helper(imported_hint, true));
+            const Node* instruction;
+            if (imported_hint) {
+                assert(is_data_type(imported_hint));
+                instruction = infer(ctx, oconstant->instruction, qualified_type_helper(imported_hint, true));
+            } else {
+                instruction = infer(ctx, oconstant->instruction, NULL);
+            }
             imported_hint = get_unqualified_type(instruction->type);
 
             Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
