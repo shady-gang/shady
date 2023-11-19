@@ -529,7 +529,7 @@ static const Node* process(Context* ctx, const Node* old) {
     return recreate_node_identity(&ctx->rewriter, old);
 }
 
-Module* opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* opt_mem2reg(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = src;
@@ -552,7 +552,7 @@ Module* opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module* src) {
 
         verify_module(dst);
 
-        dst = rebuild_module(dst);
+        dst = cleanup(config, dst);
         src = dst;
     }
 

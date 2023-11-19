@@ -59,6 +59,7 @@ set(SHADY_SOURCES
     transform/internal_constants.c
 
     passes/import.c
+    passes/cleanup.c
     passes/bind.c
     passes/normalize.c
     passes/infer.c

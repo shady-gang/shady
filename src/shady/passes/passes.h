@@ -8,6 +8,7 @@ typedef Module* (RewritePass)(const CompilerConfig* config, Module* src);
 /// @{
 
 RewritePass import;
+RewritePass cleanup;
 
 /// Removes all Unresolved nodes and replaces them with the appropriate decl/value
 RewritePass bind_program;

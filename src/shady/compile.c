@@ -29,6 +29,13 @@ CompilerConfig default_compiler_config() {
             .skip_generated = true,
         },
 
+        .optimisations = {
+            .cleanup = {
+                .after_every_pass = true,
+                .delete_unused_instructions = true,
+            }
+        },
+
         .specialization = {
             .subgroup_size = 8,
             .entry_point = NULL

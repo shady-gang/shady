@@ -19,7 +19,11 @@ debugvv_print("After "#pass_name" pass: \n");           \
 log_module(DEBUGVV, config, *pmod);                     \
 if (SHADY_RUN_VERIFY)                                   \
   verify_module(*pmod);                                 \
-if (config->hooks.after_pass.fn)                                 \
+if (config->optimisations.cleanup.after_every_pass)     \
+  *pmod = cleanup(config, *pmod);                       \
+if (SHADY_RUN_VERIFY)                                   \
+  verify_module(*pmod);                                 \
+if (config->hooks.after_pass.fn)                        \
   config->hooks.after_pass.fn(config->hooks.after_pass.uptr, #pass_name, *pmod); \
 (*pmod)->sealed = true;                                 \
 if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena) \

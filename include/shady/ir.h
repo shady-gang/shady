@@ -260,6 +260,13 @@ struct CompilerConfig_ {
     } hacks;
 
     struct {
+        struct {
+            bool after_every_pass;
+            bool delete_unused_instructions;
+        } cleanup;
+    } optimisations;
+
+    struct {
         bool memory_accesses;
         bool stack_accesses;
         bool god_function;
