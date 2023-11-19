@@ -65,12 +65,12 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,
             .size_in_bytes = get_type_bitwidth(type) / 8,
-            .alignment_in_bytes = type->payload.int_type.width == IntTy64 ? 8 : 4,
+            .alignment_in_bytes = get_type_bitwidth(type) / 8,
         };
         case Float_TAG:   return (TypeMemLayout) {
             .type = type,
             .size_in_bytes = get_type_bitwidth(type) / 8,
-            .alignment_in_bytes = type->payload.float_type.width == FloatTy64 ? 8 : 4,
+            .alignment_in_bytes = get_type_bitwidth(type) / 8,
         };
         case Bool_TAG:   return (TypeMemLayout) {
             .type = type,
