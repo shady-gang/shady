@@ -21,16 +21,19 @@ static Nodes convert_mdnode_operands(Parser* p, LLVMValueRef mdnode) {
     return args;
 }
 
-static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, String name) {
+static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, String node_name) {
     // printf("%s\n", name);
     IrArena* a = get_module_arena(p->dst);
+    String name = LLVMGetValueName(v);
+    if (!name || strlen(name) == 0)
+        name = unique_name(a, node_name);
     Node* g = global_var(p->dst, singleton(annotation(a, (Annotation) { .name = "SkipOnInfer" })), NULL, name, AsDebugInfo);
     const Node* r = ref_decl_helper(a, g);
     insert_dict(LLVMValueRef, const Type*, p->map, v, r);
 
     Nodes args = convert_mdnode_operands(p, v);
+    args = prepend_nodes(a, args, string_lit_helper(a, node_name));
     g->payload.global_variable.init = tuple_helper(a, args);
-    // args = prepend_nodes(a, args, string_lit_helper(a, name));
     return r;
 }
 
@@ -123,6 +126,11 @@ const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
     IrArena* a = get_module_arena(p->dst);
     LLVMMetadataKind kind = LLVMGetMetadataKind(meta);
     LLVMValueRef v = LLVMMetadataAsValue(p->ctx, meta);
+
+    if (v) {
+        const Type** found = find_value_dict(LLVMTypeRef, const Type*, p->map, v);
+        if (found) return *found;
+    }
 
     switch (kind) {
         case LLVMMDTupleMetadataKind: return tuple_helper(a, convert_mdnode_operands(p, v));
