@@ -25,9 +25,14 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Constant_TAG: return NULL;
         case RefDecl_TAG: {
-            if (node->payload.ref_decl.decl->tag == Constant_TAG) {
+            const Node* decl = node->payload.ref_decl.decl;
+            if (decl->tag == Constant_TAG) {
+                const Node* value = get_quoted_value(decl->payload.constant.instruction);
+                if (value)
+                    return rewrite_node(&ctx->rewriter, value);
+                assert(ctx->bb);
                 // TODO: actually _copy_ the instruction so we can duplicate the code safely!
-                return process(ctx, node->payload.ref_decl.decl->payload.constant.instruction);
+                return first(bind_instruction(ctx->bb, rewrite_node(&ctx->rewriter, decl->payload.constant.instruction)));
             }
             break;
         }
