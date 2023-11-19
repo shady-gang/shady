@@ -35,30 +35,24 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
     const Node* instruction = node->payload.let.instruction;
     const Node* tail = node->payload.let.tail;
     switch (instruction->tag) {
-        case PrimOp_TAG: {
-            BodyBuilder* bb = begin_body(arena);
-            Nodes operands = instruction->payload.prim_op.operands;
-            LARRAY(const Node*, noperands, operands.count);
-            bool modified = false;
-            for (size_t i = 0; i < operands.count; i++) {
-                noperands[i] = operands.nodes[i];
-                if (operands.nodes[i]->tag == AntiQuote_TAG) {
-                    noperands[i] = first(bind_instruction(bb, operands.nodes[i]->payload.anti_quote.instruction));
-                    modified = true;
-                }
-            }
-            if (!modified) {
-                cancel_body(bb);
-                break;
-            }
-            Nodes results = bind_instruction(bb, prim_op(arena, (PrimOp) {
-                .op = instruction->payload.prim_op.op,
-                .operands = nodes(arena, operands.count, noperands),
-                .type_arguments = instruction->payload.prim_op.type_arguments,
-            }));
-            instruction = yield_values_and_wrap_in_block(bb, results);
-            return let(arena, instruction, tail);
-        }
+        // eliminates blocks by "lifting" their contents out and replacing yield with the tail of the outer let
+        // In other words, we turn these patterns:
+        //
+        // let block {
+        //   let I in case(x) =>
+        //   let J in case(y) =>
+        //   let K in case(z) =>
+        //      ...
+        //   yield (x, y, z) }
+        // in case(a, b, c) => R
+        //
+        // into these:
+        //
+        // let I in case(x) =>
+        // let J in case(y) =>
+        // let K in case(z) =>
+        // ...
+        // R[a->x, b->y, c->z]
         case Block_TAG: {
             // follow the terminator of the block until we hit a yield()
             const Node* lam = instruction->payload.block.inside;
