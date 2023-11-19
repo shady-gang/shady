@@ -243,9 +243,32 @@ const Node* fold_node(IrArena* arena, const Node* node) {
         case PrimOp_TAG: folded = fold_prim_op(arena, node); break;
         case Block_TAG: {
             const Node* lam = node->payload.block.inside;
-            const Node* term = lam->payload.case_.body;
-            if (term->tag == Yield_TAG) {
-                return quote_helper(arena, term->payload.yield.args);
+            const Node* body = lam->payload.case_.body;
+            if (body->tag == Yield_TAG) {
+                return quote_helper(arena, body->payload.yield.args);
+            } else if (body->tag == Let_TAG) {
+                // fold block { let x, y, z = I; yield (x, y, z); } back to I
+                const Node* instr = get_let_instruction(body);
+                const Node* let_case = get_let_tail(body);
+                const Node* let_case_body = get_abstraction_body(let_case);
+                if (let_case_body->tag == Yield_TAG) {
+                    bool only_forwards = true;
+                    Nodes let_case_params = get_abstraction_params(let_case);
+                    Nodes yield_args = let_case_body->payload.yield.args;
+                    if (let_case_params.count == yield_args.count) {
+                        for (size_t i = 0; i < yield_args.count; i++) {
+                            only_forwards &= yield_args.nodes[i] == let_case_params.nodes[i];
+                        }
+                        if (only_forwards) {
+                            debugv_print("Fold: simplify ");
+                            log_node(DEBUGV, node);
+                            debugv_print(" into just ");
+                            log_node(DEBUGV, instr);
+                            debugv_print(".\n");
+                            return instr;
+                        }
+                    }
+                }
             }
             break;
         }
