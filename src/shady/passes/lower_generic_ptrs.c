@@ -16,6 +16,7 @@ typedef struct {
     Rewriter rewriter;
     const Node* generic_ptr_type;
     struct Dict* fns;
+    const CompilerConfig* config;
 } Context;
 
 static AddressSpace generic_ptr_tags[4] = { AsGlobalPhysical, AsSharedPhysical, AsSubgroupPhysical, AsPrivatePhysical };
@@ -64,10 +65,12 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
     return reinterpreted_ptr;
 }
 
-static bool allowed(IrArena* a, AddressSpace as) {
-    if (as == AsSharedPhysical && !a->config.allow_shared_memory)
+static bool allowed(Context* ctx, AddressSpace as) {
+    if (as == AsGlobalPhysical && ctx->config->hacks.no_physical_global_ptrs)
         return false;
-    if (as == AsSubgroupPhysical && !a->config.allow_subgroup_memory)
+    if (as == AsSharedPhysical && !ctx->rewriter.dst_arena->config.allow_shared_memory)
+        return false;
+    if (as == AsSubgroupPhysical && !ctx->rewriter.dst_arena->config.allow_subgroup_memory)
         return false;
     return true;
 }
@@ -108,7 +111,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             LARRAY(const Node*, cases, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
                 literals[tag] = size_t_literal(ctx, tag);
-                if (!allowed(a, generic_ptr_tags[tag])) {
+                if (!allowed(ctx, generic_ptr_tags[tag])) {
                     cases[tag] = case_(a, empty(a), unreachable(a));
                     continue;
                 }
@@ -140,7 +143,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             LARRAY(const Node*, cases, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
                 literals[tag] = size_t_literal(ctx, tag);
-                if (!allowed(a, generic_ptr_tags[tag])) {
+                if (!allowed(ctx, generic_ptr_tags[tag])) {
                     cases[tag] = case_(a, empty(a), unreachable(a));
                     continue;
                 }
@@ -262,6 +265,7 @@ Module* lower_generic_ptrs(const CompilerConfig* config, Module* src) {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .fns = new_dict(String, const Node*, (HashFn) hash_string, (CmpFn) compare_string),
         .generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false}),
+        .config = config,
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);

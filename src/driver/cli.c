@@ -122,6 +122,8 @@ void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
             config->logging.skip_internal = false;
         } else if (strcmp(argv[i], "--print-generated") == 0) {
             config->logging.skip_generated = false;
+        } else if (strcmp(argv[i], "--no-physical-global-ptrs") == 0) {
+            config->hacks.no_physical_global_ptrs = true;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             continue;

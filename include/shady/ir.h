@@ -246,6 +246,7 @@ struct CompilerConfig_ {
     struct {
         bool spv_shuffle_instead_of_broadcast_first;
         bool force_join_point_lifting;
+        bool no_physical_global_ptrs;
     } hacks;
 
     struct {
