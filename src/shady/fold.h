@@ -4,6 +4,5 @@
 #include "ir_private.h"
 
 const Node* fold_node(IrArena* arena, const Node* instruction);
-const Node* resolve_known_vars(const Node* node, bool stop_at_values);
 
 #endif

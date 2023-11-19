@@ -12,28 +12,6 @@ static const Node* quote_single(IrArena* a, const Node* value) {
     return quote_helper(a, singleton(value));
 }
 
-/*const Node* resolve_known_vars(const Node* node, bool stop_at_values) {
-    if (node->tag == Variable_TAG) {
-        const Node* abs = node->payload.var.abs;
-        if (abs->tag == Case_TAG && abs->payload.case_.usage) {
-            if (instr) {
-                switch (instr->type->tag) {
-                    case RecordType_TAG: {
-                        // TODO handle tuples
-                        return node;
-                    }
-                    default: {
-                        assert(node->payload.var.output == 0);
-                        if (!stop_at_values || is_value(instr))
-                            return resolve_known_vars(instr, stop_at_values);
-                    }
-                }
-            }
-        }
-    }
-    return node;
-}*/
-
 static bool is_zero(const Node* node) {
     //node = resolve_known_vars(node, false);
     if (node->tag == IntLiteral_TAG) {
