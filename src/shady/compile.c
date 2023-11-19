@@ -47,6 +47,10 @@ ArenaConfig default_arena_config() {
             .word_size = IntTy32,
             .ptr_size = IntTy64,
         },
+
+        .optimisations = {
+            .delete_unreachable_structured_cases = true,
+        },
     };
 }
 

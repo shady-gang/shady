@@ -95,6 +95,11 @@ typedef struct {
         /// The base type for emulated memory
         IntSizes word_size;
     } memory;
+
+    /// 'folding' optimisations - happen in the constructors directly
+    struct {
+        bool delete_unreachable_structured_cases;
+    } optimisations;
 } ArenaConfig;
 
 typedef struct CompilerConfig_ CompilerConfig;

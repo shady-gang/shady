@@ -1,6 +1,7 @@
+#include "fold.h"
+
 #include "log.h"
 
-#include "fold.h"
 #include "type.h"
 #include "portability.h"
 #include "rewrite.h"
@@ -229,6 +230,12 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     return node;
 }
 
+static bool is_unreachable_case(const Node* c) {
+    assert(c && c->tag == Case_TAG);
+    const Node* b = get_abstraction_body(c);
+    return b->tag == Unreachable_TAG;
+}
+
 const Node* fold_node(IrArena* arena, const Node* node) {
     const Node* folded = node;
     switch (node->tag) {
@@ -249,6 +256,46 @@ const Node* fold_node(IrArena* arena, const Node* node) {
                 return first(instr->payload.prim_op.operands);
             }
             break;
+        }
+        case If_TAG: {
+            If payload = node->payload.if_instr;
+            const Node* false_case = payload.if_false;
+            if (arena->config.optimisations.delete_unreachable_structured_cases && false_case && is_unreachable_case(false_case))
+                return block(arena, (Block) { .inside = payload.if_true, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+            break;
+        }
+        case Match_TAG: {
+            if (!arena->config.optimisations.delete_unreachable_structured_cases)
+                break;
+            Match payload = node->payload.match_instr;
+            Nodes old_cases = payload.cases;
+            LARRAY(const Node*, literals, old_cases.count);
+            LARRAY(const Node*, cases, old_cases.count);
+            size_t new_cases_count = 0;
+            for (size_t i = 0; i < old_cases.count; i++) {
+                const Node* c = old_cases.nodes[i];
+                if (is_unreachable_case(c))
+                    continue;
+                literals[new_cases_count] = node->payload.match_instr.literals.nodes[i];
+                cases[new_cases_count] = node->payload.match_instr.cases.nodes[i];
+                new_cases_count++;
+            }
+            if (new_cases_count == old_cases.count)
+                break;
+
+            if (new_cases_count == 1 && is_unreachable_case(payload.default_case))
+                return block(arena, (Block) { .inside = cases[0], .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+
+            if (new_cases_count == 0)
+                return block(arena, (Block) { .inside = payload.default_case, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+
+            return match_instr(arena, (Match) {
+                .inspect = payload.inspect,
+                .yield_types = payload.yield_types,
+                .default_case = payload.default_case,
+                .literals = nodes(arena, new_cases_count, literals),
+                .cases = nodes(arena, new_cases_count, cases),
+            });
         }
         default: break;
     }
