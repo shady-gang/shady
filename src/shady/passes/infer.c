@@ -501,6 +501,14 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             input_types = mk_nodes(a, qualified_type_helper(mask_type(a), false), qualified_type_helper(uint32_type(a), false));
             break;
         }
+        case debug_printf_op: {
+            String lit = get_string_literal(a, old_operands.nodes[0]);
+            assert(lit && "debug_printf requires a string literal");
+            new_operands[0] = string_lit_helper(a, lit);
+            for (size_t i = 1; i < old_operands.count; i++)
+                new_operands[i] = infer(ctx, old_operands.nodes[i], NULL);
+            goto rebuild;
+        }
         default: {
             for (size_t i = 0; i < old_operands.count; i++) {
                 new_operands[i] = old_operands.nodes[i] ? infer(ctx, old_operands.nodes[i], NULL) : NULL;

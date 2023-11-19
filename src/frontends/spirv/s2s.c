@@ -1130,6 +1130,38 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 args[i] = get_def_ssa_value(parser, instruction[4 + i]);
 
             int rslts_count = get_def_type(parser, result_t) == unit_type(parser->arena) ? 0 : 1;
+
+            if (callee->tag == Function_TAG) {
+                const Node* fn = callee; //callee->payload.fn_addr.fn;
+                String fn_name = get_abstraction_name(fn);
+                if (string_starts_with(fn_name, "__shady")) {
+                    char* copy = malloc(strlen(fn_name) + 1);
+                    memcpy(copy, fn_name, strlen(fn_name) + 1);
+                    strtok(copy, ":");
+                    char* intrinsic = strtok(NULL, ":");
+                    assert(strcmp(intrinsic, "prim_op") == 0);
+                    char* primop = strtok(NULL, ":");
+                    Op op = PRIMOPS_COUNT;
+                    for (size_t i = 0; i < PRIMOPS_COUNT; i++) {
+                        if (strcmp(primop_names[i], primop) == 0) {
+                            op = i;
+                            break;
+                        }
+                    }
+                    assert(op != PRIMOPS_COUNT);
+                    //assert(false && intrinsic);
+                    Nodes rslts = bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                        .op = op,
+                        .type_arguments = empty(parser->arena),
+                        .operands = nodes(parser->arena, num_args, args)
+                    }), rslts_count, NULL, false);
+
+                    if (rslts_count == 1)
+                        parser->defs[result].node = first(rslts);
+
+                    break;
+                }
+            }
             Nodes rslts = bind_instruction_outputs_count(parser->current_block.builder, call(parser->arena, (Call) {
                 .callee = fn_addr_helper(parser->arena, callee),
                 .args = nodes(parser->arena, num_args, args)

@@ -67,10 +67,49 @@ const IntLiteral* resolve_to_literal(const Node* node) {
     }
 }
 
+static bool is_zero(const Node* node) {
+    //node = resolve_known_vars(node, false);
+    if (node->tag == IntLiteral_TAG) {
+        if (get_int_literal_value(node, false) == 0)
+            return true;
+    }
+    return false;
+}
+
 const char* get_string_literal(IrArena* arena, const Node* node) {
     switch (node->tag) {
         case Constant_TAG:   return get_string_literal(arena, node->payload.constant.value);
         case RefDecl_TAG:    return get_string_literal(arena, node->payload.ref_decl.decl);
+        case Variable_TAG: {
+            if (node->payload.var.pindex != 0)
+                return NULL;
+            const Node* abs = node->payload.var.abs;
+            if (!abs || abs->tag != Case_TAG)
+                return NULL;
+            const Node* user = abs->payload.case_.structured_construct;
+            if (user->tag != Let_TAG)
+                return NULL;
+            return get_string_literal(arena, user->payload.let.instruction);
+        }
+        case PrimOp_TAG: {
+            switch (node->payload.prim_op.op) {
+                case lea_op: {
+                    Nodes ops = node->payload.prim_op.operands;
+                    if (ops.count == 3 && is_zero(ops.nodes[1]) && is_zero(ops.nodes[2])) {
+                        const Node* ref = first(ops);
+                        if (ref->tag != RefDecl_TAG)
+                            return NULL;
+                        const Node* decl = ref->payload.ref_decl.decl;
+                        if (decl->tag != GlobalVariable_TAG || !decl->payload.global_variable.init)
+                            return NULL;
+                        return get_string_literal(arena, decl->payload.global_variable.init);
+                    }
+                    break;
+                }
+                default: break;
+            }
+            return NULL;
+        }
         case StringLiteral_TAG: return node->payload.string_lit.string;
         case Composite_TAG: {
             Nodes contents = node->payload.composite.contents;
@@ -83,7 +122,7 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
             assert(chars[contents.count - 1] == 0);
             return string(arena, chars);
         }
-        default: error("This is not a string literal and it doesn't look like one either");
+        default: return NULL; // error("This is not a string literal and it doesn't look like one either");
     }
 }
 
