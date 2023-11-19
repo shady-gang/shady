@@ -603,7 +603,7 @@
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type_hint", "class": "type" },
-        { "name": "instruction", "class": "instruction", "ignore": true }
+        { "name": "instruction", "class": "instruction" }
       ]
     },
     {
