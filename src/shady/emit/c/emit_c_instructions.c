@@ -712,7 +712,14 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Inst
 
     Emitter sub_emiter = *emitter;
     Nodes params = get_abstraction_params(loop->body);
-    Strings param_names = get_variable_names(emitter->arena, params);
+    Nodes variables = params;
+    LARRAY(String, arr, variables.count);
+    for (size_t i = 0; i < variables.count; i++) {
+        arr[i] = get_value_name(variables.nodes[i]);
+        if (!arr[i])
+            arr[i] = unique_name(emitter->arena, "phi");
+    }
+    Strings param_names = strings(emitter->arena, variables.count, arr);
     Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, get_variables_types(emitter->arena, params), &loop_instr->payload.loop_instr.initial_args);
     for (size_t i = 0; i < params.count; i++)
         register_emitted(&sub_emiter, params.nodes[i], term_from_cvalue(eparams.strings[i]));

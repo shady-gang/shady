@@ -86,7 +86,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     debugv_print("free (spilled) variables at '%s': ", name);
     for (size_t i = 0; i < recover_context_size; i++) {
         const Node* item = read_list(const Node*, recover_context)[i];
-        debugv_print("%s~%d", item->payload.var.name, item->payload.var.id);
+        debugv_print(get_value_name_safe(item));
         if (i + 1 < recover_context_size)
             debugv_print(", ");
     }

@@ -358,7 +358,12 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                     case LetMutBinding: mut = true;
                     case LetBinding: {
                         assert((mut || has_result) && "unbound results are only allowed when creating a mutable local variable");
-                        String bind_to = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, tail_params.nodes[i]->payload.var.name), fresh_id(emitter->arena));
+                        String bind_to;
+                        String variable_name = get_value_name(tail_params.nodes[i]);
+                        if (variable_name)
+                            bind_to = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), fresh_id(emitter->arena));
+                        else
+                            bind_to = format_string_arena(emitter->arena->arena, "v%d", fresh_id(emitter->arena));
 
                         String prefix = "";
                         String center = bind_to;
@@ -591,7 +596,12 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             const Node* body = decl->payload.fun.body;
             if (body) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
-                    const char* param_name = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, decl->payload.fun.params.nodes[i]->payload.var.name), decl->payload.fun.params.nodes[i]->payload.var.id);
+                    String param_name;
+                    String variable_name = get_value_name(decl->payload.fun.params.nodes[i]);
+                    if (variable_name)
+                        param_name = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->payload.var.id);
+                    else
+                        param_name = format_string_arena(emitter->arena->arena, "p%d", decl->payload.fun.params.nodes[i]->payload.var.id);
                     register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 

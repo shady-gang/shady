@@ -38,7 +38,7 @@ static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
             error("EntryPoint parameters must be uniform");
 
         types[i] = type;
-        names[i] = params.nodes[i]->payload.var.name;
+        names[i] = get_value_name_safe(params.nodes[i]);
     }
 
     return record_type(a, (RecordType) {

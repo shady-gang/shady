@@ -52,7 +52,13 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
         Nodes params = fn->payload.fun.params;
         assert(params.count == dom.count);
         for (size_t i = 0; i < dom.count; i++) {
-            print(paramp, emit_type(emitter, params.nodes[i]->type, format_string_arena(emitter->arena->arena, "%s_%d", params.nodes[i]->payload.var.name, params.nodes[i]->payload.var.id)));
+            String param_name;
+            String variable_name = get_value_name(fn->payload.fun.params.nodes[i]);
+            if (variable_name)
+                param_name = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), fn->payload.fun.params.nodes[i]->payload.var.id);
+            else
+                param_name = format_string_arena(emitter->arena->arena, "p%d", fn->payload.fun.params.nodes[i]->payload.var.id);
+            print(paramp, emit_type(emitter, params.nodes[i]->type, param_name));
             if (i + 1 < dom.count) {
                 print(paramp, ", ");
             }

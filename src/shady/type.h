@@ -41,7 +41,6 @@ void enter_composite(const Type** datatype, bool* u, Nodes indices, bool allow_e
 /// NB: this is different from get_values_types, that function uses node.type, whereas this one uses node.payload.var.type
 /// This means this function works in untyped modules where node.type is NULL.
 Nodes get_variables_types(IrArena*, Nodes);
-Strings get_variable_names(IrArena*, Nodes);
 
 Nodes get_values_types(IrArena*, Nodes);
 

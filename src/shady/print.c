@@ -408,10 +408,11 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
                     printf(YELLOW);
             } else
                 printf(YELLOW);
-            if (ctx->config.reparseable)
-                printf("%s_%d", node->payload.var.name, node->payload.var.id);
+            String name = get_value_name(node);
+            if (name)
+                printf("%s_%d", name, node->payload.var.id);
             else
-                printf("%s~%d", node->payload.var.name, node->payload.var.id);
+                printf("v%d", node->payload.var.id);
             printf(RESET);
             break;
         case UntypedNumber_TAG:

@@ -113,13 +113,6 @@ Nodes get_variables_types(IrArena* arena, Nodes variables) {
     return nodes(arena, variables.count, arr);
 }
 
-Strings get_variable_names(IrArena* arena, Nodes variables) {
-    LARRAY(String, arr, variables.count);
-    for (size_t i = 0; i < variables.count; i++)
-        arr[i] = variables.nodes[i]->payload.var.name;
-    return strings(arena, variables.count, arr);
-}
-
 Nodes get_values_types(IrArena* arena, Nodes values) {
     assert(arena->config.check_types);
     LARRAY(const Type*, arr, values.count);

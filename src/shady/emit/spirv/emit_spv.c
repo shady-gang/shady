@@ -22,9 +22,10 @@ extern SpvBuiltIn spv_builtins[];
 #pragma GCC diagnostic error "-Wswitch"
 
 void register_result(Emitter* emitter, const Node* node, SpvId id) {
-    if (node->tag == Variable_TAG) {
-        String result_name = format_string_arena(emitter->arena->arena, "%s_%d", node->payload.var.name, node->payload.var.id);
-        spvb_name(emitter->file_builder, id, result_name);
+    if (is_value(node)) {
+        String name = get_value_name(node);
+        if (name)
+            spvb_name(emitter->file_builder, id, name);
     }
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, id);
 }

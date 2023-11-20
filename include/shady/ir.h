@@ -113,6 +113,8 @@ ArenaConfig get_arena_config(const IrArena*);
 
 /// Get the name out of a global variable, function or constant
 String get_decl_name(const Node*);
+String get_value_name(const Node*);
+String get_value_name_safe(const Node*);
 
 const Node* get_quoted_value(const Node* instruction);
 const IntLiteral* resolve_to_literal(const Node*);

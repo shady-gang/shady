@@ -34,6 +34,22 @@ String get_decl_name(const Node* node) {
     }
 }
 
+String get_value_name(const Node* v) {
+    assert(v && is_value(v));
+    if (v->tag == Variable_TAG)
+        return v->payload.var.name;
+    return NULL;
+}
+
+String get_value_name_safe(const Node* v) {
+    String name = get_value_name(v);
+    if (name)
+        return name;
+    if (v->tag == Variable_TAG)
+        return format_string_interned(v->arena, "v%d", v->payload.var.id);
+    return node_tags[v->tag];
+}
+
 int64_t get_int_literal_value(const Node* node, bool sign_extend) {
     const IntLiteral* literal = resolve_to_literal(node);
     assert(literal);
