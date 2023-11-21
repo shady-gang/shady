@@ -17,7 +17,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Fill_TAG: {
             const Type* composite_t = rewrite_node(&ctx->rewriter, node->payload.fill.type);
-            size_t actual_size = get_int_literal_value(get_fill_type_size(composite_t), false);
+            size_t actual_size = get_int_literal_value(*resolve_to_int_literal(get_fill_type_size(composite_t)), false);
             const Node* value = rewrite_node(&ctx->rewriter, node->payload.fill.value);
             LARRAY(const Node*, copies, actual_size);
             for (size_t i = 0; i < actual_size; i++) {

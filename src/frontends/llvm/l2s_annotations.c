@@ -26,7 +26,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
     IrArena* a = get_module_arena(p->dst);
     const Type* t = convert_type(p, LLVMGlobalGetValueType(global));
     assert(t->tag == ArrType_TAG);
-    size_t arr_size = get_int_literal_value(t->payload.arr_type.size, false);
+    size_t arr_size = get_int_literal_value(*resolve_to_int_literal(t->payload.arr_type.size), false);
     assert(arr_size > 0);
     const Node* value = convert_value(p, LLVMGetInitializer(global));
     assert(value->tag == Composite_TAG && value->payload.composite.contents.count == arr_size);

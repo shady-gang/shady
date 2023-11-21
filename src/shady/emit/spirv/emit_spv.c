@@ -374,15 +374,15 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
                     uint32_t decoration_payload[] = { d };
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBuiltIn, 1, decoration_payload);
                 } else if (strcmp(name, "Location") == 0) {
-                    size_t loc = get_int_literal_value(get_annotation_value(a), false);
+                    size_t loc = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationLocation, 1, (uint32_t[]) { loc });
                 } else if (strcmp(name, "DescriptorSet") == 0) {
-                    size_t loc = get_int_literal_value(get_annotation_value(a), false);
+                    size_t loc = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationDescriptorSet, 1, (uint32_t[]) { loc });
                 } else if (strcmp(name, "DescriptorBinding") == 0) {
-                    size_t loc = get_int_literal_value(get_annotation_value(a), false);
+                    size_t loc = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBinding, 1, (uint32_t[]) { loc });
                 }
@@ -398,10 +398,6 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
                     const Node* descriptor_set = lookup_annotation(decl, "DescriptorSet");
                     const Node* descriptor_binding = lookup_annotation(decl, "DescriptorBinding");
                     assert(descriptor_set && descriptor_binding && "DescriptorSet and/or DescriptorBinding annotations are missing");
-                    size_t set     = get_int_literal_value(get_annotation_value(descriptor_set),     false);
-                    size_t binding = get_int_literal_value(get_annotation_value(descriptor_binding), false);
-                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationDescriptorSet, 1, (uint32_t []) { set });
-                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationBinding, 1, (uint32_t []) { binding });
                     break;
                 }
                 default: break;
@@ -482,9 +478,9 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
             if (workgroup_size) {
                 Nodes values = get_annotation_values(workgroup_size);
                 assert(values.count == 3);
-                uint32_t wg_x_dim = (uint32_t) get_int_literal_value(values.nodes[0], false);
-                uint32_t wg_y_dim = (uint32_t) get_int_literal_value(values.nodes[1], false);
-                uint32_t wg_z_dim = (uint32_t) get_int_literal_value(values.nodes[2], false);
+                uint32_t wg_x_dim = (uint32_t) get_int_literal_value(*resolve_to_int_literal(values.nodes[0]), false);
+                uint32_t wg_y_dim = (uint32_t) get_int_literal_value(*resolve_to_int_literal(values.nodes[1]), false);
+                uint32_t wg_z_dim = (uint32_t) get_int_literal_value(*resolve_to_int_literal(values.nodes[2]), false);
 
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, (uint32_t[3]) { wg_x_dim, wg_y_dim, wg_z_dim });
             }

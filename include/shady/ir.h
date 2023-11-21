@@ -118,9 +118,11 @@ String get_value_name_safe(const Node*);
 void set_variable_name(Node* var, String);
 
 const Node* get_quoted_value(const Node* instruction);
-const IntLiteral* resolve_to_literal(const Node*);
 
-int64_t get_int_literal_value(const Node*, bool sign_extend);
+const IntLiteral* resolve_to_int_literal(const Node* node);
+int64_t get_int_literal_value(IntLiteral, bool sign_extend);
+const FloatLiteral* resolve_to_float_literal(const Node* node);
+double get_float_literal_value(FloatLiteral);
 const char* get_string_literal(IrArena*, const Node*);
 
 String get_address_space_name(AddressSpace);

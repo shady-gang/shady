@@ -152,7 +152,7 @@ static const Node* process(Context* ctx, const Node* node) {
             TreeNode* root = NULL;
             for (size_t i = 0; i < literals.count; i++) {
                 TreeNode* t = arena_alloc(arena, sizeof(TreeNode));
-                t->key = get_int_literal_value(literals.nodes[i], false);
+                t->key = get_int_literal_value(*resolve_to_int_literal(literals.nodes[i]), false);
                 t->lam = cases.nodes[i];
                 root = insert(root, t);
             }

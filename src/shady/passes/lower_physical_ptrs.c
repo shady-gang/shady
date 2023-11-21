@@ -125,7 +125,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 log_node(ERROR, element_type);
                 error_print(" is not known a compile-time!\n");
             }
-            size_t components_count = get_int_literal_value(size, 0);
+            size_t components_count = get_int_literal_value(*resolve_to_int_literal(size), 0);
             const Type* component_type = get_fill_type_element_type(element_type);
             LARRAY(const Node*, components, components_count);
             const Node* offset = base_offset;
@@ -230,7 +230,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 log_node(ERROR, element_type);
                 error_print(" is not known a compile-time!\n");
             }
-            size_t components_count = get_int_literal_value(size, 0);
+            size_t components_count = get_int_literal_value(*resolve_to_int_literal(size), 0);
             const Type* component_type = get_fill_type_element_type(element_type);
             const Node* offset = base_offset;
             for (size_t i = 0; i < components_count; i++) {

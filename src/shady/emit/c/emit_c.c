@@ -72,7 +72,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
         uint8_t* tmp = malloc(sizeof(uint8_t) * c.count);
         bool ends_zero = false;
         for (size_t i = 0; i < c.count; i++) {
-            tmp[i] = get_int_literal_value(c.nodes[i], false);
+            tmp[i] = get_int_literal_value(*resolve_to_int_literal(c.nodes[i]), false);
             if (tmp[i] == 0) {
                 if (i == c.count - 1)
                     ends_zero = true;

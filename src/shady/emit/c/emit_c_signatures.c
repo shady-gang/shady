@@ -229,7 +229,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             const Node* size = type->payload.arr_type.size;
             String inner_decl_rhs;
             if (size)
-                inner_decl_rhs = format_string_arena(emitter->arena->arena, "arr[%zu]", get_int_literal_value(size, false));
+                inner_decl_rhs = format_string_arena(emitter->arena->arena, "arr[%zu]", get_int_literal_value(*resolve_to_int_literal(size), false));
             else
                 inner_decl_rhs = format_string_arena(emitter->arena->arena, "arr[0]");
             print(p, "\n%s;", emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));

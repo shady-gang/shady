@@ -65,7 +65,7 @@ void enter_composite(const Type** datatype, bool* uniform, Nodes indices, bool a
         try_again:
         switch (current_type->tag) {
             case RecordType_TAG: {
-                size_t selector_value = get_int_literal_value(selector, false);
+                size_t selector_value = get_int_literal_value(*resolve_to_int_literal(selector), false);
                 assert(selector_value < current_type->payload.record_type.members.count);
                 current_type = current_type->payload.record_type.members.nodes[selector_value];
                 continue;
@@ -83,7 +83,7 @@ void enter_composite(const Type** datatype, bool* uniform, Nodes indices, bool a
             case PackType_TAG: {
                 assert(allow_entering_pack);
                 assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a pack type need to be constant");
-                size_t selector_value = get_int_literal_value(selector, false);
+                size_t selector_value = get_int_literal_value(*resolve_to_int_literal(selector), false);
                 assert(selector_value < current_type->payload.pack_type.width);
                 current_type = current_type->payload.pack_type.element_type;
                 continue;
@@ -261,19 +261,16 @@ Nodes get_composite_type_element_types(const Type* type) {
         case RecordType_TAG: {
             return type->payload.record_type.members;
         }
-        case Type_ArrType_TAG: {
-            size_t size = get_int_literal_value(type->payload.arr_type.size, false);
-            LARRAY(const Type*, types, size);
-            for (size_t i = 0; i < size; i++) {
-                types[i] = type->payload.arr_type.element_type;
-            }
-            return nodes(type->arena, size, types);
-        }
+        case Type_ArrType_TAG:
         case Type_PackType_TAG: {
-            size_t size = type->payload.pack_type.width;
+            size_t size = get_int_literal_value(*resolve_to_int_literal(get_fill_type_size(type)), false);
+            if (size >= 1024) {
+                warn_print("Potential performance issue: creating a really big array of composites of types (size=%d)!\n", size);
+            }
+            const Type* element_type = get_fill_type_element_type(type);
             LARRAY(const Type*, types, size);
             for (size_t i = 0; i < size; i++) {
-                types[i] = type->payload.pack_type.element_type;
+                types[i] = element_type;
             }
             return nodes(type->arena, size, types);
         }

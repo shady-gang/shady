@@ -89,7 +89,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         }
         case LLVMConstantDataArrayValueKind: {
             assert(t->tag == ArrType_TAG);
-            size_t arr_size = get_int_literal_value(t->payload.arr_type.size, false);
+            size_t arr_size = get_int_literal_value(*resolve_to_int_literal(t->payload.arr_type.size), false);
             assert(arr_size >= 0 && arr_size < INT32_MAX && "sanity check");
             return data_composite(t, arr_size, v);
         }
@@ -132,7 +132,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
                 r = string_lit_helper(a, LLVMGetAsString(v, &idc));
                 break;
             }
-            size_t arr_size = get_int_literal_value(t->payload.arr_type.size, false);
+            size_t arr_size = get_int_literal_value(*resolve_to_int_literal(t->payload.arr_type.size), false);
             assert(arr_size >= 0 && arr_size < INT32_MAX && "sanity check");
             LARRAY(const Node*, elements, arr_size);
             for (size_t i = 0; i < arr_size; i++) {

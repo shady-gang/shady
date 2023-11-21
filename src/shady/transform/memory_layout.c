@@ -87,7 +87,7 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
         case ArrType_TAG: {
             const Node* size = type->payload.arr_type.size;
             assert(size && "We can't know the full layout of arrays of unknown size !");
-            size_t actual_size = get_int_literal_value(size, false);
+            size_t actual_size = get_int_literal_value(*resolve_to_int_literal(size), false);
             TypeMemLayout element_layout = get_mem_layout(a, type->payload.arr_type.element_type);
             return (TypeMemLayout) {
                 .type = type,

@@ -422,7 +422,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             break;
         case IntLiteral_TAG:
             printf(BBLUE);
-            uint64_t v = get_int_literal_value(node, false);
+            uint64_t v = get_int_literal_value(node->payload.int_literal, false);
             switch (node->payload.int_literal.width) {
                 case IntTy8:  printf("%" PRIu8,  (uint8_t)  v);  break;
                 case IntTy16: printf("%" PRIu16, (uint16_t) v); break;

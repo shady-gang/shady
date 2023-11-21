@@ -106,9 +106,9 @@ static void specialize_arena_config(const CompilerConfig* config, Module* src, A
             const Node* old_wg_size_annotation = lookup_annotation(old_entry_point_decl, "WorkgroupSize");
             assert(old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && get_annotation_values(old_wg_size_annotation).count == 3);
             Nodes wg_size_nodes = get_annotation_values(old_wg_size_annotation);
-            target->specializations.workgroup_size[0] = get_int_literal_value(wg_size_nodes.nodes[0], false);
-            target->specializations.workgroup_size[1] = get_int_literal_value(wg_size_nodes.nodes[1], false);
-            target->specializations.workgroup_size[2] = get_int_literal_value(wg_size_nodes.nodes[2], false);
+            target->specializations.workgroup_size[0] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[0]), false);
+            target->specializations.workgroup_size[1] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[1]), false);
+            target->specializations.workgroup_size[2] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[2]), false);
             assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2]);
             break;
         }

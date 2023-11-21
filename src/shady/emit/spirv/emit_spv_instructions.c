@@ -290,7 +290,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 LARRAY(uint32_t, indices, indices_count);
                 for (size_t i = 0; i < indices_count; i++) {
                     // TODO: fallback to Dynamic variants transparently
-                    indices[i] = get_int_literal_value(args.nodes[i + indices_start], false);
+                    indices[i] = get_int_literal_value(*resolve_to_int_literal(args.nodes[i + indices_start]), false);
                 }
 
                 if (!insert) {
@@ -361,7 +361,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             for (size_t i = 2; i < args.count; i++)
                 indices[i - 2] = args.nodes[i] ? emit_value(emitter, bb_builder, args.nodes[i]) : 0;
 
-            const IntLiteral* known_offset = resolve_to_literal(args.nodes[1]);
+            const IntLiteral* known_offset = resolve_to_int_literal(args.nodes[1]);
             if (known_offset && known_offset->value == 0) {
                 const Type* target_type = instr->type;
                 SpvId result = spvb_access_chain(bb_builder, emit_type(emitter, target_type), base, args.count - 2, indices);
@@ -479,7 +479,7 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
     size_t literal_case_entry_size = literal_width + 1;
     LARRAY(uint32_t, literals_and_cases, match.cases.count * literal_case_entry_size);
     for (size_t i = 0; i < match.cases.count; i++) {
-        uint64_t value = (uint64_t) get_int_literal_value(match.literals.nodes[i], false);
+        uint64_t value = (uint64_t) get_int_literal_value(*resolve_to_int_literal(match.literals.nodes[i]), false);
         if (inspectee_t->payload.int_type.width == IntTy64) {
             literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) (value & 0xFFFFFFFF);
             literals_and_cases[i * literal_case_entry_size + 1] = (SpvId) (uint32_t) (value >> 32);

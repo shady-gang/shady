@@ -34,7 +34,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 case offset_of_op: {
                     const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
                     const Node* n = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands));
-                    const IntLiteral* literal = resolve_to_literal(n);
+                    const IntLiteral* literal = resolve_to_int_literal(n);
                     assert(literal);
                     t = get_maybe_nominal_type_body(t);
                     uint64_t offset_in_bytes = (uint64_t) get_record_field_offset_in_bytes(a, t, literal->value);

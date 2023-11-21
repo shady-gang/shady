@@ -163,8 +163,8 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 default: continue;
             }
 
-            int set = get_int_literal_value(get_annotation_value(lookup_annotation(decl, "DescriptorSet")), false);
-            int binding = get_int_literal_value(get_annotation_value(lookup_annotation(decl, "DescriptorBinding")), false);
+            int set = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "DescriptorSet"))), false);
+            int binding = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "DescriptorBinding"))), false);
 
             ProgramResourceInfo* res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
             *res_info = (ProgramResourceInfo) {

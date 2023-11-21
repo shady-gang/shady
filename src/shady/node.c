@@ -55,26 +55,46 @@ void set_variable_name(Node* var, String name) {
     var->payload.var.name = name;
 }
 
-int64_t get_int_literal_value(const Node* node, bool sign_extend) {
-    const IntLiteral* literal = resolve_to_literal(node);
-    assert(literal);
+int64_t get_int_literal_value(IntLiteral literal, bool sign_extend) {
     if (sign_extend) {
-        switch (literal->width) {
-            case IntTy8:  return (int64_t) (int8_t)  (literal->value & 0xFF);
-            case IntTy16: return (int64_t) (int16_t) (literal->value & 0xFFFF);
-            case IntTy32: return (int64_t) (int32_t) (literal->value & 0xFFFFFFFF);
-            case IntTy64: return (int64_t) literal->value;
+        switch (literal.width) {
+            case IntTy8:  return (int64_t) (int8_t)  (literal.value & 0xFF);
+            case IntTy16: return (int64_t) (int16_t) (literal.value & 0xFFFF);
+            case IntTy32: return (int64_t) (int32_t) (literal.value & 0xFFFFFFFF);
+            case IntTy64: return (int64_t) literal.value;
             default: assert(false);
         }
     } else {
-        switch (literal->width) {
-            case IntTy8:  return literal->value & 0xFF;
-            case IntTy16: return literal->value & 0xFFFF;
-            case IntTy32: return literal->value & 0xFFFFFFFF;
-            case IntTy64: return literal->value;
+        switch (literal.width) {
+            case IntTy8:  return literal.value & 0xFF;
+            case IntTy16: return literal.value & 0xFFFF;
+            case IntTy32: return literal.value & 0xFFFFFFFF;
+            case IntTy64: return literal.value;
             default: assert(false);
         }
     }
+}
+
+static_assert(sizeof(float) == sizeof(uint64_t) / 2, "floats aren't the size we expect");
+double get_float_literal_value(FloatLiteral literal) {
+    double r;
+    switch (literal.width) {
+        case FloatTy16:
+            error_print("TODO: fp16 literals");
+            error_die();
+            SHADY_UNREACHABLE;
+            break;
+        case FloatTy32: {
+            float f;
+            memcpy(&f, &literal.value, sizeof(float));
+            r = (double) f;
+            break;
+        }
+        case FloatTy64:
+            memcpy(&r, &literal.value, sizeof(double));
+            break;
+    }
+    return r;
 }
 
 const Node* get_quoted_value(const Node* instruction) {
@@ -83,25 +103,51 @@ const Node* get_quoted_value(const Node* instruction) {
     return NULL;
 }
 
-const IntLiteral* resolve_to_literal(const Node* node) {
-    if (!node)
-        return NULL;
+const Node* resolve_decl(const Node* decl) {
+    switch (decl->tag) {
+        case Constant_TAG: return get_quoted_value(decl->payload.constant.instruction);
+        case GlobalVariable_TAG: /* TODO: when adding immutable globals */
+        default: break;
+    }
+    return NULL;
+}
+
+const Node* resolve_value(const Node* value) {
     while (true) {
-        switch (node->tag) {
-            case Constant_TAG:   return resolve_to_literal(get_quoted_value(node->payload.constant.instruction));
-            case RefDecl_TAG:    return resolve_to_literal(node->payload.ref_decl.decl);
-            case IntLiteral_TAG: return &node->payload.int_literal;
-            default: return NULL;
+        if (!value)
+            return NULL;
+        assert(is_value(value));
+        switch (value->tag) {
+            case RefDecl_TAG:
+                value = resolve_decl(value->payload.ref_decl.decl);
+                break;
+            default: return value;
         }
     }
 }
 
+const IntLiteral* resolve_to_int_literal(const Node* node) {
+    node = resolve_value(node);
+    if (!node)
+        return NULL;
+    if (node->tag == IntLiteral_TAG)
+        return &node->payload.int_literal;
+    return NULL;
+}
+
+const FloatLiteral* resolve_to_float_literal(const Node* node) {
+    node = resolve_value(node);
+    if (!node)
+        return NULL;
+    if (node->tag == FloatLiteral_TAG)
+        return &node->payload.float_literal;
+    return NULL;
+}
+
 static bool is_zero(const Node* node) {
-    //node = resolve_known_vars(node, false);
-    if (node->tag == IntLiteral_TAG) {
-        if (get_int_literal_value(node, false) == 0)
-            return true;
-    }
+    const IntLiteral* lit = resolve_to_int_literal(node);
+    if (lit && get_int_literal_value(*lit, false) == 0)
+        return true;
     return false;
 }
 
@@ -148,7 +194,7 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
             for (size_t i = 0; i < contents.count; i++) {
                 const Node* value = contents.nodes[i];
                 assert(value->tag == IntLiteral_TAG && value->payload.int_literal.width == IntTy8);
-                chars[i] = (unsigned char) get_int_literal_value(value, false);
+                chars[i] = (unsigned char) get_int_literal_value(*resolve_to_int_literal(value), false);
             }
             assert(chars[contents.count - 1] == 0);
             return string(arena, chars);

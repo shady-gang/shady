@@ -464,7 +464,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                 new_operands[0] = reinterpret_cast_helper(bb, new_operands[0], base_datatype);
                 type_args = empty(a);
             }
-            const IntLiteral* lit = resolve_to_literal(new_operands[1]);
+            const IntLiteral* lit = resolve_to_int_literal(new_operands[1]);
             if ((!lit || lit->value) != 0 && base_datatype->tag != ArrType_TAG) {
                 warn_print("LEA used on a pointer to a non-array type!\n");
                 const Node* cast_base = first(bind_instruction(bb, prim_op(a, (PrimOp) {

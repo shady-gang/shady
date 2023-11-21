@@ -210,6 +210,9 @@ const Node* get_default_zero_value(IrArena* a, const Type* t) {
         case Type_PackType_TAG:
         case Type_TypeDeclRef_TAG: {
             Nodes elem_tys = get_composite_type_element_types(t);
+            if (elem_tys.count >= 1024) {
+                warn_print("Potential performance issue: creating a really composite full of zero/default values (size=%d)!\n", elem_tys.count);
+            }
             LARRAY(const Node*, elems, elem_tys.count);
             for (size_t i = 0; i < elem_tys.count; i++)
                 elems[i] = get_default_zero_value(a, elem_tys.nodes[i]);

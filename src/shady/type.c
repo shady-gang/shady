@@ -103,7 +103,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
                 return false;
             // unsized arrays are supertypes of sized arrays (even though they're not datatypes...)
             // TODO: maybe change this so it's only valid when talking about to pointer-to-arrays
-            const IntLiteral* size_literal = resolve_to_literal(supertype->payload.arr_type.size);
+            const IntLiteral* size_literal = resolve_to_int_literal(supertype->payload.arr_type.size);
             if (size_literal && size_literal->value == 0)
                 return true;
             return supertype->payload.arr_type.size == type->payload.arr_type.size || !supertype->payload.arr_type.size;
@@ -754,7 +754,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
             const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
-            const IntLiteral* lit = resolve_to_literal(offset);
+            const IntLiteral* lit = resolve_to_int_literal(offset);
             bool offset_is_zero = lit && lit->value == 0;
             assert(offset_is_zero || pointee_type->tag == ArrType_TAG && "if an offset is used, the base pointer must point to an array");
             uniform &= offset_uniform;
@@ -884,7 +884,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool u = lhs_u & rhs_u;
             for (size_t i = 0; i < idx.count; i++) {
                 u &= is_qualified_type_uniform(idx.nodes[i]->type);
-                size_t index = get_int_literal_value(idx.nodes[i], false);
+                size_t index = get_int_literal_value(*resolve_to_int_literal(idx.nodes[i]), false);
                 assert(index >= 0 && index < total_size && "shuffle element out of range");
             }
             return qualified_type_helper(pack_type(arena, (PackType) { .element_type = element_t, .width = idx.count }), u);
