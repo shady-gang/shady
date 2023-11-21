@@ -118,6 +118,8 @@ SpvbFileBuilder* spvb_begin() {
 
         .capabilities_set = new_set(SpvCapability, (HashFn) hash_u32, (CmpFn) compare_u32s),
         .extensions_set = new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
+
+        .memory_model = SpvMemoryModelGLSL450,
     };
     return file_builder;
 }
