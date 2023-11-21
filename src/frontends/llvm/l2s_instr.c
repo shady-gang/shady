@@ -364,8 +364,21 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 intrinsic = is_shady_intrinsic(callee);
             if (intrinsic) {
                 assert(LLVMIsAFunction(callee));
-                if (strcmp(intrinsic, "llvm.dbg.declare") == 0)
+                if (strcmp(intrinsic, "llvm.dbg.declare") == 0) {
+                    const Node* target = convert_value(p, LLVMGetOperand(instr, 0));
+                    assert(target->tag == Variable_TAG);
+                    const Node* meta = convert_value(p, LLVMGetOperand(instr, 1));
+                    assert(meta->tag == RefDecl_TAG);
+                    meta = meta->payload.ref_decl.decl;
+                    assert(meta->tag == GlobalVariable_TAG);
+                    meta = meta->payload.global_variable.init;
+                    assert(meta && meta->tag == Composite_TAG);
+                    const Node* name_node = meta->payload.composite.contents.nodes[2];
+                    String name = get_string_literal(target->arena, name_node);
+                    assert(name);
+                    set_variable_name((Node*) target, name);
                     return (EmittedInstr) {};
+                }
                 if (strcmp(intrinsic, "llvm.dbg.label") == 0) {
                     // TODO
                     return (EmittedInstr) {};
@@ -532,7 +545,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
         assert(result_types.count == num_results);
         return (EmittedInstr) {
             .instruction = r,
-            .result_types = result_types
+            .result_types = result_types,
         };
     }
 
