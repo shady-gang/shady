@@ -389,3 +389,20 @@ const Type* uint64_literal(IrArena* arena, uint64_t i) { return int_literal(aren
 const Type* fp16_type(IrArena* arena) { return float_type(arena, (Float) { .width = FloatTy16 }); }
 const Type* fp32_type(IrArena* arena) { return float_type(arena, (Float) { .width = FloatTy32 }); }
 const Type* fp64_type(IrArena* arena) { return float_type(arena, (Float) { .width = FloatTy64 }); }
+
+const Node* fp_literal_helper(IrArena* a, FloatSizes size, double value) {
+    switch (size) {
+        case FloatTy16: assert(false); break;
+        case FloatTy32: {
+            float f = value;
+            uint64_t bits = 0;
+            memcpy(&bits, &f, sizeof(f));
+            return float_literal(a, (FloatLiteral) { .width = size, .value = bits });
+        }
+        case FloatTy64: {
+            uint64_t bits = 0;
+            memcpy(&bits, &value, sizeof(value));
+            return float_literal(a, (FloatLiteral) { .width = size, .value = bits });
+        }
+    }
+}

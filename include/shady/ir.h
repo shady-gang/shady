@@ -183,6 +183,8 @@ const Type* fp16_type(IrArena*);
 const Type* fp32_type(IrArena*);
 const Type* fp64_type(IrArena*);
 
+const Node* fp_literal_helper(IrArena*, FloatSizes, double);
+
 const Node* type_decl_ref_helper(IrArena*, const Node* decl);
 
 // values
