@@ -9,6 +9,7 @@
 #include "../type.h"
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
+#include "../transform/memory_layout.h"
 
 #include <assert.h>
 
@@ -38,26 +39,21 @@ static uint64_t get_tag_for_addr_space(AddressSpace as) {
     error("this address space can't be converted to generic");
 }
 
-static const Node* size_t_literal(Context* ctx, uint64_t value) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value = value });
-}
-
 static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t tag, const Node* nptr, const Type* element_type) {
     IrArena* a = ctx->rewriter.dst_arena;
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
     const Node* generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false});
 
     //          first_non_tag_bit = nptr >> (64 - 2 - 1)
-    const Node* first_non_tag_bit = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, nptr, size_t_literal(ctx, get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
+    const Node* first_non_tag_bit = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, nptr, size_t_literal(a, get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
     //          first_non_tag_bit &= 1
-    first_non_tag_bit = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(ctx, 1)));
+    first_non_tag_bit = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
     //          needs_sign_extension = first_non_tag_bit == 1
-    const Node* needs_sign_extension = gen_primop_e(bb, eq_op, empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(ctx, 1)));
+    const Node* needs_sign_extension = gen_primop_e(bb, eq_op, empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
     //          sign_extension_patch = needs_sign_extension ? ((1 << 2) - 1) << (64 - 2) : 0
-    const Node* sign_extension_patch = gen_primop_e(bb, select_op, empty(a), mk_nodes(a, needs_sign_extension, size_t_literal(ctx, ((size_t) ((1 << max_tag) - 1)) << (get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)), size_t_literal(ctx, 0)));
+    const Node* sign_extension_patch = gen_primop_e(bb, select_op, empty(a), mk_nodes(a, needs_sign_extension, size_t_literal(a, ((size_t) ((1 << max_tag) - 1)) << (get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)), size_t_literal(a, 0)));
     //          patched_ptr = nptr & 0b00111 ... 111
-    const Node* patched_ptr = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, nptr, size_t_literal(ctx, SIZE_MAX >> generic_ptr_tag_bitwidth)));
+    const Node* patched_ptr = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, nptr, size_t_literal(a, SIZE_MAX >> generic_ptr_tag_bitwidth)));
     //          patched_ptr = patched_ptr | sign_extension_patch
                 patched_ptr = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, patched_ptr, sign_extension_patch));
     const Type* dst_ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = get_addr_space_from_tag(tag) });
@@ -110,7 +106,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             LARRAY(const Node*, literals, max_tag);
             LARRAY(const Node*, cases, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
-                literals[tag] = size_t_literal(ctx, tag);
+                literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
                     cases[tag] = case_(a, empty(a), unreachable(a));
                     continue;
@@ -126,7 +122,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             BodyBuilder* bb = begin_body(a);
             gen_comment(bb, "Generated generic ptr store");
             //          extracted_tag = nptr >> (64 - 2), for example
-            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(ctx, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             const Node* loaded_value = first(bind_instruction(bb, match_instr(a, (Match) {
                     .inspect = extracted_tag,
@@ -142,7 +138,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             LARRAY(const Node*, literals, max_tag);
             LARRAY(const Node*, cases, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
-                literals[tag] = size_t_literal(ctx, tag);
+                literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
                     cases[tag] = case_(a, empty(a), unreachable(a));
                     continue;
@@ -158,7 +154,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             BodyBuilder* bb = begin_body(a);
             gen_comment(bb, "Generated generic ptr store");
             //          extracted_tag = nptr >> (64 - 2), for example
-            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(ctx, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             bind_instruction(bb, match_instr(a, (Match) {
                     .inspect = extracted_tag,
@@ -191,7 +187,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case NullPtr_TAG: {
             if (old->payload.null_ptr.ptr_type->payload.ptr_type.address_space == AsGeneric)
-                return size_t_literal(ctx, 0);
+                return size_t_literal(a, 0);
             break;
         }
         case PrimOp_TAG: {
@@ -210,10 +206,10 @@ static const Node* process(Context* ctx, const Node* old) {
                         gen_comment(bb, x);
                         const Node* src_ptr = rewrite_node(&ctx->rewriter, old_src);
                         const Node* generic_ptr = gen_reinterpret_cast(bb, ctx->generic_ptr_type, src_ptr);
-                        const Node* ptr_mask = size_t_literal(ctx, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
+                        const Node* ptr_mask = size_t_literal(a, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr & 0x001111 ... 111
                                     generic_ptr = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, generic_ptr, ptr_mask));
-                        const Node* shifted_tag = size_t_literal(ctx, (tag << (uint64_t) (get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+                        const Node* shifted_tag = size_t_literal(a, (tag << (uint64_t) (get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr | 01000000 ... 000
                                     generic_ptr = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, generic_ptr, shifted_tag));
                         return yield_values_and_wrap_in_block(bb, singleton(generic_ptr));

@@ -28,11 +28,28 @@ enum {
     IntSizeMax = IntTy64,
 };
 
+static inline int int_size_in_bytes(IntSizes s) {
+    switch (s) {
+        case IntTy8: return 1;
+        case IntTy16: return 2;
+        case IntTy32: return 4;
+        case IntTy64: return 8;
+    }
+}
+
 typedef enum {
     FloatTy16,
     FloatTy32,
     FloatTy64
 } FloatSizes;
+
+static inline int float_size_in_bytes(FloatSizes s) {
+    switch (s) {
+        case FloatTy16: return 2;
+        case FloatTy32: return 4;
+        case FloatTy64: return 8;
+    }
+}
 
 #define EXECUTION_MODELS(EM) \
 EM(Compute,  1) \

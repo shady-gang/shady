@@ -156,24 +156,12 @@ void check_subtype(const Type* supertype, const Type* type) {
 
 size_t get_type_bitwidth(const Type* t) {
     switch (t->tag) {
-        case Int_TAG: {
-            switch (t->payload.int_type.width) {
-                case IntTy8:  return 8;
-                case IntTy16: return 16;
-                case IntTy32: return 32;
-                case IntTy64: return 64;
-            }
-        }
-        case Float_TAG: {
-            switch (t->payload.float_type.width) {
-                case FloatTy16: return 16;
-                case FloatTy32: return 32;
-                case FloatTy64: return 64;
-            }
-        }
+        case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;
+        case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
         case PtrType_TAG: {
             if (is_physical_as(t->payload.ptr_type.address_space))
-                return 64;
+                return int_size_in_bytes(t->arena->config.memory.ptr_size) * 8;
+            break;
         }
         default: break;
     }

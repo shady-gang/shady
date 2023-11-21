@@ -1,6 +1,7 @@
 #include "passes.h"
 
 #include "../transform/ir_gen_helpers.h"
+#include "../transform/memory_layout.h"
 #include "../rewrite.h"
 #include "../type.h"
 #include "../ir_private.h"
@@ -14,20 +15,6 @@ typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
 } Context;
-
-static const Node* size_t_literal(Context* ctx, uint64_t value) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value = value });
-}
-
-// TODO assumes alignment
-static const Node* bytes_to_words(Context* ctx, BodyBuilder* bb, const Node* bytes) {
-    IrArena* a = bb->arena;
-    const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
-    size_t word_width = get_type_bitwidth(word_type);
-    const Node* bytes_per_word = size_t_literal(ctx, word_width / 8);
-    return gen_primop_e(bb, div_op, empty(a), mk_nodes(a, bytes, bytes_per_word));
-}
 
 static const Node* process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
@@ -66,7 +53,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     src_addr = gen_reinterpret_cast(bb, src_addr_type, src_addr);
 
                     const Node* num = rewrite_node(&ctx->rewriter, old_ops.nodes[2]);
-                    const Node* num_in_bytes = gen_conversion(bb, uint32_type(a), bytes_to_words(ctx, bb, num));
+                    const Node* num_in_bytes = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num));
 
                     const Node* index = var(a, qualified_type_helper(uint32_type(a), false), "memcpy_i");
                     BodyBuilder* loop_bb = begin_body(a);
@@ -107,7 +94,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
                     const Node* num = rewrite_node(&ctx->rewriter, old_ops.nodes[2]);
-                    const Node* num_in_bytes = gen_conversion(bb, uint32_type(a), bytes_to_words(ctx, bb, num));
+                    const Node* num_in_bytes = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num));
 
                     const Node* index = var(a, qualified_type_helper(uint32_type(a), false), "memset_i");
                     BodyBuilder* loop_bb = begin_body(a);

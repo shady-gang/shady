@@ -15,6 +15,12 @@ inline static size_t round_up(size_t a, size_t b) {
     return divided * b;
 }
 
+static int maxof(int a, int b) {
+    if (a > b)
+        return a;
+    return b;
+}
+
 TypeMemLayout get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields) {
     assert(record_type->tag == RecordType_TAG);
 
@@ -51,6 +57,7 @@ size_t get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i) {
 }
 
 TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
+    size_t base_word_size = int_size_in_bytes(a->config.memory.word_size);
     assert(is_type(type));
     switch (type->tag) {
         case FnType_TAG:  error("Functions have an opaque memory representation");
@@ -64,18 +71,18 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
         }
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,
-            .size_in_bytes = get_type_bitwidth(type) / 8,
-            .alignment_in_bytes = get_type_bitwidth(type) / 8,
+            .size_in_bytes = int_size_in_bytes(type->payload.int_type.width),
+            .alignment_in_bytes = maxof(int_size_in_bytes(type->payload.int_type.width), base_word_size),
         };
         case Float_TAG:   return (TypeMemLayout) {
             .type = type,
-            .size_in_bytes = get_type_bitwidth(type) / 8,
-            .alignment_in_bytes = get_type_bitwidth(type) / 8,
+            .size_in_bytes = float_size_in_bytes(type->payload.float_type.width),
+            .alignment_in_bytes = maxof(float_size_in_bytes(type->payload.float_type.width), base_word_size),
         };
         case Bool_TAG:   return (TypeMemLayout) {
             .type = type,
-            .size_in_bytes = 4,
-            .alignment_in_bytes = 4,
+            .size_in_bytes = base_word_size,
+            .alignment_in_bytes = base_word_size,
         };
         case ArrType_TAG: {
             const Node* size = type->payload.arr_type.size;
@@ -101,5 +108,30 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
         case TypeDeclRef_TAG: return get_mem_layout(a, type->payload.type_decl_ref.decl->payload.nom_type.body);
         case RecordType_TAG: return get_record_layout(a, type, NULL);
         default: error("not a known type");
+    }
+}
+
+const Node* size_t_literal(IrArena* a, uint64_t value) {
+    return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value = value });
+}
+
+const Node* bytes_to_words(BodyBuilder* bb, const Node* bytes) {
+    IrArena* a = bytes->arena;
+    const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
+    size_t word_width = get_type_bitwidth(word_type);
+    const Node* bytes_per_word = size_t_literal(a, word_width / 8);
+    return gen_primop_e(bb, div_op, empty(a), mk_nodes(a, bytes, bytes_per_word));
+}
+
+uint64_t bytes_to_words_static(const IrArena* a, uint64_t bytes) {
+    uint64_t word_width = int_size_in_bytes(a->config.memory.word_size);
+    return bytes / ( word_width / 8 );
+}
+
+IntSizes float_to_int_width(FloatSizes width) {
+    switch (width) {
+        case FloatTy16: return IntTy16;
+        case FloatTy32: return IntTy32;
+        case FloatTy64: return IntTy64;
     }
 }
