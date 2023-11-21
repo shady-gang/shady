@@ -153,6 +153,8 @@ Nodes change_node_at_index(IrArena* arena, Nodes old, size_t i, const Node* n) {
 
 /// takes care of structural sharing
 static const char* string_impl(IrArena* arena, size_t size, const char* zero_terminated) {
+    if (!zero_terminated)
+        return NULL;
     const char* ptr = zero_terminated;
     const char** found = find_key_dict(const char*, arena->string_set, ptr);
     if (found)
@@ -176,6 +178,8 @@ const char* string_sized(IrArena* arena, size_t size, const char* str) {
 }
 
 const char* string(IrArena* arena, const char* str) {
+    if (!str)
+        return NULL;
     return string_impl(arena, strlen(str), str);
 }
 
@@ -234,10 +238,14 @@ bool compare_strings(Strings* a, Strings* b) {
 }
 
 KeyHash hash_string(const char** string) {
+    if (!*string)
+        return 0;
     return hash_murmur(*string, strlen(*string));
 }
 
 bool compare_string(const char** a, const char** b) {
+    if (*a == NULL || *b == NULL)
+        return (!*a) == (!*b);
     return strlen(*a) == strlen(*b) && strcmp(*a, *b) == 0;
 }
 

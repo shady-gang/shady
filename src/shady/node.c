@@ -50,6 +50,11 @@ String get_value_name_safe(const Node* v) {
     return node_tags[v->tag];
 }
 
+void set_variable_name(Node* var, String name) {
+    assert(var->tag == Variable_TAG);
+    var->payload.var.name = name;
+}
+
 int64_t get_int_literal_value(const Node* node, bool sign_extend) {
     const IntLiteral* literal = resolve_to_literal(node);
     assert(literal);

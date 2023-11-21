@@ -115,6 +115,7 @@ ArenaConfig get_arena_config(const IrArena*);
 String get_decl_name(const Node*);
 String get_value_name(const Node*);
 String get_value_name_safe(const Node*);
+void set_variable_name(Node* var, String);
 
 const Node* get_quoted_value(const Node* instruction);
 const IntLiteral* resolve_to_literal(const Node*);
@@ -183,7 +184,7 @@ const Type* fp64_type(IrArena*);
 const Node* type_decl_ref_helper(IrArena*, const Node* decl);
 
 // values
-const Node* var(IrArena*, const Type* type, const char* name);
+Node* var(IrArena*, const Type* type, const char* name);
 
 const Node* tuple_helper(IrArena*, Nodes contents);
 const Node* composite_helper(IrArena*, const Type*, Nodes contents);

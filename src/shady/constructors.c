@@ -90,7 +90,7 @@ const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
     return create_node_helper(arena, node, NULL);
 }
 
-const Node* var(IrArena* arena, const Type* type, const char* name) {
+Node* var(IrArena* arena, const Type* type, const char* name) {
     Variable variable = {
         .type = type,
         .name = string(arena, name),

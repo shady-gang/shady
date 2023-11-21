@@ -324,6 +324,14 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
                 Nodes new_args = instruction->payload.prim_op.operands;
                 assert(old_params.count == new_args.count);
                 register_processed_list(rewriter, old_params, new_args);
+                for (size_t i = 0; i < old_params.count; i++) {
+                    String old_name = get_value_name(old_params.nodes[i]);
+                    if (!old_name) continue;
+                    const Node* new_arg = new_args.nodes[i];
+                    if (new_arg->tag == Variable_TAG && !get_value_name(new_arg)) {
+                        set_variable_name((Node*) new_arg, old_name);
+                    }
+                }
                 return rewrite_op_helper(rewriter, NcTerminator, "body", node->payload.let.tail->payload.case_.body);
             }
             const Node* tail;
