@@ -70,34 +70,32 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             default: error("TODO")
         }
         case Int_TAG: ser_int: {
-            if (element_type->payload.int_type.width != IntTy64) {
-                // One load suffices
-                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
-                const Node* value = gen_load(bb, logical_ptr);
-                // cast into the appropriate width and throw other bits away
-                // note: folding gets rid of identity casts
-                value = convert_int_extend_according_to_dst_t(bb, element_type, value);
-                if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "loaded: %u at %lu as=%d" }),
-                        value, base_offset, int32_literal(a, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
-                return value;
-            } else {
-                // We need to decompose this into two loads, then we use the merge routine
-                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset });
-                const Node* lo = gen_load(bb, logical_ptr);
-                if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "loaded i64 lo: %u at %lu as=%d" }),
-                       lo, base_offset, int32_literal(a, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
-                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, size_t_literal(ctx, bytes_to_words_static(ctx, 4)) });
-                logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset });
-                const Node* hi = gen_load(bb, logical_ptr);
-                if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "loaded i64 hi: %u at %lu as=%d" }),
-                       hi, hi_destination_offset, int32_literal(a, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
+            assert(element_type->tag == Int_TAG);
+            const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
+            size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
+            size_t word_size_in_bytes = int_size_in_bytes(a->config.memory.word_size);
+            const Node* offset = base_offset;
+            const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
+            const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
+            for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
+                const Node* word = gen_load(bb, gen_primop_ce(bb, lea_op, 3, (const Node* []) {arr, zero, offset}));
+                            word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
+                            word = first(gen_primop(bb, lshift_op, empty(a), mk_nodes(a, word, shift))); // shift it
+                acc = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, acc, word));
 
-                const Node* merged = gen_merge_halves(bb, lo, hi);
-                return gen_reinterpret_cast(bb, element_type, merged);
+                offset = first(gen_primop(bb, add_op, empty(a), mk_nodes(a, offset, size_t_literal(a, 1))));
+                shift = first(gen_primop(bb, add_op, empty(a), mk_nodes(a, shift, word_bitwidth)));
             }
+            if (config->printf_trace.memory_accesses) {
+                AddressSpace as = get_unqualified_type(arr->type)->payload.ptr_type.address_space;
+                String template = format_string_interned(a, "loaded %s at %s:%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
+                const Node* widened = acc;
+                if (element_type->payload.int_type.width < IntTy32)
+                    widened = gen_conversion(bb, uint32_type(a), acc);
+                bind_instruction(bb, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = template }), widened, base_offset) }));
+            }
+            acc = gen_reinterpret_cast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);\
+            return acc;
         }
         case Float_TAG: {
             const Type* unsigned_int_t = int_type(a, (Int) {.width = float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
@@ -163,35 +161,42 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             default: error("TODO")
         }
         case Int_TAG: des_int: {
+            assert(element_type->tag == Int_TAG);
             // First bitcast to unsigned so we always get zero-extension and not sign-extension afterwards
             const Type* element_t_unsigned = int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false});
-            const Node* unsigned_value = convert_int_extend_according_to_src_t(bb, element_t_unsigned, value);
-            if (element_type->payload.int_type.width != IntTy64) {
-                value = unsigned_value;
-                value = gen_primop_e(bb, convert_op, singleton(uint32_type(a)), singleton(value));
-                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
-                if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "stored: %u at %lu as=%d" }),
-                        value, base_offset, int32_literal(a, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
-                gen_store(bb, logical_ptr, value);
-            } else {
-                const Node* lo = unsigned_value;
-                            lo = gen_primop_e(bb, convert_op, singleton(uint32_type(a)), singleton(lo));
-                const Node* hi = unsigned_value;
-                            hi = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, hi, uint64_literal(a, 32)));
-                            hi = gen_primop_e(bb, convert_op, singleton(uint32_type(a)), singleton(hi));
-                // TODO: make this dependant on the emulation array type
-                const Node* logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, base_offset});
-                gen_store(bb, logical_ptr, lo);
-                if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "stored i64 lo: %u at %lu as=%d" }),
-                        lo, base_offset, int32_literal(a, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
-                const Node* hi_destination_offset = gen_primop_ce(bb, add_op, 2, (const Node* []) { base_offset, size_t_literal(ctx, bytes_to_words_static(ctx, 4)) });
-                logical_ptr = gen_primop_ce(bb, lea_op, 3, (const Node* []) { arr, zero, hi_destination_offset});
-                gen_store(bb, logical_ptr, hi);
-                if (config->printf_trace.memory_accesses)
-                    bind_instruction(bb, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "stored i64 hi: %u at %lu as=%d" }),
-                        hi, hi_destination_offset, int32_literal(a, get_unqualified_type(arr->type)->payload.ptr_type.address_space)) }));
+            value = convert_int_extend_according_to_src_t(bb, element_t_unsigned, value);
+
+            // const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
+            size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
+            size_t word_size_in_bytes = int_size_in_bytes(a->config.memory.word_size);
+            const Node* offset = base_offset;
+            const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
+            const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
+            for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
+                bool is_last_word = byte + word_size_in_bytes >= length_in_bytes;
+                /*bool needs_patch = is_last_word && word_size_in_bytes < length_in_bytes;
+                const Node* original_word = NULL;
+                if (needs_patch) {
+                    original_word = gen_load(bb, gen_primop_ce(bb, lea_op, 3, (const Node* []) {arr, zero, offset}));
+                    error_print("TODO");
+                    error_die();
+                    // word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
+                }*/
+                const Node* word = value;
+                word = first(gen_primop(bb, rshift_logical_op, empty(a), mk_nodes(a, word, shift))); // shift it
+                word = gen_conversion(bb, int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
+                gen_store(bb, gen_primop_ce(bb, lea_op, 3, (const Node* []) {arr, zero, offset}), word);
+
+                offset = first(gen_primop(bb, add_op, empty(a), mk_nodes(a, offset, size_t_literal(a, 1))));
+                shift = first(gen_primop(bb, add_op, empty(a), mk_nodes(a, shift, word_bitwidth)));
+            }
+            if (config->printf_trace.memory_accesses) {
+                AddressSpace as = get_unqualified_type(arr->type)->payload.ptr_type.address_space;
+                String template = format_string_interned(a, "stored %s at %s:%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
+                const Node* widened = value;
+                if (element_type->payload.int_type.width < IntTy32)
+                    widened = gen_conversion(bb, uint32_type(a), value);
+                bind_instruction(bb, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = template }), widened, base_offset) }));
             }
             return;
         }
