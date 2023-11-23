@@ -531,6 +531,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
 Module* opt_mem2reg(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    IrArena* initial_arena = get_module_arena(src);
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = src;
 
@@ -552,9 +553,14 @@ Module* opt_mem2reg(const CompilerConfig* config, Module* src) {
 
         verify_module(dst);
 
+        if (get_module_arena(src) != initial_arena)
+            destroy_ir_arena(get_module_arena(src));
+
         dst = cleanup(config, dst);
         src = dst;
     }
+
+    destroy_ir_arena(a);
 
     return dst;
 }

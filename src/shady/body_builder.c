@@ -141,8 +141,10 @@ const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
 
 const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, const Node* instruction, const Nodes* types) {
     size_t stack_size = entries_count_list(bb->stack);
-    if (stack_size == 0)
+    if (stack_size == 0) {
+        cancel_body(bb);
         return instruction;
+    }
     Nodes bound = bind_internal(bb, instruction, false, types ? types->count : SIZE_MAX, types ? types->nodes : NULL, NULL);
     return yield_values_and_wrap_in_block_explicit_return_types(bb, bound, types);
 }
