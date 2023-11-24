@@ -139,12 +139,15 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     }
 
 #define UN_OP(primop, op) case primop##_op: \
-if (all_int_literals) return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = int_width, .value = op int_literals[0]->value})); \
-else return quote_single(arena, fp_literal_helper(arena, float_width, op get_float_literal_value(*float_literals[0])));
+if (all_int_literals)        return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = int_width, .value = op int_literals[0]->value})); \
+else if (all_float_literals) return quote_single(arena, fp_literal_helper(arena, float_width, op get_float_literal_value(*float_literals[0]))); \
+else break;
 
 #define BIN_OP(primop, op) case primop##_op: \
-if (all_int_literals) return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = int_width, .value = int_literals[0]->value op int_literals[1]->value })); \
-else return quote_single(arena, fp_literal_helper(arena, float_width, get_float_literal_value(*float_literals[0]) op get_float_literal_value(*float_literals[1])));
+if (all_int_literals)        return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = int_width, .value = int_literals[0]->value op int_literals[1]->value })); \
+else if (all_float_literals) return quote_single(arena, fp_literal_helper(arena, float_width, get_float_literal_value(*float_literals[0]) op get_float_literal_value(*float_literals[1]))); \
+break;
+
     if (all_int_literals || all_float_literals) {
         switch (payload.op) {
             UN_OP(neg, -)
@@ -157,6 +160,43 @@ else return quote_single(arena, fp_literal_helper(arena, float_width, get_float_
                     return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = int_width, .value = int_literals[0]->value % int_literals[1]->value }));
                 else
                     return quote_single(arena, fp_literal_helper(arena, float_width, fmod(get_float_literal_value(*float_literals[0]), get_float_literal_value(*float_literals[1]))));
+            case reinterpret_op: {
+                const Type* dst_t = first(payload.type_arguments);
+                uint64_t raw_value = int_literals[0] ? int_literals[0]->value : float_literals[0]->value;
+                if (dst_t->tag == Int_TAG) {
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = raw_value }));
+                } else if (dst_t->tag == Float_TAG) {
+                    return quote_single(arena, float_literal(arena, (FloatLiteral) { .width = dst_t->payload.float_type.width, .value = raw_value }));
+                }
+                break;
+            }
+            case convert_op: {
+                const Type* dst_t = first(payload.type_arguments);
+                uint64_t bitmask = ~(UINT64_MAX << get_type_bitwidth(dst_t));
+                if (get_type_bitwidth(dst_t) == 64)
+                    bitmask = UINT64_MAX;
+                if (dst_t->tag == Int_TAG) {
+                    if (all_int_literals) {
+                        uint64_t old_value = get_int_literal_value(*int_literals[0], int_literals[0]->is_signed);
+                        uint64_t value = old_value & bitmask;
+                        return quote_single(arena, int_literal(arena, (IntLiteral) {.is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = value}));
+                    } else if (all_float_literals) {
+                        double old_value = get_float_literal_value(*float_literals[0]);
+                        int64_t value = old_value;
+                        return quote_single(arena, int_literal(arena, (IntLiteral) {.is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = value}));
+                    }
+                } else if (dst_t->tag == Float_TAG) {
+                    if (all_int_literals) {
+                        uint64_t old_value = get_int_literal_value(*int_literals[0], int_literals[0]->is_signed);
+                        double value = old_value;
+                        return quote_single(arena, fp_literal_helper(arena, dst_t->payload.float_type.width, value));
+                    } else if (all_float_literals) {
+                        double old_value = get_float_literal_value(*float_literals[0]);
+                        return quote_single(arena, float_literal(arena, (FloatLiteral) { .width = dst_t->payload.float_type.width, .value = old_value }));
+                    }
+                }
+                break;
+            }
             default: break;
         }
     }

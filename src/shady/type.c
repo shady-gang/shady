@@ -334,6 +334,12 @@ bool is_conversion_legal(const Type* src_type, const Type* dst_type) {
     // exactly one of the pointers needs to be in the generic address space
     if (is_generic_ptr_type(src_type) && is_generic_ptr_type(dst_type))
         return false;
+    if (src_type->tag == Int_TAG && dst_type->tag == Int_TAG) {
+        bool changes_sign = src_type->payload.int_type.is_signed != dst_type->payload.int_type.is_signed;
+        bool changes_width = src_type->payload.int_type.width != dst_type->payload.int_type.width;
+        if (changes_sign && changes_width)
+            return false;
+    }
     // element types have to match (use reinterpret_cast for changing it)
     if (is_physical_ptr_type(src_type) && is_physical_ptr_type(dst_type)) {
         AddressSpace src_as = src_type->payload.ptr_type.address_space;
