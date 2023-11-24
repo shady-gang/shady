@@ -1,3 +1,7 @@
+add_executable(test_math test_math.c)
+target_link_libraries(test_math shady driver)
+add_test(NAME test_math COMMAND test_math)
+
 list(APPEND BASIC_TESTS empty.slim)
 list(APPEND BASIC_TESTS entrypoint_args1.slim)
 list(APPEND BASIC_TESTS basic_blocks1.slim)
