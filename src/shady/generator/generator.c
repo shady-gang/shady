@@ -856,7 +856,8 @@ enum {
     ArgSelf = 0,
     ArgGeneratorFn,
     ArgDstFile,
-    ArgShadyJson,
+    ArgShadyGrammarJson,
+    ArgShadyPrimopsJson,
     ArgSpirvGrammarSearchPathBegins
 };
 
@@ -865,7 +866,8 @@ int main(int argc, char** argv) {
 
     char* mode = argv[ArgGeneratorFn];
     char* dst_file = argv[ArgDstFile];
-    char* shd_grammar_json_path = argv[ArgShadyJson];
+    char* shd_grammar_json_path = argv[ArgShadyGrammarJson];
+    char* shd_primops_json_path = argv[ArgShadyPrimopsJson];
     // search the include path for spirv.core.grammar.json
     char* spv_core_json_path = NULL;
     for (size_t i = ArgSpirvGrammarSearchPathBegins; i < argc; i++) {
@@ -886,41 +888,36 @@ int main(int argc, char** argv) {
     json_tokener* tokener = json_tokener_new_ex(32);
     enum json_tokener_error json_err;
 
-    struct {
+    typedef struct {
         size_t size;
         char* contents;
         json_object* root;
-    } shd_grammar;
-    read_file(shd_grammar_json_path, &shd_grammar.size, &shd_grammar.contents);
-    shd_grammar.root = json_tokener_parse_ex(tokener, shd_grammar.contents, shd_grammar.size);
-    json_err = json_tokener_get_error(tokener);
-    if (json_err != json_tokener_success) {
-        error("Json tokener error: %s\n", json_tokener_error_desc(json_err));
+    } JsonFile;
+
+    String json_paths[3] = { shd_grammar_json_path, shd_primops_json_path, spv_core_json_path };
+    JsonFile json_files[3];
+    for (size_t i = 0; i < sizeof(json_files) / sizeof(json_files[0]); i++) {
+        String path = json_paths[i];
+        read_file(path, &json_files[i].size, &json_files[i].contents);
+        json_files[i].root = json_tokener_parse_ex(tokener, json_files[i].contents, json_files[i].size);
+        json_err = json_tokener_get_error(tokener);
+        if (json_err != json_tokener_success) {
+            error("Json tokener error while parsing %s:\n %s\n", path, json_tokener_error_desc(json_err));
+        }
+
+        info_print("Correctly opened json file: %s\n", path);
     }
-
-    struct {
-        size_t size;
-        char* contents;
-        json_object* root;
-    } spv_grammar;
-
-    read_file(spv_core_json_path, &spv_grammar.size, &spv_grammar.contents);
-    spv_grammar.root = json_tokener_parse_ex(tokener, spv_grammar.contents, spv_grammar.size);
-    json_err = json_tokener_get_error(tokener);
-    if (json_err != json_tokener_success) {
-        error("Json tokener error: %s\n", json_tokener_error_desc(json_err));
-    }
-
-    info_print("Correctly opened json file: %s\n", spv_core_json_path);
     Growy* g = new_growy();
 
     Data data = {
-        .shd = shd_grammar.root,
-        .spv = spv_grammar.root
+        .shd = json_files[0].root,
+        .spv = json_files[2].root,
     };
     
     if (strcmp(mode, "grammar-headers") == 0) {
         generate_grammar_header(g, data);
+    } else if (strcmp(mode, "primops-headers") == 0) {
+        // generate_primops_header(g, data);
     } else if (strcmp(mode, "l2s-code") == 0) {
         generate_l2s_code(g, data);
     } else if (strcmp(mode, "node-code") == 0) {
@@ -946,12 +943,11 @@ int main(int argc, char** argv) {
         error_print("Failed to write file '%s'\n", dst_file);
         error_die();
     }
-    free(shd_grammar.contents);
-    free(spv_grammar.contents);
     free(generated);
-
-    json_object_put(shd_grammar.root);
-    json_object_put(spv_grammar.root);
+    for (size_t i = 0; i < sizeof(json_files) / sizeof(json_files[0]); i++) {
+        free(json_files[i].contents);
+        json_object_put(json_files[i].root);
+    }
     json_tokener_free(tokener);
     free(spv_core_json_path);
 }

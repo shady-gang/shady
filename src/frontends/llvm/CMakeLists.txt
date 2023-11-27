@@ -1,5 +1,5 @@
 get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/l2s_generated.c COMMENT "generating l2s code" COMMAND generator l2s-code ${CMAKE_CURRENT_BINARY_DIR}/l2s_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${SPIRV_HEADERS_INCLUDE_DIRS} VERBATIM DEPENDS generator)
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/l2s_generated.c COMMENT "generating l2s code" COMMAND generator l2s-code ${CMAKE_CURRENT_BINARY_DIR}/l2s_generated.c ${CMAKE_SOURCE_DIR}/include/shady/grammar.json ${CMAKE_SOURCE_DIR}/include/shady/primops.json ${SPIRV_HEADERS_INCLUDE_DIRS} VERBATIM DEPENDS generator api)
 
 add_library(shady_fe_llvm STATIC l2s.c l2s_type.c l2s_value.c l2s_instr.c l2s_meta.c l2s_postprocess.c l2s_annotations.c ${CMAKE_CURRENT_BINARY_DIR}/l2s_generated.c)
 
