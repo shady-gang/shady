@@ -151,13 +151,8 @@ static void visit_ptr_uses(const Node* ptr_value, PtrSourceKnowledge* k, const U
                     continue;
                 } default: break;
             }
-            switch (payload.op) {
-    #define P0(name) break;
-    #define P1(name) case name##_op: k->leaks = true; break;
-    #define P(has_side_effects, name) P##has_side_effects(name)
-                PRIMOPS(P)
-                default: break;
-            }
+            if (has_primop_got_side_effects(payload.op))
+                k->leaks = true;
         } else if (use->user->tag == Composite_TAG) {
             // todo...
             k->leaks = true;
