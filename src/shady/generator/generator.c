@@ -386,7 +386,7 @@ static void generate_primops_header(Growy* g, Data data) {
     generate_header(g, data);
 
     json_object* nodes = json_object_object_get(data.shd, "prim-ops");
-    growy_append_formatted(g, "\ttypedef enum Op_ {\n");
+    growy_append_formatted(g, "typedef enum Op_ {\n");
 
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
@@ -398,7 +398,7 @@ static void generate_primops_header(Growy* g, Data data) {
     }
 
     growy_append_formatted(g, "\tPRIMOPS_COUNT,\n");
-    growy_append_formatted(g, "\t} Op;\n");
+    growy_append_formatted(g, "} Op;\n");
 }
 
 void generate_llvm_shady_address_space_conversion(Growy* g, json_object* address_spaces) {
@@ -612,6 +612,40 @@ static void generate_isa_for_class(Growy* g, json_object* nodes, String class, S
     growy_append_formatted(g, "}\n\n");
 }
 
+static void generate_primops_names_array(Growy* g, json_object* primops) {
+    growy_append_string(g, "const char* primop_names[] = {\n");
+
+    for (size_t i = 0; i < json_object_array_length(primops); i++) {
+        json_object* node = json_object_array_get_idx(primops, i);
+
+        String name = json_object_get_string(json_object_object_get(node, "name"));
+        assert(name);
+
+        growy_append_formatted(g, "\"%s\",", name);
+    }
+
+    growy_append_string(g, "\n};\n");
+}
+
+static void generate_primops_side_effects_array(Growy* g, json_object* primops) {
+    growy_append_string(g, "const bool primop_side_effects[] = {\n");
+
+    for (size_t i = 0; i < json_object_array_length(primops); i++) {
+        json_object* node = json_object_array_get_idx(primops, i);
+
+        String name = json_object_get_string(json_object_object_get(node, "name"));
+        assert(name);
+
+        bool side_effects = json_object_get_boolean(json_object_object_get(node, "side-effects"));
+        if (side_effects)
+            growy_append_string(g, "true, ");
+        else
+            growy_append_string(g, "false, ");
+    }
+
+    growy_append_string(g, "\n};\n");
+}
+
 static void generate_nodes_code(Growy* g, Data data) {
     generate_header(g, data);
 
@@ -634,6 +668,10 @@ static void generate_nodes_code(Growy* g, Data data) {
         generate_isa_for_class(g, nodes, name, capitalized, !generate_enum || json_object_get_boolean(generate_enum));
         free(capitalized);
     }
+
+    json_object* primops = json_object_object_get(data.shd, "prim-ops");
+    generate_primops_names_array(g, primops);
+    generate_primops_side_effects_array(g, primops);
 }
 
 static void generate_types_header(Growy* g, Data data) {
