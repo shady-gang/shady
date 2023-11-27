@@ -60,7 +60,6 @@ const Node* get_declaration(const Module*, String);
 
 // The language grammar is big enough that it deserve its own files
 
-#include "primops.h"
 #include "grammar.h"
 
 //////////////////////////////// IR Arena ////////////////////////////////

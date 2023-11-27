@@ -40,4 +40,6 @@ void generate(Growy* g, Data data) {
     json_object* primops = json_object_object_get(data.shd, "prim-ops");
     generate_primops_names_array(g, primops);
     generate_primops_side_effects_array(g, primops);
+
+    generate_bit_enum_classifier(g, "get_primop_class", "OpClass", "Oc", "Op", "", "_op", primops);
 }

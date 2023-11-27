@@ -67,6 +67,12 @@ ExecutionModel execution_model_from_string(const char*);
 
 //////////////////////////////// Generated definitions ////////////////////////////////
 
+// see primops.json
+#include "primops_generated.h"
+
+String get_primop_name(Op op);
+bool has_primop_got_side_effects(Op op);
+
 // see grammar.json
 #include "grammar_generated.h"
 

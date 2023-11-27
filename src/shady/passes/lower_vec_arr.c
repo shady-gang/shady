@@ -45,15 +45,8 @@ static const Node* process(Context* ctx, const Node* node) {
             });
         }
         case PrimOp_TAG: {
-#define HANDLE(_, o) case o##_op: return scalarify_primop(ctx, node);
-            switch (node->payload.prim_op.op) {
-                ARITHM_PRIMOPS(HANDLE)
-                BITSTUFF_PRIMOPS(HANDLE)
-                CMP_PRIMOPS(HANDLE)
-                SHIFT_PRIMOPS(HANDLE)
-                MATH_PRIMOPS(HANDLE)
-                default: break;
-            }
+            if (get_primop_class(node->payload.prim_op.op) & (OcArithmetic | OcLogic | OcCompare | OcShift | OcMath))
+                return scalarify_primop(ctx, node);
         }
         default: break;
     }
