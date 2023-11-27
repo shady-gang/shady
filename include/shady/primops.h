@@ -114,12 +114,7 @@ P(1, default_join_point)        \
 P(0, empty_mask)                \
 P(0, mask_is_thread_active)     \
 
-typedef enum Op_ {
-#define DECLARE_PRIMOP_ENUM(has_side_effects, name) name##_op,
-PRIMOPS(DECLARE_PRIMOP_ENUM)
-#undef DECLARE_PRIMOP_ENUM
-    PRIMOPS_COUNT
-} Op;
+#include "primops_generated.h"
 
 extern const char* primop_names[];
 bool has_primop_got_side_effects(Op op);

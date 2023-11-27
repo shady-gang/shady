@@ -382,6 +382,25 @@ static void generate_grammar_header(Growy* g, Data data) {
     }
 }
 
+static void generate_primops_header(Growy* g, Data data) {
+    generate_header(g, data);
+
+    json_object* nodes = json_object_object_get(data.shd, "prim-ops");
+    growy_append_formatted(g, "\ttypedef enum Op_ {\n");
+
+    for (size_t i = 0; i < json_object_array_length(nodes); i++) {
+        json_object* node = json_object_array_get_idx(nodes, i);
+
+        String name = json_object_get_string(json_object_object_get(node, "name"));
+        assert(name);
+
+        growy_append_formatted(g, "\t%s_op,\n", name);
+    }
+
+    growy_append_formatted(g, "\tPRIMOPS_COUNT,\n");
+    growy_append_formatted(g, "\t} Op;\n");
+}
+
 void generate_llvm_shady_address_space_conversion(Growy* g, json_object* address_spaces) {
     growy_append_formatted(g, "AddressSpace convert_llvm_address_space(unsigned as) {\n");
     growy_append_formatted(g, "\tstatic bool warned = false;\n");
@@ -923,7 +942,7 @@ int main(int argc, char** argv) {
     if (strcmp(mode, "grammar-headers") == 0) {
         generate_grammar_header(g, data);
     } else if (strcmp(mode, "primops-headers") == 0) {
-        // generate_primops_header(g, data);
+        generate_primops_header(g, data);
     } else if (strcmp(mode, "l2s-code") == 0) {
         generate_l2s_code(g, data);
     } else if (strcmp(mode, "node-code") == 0) {

@@ -8,11 +8,11 @@ add_subdirectory(api)
 
 get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
 
-add_generated_file(FILE_NAME type_generated.h CONTENTS type-headers)
-add_generated_file(FILE_NAME node_generated.h CONTENTS node-code)
-add_generated_file(FILE_NAME constructors_generated.h CONTENTS constructors-code)
-add_generated_file(FILE_NAME visit_generated.h CONTENTS visitor-code)
-add_generated_file(FILE_NAME rewrite_generated.h CONTENTS rewriter-code)
+add_generated_file(FILE_NAME type_generated.h         TARGET_NAME type_generated CONTENTS type-headers)
+add_generated_file(FILE_NAME node_generated.c         TARGET_NAME node_generated CONTENTS node-code)
+add_generated_file(FILE_NAME constructors_generated.c TARGET_NAME constructors_generated CONTENTS constructors-code)
+add_generated_file(FILE_NAME visit_generated.c        TARGET_NAME visit_generated CONTENTS visitor-code)
+add_generated_file(FILE_NAME rewrite_generated.c      TARGET_NAME rewrite_generated CONTENTS rewriter-code)
 
 add_library(shady_generated INTERFACE)
 add_dependencies(shady_generated node_generated type_generated constructors_generated visit_generated rewrite_generated)
