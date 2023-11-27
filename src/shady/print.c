@@ -537,7 +537,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             break;
         } case PrimOp_TAG: {
             printf(GREEN);
-            printf("%s", primop_names[node->payload.prim_op.op]);
+            printf("%s", get_primop_name(node->payload.prim_op.op));
             printf(RESET);
             Nodes ty_args = node->payload.prim_op.type_arguments;
             if (ty_args.count > 0)

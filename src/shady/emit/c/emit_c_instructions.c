@@ -198,7 +198,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     assert(node->tag == PrimOp_TAG);
     IrArena* arena = emitter->arena;
     const PrimOp* prim_op = &node->payload.prim_op;
-    CTerm term = term_from_cvalue(format_string_interned(emitter->arena, "/* todo %s */", primop_names[prim_op->op]));
+    CTerm term = term_from_cvalue(format_string_interned(emitter->arena, "/* todo %s */", get_primop_name(prim_op->op)));
     const ISelTableEntry* isel_entry = lookup_entry(emitter, prim_op->op);
     switch (prim_op->op) {
         case deref_op:

@@ -448,7 +448,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                         char* opname = strtok(NULL, "::");Op op;
                         size_t i;
                         for (i = 0; i < PRIMOPS_COUNT; i++) {
-                            if (strcmp(primop_names[i], opname) == 0) {
+                            if (strcmp(get_primop_name(i), opname) == 0) {
                                 op = (Op) i;
                                 break;
                             }

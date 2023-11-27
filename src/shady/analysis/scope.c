@@ -535,7 +535,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
         const Node* instr = body->payload.let.instruction;
         // label = "";
         if (instr->tag == PrimOp_TAG)
-            label = format_string_arena(bb->arena->arena, "%slet ... = %s (...)\n", label, primop_names[instr->payload.prim_op.op]);
+            label = format_string_arena(bb->arena->arena, "%slet ... = %s (...)\n", label, get_primop_name(instr->payload.prim_op.op));
         else
             label = format_string_arena(bb->arena->arena, "%slet ... = %s (...)\n", label, node_tags[instr->tag]);
 

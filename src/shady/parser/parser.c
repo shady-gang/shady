@@ -457,7 +457,7 @@ static const Node* accept_primary_expr(ctxparams) {
                 if (expr->tag == Unbound_TAG) {
                     String s = expr->payload.unbound.name;
                     for (size_t i = 0; i < PRIMOPS_COUNT; i++) {
-                        if (strcmp(s, primop_names[i]) == 0) {
+                        if (strcmp(s, get_primop_name(i)) == 0) {
                             op = i;
                             break;
                         }

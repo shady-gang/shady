@@ -1143,7 +1143,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     char* primop = strtok(NULL, ":");
                     Op op = PRIMOPS_COUNT;
                     for (size_t i = 0; i < PRIMOPS_COUNT; i++) {
-                        if (strcmp(primop_names[i], primop) == 0) {
+                        if (strcmp(get_primop_name(i), primop) == 0) {
                             op = i;
                             break;
                         }

@@ -84,7 +84,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                     Op op;
                     size_t i;
                     for (i = 0; i < PRIMOPS_COUNT; i++) {
-                        if (strcmp(primop_names[i], get_annotation_string_payload(an->payload)) == 0) {
+                        if (strcmp(get_primop_name(i), get_annotation_string_payload(an->payload)) == 0) {
                             op = (Op) i;
                             break;
                         }

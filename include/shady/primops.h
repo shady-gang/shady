@@ -53,5 +53,5 @@ P(0, cos)               \
 
 #include "primops_generated.h"
 
-extern const char* primop_names[];
+String get_primop_name(Op op);
 bool has_primop_got_side_effects(Op op);
