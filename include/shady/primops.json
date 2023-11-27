@@ -1,0 +1,354 @@
+{
+  "prim-ops-classes": [
+    {
+      "name": "arithmetic"
+    },
+    {
+      "name": "logic"
+    },
+    {
+      "name": "compare"
+    },
+    {
+      "name": "shift"
+    },
+    {
+      "name": "math"
+    },
+    {
+      "name": "stack"
+    },
+    {
+      "name": "memory"
+    },
+    {
+      "name": "memory_layout"
+    },
+    {
+      "name": "subgroup_intrinsic"
+    },
+    {
+      "name": "ast"
+    },
+    {
+      "name": "join_point"
+    },
+    {
+      "name": "mask"
+    }
+  ],
+  "prim-ops": [
+    {
+      "name": "add",
+      "class": "arithmetic"
+    },
+    {
+      "name": "add_carry",
+      "class": "arithmetic"
+    },
+    {
+      "name": "sub",
+      "class": "arithmetic"
+    },
+    {
+      "name": "sub_borrow",
+      "class": "arithmetic"
+    },
+    {
+      "name": "mul",
+      "class": "arithmetic"
+    },
+    {
+      "name": "mul_extended",
+      "class": "arithmetic"
+    },
+    {
+      "name": "div",
+      "class": "arithmetic"
+    },
+    {
+      "name": "mod",
+      "class": "arithmetic"
+    },
+    {
+      "name": "neg",
+      "class": "arithmetic"
+    },
+    {
+      "name": "not",
+      "class": "logic"
+    },
+    {
+      "name": "and",
+      "class": "logic"
+    },
+    {
+      "name": "or",
+      "class": "logic"
+    },
+    {
+      "name": "xor",
+      "class": "logic"
+    },
+    {
+      "name": "gt",
+      "class": "compare"
+    },
+    {
+      "name": "gte",
+      "class": "compare"
+    },
+    {
+      "name": "lt",
+      "class": "compare"
+    },
+    {
+      "name": "lte",
+      "class": "compare"
+    },
+    {
+      "name": "eq",
+      "class": "compare"
+    },
+    {
+      "name": "neq",
+      "class": "compare"
+    },
+    {
+      "name": "rshift_logical",
+      "class": "shift"
+    },
+    {
+      "name": "rshift_arithm",
+      "class": "shift"
+    },
+    {
+      "name": "lshift",
+      "class": "shift"
+    },
+    {
+      "name": "sqrt",
+      "class": "math"
+    },
+    {
+      "name": "inv_sqrt",
+      "class": "math"
+    },
+    {
+      "name": "pow",
+      "class": "math"
+    },
+    {
+      "name": "exp",
+      "class": "math"
+    },
+    {
+      "name": "floor",
+      "class": "math"
+    },
+    {
+      "name": "ceil",
+      "class": "math"
+    },
+    {
+      "name": "round",
+      "class": "math"
+    },
+    {
+      "name": "fract",
+      "class": "math"
+    },
+    {
+      "name": "min",
+      "class": "math"
+    },
+    {
+      "name": "max",
+      "class": "math"
+    },
+    {
+      "name": "abs",
+      "class": "math"
+    },
+    {
+      "name": "sign",
+      "class": "math"
+    },
+    {
+      "name": "sin",
+      "class": "math"
+    },
+    {
+      "name": "cos",
+      "class": "math"
+    },
+    {
+      "name": "push_stack",
+      "class": "stack",
+      "side-effects": true
+    },
+    {
+      "name": "pop_stack",
+      "class": "stack",
+      "side-effects": true
+    },
+    {
+      "name": "get_stack_pointer",
+      "class": "stack"
+    },
+    {
+      "name": "get_stack_base",
+      "class": "stack"
+    },
+    {
+      "name": "set_stack_pointer",
+      "class": "stack",
+      "side-effects": true
+    },
+    {
+      "name": "alloca",
+      "class": "memory",
+      "side-effects": true
+    },
+    {
+      "name": "alloca_logical",
+      "class": "memory",
+      "side-effects": true
+    },
+    {
+      "name": "alloca_subgroup",
+      "class": "memory",
+      "side-effects": true
+    },
+    {
+      "name": "load",
+      "class": "memory",
+      "side-effects": true
+    },
+    {
+      "name": "store",
+      "class": "memory",
+      "side-effects": true
+    },
+    {
+      "name": "lea",
+      "class": "memory"
+    },
+    {
+      "name": "memcpy",
+      "class": "memory",
+      "side-effects": true
+    },
+    {
+      "name": "memset",
+      "class": "memory",
+      "side-effects": true
+    },
+    {
+      "name": "size_of",
+      "class": "memory_layout"
+    },
+    {
+      "name": "align_of",
+      "class": "memory_layout"
+    },
+    {
+      "name": "offset_of",
+      "class": "memory_layout"
+    },
+    {
+      "name": "subgroup_elect_first",
+      "class": "subgroup_intrinsic"
+    },
+    {
+      "name": "subgroup_broadcast_first",
+      "class": "subgroup_intrinsic"
+    },
+    {
+      "name": "subgroup_assume_uniform",
+      "class": "subgroup_intrinsic"
+    },
+    {
+      "name": "subgroup_reduce_sum",
+      "class": "subgroup_intrinsic"
+    },
+    {
+      "name": "subgroup_active_mask",
+      "class": "subgroup_intrinsic"
+    },
+    {
+      "name": "subgroup_ballot",
+      "class": "subgroup_intrinsic"
+    },
+    {
+      "name": "assign",
+      "class": "ast",
+      "side-effects": true
+    },
+    {
+      "name": "subscript",
+      "class": "ast",
+      "side-effects": true
+    },
+    {
+      "name": "deref",
+      "class": "ast",
+      "side-effects": true
+    },
+    {
+      "name": "addrof",
+      "class": "ast",
+      "side-effects": true
+    },
+    {
+      "name": "quote"
+    },
+    {
+      "name": "select"
+    },
+    {
+      "name": "convert"
+    },
+    {
+      "name": "reinterpret"
+    },
+    {
+      "name": "extract"
+    },
+    {
+      "name": "extract_dynamic"
+    },
+    {
+      "name": "insert"
+    },
+    {
+      "name": "shuffle"
+    },
+    {
+      "name": "debug_printf",
+      "side-effects": true
+    },
+    {
+      "name": "sample_texture",
+      "side-effects": true
+    },
+    {
+      "name": "create_joint_point",
+      "class": "join_point",
+      "side-effects": true
+    },
+    {
+      "name": "default_join_point",
+      "class": "join_point",
+      "side-effects": true
+    },
+    {
+      "name": "empty_mask",
+      "class": "mask"
+    },
+    {
+      "name": "mask_is_thread_active",
+      "class": "mask"
+    }
+  ]
+}
