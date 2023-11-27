@@ -10,13 +10,24 @@ Scalar cosf(Scalar s) { return cos(s); }
 
 global char zero;
 
+extern "C" {
+
+void debug_printf_i64(const __constant char*, long int) __asm__("__shady::prim_op::debug_printf::i64");
+void debug_printf_i32_i32(const __constant char*, int, int) __asm__("__shady::prim_op::debug_printf::i32_i32");
+
+}
+
 __attribute__((reqd_work_group_size(16, 16, 1)))
 kernel void aobench_kernel(global unsigned char* out) {
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+
+    long int ptr = (long int) out;
+    //debug_printf_i64("ptr: %lu\n", ptr);
+    //debug_printf_i32_i32("ptr: %d %d\n", (int) (ptr << 32), (int) ptr);
+
     Ctx ctx = get_init_context();
     init_scene(&ctx);
-
-    auto x = get_global_id(0);
-    auto y = get_global_id(1);
 
     render_pixel(&ctx, x, y, WIDTH, HEIGHT, NSUBSAMPLES, out);
     /*if (((x / 16) % 2) == ((y / 16) % 2)) {
