@@ -64,22 +64,6 @@ static void generate_address_spaces(Growy* g, json_object* address_spaces) {
     growy_append_formatted(g, "}\n\n");
 }
 
-static void generate_node_classes(Growy* g, json_object* classes) {
-    assert(json_object_get_type(classes) == json_type_array);
-    growy_append_formatted(g, "typedef enum {\n");
-    for (size_t i = 0; i < json_object_array_length(classes); i++) {
-        json_object* node_class = json_object_array_get_idx(classes, i);
-        String name = json_object_get_string(json_object_object_get(node_class, "name"));
-        String capitalized = capitalize(name);
-        growy_append_formatted(g, "\tNc%s = 0b1", capitalized);
-        for (int c = 0; c < i; c++)
-            growy_append_string_literal(g, "0");
-        growy_append_formatted(g, ",\n");
-        free(capitalized);
-    }
-    growy_append_formatted(g, "} NodeClass;\n\n");
-}
-
 static void generate_node_tags(Growy* g, json_object* nodes) {
     assert(json_object_get_type(nodes) == json_type_array);
     growy_append_formatted(g, "typedef enum {\n");
@@ -197,7 +181,7 @@ void generate(Growy* g, Data data) {
     generate_address_spaces(g, json_object_object_get(data.shd, "address-spaces"));
 
     json_object* node_classes = json_object_object_get(data.shd, "node-classes");
-    generate_node_classes(g, node_classes);
+    generate_bit_enum(g, "NodeClass", "Nc", node_classes);
 
     json_object* nodes = json_object_object_get(data.shd, "nodes");
     generate_node_tags(g, nodes);

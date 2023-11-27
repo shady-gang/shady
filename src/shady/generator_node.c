@@ -109,51 +109,6 @@ static void generate_node_payload_cmp_fn(Growy* g, Data data, json_object* nodes
     growy_append_formatted(g, "}\n");
 }
 
-static void generate_node_class_from_tag(Growy* g, json_object* nodes) {
-    growy_append_formatted(g, "NodeClass get_node_class_from_tag(NodeTag tag) {\n");
-    growy_append_formatted(g, "\tswitch (tag) { \n");
-    assert(json_object_get_type(nodes) == json_type_array);
-    for (size_t i = 0; i < json_object_array_length(nodes); i++) {
-        json_object* node = json_object_array_get_idx(nodes, i);
-        String name = json_object_get_string(json_object_object_get(node, "name"));
-        growy_append_formatted(g, "\t\tcase %s_TAG: \n", name);
-        json_object* class = json_object_object_get(node, "class");
-        switch (json_object_get_type(class)) {
-            case json_type_null:
-                growy_append_formatted(g, "\t\t\treturn 0;\n");
-                break;
-            case json_type_string: {
-                String cap = capitalize(json_object_get_string(class));
-                growy_append_formatted(g, "\t\t\treturn Nc%s;\n", cap);
-                free(cap);
-                break;
-            }
-            case json_type_array: {
-                growy_append_formatted(g, "\t\t\treturn ");
-                for (size_t j = 0; j < json_object_array_length(class); j++) {
-                    if (j > 0)
-                        growy_append_formatted(g, " | ");
-                    String cap = capitalize(json_object_get_string(json_object_array_get_idx(class, j)));
-                    growy_append_formatted(g, "Nc%s", cap);
-                    free(cap);
-                }
-                growy_append_formatted(g, ";\n");
-                break;
-            }
-            case json_type_boolean:
-            case json_type_double:
-            case json_type_int:
-            case json_type_object:
-                error_print("Invalid datatype for a node's 'class' attribute");
-                break;
-        }
-    }
-    growy_append_formatted(g, "\t\tdefault: assert(false);\n");
-    growy_append_formatted(g, "\t}\n");
-    growy_append_formatted(g, "\tSHADY_UNREACHABLE;\n");
-    growy_append_formatted(g, "}\n");
-}
-
 static void generate_isa_for_class(Growy* g, json_object* nodes, String class, String capitalized_class, bool use_enum) {
     assert(json_object_get_type(nodes) == json_type_array);
     if (use_enum)
@@ -226,7 +181,7 @@ void generate(Growy* g, Data data) {
     generate_node_has_payload_array(g, nodes);
     generate_node_payload_hash_fn(g, data, nodes);
     generate_node_payload_cmp_fn(g, data, nodes);
-    generate_node_class_from_tag(g, nodes);
+    generate_bit_enum_classifier(g, "get_node_class_from_tag", "NodeClass", "Nc", "NodeTag", "", "_TAG", nodes);
 
     json_object* node_classes = json_object_object_get(data.shd, "node-classes");
     for (size_t i = 0; i < json_object_array_length(node_classes); i++) {

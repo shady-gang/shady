@@ -62,3 +62,64 @@ void generate_node_ctor(Growy* g, json_object* nodes, bool definition) {
     }
     growy_append_formatted(g, "\n");
 }
+
+void generate_bit_enum(Growy* g, String enum_type_name, String enum_case_prefix, json_object* cases) {
+    assert(json_object_get_type(cases) == json_type_array);
+    growy_append_formatted(g, "typedef enum {\n");
+    for (size_t i = 0; i < json_object_array_length(cases); i++) {
+        json_object* node_class = json_object_array_get_idx(cases, i);
+        String name = json_object_get_string(json_object_object_get(node_class, "name"));
+        String capitalized = capitalize(name);
+        growy_append_formatted(g, "\t%s%s = 0b1", enum_case_prefix, capitalized);
+        for (int c = 0; c < i; c++)
+            growy_append_string_literal(g, "0");
+        growy_append_formatted(g, ",\n");
+        free(capitalized);
+    }
+    growy_append_formatted(g, "} %s;\n\n", enum_type_name);
+}
+
+void generate_bit_enum_classifier(Growy* g, String fn_name, String enum_type_name, String enum_case_prefix, String src_type_name, String src_case_prefix, String src_case_suffix, json_object* cases) {
+    growy_append_formatted(g, "%s %s(%s tag) {\n", enum_type_name, fn_name, src_type_name);
+    growy_append_formatted(g, "\tswitch (tag) { \n");
+    assert(json_object_get_type(cases) == json_type_array);
+    for (size_t i = 0; i < json_object_array_length(cases); i++) {
+        json_object* node = json_object_array_get_idx(cases, i);
+        String name = json_object_get_string(json_object_object_get(node, "name"));
+        growy_append_formatted(g, "\t\tcase %s%s%s: \n", src_case_prefix, name, src_case_suffix);
+        json_object* class = json_object_object_get(node, "class");
+        switch (json_object_get_type(class)) {
+            case json_type_null:
+                growy_append_formatted(g, "\t\t\treturn 0;\n");
+                break;
+            case json_type_string: {
+                String cap = capitalize(json_object_get_string(class));
+                growy_append_formatted(g, "\t\t\treturn %s%s;\n", enum_case_prefix, cap);
+                free(cap);
+                break;
+            }
+            case json_type_array: {
+                growy_append_formatted(g, "\t\t\treturn ");
+                for (size_t j = 0; j < json_object_array_length(class); j++) {
+                    if (j > 0)
+                        growy_append_formatted(g, " | ");
+                    String cap = capitalize(json_object_get_string(json_object_array_get_idx(class, j)));
+                    growy_append_formatted(g, "%s%s", enum_case_prefix, cap);
+                    free(cap);
+                }
+                growy_append_formatted(g, ";\n");
+                break;
+            }
+            case json_type_boolean:
+            case json_type_double:
+            case json_type_int:
+            case json_type_object:
+                error_print("Invalid datatype for a node's 'class' attribute");
+                break;
+        }
+    }
+    growy_append_formatted(g, "\t\tdefault: assert(false);\n");
+    growy_append_formatted(g, "\t}\n");
+    growy_append_formatted(g, "\tSHADY_UNREACHABLE;\n");
+    growy_append_formatted(g, "}\n");
+}

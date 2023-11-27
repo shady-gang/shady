@@ -30,6 +30,9 @@ bool starts_with_vowel(String str);
 bool has_custom_ctor(json_object* node);
 void generate_node_ctor(Growy* g, json_object* nodes, bool definition);
 
+void generate_bit_enum(Growy* g, String enum_type_name, String enum_case_prefix, json_object* cases);
+void generate_bit_enum_classifier(Growy* g, String fn_name, String enum_type_name, String enum_case_prefix, String src_type_name, String src_case_prefix, String src_case_suffix, json_object* cases);
+
 void json_apply_object(json_object* target, json_object* src);
 
 #endif
