@@ -861,6 +861,8 @@ enum {
     ArgSpirvGrammarSearchPathBegins
 };
 
+void json_apply_object(json_object* target, json_object* src);
+
 int main(int argc, char** argv) {
     assert(argc > ArgSpirvGrammarSearchPathBegins);
 
@@ -910,9 +912,13 @@ int main(int argc, char** argv) {
     Growy* g = new_growy();
 
     Data data = {
-        .shd = json_files[0].root,
+        .shd = json_object_new_object(),
         .spv = json_files[2].root,
     };
+
+    for (size_t i = 0; i < 2; i++) {
+        json_apply_object(data.shd, json_files[i].root);
+    }
     
     if (strcmp(mode, "grammar-headers") == 0) {
         generate_grammar_header(g, data);

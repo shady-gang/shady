@@ -1,6 +1,6 @@
 find_package(json-c REQUIRED)
 
-add_executable(generator generator.c)
+add_executable(generator generator.c json_apply.c)
 target_link_libraries(generator PRIVATE common json-c::json-c)
 
 function(add_generated_file)
