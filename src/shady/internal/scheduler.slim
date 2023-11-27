@@ -99,7 +99,7 @@ fn builtin_yield(uniform u32 resume_target) {
         // bump the cursor
         // TODO bump it in a smarter way
         scheduler_cursor = (scheduler_cursor + u32 1) % actual_subgroup_size;
-        call(builtin_find_schedulable_leaf)();
+        builtin_find_schedulable_leaf();
     }
 }
 
@@ -110,7 +110,7 @@ fn builtin_join(varying u32 join_at, varying TreeNode token) {
 
     // only one thread runs that part
     if (subgroup_elect_first()) {
-        call(builtin_find_schedulable_leaf)();
+        builtin_find_schedulable_leaf();
     }
 }
 
@@ -136,11 +136,11 @@ fn reduce2 u32(varying u32 a_index, varying u32 b_index) {
     val a = scheduler_vector#a_index;
     val b = scheduler_vector#b_index;
     
-    if (call(is_parent)(a, b)) { return (a_index); }
-    if (call(is_parent)(b, a)) { return (b_index); }
+    if (is_parent(a, b)) { return (a_index); }
+    if (is_parent(b, a)) { return (b_index); }
     
-    val a_dist = call(forward_distance)(a_index, scheduler_cursor, actual_subgroup_size);
-    val b_dist = call(forward_distance)(b_index, scheduler_cursor, actual_subgroup_size);
+    val a_dist = forward_distance(a_index, scheduler_cursor, actual_subgroup_size);
+    val b_dist = forward_distance(b_index, scheduler_cursor, actual_subgroup_size);
     
     if (a_dist < b_dist) { return (a_index); }
     return (b_index);
@@ -151,7 +151,7 @@ fn builtin_find_schedulable_leaf() {
     var u32 reduced = u32 0;
     loop (uniform u32 i = u32 1) {
         if (i >= actual_subgroup_size) { break; }
-        reduced = call(reduce2)(reduced, i);
+        reduced = reduce2(reduced, i);
         continue(i + u32 1);
     }
 
@@ -164,6 +164,6 @@ fn builtin_find_schedulable_leaf() {
 fn builtin_get_active_branch mask_t() {
     val this_thread_branch = scheduler_vector#(subgroup_local_id);
     val same_dest = resume_at#(subgroup_local_id) == next_fn;
-    val not_escaping = call(is_parent)(this_thread_branch, active_branch);
+    val not_escaping = is_parent(this_thread_branch, active_branch);
     return (subgroup_ballot(same_dest & not_escaping));
 }

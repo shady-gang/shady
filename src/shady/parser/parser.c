@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
 static int max_precedence() {
     return 10;
@@ -76,7 +77,6 @@ static const char* accept_identifier(ctxparams) {
 static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminator);
 static const Node* accept_value(ctxparams);
 static const Type* accept_unqualified_type(ctxparams);
-static const Node* accept_primop(ctxparams);
 static const Node* accept_expr(ctxparams, int);
 static Nodes expect_operands(ctxparams);
 
@@ -426,7 +426,7 @@ static const Node* accept_primary_expr(ctxparams) {
             .op = deref_op,
             .operands = singleton(expr),
         });
-    }else if (accept_token(ctx, infix_and_tok)) {
+    } else if (accept_token(ctx, infix_and_tok)) {
         const Node* expr = accept_primary_expr(ctx);
         expect(expr);
         return prim_op(arena, (PrimOp) {
@@ -436,10 +436,42 @@ static const Node* accept_primary_expr(ctxparams) {
     }
 
     const Node* expr = accept_value(ctx);
-    if (!expr) expr = accept_primop(ctx);
     while (expr) {
+        Nodes ty_args = nodes(arena, 0, NULL);
+        bool parse_ty_args = false;
+        if (accept_token(ctx, lsbracket_tok)) {
+            parse_ty_args = true;
+            while (true) {
+                const Type* t = accept_unqualified_type(ctx);
+                expect(t);
+                ty_args = append_nodes(arena, ty_args, t);
+                if (accept_token(ctx, comma_tok))
+                    continue;
+                if (accept_token(ctx, rsbracket_tok))
+                    break;
+            }
+        }
         switch (curr_token(tokenizer).tag) {
             case lpar_tok: {
+                Op op = PRIMOPS_COUNT;
+                if (expr->tag == Unbound_TAG) {
+                    String s = expr->payload.unbound.name;
+                    for (size_t i = 0; i < PRIMOPS_COUNT; i++) {
+                        if (strcmp(s, primop_names[i]) == 0) {
+                            op = i;
+                            break;
+                        }
+                    }
+                }
+                if (op != PRIMOPS_COUNT) {
+                    return prim_op(arena, (PrimOp) {
+                        .op = op,
+                        .type_arguments = ty_args,
+                        .operands = expect_operands(ctx)
+                    });
+                }
+
+                assert(ty_args.count == 0 && "Function calls do not support type arguments");
                 Nodes args = expect_operands(ctx);
                 expr = call(arena, (Call) {
                     .callee = expr,
@@ -447,7 +479,10 @@ static const Node* accept_primary_expr(ctxparams) {
                 });
                 continue;
             }
-            default: break;
+            default:
+                if (parse_ty_args)
+                    expect(false && "expected function call arguments");
+                break;
         }
         break;
     }
@@ -578,58 +613,8 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
     return NULL;
 }
 
-static bool translate_token_to_primop(TokenTag token, Op* op) {
-    switch (token) {
-#define TRANSLATE_PRIMOP_CASE(has_side_effects, name) case name##_tok: { *op = name##_op; return true; }
-PRIMOPS(TRANSLATE_PRIMOP_CASE)
-#undef TRANSLATE_PRIMOP_CASE
-        default: return false;
-    }
-}
-
-static const Node* accept_primop(ctxparams) {
-    Op op = not_op;
-    switch (curr_token(tokenizer).tag) {
-        /// Only used for IR parsing
-        /// Otherwise accept_expression handles this
-        case call_tok: {
-            next_token(tokenizer);
-            expect(accept_token(ctx, lpar_tok));
-            const Node* callee = accept_operand(ctx);
-            expect(callee);
-            expect(accept_token(ctx, rpar_tok));
-            Nodes args = expect_operands(ctx);
-            return call(arena, (Call) {
-                .callee = callee,
-                .args = args,
-            });
-        }
-        default: if (translate_token_to_primop(curr_token(tokenizer).tag, &op)) break; else return NULL;
-    }
-    next_token(tokenizer);
-
-    Nodes ty_args = nodes(arena, 0, NULL);
-    if (accept_token(ctx, lsbracket_tok)) {
-        while (true) {
-            const Type* t = accept_unqualified_type(ctx);
-            expect(t);
-            ty_args = append_nodes(arena, ty_args, t);
-            if (accept_token(ctx, comma_tok))
-                continue;
-            if (accept_token(ctx, rsbracket_tok))
-                break;
-        }
-    }
-
-    return prim_op(arena, (PrimOp) {
-        .op = op,
-        .type_arguments = ty_args,
-        .operands = expect_operands(ctx)
-    });
-}
-
 static const Node* accept_instruction(ctxparams, Node* fn, bool in_list) {
-    const Node* instr = config.front_end ? accept_expr(ctx, max_precedence()) : accept_primop(ctx);
+    const Node* instr = accept_expr(ctx, max_precedence());
 
     if (in_list && instr)
         expect(accept_token(ctx, semi_tok) && "Non-control flow instructions must be followed by a semicolon");

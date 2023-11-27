@@ -69,7 +69,6 @@ TEXT_TOKEN(join) \
 TEXT_TOKEN(call) \
 TOKEN(return, "return") \
 TEXT_TOKEN(unreachable) \
-PRIMOPS(REGISTER_PRIMOP_AS_TOKEN) \
 TOKEN(infix_rshift_logical, ">>>") \
 TOKEN(infix_rshift_arithm, ">>") \
 TOKEN(infix_lshift, "<<") \
