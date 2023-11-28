@@ -392,13 +392,6 @@ const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
 
 const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     assert((arena->config.untyped_ptrs || ptr_type.pointed_type) && "Shady does not support untyped pointers, but can infer them, see infer.c");
-    if (ptr_type.pointed_type) {
-        if (ptr_type.pointed_type->tag == ArrType_TAG)
-            assert(is_data_type(ptr_type.pointed_type->payload.arr_type.element_type));
-        else if (ptr_type.pointed_type->tag == FnType_TAG) { /* ok */ }
-        else if (ptr_type.pointed_type == unit_type(arena)) { /* ok */ }
-        else assert(is_data_type(ptr_type.pointed_type));
-    }
     if (!arena->config.allow_subgroup_memory) {
         assert(ptr_type.address_space != AsSubgroupPhysical);
         assert(ptr_type.address_space != AsSubgroupLogical);
@@ -406,6 +399,23 @@ const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     if (!arena->config.allow_shared_memory) {
         assert(ptr_type.address_space != AsSharedPhysical);
         assert(ptr_type.address_space != AsSharedLogical);
+    }
+    if (ptr_type.pointed_type) {
+        if (ptr_type.pointed_type->tag == ArrType_TAG) {
+            assert(is_data_type(ptr_type.pointed_type->payload.arr_type.element_type));
+            return NULL;
+        }
+        if (ptr_type.pointed_type->tag == FnType_TAG || ptr_type.pointed_type == unit_type(arena)) {
+            // no diagnostic required, we just allow these
+            return NULL;
+        }
+        const Node* maybe_record_type = ptr_type.pointed_type;
+        if (maybe_record_type->tag == TypeDeclRef_TAG)
+            maybe_record_type = get_nominal_type_body(maybe_record_type);
+        if (maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == DecorateBlock) {
+            return NULL;
+        }
+        assert(is_data_type(ptr_type.pointed_type));
     }
     return NULL;
 }
