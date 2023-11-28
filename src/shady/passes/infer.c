@@ -456,38 +456,49 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                 new_operands[i] = infer(ctx, old_operands.nodes[i], NULL);
             }
 
-            const Type* base_datatype = remove_uniformity_qualifier(new_operands[0]->type);
+            const Type* src_ptr = remove_uniformity_qualifier(new_operands[0]->type);
+            const Type* base_datatype = src_ptr;
             assert(base_datatype->tag == PtrType_TAG);
-            AddressSpace as = deconstruct_pointer_type(&base_datatype);
+            AddressSpace as = get_pointer_type_address_space(base_datatype);
+            bool was_untyped = false;
             if (type_args.count == 1) {
+                was_untyped = true;
                 base_datatype = type_untyped_ptr(base_datatype, first(type_args));
                 new_operands[0] = reinterpret_cast_helper(bb, new_operands[0], base_datatype);
                 type_args = empty(a);
             }
-            const IntLiteral* lit = resolve_to_int_literal(new_operands[1]);
-            if ((!lit || lit->value) != 0 && base_datatype->tag != ArrType_TAG) {
+
+            Nodes new_ops = nodes(a, old_operands.count, new_operands);
+
+            const Node* offset = new_operands[1];
+            const IntLiteral* offset_lit = resolve_to_int_literal(offset);
+            if ((!offset_lit || offset_lit->value) != 0 && base_datatype->tag != ArrType_TAG) {
                 warn_print("LEA used on a pointer to a non-array type!\n");
-                const Node* cast_base = first(bind_instruction(bb, prim_op(a, (PrimOp) {
-                    .op = reinterpret_op,
-                    .type_arguments = singleton(ptr_type(a, (PtrType) {
+                const Type* arrayed_src_t = ptr_type(a, (PtrType) {
                         .address_space = as,
                         .pointed_type = arr_type(a, (ArrType) {
-                            .element_type = base_datatype,
-                            .size = NULL
+                                .element_type = base_datatype,
+                                .size = NULL
                         }),
-                    })),
-                    .operands = singleton(new_operands[0]),
-                })));
-                Nodes final_lea_ops = mk_nodes(a, cast_base, new_operands[1], int32_literal(a, 0));
-                final_lea_ops = concat_nodes(a, final_lea_ops, nodes(a, old_operands.count - 2, new_operands + 2));
-                const Node* instruction = prim_op(a, (PrimOp) {
-                        .op = lea_op,
-                        .type_arguments = empty(a),
-                        .operands = final_lea_ops
                 });
-                return bind_last_instruction_and_wrap_in_block(bb, instruction);
+                const Node* cast_base = gen_reinterpret_cast(bb, arrayed_src_t, first(new_ops));
+                Nodes final_lea_ops = mk_nodes(a, cast_base, offset, int32_literal(a, 0));
+                final_lea_ops = concat_nodes(a, final_lea_ops, nodes(a, old_operands.count - 2, new_operands + 2));
+                new_ops = final_lea_ops;
             }
-            goto rebuild;
+
+            const Node* result = first(bind_instruction(bb, prim_op(a, (PrimOp) {
+                .op = lea_op,
+                .type_arguments = empty(a),
+                .operands = new_ops
+            })));
+
+            if (was_untyped) {
+                const Type* result_t = type_untyped_ptr(base_datatype, unit_type(a));
+                result = gen_reinterpret_cast(bb, result_t, result);
+            }
+
+            return yield_values_and_wrap_in_block(bb, singleton(result));
         }
         case empty_mask_op:
         case subgroup_active_mask_op:
@@ -526,9 +537,9 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
 
     rebuild: {
         const Node* new_instruction = prim_op(a, (PrimOp) {
-                .op = op,
-                .type_arguments = type_args,
-                .operands = nodes(a, old_operands.count, new_operands)
+            .op = op,
+            .type_arguments = type_args,
+            .operands = nodes(a, old_operands.count, new_operands)
         });
         return bind_last_instruction_and_wrap_in_block(bb, new_instruction);
     }
