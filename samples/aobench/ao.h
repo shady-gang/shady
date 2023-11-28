@@ -5,7 +5,9 @@
 
 typedef float Scalar;
 
+#ifndef M_PI
 #define M_PI 3.14159f
+#endif
 
 #ifdef _MSC_VER
 #include <math.h>
