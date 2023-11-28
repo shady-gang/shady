@@ -387,6 +387,12 @@ const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
 
 const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     assert((arena->config.untyped_ptrs || ptr_type.pointed_type) && "Shady does not support untyped pointers, but can infer them, see infer.c");
+    if (ptr_type.pointed_type) {
+        if (ptr_type.pointed_type->tag == ArrType_TAG)
+            assert(is_data_type(ptr_type.pointed_type->payload.arr_type.element_type));
+        else if (ptr_type.pointed_type->tag == FnType_TAG) { /* ok */ } else
+            assert(is_data_type(ptr_type.pointed_type));
+    }
     if (!arena->config.allow_subgroup_memory) {
         assert(ptr_type.address_space != AsSubgroupPhysical);
         assert(ptr_type.address_space != AsSubgroupLogical);
