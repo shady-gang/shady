@@ -279,7 +279,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         } case lea_op: {
             CTerm acc = emit_value(emitter, p, prim_op->operands.nodes[0]);
 
-            const Type* curr_ptr_type = get_unqualified_type(prim_op->operands.nodes[0]->type);
+            const Type* src_qtype = prim_op->operands.nodes[0]->type;
+            bool uniform = is_qualified_type_uniform(src_qtype);
+            const Type* curr_ptr_type = get_unqualified_type(src_qtype);
             assert(curr_ptr_type->tag == PtrType_TAG);
 
             const IntLiteral* offset_static_value = resolve_to_int_literal(prim_op->operands.nodes[1]);
@@ -289,12 +291,14 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 // this means such code is never going to be legal in GLSL
                 // also the cast is to account for our arrays-in-structs hack
                 acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &(%s.arr[%s]))", emit_type(emitter, curr_ptr_type, NULL), deref_term(emitter, acc), to_cvalue(emitter, offset)));
+                uniform &= is_qualified_type_uniform(prim_op->operands.nodes[1]->type);
             }
 
             //t = t->payload.ptr_type.pointed_type;
             for (size_t i = 2; i < prim_op->operands.count; i++) {
                 const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
                 const Node* selector = prim_op->operands.nodes[i];
+                uniform &= is_qualified_type_uniform(selector->type);
                 switch (is_type(pointee_type)) {
                     case ArrType_TAG: {
                         CTerm index = emit_value(emitter, p, selector);
@@ -319,18 +323,14 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                         // See https://github.com/ispc/ispc/issues/2496
                         if (emitter->config.dialect == ISPC) {
                             String interm = unique_name(arena, "lea_intermediary_ptr_value");
-                            print(p, "%s = %s;\n", emit_type(emitter, curr_ptr_type, interm), to_cvalue(emitter, acc));
+                            print(p, "\n%s = %s;", emit_type(emitter, qualified_type_helper(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
                             acc = term_from_cvalue(interm);
                         }
 
                         assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
                         size_t static_index = get_int_literal_value(*resolve_to_int_literal(selector), false);
-                        assert(static_index < pointee_type->payload.record_type.members.count);
-                        Strings names = pointee_type->payload.record_type.names;
-                        if (names.count == 0)
-                            acc = term_from_cvar(format_string_arena(arena->arena, "(%s._%d)", deref_term(emitter, acc), static_index));
-                        else
-                            acc = term_from_cvar(format_string_arena(arena->arena, "(%s.%s)", deref_term(emitter, acc), names.strings[static_index]));
+                        String field_name = get_record_field_name(pointee_type, static_index);
+                        acc = term_from_cvar(format_string_arena(arena->arena, "(%s.%s)", deref_term(emitter, acc), field_name));
                         curr_ptr_type = ptr_type(arena, (PtrType) {
                                 .pointed_type = pointee_type->payload.record_type.members.nodes[static_index],
                                 .address_space = curr_ptr_type->payload.ptr_type.address_space
@@ -357,9 +357,14 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             term = term_from_cvalue(format_string_arena(emitter->arena->arena, "alignof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL)));
             break;
         case offset_of_op: {
-            // TODO get member name
-            String member_name; error("TODO");
-            term = term_from_cvalue(format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL), member_name));
+            const Type* t = first(prim_op->type_arguments);
+            while (t->tag == TypeDeclRef_TAG) {
+                t = get_nominal_type_body(t);
+            }
+            const Node* index = first(prim_op->operands);
+            uint64_t index_literal = get_int_literal_value(*resolve_to_int_literal(index), false);
+            String member_name = get_record_field_name(t, index_literal);
+            term = term_from_cvalue(format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", c_emit_type(emitter, t, NULL), member_name));
             break;
         } case select_op: {
             assert(prim_op->operands.count == 3);

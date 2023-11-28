@@ -13,6 +13,16 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
+String get_record_field_name(const Type* t, size_t i) {
+    assert(t->tag == RecordType_TAG);
+    RecordType r = t->payload.record_type;
+    assert(i < r.members.count);
+    if (i >= r.names.count)
+        return format_string_interned(t->arena, "_%d", i);
+    else
+        return r.names.strings[i];
+}
+
 void emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     assert(type->tag == RecordType_TAG);
     Growy* g = new_growy();
@@ -21,12 +31,7 @@ void emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     print(p, "\n%s {", name);
     indent(p);
     for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
-        String member_identifier;
-        if (i >= type->payload.record_type.names.count)
-            member_identifier = format_string_arena(emitter->arena->arena, "_%d", i);
-        else
-            member_identifier = type->payload.record_type.names.strings[i];
-
+        String member_identifier = get_record_field_name(type, i);
         print(p, "\n%s;", emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
     }
     deindent(p);
