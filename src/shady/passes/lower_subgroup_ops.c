@@ -26,11 +26,6 @@ static bool is_extended_type(SHADY_UNUSED IrArena* a, const Type* t, bool allow_
     }
 }
 
-static size_t bytes_to_i32_cells(size_t size_in_bytes) {
-    assert(size_in_bytes % 4 == 0);
-    return (size_in_bytes + 3) / 4;
-}
-
 static const Node* process_let(Context* ctx, const Node* old) {
     assert(old->tag == Let_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
@@ -64,7 +59,7 @@ static const Node* process_let(Context* ctx, const Node* old) {
                 const Node* varying_typed_ptr = gen_reinterpret_cast(builder, varying_typed_ptr_t, varying_top_of_stack);
 
                 gen_store(builder, varying_typed_ptr, varying_value);
-                for (int32_t j = 0; j < bytes_to_i32_cells(layout.size_in_bytes); j++) {
+                for (int32_t j = 0; j < bytes_to_words_static(a, layout.size_in_bytes); j++) {
                     const Node* varying_logical_addr = gen_lea(builder, varying_raw_ptr, int32_literal(a, 0), nodes(a, 1, (const Node* []) {int32_literal(a, j) }));
                     const Node* input = gen_load(builder, varying_logical_addr);
 

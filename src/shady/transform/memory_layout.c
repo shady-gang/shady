@@ -125,7 +125,7 @@ const Node* bytes_to_words(BodyBuilder* bb, const Node* bytes) {
 
 uint64_t bytes_to_words_static(const IrArena* a, uint64_t bytes) {
     uint64_t word_width = int_size_in_bytes(a->config.memory.word_size);
-    return bytes / ( word_width / 8 );
+    return bytes / word_width;
 }
 
 IntSizes float_to_int_width(FloatSizes width) {
