@@ -259,7 +259,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             if (emitter->config.dialect == ISPC) {
                 outputs.results[0] = ispc_varying_ptr_helper(emitter, p, get_unqualified_type(node->type), variable);
             }
-            outputs.binding[0] = LetBinding;
+            outputs.binding[0] = NoBinding;
             return;
         }
         case load_op: {
