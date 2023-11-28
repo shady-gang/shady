@@ -37,9 +37,11 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             for (size_t i = 0; i < num_params; i++)
                 cparam_types[i] = convert_type(p, param_types[i]);
             const Type* ret_type = convert_type(p, LLVMGetReturnType(t));
+            if (LLVMGetTypeKind(LLVMGetReturnType(t)) == LLVMVoidTypeKind)
+                ret_type = empty_multiple_return_type(a);
             return fn_type(a, (FnType) {
                 .param_types = nodes(a, num_params, cparam_types),
-                .return_types = ret_type == unit_type(a) ? empty(a) : singleton(ret_type)
+                .return_types = ret_type == empty_multiple_return_type(a) ? empty(a) : singleton(ret_type)
             });
         }
         case LLVMStructTypeKind: {

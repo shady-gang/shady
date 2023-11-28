@@ -352,6 +352,12 @@ const Node* jump_helper(IrArena* a, const Node* dst, Nodes args) {
 const Node* unit_type(IrArena* arena) {
      return record_type(arena, (RecordType) {
          .members = empty(arena),
+     });
+}
+
+const Node* empty_multiple_return_type(IrArena* arena) {
+     return record_type(arena, (RecordType) {
+         .members = empty(arena),
          .special = MultipleReturn,
      });
 }

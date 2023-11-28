@@ -151,10 +151,12 @@ const Node* get_let_tail(const Node* let);
 
 //////////////////////////////// Constructors ////////////////////////////////
 
-// type ctor helpers
+/// For typing things that don't return at all
 const Type* noret_type(IrArena*);
-
+/// For making pointers to nothing in particular (equivalent to C's void*)
 const Node* unit_type(IrArena*);
+/// For typing instructions that return nothing (equivalent to C's void f())
+const Node* empty_multiple_return_type(IrArena*);
 
 const Type* int_type_helper(IrArena*, bool, IntSizes);
 

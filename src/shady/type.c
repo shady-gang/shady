@@ -245,6 +245,8 @@ bool is_data_type(const Type* type) {
         case Type_PackType_TAG:
             return is_data_type(type->payload.pack_type.element_type);
         case Type_RecordType_TAG: {
+            if (type->payload.record_type.members.count == 0)
+                return false;
             for (size_t i = 0; i < type->payload.record_type.members.count; i++)
                 if (!is_data_type(type->payload.record_type.members.nodes[i]))
                     return false;
@@ -364,7 +366,10 @@ const Type* check_type_record_type(IrArena* arena, RecordType type) {
     assert(type.names.count == 0 || type.names.count == type.members.count);
     for (size_t i = 0; i < type.members.count; i++) {
         // member types are value types iff this is a return tuple
-        assert((type.special == MultipleReturn) == is_value_type(type.members.nodes[i]));
+        if (type.special == MultipleReturn)
+            assert(is_value_type(type.members.nodes[i]));
+        else
+            assert(is_data_type(type.members.nodes[i]));
     }
     return NULL;
 }
@@ -390,8 +395,9 @@ const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     if (ptr_type.pointed_type) {
         if (ptr_type.pointed_type->tag == ArrType_TAG)
             assert(is_data_type(ptr_type.pointed_type->payload.arr_type.element_type));
-        else if (ptr_type.pointed_type->tag == FnType_TAG) { /* ok */ } else
-            assert(is_data_type(ptr_type.pointed_type));
+        else if (ptr_type.pointed_type->tag == FnType_TAG) { /* ok */ }
+        else if (ptr_type.pointed_type == unit_type(arena)) { /* ok */ }
+        else assert(is_data_type(ptr_type.pointed_type));
     }
     if (!arena->config.allow_subgroup_memory) {
         assert(ptr_type.address_space != AsSubgroupPhysical);
@@ -731,7 +737,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             const Node* val = prim_op.operands.nodes[1];
             assert(is_subtype(val_expected_type, val->type));
-            return unit_type(arena);
+            return empty_multiple_return_type(arena);
         }
         case alloca_logical_op:  as = AsFunctionLogical; goto alloca_case;
         case alloca_subgroup_op: as = AsSubgroupPhysical; goto alloca_case;
@@ -791,7 +797,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* cnt_t = prim_op.operands.nodes[2]->type;
             deconstruct_qualified_type(&cnt_t);
             assert(cnt_t->tag == Int_TAG);
-            return unit_type(arena);
+            return empty_multiple_return_type(arena);
         }
         case memset_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -805,7 +811,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* cnt_t = prim_op.operands.nodes[2]->type;
             deconstruct_qualified_type(&cnt_t);
             assert(cnt_t->tag == Int_TAG);
-            return unit_type(arena);
+            return empty_multiple_return_type(arena);
         }
         case align_of_op:
         case size_of_op: {
@@ -1007,7 +1013,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
             assert(get_unqualified_type(prim_op.operands.nodes[0]->type) == uint32_type(arena));
-            return unit_type(arena);
+            return empty_multiple_return_type(arena);
         }
         case push_stack_op: {
             assert(prim_op.type_arguments.count == 1);
@@ -1020,7 +1026,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             });
             // the operand has to be a subtype of the annotated type
             assert(is_subtype(qual_element_type, first(prim_op.operands)->type));
-            return unit_type(arena);
+            return empty_multiple_return_type(arena);
         }
         case pop_stack_op:{
             assert(prim_op.operands.count == 0);
@@ -1033,7 +1039,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case debug_printf_op: {
             assert(prim_op.type_arguments.count == 0);
             // TODO ?
-            return unit_type(arena);
+            return empty_multiple_return_type(arena);
         }
         case sample_texture_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -1170,7 +1176,7 @@ const Type* check_type_block(IrArena* arena, Block payload) {
 }
 
 const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
-    return unit_type(arena);
+    return empty_multiple_return_type(arena);
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {

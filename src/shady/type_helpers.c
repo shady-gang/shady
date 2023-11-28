@@ -7,7 +7,7 @@
 
 const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types) {
     switch (types.count) {
-        case 0: return unit_type(arena);
+        case 0: return empty_multiple_return_type(arena);
         case 1: return types.nodes[0];
         default: return record_type(arena, (RecordType) {
             .members = types,
