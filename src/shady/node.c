@@ -36,7 +36,7 @@ String get_value_name_safe(const Node* v) {
 
 void set_variable_name(Node* var, String name) {
     assert(var->tag == Variable_TAG);
-    var->payload.var.name = name;
+    var->payload.var.name = string(var->arena, name);
 }
 
 int64_t get_int_literal_value(IntLiteral literal, bool sign_extend) {
