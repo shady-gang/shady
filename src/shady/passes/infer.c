@@ -477,8 +477,8 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                 const Type* arrayed_src_t = ptr_type(a, (PtrType) {
                         .address_space = as,
                         .pointed_type = arr_type(a, (ArrType) {
-                                .element_type = base_datatype,
-                                .size = NULL
+                            .element_type = get_pointer_type_element(base_datatype),
+                            .size = NULL
                         }),
                 });
                 const Node* cast_base = gen_reinterpret_cast(bb, arrayed_src_t, first(new_ops));
