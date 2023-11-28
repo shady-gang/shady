@@ -56,7 +56,7 @@ void emit_decl(Emitter* emitter, const Node* decl);
 CType emit_type(Emitter* emitter, const Type*, const char* identifier);
 String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn);
 void emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
-void emit_variable(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer);
+void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer);
 
 CTerm emit_value(Emitter* emitter, Printer*, const Node* value);
 CTerm emit_c_builtin(Emitter*, Builtin);
@@ -65,7 +65,7 @@ String legalize_c_identifier(Emitter*, String);
 String get_record_field_name(const Type* t, size_t i);
 CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Type* ptr_type, CTerm term);
 
-typedef enum { NoBinding, LetBinding, LetMutBinding } InstrResultBinding;
+typedef enum { NoBinding, LetBinding } InstrResultBinding;
 
 typedef struct {
     size_t count;

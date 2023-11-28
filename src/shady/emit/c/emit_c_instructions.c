@@ -25,7 +25,7 @@ void emit_unpack_code(Printer* p, String src, Strings dst) {
     }
 }
 
-static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String given_name, Strings* given_names, Nodes types, const Nodes* init_values) {
+static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String given_name, Strings* given_names, Nodes types, bool mut, const Nodes* init_values) {
     if (given_names)
         assert(given_names->count == types.count);
     if (init_values)
@@ -36,10 +36,11 @@ static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String g
         String name = given_names ? given_names->strings[i] : given_name;
         assert(name);
         names[i] = format_string_arena(emitter->arena->arena, "%s_%d", name, id);
-        if (init_values)
-            print(p, "\n%s = %s;", c_emit_type(emitter, types.nodes[i], names[i]), to_cvalue(emitter, emit_value(emitter, p, init_values->nodes[i])));
-        else
-            print(p, "\n%s;", c_emit_type(emitter, types.nodes[i], names[i]));
+        if (init_values) {
+            CTerm initializer = emit_value(emitter, p, init_values->nodes[i]);
+            emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, &initializer);
+        } else
+            emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, NULL);
     }
     return strings(emitter->arena, types.count, names);
 }
@@ -251,8 +252,14 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case alloca_op:
         case alloca_logical_op: {
             assert(outputs.count == 1);
-            outputs.results[0] = (CTerm) { .value = NULL, .var = NULL };
-            outputs.binding[0] = LetMutBinding;
+            String variable_name = unique_name(emitter->arena, "alloca");
+            CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
+            emit_variable_declaration(emitter, p, first(prim_op->type_arguments), variable_name, true, NULL);
+            outputs.results[0] = variable;
+            if (emitter->config.dialect == ISPC) {
+                outputs.results[0] = ispc_varying_ptr_helper(emitter, p, get_unqualified_type(node->type), variable);
+            }
+            outputs.binding[0] = LetBinding;
             return;
         }
         case load_op: {
@@ -646,7 +653,7 @@ static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, Instruct
     assert(if_instr->tag == If_TAG);
     const If* if_ = &if_instr->payload.if_instr;
     Emitter sub_emiter = *emitter;
-    Strings ephis = emit_variable_declarations(emitter, p, "if_phi", NULL, if_->yield_types, NULL);
+    Strings ephis = emit_variable_declarations(emitter, p, "if_phi", NULL, if_->yield_types, true, NULL);
     sub_emiter.phis.selection = ephis;
 
     assert(get_abstraction_params(if_->if_true).count == 0);
@@ -672,7 +679,7 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, In
     assert(match_instr->tag == Match_TAG);
     const Match* match = &match_instr->payload.match_instr;
     Emitter sub_emiter = *emitter;
-    Strings ephis = emit_variable_declarations(emitter, p, "match_phi", NULL, match->yield_types, NULL);
+    Strings ephis = emit_variable_declarations(emitter, p, "match_phi", NULL, match->yield_types, true, NULL);
     sub_emiter.phis.selection = ephis;
 
     // Of course, the sensible thing to do here would be to emit a switch statement.
@@ -726,12 +733,12 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Inst
             arr[i] = unique_name(emitter->arena, "phi");
     }
     Strings param_names = strings(emitter->arena, variables.count, arr);
-    Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, get_variables_types(emitter->arena, params), &loop_instr->payload.loop_instr.initial_args);
+    Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, get_variables_types(emitter->arena, params), true, &loop_instr->payload.loop_instr.initial_args);
     for (size_t i = 0; i < params.count; i++)
         register_emitted(&sub_emiter, params.nodes[i], term_from_cvalue(eparams.strings[i]));
 
     sub_emiter.phis.loop_continue = eparams;
-    Strings ephis = emit_variable_declarations(emitter, p, "loop_break_phi", NULL, loop->yield_types, NULL);
+    Strings ephis = emit_variable_declarations(emitter, p, "loop_break_phi", NULL, loop->yield_types, true, NULL);
     sub_emiter.phis.loop_break = ephis;
 
     String body = emit_lambda_body(&sub_emiter, get_abstraction_body(loop->body), NULL);

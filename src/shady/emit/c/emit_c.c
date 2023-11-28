@@ -321,7 +321,7 @@ CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Ty
     return term_from_cvalue(interm);
 }
 
-void emit_variable(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer) {
+void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer) {
     assert((mut || initializer != NULL) && "unbound results are only allowed when creating a mutable local variable");
 
     String prefix = "";
@@ -378,7 +378,6 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             const Nodes tail_params = tail->payload.case_.params;
             assert(tail_params.count == yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
-                bool mut = false;
                 bool has_result = results[i].value || results[i].var;
                 switch (bindings[i]) {
                     case NoBinding: {
@@ -386,7 +385,6 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                         register_emitted(emitter, tail_params.nodes[i], results[i]);
                         break;
                     }
-                    case LetMutBinding: mut = true;
                     case LetBinding: {
                         String variable_name = get_value_name(tail_params.nodes[i]);
 
@@ -397,18 +395,13 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                             bind_to = format_string_arena(emitter->arena->arena, "v%d", fresh_id(emitter->arena));
 
                         const Type* t = yield_types.nodes[i];
-                        if (mut)
-                            t = get_pointee_type(emitter->arena, t);
 
                         if (has_result)
-                            emit_variable(emitter, block_printer, t, bind_to, mut, &results[i]);
+                            emit_variable_declaration(emitter, block_printer, t, bind_to, false, &results[i]);
                         else
-                            emit_variable(emitter, block_printer, t, bind_to, mut, NULL);
+                            emit_variable_declaration(emitter, block_printer, t, bind_to, false, NULL);
 
-                        if (mut)
-                            register_emitted(emitter, tail_params.nodes[i], term_from_cvar(bind_to));
-                        else
-                            register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
+                        register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
                         break;
                     }
                     default: assert(false);
