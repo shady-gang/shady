@@ -51,7 +51,7 @@ ArenaConfig default_arena_config() {
         .allow_shared_memory = true,
 
         .memory = {
-            .word_size = IntTy32,
+            .word_size = IntTy8,
             .ptr_size = IntTy64,
         },
 
