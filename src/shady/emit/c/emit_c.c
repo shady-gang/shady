@@ -298,14 +298,8 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
 
             if (emitter->config.dialect == ISPC && decl->tag == GlobalVariable_TAG) {
                 if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !is_decl_builtin(decl)) {
-                    assert(block_printer && "ISPC backend cannot statically refer to a varying global variable");
-                    // hack for ISPC: there is no nice way to get a set of varying pointers (instead of a "pointer to a varying") pointing to a varying global
-                    String interm = unique_name(emitter->arena, "intermediary_ptr_value");
-                    const Type* ut = qualified_type_helper(decl->type, true);
-                    const Type* vt = qualified_type_helper(decl->type, false);
-                    String lhs = emit_type(emitter, vt, interm);
-                    print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, emit_type(emitter, ut, NULL), to_cvalue(emitter, *lookup_existing_term(emitter, decl)));
-                    return term_from_cvalue(interm);
+                    assert(block_printer && "ISPC backend cannot statically refer to a varying variable");
+                    return ispc_varying_ptr_helper(emitter, block_printer, decl->type, *lookup_existing_term(emitter, decl));
                 }
             }
 
@@ -315,6 +309,43 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
 
     assert(emitted);
     return term_from_cvalue(emitted);
+}
+
+/// hack for ISPC: there is no nice way to get a set of varying pointers (instead of a "pointer to a varying") pointing to a varying global
+CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Type* ptr_type, CTerm term) {
+    String interm = unique_name(emitter->arena, "intermediary_ptr_value");
+    const Type* ut = qualified_type_helper(ptr_type, true);
+    const Type* vt = qualified_type_helper(ptr_type, false);
+    String lhs = emit_type(emitter, vt, interm);
+    print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, emit_type(emitter, ut, NULL), to_cvalue(emitter, term));
+    return term_from_cvalue(interm);
+}
+
+void emit_variable(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer) {
+    assert((mut || initializer != NULL) && "unbound results are only allowed when creating a mutable local variable");
+
+    String prefix = "";
+    String center = variable_name;
+
+    // add extra qualifiers if immutable
+    if (!mut) switch (emitter->config.dialect) {
+        case ISPC:
+            center = format_string_arena(emitter->arena->arena, "const %s", center);
+            break;
+        case C:
+            prefix = "register ";
+            center = format_string_arena(emitter->arena->arena, "const %s", center);
+            break;
+        case GLSL:
+            prefix = "const ";
+            break;
+    }
+
+    String decl = c_emit_type(emitter, t, center);
+    if (initializer)
+        print(block_printer, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, *initializer));
+    else
+        print(block_printer, "\n%s%s;", prefix, decl);
 }
 
 static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator) {
@@ -357,40 +388,22 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                     }
                     case LetMutBinding: mut = true;
                     case LetBinding: {
-                        assert((mut || has_result) && "unbound results are only allowed when creating a mutable local variable");
-                        String bind_to;
                         String variable_name = get_value_name(tail_params.nodes[i]);
+
+                        String bind_to;
                         if (variable_name)
                             bind_to = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), fresh_id(emitter->arena));
                         else
                             bind_to = format_string_arena(emitter->arena->arena, "v%d", fresh_id(emitter->arena));
 
-                        String prefix = "";
-                        String center = bind_to;
-
-                        // add extra qualifiers if immutable
-                        if (!mut) switch (emitter->config.dialect) {
-                            case ISPC:
-                                center = format_string_arena(emitter->arena->arena, "const %s", bind_to);
-                                break;
-                            case C:
-                                prefix = "register ";
-                                center = format_string_arena(emitter->arena->arena, "const %s", bind_to);
-                                break;
-                            case GLSL:
-                                prefix = "const ";
-                                break;
-                        }
-
                         const Type* t = yield_types.nodes[i];
                         if (mut)
                             t = get_pointee_type(emitter->arena, t);
 
-                        String decl = c_emit_type(emitter, t, center);
                         if (has_result)
-                            print(block_printer, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, results[i]));
+                            emit_variable(emitter, block_printer, t, bind_to, mut, &results[i]);
                         else
-                            print(block_printer, "\n%s%s;", prefix, decl);
+                            emit_variable(emitter, block_printer, t, bind_to, mut, NULL);
 
                         if (mut)
                             register_emitted(emitter, tail_params.nodes[i], term_from_cvar(bind_to));
