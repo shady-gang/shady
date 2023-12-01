@@ -1,4 +1,4 @@
-// trivial function that returns its argument
+// recursive fib!
 fn fib varying u32(varying u32 n) {
   if (n <= u32 1) { return (u32 1); }
   return (fib(n - u32 1) + fib(n - u32 2));
