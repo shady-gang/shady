@@ -45,6 +45,8 @@ static inline void free_aligned(void* ptr) {
 #endif
 }
 
+const char* get_executable_location(void);
+
 void platform_specific_terminal_init_extras();
 
 #endif

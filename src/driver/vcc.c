@@ -79,9 +79,11 @@ int main(int argc, char** argv) {
 
     Growy* g = new_growy();
     growy_append_string(g, "clang");
-    char* working_dir = strip_path(argv[0]);
+    char* self_path = get_executable_location();
+    char* working_dir = strip_path(self_path);
     growy_append_formatted(g, " -c -emit-llvm -S -g -O0 -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown -isystem\"%s/../share/vcc/include/\"", working_dir);
     free(working_dir);
+    free(self_path);
     growy_append_formatted(g, " -o %s", vcc_options.tmp_filename);
 
     for (size_t i = 0; i < num_source_files; i++) {
