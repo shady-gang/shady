@@ -1,7 +1,7 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
 
-#include "../shady/parser/parser.h"
+#include "frontends/slim/parser.h"
 
 #include "list.h"
 #include "util.h"

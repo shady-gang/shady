@@ -6,8 +6,8 @@
 #include "log.h"
 #include "util.h"
 
-#include "../type.h"
-#include "../ir_private.h"
+#include "type.h"
+#include "ir_private.h"
 
 #include <stdlib.h>
 #include <stdio.h>

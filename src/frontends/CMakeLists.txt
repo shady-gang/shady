@@ -1,3 +1,4 @@
+add_subdirectory(slim)
 add_subdirectory(spirv)
 
 find_package(LLVM)

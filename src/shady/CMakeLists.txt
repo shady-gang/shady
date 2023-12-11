@@ -18,6 +18,7 @@ add_generated_file(FILE_NAME rewrite_generated.c      TARGET_NAME rewrite_genera
 add_library(shady_generated INTERFACE)
 add_dependencies(shady_generated node_generated primops_generated type_generated constructors_generated visit_generated rewrite_generated)
 target_include_directories(shady_generated INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>")
+target_link_libraries(api INTERFACE "$<BUILD_INTERFACE:shady_generated>")
 
 set(SHADY_SOURCES
     ir.c
@@ -35,9 +36,6 @@ set(SHADY_SOURCES
     compile.c
     annotation.c
     module.c
-
-    parser/parser.c
-    parser/token.c
 
     analysis/scope.c
     analysis/free_variables.c
@@ -110,6 +108,5 @@ add_subdirectory(emit)
 
 target_link_libraries(shady PUBLIC "api")
 target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:common>")
-target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:shady_generated>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
