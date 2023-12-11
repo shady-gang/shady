@@ -15,4 +15,6 @@ char* format_string_new(const char* str, ...);
 bool string_starts_with(const char* string, const char* prefix);
 bool string_ends_with(const char* string, const char* suffix);
 
+char* strip_path(const char*);
+
 #endif

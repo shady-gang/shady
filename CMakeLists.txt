@@ -35,6 +35,10 @@ include(CMakePackageConfigHelpers)
 install(TARGETS api EXPORT shady_export_set)
 install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 
+if (TARGET vcc)
+  add_subdirectory(vcc-std)
+endif ()
+
 if (TARGET runtime)
   install(TARGETS runtime EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 endif()

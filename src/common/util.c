@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <assert.h>
 
 #define ESCAPE_SEQS(X) \
 X('\\', '\\') \
@@ -191,6 +192,18 @@ bool string_ends_with(const char* string, const char* suffix) {
             return false;
     }
     return true;
+}
+
+char* strip_path(const char* path) {
+    char separator = strchr(path, '\\') == NULL ? '/' : '\\';
+    char* end = strrchr(path, separator);
+    assert(end);
+    char* new = calloc(sizeof(char), (end - path) + 1);
+    size_t i = 0;
+    for (const char* c = path; c < end; c++) {
+        new[i++] = *c;
+    }
+    return new;
 }
 
 void error_die() {
