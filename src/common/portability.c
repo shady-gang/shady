@@ -30,9 +30,6 @@ void platform_specific_terminal_init_extras() {
 
 #ifdef WIN32
 #include <windows.h>
-const char* get_executable_location(void) {
-    GetModuleFileName
-}
 #else
 #include <unistd.h>
 #include <stdio.h>
