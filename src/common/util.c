@@ -197,7 +197,13 @@ bool string_ends_with(const char* string, const char* suffix) {
 char* strip_path(const char* path) {
     char separator = strchr(path, '\\') == NULL ? '/' : '\\';
     char* end = strrchr(path, separator);
-    assert(end);
+    if (!end) {
+        fprintf(stderr, "path: %s\n", path);
+        char* new = calloc(sizeof(char), 3);
+        new[0] = '.';
+        new[1] = '/';
+        return new;
+    }
     char* new = calloc(sizeof(char), (end - path) + 1);
     size_t i = 0;
     for (const char* c = path; c < end; c++) {
