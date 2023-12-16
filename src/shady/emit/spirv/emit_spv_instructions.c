@@ -300,6 +300,22 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             }
             return;
         }
+        case shuffle_op: {
+            const Type* result_t = instr->type;
+            SpvId a = emit_value(emitter, bb_builder, args.nodes[0]);
+            SpvId b = emit_value(emitter, bb_builder, args.nodes[1]);
+            LARRAY(uint32_t, indices, args.count - 2);
+            for (size_t i = 0; i < args.count - 2; i++) {
+                int64_t indice = get_int_literal_value(*resolve_to_int_literal(args.nodes[i + 2]), true);
+                if (indice == -1)
+                    indices[i] = 0xFFFFFFFF;
+                else
+                    indices[i] = indice;
+            }
+            assert(results_count == 1);
+            results[0] = spvb_vecshuffle(bb_builder, emit_type(emitter, result_t), a, b, args.count - 2, indices);
+            return;
+        }
         case load_op: {
             const Type* ptr_type = first(args)->type;
             deconstruct_qualified_type(&ptr_type);
