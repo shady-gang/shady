@@ -778,7 +778,7 @@ SpvId spvb_op(SpvbBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, si
     return id;
 }
 
-SpvId spvb_elect(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope) {
+SpvId spvb_group_elect(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope) {
     op(SpvOpGroupNonUniformElect, 4);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -787,7 +787,7 @@ SpvId spvb_elect(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId sco
     return id;
 }
 
-SpvId spvb_ballot(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId predicate, SpvId scope) {
+SpvId spvb_group_ballot(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId predicate, SpvId scope) {
     op(SpvOpGroupNonUniformBallot, 5);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -797,7 +797,7 @@ SpvId spvb_ballot(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId pr
     return id;
 }
 
-SpvId spvb_broadcast_first(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope) {
+SpvId spvb_group_broadcast_first(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope) {
     op(SpvOpGroupNonUniformBroadcastFirst, 5);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -807,7 +807,7 @@ SpvId spvb_broadcast_first(SpvbBasicBlockBuilder* bb_builder, SpvId result_type,
     return id;
 }
 
-SpvId spvb_shuffle(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope, SpvId value, SpvId id) {
+SpvId spvb_group_shuffle(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope, SpvId value, SpvId id) {
     op(SpvOpGroupNonUniformShuffle, 6);
     SpvId rid = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -818,7 +818,7 @@ SpvId spvb_shuffle(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId s
     return rid;
 }
 
-SpvId spvb_non_uniform_iadd(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope, SpvGroupOperation group_op, SpvId* cluster_size) {
+SpvId spvb_group_non_uniform_iadd(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope, SpvGroupOperation group_op, SpvId* cluster_size) {
     op(SpvOpGroupNonUniformIAdd, cluster_size ? 7 : 6);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
