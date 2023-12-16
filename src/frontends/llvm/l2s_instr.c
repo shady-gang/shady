@@ -511,8 +511,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             LARRAY(const Node*, cindices, num_indices);
             for (size_t i = 0; i < num_indices; i++)
                 cindices[i] = uint32_literal(a, LLVMGetMaskValue(instr, i));
-            ops = append_nodes(a, ops, tuple_helper(a, nodes(a, num_indices, cindices)));
-            assert(ops.count == 3);
+            ops = concat_nodes(a, ops, nodes(a, num_indices, cindices));
             r = prim_op_helper(a, shuffle_op, empty(a), ops);
             break;
         }
