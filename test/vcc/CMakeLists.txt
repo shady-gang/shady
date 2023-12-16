@@ -9,7 +9,7 @@ spv_outputting_test(NAME test/vcc/branch.c COMPILER vcc EXTRA_ARGS)
 spv_outputting_test(NAME test/vcc/loop.c COMPILER vcc EXTRA_ARGS)
 spv_outputting_test(NAME test/vcc/goto.c COMPILER vcc EXTRA_ARGS)
 
-spv_outputting_test(NAME test/vcc/vec_swizzle.c COMPILER vcc EXTRA_ARGS)
+spv_outputting_test(NAME test/vcc/vec_swizzle.c COMPILER vcc EXTRA_ARGS --entry-point test --no-dynamic-scheduling)
 
 spv_outputting_test(NAME test/vcc/empty.comp.c COMPILER vcc EXTRA_ARGS --entry-point main)
 

@@ -1,7 +1,7 @@
 #include <shady.h>
 
-input vec3 vertexColor;
-output vec4 outColor;
+location(0) input vec3 vertexColor;
+location(0) output vec4 outColor;
 
 fragment_shader void test() {
     vec4 a;
