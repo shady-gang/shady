@@ -760,6 +760,18 @@ SpvId spvb_load(SpvbBasicBlockBuilder* bb_builder, SpvId target_type, SpvId poin
     return id;
 }
 
+SpvId  spvb_vecshuffle(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId a, SpvId b, size_t operands_count, uint32_t operands[]) {
+    op(SpvOpVectorShuffle, 5 + operands_count);
+    SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
+    ref_id(result_type);
+    ref_id(id);
+    ref_id(a);
+    ref_id(b);
+    for (size_t i = 0; i < operands_count; i++)
+        literal_int(operands[i]);
+    return id;
+}
+
 void spvb_store(SpvbBasicBlockBuilder* bb_builder, SpvId value, SpvId pointer, size_t operands_count, uint32_t operands[]) {
     op(SpvOpStore, 3 + operands_count);
     ref_id(pointer);

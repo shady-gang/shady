@@ -912,8 +912,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool u = lhs_u & rhs_u;
             for (size_t i = 0; i < idx.count; i++) {
                 u &= is_qualified_type_uniform(idx.nodes[i]->type);
-                size_t index = get_int_literal_value(*resolve_to_int_literal(idx.nodes[i]), false);
-                assert(index >= 0 && index < total_size && "shuffle element out of range");
+                int64_t index = get_int_literal_value(*resolve_to_int_literal(idx.nodes[i]), true);
+                assert(index < 0 /* poison */ || (index >= 0 && index < total_size && "shuffle element out of range"));
             }
             return qualified_type_helper(pack_type(arena, (PackType) { .element_type = element_t, .width = idx.count }), u);
         }

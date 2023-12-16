@@ -92,6 +92,7 @@ SpvId spvb_access_chain(SpvbBasicBlockBuilder*, SpvId target_type, SpvId element
 SpvId spvb_ptr_access_chain(SpvbBasicBlockBuilder*, SpvId target_type, SpvId base, SpvId element, size_t indices_count, SpvId indices[]);
 SpvId spvb_load(SpvbBasicBlockBuilder*, SpvId target_type, SpvId pointer, size_t operands_count, uint32_t operands[]);
 void  spvb_store(SpvbBasicBlockBuilder*, SpvId value, SpvId pointer, size_t operands_count, uint32_t operands[]);
+SpvId  spvb_vecshuffle(SpvbBasicBlockBuilder*, SpvId result_type, SpvId a, SpvId b, size_t operands_count, uint32_t operands[]);
 SpvId spvb_group_elect(SpvbBasicBlockBuilder*, SpvId result_type, SpvId scope);
 SpvId spvb_group_ballot(SpvbBasicBlockBuilder*, SpvId result_t, SpvId predicate, SpvId scope);
 SpvId spvb_group_shuffle(SpvbBasicBlockBuilder*, SpvId result_type, SpvId scope, SpvId value, SpvId id);
