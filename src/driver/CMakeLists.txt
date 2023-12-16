@@ -4,6 +4,7 @@ set_property(TARGET driver PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_executable(slim slim.c)
 target_link_libraries(slim PRIVATE driver)
+install(TARGETS slim EXPORT shady_export_set)
 
 if (TARGET shady_s2s)
     target_compile_definitions(driver PUBLIC SPV_PARSER_PRESENT)
@@ -16,4 +17,5 @@ if (TARGET shady_fe_llvm)
 
     add_executable(vcc vcc.c)
     target_link_libraries(vcc PRIVATE driver api common)
+    install(TARGETS vcc EXPORT shady_export_set)
 endif ()
