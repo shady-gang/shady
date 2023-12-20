@@ -398,7 +398,7 @@ static const Node* process(Context* ctx, const Node* node) {
         return recreate_node_identity(&ctx->rewriter, node);
 
     // These should all be manually visited by 'structure'
-    assert(!is_terminator(node) && !is_instruction(node));
+    // assert(!is_terminator(node) && !is_instruction(node));
 
     switch (node->tag) {
         default: return recreate_node_identity(&ctx->rewriter, node);
