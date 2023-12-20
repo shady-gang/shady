@@ -14,11 +14,14 @@
 #include "list.h"
 #include "dict.h"
 
+#include <string.h>
 #include <assert.h>
 
 typedef struct Context_ {
     Rewriter rewriter;
     const CompilerConfig* config;
+
+    Nodes collected[NumAddressSpaces];
 
     struct Dict*   serialisation_uniform[NumAddressSpaces];
     struct Dict* deserialisation_uniform[NumAddressSpaces];
@@ -30,6 +33,8 @@ typedef struct Context_ {
     const Node* fake_subgroup_memory;
     const Node* fake_shared_memory;
 } Context;
+
+static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, BodyBuilder* bb);
 
 // TODO: make this configuration-dependant
 static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
@@ -274,7 +279,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
 
     BodyBuilder* bb = begin_body(a);
     const Node* address = bytes_to_words(bb, address_param);
-    const Node* base = ref_decl_helper(a, *get_emulated_as_word_array(ctx, as));
+    const Node* base = *get_emulated_as_word_array(ctx, as);
     if (ser) {
         gen_serialisation(ctx, bb, element_type, base, address, value_param);
         fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .fn = fun, .args = empty(a) }));
@@ -286,48 +291,6 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     return fun;
 }
 
-static const Node* process_let(Context* ctx, const Node* node) {
-    assert(node->tag == Let_TAG);
-    IrArena* a = ctx->rewriter.dst_arena;
-
-    const Node* tail = rewrite_node(&ctx->rewriter, node->payload.let.tail);
-    const Node* old_instruction = node->payload.let.instruction;
-
-    if (old_instruction->tag == PrimOp_TAG) {
-        const PrimOp* oprim_op = &old_instruction->payload.prim_op;
-        switch (oprim_op->op) {
-            case alloca_subgroup_op:
-            case alloca_op: error("This needs to be lowered (see setup_stack_frames.c)")
-            // lowering for either kind of memory accesses is similar
-            case load_op:
-            case store_op: {
-                const Node* old_ptr = oprim_op->operands.nodes[0];
-                const Type* ptr_type = old_ptr->type;
-                bool uniform_ptr = deconstruct_qualified_type(&ptr_type);
-                assert(ptr_type->tag == PtrType_TAG);
-                if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
-                    break;
-                BodyBuilder* bb = begin_body(a);
-
-                const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
-                const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
-                const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, oprim_op->op == store_op, ptr_type->payload.ptr_type.address_space);
-
-                if (oprim_op->op == load_op) {
-                    return finish_body(bb, let(a, call(a, (Call) {.callee = fn_addr_helper(a, fn), .args = singleton(pointer_as_offset)}), tail));
-                } else {
-                    const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
-                    return finish_body(bb, let(a, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = mk_nodes(a, pointer_as_offset, value) }), tail));
-                }
-                SHADY_UNREACHABLE;
-            }
-            default: break;
-        }
-    }
-
-    return let(a, rewrite_node(&ctx->rewriter, old_instruction), tail);
-}
-
 static const Node* process_node(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
@@ -335,7 +298,39 @@ static const Node* process_node(Context* ctx, const Node* old) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (old->tag) {
-        case Let_TAG: return process_let(ctx, old);
+        case PrimOp_TAG: {
+            const PrimOp* oprim_op = &old->payload.prim_op;
+            switch (oprim_op->op) {
+                case alloca_subgroup_op:
+                case alloca_op: error("This needs to be lowered (see setup_stack_frames.c)")
+                    // lowering for either kind of memory accesses is similar
+                case load_op:
+                case store_op: {
+                    const Node* old_ptr = oprim_op->operands.nodes[0];
+                    const Type* ptr_type = old_ptr->type;
+                    bool uniform_ptr = deconstruct_qualified_type(&ptr_type);
+                    assert(ptr_type->tag == PtrType_TAG);
+                    if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
+                        break;
+                    BodyBuilder* bb = begin_body(a);
+
+                    const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
+                    const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
+                    const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, oprim_op->op == store_op, ptr_type->payload.ptr_type.address_space);
+
+                    if (oprim_op->op == load_op) {
+                        Nodes r = bind_instruction(bb, call(a, (Call) {.callee = fn_addr_helper(a, fn), .args = singleton(pointer_as_offset)}));
+                        return yield_values_and_wrap_in_block(bb, r);
+                    } else {
+                        const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
+                        bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = mk_nodes(a, pointer_as_offset, value) }));
+                        return yield_values_and_wrap_in_block(bb, empty(a));
+                    }
+                }
+                default: break;
+            }
+            break;
+        }
         case PtrType_TAG: {
             if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
                 return int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
@@ -354,6 +349,20 @@ static const Node* process_node(Context* ctx, const Node* old) {
             }
             break;
         }
+        case Function_TAG: {
+            if (strcmp(get_abstraction_name(old), "generated_init") == 0) {
+                Node *new = recreate_decl_header_identity(&ctx->rewriter, old);
+                BodyBuilder *bb = begin_body(a);
+
+                for (AddressSpace as = 0; as < NumAddressSpaces; as++) {
+                    if (is_as_emulated(ctx, as))
+                        store_init_data(ctx, as, ctx->collected[as], bb);
+                }
+                new->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body));
+                return new;
+            }
+            break;
+        }
         default: break;
     }
 
@@ -363,75 +372,106 @@ static const Node* process_node(Context* ctx, const Node* old) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-/// Collects all global variables in a specific AS, and creates a record type for them.
-static void collect_globals_into_record_type(Context* ctx, Node* global_struct_t, AddressSpace as) {
+static Nodes collect_globals(Context* ctx, AddressSpace as) {
     IrArena* a = ctx->rewriter.dst_arena;
-    Module* m = ctx->rewriter.dst_module;
     Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
-
-    LARRAY(String, member_names, old_decls.count);
-    LARRAY(const Type*, member_tys, old_decls.count);
+    LARRAY(const Type*, collected, old_decls.count);
     size_t members_count = 0;
 
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
         if (decl->tag != GlobalVariable_TAG) continue;
         if (decl->payload.global_variable.address_space != as) continue;
+        collected[members_count] = decl;
+        members_count++;
+    }
+
+    return nodes(a, members_count, collected);
+}
+
+/// Collects all global variables in a specific AS, and creates a record type for them.
+static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collected) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    Module* m = ctx->rewriter.dst_module;
+
+    String as_name = get_address_space_name(as);
+    Node* global_struct_t = nominal_type(m, singleton(annotation(a, (Annotation) { .name = "Generated" })), format_string_arena(a->arena, "globals_physical_%s_t", as_name));
+
+    LARRAY(String, member_names, collected.count);
+    LARRAY(const Type*, member_tys, collected.count);
+
+    for (size_t i = 0; i < collected.count; i++) {
+        const Node* decl = collected.nodes[i];
         const Type* type = decl->payload.global_variable.type;
 
-        member_tys[members_count] = rewrite_node(&ctx->rewriter, type);
-        member_names[members_count] = decl->payload.global_variable.name;
+        member_tys[i] = rewrite_node(&ctx->rewriter, type);
+        member_names[i] = decl->payload.global_variable.name;
 
         // Turn the old global variable into a pointer (which are also now integers)
         const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
         Nodes annotations = rewrite_nodes(&ctx->rewriter, decl->payload.global_variable.annotations);
-        Node* cnst = constant(ctx->rewriter.dst_module, annotations, emulated_ptr_type, decl->payload.global_variable.name);
+        Node* new_address = constant(ctx->rewriter.dst_module, annotations, emulated_ptr_type, decl->payload.global_variable.name);
 
         // we need to compute the actual pointer by getting the offset and dividing it
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
         BodyBuilder* bb = begin_body(a);
-        const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(size_t_literal(a,  members_count)));
+        const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(size_t_literal(a,  i)));
         // const Node* offset_in_words = bytes_to_words(bb, offset);
-        cnst->payload.constant.instruction = yield_values_and_wrap_in_block(bb, singleton(offset));
+        new_address->payload.constant.instruction = yield_values_and_wrap_in_block(bb, singleton(offset));
 
-        register_processed(&ctx->rewriter, decl, cnst);
-
-        members_count++;
-    }
-
-    // add some dummy thing so we don't end up with a zero-sized thing, which SPIR-V hates
-    if (members_count == 0) {
-        member_tys[0] = int32_type(a);
-        member_names[0] = "dummy";
-        members_count++;
+        register_processed(&ctx->rewriter, decl, new_address);
     }
 
     const Type* record_t = record_type(a, (RecordType) {
-        .members = nodes(a, members_count, member_tys),
-        .names = strings(a, members_count, member_names)
+        .members = nodes(a, collected.count, member_tys),
+        .names = strings(a, collected.count, member_names)
     });
 
     //return record_t;
     global_struct_t->payload.nom_type.body = record_t;
+    return global_struct_t;
+}
+
+static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, BodyBuilder* bb) {
+    IrArena* oa = ctx->rewriter.src_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
+    for (size_t i = 0; i < collected.count; i++) {
+        const Node* old_decl = collected.nodes[i];
+        assert(old_decl->tag == GlobalVariable_TAG);
+        const Node* old_init = old_decl->payload.global_variable.init;
+        if (old_init) {
+            const Node* old_store = prim_op_helper(oa, store_op, empty(oa), mk_nodes(oa, ref_decl_helper(oa, old_decl), old_init));
+            bind_instruction(bb, rewrite_node(&ctx->rewriter, old_store));
+        }
+    }
 }
 
 static void construct_emulated_memory_array(Context* ctx, AddressSpace as, AddressSpace logical_as) {
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
     String as_name = get_address_space_name(as);
-    Nodes annotations = singleton(annotation(a, (Annotation) { .name = "Generated" }));
 
-    Node* global_struct_t = nominal_type(m, annotations, format_string_arena(a->arena, "globals_physical_%s_t", as_name));
-    //global_struct_t->payload.nom_type.body = collect_globals_into_record_type(ctx, as);
-    collect_globals_into_record_type(ctx, global_struct_t, as);
+    const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
+    const Type* ptr_size_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
+
+    ctx->collected[as] = collect_globals(ctx, as);
+    if (ctx->collected[as].count == 0) {
+        const Type* words_array_type = arr_type(a, (ArrType) {
+            .element_type = word_type,
+            .size = NULL
+        });
+        *get_emulated_as_word_array(ctx, as) = undef(a, (Undef) { .type = ptr_type(a, (PtrType) { .address_space = logical_as, .pointed_type = words_array_type }) });
+        return;
+    }
+
+    const Node* global_struct_t = make_record_type(ctx, as, ctx->collected[as]);
+
+    Nodes annotations = singleton(annotation(a, (Annotation) { .name = "Generated" }));
 
     // compute the size
     BodyBuilder* bb = begin_body(a);
     const Node* size_of = gen_primop_e(bb, size_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), empty(a));
     const Node* size_in_words = bytes_to_words(bb, size_of);
-
-    const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
-    const Type* ptr_size_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
 
     Node* constant_decl = constant(m, annotations, ptr_size_type, format_string_interned(a, "globals_physical_%s_size", as_name));
     constant_decl->payload.constant.instruction = yield_values_and_wrap_in_block(bb, singleton(size_in_words));
@@ -442,7 +482,8 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as, Addre
     });
 
     Node* words_array = global_var(m, annotations, words_array_type, format_string_arena(a->arena, "addressable_word_memory_%s", as_name), logical_as);
-    *get_emulated_as_word_array(ctx, as) = words_array;
+
+    *get_emulated_as_word_array(ctx, as) = ref_decl_helper(a, words_array);
 }
 
 Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
