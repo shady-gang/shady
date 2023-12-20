@@ -123,6 +123,11 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
                 }
                 case Constant_TAG: {
                     const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
+                    if (!init_value && bb_builder) {
+                        SpvId r;
+                        emit_instruction(emitter, NULL, &bb_builder, NULL, decl->payload.constant.instruction, 1, &r);
+                        return r;
+                    }
                     assert(init_value && "TODO: support some measure of constant expressions");
                     new = emit_value(emitter, NULL, init_value);
                     break;
