@@ -270,8 +270,21 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             Op op = reinterpret_op;
             const Type* src_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             if (src_t->tag == PtrType_TAG && t->tag == PtrType_TAG) {
-                if ((t->payload.ptr_type.address_space == AsGeneric) != (src_t->payload.ptr_type.address_space == AsGeneric))
-                    op = convert_op;
+                if ((t->payload.ptr_type.address_space == AsGeneric)) {
+                    switch (src_t->payload.ptr_type.address_space) {
+                        case AsPrivatePhysical:
+                        case AsSubgroupPhysical:
+                        case AsSharedPhysical:
+                        case AsGlobalPhysical:
+                            op = convert_op;
+                            break;
+                        default: {
+                            warn_print("Cannot cast address space %s to Generic! Ignoring.\n", get_address_space_name(src_t->payload.ptr_type.address_space));
+                            r = quote_helper(a, singleton(src));
+                            goto shortcut;
+                        }
+                    }
+                }
             } else {
                 assert(opcode != LLVMAddrSpaceCast);
             }
@@ -542,6 +555,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
         case LLVMCatchSwitch:
             goto unimplemented;
     }
+    shortcut:
     if (r) {
         if (num_results == 1)
             result_types = singleton(convert_type(p, LLVMTypeOf(instr)));

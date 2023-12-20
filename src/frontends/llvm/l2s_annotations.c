@@ -63,6 +63,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                 const Node* instr = target->payload.constant.instruction;
                 assert(instr->tag == PrimOp_TAG);
                 switch (instr->payload.prim_op.op) {
+                    case quote_op:
                     case reinterpret_op:
                     case convert_op:
                     case lea_op: target = first(instr->payload.prim_op.operands); break;
