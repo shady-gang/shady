@@ -78,7 +78,9 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             String name = LLVMGetValueName(v);
             if (!name || strlen(name) == 0)
                 name = unique_name(a, "constant_expr");
-            Node* decl = constant(p->dst, singleton(annotation(a, (Annotation) { .name = "SkipOnInfer" })), NULL, name);
+            Nodes annotations = singleton(annotation(a, (Annotation) { .name = "SkipOnInfer" }));
+            annotations = empty(a);
+            Node* decl = constant(p->dst, annotations, NULL, name);
             r = decl;
             insert_dict(LLVMTypeRef, const Type*, p->map, v, r);
             BodyBuilder* bb = begin_body(a);
