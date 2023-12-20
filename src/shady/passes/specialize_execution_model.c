@@ -29,6 +29,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
 static void specialize_arena_config(const CompilerConfig* config, Module* m, ArenaConfig* target) {
     switch (config->specialization.execution_model) {
+        case EmVertex:
         case EmFragment: {
             target->allow_subgroup_memory = false;
             target->allow_shared_memory = false;
