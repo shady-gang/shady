@@ -1,6 +1,7 @@
 #ifndef _SHADY_H
 #define _SHADY_H
 
+#define vertex_shader __attribute__((annotate("shady::entry_point::Vertex")))
 #define fragment_shader __attribute__((annotate("shady::entry_point::Fragment")))
 #define compute_shader  __attribute__((annotate("shady::entry_point::Compute")))
 
@@ -12,6 +13,9 @@
 #define input                  __attribute__((address_space(389)))
 #define output                 __attribute__((address_space(390)))
 #define uniform                __attribute__((annotate("shady::uniform")))
+#define push_constant          __attribute__((address_space(392)))
+#define private                __attribute__((address_space(5)))
+#define private_logical        __attribute__((address_space(385)))
 
 typedef float vec4     __attribute__((ext_vector_type(4)));
 typedef float vec3     __attribute__((ext_vector_type(3)));
@@ -33,9 +37,16 @@ vec4 texture2D(const sampler2D, vec2) __asm__("shady::prim_op::sample_texture");
 __attribute__((annotate("shady::builtin::FragCoord")))
 input vec4 gl_FragCoord;
 
+__attribute__((annotate("shady::builtin::Position")))
+output vec4 gl_Position;
+
 __attribute__((annotate("shady::builtin::WorkgroupId")))
 __attribute__((address_space(389)))
 uvec3 gl_WorkGroupID;
+
+__attribute__((annotate("shady::builtin::VertexIndex")))
+__attribute__((address_space(389)))
+input int gl_VertexIndex;
 
 __attribute__((annotate("shady::builtin::WorkgroupSize")))
 __attribute__((address_space(389)))
