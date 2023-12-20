@@ -353,6 +353,32 @@ static const Node* reinterpret_cast_helper(BodyBuilder* bb, const Node* ptr, con
     return ptr;
 }
 
+static void fix_source_pointer(BodyBuilder* bb, const Node** operand, const Type* element_type) {
+    IrArena* a = element_type->arena;
+    const Type* original_operand_t = get_unqualified_type((*operand)->type);
+    assert(original_operand_t->tag == PtrType_TAG);
+    if (is_physical_ptr_type(original_operand_t)) {
+        // typed loads - normalise to typed ptrs instead by generating an extra cast!
+        const Type *ptr_type = original_operand_t;
+        ptr_type = type_untyped_ptr(ptr_type, element_type);
+        *operand = reinterpret_cast_helper(bb, *operand, ptr_type);
+    } else {
+        // we can't insert a cast but maybe we can make this work
+        do {
+            const Type* pointee = get_pointer_type_element(get_unqualified_type((*operand)->type));
+            if (pointee == element_type)
+                return;
+            pointee = get_maybe_nominal_type_body(pointee);
+            if (pointee->tag == RecordType_TAG) {
+                *operand = gen_lea(bb, *operand, int32_literal(a, 0), singleton(int32_literal(a, 0)));
+                continue;
+            }
+            // TODO arrays
+            assert(false);
+        } while(true);
+    }
+}
+
 static const Node* _infer_primop(Context* ctx, const Node* node, const Type* expected_type) {
     assert(node->tag == PrimOp_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
@@ -392,10 +418,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             assert(type_args.count <= 1);
             new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
             if (type_args.count == 1) {
-                // typed loads - normalise to typed ptrs instead by generating an extra cast!
-                const Type* ptr_type = get_unqualified_type(new_operands[0]->type);
-                ptr_type = type_untyped_ptr(ptr_type, first(type_args));
-                new_operands[0] = reinterpret_cast_helper(bb, new_operands[0], ptr_type);
+                fix_source_pointer(bb, &new_operands[0], first(type_args));
                 type_args = empty(a);
             }
             goto rebuild;
@@ -404,13 +427,11 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
             assert(old_operands.count == 2);
             assert(type_args.count <= 1);
             new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
-            const Type* ptr_type = get_unqualified_type(new_operands[0]->type);
             if (type_args.count == 1) {
-                // typed loads - normalise to typed ptrs instead by generating an extra cast!
-                ptr_type = type_untyped_ptr(ptr_type, first(type_args));
-                new_operands[0] = reinterpret_cast_helper(bb, new_operands[0], ptr_type);
+                fix_source_pointer(bb, &new_operands[0], first(type_args));
                 type_args = empty(a);
             }
+            const Type* ptr_type = get_unqualified_type(new_operands[0]->type);
             assert(ptr_type->tag == PtrType_TAG);
             const Type* element_t = ptr_type->payload.ptr_type.pointed_type;
             assert(element_t);
@@ -493,7 +514,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                 .operands = new_ops
             })));
 
-            if (was_untyped) {
+            if (was_untyped && is_physical_as(get_pointer_type_address_space(src_ptr))) {
                 const Type* result_t = type_untyped_ptr(base_datatype, unit_type(a));
                 result = gen_reinterpret_cast(bb, result_t, result);
             }
