@@ -284,11 +284,11 @@ static bool vkr_copy_from_buffer_fallback(VkrBuffer* src, size_t buffer_offset, 
 
     void* mapped;
     CHECK_VK(vkMapMemory(device->device, dst_buf->memory, dst_buf->offset, dst_buf->size, 0, &mapped), goto err_post_buffer_create);
-    memcpy(mapped, src, size);
 
     if (!wait_completion(submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
         goto err_post_buffer_create;
 
+    memcpy(dst, mapped, size);
     vkUnmapMemory(device->device, dst_buf->memory);
     vkr_destroy_buffer(dst_buf);
     return true;
