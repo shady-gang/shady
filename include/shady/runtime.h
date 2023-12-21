@@ -36,6 +36,7 @@ Command* launch_kernel(Program*, Device*, const char* entry_point, int dimx, int
 bool wait_completion(Command*);
 
 Buffer* allocate_buffer_device(Device*, size_t);
+bool can_import_host_memory(Device*);
 Buffer* import_buffer_host(Device*, void*, size_t);
 void destroy_buffer(Buffer*);
 

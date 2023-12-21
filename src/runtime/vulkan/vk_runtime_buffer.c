@@ -100,10 +100,27 @@ err_post_obj_create:
     return NULL;
 }
 
-VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
+static bool vkr_can_import_host_memory_(VkrDevice* device, bool log) {
+    if (!device->caps.supported_extensions[ShadySupportsEXT_external_memory_host]) {
+        if (log)
+            error_print("host imported buffers require VK_EXT_external_memory_host\n");
+        return false;
+    }
     if (!device->caps.features.buffer_device_address.bufferDeviceAddress) {
-        error_print("host imported buffers require VK_KHR_buffer_device_address\n");
-        return NULL;
+        if (log)
+            error_print("host imported buffers require VK_KHR_buffer_device_address\n");
+        return false;
+    }
+    return true;
+}
+
+bool vkr_can_import_host_memory(VkrDevice* device) {
+    return vkr_can_import_host_memory_(device, false);
+}
+
+VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
+    if (!vkr_can_import_host_memory_(device, true)) {
+        error_die();
     }
 
     VkrBuffer* buffer = calloc(sizeof(VkrBuffer), 1);

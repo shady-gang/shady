@@ -74,6 +74,8 @@ Command* launch_kernel(Program* p, Device* d, const char* entry_point, int dimx,
 
 bool wait_completion(Command* cmd) { return cmd->wait_for_completion(cmd); }
 
+bool can_import_host_memory(Device* device) { return device->can_import_host_memory(device); }
+
 Buffer* allocate_buffer_device(Device* device, size_t bytes) { return device->allocate_buffer(device, bytes); }
 Buffer* import_buffer_host(Device* device, void* ptr, size_t bytes) { return device->import_host_memory_as_buffer(device, ptr, bytes); }
 

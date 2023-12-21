@@ -28,6 +28,7 @@ struct Device_ {
     Command* (*launch_kernel)(Device*, Program*, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args);
     Buffer* (*allocate_buffer)(Device*, size_t bytes);
     Buffer* (*import_host_memory_as_buffer)(Device*, void* base, size_t bytes);
+    bool (*can_import_host_memory)(Device*);
 };
 
 struct Program_ {

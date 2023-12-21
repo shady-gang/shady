@@ -34,7 +34,7 @@ X(0, KHR_spirv_1_4,                      empty_fns) \
 X(0, KHR_portability_subset,             empty_fns) \
 X(0, KHR_shader_subgroup_extended_types, empty_fns) \
 X(0, EXT_external_memory,                empty_fns) \
-X(1, EXT_external_memory_host,           external_memory_host_fns) \
+X(0, EXT_external_memory_host,           external_memory_host_fns) \
 X(0, EXT_subgroup_size_control,          empty_fns) \
 X(0, KHR_shader_float16_int8,            empty_fns) \
 X(0, KHR_8bit_storage,                   empty_fns) \
@@ -169,6 +169,7 @@ typedef struct VkrBuffer_ {
 
 VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size);
 VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size);
+bool vkr_can_import_host_memory(VkrDevice* device);
 
 typedef struct VkrCommand_ VkrCommand;
 
