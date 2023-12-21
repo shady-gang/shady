@@ -315,7 +315,7 @@ bool probe_vkr_devices(VkrBackend* runtime) {
                 .allocate_buffer = (Buffer*(*)(Device*, size_t)) vkr_allocate_buffer_device,
                 .import_host_memory_as_buffer = (Buffer*(*)(Device*, void*, size_t)) vkr_import_buffer_host,
                 .launch_kernel = (Command*(*)(Device*, Program*, String, int, int, int, int, void**)) vkr_launch_kernel,
-                .can_import_host_memory = vkr_can_import_host_memory,
+                .can_import_host_memory = (bool(*)(Device*)) vkr_can_import_host_memory,
             };
             append_list(Device*, runtime->base.runtime->devices, device);
         }
