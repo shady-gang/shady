@@ -172,7 +172,6 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 .as = as,
                 .set = set,
                 .binding = binding,
-                .host_owned = true,
             };
             growy_append_object(resources, res_info);
             program->resources.num_resources++;
@@ -198,6 +197,11 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
 
                 // TODO initial value
             }
+
+            if (vkr_can_import_host_memory(program->device))
+                res_info->host_backed_allocation = true;
+            else
+                res_info->staging = calloc(1, res_info->size);
 
             VkDescriptorSetLayoutBinding vk_binding = {
                 .binding = binding,
@@ -366,11 +370,22 @@ static bool allocate_sets(VkrSpecProgram* program) {
     return true;
 }
 
+static void flush_staged_data(VkrSpecProgram* program) {
+    for (size_t i = 0; i < program->resources.num_resources; i++) {
+        ProgramResourceInfo* resource = program->resources.resources[i];
+        if (resource->staging) {
+            copy_to_buffer(resource->buffer, 0, resource->buffer, resource->size);
+            free(resource->staging);
+        }
+    }
+}
+
 static bool prepare_resources(VkrSpecProgram* program) {
     for (size_t i = 0; i < program->resources.num_resources; i++) {
         ProgramResourceInfo* resource = program->resources.resources[i];
 
-        if (resource->host_owned) {
+        if (resource->host_backed_allocation) {
+            assert(vkr_can_import_host_memory(program->device));
             resource->host_ptr = alloc_aligned(resource->size, program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment);
             resource->buffer = import_buffer_host(program->device, resource->host_ptr, resource->size);
         } else {
@@ -384,11 +399,16 @@ static bool prepare_resources(VkrSpecProgram* program) {
         free(zeroes);
 
         if (resource->parent) {
-            assert(resource->parent->host_ptr);
-            char* parent = resource->parent->host_ptr;
-            *((uint64_t*) (parent + resource->offset)) = get_buffer_device_pointer(resource->buffer);
+            char* dst = resource->parent->host_ptr;
+            if (!dst) {
+                dst = resource->parent->staging;
+            }
+            assert(dst);
+            *((uint64_t*) (dst + resource->offset)) = get_buffer_device_pointer(resource->buffer);
         }
     }
+
+    flush_staged_data(program);
 
     return true;
 }
@@ -436,7 +456,7 @@ void destroy_specialized_program(VkrSpecProgram* spec) {
         ProgramResourceInfo* resource = spec->resources.resources[i];
         if (resource->buffer)
             destroy_buffer(resource->buffer);
-        if (resource->host_ptr && resource->host_owned)
+        if (resource->host_ptr && resource->host_backed_allocation)
             free_aligned(resource->host_ptr);
     }
     free(spec->resources.resources);

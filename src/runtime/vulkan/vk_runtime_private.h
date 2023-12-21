@@ -203,8 +203,10 @@ struct ProgramResourceInfo_ {
     ProgramResourceInfo* parent;
     size_t offset;
 
-    bool host_owned;
+    bool host_backed_allocation;
     char* host_ptr;
+
+    char* staging;
 
     AddressSpace as;
     size_t size;
