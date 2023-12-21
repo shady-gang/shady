@@ -60,7 +60,9 @@ int main(int argc, char **argv)
     img[0] = 69;
     info_print("malloc'd address is: %zu\n", (size_t) img);
 
-    Buffer* buf = import_buffer_host(device, img, sizeof(uint8_t) * WIDTH * HEIGHT * 3);
+    int buf_size = sizeof(uint8_t) * WIDTH * HEIGHT * 3;
+    Buffer* buf = allocate_buffer_device(device, buf_size);
+    copy_to_buffer(buf, 0, img, buf_size);
     uint64_t buf_addr = get_buffer_device_pointer(buf);
 
     info_print("Device-side address is: %zu\n", buf_addr);
@@ -72,6 +74,7 @@ int main(int argc, char **argv)
 
     wait_completion(launch_kernel(program, device, "main", 16, 16, 1, 1, (void*[]) { &buf_addr }));
 
+    copy_from_buffer(buf, 0, img, buf_size);
     info_print("data %d\n", (int) img[0]);
 
     destroy_buffer(buf);
