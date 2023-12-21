@@ -2,6 +2,8 @@
 
 #include "log.h"
 
+#include <string.h>
+
 typedef enum {
     AllocDeviceLocal,
     AllocHostVisible
@@ -33,16 +35,16 @@ static uint32_t find_suitable_memory_type(VkrDevice* device, uint32_t memory_typ
     assert(false && "Unable to find a suitable memory type");
 }
 
-static Buffer make_base_buffer();
+static Buffer make_base_buffer(VkrDevice*);
 
-VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size) {
+VkrBuffer* vkr_allocate_buffer_device_(VkrDevice* device, size_t size, AllocHeap heap) {
     if (!device->caps.features.buffer_device_address.bufferDeviceAddress) {
         error_print("device buffers require VK_KHR_buffer_device_address\n");
         return NULL;
     }
 
     VkrBuffer* buffer = calloc(sizeof(VkrBuffer), 1);
-    buffer->base = make_base_buffer();
+    buffer->base = make_base_buffer(device);
     buffer->device = device;
     buffer->imported = true;
     buffer->offset = 0;
@@ -75,7 +77,7 @@ VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size) {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = NULL,
         .allocationSize = mem_requirements.memoryRequirements.size,
-        .memoryTypeIndex = find_suitable_memory_type(device, mem_requirements.memoryRequirements.memoryTypeBits, AllocDeviceLocal),
+        .memoryTypeIndex = find_suitable_memory_type(device, mem_requirements.memoryRequirements.memoryTypeBits, heap),
     };
     VkMemoryAllocateFlagsInfo allocate_flags =  {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
@@ -98,6 +100,10 @@ err_post_buffer_create:
 err_post_obj_create:
     free(buffer);
     return NULL;
+}
+
+VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size) {
+    return vkr_allocate_buffer_device_(device, size, AllocDeviceLocal);
 }
 
 static bool vkr_can_import_host_memory_(VkrDevice* device, bool log) {
@@ -124,7 +130,7 @@ VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
     }
 
     VkrBuffer* buffer = calloc(sizeof(VkrBuffer), 1);
-    buffer->base = make_base_buffer();
+    buffer->base = make_base_buffer(device);
     buffer->device = device;
     buffer->host_ptr = ptr;
 
@@ -246,7 +252,53 @@ err_post_commands_create:
     return NULL;
 }
 
-static bool vkr_copy_to_buffer(VkrBuffer* dst, size_t buffer_offset, void* src, size_t size) {
+static bool vkr_copy_to_buffer_fallback(VkrBuffer* dst, size_t buffer_offset, void* src, size_t size) {
+    VkrDevice* device = dst->device;
+
+    VkrBuffer* src_buf = vkr_allocate_buffer_device_(device, size, AllocHostVisible);
+    if (!src_buf)
+        return false;
+
+    void* mapped;
+    CHECK_VK(vkMapMemory(device->device, src_buf->memory, src_buf->offset, src_buf->size, 0, &mapped), goto err_post_buffer_create);
+    memcpy(mapped, src, size);
+
+    if (!wait_completion(submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
+        goto err_post_buffer_create;
+
+    vkUnmapMemory(device->device, src_buf->memory);
+    vkr_destroy_buffer(src_buf);
+    return true;
+
+    err_post_buffer_create:
+    vkr_destroy_buffer(src_buf);
+    return false;
+}
+
+static bool vkr_copy_from_buffer_fallback(VkrBuffer* src, size_t buffer_offset, void* dst, size_t size) {
+    VkrDevice* device = src->device;
+
+    VkrBuffer* dst_buf = vkr_allocate_buffer_device_(device, size, AllocHostVisible);
+    if (!dst_buf)
+        return false;
+
+    void* mapped;
+    CHECK_VK(vkMapMemory(device->device, dst_buf->memory, dst_buf->offset, dst_buf->size, 0, &mapped), goto err_post_buffer_create);
+    memcpy(mapped, src, size);
+
+    if (!wait_completion(submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
+        goto err_post_buffer_create;
+
+    vkUnmapMemory(device->device, dst_buf->memory);
+    vkr_destroy_buffer(dst_buf);
+    return true;
+
+    err_post_buffer_create:
+    vkr_destroy_buffer(dst_buf);
+    return false;
+}
+
+static bool vkr_copy_to_buffer_importing(VkrBuffer* dst, size_t buffer_offset, void* src, size_t size) {
     VkrDevice* device = dst->device;
 
     VkrBuffer* src_buf = vkr_import_buffer_host(device, src, size);
@@ -264,7 +316,7 @@ err_post_buffer_import:
     return false;
 }
 
-static bool vkr_copy_from_buffer(VkrBuffer* src, size_t buffer_offset, void* dst, size_t size) {
+static bool vkr_copy_from_buffer_importing(VkrBuffer* src, size_t buffer_offset, void* dst, size_t size) {
     VkrDevice* device = src->device;
 
     VkrBuffer* dst_buf = vkr_import_buffer_host(device, dst, size);
@@ -282,12 +334,17 @@ err_post_buffer_import:
     return false;
 }
 
-static Buffer make_base_buffer() {
-    return (Buffer) {
+static Buffer make_base_buffer(VkrDevice* device) {
+    Buffer buffer = {
         .destroy = (void(*)(Buffer*)) vkr_destroy_buffer,
         .get_device_ptr = (uint64_t(*)(Buffer*)) vkr_get_buffer_device_pointer,
         .get_host_ptr = (void*(*)(Buffer*)) vkr_get_buffer_host_pointer,
-        .copy_into = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_to_buffer,
-        .copy_from = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_from_buffer,
+        .copy_into = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_to_buffer_fallback,
+        .copy_from = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_from_buffer_fallback,
     };
+    if (vkr_can_import_host_memory(device)) {
+        buffer.copy_from = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_from_buffer_importing;
+        buffer.copy_into = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_to_buffer_importing;
+    }
+    return buffer;
 }
