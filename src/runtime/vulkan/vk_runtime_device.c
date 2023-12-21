@@ -110,6 +110,11 @@ static bool fill_device_properties(VkrDeviceCaps* caps) {
         caps->subgroup_size.min = caps->properties.subgroup.subgroupSize;
     }
     debug_print("Subgroup size range for device '%s' is [%d; %d]\n", caps->properties.base.properties.deviceName, caps->subgroup_size.min, caps->subgroup_size.max);
+
+    if (caps->supported_extensions[ShadySupportsKHR_driver_properties]) {
+        caps->properties.driver_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+        append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.driver_properties);
+    }
     return true;
 }
 

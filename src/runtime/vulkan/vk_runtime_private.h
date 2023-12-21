@@ -39,6 +39,7 @@ X(0, EXT_subgroup_size_control,          empty_fns) \
 X(0, KHR_shader_float16_int8,            empty_fns) \
 X(0, KHR_8bit_storage,                   empty_fns) \
 X(0, KHR_16bit_storage,                  empty_fns) \
+X(0, KHR_driver_properties,              empty_fns) \
 
 #define E(is_required, name, _) ShadySupports##name,
 typedef enum {
@@ -118,6 +119,7 @@ typedef struct {
         VkPhysicalDeviceSubgroupProperties subgroup;
         VkPhysicalDeviceSubgroupSizeControlPropertiesEXT subgroup_size_control;
         VkPhysicalDeviceExternalMemoryHostPropertiesEXT external_memory_host;
+        VkPhysicalDeviceDriverPropertiesKHR driver_properties;
     } properties;
     struct {
         bool is_moltenvk;
