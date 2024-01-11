@@ -8,7 +8,10 @@ if (MSVC)
   add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
-if (NOT SPIRV-Headers)
+option(EXTERNAL_SPIRV_HEADERS "Build using external SPIRV headers" OFF)
+option(EXTERNAL_MURMUR3 "Build using external Murmur3 library" OFF)
+
+if (NOT ${EXTERNAL_SPIRV_HEADERS})
 	find_package(SPIRV-Headers REQUIRED)
 endif ()
 
