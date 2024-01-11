@@ -394,11 +394,11 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                     String name = get_string_literal(target->arena, name_node);
                     assert(name);
                     set_variable_name((Node*) target, name);
-                    return (EmittedInstr) {};
+                    //return {};
                 }
                 if (strcmp(intrinsic, "llvm.dbg.label") == 0) {
                     // TODO
-                    return (EmittedInstr) {};
+                    //return {};
                 }
                 if (string_starts_with(intrinsic, "llvm.memcpy")) {
                     Nodes ops = convert_operands(p, num_ops, instr);

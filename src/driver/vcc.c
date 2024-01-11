@@ -99,7 +99,11 @@ int main(int argc, char** argv) {
 
     info_print("built command: %s\n", arg_string);
 
+#ifdef WIN32
+    FILE* stream = _popen(arg_string, "r");
+#else
     FILE* stream = popen(arg_string, "r");
+#endif
     free(arg_string);
 
     Growy* json_bytes = new_growy();
@@ -112,7 +116,11 @@ int main(int argc, char** argv) {
     }
     growy_append_string(json_bytes, "\0");
     char* llvm_result = growy_deconstruct(json_bytes);
+#ifdef WIN32
+    int clang_returned = _pclose(stream);
+#else
     int clang_returned = pclose(stream);
+#endif
     info_print("Clang returned %d and replied: \n%s", clang_returned, llvm_result);
     free(llvm_result);
     if (clang_returned)
