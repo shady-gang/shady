@@ -13,6 +13,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 option(SHADY_USE_FETCHCONTENT "Use FetchContent to grab json-c" ON)
 option(SHADY_WIN32_FIX_PARTIAL_LLVM_INSTALL "If you install LLVM on windows, it doesn't come with header files. This fixes it" ON)
+option(EXTERNAL_SPIRV_HEADERS "Build using external SPIRV headers" OFF)
 
 if (MSVC)
   add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
@@ -22,7 +23,9 @@ if (WIN32)
   set(BUILD_SHARED_LIBS OFF)
 endif()
 
-add_subdirectory(SPIRV-Headers)
+if (NOT ${EXTERNAL_SPIRV_HEADERS})
+	find_package(SPIRV-Headers REQUIRED)
+endif ()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24" AND ${SHADY_USE_FETCHCONTENT})
     FetchContent_Declare(
