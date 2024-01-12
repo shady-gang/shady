@@ -50,7 +50,7 @@ String name_type_safe(IrArena*, const Type*);
 typedef struct Module_ Module;
 
 Module* new_module(IrArena*, String name);
-
+void destroy_module(Module*);
 IrArena* get_module_arena(const Module*);
 String get_module_name(const Module*);
 Nodes get_module_declarations(const Module*);
