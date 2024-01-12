@@ -24,6 +24,7 @@ void json_apply_object(json_object* target, json_object* src) {
             if (existing)
                 warn_print("json-apply: overwriting key '%s'\n", name);
             json_object_object_add(target, name, value);
+            json_object_get(value);
         }
     }
 }
