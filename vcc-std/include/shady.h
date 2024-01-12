@@ -5,6 +5,10 @@
 #error "This header can only be used with Vcc"
 #endif
 
+#if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
+namespace vcc {
+#endif
+
 #define vertex_shader __attribute__((annotate("shady::entry_point::Vertex")))
 #define fragment_shader __attribute__((annotate("shady::entry_point::Fragment")))
 #define compute_shader  __attribute__((annotate("shady::entry_point::Compute")))
@@ -55,5 +59,9 @@ input int gl_VertexIndex;
 __attribute__((annotate("shady::builtin::WorkgroupSize")))
 __attribute__((address_space(389)))
 uvec3 gl_WorkGroupSize;
+
+#if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
+}
+#endif
 
 #endif
