@@ -1,6 +1,10 @@
 #ifndef _SHADY_H
 #define _SHADY_H
 
+#ifndef __SHADY__
+#error "This header can only be used with Vcc"
+#endif
+
 #define vertex_shader __attribute__((annotate("shady::entry_point::Vertex")))
 #define fragment_shader __attribute__((annotate("shady::entry_point::Fragment")))
 #define compute_shader  __attribute__((annotate("shady::entry_point::Compute")))
