@@ -8,6 +8,7 @@ if (MSVC)
   add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
+option(EXTERNAL_JSON_C "Build using external JSON-C library" OFF)
 option(EXTERNAL_SPIRV_HEADERS "Build using external SPIRV headers" OFF)
 option(EXTERNAL_MURMUR3 "Build using external Murmur3 library" OFF)
 
