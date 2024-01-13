@@ -117,7 +117,6 @@ String get_value_name_safe(const Node*);
 void set_variable_name(Node* var, String);
 
 const Node* get_quoted_value(const Node* instruction);
-
 const IntLiteral* resolve_to_int_literal(const Node* node);
 int64_t get_int_literal_value(IntLiteral, bool sign_extend);
 const FloatLiteral* resolve_to_float_literal(const Node* node);
@@ -148,6 +147,16 @@ void        set_abstraction_body  (Node* abs, const Node* body);
 
 const Node* get_let_instruction(const Node* let);
 const Node* get_let_tail(const Node* let);
+
+typedef struct {
+    bool enter_loads;
+    bool allow_incompatible_types;
+    bool assume_globals_immutability;
+} NodeResolveConfig;
+NodeResolveConfig default_node_resolve_config();
+const Node* resolve_ptr_to_value(const Node* node, NodeResolveConfig config);
+
+const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config);
 
 //////////////////////////////// Constructors ////////////////////////////////
 
