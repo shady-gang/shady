@@ -93,7 +93,7 @@ set(SHADY_SOURCES
     passes/spirv_lift_globals_ssbo.c
 )
 
-add_library(shady SHARED ${SHADY_SOURCES})
+add_library(shady STATIC ${SHADY_SOURCES})
 set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 if (WIN32)
