@@ -25,6 +25,9 @@ if (WIN32)
   set(BUILD_SHARED_LIBS OFF)
 endif()
 
+option(BUILD_RUNTIME "Whether to build runtime components" ON)
+option(BUILD_SAMPLES "Whether to build built-in demo applications" ON)
+
 if (NOT ${EXTERNAL_SPIRV_HEADERS})
 	find_package(SPIRV-Headers REQUIRED)
 endif ()
@@ -111,7 +114,9 @@ if (BUILD_TESTING)
   add_subdirectory(test)
 endif()
 
-add_subdirectory(samples)
+if (BUILD_SAMPLES)
+  add_subdirectory(samples)
+endif()
 
 include(CMakePackageConfigHelpers)
 
