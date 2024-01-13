@@ -175,9 +175,11 @@ const Node* process_node(Context* ctx, const Node* old) {
             assert(false);
         }
         case Case_TAG: {
-            Nodes nparams = recreate_variables(&ctx->rewriter, get_abstraction_params(old));
-            register_processed_list(&ctx->rewriter, get_abstraction_params(old), nparams);
-            return case_(a, nparams, process_abstraction_body(ctx, old, get_abstraction_body(old)));
+            if (ctx->scope) {
+                Nodes nparams = recreate_variables(&ctx->rewriter, get_abstraction_params(old));
+                register_processed_list(&ctx->rewriter, get_abstraction_params(old), nparams);
+                return case_(a, nparams, process_abstraction_body(ctx, old, get_abstraction_body(old)));
+            }
         }
         default: break;
     }
