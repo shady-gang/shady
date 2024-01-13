@@ -84,6 +84,11 @@ jobs:
       run: |
         echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_C_FLAGS=-fsanitize=address" >> $GITHUB_ENV
 
+    - name: Force LLVM14 (ubuntu)
+      if: startsWith(matrix.os,'ubuntu')
+      run: |
+        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=${{ env.CMAKE_PLATFORM_SPECIFIC_ARGS }} -DLLVM_DIR=/usr/lib/llvm-14/cmake" >> $GITHUB_ENV
+
     - name: Install json-c (vcpkg)
       if: startsWith(matrix.os,'windows')
       run: |
