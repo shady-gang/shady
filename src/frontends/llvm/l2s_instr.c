@@ -284,6 +284,10 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                             goto shortcut;
                         }
                     }
+                } else if (!is_physical_as(t->payload.ptr_type.address_space)) {
+                    warn_print("Cannot cast address space %s since it's non-physical. Ignoring.\n", get_address_space_name(src_t->payload.ptr_type.address_space));
+                    r = quote_helper(a, singleton(src));
+                    goto shortcut;
                 }
             } else {
                 assert(opcode != LLVMAddrSpaceCast);
