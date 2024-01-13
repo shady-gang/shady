@@ -82,7 +82,7 @@ jobs:
     - name: Enable ASAN (linux)
       if: startsWith(matrix.os,'ubuntu')
       run: |
-        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_C_FLAGS=-fsanitize=address" >> "$env:GITHUB_ENV"
+        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_C_FLAGS=-fsanitize=address" >> "GITHUB_ENV"
 
     - name: Install json-c (vcpkg)
       if: startsWith(matrix.os,'windows')
