@@ -7,6 +7,10 @@ endif ()
 
 add_subdirectory(common)
 add_subdirectory(shady)
-add_subdirectory(runtime)
+
+if (${BUILD_RUNTIME})
+	add_subdirectory(runtime)
+endif ()
+
 add_subdirectory(frontends)
 add_subdirectory(driver)

@@ -13,6 +13,9 @@ option(EXTERNAL_JSON_C_INCLUDE "Include directory of external JSON-C headers" )
 option(EXTERNAL_SPIRV_HEADERS "Build using external SPIRV headers" OFF)
 option(EXTERNAL_MURMUR3 "Build using external Murmur3 library" OFF)
 
+option(BUILD_RUNTIME "Whether to build runtime components" ON)
+option(BUILD_SAMPLES "Whether to build built-in demo applications" ON)
+
 if (NOT ${EXTERNAL_SPIRV_HEADERS})
 	find_package(SPIRV-Headers REQUIRED)
 endif ()
@@ -36,7 +39,6 @@ if (BUILD_TESTING)
   add_subdirectory(test)
 endif()
 
-set(BUILD_SAMPLES ON CACHE BOOL "Whether to build built-in demo applications")
 if (BUILD_SAMPLES)
   add_subdirectory(samples)
 endif()
