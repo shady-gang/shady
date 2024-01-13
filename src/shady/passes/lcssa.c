@@ -13,6 +13,7 @@
 
 typedef struct Context_ {
     Rewriter rewriter;
+    const CompilerConfig* config;
     const Node* current_fn;
     Scope* scope;
     const UsesMap* scope_uses;
@@ -84,6 +85,11 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
 
     Node* nfn = (Node*) rewrite_node(&ctx->rewriter, ctx->current_fn);
 
+    if (!ctx->scope) {
+        error_print("LCSSA: Trying to process an abstraction that's not part of a function ('%s')!", get_abstraction_name(old));
+        log_module(ERROR, ctx->config, ctx->rewriter.src_module);
+        error_die();
+    }
     const CFNode* n = scope_lookup(ctx->scope, old);
 
     size_t children_count = 0;
@@ -129,6 +135,14 @@ const Node* process_node(Context* ctx, const Node* old) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (old->tag) {
+        case NominalType_TAG:
+        case GlobalVariable_TAG:
+        case Constant_TAG: {
+            Context not_a_fn_ctx = *ctx;
+            ctx = &not_a_fn_ctx;
+            ctx->scope = NULL;
+            return recreate_node_identity(&ctx->rewriter, old);
+        }
         case Function_TAG: {
             Context fn_ctx = *ctx;
             ctx = &fn_ctx;
@@ -174,13 +188,14 @@ const Node* process_node(Context* ctx, const Node* old) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-Module* lcssa(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* lcssa(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .config = config,
         .current_fn = NULL,
         .lifted_arguments = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node)
     };
