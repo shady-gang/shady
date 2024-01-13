@@ -22,6 +22,13 @@ void add_annotation(Parser* p, const Node* n, ParsedAnnotation a) {
     }
 }
 
+static const Node* assert_and_strip_fn_addr(const Node* fn) {
+    assert(fn->tag == FnAddr_TAG);
+    fn = fn->payload.fn_addr.fn;
+    assert(fn->tag == Function_TAG);
+    return fn;
+}
+
 void process_llvm_annotations(Parser* p, LLVMValueRef global) {
     IrArena* a = get_module_arena(p->dst);
     const Type* t = convert_type(p, LLVMGlobalGetValueType(global));
@@ -51,32 +58,21 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
         if (annotation_payload->tag == GlobalVariable_TAG) {
             annotation_payload = annotation_payload->payload.global_variable.init;
         }
-        const char* ostr = get_string_literal(a, annotation_payload);
+
+        NodeResolveConfig resolve_config = default_node_resolve_config();
+        // both of those assumptions are hacky but this front-end is a hacky deal anyways.
+        resolve_config.assume_globals_immutability = true;
+        resolve_config.allow_incompatible_types = true;
+        const char* ostr = get_string_literal(a, resolve_node_to_definition(annotation_payload, resolve_config));
         char* str = calloc(strlen(ostr) + 1, 1);
         memcpy(str, ostr, strlen(ostr) + 1);
         if (strcmp(strtok(str, "::"), "shady") == 0) {
             const Node* target = entry->payload.composite.contents.nodes[0];
-            if (target->tag == RefDecl_TAG) {
-                target = target->payload.ref_decl.decl;
-            }
-            while (target->tag == Constant_TAG) {
-                const Node* instr = target->payload.constant.instruction;
-                assert(instr->tag == PrimOp_TAG);
-                switch (instr->payload.prim_op.op) {
-                    case quote_op:
-                    case reinterpret_op:
-                    case convert_op:
-                    case lea_op: target = first(instr->payload.prim_op.operands); break;
-                    default: assert(false);
-                }
-            }
-            if (target->tag == RefDecl_TAG) {
-                target = target->payload.ref_decl.decl;
-            }
+            target = resolve_node_to_definition(target, resolve_config);
 
             char* keyword = strtok(NULL, "::");
             if (strcmp(keyword, "entry_point") == 0) {
-                assert(target->tag == Function_TAG);
+                target = assert_and_strip_fn_addr(target);
                 add_annotation(p, target,  (ParsedAnnotation) {
                     .payload = annotation_value(a, (AnnotationValue) {
                         .name = "EntryPoint",
@@ -84,7 +80,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                     })
                 });
             } else if (strcmp(keyword, "workgroup_size") == 0) {
-                assert(target->tag == Function_TAG);
+                target = assert_and_strip_fn_addr(target);
                 add_annotation(p, target,  (ParsedAnnotation) {
                     .payload = annotation_values(a, (AnnotationValues) {
                         .name = "WorkgroupSize",

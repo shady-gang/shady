@@ -6,7 +6,15 @@
 
 Shady is ideal for projects that aim to target SPIR-V, but already make use of features that are not found in vanilla Vulkan compute. See feature support below.
 
-Shady is used as part of the [AnyDSL](https://anydsl.github.io) to provide experimental Vulkan accelerator support. Technical discussion about shady and SPIR-V in general can be had on [this discord server](https://twitter.com/gobrosse/status/1441323225128968197)
+Shady is used as part of the [AnyDSL](https://anydsl.github.io) to provide experimental Vulkan accelerator support.
+
+## Vcc - the Vulkan Clang Compiler
+
+Shady features a front-end called Vcc that calls into Clang and parses the resulting LLVM IR, giving you effectively a C/C++ to SPIR-V compiler.
+
+This project is called 'Shady' and is the IR/middle-end part of Vcc. Vcc currently does live in this repository, inside `src/frontends/llvm` and `src/driver/vcc.c`.
+
+This might change later to keep the IR issues tracked separately. Please check out the [Vcc website](https://shady-gang.github.io/vcc) if you have not already.
 
 ## Feature support
 

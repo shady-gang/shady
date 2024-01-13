@@ -24,7 +24,7 @@ jobs:
       # To add more build types (Release, Debug, RelWithDebInfo, etc.) customize the build_type list.
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build_type: [Release]
+        build_type: [Debug]
         c_compiler: [gcc, clang, cl]
         include:
           - os: windows-latest
@@ -78,6 +78,16 @@ jobs:
       if: startsWith(matrix.os,'ubuntu')
       run: |
         sudo apt install libjson-c-dev
+
+    - name: Enable ASAN (linux)
+      if: startsWith(matrix.os,'ubuntu')
+      run: |
+        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_C_FLAGS=-fsanitize=address" >> $GITHUB_ENV
+
+    - name: Force LLVM14 (ubuntu)
+      if: startsWith(matrix.os,'ubuntu')
+      run: |
+        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=${{ env.CMAKE_PLATFORM_SPECIFIC_ARGS }} -DLLVM_DIR=/usr/lib/llvm-14/cmake" >> $GITHUB_ENV
 
     - name: Install json-c (vcpkg)
       if: startsWith(matrix.os,'windows')
