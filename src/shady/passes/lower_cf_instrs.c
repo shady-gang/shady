@@ -160,7 +160,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Let_TAG: return process_let(ctx, node);
         case Yield_TAG: {
-            assert(cfnode);
+            if (!cfnode)
+                break;
             CFNode* dom = cfnode->idom;
             const Node* selection_instr = NULL;
             while (dom) {
