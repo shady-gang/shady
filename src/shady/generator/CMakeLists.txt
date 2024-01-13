@@ -10,6 +10,10 @@ add_library(generator_common generator.c generator_common.c json_apply.c)
 target_link_libraries(generator_common PUBLIC common ${json_c_library})
 target_include_directories(generator_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
+if (${EXTERNAL_JSON_C})
+	target_include_directories(generator_common SYSTEM BEFORE PRIVATE ${EXTERNAL_JSON_C_INCLUDE})
+endif ()
+
 function(add_generated_file)
     cmake_parse_arguments(PARSE_ARGV 0 F "" "FILE_NAME;TARGET_NAME" "SOURCES" )
     set(GENERATOR_NAME generator_${F_FILE_NAME})
