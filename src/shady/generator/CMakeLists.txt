@@ -11,7 +11,7 @@ target_link_libraries(generator_common PUBLIC common ${json_c_library})
 target_include_directories(generator_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (${EXTERNAL_JSON_C})
-	target_include_directories(generator_common SYSTEM BEFORE PRIVATE ${EXTERNAL_JSON_C_INCLUDE})
+	target_include_directories(generator_common SYSTEM PUBLIC ${EXTERNAL_JSON_C_INCLUDE})
 endif ()
 
 add_executable(import_spv_defs import_spv_defs.c)
