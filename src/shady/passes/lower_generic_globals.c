@@ -25,7 +25,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 Nodes decl_annotations = singleton(annotation(a, (Annotation) { .name = "Generated" }));
                 Node* constant_decl = constant(ctx->rewriter.dst_module, decl_annotations, dst_t,
                                             format_string_interned(a, "%s_generic", get_decl_name(node)));
-                const Node* result = ref_decl_helper(a, constant_decl);
+                const Node* result = constant_decl;
                 constant_decl->payload.constant.instruction = prim_op_helper(a, convert_op, singleton(dst_t), singleton(ref_decl_helper(a, new_global)));
                 register_processed(&ctx->rewriter, node, result);
                 new_global->payload.global_variable.init = rewrite_node(&ctx->rewriter, node->payload.global_variable.init);
