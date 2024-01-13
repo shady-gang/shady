@@ -156,7 +156,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (ctx->disable_lowering)
         return recreate_node_identity(&ctx->rewriter, node);
 
-    CFNode* cfnode = ctx->abs ? scope_lookup(ctx->scope, ctx->abs) : NULL;
+    CFNode* cfnode = ctx->scope ? scope_lookup(ctx->scope, ctx->abs) : NULL;
     switch (node->tag) {
         case Let_TAG: return process_let(ctx, node);
         case Yield_TAG: {
