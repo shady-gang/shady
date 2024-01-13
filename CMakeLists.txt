@@ -14,6 +14,7 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 option(SHADY_USE_FETCHCONTENT "Use FetchContent to grab json-c" ON)
 option(SHADY_WIN32_FIX_PARTIAL_LLVM_INSTALL "If you install LLVM on windows, it doesn't come with header files. This fixes it" ON)
 option(EXTERNAL_JSON_C "Build using external JSON-C library" OFF)
+option(EXTERNAL_JSON_C_INCLUDE "Include directory of external JSON-C headers" )
 option(EXTERNAL_SPIRV_HEADERS "Build using external SPIRV headers" OFF)
 
 if (MSVC)
