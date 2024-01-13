@@ -5,7 +5,7 @@
 #include "util.h"
 #include "log.h"
 
-#include <json-c/json.h>
+#include <json-c/json_object.h>
 
 #include <assert.h>
 #include <string.h>
