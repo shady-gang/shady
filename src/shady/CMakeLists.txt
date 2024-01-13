@@ -56,7 +56,10 @@ add_subdirectory(internal)
 
 target_link_libraries(shady PRIVATE "api")
 target_link_libraries(shady PRIVATE "common")
-target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
+
+if (NOT MSVC)
+	target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
+endif ()
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/shady DESTINATION include)
 #install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
