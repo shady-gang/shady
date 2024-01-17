@@ -16,4 +16,11 @@ function(add_generated_file)
         set(F_TARGET_NAME generate_${F_FILE_NAME})
     endif ()
     add_custom_target(${F_TARGET_NAME} DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${F_FILE_NAME})
+
+    # This hacky job is required for being able to run built targets in-place when generating the code
+    # This is also required for the various drivers but since they're built in the same directory it will work for now
+    add_custom_command(TARGET ${GENERATOR_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:${GENERATOR_NAME}> $<TARGET_RUNTIME_DLLS:${GENERATOR_NAME}>
+        COMMAND_EXPAND_LISTS
+    )
 endfunction()
