@@ -19,8 +19,10 @@ if (TARGET shady_fe_llvm)
     target_link_libraries(vcc PRIVATE driver api common)
     install(TARGETS vcc EXPORT shady_export_set)
 
-    add_custom_command(TARGET vcc POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:vcc> $<TARGET_RUNTIME_DLLS:vcc>
-        COMMAND_EXPAND_LISTS
-    )
+    if (WIN32)
+        add_custom_command(TARGET vcc POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:vcc> $<TARGET_RUNTIME_DLLS:vcc>
+            COMMAND_EXPAND_LISTS
+        )
+    endif ()
 endif ()
