@@ -15,6 +15,8 @@ static_assert(__STDC_VERSION__ >= 201112L, "C11 support is required to build sha
     #define SHADY_UNUSED
     #define LARRAY(T, name, size) T* name = alloca(sizeof(T) * (size))
     #define alloca _alloca
+    #define popen _popen
+    #define pclose _pclose
     #define SHADY_FALLTHROUGH
     // It's mid 2022, and this typedef is missing from <stdalign.h>
     // MSVC is not a real C11 compiler.
