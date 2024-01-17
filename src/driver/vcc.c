@@ -13,6 +13,7 @@
 typedef struct {
     char* tmp_filename;
     bool delete_tmp_file;
+    char* include_path;
 } VccOptions;
 
 static void cli_parse_vcc_args(VccOptions* options, int* pargc, char** argv) {
@@ -25,6 +26,13 @@ static void cli_parse_vcc_args(VccOptions* options, int* pargc, char** argv) {
             argv[i] = NULL;
             options->delete_tmp_file = false;
             options->tmp_filename = "vcc_tmp.ll";
+            continue;
+        } else if (strcmp(argv[i], "--vcc-include-path") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc)
+                error("Missing subgroup size name");
+            options->include_path = argv[i];
             continue;
         }
     }
@@ -81,7 +89,10 @@ int main(int argc, char** argv) {
     growy_append_string(g, "clang");
     char* self_path = get_executable_location();
     char* working_dir = strip_path(self_path);
-    growy_append_formatted(g, " -c -emit-llvm -S -g -O0 -ffreestanding -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown -isystem\"%s/../share/vcc/include/\" -D__SHADY__=1", working_dir);
+    if (!vcc_options.include_path) {
+        vcc_options.include_path = format_string_interned(arena, "%s/../share/vcc/include/", working_dir);
+    }
+    growy_append_formatted(g, " -c -emit-llvm -S -g -O0 -ffreestanding -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown -isystem\"%s\" -D__SHADY__=1", vcc_options.include_path);
     free(working_dir);
     free(self_path);
     growy_append_formatted(g, " -o %s", vcc_options.tmp_filename);
