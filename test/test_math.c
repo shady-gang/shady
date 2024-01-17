@@ -96,4 +96,5 @@ int main(int argc, char** argv) {
     acfg.allow_fold = true;
     IrArena* a = new_ir_arena(acfg);
     test_int_literals(a);
+    destroy_ir_arena(a);
 }

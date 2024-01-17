@@ -114,6 +114,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_stack)
 
     RUN_PASS(lower_lea)
+    RUN_PASS(lower_generic_globals)
     RUN_PASS(lower_generic_ptrs)
     RUN_PASS(lower_physical_ptrs)
     RUN_PASS(lower_subgroup_vars)

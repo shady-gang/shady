@@ -161,6 +161,7 @@ int main(int argc, char** argv) {
         free(json_files[i].contents);
         json_object_put(json_files[i].root);
     }
+    json_object_put(data.shd);
     json_tokener_free(tokener);
     free(spv_core_json_path);
 }

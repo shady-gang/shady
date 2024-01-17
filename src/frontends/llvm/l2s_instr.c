@@ -284,6 +284,10 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                             goto shortcut;
                         }
                     }
+                } else if (!is_physical_as(t->payload.ptr_type.address_space)) {
+                    warn_print("Cannot cast address space %s since it's non-physical. Ignoring.\n", get_address_space_name(src_t->payload.ptr_type.address_space));
+                    r = quote_helper(a, singleton(src));
+                    goto shortcut;
                 }
             } else {
                 assert(opcode != LLVMAddrSpaceCast);
@@ -394,11 +398,11 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                     String name = get_string_literal(target->arena, name_node);
                     assert(name);
                     set_variable_name((Node*) target, name);
-                    //return {};
+                    return (EmittedInstr) { 0 };
                 }
                 if (strcmp(intrinsic, "llvm.dbg.label") == 0) {
                     // TODO
-                    //return {};
+                    return (EmittedInstr) { 0 };
                 }
                 if (string_starts_with(intrinsic, "llvm.memcpy")) {
                     Nodes ops = convert_operands(p, num_ops, instr);

@@ -81,7 +81,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             Nodes annotations = singleton(annotation(a, (Annotation) { .name = "SkipOnInfer" }));
             annotations = empty(a);
             Node* decl = constant(p->dst, annotations, NULL, name);
-            r = decl;
+            r = ref_decl_helper(a, decl);
             insert_dict(LLVMTypeRef, const Type*, p->map, v, r);
             BodyBuilder* bb = begin_body(a);
             EmittedInstr emitted = convert_instruction(p, NULL, bb, v);

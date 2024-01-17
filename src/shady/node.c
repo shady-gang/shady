@@ -87,31 +87,94 @@ const Node* get_quoted_value(const Node* instruction) {
     return NULL;
 }
 
-const Node* resolve_decl(const Node* decl) {
-    switch (decl->tag) {
-        case Constant_TAG: return get_quoted_value(decl->payload.constant.instruction);
-        case GlobalVariable_TAG: /* TODO: when adding immutable globals */
-        default: break;
+const Node* resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config) {
+    while (ptr) {
+        ptr = resolve_node_to_definition(ptr, config);
+        switch (ptr->tag) {
+            case PrimOp_TAG: {
+                switch (ptr->payload.prim_op.op) {
+                    case convert_op: { // allow address space conversions
+                        ptr = first(ptr->payload.prim_op.operands);
+                        continue;
+                    }
+                    default: break;
+                }
+            }
+            case GlobalVariable_TAG:
+                if (config.assume_globals_immutability)
+                    return ptr->payload.global_variable.init;
+                break;
+            default: break;
+        }
+        ptr = NULL;
     }
     return NULL;
 }
 
-const Node* resolve_value(const Node* value) {
-    while (true) {
-        if (!value)
-            return NULL;
-        assert(is_value(value));
-        switch (value->tag) {
+NodeResolveConfig default_node_resolve_config() {
+    return (NodeResolveConfig) {
+        .enter_loads = true,
+        .allow_incompatible_types = false,
+        .assume_globals_immutability = false,
+    };
+}
+
+const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config) {
+    while (node) {
+        switch (node->tag) {
+            case Constant_TAG:
+                node = node->payload.constant.instruction;
+                continue;
             case RefDecl_TAG:
-                value = resolve_decl(value->payload.ref_decl.decl);
+                node = node->payload.ref_decl.decl;
+                continue;
+            case Variable_TAG: {
+                if (node->payload.var.pindex != 0)
+                    break;
+                const Node* abs = node->payload.var.abs;
+                if (!abs || abs->tag != Case_TAG)
+                    break;
+                const Node* user = abs->payload.case_.structured_construct;
+                if (user->tag != Let_TAG)
+                    break;
+                node = user->payload.let.instruction;
+                continue;
+            }
+            case PrimOp_TAG: {
+                switch (node->payload.prim_op.op) {
+                    case quote_op: {
+                        node = first(node->payload.prim_op.operands);;
+                        continue;
+                    }
+                    case load_op: {
+                        if (config.enter_loads) {
+                            const Node* source = first(node->payload.prim_op.operands);
+                            const Node* result = resolve_ptr_to_value(source, config);
+                            if (!result)
+                                break;
+                            node = result;
+                            continue;
+                        }
+                    }
+                    case reinterpret_op: {
+                        if (config.allow_incompatible_types) {
+                            node = first(node->payload.prim_op.operands);
+                            continue;
+                        }
+                    }
+                    default: break;
+                }
                 break;
-            default: return value;
+            }
+            default: break;
         }
+        break;
     }
+    return node;
 }
 
 const IntLiteral* resolve_to_int_literal(const Node* node) {
-    node = resolve_value(node);
+    node = resolve_node_to_definition(node, default_node_resolve_config());
     if (!node)
         return NULL;
     if (node->tag == IntLiteral_TAG)
@@ -120,7 +183,7 @@ const IntLiteral* resolve_to_int_literal(const Node* node) {
 }
 
 const FloatLiteral* resolve_to_float_literal(const Node* node) {
-    node = resolve_value(node);
+    node = resolve_node_to_definition(node, default_node_resolve_config());
     if (!node)
         return NULL;
     if (node->tag == FloatLiteral_TAG)
@@ -139,19 +202,6 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
     if (!node)
         return NULL;
     switch (node->tag) {
-        case Constant_TAG:   return get_string_literal(arena, get_quoted_value(node->payload.constant.instruction));
-        case RefDecl_TAG:    return get_string_literal(arena, node->payload.ref_decl.decl);
-        case Variable_TAG: {
-            if (node->payload.var.pindex != 0)
-                return NULL;
-            const Node* abs = node->payload.var.abs;
-            if (!abs || abs->tag != Case_TAG)
-                return NULL;
-            const Node* user = abs->payload.case_.structured_construct;
-            if (user->tag != Let_TAG)
-                return NULL;
-            return get_string_literal(arena, user->payload.let.instruction);
-        }
         case PrimOp_TAG: {
             switch (node->payload.prim_op.op) {
                 case lea_op: {
