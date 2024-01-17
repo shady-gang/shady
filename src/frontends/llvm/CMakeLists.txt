@@ -11,8 +11,11 @@ target_compile_definitions(shady_fe_llvm PRIVATE "LLVM_VERSION_MAJOR=${LLVM_VERS
 if (TARGET LLVM-C)
     message("LLVM-C shared library target exists, major version = ${LLVM_VERSION_MAJOR}")
     target_link_libraries(shady_fe_llvm PRIVATE LLVM-C)
+elseif (TARGET LLVM)
+    message("LLVM shared library target exists, major version = ${LLVM_VERSION_MAJOR}")
+    target_link_libraries(shady_fe_llvm PRIVATE LLVM)
 else ()
-    message(FATAL_ERROR "Failed to find LLVM-C target, but found LLVM module earlier")
+message(FATAL_ERROR "Failed to find LLVM-C target, but found LLVM module earlier")
 endif()
 
 target_link_libraries(shady_fe_llvm PRIVATE api common shady)
