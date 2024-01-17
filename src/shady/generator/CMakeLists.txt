@@ -1,7 +1,17 @@
 find_package(json-c REQUIRED)
 
+if(WIN32)
+	set(SHADY_C_JSON json-c::json-c-static)
+else()
+	set(SHADY_C_JSON json-c::json-c)
+endif()
+
+if(NOT TARGET ${SHADY_C_JSON})
+	message(FATAL_ERROR "Found json-c module, but requested target ${SHADY_C_JSON} doesn't exist!")
+endif()
+
 add_library(generator_common generator.c generator_common.c json_apply.c)
-target_link_libraries(generator_common PUBLIC common json-c::json-c)
+target_link_libraries(generator_common PUBLIC common ${SHADY_C_JSON})
 target_include_directories(generator_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 function(add_generated_file)
