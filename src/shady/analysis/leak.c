@@ -20,7 +20,7 @@ void visit_enclosing_abstractions(UsesMap* map, const Node* n, void* uptr, Visit
     }
 }
 
-const Node* get_binding_abstraction(const UsesMap* map, const Node* var) {
+const Node* get_var_binding_abstraction(const UsesMap* map, const Node* var) {
     assert(var->tag == Variable_TAG);
     const Use* use = get_first_use(map, var);
     assert(use);
@@ -33,6 +33,25 @@ const Node* get_binding_abstraction(const UsesMap* map, const Node* var) {
     }
     assert(binding_use && "Failed to find the binding abstraction in the uses map");
     return binding_use->user;
+}
+
+const Node* get_case_user(const UsesMap* map, const Node* cas) {
+    const Use* use = get_first_use(map, cas);
+    if (!use)
+        return NULL;
+    assert(!use->next_use);
+    assert(use->operand_class == NcCase);
+    return use->user;
+}
+
+const Node* get_var_instruction(const UsesMap* map, const Node* var) {
+    const Node* abs = get_var_binding_abstraction(map, var);
+    if (!abs || abs->tag != Case_TAG)
+        return NULL; // variable is not bound by a case
+    const Node* case_user = get_case_user(map, abs);
+    if (!case_user || case_user->tag != Let_TAG)
+        return NULL;
+    return case_user->payload.let.instruction;
 }
 
 bool is_control_static(const UsesMap* map, const Node* control) {

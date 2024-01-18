@@ -58,7 +58,7 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
     struct List* fvs = compute_free_variables(ctx->scope, old);
     for (size_t i = 0; i < entries_count_list(fvs); i++) {
         const Node* fv = read_list(const Node*, fvs)[i];
-        const Node* defining_abs = get_binding_abstraction(ctx->scope_uses, fv);
+        const Node* defining_abs = get_var_binding_abstraction(ctx->scope_uses, fv);
         const CFNode* defining_cf_node = scope_lookup(ctx->scope, defining_abs);
         assert(defining_cf_node);
         const LTNode* defining_loop = get_loop(looptree_lookup(ctx->loop_tree, defining_cf_node->node));

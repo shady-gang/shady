@@ -119,6 +119,18 @@ NodeResolveConfig default_node_resolve_config() {
     };
 }
 
+const Node* get_var_def(Variable var) {
+    if (var.pindex != 0)
+        return NULL;
+    const Node* abs = var.abs;
+    if (!abs || abs->tag != Case_TAG)
+        return NULL;
+    const Node* user = abs->payload.case_.structured_construct;
+    if (user->tag != Let_TAG)
+        return NULL;
+    return user->payload.let.instruction;
+}
+
 const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config) {
     while (node) {
         switch (node->tag) {
@@ -129,15 +141,10 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                 node = node->payload.ref_decl.decl;
                 continue;
             case Variable_TAG: {
-                if (node->payload.var.pindex != 0)
+                const Node* def = get_var_def(node->payload.var);
+                if (!def)
                     break;
-                const Node* abs = node->payload.var.abs;
-                if (!abs || abs->tag != Case_TAG)
-                    break;
-                const Node* user = abs->payload.case_.structured_construct;
-                if (user->tag != Let_TAG)
-                    break;
-                node = user->payload.let.instruction;
+                node = def;
                 continue;
             }
             case PrimOp_TAG: {

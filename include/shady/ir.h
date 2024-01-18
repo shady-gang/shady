@@ -156,6 +156,8 @@ typedef struct {
 NodeResolveConfig default_node_resolve_config();
 const Node* resolve_ptr_to_value(const Node* node, NodeResolveConfig config);
 
+/// Resolves a variable to the instruction that produces its value (if any)
+const Node* get_var_def(Variable var);
 const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config);
 
 //////////////////////////////// Constructors ////////////////////////////////
