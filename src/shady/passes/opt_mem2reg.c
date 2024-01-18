@@ -137,6 +137,7 @@ static void visit_ptr_uses(const Node* ptr_value, PtrSourceKnowledge* k, const U
                         k->leaks = true;
                     continue;
                 }
+                case convert_op:
                 case reinterpret_op: {
                     debugv_print("mem2reg leak analysis: following reinterpret instr: ");
                     log_node(DEBUGV, use->user);
@@ -144,8 +145,7 @@ static void visit_ptr_uses(const Node* ptr_value, PtrSourceKnowledge* k, const U
                     visit_ptr_uses(use->user, k, map);
                     continue;
                 }
-                case lea_op:
-                case convert_op: {
+                case lea_op: {
                     //TODO: follow where those derived pointers are used and establish whether they leak themselves
                     k->leaks = true;
                     continue;
