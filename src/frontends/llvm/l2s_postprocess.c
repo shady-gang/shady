@@ -75,12 +75,13 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             fn_ctx.old_fn_or_bb = node;
             Controls controls;
             initialize_controls(ctx, &controls, node);
-            Node* decl = (Node*) recreate_node_identity(&fn_ctx.rewriter, node);
-            Nodes annotations = decl->payload.fun.annotations;
+            Nodes new_params = recreate_variables(&fn_ctx.rewriter, node->payload.fun.params);
+            Nodes old_annotations = node->payload.fun.annotations;
             ParsedAnnotation* an = find_annotation(ctx->p, node);
+            Op primop_intrinsic = PRIMOPS_COUNT;
             while (an) {
                 if (strcmp(get_annotation_name(an->payload), "PrimOpIntrinsic") == 0) {
-                    assert(!decl->payload.fun.body);
+                    assert(!node->payload.fun.body);
                     Op op;
                     size_t i;
                     for (i = 0; i < PRIMOPS_COUNT; i++) {
@@ -90,15 +91,24 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                         }
                     }
                     assert(i != PRIMOPS_COUNT);
-                    decl->payload.fun.body = fn_ret(a, (Return) {
-                        .args = singleton(prim_op_helper(a, op, empty(a), get_abstraction_params(decl)))
-                    });
+                    primop_intrinsic = op;
+                } else if (strcmp(get_annotation_name(an->payload), "EntryPoint") == 0) {
+                    for (size_t i = 0; i < new_params.count; i++)
+                        new_params = change_node_at_index(a, new_params, i, var(a, qualified_type_helper(get_unqualified_type(new_params.nodes[i]->payload.var.type), true), new_params.nodes[i]->payload.var.name));
                 }
-                annotations = append_nodes(a, annotations, an->payload);
+                old_annotations = append_nodes(a, old_annotations, an->payload);
                 an = an->next;
             }
-            decl->payload.fun.annotations = annotations;
-            // decl->payload.fun.body = wrap_in_controls(ctx, &controls, decl->payload.fun.body);
+            register_processed_list(&fn_ctx.rewriter, node->payload.fun.params, new_params);
+            Nodes new_annotations = rewrite_nodes(&fn_ctx.rewriter, old_annotations);
+            Node* decl = function(ctx->rewriter.dst_module, new_params, get_abstraction_name(node), new_annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            register_processed(&ctx->rewriter, node, decl);
+            if (primop_intrinsic != PRIMOPS_COUNT) {
+                decl->payload.fun.body = fn_ret(a, (Return) {
+                        .args = singleton(prim_op_helper(a, primop_intrinsic, empty(a), get_abstraction_params(decl)))
+                });
+            } else
+                decl->payload.fun.body = rewrite_node(&fn_ctx.rewriter, node->payload.fun.body);
             destroy_scope(fn_ctx.curr_scope);
             return decl;
         }
