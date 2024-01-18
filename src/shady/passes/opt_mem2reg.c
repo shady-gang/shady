@@ -368,12 +368,12 @@ static const Node* process(Context* ctx, const Node* old) {
                         const Type* known_value_t = known_value->type;
                         bool kv_u = deconstruct_qualified_type(&known_value_t);
 
-                        const Type* load_result_t = ptr->type;
+                        const Type* load_result_t = rewrite_node(&ctx->rewriter, ptr->type);
                         bool lrt_u = deconstruct_qualified_type(&load_result_t);
                         deconstruct_pointer_type(&load_result_t);
                         assert(!lrt_u || kv_u);
                         if (is_reinterpret_cast_legal(load_result_t, known_value_t))
-                            return prim_op_helper(a, reinterpret_op, singleton(rewrite_node(&ctx->rewriter, load_result_t)), singleton(known_value));
+                            return prim_op_helper(a, reinterpret_op, singleton(load_result_t), singleton(known_value));
                     }
                     const Node* other_ptr = get_known_address(&ctx->rewriter, k);
                     if (other_ptr && ptr != other_ptr) {
@@ -530,7 +530,7 @@ Module* opt_mem2reg(const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = src;
 
-    for (size_t round = 0; round < 2; round++) {
+    for (size_t round = 0; round < 5; round++) {
         dst = new_module(a, get_module_name(src));
 
         Context ctx = {
