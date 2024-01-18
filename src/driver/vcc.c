@@ -14,6 +14,7 @@ typedef struct {
     char* tmp_filename;
     bool delete_tmp_file;
     char* include_path;
+    bool only_run_clang;
 } VccOptions;
 
 static void cli_parse_vcc_args(VccOptions* options, int* pargc, char** argv) {
@@ -33,6 +34,10 @@ static void cli_parse_vcc_args(VccOptions* options, int* pargc, char** argv) {
             if (i == argc)
                 error("Missing subgroup size name");
             options->include_path = argv[i];
+            continue;
+        } else if (strcmp(argv[i], "--only-run-clang") == 0) {
+            argv[i] = NULL;
+            options->only_run_clang = true;
             continue;
         }
     }
@@ -71,19 +76,6 @@ int main(int argc, char** argv) {
     error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
 
     size_t num_source_files = entries_count_list(args.input_filenames);
-    if (!vcc_options.tmp_filename) {
-        vcc_options.tmp_filename = alloca(33);
-        vcc_options.tmp_filename[32] = '\0';
-        uint32_t hash = 0;
-        for (size_t i = 0; i < num_source_files; i++) {
-            String filename = read_list(const char*, args.input_filenames)[i];
-            hash ^= hash_murmur(filename, strlen(filename));
-        }
-        srand(hash);
-        for (size_t i = 0; i < 32; i++) {
-            vcc_options.tmp_filename[i] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"[rand() % (10 + 26 * 2)];
-        }
-    }
 
     Growy* g = new_growy();
     growy_append_string(g, "clang");
@@ -95,7 +87,25 @@ int main(int argc, char** argv) {
     growy_append_formatted(g, " -c -emit-llvm -S -g -O0 -ffreestanding -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown -isystem\"%s\" -D__SHADY__=1", vcc_options.include_path);
     free(working_dir);
     free(self_path);
-    growy_append_formatted(g, " -o %s", vcc_options.tmp_filename);
+
+    if (vcc_options.only_run_clang)
+        growy_append_formatted(g, " -o %s", args.output_filename);
+    else {
+        if (!vcc_options.tmp_filename) {
+            vcc_options.tmp_filename = alloca(33);
+            vcc_options.tmp_filename[32] = '\0';
+            uint32_t hash = 0;
+            for (size_t i = 0; i < num_source_files; i++) {
+                String filename = read_list(const char*, args.input_filenames)[i];
+                hash ^= hash_murmur(filename, strlen(filename));
+            }
+            srand(hash);
+            for (size_t i = 0; i < 32; i++) {
+                vcc_options.tmp_filename[i] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"[rand() % (10 + 26 * 2)];
+            }
+        }
+        growy_append_formatted(g, " -o %s", vcc_options.tmp_filename);
+    }
 
     for (size_t i = 0; i < num_source_files; i++) {
         String filename = read_list(const char*, args.input_filenames)[i];
@@ -129,17 +139,20 @@ int main(int argc, char** argv) {
     if (clang_returned)
         exit(ClangInvocationFailed);
 
-    size_t len;
-    char* llvm_ir;
-    if (!read_file(vcc_options.tmp_filename, &len, &llvm_ir))
-        exit(InputFileIOError);
-    driver_load_source_file(SrcLLVM, len, llvm_ir, mod);
-    free(llvm_ir);
+    if (!vcc_options.only_run_clang) {
+        size_t len;
+        char* llvm_ir;
+        if (!read_file(vcc_options.tmp_filename, &len, &llvm_ir))
+            exit(InputFileIOError);
+        driver_load_source_file(SrcLLVM, len, llvm_ir, mod);
+        free(llvm_ir);
 
-    if (vcc_options.delete_tmp_file)
-        remove(vcc_options.tmp_filename);
+        if (vcc_options.delete_tmp_file)
+            remove(vcc_options.tmp_filename);
 
-    driver_compile(&args, mod);
+        driver_compile(&args, mod);
+    }
+
     info_print("Done\n");
 
     destroy_ir_arena(arena);
