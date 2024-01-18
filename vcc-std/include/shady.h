@@ -22,6 +22,7 @@ namespace vcc {
 #define output                 __attribute__((address_space(390)))
 #define uniform                __attribute__((annotate("shady::uniform")))
 #define push_constant          __attribute__((address_space(392)))
+#define global                 __attribute__((address_space(1)))
 #define private                __attribute__((address_space(5)))
 #define private_logical        __attribute__((address_space(385)))
 
@@ -59,6 +60,10 @@ input int gl_VertexIndex;
 __attribute__((annotate("shady::builtin::WorkgroupSize")))
 __attribute__((address_space(389)))
 uvec3 gl_WorkGroupSize;
+
+__attribute__((annotate("shady::builtin::GlobalInvocationId")))
+__attribute__((address_space(389)))
+uvec3 gl_GlobalInvocationID;
 
 #if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
 }
