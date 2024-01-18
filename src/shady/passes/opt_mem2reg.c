@@ -137,12 +137,24 @@ static void visit_ptr_uses(const Node* ptr_value, PtrSourceKnowledge* k, const U
                         k->leaks = true;
                     continue;
                 }
-                case convert_op:
                 case reinterpret_op: {
                     debugv_print("mem2reg leak analysis: following reinterpret instr: ");
                     log_node(DEBUGV, use->user);
                     debugv_print(".\n");
                     visit_ptr_uses(use->user, k, map);
+                    continue;
+                }
+                case convert_op: {
+                    if (first(payload.type_arguments)->tag == PtrType_TAG) {
+                        // this is a ptr-ptr conversion, which means it's a Generic-non generic conversion
+                        // these are fine, just track them
+                        debugv_print("mem2reg leak analysis: following conversion instr: ");
+                        log_node(DEBUGV, use->user);
+                        debugv_print(".\n");
+                        visit_ptr_uses(use->user, k, map);
+                        continue;
+                    }
+                    k->leaks = true;
                     continue;
                 }
                 case lea_op: {
