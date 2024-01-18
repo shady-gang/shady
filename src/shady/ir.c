@@ -146,7 +146,7 @@ Nodes concat_nodes(IrArena* arena, Nodes a, Nodes b) {
 Nodes change_node_at_index(IrArena* arena, Nodes old, size_t i, const Node* n) {
     LARRAY(const Node*, tmp, old.count);
     for (size_t j = 0; j < old.count; j++)
-        tmp[j] = old.nodes[i];
+        tmp[j] = old.nodes[j];
     tmp[i] = n;
     return nodes(arena, old.count, tmp);
 }
