@@ -26,32 +26,22 @@ namespace vcc {
 #define private                __attribute__((address_space(5)))
 #define private_logical        __attribute__((address_space(385)))
 
-typedef float vec4     __attribute__((ext_vector_type(4)));
-typedef float vec3     __attribute__((ext_vector_type(3)));
-typedef float vec2     __attribute__((ext_vector_type(2)));
-
-typedef int ivec4     __attribute__((ext_vector_type(4)));
-typedef int ivec3     __attribute__((ext_vector_type(3)));
-typedef int ivec2     __attribute__((ext_vector_type(2)));
-
-typedef unsigned uvec4     __attribute__((ext_vector_type(4)));
-typedef unsigned uvec3     __attribute__((ext_vector_type(3)));
-typedef unsigned uvec2     __attribute__((ext_vector_type(2)));
+#include "shady_vec.h"
 
 typedef struct __shady_builtin_sampler2D {} sampler2D;
 
-vec4 texture2D(const sampler2D, vec2) __asm__("shady::prim_op::sample_texture");
+vec4 texture2D(const sampler2D, native_vec2) __asm__("shady::prim_op::sample_texture");
 
 // builtins
 __attribute__((annotate("shady::builtin::FragCoord")))
-input vec4 gl_FragCoord;
+input native_vec4 gl_FragCoord;
 
 __attribute__((annotate("shady::builtin::Position")))
-output vec4 gl_Position;
+output native_vec4 gl_Position;
 
 __attribute__((annotate("shady::builtin::WorkgroupId")))
 __attribute__((address_space(389)))
-uvec3 gl_WorkGroupID;
+native_uvec3 gl_WorkGroupID;
 
 __attribute__((annotate("shady::builtin::VertexIndex")))
 __attribute__((address_space(389)))
@@ -59,11 +49,11 @@ input int gl_VertexIndex;
 
 __attribute__((annotate("shady::builtin::WorkgroupSize")))
 __attribute__((address_space(389)))
-uvec3 gl_WorkGroupSize;
+native_uvec3 gl_WorkGroupSize;
 
 __attribute__((annotate("shady::builtin::GlobalInvocationId")))
 __attribute__((address_space(389)))
-uvec3 gl_GlobalInvocationID;
+native_uvec3 gl_GlobalInvocationID;
 
 #if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
 }
