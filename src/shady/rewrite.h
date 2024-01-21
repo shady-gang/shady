@@ -59,6 +59,7 @@ void  recreate_decl_body_identity(Rewriter*, const Node*, Node*);
 /// Rewrites a variable under a new identity
 const Node* recreate_variable(Rewriter* rewriter, const Node* old);
 Nodes recreate_variables(Rewriter* rewriter, Nodes old);
+Node* clone_bb_head(Rewriter*, const Node* bb);
 
 /// Looks up if the node was already processed
 const Node* search_processed(const Rewriter*, const Node*);

@@ -12,7 +12,24 @@ typedef struct {
     bool* todo;
 } Context;
 
+static size_t count_calls(const UsesMap* map, const Node* bb) {
+    size_t count = 0;
+    const Use* use = get_first_use(map, bb);
+    for (;use; use = use->next_use) {
+        if (use->user->tag == Jump_TAG) {
+            const Use* jump_use = get_first_use(map, use->user);
+            for (; jump_use; jump_use = jump_use->next_use) {
+                if (jump_use->operand_class == NcJump)
+                    return SIZE_MAX; // you can never inline conditional jumps
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
 const Node* process(Context* ctx, const Node* old) {
+    Rewriter* r = &ctx->rewriter;
     if (old->tag == Function_TAG || old->tag == Constant_TAG) {
         Context c = *ctx;
         c.map = create_uses_map(old, NcType | NcDeclaration);
@@ -48,6 +65,25 @@ const Node* process(Context* ctx, const Node* old) {
                 debug_print("\n");
                 *ctx->todo = true;
                 return rewrite_node(&ctx->rewriter, get_abstraction_body(tail_case));
+            }
+            break;
+        }
+        case BasicBlock_TAG: {
+            size_t uses = count_calls(ctx->map, old);
+            if (uses <= 1) {
+                log_string(DEBUGV, "Eliminating basic block '%s' since it's used only %d times.\n", get_abstraction_name(old), uses);
+                return NULL;
+            }
+            break;
+        }
+        case Jump_TAG: {
+            const Node* otarget = old->payload.jump.target;
+            const Node* ntarget = rewrite_node(r, otarget);
+            if (!ntarget) {
+                // it's been inlined away! just steal the body
+                Nodes nargs = rewrite_nodes(r, old->payload.jump.args);
+                register_processed_list(r, get_abstraction_params(otarget), nargs);
+                return rewrite_node(r, get_abstraction_body(otarget));
             }
             break;
         }
