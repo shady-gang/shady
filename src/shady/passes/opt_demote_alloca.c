@@ -130,20 +130,23 @@ PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
         assert(is_value(ptr));
         if (ptr->tag == Variable_TAG) {
             const Node* instr = get_var_instruction(ctx->scope_uses, ptr);
-            PrimOp payload = instr->payload.prim_op;
-            switch (payload.op) {
-                case alloca_logical_op:
-                case alloca_op: {
-                    k.src_alloca = *find_value_dict(const Node*, AllocaInfo*, ctx->alloca_info, instr);
-                    return k;
+            if (instr) {
+                PrimOp payload = instr->payload.prim_op;
+                switch (payload.op) {
+                    case alloca_logical_op:
+                    case alloca_op: {
+                        k.src_alloca = *find_value_dict(const Node*, AllocaInfo*, ctx->alloca_info, instr);
+                        return k;
+                    }
+                    case convert_op:
+                    case reinterpret_op: {
+                        ptr = first(payload.operands);
+                        continue;
+                    }
+                        // TODO: lea and co
+                    default:
+                        break;
                 }
-                case convert_op:
-                case reinterpret_op: {
-                    ptr = first(payload.operands);
-                    continue;
-                }
-                // TODO: lea and co
-                default: break;
             }
         }
 
