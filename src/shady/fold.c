@@ -243,6 +243,12 @@ break;
                 return quote_single(arena, value);
             break;
         }
+        case store_op: {
+            if (first(payload.operands)->tag == Undef_TAG) {
+                return quote_helper(arena, empty(arena));
+            }
+            break;
+        }
         case reinterpret_op:
         case convert_op:
             // get rid of identity casts

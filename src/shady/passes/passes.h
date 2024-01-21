@@ -112,6 +112,7 @@ RewritePass opt_inline_jumps;
 /// In addition, also inlines function calls according to heuristics
 RewritePass opt_inline;
 RewritePass opt_mem2reg;
+RewritePass opt_demote_alloca;
 
 /// Try to identify reconvergence points throughout the program for unstructured control flow programs
 RewritePass reconvergence_heuristics;
