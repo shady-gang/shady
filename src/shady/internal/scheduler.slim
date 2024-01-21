@@ -21,7 +21,7 @@
 @Internal @Builtin("SubgroupLocalInvocationId")
 input u32 subgroup_local_id;
 
-@Internal @Structured @DisablePass("setup_stack_frames") @Leaf
+@Internal @Leaf
 fn builtin_init_scheduler() {
     val init_mask = subgroup_active_mask();
 
@@ -32,7 +32,7 @@ fn builtin_init_scheduler() {
     actual_subgroup_size = subgroup_reduce_sum(u32 1);
 }
 
-@Internal @Structured @DisablePass("setup_stack_frames") @Leaf
+@Internal @Leaf
 fn builtin_entry_join_point uniform JoinPoint() {
     val init_mask = subgroup_active_mask();
 
@@ -41,7 +41,7 @@ fn builtin_entry_join_point uniform JoinPoint() {
     return (jp);
 }
 
-@Internal @Structured @Leaf
+@Internal @Leaf
 fn builtin_create_control_point varying JoinPoint(uniform u32 join_destination, varying u32 payload) {
     val curr_mask = subgroup_active_mask();
     val depth = subgroup_broadcast_first(scheduler_vector#(subgroup_local_id)#1);
@@ -54,7 +54,7 @@ fn builtin_create_control_point varying JoinPoint(uniform u32 join_destination, 
     return (jp);
 }
 
-@Internal @Structured @Leaf
+@Internal @Leaf
 fn builtin_fork(varying u32 branch_destination) {
     val first_branch = subgroup_broadcast_first(branch_destination);
 
@@ -89,7 +89,7 @@ fn builtin_fork(varying u32 branch_destination) {
     }
 }
 
-@Internal @Structured @Leaf
+@Internal @Leaf
 fn builtin_yield(uniform u32 resume_target) {
     resume_at#(subgroup_local_id) = resume_target;
     // resume_with#(subgroup_local_id) = subgroup_active_mask();
@@ -103,7 +103,7 @@ fn builtin_yield(uniform u32 resume_target) {
     }
 }
 
-@Internal @Structured @Leaf
+@Internal @Leaf
 fn builtin_join(varying u32 join_at, varying TreeNode token) {
     resume_at#(subgroup_local_id) = join_at;
     scheduler_vector#(subgroup_local_id) = token;
@@ -114,7 +114,7 @@ fn builtin_join(varying u32 join_at, varying TreeNode token) {
     }
 }
 
-@Internal @Structured @Leaf
+@Internal @Leaf
 fn is_parent bool(varying TreeNode child, varying TreeNode maybe_parent) {
   val child_mask = child#0;
   val parent_mask = maybe_parent#0;
@@ -124,32 +124,32 @@ fn is_parent bool(varying TreeNode child, varying TreeNode maybe_parent) {
   return (child_depth >= parent_depth);
 }
 
-@Internal @Structured @Leaf
+@Internal @Leaf
 fn forward_distance u32(varying u32 x, varying u32 dst, varying u32 max_mod) {
   var u32 t = dst - x;
   t = t % max_mod;
   return (t);
 }
 
-@Internal @Structured @Leaf
+@Internal @Leaf
 fn reduce2 u32(varying u32 a_index, varying u32 b_index) {
     val a = scheduler_vector#a_index;
     val b = scheduler_vector#b_index;
-    
+
     if (is_parent(a, b)) { return (a_index); }
     if (is_parent(b, a)) { return (b_index); }
-    
+
     val a_dist = forward_distance(a_index, scheduler_cursor, actual_subgroup_size);
     val b_dist = forward_distance(b_index, scheduler_cursor, actual_subgroup_size);
-    
+
     if (a_dist < b_dist) { return (a_index); }
     return (b_index);
 }
 
-@Internal @Structured @Leaf
+@Internal @Leaf
 fn builtin_find_schedulable_leaf() {
     var u32 reduced = u32 0;
-    loop (uniform u32 i = u32 1) {
+    loop (varying u32 i = u32 1) {
         if (i >= actual_subgroup_size) { break; }
         reduced = reduce2(reduced, i);
         continue(i + u32 1);
@@ -160,7 +160,7 @@ fn builtin_find_schedulable_leaf() {
     return ();
 }
 
-@Internal @Structured @Leaf
+@Internal @Leaf
 fn builtin_get_active_branch mask_t() {
     val this_thread_branch = scheduler_vector#(subgroup_local_id);
     val same_dest = resume_at#(subgroup_local_id) == next_fn;

@@ -138,21 +138,23 @@ static void destroy_kb(KnowledgeBase* kb) {
 }
 
 static KnowledgeBase* get_kb(Context* ctx, const Node* abs) {
+    assert(ctx->scope);
     KnowledgeBase** found = find_value_dict(const Node*, KnowledgeBase*, ctx->abs_to_kb, abs);
     assert(found);
     return *found;
 }
 
 static KnowledgeBase* create_kb(Context* ctx, const Node* old) {
+    assert(ctx->scope);
     arena_alloc(ctx->a, sizeof(KnowledgeBase));
     CFNode* cf_node = scope_lookup(ctx->scope, old);
     KnowledgeBase* kb = arena_alloc(ctx->a, sizeof(KnowledgeBase));
     *kb = (KnowledgeBase) {
-            .cfnode = cf_node,
-            .a = ctx->a,
-            .map = new_dict(const Node*, PtrKnowledge*, (HashFn) hash_node, (CmpFn) compare_node),
-            .potential_additional_params = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
-            .dominator_kb = NULL,
+        .cfnode = cf_node,
+        .a = ctx->a,
+        .map = new_dict(const Node*, PtrKnowledge*, (HashFn) hash_node, (CmpFn) compare_node),
+        .potential_additional_params = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .dominator_kb = NULL,
     };
     // log_string(DEBUGVV, "Creating KB for ");
     // log_node(DEBUGVV, old);
@@ -232,6 +234,7 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
     switch (is_instruction(oinstruction)) {
         case NotAnInstruction: assert(is_instruction(oinstruction));
         case Instruction_Call_TAG:
+            wipe_all_leaked_pointers(kb);
             break;
         case Instruction_PrimOp_TAG: {
             PrimOp payload = oinstruction->payload.prim_op;
@@ -376,11 +379,11 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
         case Instruction_Match_TAG:
             break;
         case Instruction_Loop_TAG:
-            assert(false && "unsupported");
+            mark_values_as_escaping(kb, oinstruction->payload.loop_instr.initial_args);
+            // assert(false && "unsupported");
             break;
     }
 
-    // wipe_all_leaked_pointers(kb);
     return recreate_node_identity(r, oinstruction);
 }
 
@@ -592,7 +595,11 @@ static const Node* process(Context* ctx, const Node* old) {
     }
 
     KnowledgeBase* kb = NULL;
-    if (old->tag == Function_TAG && !lookup_annotation(old, "Internal")) {
+    if (old->tag == Function_TAG) {
+        // if (lookup_annotation(old, "Internal")) {
+        //     fn_ctx.scope = NULL;
+        //     return recreate_node_identity(&fn_ctx.rewriter, old);;
+        // }
         fn_ctx.scope = new_scope(old);
         fn_ctx.abs_to_kb = new_dict(const Node*, KnowledgeBase**, (HashFn) hash_node, (CmpFn) compare_node);
         fn_ctx.todo_jumps = new_list(TodoJump),
