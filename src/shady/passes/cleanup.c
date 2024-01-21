@@ -9,7 +9,7 @@
 typedef struct {
     Rewriter rewriter;
     const UsesMap* map;
-    bool* todo;
+    bool todo;
 } Context;
 
 static size_t count_calls(const UsesMap* map, const Node* bb) {
@@ -63,7 +63,7 @@ const Node* process(Context* ctx, const Node* old) {
                 debug_print("Cleanup: found an unused instruction: ");
                 log_node(DEBUG, payload.instruction);
                 debug_print("\n");
-                *ctx->todo = true;
+                ctx->todo = true;
                 return rewrite_node(&ctx->rewriter, get_abstraction_body(tail_case));
             }
             break;
@@ -93,23 +93,32 @@ const Node* process(Context* ctx, const Node* old) {
     return recreate_node_identity(&ctx->rewriter, old);;
 }
 
-Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+OptPass simplify;
+
+bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
+    Module* src = *m;
+
+    IrArena* a = new_ir_arena(get_arena_config(get_module_arena(*m)));
+    *m = new_module(a, get_module_name(*m));
+    Context ctx = { .todo = false };
+    ctx.rewriter = create_rewriter(src, *m, (RewriteNodeFn) process),
+    rewrite_module(&ctx.rewriter);
+    destroy_rewriter(&ctx.rewriter);
+    return ctx.todo;
+}
+
+Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* const src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     if (!aconfig.check_types)
         return src;
-    IrArena* a = new_ir_arena(aconfig);
     bool todo;
-    Context ctx = { .todo = &todo };
     size_t r = 0;
-    Module* m;
+    Module* m = src;
     do {
         debug_print("Cleanup round %d\n", r);
         todo = false;
-        m = new_module(a, get_module_name(src));
-        ctx.rewriter = create_rewriter(src, m, (RewriteNodeFn) process),
-        rewrite_module(&ctx.rewriter);
-        destroy_rewriter(&ctx.rewriter);
-        src = m;
+        todo |= simplify(config, &m);
+        todo |= opt_demote_alloca(config, &m);
         r++;
     } while (todo);
     return m;

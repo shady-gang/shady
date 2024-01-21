@@ -3,6 +3,7 @@
 #include "shady/ir.h"
 
 typedef Module* (RewritePass)(const CompilerConfig* config, Module* src);
+typedef bool (OptPass)(const CompilerConfig* config, Module** m);
 
 /// @name Boring, regular compiler stuff
 /// @{
@@ -110,7 +111,7 @@ RewritePass mark_leaf_functions;
 /// In addition, also inlines function calls according to heuristics
 RewritePass opt_inline;
 RewritePass opt_mem2reg;
-RewritePass opt_demote_alloca;
+OptPass opt_demote_alloca;
 
 /// Try to identify reconvergence points throughout the program for unstructured control flow programs
 RewritePass reconvergence_heuristics;

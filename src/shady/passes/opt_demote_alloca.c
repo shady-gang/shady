@@ -24,6 +24,7 @@ typedef struct Context_ {
     const CompilerConfig* config;
     Arena* arena;
     struct Dict* alloca_info;
+    bool todo;
 } Context;
 
 typedef struct {
@@ -209,10 +210,14 @@ static const Node* process(Context* ctx, const Node* old) {
                     log_node(DEBUGV, old);
                     debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
                     if (!k->leaks) {
-                        if (!k->read_from && !k->non_logical_use/* this should include killing dead stores! */)
+                        if (!k->read_from && !k->non_logical_use/* this should include killing dead stores! */) {
+                            ctx->todo |= true;
                             return quote_helper(a, singleton(undef(a, (Undef) {.type = get_unqualified_type(rewrite_node(r, old->type))})));
-                        if (!k->non_logical_use && get_arena_config(a).optimisations.weaken_non_leaking_allocas)
+                        }
+                        if (!k->non_logical_use && get_arena_config(a).optimisations.weaken_non_leaking_allocas) {
+                            ctx->todo |= true;
                             return prim_op_helper(a, alloca_logical_op, rewrite_nodes(&ctx->rewriter, payload.type_arguments), rewrite_nodes(r, payload.operands));
+                        }
                     }
                     break;
                 }
@@ -221,6 +226,9 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k.src_alloca) {
                         const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.operands.nodes[0]->type)));
                         if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
+                            if (k.src_alloca->bound != rewrite_node(r, first(payload.operands)))
+                                break;
+                            ctx->todo |= true;
                             BodyBuilder* bb = begin_body(a);
                             const Node* data = gen_load(bb, k.src_alloca->bound);
                             data = gen_reinterpret_cast(bb, access_type, data);
@@ -234,6 +242,9 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k.src_alloca) {
                         const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.operands.nodes[0]->type)));
                         if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
+                            if (k.src_alloca->bound != rewrite_node(r, first(payload.operands)))
+                                break;
+                            ctx->todo |= true;
                             BodyBuilder* bb = begin_body(a);
                             const Node* data = gen_reinterpret_cast(bb, access_type, rewrite_node(r, payload.operands.nodes[1]));
                             gen_store(bb, k.src_alloca->bound, data);
@@ -255,7 +266,8 @@ static const Node* process(Context* ctx, const Node* old) {
 KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
-Module* opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
+    Module* src = *m;
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
@@ -263,12 +275,14 @@ Module* opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module* src
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .arena = new_arena(),
-        .alloca_info = new_dict(const Node, AllocaInfo, (HashFn) hash_node, (CmpFn) compare_node)
+        .alloca_info = new_dict(const Node, AllocaInfo, (HashFn) hash_node, (CmpFn) compare_node),
+        .todo = false
     };
     ctx.rewriter.config.rebind_let = true;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     destroy_dict(ctx.alloca_info);
     destroy_arena(ctx.arena);
-    return dst;
+    *m = dst;
+    return ctx.todo;
 }
