@@ -82,8 +82,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(normalize_builtins);
     RUN_PASS(infer_program)
 
-    RUN_PASS(opt_inline_jumps)
-
     RUN_PASS(lcssa)
     RUN_PASS(reconvergence_heuristics)
 
@@ -108,7 +106,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_tailcalls)
     RUN_PASS(lower_switch_btree)
     RUN_PASS(opt_restructurize)
-    RUN_PASS(opt_inline_jumps)
+    //RUN_PASS(opt_mem2reg)
 
     RUN_PASS(lower_mask)
     RUN_PASS(lower_memcpy)

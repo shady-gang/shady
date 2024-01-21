@@ -19,7 +19,6 @@ typedef struct {
     CallGraph* graph;
     const Node* old_fun;
     Node* fun;
-    bool allow_fn_inlining;
     struct Dict* inlined_return_sites;
 } Context;
 
@@ -138,37 +137,6 @@ static const Node* process(Context* ctx, const Node* node) {
             destroy_scope(scope);
             return new;
         }
-        case Jump_TAG: {
-            const Node* otarget = node->payload.jump.target;
-            assert(otarget && otarget->tag == BasicBlock_TAG);
-            assert(otarget->payload.basic_block.fn == ctx->scope->entry->node);
-            CFNode* cfnode = scope_lookup(ctx->scope, otarget);
-            assert(cfnode);
-            size_t preds_count = entries_count_list(cfnode->pred_edges);
-            assert(preds_count > 0 && "this CFG looks broken");
-            if (preds_count == 1) {
-                debugv_print("Inlining jump to %s inside function %s\n", get_abstraction_name(otarget), get_abstraction_name(ctx->old_fun));
-                Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
-                return inline_call(ctx, otarget, nargs, false);
-            }
-            break;
-        }
-        // do not inline jumps in branches
-        case Branch_TAG: {
-            return branch(a, (Branch) {
-                .branch_condition = rewrite_node(&ctx->rewriter, node->payload.branch.branch_condition),
-                .true_jump = recreate_node_identity(&ctx->rewriter, node->payload.branch.true_jump),
-                .false_jump = recreate_node_identity(&ctx->rewriter, node->payload.branch.false_jump),
-            });
-        }
-        case Switch_TAG: {
-            return br_switch(a, (Switch) {
-                .switch_value = rewrite_node(&ctx->rewriter, node->payload.br_switch.switch_value),
-                .case_values = rewrite_nodes(&ctx->rewriter, node->payload.br_switch.case_values),
-                .case_jumps = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.br_switch.case_jumps, recreate_node_identity),
-                .default_jump = recreate_node_identity(&ctx->rewriter, node->payload.br_switch.default_jump),
-            });
-        }
         case Call_TAG: {
             if (!ctx->graph)
                 break;
@@ -222,14 +190,6 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             break;
         }
-        case BasicBlock_TAG: {
-            Nodes params = recreate_variables(&ctx->rewriter, node->payload.basic_block.params);
-            register_processed_list(&ctx->rewriter, node->payload.basic_block.params, params);
-            Node* bb = basic_block(a, (Node*) ctx->fun, params, node->payload.basic_block.name);
-            register_processed(&ctx->rewriter, node, bb);
-            bb->payload.basic_block.body = process(ctx, node->payload.basic_block.body);
-            return bb;
-        }
         default: break;
     }
 
@@ -242,7 +202,7 @@ static const Node* process(Context* ctx, const Node* node) {
 KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
-void opt_simplify_cf(SHADY_UNUSED const CompilerConfig* config, Module* src, Module* dst, bool allow_fn_inlining) {
+void opt_simplify_cf(SHADY_UNUSED const CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .graph = NULL,
@@ -250,8 +210,7 @@ void opt_simplify_cf(SHADY_UNUSED const CompilerConfig* config, Module* src, Mod
         .fun = NULL,
         .inlined_return_sites = new_dict(const Node*, CGNode*, (HashFn) hash_node, (CmpFn) compare_node),
     };
-    if (allow_fn_inlining)
-        ctx.graph = new_callgraph(src);
+    ctx.graph = new_callgraph(src);
 
     rewrite_module(&ctx.rewriter);
     if (ctx.graph)
@@ -261,18 +220,10 @@ void opt_simplify_cf(SHADY_UNUSED const CompilerConfig* config, Module* src, Mod
     destroy_dict(ctx.inlined_return_sites);
 }
 
-Module* opt_inline_jumps(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
-    Module* dst = new_module(a, get_module_name(src));
-    opt_simplify_cf(config, src, dst, false);
-    return dst;
-}
-
 Module* opt_inline(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
-    opt_simplify_cf(config, src, dst, true);
+    opt_simplify_cf(config, src, dst);
     return dst;
 }
