@@ -2,3 +2,16 @@ fn f varying f32(varying i32 x) {
   var i32 i = 0;
   return (*(reinterpret[ptr private f32](&i)));
 }
+
+fn g varying i32(varying i32 x) {
+  var i32 i = 0;
+  return (*(convert[ptr generic i32](&i)));
+}
+
+fn h varying f32(varying i32 x) {
+  var i32 i = 0;
+  val p = &i;
+  val p1 = (reinterpret[ptr private f32](&i));
+  val p2 = convert[ptr generic f32](p1);
+  return (*p2);
+}
