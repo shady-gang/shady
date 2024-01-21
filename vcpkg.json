@@ -1,0 +1,8 @@
+{
+  "dependencies": [
+    "spirv-headers",
+    "json-c",
+    "llvm",
+    "vulkan"
+  ]
+}
