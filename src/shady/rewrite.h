@@ -60,6 +60,7 @@ void  recreate_decl_body_identity(Rewriter*, const Node*, Node*);
 const Node* recreate_variable(Rewriter* rewriter, const Node* old);
 Nodes recreate_variables(Rewriter* rewriter, Nodes old);
 Node* clone_bb_head(Rewriter*, const Node* bb);
+const Node* rebind_let(Rewriter*, const Node* ninstruction, const Node* ocase);
 
 /// Looks up if the node was already processed
 const Node* search_processed(const Rewriter*, const Node*);

@@ -288,7 +288,7 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
     }
 }
 
-static const Node* rebind_results(Rewriter* rewriter, const Node* ninstruction, const Node* olam) {
+const Node* rebind_let(Rewriter* rewriter, const Node* ninstruction, const Node* olam) {
     assert(olam->tag == Case_TAG);
     Nodes oparams = olam->payload.case_.params;
     Nodes ntypes = unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type);
@@ -342,7 +342,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             }
             const Node* tail;
             if (rewriter->config.rebind_let)
-                tail = rebind_results(rewriter, instruction, node->payload.let.tail);
+                tail = rebind_let(rewriter, instruction, node->payload.let.tail);
             else
                 tail = rewrite_op_helper(rewriter, NcCase, "tail", node->payload.let.tail);
             return let(arena, instruction, tail);
