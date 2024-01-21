@@ -56,8 +56,10 @@ RewritePass simt2d;
 /// @name Physical memory emulation
 /// @{
 
-/// Implements stack frames, saves the stack size on function entry and restores it upon exit
+/// Implements stack frames: saves the stack size on function entry and restores it upon exit
 RewritePass setup_stack_frames;
+/// Implements stack frames: collects allocas into a struct placed on the stack upon function entry
+RewritePass lower_alloca;
 /// Turns stack pushes and pops into accesses into pointer load and stores
 RewritePass lower_stack;
 /// Eliminates lea_op on all physical address spaces

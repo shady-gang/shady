@@ -58,6 +58,7 @@ set(SHADY_SOURCES
     passes/lift_indirect_targets.c
     passes/lcssa.c
     passes/lower_callf.c
+    passes/lower_alloca.c
     passes/lower_stack.c
     passes/lower_lea.c
     passes/lower_physical_ptrs.c
