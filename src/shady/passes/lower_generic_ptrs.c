@@ -76,7 +76,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     IrArena* a = ctx->rewriter.dst_arena;
     String name;
     switch (which) {
-        case LoadFn: name = format_string_interned(a, "generated_load_Generic_%s", name_type_safe(a, t)); break;
+        case LoadFn: name = format_string_interned(a, "generated_load_Generic_%s%s", name_type_safe(a, t), uniform_ptr ? "_uniform" : ""); break;
         case StoreFn: name = format_string_interned(a, "generated_store_Generic_%s", name_type_safe(a, t)); break;
     }
 
@@ -84,13 +84,13 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     if (found)
         return *found;
 
-    const Node* ptr_param = var(a, qualified_type_helper(ctx->generic_ptr_type, false), "ptr");
+    const Node* ptr_param = var(a, qualified_type_helper(ctx->generic_ptr_type, uniform_ptr), "ptr");
     const Node* value_param;
     Nodes params = singleton(ptr_param);
     Nodes return_ts = empty(a);
     switch (which) {
         case LoadFn:
-            return_ts = singleton(qualified_type_helper(t, false));
+            return_ts = singleton(qualified_type_helper(t, uniform_ptr));
             break;
         case StoreFn:
             value_param = var(a, qualified_type_helper(t, false), "value");
@@ -221,10 +221,11 @@ static const Node* process(Context* ctx, const Node* old) {
                 }
                 case load_op: {
                     const Type* old_ptr_t = first(old->payload.prim_op.operands)->type;
-                    deconstruct_qualified_type(&old_ptr_t);
+                    bool u = deconstruct_qualified_type(&old_ptr_t);
+                    u &= is_addr_space_uniform(a, old_ptr_t->payload.ptr_type.address_space);
                     if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
                         return call(a, (Call) {
-                            .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, false, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type))),
+                            .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, u, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type))),
                             .args = singleton(rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands))),
                         });
                     }
