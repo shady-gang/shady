@@ -51,7 +51,7 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
         else if (use->user->tag == Let_TAG && use->operand_class == NcInstruction) {
             Nodes vars = get_abstraction_params(get_let_tail(use->user));
             for (size_t i = 0; i < vars.count; i++) {
-                debugv_print("mem2reg leak analysis: following let-bound variable: ");
+                debugv_print("demote_alloca leak analysis: following let-bound variable: ");
                 log_node(DEBUGV, vars.nodes[i]);
                 debugv_print(".\n");
                 visit_ptr_uses(vars.nodes[i], slice_type, k, map);
@@ -226,7 +226,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k.src_alloca) {
                         const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.operands.nodes[0]->type)));
                         if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
-                            if (k.src_alloca->bound != rewrite_node(r, first(payload.operands)))
+                            if (k.src_alloca->bound == rewrite_node(r, first(payload.operands)))
                                 break;
                             ctx->todo |= true;
                             BodyBuilder* bb = begin_body(a);
@@ -242,7 +242,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k.src_alloca) {
                         const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.operands.nodes[0]->type)));
                         if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
-                            if (k.src_alloca->bound != rewrite_node(r, first(payload.operands)))
+                            if (k.src_alloca->bound == rewrite_node(r, first(payload.operands)))
                                 break;
                             ctx->todo |= true;
                             BodyBuilder* bb = begin_body(a);
