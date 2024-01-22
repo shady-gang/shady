@@ -110,7 +110,9 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     const Type* fn_type = convert_type(p, LLVMGlobalGetValueType(fn));
     assert(fn_type->tag == FnType_TAG);
     assert(fn_type->payload.fn_type.param_types.count == params.count);
-    Node* f = function(p->dst, params, LLVMGetValueName(fn), empty(a), fn_type->payload.fn_type.return_types);
+    Nodes annotations = empty(a);
+    annotations = append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Exported" }));
+    Node* f = function(p->dst, params, LLVMGetValueName(fn), annotations, fn_type->payload.fn_type.return_types);
     const Node* r = fn_addr_helper(a, f);
     insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
 
