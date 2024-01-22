@@ -20,7 +20,10 @@ namespace vcc {
 
 #define input                  __attribute__((address_space(389)))
 #define output                 __attribute__((address_space(390)))
+// maybe deprecate it ?
 #define uniform                __attribute__((annotate("shady::uniform")))
+#define uniform_constant       __attribute__((address_space(398)))
+#define uniform_block          __attribute__((address_space(395)))
 #define push_constant          __attribute__((address_space(392)))
 #define global                 __attribute__((address_space(1)))
 #define private                __attribute__((address_space(5)))
