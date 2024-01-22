@@ -117,8 +117,8 @@ Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* const src) {
     do {
         debug_print("Cleanup round %d\n", r);
         todo = false;
-        todo |= simplify(config, &m);
         todo |= opt_demote_alloca(config, &m);
+        todo |= simplify(config, &m);
         r++;
     } while (todo);
     return m;
