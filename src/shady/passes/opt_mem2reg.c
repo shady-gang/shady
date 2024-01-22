@@ -162,10 +162,12 @@ static KnowledgeBase* create_kb(Context* ctx, const Node* old) {
     if (entries_count_list(cf_node->pred_edges) == 1) {
         CFEdge edge = read_list(CFEdge, cf_node->pred_edges)[0];
         assert(edge.dst == cf_node);
-        CFNode* dominator = edge.src;
-        const KnowledgeBase* parent_kb = get_kb(ctx, dominator->node);
-        assert(parent_kb->map);
-        kb->dominator_kb = parent_kb;
+        if (edge.type == LetTailEdge || edge.type == JumpEdge) {
+            CFNode* dominator = edge.src;
+            const KnowledgeBase* parent_kb = get_kb(ctx, dominator->node);
+            assert(parent_kb->map);
+            kb->dominator_kb = parent_kb;
+        }
     }
     assert(kb->map);
     insert_dict(const Node*, KnowledgeBase*, ctx->abs_to_kb, old, kb);

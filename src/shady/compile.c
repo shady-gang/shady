@@ -86,7 +86,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(reconvergence_heuristics)
 
     RUN_PASS(lower_cf_instrs)
-    RUN_PASS(opt_mem2reg) // run mem2reg because control-flow is now normalized
+    RUN_PASS(opt_mem2reg) // run because control-flow is now normalized
     RUN_PASS(setup_stack_frames)
     if (!config->hacks.force_join_point_lifting)
         RUN_PASS(mark_leaf_functions)
@@ -95,7 +95,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(opt_inline)
 
     RUN_PASS(lift_indirect_targets)
-    RUN_PASS(opt_mem2reg) // run mem2reg because we can now weaken non-leaking allocas
+    RUN_PASS(opt_mem2reg) // run because we can now weaken non-leaking allocas
 
     if (config->specialization.execution_model != EmNone)
         RUN_PASS(specialize_execution_model)
