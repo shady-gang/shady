@@ -26,9 +26,10 @@ static const Node* process(Context* ctx, const Node* node) {
     if (found) return found;
 
     IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
         case Function_TAG: {
-            Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
+            Node* fun = recreate_decl_header_identity(r, node);
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
 
@@ -52,10 +53,11 @@ static const Node* process(Context* ctx, const Node* node) {
                     .operands = nodes(a, 1, (const Node* []) {ctx->entry_stack_offset })
                 }));
             }
-            return finish_body(bb, recreate_node_identity(&ctx->rewriter, node));
+            return finish_body(bb, recreate_node_identity(r, node));
         }
-        default: return recreate_node_identity(&ctx->rewriter, node);
+        default: break;
     }
+    return recreate_node_identity(r, node);
 }
 
 Module* setup_stack_frames(SHADY_UNUSED const CompilerConfig* config, Module* src) {

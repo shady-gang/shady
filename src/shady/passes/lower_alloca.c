@@ -24,6 +24,8 @@ typedef struct Context_ {
     const Node* entry_stack_offset;
     size_t num_slots;
     const Node* frame_size;
+
+    const Type* stack_ptr_t;
 } Context;
 
 typedef struct {
@@ -89,8 +91,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             BodyBuilder* bb = begin_body(a);
             if (!ctx2.disable_lowering) {
-                String tmp_name = format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun));
-                ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_pointer_op } ), (String []) { tmp_name }));
+                ctx2.entry_stack_offset = NULL;
                 ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
 
                 Node* nom_t = nominal_type(m, empty(a), format_string_arena(a->arena, "%s_stack_frame", get_abstraction_name(node)));
@@ -117,7 +118,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 destroy_list(vctx.members);
                 ctx2.num_slots = vctx.num_slots;
                 ctx2.frame_size = gen_primop_e(bb, size_of_op, singleton(type_decl_ref_helper(a, vctx.nom_t)), empty(a));
-                ctx2.frame_size = convert_int_extend_according_to_src_t(bb, get_unqualified_type(ctx2.entry_stack_offset->type), ctx2.frame_size);
+                ctx2.frame_size = convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
             }
             if (node->payload.fun.body)
                 fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
@@ -139,16 +140,23 @@ static const Node* process(Context* ctx, const Node* node) {
                 }
 
                 BodyBuilder* bb = begin_body(a);
+                if (!ctx->entry_stack_offset) {
+                    //String tmp_name = format_string_arena(a->arena, "stack_ptr_before_alloca_%s", get_abstraction_name(fun));
+                    String tmp_name = "stack_ptr_before_alloca";
+                    ctx->entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_pointer_op } ), (String []) { tmp_name }));
+                }
+
                 //const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands)), found_slot->offset));
-                const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, ctx->entry_base_stack_ptr, found_slot->offset));
+                const Node* converted_offset = convert_int_extend_according_to_dst_t(bb, ctx->stack_ptr_t, found_slot->offset);
+                const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, ctx->entry_base_stack_ptr, gen_primop_e(bb, add_op, empty(a), mk_nodes(a, ctx->entry_stack_offset, converted_offset))));
                 const Node* slot = first(bind_instruction_named(bb, lea_instr, (String []) { format_string_arena(a->arena, "stack_slot_%d", found_slot->i) }));
                 const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = found_slot->type, .address_space = found_slot->as });
                 slot = gen_reinterpret_cast(bb, ptr_t, slot);
-                bool last = found_slot->i == ctx->num_slots - 1;
-                if (last) {
+                //bool last = found_slot->i == ctx->num_slots - 1;
+                //if (last) {
                     const Node* updated_stack_ptr = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, ctx->entry_stack_offset, ctx->frame_size));
                     gen_primop(bb, set_stack_pointer_op, empty(a), singleton(updated_stack_ptr));
-                }
+                //}
 
                 return yield_values_and_wrap_in_block(bb, singleton(slot));
             }
@@ -166,6 +174,7 @@ Module* lower_alloca(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
+        .stack_ptr_t = int_type(a, (Int) { .is_signed = false, .width = IntTy32 }),
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
