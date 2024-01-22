@@ -2,10 +2,12 @@
 @DescriptorBinding(0)
 global i32 extern_int;
 
+@Exported
 fn read_from_extern i32() {
   return (extern_int);
 }
 
+@Exported
 fn read_from_global_ptr i32(uniform ptr global i32 global_ptr) {
   val loaded = load(global_ptr);
   return(loaded);

@@ -1,7 +1,9 @@
+@Exported
 fn identity varying i32(varying i32 i) {
     return(i);
 }
 
+@Exported
 fn f varying i32 (varying i32 i) {
     val j = identity(i);
     val k = add(j, 1);

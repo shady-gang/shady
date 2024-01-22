@@ -1,15 +1,19 @@
+@Exported
 fn foo1 ptr generic i32(varying ptr global i32 x) {
     return (convert[ptr generic i32](x));
 }
 
+@Exported
 fn foo2 ptr generic i32(varying ptr shared i32 x) {
     return (convert[ptr generic i32](x));
 }
 
+@Exported
 fn foo3 ptr generic i32(varying ptr subgroup i32 x) {
     return (convert[ptr generic i32](x));
 }
 
+@Exported
 fn foo4 ptr generic i32(varying ptr private i32 x) {
     return (convert[ptr generic i32](x));
 }

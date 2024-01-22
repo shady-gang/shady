@@ -2,6 +2,7 @@
 // such loops are only allowed if there is only one path through them that involves a back-edge
 // in other words: no implicit synchronisation at the loop header
 
+@Exported
 fn f i32(varying bool b) {
     jump bb1();
 
@@ -15,6 +16,7 @@ fn f i32(varying bool b) {
 }
 
 // the behaviour should be equivalent to this structured code:
+@Exported
 fn g i32(varying bool b) {
     loop() {
         if (b) {

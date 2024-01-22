@@ -45,6 +45,8 @@ static bool is_call_safely_removable(const Node* fn) {
         return false;
     if (lookup_annotation(fn, "EntryPoint"))
         return false;
+    if (lookup_annotation(fn, "Exported"))
+        return false;
     return true;
 }
 
