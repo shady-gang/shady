@@ -234,6 +234,11 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 const Node* zero = int_literal(a, (IntLiteral) { .value = 0, .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed });
                 const Node* one  = int_literal(a, (IntLiteral) { .value = 1, .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed });
                 r = prim_op_helper(a, select_op, empty(a), mk_nodes(a, first(ops), one, zero));
+            } else if (t->tag == Bool_TAG) {
+                assert(src_t->tag == Int_TAG);
+                const Node* one  = int_literal(a, (IntLiteral) { .value = 1, .width = src_t->payload.int_type.width, .is_signed = false });
+                r = prim_op_helper(a, and_op, empty(a), mk_nodes(a, first(ops), one));
+                r = prim_op_helper(a, eq_op, empty(a), mk_nodes(a, first(BIND_PREV_R(int_type(a, (Int) { .width = src_t->payload.int_type.width, .is_signed = false }))), one));
             } else {
                 // reinterpret as unsigned, convert to change size, reinterpret back to target T
                 const Type* unsigned_src_t = change_int_t_sign(src_t, false);
