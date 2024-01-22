@@ -3,6 +3,7 @@
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
+#include "list.h"
 
 #include "../shady/type.h"
 
@@ -52,6 +53,27 @@ LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
         break;
     }
     return v;
+}
+
+static const Node* convert_jump(Parser* p, Node* fn, Node* fn_or_bb, LLVMBasicBlockRef dst) {
+    IrArena* a = fn->arena;
+    const Node* dst_bb = convert_basic_block(p, fn, dst);
+    BBPhis* phis = find_value_dict(const Node*, BBPhis, p->phis, dst_bb);
+    assert(phis);
+    size_t params_count = entries_count_list(phis->list);
+    LARRAY(const Node*, params, params_count);
+    for (size_t i = 0; i < params_count; i++) {
+        LLVMValueRef phi = read_list(LLVMValueRef, phis->list)[i];
+        for (size_t j = 0; j < LLVMCountIncoming(phi); j++) {
+            if (convert_basic_block(p, fn, LLVMGetIncomingBlock(phi, j)) == fn_or_bb) {
+                params[i] = convert_value(p, LLVMGetIncomingValue(phi, j));
+                goto next;
+            }
+        }
+        assert(false && "failed to find the appropriate source");
+        next: continue;
+    }
+    return jump_helper(a, dst_bb, nodes(a, params_count, params));
 }
 
 /// instr may be an instruction or a constantexpr
@@ -110,23 +132,23 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             };
         case LLVMBr: {
             unsigned n_successors = LLVMGetNumSuccessors(instr);
-            LARRAY(const Node*, targets, n_successors);
+            LARRAY(LLVMBasicBlockRef , targets, n_successors);
             for (size_t i = 0; i < n_successors; i++)
-                targets[i] = convert_basic_block(p, fn, LLVMGetSuccessor(instr, i));
+                targets[i] = LLVMGetSuccessor(instr, i);
             if (LLVMIsConditional(instr)) {
                 assert(n_successors == 2);
                 const Node* condition = convert_value(p, LLVMGetCondition(instr));
                 return (EmittedInstr) {
                     .terminator = branch(a, (Branch) {
                         .branch_condition = condition,
-                        .true_jump = jump_helper(a, targets[0], empty(a)),
-                        .false_jump = jump_helper(a, targets[1], empty(a)),
+                        .true_jump = convert_jump(p, fn, fn_or_bb, targets[0]),
+                        .false_jump = convert_jump(p, fn, fn_or_bb, targets[1]),
                     })
                 };
             } else {
                 assert(n_successors == 1);
                 return (EmittedInstr) {
-                    .terminator = jump_helper(a, targets[0], empty(a))
+                    .terminator = convert_jump(p, fn, fn_or_bb, targets[0])
                 };
             }
         }

@@ -2,6 +2,7 @@
 
 #include "log.h"
 #include "dict.h"
+#include "list.h"
 #include "util.h"
 
 #include "llvm-c/IRReader.h"
@@ -59,12 +60,16 @@ const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
     if (found) return *found;
     IrArena* a = get_module_arena(p->dst);
 
+    struct List* phis = new_list(LLVMValueRef);
     Nodes params = empty(a);
     LLVMValueRef instr = LLVMGetFirstInstruction(bb);
     while (instr) {
         switch (LLVMGetInstructionOpcode(instr)) {
             case LLVMPHI: {
-                assert(false);
+                const Node* nparam = var(a, convert_type(p, LLVMTypeOf(instr)), "phi");
+                insert_dict(LLVMValueRef, const Node*, p->map, instr, nparam);
+                append_list(LLVMValueRef, phis, instr);
+                params = append_nodes(a, params, nparam);
                 break;
             }
             default: goto after_phis;
@@ -78,6 +83,7 @@ const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
             name = unique_name(a, "bb");
         Node* nbb = basic_block(a, fn, params, name);
         insert_dict(LLVMValueRef, const Node*, p->map, bb, nbb);
+        insert_dict(const Node*, struct List*, p->phis, nbb, phis);
         BodyBuilder* b = begin_body(a);
         nbb->payload.basic_block.body = write_bb_tail(p, nbb, b, bb, instr);
         return nbb;
@@ -186,6 +192,7 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations = new_dict(LLVMValueRef, ParsedAnnotation, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .scopes = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
+        .phis = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node),
         .annotations_arena = new_arena(),
         .src = src,
         .dst = dirty,
@@ -208,6 +215,14 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
     destroy_dict(p.map);
     destroy_dict(p.annotations);
     destroy_dict(p.scopes);
+    {
+        size_t i = 0;
+        struct List* phis_list;
+        while (dict_iter(p.phis, &i, NULL, &phis_list)) {
+            destroy_list(phis_list);
+        }
+    }
+    destroy_dict(p.phis);
     destroy_arena(p.annotations_arena);
 
     LLVMContextDispose(context);

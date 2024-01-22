@@ -15,6 +15,7 @@ typedef struct {
     struct Dict* map;
     struct Dict* annotations;
     struct Dict* scopes;
+    struct Dict* phis;
     Arena* annotations_arena;
     LLVMModuleRef src;
     Module* dst;
@@ -51,6 +52,10 @@ typedef struct {
     const Node* instruction;
     Nodes result_types;
 } EmittedInstr;
+
+typedef struct {
+    struct List* list;
+} BBPhis;
 
 EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
 
