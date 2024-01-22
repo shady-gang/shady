@@ -37,6 +37,8 @@ static bool is_call_potentially_inlineable(const Node* src_fn, const Node* dst_f
         return false;
     if (lookup_annotation(dst_fn, "NoInline"))
         return false;
+    if (!dst_fn->payload.fun.body)
+        return false;
     return true;
 }
 
