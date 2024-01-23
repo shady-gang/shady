@@ -98,7 +98,7 @@ OptPass simplify;
 bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     Module* src = *m;
 
-    IrArena* a = new_ir_arena(get_arena_config(get_module_arena(*m)));
+    IrArena* a = get_module_arena(src);
     *m = new_module(a, get_module_name(*m));
     Context ctx = { .todo = false };
     ctx.rewriter = create_rewriter(src, *m, (RewriteNodeFn) process),
@@ -121,5 +121,5 @@ Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* const src) {
         todo |= simplify(config, &m);
         r++;
     } while (todo);
-    return m;
+    return import(config, m);
 }

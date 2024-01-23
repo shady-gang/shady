@@ -178,9 +178,11 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* otail = get_let_tail(old);
             const Node* ninstruction = rewrite_node(r, oinstruction);
             AllocaInfo** found_info = find_value_dict(const Node*, AllocaInfo*, ctx->alloca_info, oinstruction);
+            AllocaInfo* info = NULL;
             if (found_info) {
                 const Node* ovar = first(get_abstraction_params(otail));
-                insert_dict(const Node*, AllocaInfo*, ctx->alloca_info, ovar, found_info);
+                info = *found_info;
+                insert_dict(const Node*, AllocaInfo*, ctx->alloca_info, ovar, info);
             }
             Nodes oparams = otail->payload.case_.params;
             Nodes ntypes = unwrap_multiple_yield_types(r->dst_arena, ninstruction->type);
@@ -190,8 +192,8 @@ static const Node* process(Context* ctx, const Node* old) {
                 new_params[i] = var(r->dst_arena, ntypes.nodes[i], oparams.nodes[i]->payload.var.name);
                 register_processed(r, oparams.nodes[i], new_params[i]);
             }
-            if (found_info)
-                (*found_info)->bound = new_params[0];
+            if (info)
+                info->bound = new_params[0];
             const Node* nbody = rewrite_node(r, otail->payload.case_.body);
             const Node* tail = case_(r->dst_arena, nodes(r->dst_arena, oparams.count, new_params), nbody);
             return let(a, ninstruction, tail);
@@ -268,14 +270,13 @@ bool compare_node(const Node**, const Node**);
 
 bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     Module* src = *m;
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = get_module_arena(src);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .arena = new_arena(),
-        .alloca_info = new_dict(const Node, AllocaInfo, (HashFn) hash_node, (CmpFn) compare_node),
+        .alloca_info = new_dict(const Node*, AllocaInfo*, (HashFn) hash_node, (CmpFn) compare_node),
         .todo = false
     };
     ctx.rewriter.config.rebind_let = true;
