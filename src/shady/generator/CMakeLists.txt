@@ -1,6 +1,6 @@
 find_package(json-c REQUIRED)
 
-add_library(generator_common generator.c generator_common.c json_apply.c)
+add_library(generator_common STATIC generator.c generator_common.c json_apply.c)
 target_link_libraries(generator_common PUBLIC common json-c::json-c)
 target_include_directories(generator_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
