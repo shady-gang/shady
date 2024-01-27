@@ -1,0 +1,47 @@
+{
+  "instruction-filters": [
+    {
+      "operand-filters": [
+        {
+          "import": "yes"
+        },
+        {
+          "filter-kind": { "IdResult": {}},
+          "import": "no"
+        },
+        {
+          "filter-kind": { "IdRef": {} },
+          "overlay": {
+            "class": "value"
+          }
+        },
+        {
+          "filter-kind": { "Dim": {}, "LiteralInteger": {}, "ImageFormat": {} },
+          "overlay": {
+            "type": "uint32_t"
+          }
+        }
+      ]
+    },
+    {
+      "filter-name": { "OpTypeSampler": {}, "OpTypeImage": {}, "OpTypeSampledImage": {} },
+      "import": "yes",
+      "operand-filters": [
+        {
+          "filter-kind": { "AccessQualifier": {}},
+          "import": "no"
+        },
+        {
+          "filter-kind": { "IdRef": {}},
+          "overlay": {
+            "class": "type"
+          }
+        }
+      ],
+      "overlay": {
+        "class": "type",
+        "type": false
+      }
+    }
+  ]
+}

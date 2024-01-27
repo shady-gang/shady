@@ -18,8 +18,8 @@ if (WIN32)
 endif ()
 
 get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/imported.json COMMAND import_spv_defs ${CMAKE_CURRENT_BINARY_DIR}/imported.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS ${GENERATOR_NAME} SPIRV-Headers::SPIRV-Headers VERBATIM)
-add_custom_target(do_import_spv_defs DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/imported.json)
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/imported.json COMMAND import_spv_defs ${CMAKE_CURRENT_BINARY_DIR}/imported.json ${CMAKE_SOURCE_DIR}/include/shady/spv_imports.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS import_spv_defs SPIRV-Headers::SPIRV-Headers ${CMAKE_SOURCE_DIR}/include/shady/spv_imports.json VERBATIM)
+add_custom_target(do_import_spv_defs DEPENDS import_spv_defs ${CMAKE_CURRENT_BINARY_DIR}/imported.json)
 
 set(SHADY_IMPORTED_JSON_PATH ${CMAKE_CURRENT_BINARY_DIR}/imported.json CACHE INTERNAL "path to imported.json")
 
