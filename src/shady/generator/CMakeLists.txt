@@ -1,6 +1,6 @@
 find_package(json-c REQUIRED)
 
-add_library(generator_common generator.c generator_common.c json_apply.c)
+add_library(generator_common STATIC generator.c generator_common.c json_apply.c)
 target_link_libraries(generator_common PUBLIC common json-c::json-c)
 target_include_directories(generator_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -20,7 +20,7 @@ function(add_generated_file)
     # This hacky job is required for being able to run built targets in-place when generating the code
     # This is also required for the various drivers but since they're built in the same directory it will work for now
     if (WIN32)
-        message("copying DLLs: ${TARGET_DLLS}")
+        message("copying DLLs: ${GENERATOR_NAME}")
         add_custom_command(TARGET ${GENERATOR_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:${GENERATOR_NAME}> $<TARGET_RUNTIME_DLLS:${GENERATOR_NAME}>
             COMMAND_EXPAND_LISTS
