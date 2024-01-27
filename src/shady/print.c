@@ -1,3 +1,4 @@
+#include "print.h"
 #include "ir_private.h"
 #include "analysis/scope.h"
 #include "analysis/uses.h"
@@ -16,16 +17,6 @@
 #include <string.h>
 
 typedef struct PrinterCtx_ PrinterCtx;
-typedef void (*PrintFn)(PrinterCtx* ctx, char* format, ...);
-
-typedef struct {
-    bool skip_builtin;
-    bool skip_internal;
-    bool skip_generated;
-    bool print_ptrs;
-    bool color;
-    bool reparseable;
-} PrintConfig;
 
 struct PrinterCtx_ {
     Printer* printer;
@@ -942,46 +933,53 @@ static void print_mod_impl(PrinterCtx* ctx, Module* mod) {
 #undef print_node
 #undef printf
 
-static void print_helper(Printer* printer, const Node* node, Module* mod, PrintConfig config) {
+void print_module(Printer* printer, Module* mod, PrintConfig config) {
     PrinterCtx ctx = {
         .printer = printer,
         .config = config,
     };
-    if (node)
-        print_node_impl(&ctx, node);
-    if (mod)
-        print_mod_impl(&ctx, mod);
+    print_mod_impl(&ctx, mod);
+    flush(ctx.printer);
+    destroy_printer(ctx.printer);
+}
+
+void print_node(Printer* printer, const Node* node, PrintConfig config) {
+    PrinterCtx ctx = {
+        .printer = printer,
+        .config = config,
+    };
+    print_node_impl(&ctx, node);
     flush(ctx.printer);
     destroy_printer(ctx.printer);
 }
 
 void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
-    print_helper(open_growy_as_printer(g), node, NULL, (PrintConfig) { .reparseable = true });
+    print_node(open_growy_as_printer(g), node, (PrintConfig) { .reparseable = true });
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
 }
 
 void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
-    print_helper(open_growy_as_printer(g), NULL, mod, (PrintConfig) { .reparseable = true, });
+    print_module(open_growy_as_printer(g), mod, (PrintConfig) { .reparseable = true, });
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
 }
 
 void dump_node(const Node* node) {
-    print_helper(open_file_as_printer(stdout), node, NULL, (PrintConfig) { .color = true });
+    print_node(open_file_as_printer(stdout), node, (PrintConfig) { .color = true });
     printf("\n");
 }
 
 void dump_module(Module* mod) {
-    print_helper(open_file_as_printer(stdout), NULL, mod, (PrintConfig) { .color = true });
+    print_module(open_file_as_printer(stdout), mod, (PrintConfig) { .color = true });
     printf("\n");
 }
 
 void log_node(LogLevel level, const Node* node) {
     if (level >= get_log_level())
-        print_helper(open_file_as_printer(stderr), node, NULL, (PrintConfig) { .color = true });
+        print_node(open_file_as_printer(stderr), node, (PrintConfig) { .color = true });
 }
 
 void log_module(LogLevel level, CompilerConfig* compiler_cfg, Module* mod) {
@@ -992,5 +990,5 @@ void log_module(LogLevel level, CompilerConfig* compiler_cfg, Module* mod) {
         config.skip_internal = compiler_cfg->logging.skip_internal;
     }
     if (level >= get_log_level())
-        print_helper(open_file_as_printer(stderr), NULL, mod, config);
+        print_module(open_file_as_printer(stderr), mod, config);
 }

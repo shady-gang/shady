@@ -1,9 +1,10 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
 
-#include "log.h"
+#include "shady/visit.h"
+#include "shady/print.h"
 
-#include "../src/shady/visit.h"
+#include "log.h"
 
 #include <string.h>
 #include <assert.h>

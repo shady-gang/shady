@@ -1,11 +1,12 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
 
+#include "shady/print.h"
+
 #include "frontends/slim/parser.h"
 
 #include "list.h"
 #include "util.h"
-
 #include "log.h"
 
 #include <stdlib.h>
