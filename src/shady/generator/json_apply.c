@@ -17,12 +17,22 @@ void json_apply_object(json_object* target, json_object* src) {
         json_object* existing = json_object_object_get(target, name);
         if (existing && json_object_get_type(existing) == json_type_object) {
             json_apply_object(existing, value);
-        } else if (existing && json_object_get_type(existing) == json_type_array && json_object_get_type(value) == json_type_array && json_object_array_length(value) <= json_object_array_length(existing)) {
-            for (size_t j = 0; j < json_object_array_length(value); j++)
-                json_object_array_put_idx(existing, j, json_object_array_get_idx(value, j));
+        } else if (existing && json_object_get_type(existing) == json_type_array && json_object_get_type(value) == json_type_array/* && json_object_array_length(value) <= json_object_array_length(existing)*/) {
+            for (size_t j = 0; j < json_object_array_length(value); j++) {
+                json_object* elem = json_object_array_get_idx(value, j);
+                // json_object* copy = NULL;
+                // json_object_deep_copy(elem, &copy, NULL);
+                // json_object_array_put_idx(existing, j, copy);
+                // json_object_array_put_idx(existing, j, elem);
+                json_object_array_add(existing, elem);
+                json_object_get(elem);
+            }
         } else {
             if (existing)
                 warn_print("json-apply: overwriting key '%s'\n", name);
+            // json_object* copy = NULL;
+            // json_object_deep_copy(value, &copy, NULL);
+            // json_object_object_add(target, name, copy);
             json_object_object_add(target, name, value);
             json_object_get(value);
         }
