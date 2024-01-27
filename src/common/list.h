@@ -32,7 +32,7 @@ void add_list_impl(struct List* list, size_t index, void* element);
 #define delete_list(T, list, i) delete_list_impl(list, index)
 void delete_list_impl(struct List* list, size_t index);
 
-#define remove_list(T, list, i) *(T*) remove_list_impl(list, index)
+#define remove_list(T, list, i) *((T*) remove_list_impl(list, i))
 void* remove_list_impl(struct List* list, size_t index);
 
 #define read_list(T, list) ((T*) (list)->alloc)
