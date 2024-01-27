@@ -774,13 +774,13 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             const Type* base_ptr_type = get_unqualified_type(base->type);
             assert(base_ptr_type->tag == PtrType_TAG && "lea expects a pointer as a base");
+            const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
             const Node* offset = prim_op.operands.nodes[1];
             assert(offset);
             const Type* offset_type = offset->type;
             bool offset_uniform = deconstruct_qualified_type(&offset_type);
             assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
-            const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
             const IntLiteral* lit = resolve_to_int_literal(offset);
             bool offset_is_zero = lit && lit->value == 0;
