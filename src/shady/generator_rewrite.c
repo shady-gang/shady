@@ -78,10 +78,10 @@ static void generate_rewriter_default_fns(Growy* g, json_object* nodes) {
     growy_append_formatted(g, "}\n\n");
 }
 
-void generate(Growy* g, Data data) {
-    generate_header(g, data);
+void generate(Growy* g, json_object* src) {
+    generate_header(g, src);
 
-    json_object* nodes = json_object_object_get(data.shd, "nodes");
+    json_object* nodes = json_object_object_get(src, "nodes");
     generate_can_be_default_rewritten_fn(g, nodes);
     generate_rewriter_default_fns(g, nodes);
 }

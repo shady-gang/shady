@@ -34,10 +34,10 @@ static void generate_primops_side_effects_array(Growy* g, json_object* primops) 
     growy_append_string(g, "\n};\n");
 }
 
-void generate(Growy* g, Data data) {
-    generate_header(g, data);
+void generate(Growy* g, json_object* shd) {
+    generate_header(g, shd);
 
-    json_object* primops = json_object_object_get(data.shd, "prim-ops");
+    json_object* primops = json_object_object_get(shd, "prim-ops");
     generate_primops_names_array(g, primops);
     generate_primops_side_effects_array(g, primops);
 

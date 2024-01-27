@@ -1,9 +1,9 @@
 #include "generator.h"
 
-void generate(Growy* g, Data data) {
-    generate_header(g, data);
+void generate(Growy* g, json_object* src) {
+    generate_header(g, src);
 
-    json_object* nodes = json_object_object_get(data.shd, "nodes");
+    json_object* nodes = json_object_object_get(src, "nodes");
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
 

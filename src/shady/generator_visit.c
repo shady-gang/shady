@@ -1,9 +1,9 @@
 #include "generator.h"
 
-void generate(Growy* g, Data data) {
-    generate_header(g, data);
+void generate(Growy* g, json_object* src) {
+    generate_header(g, src);
 
-    json_object* nodes = json_object_object_get(data.shd, "nodes");
+    json_object* nodes = json_object_object_get(src, "nodes");
     growy_append_formatted(g, "void visit_node_operands(Visitor* visitor, NodeClass exclude, const Node* node) {\n");
     growy_append_formatted(g, "\tswitch (node->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);

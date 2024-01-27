@@ -1,7 +1,7 @@
 #include "generator.h"
 
-static json_object* lookup_node_class(Data data, String name) {
-    json_object* node_classes = json_object_object_get(data.shd, "node-classes");
+static json_object* lookup_node_class(json_object* src, String name) {
+    json_object* node_classes = json_object_object_get(src, "node-classes");
     for (size_t i = 0; i < json_object_array_length(node_classes); i++) {
         json_object* class = json_object_array_get_idx(node_classes, i);
         String class_name = json_object_get_string(json_object_object_get(class, "name"));
@@ -12,7 +12,7 @@ static json_object* lookup_node_class(Data data, String name) {
     return NULL;
 }
 
-static String class_to_type(Data data, String class, bool list) {
+static String class_to_type(json_object* src, String class, bool list) {
     assert(class);
     if (strcmp(class, "string") == 0) {
         if (list)
@@ -21,20 +21,20 @@ static String class_to_type(Data data, String class, bool list) {
             return "String";
     }
     // check the class is valid
-    if (!lookup_node_class(data, class)) {
+    if (!lookup_node_class(src, class)) {
         error_print("invalid node class '%s'\n", class);
         error_die();
     }
     return list ? "Nodes" : "const Node*";
 }
 
-static String get_type_for_operand(Data data, json_object* op) {
+static String get_type_for_operand(json_object* src, json_object* op) {
     String op_type = json_object_get_string(json_object_object_get(op, "type"));
     bool list = json_object_get_boolean(json_object_object_get(op, "list"));
     String op_class = NULL;
     if (!op_type) {
         op_class = json_object_get_string(json_object_object_get(op, "class"));
-        op_type = class_to_type(data, op_class, list);
+        op_type = class_to_type(src, op_class, list);
     }
     assert(op_type);
     return op_type;
@@ -82,7 +82,7 @@ static void generate_node_tags(Growy* g, json_object* nodes) {
     growy_append_formatted(g, "} NodeTag;\n\n");
 }
 
-static void generate_node_payloads(Growy* g, Data data, json_object* nodes) {
+static void generate_node_payloads(Growy* g, json_object* src, json_object* nodes) {
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
 
@@ -97,7 +97,7 @@ static void generate_node_payloads(Growy* g, Data data, json_object* nodes) {
             for (size_t j = 0; j < json_object_array_length(ops); j++) {
                 json_object* op = json_object_array_get_idx(ops, j);
                 String op_name = json_object_get_string(json_object_object_get(op, "name"));
-                growy_append_formatted(g, "\t%s %s;\n", get_type_for_operand(data, op), op_name);
+                growy_append_formatted(g, "\t%s %s;\n", get_type_for_operand(src, op), op_name);
             }
             growy_append_formatted(g, "} %s;\n\n", name);
         }
@@ -175,18 +175,18 @@ static void generate_node_tags_for_class(Growy* g, json_object* nodes, String cl
     growy_append_formatted(g, "} %sTag;\n\n", capitalized_class);
 }
 
-void generate(Growy* g, Data data) {
-    generate_header(g, data);
+void generate(Growy* g, json_object* src) {
+    generate_header(g, src);
 
-    generate_address_spaces(g, json_object_object_get(data.shd, "address-spaces"));
+    generate_address_spaces(g, json_object_object_get(src, "address-spaces"));
 
-    json_object* node_classes = json_object_object_get(data.shd, "node-classes");
+    json_object* node_classes = json_object_object_get(src, "node-classes");
     generate_bit_enum(g, "NodeClass", "Nc", node_classes);
 
-    json_object* nodes = json_object_object_get(data.shd, "nodes");
+    json_object* nodes = json_object_object_get(src, "nodes");
     generate_node_tags(g, nodes);
     growy_append_formatted(g, "NodeClass get_node_class_from_tag(NodeTag tag);\n\n");
-    generate_node_payloads(g, data, nodes);
+    generate_node_payloads(g, src, nodes);
     generate_node_type(g, nodes);
     generate_node_ctor(g, nodes, false);
 

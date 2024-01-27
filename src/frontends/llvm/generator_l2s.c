@@ -21,11 +21,11 @@ void generate_llvm_shady_address_space_conversion(Growy* g, json_object* address
     growy_append_formatted(g, "}\n");
 }
 
-void generate(Growy* g, Data data) {
-    generate_header(g, data);
+void generate(Growy* g, json_object* src) {
+    generate_header(g, src);
     growy_append_formatted(g, "#include \"l2s_private.h\"\n");
     growy_append_formatted(g, "#include \"log.h\"\n");
     growy_append_formatted(g, "#include <stdbool.h>\n");
 
-    generate_llvm_shady_address_space_conversion(g, json_object_object_get(data.shd, "address-spaces"));
+    generate_llvm_shady_address_space_conversion(g, json_object_object_get(src, "address-spaces"));
 }

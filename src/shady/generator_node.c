@@ -32,7 +32,7 @@ static void generate_node_has_payload_array(Growy* g, json_object* nodes) {
     growy_append_formatted(g, "};\n\n");
 }
 
-static void generate_node_payload_hash_fn(Growy* g, Data data, json_object* nodes) {
+static void generate_node_payload_hash_fn(Growy* g, json_object* src, json_object* nodes) {
     growy_append_formatted(g, "KeyHash hash_node_payload(const Node* node) {\n");
     growy_append_formatted(g, "\tKeyHash hash = 0;\n");
     growy_append_formatted(g, "\tswitch (node->tag) { \n");
@@ -70,7 +70,7 @@ static void generate_node_payload_hash_fn(Growy* g, Data data, json_object* node
     growy_append_formatted(g, "}\n");
 }
 
-static void generate_node_payload_cmp_fn(Growy* g, Data data, json_object* nodes) {
+static void generate_node_payload_cmp_fn(Growy* g, json_object* src, json_object* nodes) {
     growy_append_formatted(g, "bool compare_node_payload(const Node* a, const Node* b) {\n");
     growy_append_formatted(g, "\tbool eq = true;\n");
     growy_append_formatted(g, "\tswitch (a->tag) { \n");
@@ -138,18 +138,18 @@ void generate_address_space_name_fn(Growy* g, json_object* address_spaces) {
     growy_append_formatted(g, "}\n");
 }
 
-void generate(Growy* g, Data data) {
-    generate_header(g, data);
+void generate(Growy* g, json_object* src) {
+    generate_header(g, src);
 
-    json_object* nodes = json_object_object_get(data.shd, "nodes");
-    generate_address_space_name_fn(g, json_object_object_get(data.shd, "address-spaces"));
+    json_object* nodes = json_object_object_get(src, "nodes");
+    generate_address_space_name_fn(g, json_object_object_get(src, "address-spaces"));
     generate_node_names_string_array(g, nodes);
     generate_node_has_payload_array(g, nodes);
-    generate_node_payload_hash_fn(g, data, nodes);
-    generate_node_payload_cmp_fn(g, data, nodes);
+    generate_node_payload_hash_fn(g, src, nodes);
+    generate_node_payload_cmp_fn(g, src, nodes);
     generate_bit_enum_classifier(g, "get_node_class_from_tag", "NodeClass", "Nc", "NodeTag", "", "_TAG", nodes);
 
-    json_object* node_classes = json_object_object_get(data.shd, "node-classes");
+    json_object* node_classes = json_object_object_get(src, "node-classes");
     for (size_t i = 0; i < json_object_array_length(node_classes); i++) {
         json_object* node_class = json_object_array_get_idx(node_classes, i);
         String name = json_object_get_string(json_object_object_get(node_class, "name"));

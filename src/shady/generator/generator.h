@@ -14,14 +14,8 @@
 #include <stdio.h>
 
 typedef const char* String;
-typedef struct {
-    json_object* shd;
-    json_object* spv;
-} Data;
 
-void generate(Growy* g, Data);
-
-void generate_header(Growy* g, Data data);
+void generate_header(Growy* g, json_object* root);
 void add_comments(Growy* g, String indent, json_object* comments);
 String to_snake_case(String camel);
 String capitalize(String str);

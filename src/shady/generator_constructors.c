@@ -1,7 +1,7 @@
 #include "generator.h"
 
-static void generate_pre_construction_validation(Growy* g, Data data) {
-    json_object* nodes = json_object_object_get(data.shd, "nodes");
+static void generate_pre_construction_validation(Growy* g, json_object* src) {
+    json_object* nodes = json_object_object_get(src, "nodes");
     growy_append_formatted(g, "void pre_construction_validation(IrArena* arena, Node* node) {\n");
     growy_append_formatted(g, "\tswitch (node->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);
@@ -62,10 +62,10 @@ static void generate_pre_construction_validation(Growy* g, Data data) {
     growy_append_formatted(g, "}\n\n");
 }
 
-void generate(Growy* g, Data data) {
-    generate_header(g, data);
+void generate(Growy* g, json_object* src) {
+    generate_header(g, src);
 
-    json_object* nodes = json_object_object_get(data.shd, "nodes");
+    json_object* nodes = json_object_object_get(src, "nodes");
     generate_node_ctor(g, nodes, true);
-    generate_pre_construction_validation(g, data);
+    generate_pre_construction_validation(g, src);
 }
