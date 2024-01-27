@@ -8,7 +8,7 @@ if (MSVC)
   add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
-find_package(SPIRV-Headers REQUIRED)
+add_subdirectory(SPIRV-Headers)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
