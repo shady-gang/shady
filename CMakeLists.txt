@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.13)
 project (shady C)
 
+include(ExternalProject)
+include(FetchContent)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
@@ -9,6 +12,18 @@ if (MSVC)
 endif()
 
 add_subdirectory(SPIRV-Headers)
+
+FetchContent_Declare(
+  json-c
+  GIT_REPOSITORY https://github.com/json-c/json-c
+  GIT_TAG master
+  OVERRIDE_FIND_PACKAGE
+)
+
+FetchContent_MakeAvailable(json-c)
+add_library(json-c::json-c ALIAS json-c)
+configure_file(${json-c_SOURCE_DIR}/json.h.cmakein ${json-c_BINARY_DIR}/json-c/json.h @ONLY)
+target_include_directories(json-c PUBLIC $<BUILD_INTERFACE:${json-c_BINARY_DIR}>)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
