@@ -66,7 +66,7 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
     Nodes params = old_entry_point->payload.fun.params;
 
     for (int i = 0; i < params.count; ++i) {
-        const Node* addr = gen_lea(bb, arg_struct, int32_literal(a, 0), singleton(int32_literal(a, i)));
+        const Node* addr = gen_lea(bb, arg_struct, NULL, singleton(int32_literal(a, i)));
         const Node* val = gen_load(bb, addr);
         register_processed(&ctx->rewriter, params.nodes[i], val);
     }

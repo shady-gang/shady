@@ -532,7 +532,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     }
     for (size_t i = 0; i < prim_op.operands.count; i++) {
         const Node* operand = prim_op.operands.nodes[i];
-        assert(operand && is_value(operand));
+        assert(!operand || is_value(operand));
     }
 
     bool extended = false;
@@ -771,28 +771,28 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             const Node* base = prim_op.operands.nodes[0];
             bool uniform = is_qualified_type_uniform(base->type);
-
             const Type* base_ptr_type = get_unqualified_type(base->type);
+            AddressSpace as = base_ptr_type->payload.ptr_type.address_space;
             assert(base_ptr_type->tag == PtrType_TAG && "lea expects a pointer as a base");
             const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
             const Node* offset = prim_op.operands.nodes[1];
-            assert(offset);
-            const Type* offset_type = offset->type;
-            bool offset_uniform = deconstruct_qualified_type(&offset_type);
-            assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
+            if (offset) {
+                const Type* offset_type = offset->type;
+                bool offset_uniform = deconstruct_qualified_type(&offset_type);
+                assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
 
-            const IntLiteral* lit = resolve_to_int_literal(offset);
-            bool offset_is_zero = lit && lit->value == 0;
-            assert(offset_is_zero || pointee_type->tag == ArrType_TAG && "if an offset is used, the base pointer must point to an array");
-            uniform &= offset_uniform;
+                assert(is_physical_as(as) && "lea with non-null offset requires a physical address space");
+                assert(pointee_type->tag == ArrType_TAG && "if an offset is used, the base pointer must point to an array");
+                uniform &= offset_uniform;
+            }
 
             Nodes indices = nodes(arena, prim_op.operands.count - 2, &prim_op.operands.nodes[2]);
             enter_composite(&pointee_type, &uniform, indices, true);
 
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = uniform,
-                .type = ptr_type(arena, (PtrType) { .pointed_type = pointee_type, .address_space = base_ptr_type->payload.ptr_type.address_space })
+                .type = ptr_type(arena, (PtrType) { .pointed_type = pointee_type, .address_space = as })
             });
         }
         case memcpy_op: {

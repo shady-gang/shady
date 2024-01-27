@@ -35,7 +35,7 @@ static const Node* process(Context* ctx, NodeClass class, String op_name, const 
             assert(ctx->b);
             const Node* ndecl = rewrite_op(&ctx->rewriter, NcDeclaration, "decl", odecl);
             const Node* index = gen_builtin_load(ctx->rewriter.dst_module, ctx->b, BuiltinSubgroupId);
-            const Node* slice = gen_lea(ctx->b, ref_decl_helper(a, ndecl), int32_literal(a, 0), mk_nodes(a, index));
+            const Node* slice = gen_lea(ctx->b, ref_decl_helper(a, ndecl), NULL, mk_nodes(a, index));
             return slice;
         }
         case GlobalVariable_TAG: {

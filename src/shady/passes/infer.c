@@ -370,7 +370,7 @@ static void fix_source_pointer(BodyBuilder* bb, const Node** operand, const Type
                 return;
             pointee = get_maybe_nominal_type_body(pointee);
             if (pointee->tag == RecordType_TAG) {
-                *operand = gen_lea(bb, *operand, int32_literal(a, 0), singleton(int32_literal(a, 0)));
+                *operand = gen_lea(bb, *operand, NULL, singleton(int32_literal(a, 0)));
                 continue;
             }
             // TODO arrays
@@ -489,11 +489,14 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                 type_args = empty(a);
             }
 
+            const IntLiteral* offset_lit = resolve_to_int_literal(new_operands[1]);
+            if (offset_lit && offset_lit->value == 0) {
+                new_operands[1] = NULL;
+            }
+
             Nodes new_ops = nodes(a, old_operands.count, new_operands);
 
-            const Node* offset = new_operands[1];
-            const IntLiteral* offset_lit = resolve_to_int_literal(offset);
-            if ((!offset_lit || offset_lit->value) != 0 && base_datatype->tag != ArrType_TAG) {
+            if (new_operands[1] && base_datatype->tag != ArrType_TAG) {
                 warn_print("LEA used on a pointer to a non-array type!\n");
                 const Type* arrayed_src_t = ptr_type(a, (PtrType) {
                         .address_space = as,
@@ -503,7 +506,7 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
                         }),
                 });
                 const Node* cast_base = gen_reinterpret_cast(bb, arrayed_src_t, first(new_ops));
-                Nodes final_lea_ops = mk_nodes(a, cast_base, offset, int32_literal(a, 0));
+                Nodes final_lea_ops = mk_nodes(a, cast_base, NULL, new_operands[1]);
                 final_lea_ops = concat_nodes(a, final_lea_ops, nodes(a, old_operands.count - 2, new_operands + 2));
                 new_ops = final_lea_ops;
             }

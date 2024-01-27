@@ -187,6 +187,8 @@ static void wipe_all_leaked_pointers(KnowledgeBase* kb) {
 
 static void mark_values_as_escaping(KnowledgeBase* kb, Nodes values);
 static void mark_value_as_escaping(KnowledgeBase* kb, const Node* value) {
+    if (!value)
+        return;
     PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, value);
     if (k)
         k->ptr_has_leaked = true;

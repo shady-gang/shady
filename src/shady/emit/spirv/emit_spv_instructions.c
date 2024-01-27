@@ -378,14 +378,12 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             for (size_t i = 2; i < args.count; i++)
                 indices[i - 2] = args.nodes[i] ? emit_value(emitter, bb_builder, args.nodes[i]) : 0;
 
-            const IntLiteral* known_offset = resolve_to_int_literal(args.nodes[1]);
-            if (known_offset && known_offset->value == 0) {
-                const Type* target_type = instr->type;
-                SpvId result = spvb_access_chain(bb_builder, emit_type(emitter, target_type), base, args.count - 2, indices);
-                assert(results_count == 1);
-                results[0] = result;
+            const Type* target_type = instr->type;
+            assert(results_count == 1);
+            if (args.nodes[1]) {
+                results[0] = spvb_ptr_access_chain(bb_builder, emit_type(emitter, target_type), base, emit_value(emitter, bb_builder, args.nodes[1]), args.count - 2, indices);
             } else {
-                error("TODO: OpPtrAccessChain")
+                results[0] = spvb_access_chain(bb_builder, emit_type(emitter, target_type), base, args.count - 2, indices);
             }
             return;
         }
