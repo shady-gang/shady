@@ -765,5 +765,6 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_Control_TAG:      error("TODO")
         case Instruction_Block_TAG:        error("Should be eliminated by the compiler")
         case Instruction_Comment_TAG:      print(p, "/* %s */", instruction->payload.comment.string); break;
+        default:                           error("TODO");
     }
 }

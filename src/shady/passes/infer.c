@@ -702,6 +702,7 @@ static const Node* _infer_instruction(Context* ctx, const Node* node, const Type
         case Control_TAG:      return _infer_control(ctx, node, expected_type);
         case Block_TAG:        return _infer_block  (ctx, node, expected_type);
         case Instruction_Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
+        default:               error("TODO")
         case NotAnInstruction: error("not an instruction");
     }
     SHADY_UNREACHABLE;

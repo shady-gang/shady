@@ -634,5 +634,6 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Match_TAG:                emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
         case Loop_TAG:                  emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
         case Comment_TAG: break;
+        default: error("TODO: unhandled instruction");
     }
 }

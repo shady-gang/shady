@@ -180,10 +180,6 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 case Instruction_Loop_TAG:
                 case Instruction_Match_TAG: error("not supposed to exist in IR at this stage");
                 case Instruction_Block_TAG: error("Should be eliminated by the compiler");
-                case Instruction_Comment_TAG:
-                case Instruction_PrimOp_TAG: {
-                    break;
-                }
                 case Instruction_Call_TAG: {
                     const Node* callee = old_instr->payload.call.callee;
                     if (callee->tag == FnAddr_TAG) {
@@ -251,6 +247,9 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
 
                     const Node* tail_lambda = case_(a, empty(a), finish_body(bb2, exit_ladder));
                     return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, quote_helper(a, empty(a)), tail_lambda)));
+                }
+                default: {
+                    break;
                 }
             }
             return rebuild_let(ctx, body, recreate_node_identity(&ctx->rewriter, old_instr), exit_ladder);

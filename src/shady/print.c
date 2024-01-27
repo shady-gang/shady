@@ -530,6 +530,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
 static void print_instruction(PrinterCtx* ctx, const Node* node) {
     switch (is_instruction(node)) {
         case NotAnInstruction: assert(false); break;
+        default: assert(false);
         case Instruction_Comment_TAG: {
             printf(GREY);
             printf("/* %s */", node->payload.comment.string);
