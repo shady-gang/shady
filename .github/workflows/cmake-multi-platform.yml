@@ -65,7 +65,6 @@ jobs:
     #    cmake --install SPIRV-Headers/build --prefix SPIRV-Headers/install
 
     - name: Install Clang & LLVM (setup-clang)
-      if: (!startsWith(matrix.os,'windows'))
       uses: egor-tensin/setup-clang@v1.4
 
     #- name: Install LLVM (winlibs)
@@ -88,12 +87,6 @@ jobs:
       if: startsWith(matrix.os,'ubuntu')
       run: |
         echo "CMAKE_PLATFORM_SPECIFIC_ARGS=${{ env.CMAKE_PLATFORM_SPECIFIC_ARGS }} -DLLVM_DIR=/usr/lib/llvm-14/cmake" >> $GITHUB_ENV
-
-    - name: Install json-c (vcpkg)
-      if: startsWith(matrix.os,'windows')
-      run: |
-        vcpkg install json-c
-        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> "$env:GITHUB_ENV"
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
