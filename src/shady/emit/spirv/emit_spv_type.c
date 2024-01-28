@@ -200,11 +200,11 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             new = emit_decl(emitter, type->payload.type_decl_ref.decl);
             break;
         }
-        case Type_CombinedImageSamplerType_TAG: new = spvb_sampled_image_type(emitter->file_builder, emit_type(emitter, type->payload.combined_image_sampler_type.image_type)); break;
+        case Type_SampledImageType_TAG: new = spvb_sampled_image_type(emitter->file_builder, emit_type(emitter, type->payload.sampled_image_type.image_type)); break;
         case Type_SamplerType_TAG: new = spvb_sampler_type(emitter->file_builder); break;
         case Type_ImageType_TAG: {
             ImageType p = type->payload.image_type;
-            new = spvb_image_type(emitter->file_builder, emit_type(emitter, p.sampled_type), p.dim, p.depth, p.onion, p.multisample, p.sampled, SpvImageFormatUnknown);
+            new = spvb_image_type(emitter->file_builder, emit_type(emitter, p.sampled_type), p.dim, p.depth, p.arrayed, p.ms, p.sampled, p.imageformat);
             break;
         }
         case Type_MaskType_TAG:

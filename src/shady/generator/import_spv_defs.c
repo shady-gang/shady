@@ -10,6 +10,48 @@ enum {
     ArgSpirvGrammarSearchPathBegins
 };
 
+static String sanitize_node_name(String name) {
+    char* tmpname = NULL;
+    tmpname = calloc(strlen(name) + 1, 1);
+    bool is_type = false;
+    if (string_starts_with(name, "OpType")) {
+        memcpy(tmpname, name + 6, strlen(name) - 6);
+        is_type = true;
+    } else if (string_starts_with(name, "Op"))
+       memcpy(tmpname, name + 2, strlen(name) - 2);
+    else
+       memcpy(tmpname, name, strlen(name));
+
+    if (is_type)
+        memcpy(tmpname + strlen(tmpname), "Type", 4);
+
+    return tmpname;
+}
+
+static String sanitize_field_name(String name) {
+    char* tmpname = NULL;
+    tmpname = calloc(strlen(name) + 1, 1);
+    if (name[0] == '\'') {
+        memcpy(tmpname, name + 1, strlen(name) - 2);
+        name = tmpname;
+    } else {
+        memcpy(tmpname, name, strlen(name));
+    }
+    for (size_t i = 0; i < strlen(tmpname); i++) {
+        if (tmpname[i] == ' ')
+            tmpname[i] = '_';
+        else
+            tmpname[i] = tolower(tmpname[i]);
+    }
+    return tmpname;
+}
+
+static void copy_object(json_object* dst, json_object* src, String name, String copied_name) {
+    json_object* o = json_object_object_get(src, name);
+    json_object_get(o);
+    json_object_object_add(dst, copied_name ? copied_name : name, o);
+}
+
 void apply_instruction_filter(json_object* filter, json_object* instruction, json_object* instantiated_filter, struct List* pending) {
     switch (json_object_get_type(filter)) {
         case json_type_array: {
@@ -146,22 +188,9 @@ json_object* import_operand(json_object* operand, json_object* instruction_filte
 
     json_object* field = json_object_new_object();
 
-    char* tmpname = NULL;
-    tmpname = calloc(strlen(name) + 1, 1);
-    if (name[0] == '\'') {
-        memcpy(tmpname, name + 1, strlen(name) - 2);
-        name = tmpname;
-    } else {
-        memcpy(tmpname, name, strlen(name));
-    }
-    for (size_t i = 0; i < strlen(tmpname); i++) {
-        if (tmpname[i] == ' ')
-            tmpname[i] = '_';
-        else
-            tmpname[i] = tolower(tmpname[i]);
-    }
-    json_object_object_add(field, "name", json_object_new_string(name));
-    free(tmpname);
+    char* field_name = sanitize_field_name(name);
+    json_object_object_add(field, "name", json_object_new_string(field_name));
+    free(field_name);
 
     json_object* insert = json_object_object_get(filter, "overlay");
     if (insert) {
@@ -172,16 +201,10 @@ json_object* import_operand(json_object* operand, json_object* instruction_filte
     return field;
 }
 
-static void copy_object(json_object* dst, json_object* src, String name, String copied_name) {
-    json_object* o = json_object_object_get(src, name);
-    json_object_get(o);
-    json_object_object_add(dst, copied_name ? copied_name : name, o);
-}
-
 json_object* import_filtered_instruction(json_object* instruction, json_object* filter) {
     String name = json_object_get_string(json_object_object_get(instruction, "opname"));
     assert(name && strlen(name) > 2);
-    name = name + 2; // strip 'Op' prefix
+    String node_name = sanitize_node_name(name);
 
     String import_property = json_object_get_string(json_object_object_get(filter, "import"));
     if (!import_property || (strcmp(import_property, "no") == 0)) {
@@ -191,7 +214,7 @@ json_object* import_filtered_instruction(json_object* instruction, json_object* 
     }
 
     json_object* node = json_object_new_object();
-    json_object_object_add(node, "name", json_object_new_string(name));
+    json_object_object_add(node, "name", json_object_new_string(node_name));
     copy_object(node, instruction, "opcode", "spirv-opcode");
 
     json_object* insert = json_object_object_get(filter, "overlay");
@@ -214,6 +237,7 @@ json_object* import_filtered_instruction(json_object* instruction, json_object* 
     else
         json_object_put(ops);
 
+    free(node_name);
     return node;
 }
 
@@ -295,7 +319,7 @@ int main(int argc, char** argv) {
     import_spirv_defs(imports.root, spirv.root, output);
 
     Growy* g = new_growy();
-    growy_append_string(g, json_object_to_json_string(output));
+    growy_append_string(g, json_object_to_json_string_ext(output, JSON_C_TO_STRING_PRETTY));
     json_object_put(output);
 
     size_t final_size = growy_size(g);

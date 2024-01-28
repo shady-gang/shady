@@ -337,18 +337,18 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             printf("[");
             print_node(node->payload.image_type.sampled_type);
             printf(RESET);
-            printf(", %d, %d, %d, %d]", node->payload.image_type.dim, node->payload.image_type.depth, node->payload.image_type.onion, node->payload.image_type.multisample);
+            printf(", %d, %d, %d, %d]", node->payload.image_type.dim, node->payload.image_type.depth, node->payload.image_type.arrayed, node->payload.image_type.ms);
             break;
         }
         case Type_SamplerType_TAG: {
             printf("sampler_type");
             break;
         }
-        case Type_CombinedImageSamplerType_TAG: {
+        case Type_SampledImageType_TAG: {
             printf("sampled");
             printf(RESET);
             printf("[");
-            print_node(node->payload.combined_image_sampler_type.image_type);
+            print_node(node->payload.sampled_image_type.image_type);
             printf(RESET);
             printf("]");
             break;

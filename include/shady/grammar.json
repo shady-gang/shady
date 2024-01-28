@@ -254,32 +254,6 @@
       ]
     },
     {
-      "name": "ImageType",
-      "class": "type",
-      "type": false,
-      "ops": [
-        { "name": "sampled_type", "class": "type" },
-        { "name": "dim", "type": "uint32_t" },
-        { "name": "depth", "type": "uint32_t" },
-        { "name": "onion", "type": "bool" },
-        { "name": "multisample", "type": "bool" },
-        { "name": "sampled", "type": "uint32_t" }
-      ]
-    },
-    {
-      "name": "SamplerType",
-      "class": "type",
-      "type": false
-    },
-    {
-      "name": "CombinedImageSamplerType",
-      "class": "type",
-      "type": false,
-      "ops": [
-        { "name": "image_type", "class": "type" }
-      ]
-    },
-    {
       "name": "Variable",
       "snake_name": "var",
       "class": ["value", "variable"],

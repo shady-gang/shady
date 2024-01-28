@@ -123,16 +123,18 @@ bool is_subtype(const Type* supertype, const Type* type) {
                 return false;
             if (supertype->payload.image_type.dim != type->payload.image_type.dim)
                 return false;
-            if (supertype->payload.image_type.onion != type->payload.image_type.onion)
+            if (supertype->payload.image_type.arrayed != type->payload.image_type.arrayed)
                 return false;
-            if (supertype->payload.image_type.multisample != type->payload.image_type.multisample)
+            if (supertype->payload.image_type.ms != type->payload.image_type.ms)
                 return false;
             if (supertype->payload.image_type.sampled != type->payload.image_type.sampled)
                 return false;
+            if (supertype->payload.image_type.imageformat != type->payload.image_type.imageformat)
+                return false;
             return true;
         }
-        case Type_CombinedImageSamplerType_TAG:
-            return is_subtype(supertype->payload.combined_image_sampler_type.image_type, type->payload.combined_image_sampler_type.image_type);
+        case Type_SampledImageType_TAG:
+            return is_subtype(supertype->payload.sampled_image_type.image_type, type->payload.sampled_image_type.image_type);
         case SamplerType_TAG:
         case NoRet_TAG:
         case Bool_TAG:
@@ -212,7 +214,7 @@ String name_type_safe(IrArena* arena, const Type* t) {
         case Type_PackType_TAG:
         case Type_ImageType_TAG:
         case Type_SamplerType_TAG:
-        case Type_CombinedImageSamplerType_TAG:
+        case Type_SampledImageType_TAG:
             break;
         case Type_TypeDeclRef_TAG: return t->payload.type_decl_ref.decl->payload.nom_type.name;
     }
@@ -268,7 +270,7 @@ bool is_data_type(const Type* type) {
         case NotAType:
             return false;
         // Image stuff is data (albeit opaque)
-        case Type_CombinedImageSamplerType_TAG:
+        case Type_SampledImageType_TAG:
         case Type_SamplerType_TAG:
         case Type_ImageType_TAG:
             return true;
@@ -1057,8 +1059,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool uniform_src = deconstruct_qualified_type(&sampled_image_t);
             const Type* coords_t = prim_op.operands.nodes[1]->type;
             deconstruct_qualified_type(&coords_t);
-            assert(sampled_image_t->tag == CombinedImageSamplerType_TAG);
-            const Type* image_t = sampled_image_t->payload.combined_image_sampler_type.image_type;
+            assert(sampled_image_t->tag == SampledImageType_TAG);
+            const Type* image_t = sampled_image_t->payload.sampled_image_type.image_type;
             assert(image_t->tag == ImageType_TAG);
             size_t coords_dim = deconstruct_packed_type(&coords_t);
             return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = maybe_packed_type_helper(image_t->payload.image_type.sampled_type, 4) });

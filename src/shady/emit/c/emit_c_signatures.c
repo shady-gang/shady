@@ -123,7 +123,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         case LamType_TAG:
         case BBType_TAG: error("these types do not exist in C");
         case MaskType_TAG: error("should be lowered away");
-        case Type_CombinedImageSamplerType_TAG:
+        case Type_SampledImageType_TAG:
         case Type_SamplerType_TAG:
         case Type_ImageType_TAG:
         case JoinPointType_TAG: error("TODO")
