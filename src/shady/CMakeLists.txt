@@ -96,6 +96,7 @@ set(SHADY_SOURCES
 )
 
 add_library(shady STATIC ${SHADY_SOURCES})
+target_include_directories(shady PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 if (WIN32)
