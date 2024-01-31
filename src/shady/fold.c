@@ -249,6 +249,12 @@ break;
             }
             break;
         }
+        case load_op: {
+            if (first(payload.operands)->tag == Undef_TAG) {
+                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+            }
+            break;
+        }
         case reinterpret_op:
         case convert_op:
             if (first(payload.operands)->tag == Undef_TAG) {
@@ -257,6 +263,11 @@ break;
             // get rid of identity casts
             if (payload.type_arguments.nodes[0] == get_unqualified_type(payload.operands.nodes[0]->type))
                 return quote_single(arena, payload.operands.nodes[0]);
+            break;
+        case lea_op:
+            if (first(payload.operands)->tag == Undef_TAG) {
+                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+            }
             break;
         default: break;
     }
