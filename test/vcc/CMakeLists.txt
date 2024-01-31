@@ -12,10 +12,10 @@ spv_outputting_test(NAME test/vcc/loop.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS
 spv_outputting_test(NAME test/vcc/goto.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS})
 spv_outputting_test(NAME test/vcc/ternary.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS})
 
-spv_outputting_test(NAME test/vcc/vec_swizzle.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point test --no-dynamic-scheduling --execution-model Fragment)
+spv_outputting_test(NAME test/vcc/vec_swizzle.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point test --execution-model Fragment)
 
 spv_outputting_test(NAME test/vcc/empty.comp.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point main)
 
-spv_outputting_test(NAME test/vcc/simple.frag.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point main --no-dynamic-scheduling --execution-model Fragment)
-spv_outputting_test(NAME test/vcc/checkerboard.frag.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point main --no-dynamic-scheduling --execution-model Fragment)
-spv_outputting_test(NAME test/vcc/textured.frag.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point main --no-dynamic-scheduling --execution-model Fragment)
+spv_outputting_test(NAME test/vcc/simple.frag.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment)
+spv_outputting_test(NAME test/vcc/checkerboard.frag.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment)
+spv_outputting_test(NAME test/vcc/textured.frag.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment)
