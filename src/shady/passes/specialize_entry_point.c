@@ -129,6 +129,13 @@ Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
     const Node* old_entry_point_decl = find_entry_point(src, config);
     rewrite_node(&ctx.rewriter, old_entry_point_decl);
 
+    Nodes old_decls = get_module_declarations(src);
+    for (size_t i = 0; i < old_decls.count; i++) {
+        const Node* old_decl = old_decls.nodes[i];
+        if (lookup_annotation(old_decl, "RetainAfterSpecialization"))
+            rewrite_node(&ctx.rewriter, old_decl);
+    }
+
     destroy_rewriter(&ctx.rewriter);
     return dst;
 }

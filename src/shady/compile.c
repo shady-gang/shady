@@ -107,6 +107,9 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(opt_restructurize)
     RUN_PASS(opt_mem2reg)
 
+    if (config->specialization.entry_point)
+        RUN_PASS(specialize_entry_point)
+
     RUN_PASS(lower_mask)
     RUN_PASS(lower_memcpy)
     RUN_PASS(lower_subgroup_ops)
@@ -127,9 +130,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     if (config->lower.simt_to_explicit_simd)
         RUN_PASS(simt2d)
-
-    if (config->specialization.entry_point)
-        RUN_PASS(specialize_entry_point)
     RUN_PASS(lower_fill)
 
     return CompilationNoError;

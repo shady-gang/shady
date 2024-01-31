@@ -6,9 +6,9 @@
 
 void generate_dummy_constants(SHADY_UNUSED CompilerConfig* config, Module* mod) {
     IrArena* arena = get_module_arena(mod);
-#define X(name, T, placeholder) \
-    Node* name##_var = constant(mod, nodes(arena, 0, NULL), T, #name); \
-    name##_var->payload.constant.instruction = quote_helper(arena, singleton(placeholder));
+#define X(constant_name, T, placeholder) \
+    Node* constant_name##_var = constant(mod, singleton(annotation(arena, (Annotation) { .name = "RetainAfterSpecialization" })), T, #constant_name); \
+    constant_name##_var->payload.constant.instruction = quote_helper(arena, singleton(placeholder));
     INTERNAL_CONSTANTS(X)
 #undef X
 }

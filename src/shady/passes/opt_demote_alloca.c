@@ -129,7 +129,7 @@ PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
     PtrSourceKnowledge k = { 0 };
     while (ptr) {
         assert(is_value(ptr));
-        if (ptr->tag == Variable_TAG) {
+        if (ptr->tag == Variable_TAG && ctx->scope_uses) {
             const Node* instr = get_var_instruction(ctx->scope_uses, ptr);
             if (instr) {
                 PrimOp payload = instr->payload.prim_op;
