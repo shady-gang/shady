@@ -9,7 +9,7 @@
     u32 payload;
 };
 
-@Internal subgroup u32 actual_subgroup_size;
+@Internal private u32 actual_subgroup_size;
 
 @Internal subgroup u32 scheduler_cursor = 0;
 @Internal subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
@@ -76,7 +76,7 @@ fn builtin_fork(varying u32 branch_destination) {
         }
     }
 
-    // We must pick one branch as our 'favourite child' to schedule for immediate execution#
+    // We must pick one branch as our 'favourite child' to schedule for immediate execution
     // we could do fancy intrinsics, but for now we'll just pick the first one
     if (subgroup_elect_first()) {
         next_fn = subgroup_broadcast_first(branch_destination);

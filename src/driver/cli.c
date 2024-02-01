@@ -115,6 +115,13 @@ void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
 #undef EM
             if (em == EmNone)
                 error("Unknown execution model: %s", argv[i]);
+            switch (em) {
+                case EmFragment:
+                case EmVertex:
+                    config->dynamic_scheduling = false;
+                    break;
+                default: break;
+            }
             config->specialization.execution_model = em;
         } else if (strcmp(argv[i], "--simt2d") == 0) {
             config->lower.simt_to_explicit_simd = true;
