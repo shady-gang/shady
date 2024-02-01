@@ -18,7 +18,7 @@ if (WIN32)
 endif ()
 
 get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/imported.json COMMAND import_spv_defs ${CMAKE_CURRENT_BINARY_DIR}/imported.json ${CMAKE_SOURCE_DIR}/include/shady/spv_imports.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS import_spv_defs SPIRV-Headers::SPIRV-Headers ${CMAKE_SOURCE_DIR}/include/shady/spv_imports.json VERBATIM)
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/imported.json COMMAND import_spv_defs ${CMAKE_CURRENT_BINARY_DIR}/imported.json ${PROJECT_SOURCE_DIR}/include/shady/spv_imports.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS import_spv_defs SPIRV-Headers::SPIRV-Headers ${PROJECT_SOURCE_DIR}/include/shady/spv_imports.json VERBATIM)
 add_custom_target(do_import_spv_defs DEPENDS import_spv_defs ${CMAKE_CURRENT_BINARY_DIR}/imported.json)
 
 set(SHADY_IMPORTED_JSON_PATH ${CMAKE_CURRENT_BINARY_DIR}/imported.json CACHE INTERNAL "path to imported.json")
@@ -26,11 +26,11 @@ set(SHADY_IMPORTED_JSON_PATH ${CMAKE_CURRENT_BINARY_DIR}/imported.json CACHE INT
 function(add_generated_file)
     cmake_parse_arguments(PARSE_ARGV 0 F "" "FILE_NAME;TARGET_NAME" "SOURCES" )
     set(GENERATOR_NAME generator_${F_FILE_NAME})
-    add_executable(${GENERATOR_NAME} ${F_SOURCES} ${CMAKE_SOURCE_DIR}/src/shady/generator/generator_main.c)
+    add_executable(${GENERATOR_NAME} ${F_SOURCES} ${PROJECT_SOURCE_DIR}/src/shady/generator/generator_main.c)
     target_link_libraries(${GENERATOR_NAME} generator_common)
 
     get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
-    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${F_FILE_NAME} COMMAND ${GENERATOR_NAME} ${CMAKE_CURRENT_BINARY_DIR}/${F_FILE_NAME} ${PROJECT_SOURCE_DIR}/include/shady/grammar.json ${PROJECT_SOURCE_DIR}/include/shady/primops.json ${SPIRV_HEADERS_INCLUDE_DIRS} DEPENDS ${GENERATOR_NAME} ${PROJECT_SOURCE_DIR}/include/shady/grammar.json ${PROJECT_SOURCE_DIR}/include/shady/primops.json VERBATIM)
+
     if ("${F_TARGET_NAME}" STREQUAL "")
         set(F_TARGET_NAME generate_${F_FILE_NAME})
     endif ()
