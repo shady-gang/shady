@@ -353,6 +353,11 @@ static const Node* reinterpret_cast_helper(BodyBuilder* bb, const Node* ptr, con
     return ptr;
 }
 
+// Turns untyped pointers back into typed pointers
+// For physical pointers, we can just reinterpret them
+// For logical pointers, we need to do some stupid best-effort tricks and pray it works out
+// the sort of casts we can allow are casting a pointer to a composite to a pointer to one of it's first elements
+// we just attempt to do LEAs until we hit the right type, or some unrecoverable error
 static void fix_source_pointer(BodyBuilder* bb, const Node** operand, const Type* element_type) {
     IrArena* a = element_type->arena;
     const Type* original_operand_t = get_unqualified_type((*operand)->type);
@@ -365,7 +370,8 @@ static void fix_source_pointer(BodyBuilder* bb, const Node** operand, const Type
     } else {
         // we can't insert a cast but maybe we can make this work
         do {
-            const Type* pointee = get_pointer_type_element(get_unqualified_type((*operand)->type));
+            const Node* ptr_t = get_unqualified_type((*operand)->type);
+            const Type* pointee = get_pointer_type_element(ptr_t);
             if (pointee == element_type)
                 return;
             pointee = get_maybe_nominal_type_body(pointee);
@@ -373,8 +379,13 @@ static void fix_source_pointer(BodyBuilder* bb, const Node** operand, const Type
                 *operand = gen_lea(bb, *operand, int32_literal(a, 0), singleton(int32_literal(a, 0)));
                 continue;
             }
-            // TODO arrays
-            assert(false);
+            if (pointee->tag == ArrType_TAG) {
+                *operand = gen_lea(bb, *operand, int32_literal(a, 0), singleton(int32_literal(a, 0)));
+                continue;
+            }
+            // TODO: better diagnostics
+            error_print("Fatal: Trying to type-pun a pointer in logical memory (%s)\n", get_address_space_name(get_pointer_type_address_space(ptr_t)));
+            error_die();
         } while(true);
     }
 }
