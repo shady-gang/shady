@@ -625,7 +625,7 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
     CValue e_callee;
     const Node* callee = call->payload.call.callee;
     if (callee->tag == FnAddr_TAG)
-        e_callee = get_decl_name(callee->payload.fn_addr.fn);
+        e_callee = get_declaration_name(callee->payload.fn_addr.fn);
     else
         e_callee = to_cvalue(emitter, emit_value(emitter, p, callee));
 

@@ -51,9 +51,9 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case Constant_TAG: {
             Node* ncnst = (Node*) recreate_node_identity(&ctx->rewriter, node);
-            if (strcmp(get_decl_name(ncnst), "SUBGROUP_SIZE") == 0) {
+            if (strcmp(get_declaration_name(ncnst), "SUBGROUP_SIZE") == 0) {
                 ncnst->payload.constant.instruction = quote_helper(a, singleton(uint32_literal(a, a->config.specializations.subgroup_size)));
-            } else if (strcmp(get_decl_name(ncnst), "SUBGROUPS_PER_WG") == 0) {
+            } else if (strcmp(get_declaration_name(ncnst), "SUBGROUPS_PER_WG") == 0) {
                 if (ctx->old_wg_size_annotation) {
                     // SUBGROUPS_PER_WG = (NUMBER OF INVOCATIONS IN SUBGROUP / SUBGROUP SIZE)
                     // Note: this computations assumes only full subgroups are launched, if subgroups can launch partially filled then this relationship does not hold.
@@ -80,7 +80,7 @@ static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
     const Node* found = NULL;
     Nodes old_decls = get_module_declarations(m);
     for (size_t i = 0; i < old_decls.count; i++) {
-        if (strcmp(get_decl_name(old_decls.nodes[i]), config->specialization.entry_point) == 0) {
+        if (strcmp(get_declaration_name(old_decls.nodes[i]), config->specialization.entry_point) == 0) {
             assert(!found);
             found = old_decls.nodes[i];
         }

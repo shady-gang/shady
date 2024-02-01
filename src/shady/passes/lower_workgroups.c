@@ -39,7 +39,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     default:
                         break;
                 }
-                return get_builtin(ctx->rewriter.dst_module, b, get_decl_name(node));
+                return get_builtin(ctx->rewriter.dst_module, b, get_declaration_name(node));
             }
             break;
         }

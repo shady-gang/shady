@@ -288,7 +288,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             break;
         }
         case Value_FnAddr_TAG: {
-            emitted = legalize_c_identifier(emitter, get_decl_name(value->payload.fn_addr.fn));
+            emitted = legalize_c_identifier(emitter, get_declaration_name(value->payload.fn_addr.fn));
             emitted = format_string_arena(emitter->arena->arena, "(&%s)", emitted);
             break;
         }
@@ -504,7 +504,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
     CType* found2 = lookup_existing_type(emitter, decl);
     if (found2) return;
 
-    const char* name = legalize_c_identifier(emitter, get_decl_name(decl));
+    const char* name = legalize_c_identifier(emitter, get_declaration_name(decl));
     const Type* decl_type = decl->type;
     const char* decl_center = name;
     CTerm emit_as;

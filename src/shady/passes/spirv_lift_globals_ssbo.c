@@ -81,7 +81,7 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
             continue;
 
         member_tys[lifted_globals_count] = rewrite_node(&ctx.rewriter, odecl->type);
-        member_names[lifted_globals_count] = get_decl_name(odecl);
+        member_names[lifted_globals_count] = get_declaration_name(odecl);
 
         register_processed(&ctx.rewriter, odecl, int32_literal(a, lifted_globals_count));
         lifted_globals_count++;

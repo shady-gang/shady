@@ -118,7 +118,8 @@
     {
       "name": "declaration",
       "ops": [
-        { "name": "annotations", "class": "annotation", "list": true }
+        { "name": "annotations", "class": "annotation", "list": true },
+        { "name": "name", "class": "string" }
       ]
     },
     {

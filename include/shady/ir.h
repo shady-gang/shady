@@ -112,7 +112,6 @@ ArenaConfig get_arena_config(const IrArena*);
 //////////////////////////////// Getters ////////////////////////////////
 
 /// Get the name out of a global variable, function or constant
-String get_decl_name(const Node*);
 String get_value_name(const Node*);
 String get_value_name_safe(const Node*);
 void set_variable_name(Node* var, String);

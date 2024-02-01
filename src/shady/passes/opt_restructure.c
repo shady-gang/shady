@@ -340,10 +340,10 @@ static const Node* process(Context* ctx, const Node* node) {
     if (found) return found;
 
     if (is_declaration(node)) {
-        String name = get_decl_name(node);
+        String name = get_declaration_name(node);
         Nodes decls = get_module_declarations(ctx->rewriter.dst_module);
         for (size_t i = 0; i < decls.count; i++) {
-            if (strcmp(get_decl_name(decls.nodes[i]), name) == 0)
+            if (strcmp(get_declaration_name(decls.nodes[i]), name) == 0)
                 return decls.nodes[i];
         }
     }

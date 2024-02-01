@@ -364,7 +364,7 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case TypeDeclRef_TAG: {
-            printf("%s", get_decl_name(node->payload.type_decl_ref.decl));
+            printf("%s", get_declaration_name(node->payload.type_decl_ref.decl));
             break;
         }
     }
@@ -516,13 +516,13 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
         }
         case Value_RefDecl_TAG: {
             printf(BYELLOW);
-            printf((char*) get_decl_name(node->payload.ref_decl.decl));
+            printf((char*) get_declaration_name(node->payload.ref_decl.decl));
             printf(RESET);
             break;
         }
         case FnAddr_TAG:
             printf(BYELLOW);
-            printf((char*) get_decl_name(node->payload.fn_addr.fn));
+            printf((char*) get_declaration_name(node->payload.fn_addr.fn));
             printf(RESET);
             break;
     }
@@ -878,7 +878,7 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         printf("\n}");
     } else if (is_declaration(node)) {
         printf(BYELLOW);
-        printf("%s", get_decl_name(node));
+        printf("%s", get_declaration_name(node));
         printf(RESET);
     } else if (node->tag == Unbound_TAG) {
         printf(YELLOW);

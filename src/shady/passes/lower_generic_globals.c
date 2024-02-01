@@ -24,7 +24,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Type* dst_t = ptr_type(a, (PtrType) { .pointed_type = t, .address_space = AsGeneric });
                 Nodes decl_annotations = singleton(annotation(a, (Annotation) { .name = "Generated" }));
                 Node* constant_decl = constant(ctx->rewriter.dst_module, decl_annotations, dst_t,
-                                            format_string_interned(a, "%s_generic", get_decl_name(node)));
+                                            format_string_interned(a, "%s_generic", get_declaration_name(node)));
                 const Node* result = constant_decl;
                 constant_decl->payload.constant.instruction = prim_op_helper(a, convert_op, singleton(dst_t), singleton(ref_decl_helper(a, new_global)));
                 register_processed(&ctx->rewriter, node, result);

@@ -43,7 +43,7 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
     Nodes new_decls = get_module_declarations(ctx->rewriter.dst_module);
     for (size_t i = 0; i < new_decls.count; i++) {
         const Node* decl = new_decls.nodes[i];
-        if (strcmp(get_decl_name(decl), name) == 0) {
+        if (strcmp(get_declaration_name(decl), name) == 0) {
             return (Resolved) {
                 .is_var = decl->tag == GlobalVariable_TAG,
                 .node = decl
@@ -54,7 +54,7 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
     Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* old_decl = old_decls.nodes[i];
-        if (strcmp(get_decl_name(old_decl), name) == 0) {
+        if (strcmp(get_declaration_name(old_decl), name) == 0) {
             Context top_ctx = *ctx;
             top_ctx.current_function = NULL;
             top_ctx.local_variables = NULL;

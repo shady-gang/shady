@@ -162,7 +162,7 @@ const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
     Nodes old_decls = get_module_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
-        if (strcmp(get_decl_name(decl), name) == 0) {
+        if (strcmp(get_declaration_name(decl), name) == 0) {
             return rewrite_node(rewriter, decl);
         }
     }

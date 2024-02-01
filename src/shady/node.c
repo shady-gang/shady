@@ -8,16 +8,6 @@
 #include <string.h>
 #include <assert.h>
 
-String get_decl_name(const Node* node) {
-    switch (node->tag) {
-        case Constant_TAG: return node->payload.constant.name;
-        case Function_TAG: return node->payload.fun.name;
-        case GlobalVariable_TAG: return node->payload.global_variable.name;
-        case NominalType_TAG: return node->payload.nom_type.name;
-        default: error("Not a decl !");
-    }
-}
-
 String get_value_name(const Node* v) {
     assert(v && is_value(v));
     if (v->tag == Variable_TAG)
