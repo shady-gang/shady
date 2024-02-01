@@ -3,6 +3,7 @@
 #include "util.h"
 #include "portability.h"
 
+void preprocess(json_object* root);
 void generate(Growy* g, json_object* root);
 
 enum {
@@ -45,6 +46,7 @@ int main(int argc, char** argv) {
         json_apply_object(src, json_files[i].root);
     }
 
+    preprocess(src);
     generate(g, src);
 
     size_t final_size = growy_size(g);

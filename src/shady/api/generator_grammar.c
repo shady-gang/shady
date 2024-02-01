@@ -1,45 +1,5 @@
 #include "generator.h"
 
-static json_object* lookup_node_class(json_object* src, String name) {
-    json_object* node_classes = json_object_object_get(src, "node-classes");
-    for (size_t i = 0; i < json_object_array_length(node_classes); i++) {
-        json_object* class = json_object_array_get_idx(node_classes, i);
-        String class_name = json_object_get_string(json_object_object_get(class, "name"));
-        assert(class_name);
-        if (strcmp(name, class_name) == 0)
-            return class;
-    }
-    return NULL;
-}
-
-static String class_to_type(json_object* src, String class, bool list) {
-    assert(class);
-    if (strcmp(class, "string") == 0) {
-        if (list)
-            return "Strings";
-        else
-            return "String";
-    }
-    // check the class is valid
-    if (!lookup_node_class(src, class)) {
-        error_print("invalid node class '%s'\n", class);
-        error_die();
-    }
-    return list ? "Nodes" : "const Node*";
-}
-
-static String get_type_for_operand(json_object* src, json_object* op) {
-    String op_type = json_object_get_string(json_object_object_get(op, "type"));
-    bool list = json_object_get_boolean(json_object_object_get(op, "list"));
-    String op_class = NULL;
-    if (!op_type) {
-        op_class = json_object_get_string(json_object_object_get(op, "class"));
-        op_type = class_to_type(src, op_class, list);
-    }
-    assert(op_type);
-    return op_type;
-}
-
 static void generate_address_spaces(Growy* g, json_object* address_spaces) {
     growy_append_formatted(g, "typedef enum AddressSpace_ {\n");
     for (size_t i = 0; i < json_object_array_length(address_spaces); i++) {
@@ -118,17 +78,11 @@ static void generate_node_type(Growy* g, json_object* nodes) {
         assert(name);
 
         String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
-        void* alloc = NULL;
-        if (!snake_name) {
-            alloc = snake_name = to_snake_case(name);
-        }
+        assert(snake_name);
 
         json_object* ops = json_object_object_get(node, "ops");
         if (ops)
             growy_append_formatted(g, "\t\t%s %s;\n", name, snake_name);
-
-        if (alloc)
-            free(alloc);
     }
 
     growy_append_formatted(g, "\t} payload;\n");
@@ -175,6 +129,20 @@ static void generate_node_tags_for_class(Growy* g, json_object* nodes, String cl
     growy_append_formatted(g, "} %sTag;\n\n", capitalized_class);
 }
 
+static void generate_header_getters_for_class(Growy* g, json_object* src, json_object* node_class) {
+    String class_name = json_object_get_string(json_object_object_get(node_class, "name"));
+    json_object* class_ops = json_object_object_get(node_class, "ops");
+    if (!class_ops)
+        return;
+    assert(json_object_get_type(class_ops) == json_type_array);
+    for (size_t i = 0; i < json_object_array_length(class_ops); i++) {
+        json_object* operand = json_object_array_get_idx(class_ops, i);
+        String operand_name = json_object_get_string(json_object_object_get(operand, "name"));
+        assert(operand_name);
+        growy_append_formatted(g, "%s get_%s_%s(const Node* node);\n", get_type_for_operand(src, operand), class_name, operand_name);
+    }
+}
+
 void generate(Growy* g, json_object* src) {
     generate_header(g, src);
 
@@ -203,5 +171,7 @@ void generate(Growy* g, json_object* src) {
         } else {
             growy_append_formatted(g, "bool is_%s(const Node*);\n", name);
         }
+
+        generate_header_getters_for_class(g, src, node_class);
     }
 }

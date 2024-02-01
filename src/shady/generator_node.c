@@ -126,6 +126,49 @@ static void generate_isa_for_class(Growy* g, json_object* nodes, String class, S
     growy_append_formatted(g, "}\n\n");
 }
 
+static bool is_of(json_object* node, String class_name) {
+    switch (json_object_get_type(node)) {
+        case json_type_array: {
+            for (size_t i = 0; i < json_object_array_length(node); i++)
+                if (is_of(json_object_array_get_idx(node, i), class_name))
+                    return true;
+            break;
+        }
+        case json_type_string: return strcmp(json_object_get_string(node), class_name) == 0;
+        default: break;
+    }
+    return false;
+}
+
+static void generate_getters_for_class(Growy* g, json_object* src, json_object* nodes, json_object* node_class) {
+    String class_name = json_object_get_string(json_object_object_get(node_class, "name"));
+    json_object* class_ops = json_object_object_get(node_class, "ops");
+    if (!class_ops)
+        return;
+    assert(json_object_get_type(class_ops) == json_type_array);
+    for (size_t i = 0; i < json_object_array_length(class_ops); i++) {
+        json_object* operand = json_object_array_get_idx(class_ops, i);
+        String operand_name = json_object_get_string(json_object_object_get(operand, "name"));
+        assert(operand_name);
+        growy_append_formatted(g, "%s get_%s_%s(const Node* node) {\n", get_type_for_operand(src, operand), class_name, operand_name);
+        growy_append_formatted(g, "\tswitch(node->tag) {\n");
+        for (size_t j = 0; j < json_object_array_length(nodes); j++) {
+            json_object* node = json_object_array_get_idx(nodes, j);
+            if (is_of(json_object_object_get(node, "class"), class_name)) {
+                String node_name = json_object_get_string(json_object_object_get(node, "name"));
+                growy_append_formatted(g, "\t\tcase %s_TAG: ", node_name);
+                String node_snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
+                assert(node_snake_name);
+                growy_append_formatted(g, "return node->payload.%s.%s;\n", node_snake_name, operand_name);
+            }
+        }
+        growy_append_formatted(g, "\t\tdefault: break;\n");
+        growy_append_formatted(g, "\t}\n");
+        growy_append_formatted(g, "\tassert(false);\n");
+        growy_append_formatted(g, "}\n\n");
+    }
+}
+
 void generate_address_space_name_fn(Growy* g, json_object* address_spaces) {
     growy_append_formatted(g, "String get_address_space_name(AddressSpace as) {\n");
     growy_append_formatted(g, "\tswitch (as) {\n");
@@ -154,6 +197,8 @@ void generate(Growy* g, json_object* src) {
         json_object* node_class = json_object_array_get_idx(node_classes, i);
         String name = json_object_get_string(json_object_object_get(node_class, "name"));
         assert(name);
+
+        generate_getters_for_class(g, src, nodes, node_class);
 
         json_object* generate_enum = json_object_object_get(node_class, "generate-enum");
         String capitalized = capitalize(name);

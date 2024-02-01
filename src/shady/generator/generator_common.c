@@ -63,6 +63,61 @@ void generate_node_ctor(Growy* g, json_object* nodes, bool definition) {
     growy_append_formatted(g, "\n");
 }
 
+json_object* lookup_node_class(json_object* src, String name) {
+    json_object* node_classes = json_object_object_get(src, "node-classes");
+    for (size_t i = 0; i < json_object_array_length(node_classes); i++) {
+        json_object* class = json_object_array_get_idx(node_classes, i);
+        String class_name = json_object_get_string(json_object_object_get(class, "name"));
+        assert(class_name);
+        if (strcmp(name, class_name) == 0)
+            return class;
+    }
+    return NULL;
+}
+
+String class_to_type(json_object* src, String class, bool list) {
+    assert(class);
+    if (strcmp(class, "string") == 0) {
+        if (list)
+            return "Strings";
+        else
+            return "String";
+    }
+    // check the class is valid
+    if (!lookup_node_class(src, class)) {
+        error_print("invalid node class '%s'\n", class);
+        error_die();
+    }
+    return list ? "Nodes" : "const Node*";
+}
+
+String get_type_for_operand(json_object* src, json_object* op) {
+    String op_type = json_object_get_string(json_object_object_get(op, "type"));
+    bool list = json_object_get_boolean(json_object_object_get(op, "list"));
+    String op_class = NULL;
+    if (!op_type) {
+        op_class = json_object_get_string(json_object_object_get(op, "class"));
+        op_type = class_to_type(src, op_class, list);
+    }
+    assert(op_type);
+    return op_type;
+}
+
+void preprocess(json_object* src) {
+    json_object* nodes = json_object_object_get(src, "nodes");
+    for (size_t i = 0; i < json_object_array_length(nodes); i++) {
+        json_object* node = json_object_array_get_idx(nodes, i);
+        String name = json_object_get_string(json_object_object_get(node, "name"));
+        json_object* snake_name = json_object_object_get(node, "snake_name");
+        if (!snake_name) {
+            String tmp = to_snake_case(name);
+            json_object* generated_snake_name = json_object_new_string(tmp);
+            json_object_object_add(node, "snake_name", generated_snake_name);
+            free((void*) tmp);
+        }
+    }
+}
+
 void generate_bit_enum(Growy* g, String enum_type_name, String enum_case_prefix, json_object* cases) {
     assert(json_object_get_type(cases) == json_type_array);
     growy_append_formatted(g, "typedef enum {\n");

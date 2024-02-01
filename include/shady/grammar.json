@@ -116,7 +116,10 @@
       "name": "terminator"
     },
     {
-      "name": "declaration"
+      "name": "declaration",
+      "ops": [
+        { "name": "annotations", "class": "annotation", "list": true }
+      ]
     },
     {
       "name": "case"

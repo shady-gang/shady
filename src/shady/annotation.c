@@ -18,17 +18,9 @@ String get_annotation_name(const Node* node) {
 
 static const Node* search_annotations(const Node* decl, const char* name, size_t* i) {
     assert(decl);
-    const Nodes* annotations = NULL;
-    switch (decl->tag) {
-        case Function_TAG: annotations = &decl->payload.fun.annotations; break;
-        case GlobalVariable_TAG: annotations = &decl->payload.global_variable.annotations; break;
-        case Constant_TAG: annotations = &decl->payload.constant.annotations; break;
-        case NominalType_TAG: annotations = &decl->payload.nom_type.annotations; break;
-        default: error("Not a declaration")
-    }
-
-    while (*i < annotations->count) {
-        const Node* annotation = annotations->nodes[*i];
+    const Nodes annotations = get_declaration_annotations(decl);
+    while (*i < annotations.count) {
+        const Node* annotation = annotations.nodes[*i];
         (*i)++;
         if (strcmp(get_annotation_name(annotation), name) == 0) {
             return annotation;
