@@ -129,7 +129,10 @@
       "name": "basic_block"
     },
     {
-      "name": "annotation"
+      "name": "annotation",
+      "ops": [
+        { "name": "name", "class": "string" }
+      ]
     },
     {
       "name": "jump",

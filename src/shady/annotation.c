@@ -5,17 +5,6 @@
 #include <assert.h>
 #include <string.h>
 
-String get_annotation_name(const Node* node) {
-    assert(is_annotation(node));
-    switch (node->tag) {
-        case Annotation_TAG:      return node->payload.annotation.name;
-        case AnnotationValue_TAG: return node->payload.annotation_value.name;
-        case AnnotationValues_TAG: return node->payload.annotation_values.name;
-        case AnnotationCompound_TAG: return node->payload.annotation_compound.name;
-        default: return false;
-    }
-}
-
 static const Node* search_annotations(const Node* decl, const char* name, size_t* i) {
     assert(decl);
     const Nodes annotations = get_declaration_annotations(decl);
