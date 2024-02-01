@@ -248,7 +248,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             term = term_from_cvalue(format_string_arena(arena->arena, "(%s > 0 ? 1 : -1)", src));
             break;
         }
-        case alloca_subgroup_op: error("Lower me");
         case alloca_op:
         case alloca_logical_op: {
             assert(outputs.count == 1);

@@ -752,7 +752,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return empty_multiple_return_type(arena);
         }
         case alloca_logical_op:  as = AsFunctionLogical; goto alloca_case;
-        case alloca_subgroup_op: as = AsSubgroupPhysical; goto alloca_case;
         case alloca_op:          as = AsPrivatePhysical; goto alloca_case;
         alloca_case: {
             assert(prim_op.type_arguments.count == 1);

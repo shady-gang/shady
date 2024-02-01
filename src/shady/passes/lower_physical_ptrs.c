@@ -301,7 +301,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case PrimOp_TAG: {
             const PrimOp* oprim_op = &old->payload.prim_op;
             switch (oprim_op->op) {
-                case alloca_subgroup_op:
                 case alloca_op: error("This needs to be lowered (see setup_stack_frames.c)")
                     // lowering for either kind of memory accesses is similar
                 case load_op:

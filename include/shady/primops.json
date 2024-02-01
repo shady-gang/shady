@@ -216,11 +216,6 @@
       "side-effects": true
     },
     {
-      "name": "alloca_subgroup",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
       "name": "load",
       "class": "memory",
       "side-effects": true
