@@ -102,8 +102,9 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             return data_composite(t, width, v);
         }
         case LLVMConstantStructValueKind: {
-            assert(t->tag == RecordType_TAG);
-            size_t size = t->payload.record_type.members.count;
+            const Node* actual_t = get_maybe_nominal_type_body(t);
+            assert(actual_t->tag == RecordType_TAG);
+            size_t size = actual_t->payload.record_type.members.count;
             LARRAY(const Node*, elements, size);
             for (size_t i = 0; i < size; i++) {
                 LLVMValueRef value = LLVMGetOperand(v, i);
