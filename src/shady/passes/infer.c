@@ -164,6 +164,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
     }
 
     IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
     switch (is_value(node)) {
         case NotAValue: error("");
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
@@ -232,9 +233,25 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
         case True_TAG: return true_lit(a);
         case False_TAG: return false_lit(a);
         case StringLiteral_TAG: return string_lit(a, (StringLiteral) { .string = string(a, node->payload.string_lit.string )});
-        case RefDecl_TAG:
-        case FnAddr_TAG: return recreate_node_identity(&ctx->rewriter, node);
-        case Value_Undef_TAG: return recreate_node_identity(&ctx->rewriter, node);
+        case RefDecl_TAG: {
+            if (get_arena_config(ctx->rewriter.src_arena).untyped_ptrs) {
+                const Node* ref_decl = recreate_node_identity(&ctx->rewriter, node);
+                assert(ref_decl->tag == RefDecl_TAG);
+                const Node* decl = ref_decl->payload.ref_decl.decl;
+                if (decl->tag == GlobalVariable_TAG) {
+                    AddressSpace as = decl->payload.global_variable.address_space;
+                    if (is_physical_as(as)) {
+                        const Node* untyped_ptr = ptr_type(a, (PtrType) {.address_space = as, .pointed_type = unit_type(a)});
+                        Node* cast_constant = constant(ctx->rewriter.dst_module, empty(a), untyped_ptr, format_string_interned(a, "%s_cast", get_decl_name(decl)));
+                        cast_constant->payload.constant.instruction = prim_op_helper(a, reinterpret_op, singleton(untyped_ptr), singleton(ref_decl));
+                        return ref_decl_helper(a, cast_constant);
+                    }
+                }
+            }
+            break;
+        }
+        case FnAddr_TAG: break;
+        case Value_Undef_TAG: break;
         case Value_Composite_TAG: {
             const Node* elem_type = infer(ctx, node->payload.composite.type, NULL);
             bool uniform = false;
@@ -278,9 +295,9 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
             const Node* value = infer(ctx, node->payload.fill.value, qualified_type(a, (QualifiedType) { .is_uniform = uniform, .type = element_t }));
             return fill(a, (Fill) { .type = composite_t, .value = value });
         }
-        case Value_NullPtr_TAG: return recreate_node_identity(&ctx->rewriter, node);
+        case Value_NullPtr_TAG: break;
     }
-    SHADY_UNREACHABLE;
+    return recreate_node_identity(&ctx->rewriter, node);
 }
 
 static const Node* _infer_case(Context* ctx, const Node* node, const Node* expected) {
@@ -466,16 +483,6 @@ static const Node* _infer_primop(Context* ctx, const Node* node, const Type* exp
 
             if (is_generic_ptr_type(src_pointer_type) != is_generic_ptr_type(dst_pointer_type))
                 op = convert_op;
-
-            if (old_dst_pointer_type->tag == PtrType_TAG && !old_dst_pointer_type->payload.ptr_type.pointed_type) {
-                const Type* element_type = uint8_type(a);
-                if (src_pointer_type->tag == PtrType_TAG && src_pointer_type->payload.ptr_type.pointed_type) {
-                    // element_type = infer(ctx, old_src_pointer_type->payload.ptr_type.pointed_type, NULL);
-                    element_type = src_pointer_type->payload.ptr_type.pointed_type;
-                }
-                dst_pointer_type = type_untyped_ptr(dst_pointer_type, element_type);
-                type_args = change_node_at_index(a, type_args, 0, dst_pointer_type);
-            }
 
             goto rebuild;
         }
