@@ -83,12 +83,6 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
         member_tys[lifted_globals_count] = rewrite_node(&ctx.rewriter, odecl->type);
         member_names[lifted_globals_count] = get_decl_name(odecl);
 
-        if (odecl->payload.global_variable.init)
-            annotations = append_nodes(a, annotations, annotation_values(a, (AnnotationValues) {
-                .name = "InitialValue",
-                .values = mk_nodes(a, int32_literal(a, lifted_globals_count), rewrite_node(&ctx.rewriter, odecl->payload.global_variable.init))
-            }));
-
         register_processed(&ctx.rewriter, odecl, int32_literal(a, lifted_globals_count));
         lifted_globals_count++;
     }
@@ -103,6 +97,21 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
     }
 
     rewrite_module(&ctx.rewriter);
+
+    lifted_globals_count = 0;
+    for (size_t i = 0; i < old_decls.count; i++) {
+        const Node* odecl = old_decls.nodes[i];
+        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobalPhysical)
+            continue;
+        if (odecl->payload.global_variable.init)
+            annotations = append_nodes(a, annotations, annotation_values(a, (AnnotationValues) {
+                    .name = "InitialValue",
+                    .values = mk_nodes(a, int32_literal(a, lifted_globals_count), rewrite_node(&ctx.rewriter, odecl->payload.global_variable.init))
+            }));
+
+        lifted_globals_count++;
+    }
+
     destroy_rewriter(&ctx.rewriter);
     return dst;
 }
