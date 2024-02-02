@@ -173,6 +173,11 @@ static const Node* process(Context* ctx, const Node* old) {
             destroy_uses_map(fun_ctx.scope_uses);
             return fun;
         }
+        case Constant_TAG: {
+            Context fun_ctx = *ctx;
+            fun_ctx.scope_uses = NULL;
+            return recreate_node_identity(&fun_ctx.rewriter, old);
+        }
         case Let_TAG: {
             const Node* oinstruction = get_let_instruction(old);
             const Node* otail = get_let_tail(old);
