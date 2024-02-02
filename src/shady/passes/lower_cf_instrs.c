@@ -146,6 +146,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
         fun->payload.fun.body = rewrite_node(&sub_ctx.rewriter, node->payload.fun.body);
         destroy_scope(sub_ctx.scope);
         return fun;
+    } else if (node->tag == Constant_TAG) {
+        sub_ctx.scope = NULL;
+        sub_ctx.abs = NULL;
+        sub_ctx.current_fn = NULL;
+        ctx = &sub_ctx;
     }
 
     if (is_abstraction(node)) {
@@ -256,8 +261,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_break.args),
             });
         }
-        default: return recreate_node_identity(&ctx->rewriter, node);
+        default: break;
     }
+    return recreate_node_identity(&ctx->rewriter, node);
 }
 
 KeyHash hash_node(const Node**);

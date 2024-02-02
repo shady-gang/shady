@@ -626,6 +626,11 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         destroy_dict(fn_ctx.abs_to_kb);
         return new_fn;
+    } else if (old->tag == Constant_TAG) {
+        fn_ctx.scope = NULL;
+        fn_ctx.abs_to_kb = NULL;
+        fn_ctx.todo_jumps = NULL;
+        ctx = &fn_ctx;
     }
 
     // setup a new KB if this is a fresh abstraction
