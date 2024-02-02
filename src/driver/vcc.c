@@ -67,7 +67,6 @@ int main(int argc, char** argv) {
     }
 
     ArenaConfig aconfig = default_arena_config();
-    aconfig.untyped_ptrs = true; // tolerate untyped ptrs...
     IrArena* arena = new_ir_arena(aconfig);
     Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 

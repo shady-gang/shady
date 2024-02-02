@@ -1,4 +1,5 @@
 #include "l2s_private.h"
+#include "shady/ir_private.h"
 
 #include "log.h"
 #include "dict.h"
@@ -185,6 +186,9 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
         error_die();
     }
     info_print("LLVM IR parsed successfully\n");
+#if UNTYPED_POINTERS
+    get_module_arena(dst)->config.untyped_ptrs = true; // tolerate untyped ptrs...
+#endif
 
     Module* dirty = new_module(get_module_arena(dst), "dirty");
     Parser p = {
