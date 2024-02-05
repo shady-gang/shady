@@ -3,6 +3,7 @@
 #include "../rewrite.h"
 #include "portability.h"
 #include "log.h"
+#include "dict.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -30,9 +31,12 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Node* value = get_quoted_value(decl->payload.constant.instruction);
                 if (value)
                     return rewrite_node(&ctx->rewriter, value);
+                c.rewriter.map = clone_dict(c.rewriter.map);
                 assert(ctx->bb);
                 // TODO: actually _copy_ the instruction so we can duplicate the code safely!
-                return first(bind_instruction(ctx->bb, rewrite_node(&ctx->rewriter, decl->payload.constant.instruction)));
+                const Node* rewritten = first(bind_instruction(ctx->bb, rewrite_node(&ctx->rewriter, decl->payload.constant.instruction)));
+                destroy_dict(c.rewriter.map);
+                return rewritten;
             }
             break;
         }
