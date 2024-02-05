@@ -244,7 +244,9 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
                         const Node* untyped_ptr = ptr_type(a, (PtrType) {.address_space = as, .pointed_type = unit_type(a)});
                         Node* cast_constant = constant(ctx->rewriter.dst_module, empty(a), untyped_ptr, format_string_interned(a, "%s_cast", get_decl_name(decl)));
                         cast_constant->payload.constant.instruction = prim_op_helper(a, reinterpret_op, singleton(untyped_ptr), singleton(ref_decl));
-                        return ref_decl_helper(a, cast_constant);
+                        const Node* cast_ref_decl = ref_decl_helper(a, cast_constant);
+                        register_processed(r, node, cast_ref_decl);
+                        return cast_ref_decl;
                     }
                 }
             }
