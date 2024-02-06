@@ -56,13 +56,13 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-    - name: Install SPIRV-Headers
-      run: |
-        git clone https://github.com/KhronosGroup/SPIRV-Headers
-        mkdir SPIRV-Headers/build
-        cmake -B SPIRV-Headers/build -S SPIRV-Headers
-        mkdir SPIRV-Headers/install
-        cmake --install SPIRV-Headers/build --prefix SPIRV-Headers/install
+    #- name: Install SPIRV-Headers
+    #  run: |
+    #    git clone https://github.com/KhronosGroup/SPIRV-Headers
+    #    mkdir SPIRV-Headers/build
+    #    cmake -B SPIRV-Headers/build -S SPIRV-Headers
+    #    mkdir SPIRV-Headers/install
+    #    cmake --install SPIRV-Headers/build --prefix SPIRV-Headers/install
 
     - name: Install Clang & LLVM (setup-clang)
       if: (!startsWith(matrix.os,'windows'))
