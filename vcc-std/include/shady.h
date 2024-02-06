@@ -26,6 +26,7 @@ namespace vcc {
 #define uniform_block          __attribute__((address_space(395)))
 #define push_constant          __attribute__((address_space(392)))
 #define global                 __attribute__((address_space(1)))
+#define shared                 __attribute__((address_space(3)))
 #define private                __attribute__((address_space(5)))
 #define private_logical        __attribute__((address_space(385)))
 
