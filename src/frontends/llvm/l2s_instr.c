@@ -493,7 +493,8 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 if (strcmp(strtok(str, "::"), "shady") == 0) {
                     char* keyword = strtok(NULL, "::");
                     if (strcmp(keyword, "prim_op") == 0) {
-                        char* opname = strtok(NULL, "::");Op op;
+                        char* opname = strtok(NULL, "::");
+                        Op op;
                         size_t i;
                         for (i = 0; i < PRIMOPS_COUNT; i++) {
                             if (strcmp(get_primop_name(i), opname) == 0) {
