@@ -79,7 +79,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
         RUN_PASS(bind_program)
     RUN_PASS(normalize)
 
-    RUN_PASS(normalize_builtins);
+    RUN_PASS(normalize_builtins)
     RUN_PASS(infer_program)
 
     RUN_PASS(lcssa)
@@ -131,6 +131,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     if (config->lower.simt_to_explicit_simd)
         RUN_PASS(simt2d)
     RUN_PASS(lower_fill)
+    RUN_PASS(normalize_builtins)
 
     return CompilationNoError;
 }

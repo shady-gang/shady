@@ -10,6 +10,7 @@
 
 typedef struct {
     Rewriter rewriter;
+    Node** builtins;
 } Context;
 
 static const Type* get_req_cast(Context* ctx, const Node* src) {
@@ -76,11 +77,14 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ba) {
                 Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
                 assert(b != BuiltinsCount);
+                if (ctx->builtins[b])
+                    return ctx->builtins[b];
                 const Type* t = get_builtin_type(a, b);
                 Node* ndecl = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, global_variable.annotations), t, global_variable.name, global_variable.address_space);
                 register_processed(&ctx->rewriter, node, ndecl);
                 // no 'init' for builtins, right ?
                 assert(!global_variable.init);
+                ctx->builtins[b] = ndecl;
                 return ndecl;
             }
         }
@@ -114,8 +118,10 @@ Module* normalize_builtins(SHADY_UNUSED const CompilerConfig* config, Module* sr
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .builtins = calloc(sizeof(Node*), BuiltinsCount)
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    free(ctx.builtins);
     return dst;
 }
