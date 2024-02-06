@@ -49,7 +49,15 @@ native_uvec3 gl_WorkGroupID;
 
 __attribute__((annotate("shady::builtin::VertexIndex")))
 __attribute__((address_space(389)))
-input int gl_VertexIndex;
+unsigned gl_VertexIndex;
+
+__attribute__((annotate("shady::builtin::SubgroupId")))
+__attribute__((address_space(389)))
+unsigned subgroup_id;
+
+__attribute__((annotate("shady::builtin::SubgroupLocalInvocationId")))
+__attribute__((address_space(389)))
+unsigned subgroup_local_id;
 
 __attribute__((annotate("shady::builtin::WorkgroupSize")))
 __attribute__((address_space(389)))
