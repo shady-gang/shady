@@ -36,8 +36,6 @@ static const Node* process(Context* ctx, const Node* node) {
                         return global_var(m, filtered_as, rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivateLogical);
                     case BuiltinNumWorkgroups:
                         return global_var(m, filtered_as, rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsExternal);
-                    case BuiltinWorkgroupSize:
-                        assert(false);
                     default:
                         break;
                 }

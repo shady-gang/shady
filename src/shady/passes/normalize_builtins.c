@@ -80,7 +80,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (ctx->builtins[b])
                     return ctx->builtins[b];
                 const Type* t = get_builtin_type(a, b);
-                Node* ndecl = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, global_variable.annotations), t, global_variable.name, global_variable.address_space);
+                Node* ndecl = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, global_variable.annotations), t, global_variable.name, get_builtin_as(b));
                 register_processed(&ctx->rewriter, node, ndecl);
                 // no 'init' for builtins, right ?
                 assert(!global_variable.init);

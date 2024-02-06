@@ -556,6 +556,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             }
             break;
         }
+        case subgroup_assume_uniform_op:
         case subgroup_broadcast_first_op: {
             CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             switch (emitter->config.dialect) {
