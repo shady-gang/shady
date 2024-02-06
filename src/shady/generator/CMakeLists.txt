@@ -12,7 +12,7 @@ target_link_libraries(import_spv_defs PUBLIC common generator_common)
 if (WIN32)
     message("copying DLLs for generator targets")
     add_custom_command(TARGET import_spv_defs POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:import_spv_defs> $<TARGET_RUNTIME_DLLS:import_spv_defs}>
+            COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:import_spv_defs> $<TARGET_RUNTIME_DLLS:import_spv_defs>
             COMMAND_EXPAND_LISTS
     )
 endif ()

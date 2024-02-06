@@ -12,6 +12,12 @@
 #include <string.h>
 #include <assert.h>
 
+Nodes gen_call(BodyBuilder* bb, const Node* callee, Nodes args) {
+    assert(bb->arena->config.check_types);
+    const Node* instruction = call(bb->arena, (Call) { .callee = callee, .args = args });
+    return bind_instruction(bb, instruction);
+}
+
 Nodes gen_primop(BodyBuilder* bb, Op op, Nodes type_args, Nodes operands) {
     assert(bb->arena->config.check_types);
     const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = op, .type_arguments = type_args, .operands = operands });

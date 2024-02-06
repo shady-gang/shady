@@ -8,6 +8,7 @@ void gen_push_value_stack(BodyBuilder* bb, const Node* value);
 void gen_push_values_stack(BodyBuilder* bb, Nodes values);
 const Node* gen_pop_value_stack(BodyBuilder*, const Type* type);
 
+Nodes gen_call(BodyBuilder*, const Node* callee, Nodes args);
 Nodes gen_primop(BodyBuilder*, Op, Nodes, Nodes);
 Nodes gen_primop_c(BodyBuilder*, Op op, size_t operands_count, const Node* operands[]);
 const Node* gen_primop_ce(BodyBuilder*, Op op, size_t operands_count, const Node* operands[]);

@@ -2,6 +2,7 @@
 
 #include "portability.h"
 #include "log.h"
+#include "dict.h"
 
 #include "../rewrite.h"
 #include "../type.h"
@@ -11,6 +12,7 @@
 typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
+    struct Dict* fns;
 } Context;
 
 static bool is_extended_type(SHADY_UNUSED IrArena* a, const Type* t, bool allow_vectors) {
@@ -26,59 +28,68 @@ static bool is_extended_type(SHADY_UNUSED IrArena* a, const Type* t, bool allow_
     }
 }
 
-static const Node* process_let(Context* ctx, const Node* old) {
-    assert(old->tag == Let_TAG);
+static bool is_supported_natively(Context* ctx, const Type* element_type) {
     IrArena* a = ctx->rewriter.dst_arena;
-    const Node* tail = rewrite_node(&ctx->rewriter, old->payload.let.tail);
-    const Node* old_instruction = old->payload.let.instruction;
-
-    if (old_instruction->tag == PrimOp_TAG) {
-        PrimOp payload = old_instruction->payload.prim_op;
-        switch (payload.op) {
-            case subgroup_broadcast_first_op: {
-                BodyBuilder* builder = begin_body(a);
-                const Node* varying_value = rewrite_node(&ctx->rewriter, payload.operands.nodes[0]);
-                const Type* element_type = get_unqualified_type(varying_value->type);
-
-                if (element_type->tag == Int_TAG && element_type->payload.int_type.width == IntTy32) {
-                    cancel_body(builder);
-                    break;
-                } else if (is_extended_type(a, element_type, true) && !ctx->config->lower.emulate_subgroup_ops_extended_types) {
-                    cancel_body(builder);
-                    break;
-                }
-
-                TypeMemLayout layout = get_mem_layout(a, element_type);
-
-                const Type* local_arr_ty = arr_type(a, (ArrType) { .element_type = int32_type(a), .size = NULL });
-
-                const Node* varying_top_of_stack = gen_primop_e(builder, get_stack_base_op, empty(a), empty(a));
-                const Type* varying_raw_ptr_t = ptr_type(a, (PtrType) { .address_space = AsPrivatePhysical, .pointed_type = local_arr_ty });
-                const Node* varying_raw_ptr = gen_reinterpret_cast(builder, varying_raw_ptr_t, varying_top_of_stack);
-                const Type* varying_typed_ptr_t = ptr_type(a, (PtrType) { .address_space = AsPrivatePhysical, .pointed_type = element_type });
-                const Node* varying_typed_ptr = gen_reinterpret_cast(builder, varying_typed_ptr_t, varying_top_of_stack);
-
-                gen_store(builder, varying_typed_ptr, varying_value);
-                for (int32_t j = 0; j < bytes_to_words_static(a, layout.size_in_bytes); j++) {
-                    const Node* varying_logical_addr = gen_lea(builder, varying_raw_ptr, int32_literal(a, 0), nodes(a, 1, (const Node* []) {int32_literal(a, j) }));
-                    const Node* input = gen_load(builder, varying_logical_addr);
-
-                    const Node* partial_result = gen_primop_ce(builder, subgroup_broadcast_first_op, 1, (const Node* []) { input });
-
-                    if (ctx->config->printf_trace.subgroup_ops)
-                        gen_primop(builder, debug_printf_op, empty(a), mk_nodes(a, string_lit(a, (StringLiteral) { .string = "partial_result %d"}), partial_result));
-
-                    gen_store(builder, varying_logical_addr, partial_result);
-                }
-                const Node* result = gen_load(builder, varying_typed_ptr);
-                result = first(gen_primop(builder, subgroup_assume_uniform_op, empty(a), singleton(result)));
-                return finish_body(builder, let(a, quote_helper(a, singleton(result)), tail));
-            }
-            default: break;
-        }
+    if (element_type->tag == Int_TAG && element_type->payload.int_type.width == IntTy32) {
+        return true;
+    } else if (!ctx->config->lower.emulate_subgroup_ops_extended_types && is_extended_type(a, element_type, true)) {
+        return true;
     }
 
-    return let(a, rewrite_node(&ctx->rewriter, old_instruction), tail);
+    return false;
+}
+
+static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* src);
+
+static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Node* t) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    BodyBuilder* bb = begin_body(a);
+    t = get_maybe_nominal_type_body(t);
+    switch (is_type(t)) {
+        case Type_ArrType_TAG:
+        case Type_RecordType_TAG: {
+            assert(t->payload.record_type.special == 0);
+            Nodes element_types = get_composite_type_element_types(t);
+            LARRAY(const Node*, elements, element_types.count);
+            for (size_t i = 0; i < element_types.count; i++) {
+                const Node* e = gen_extract(bb, param, singleton(uint32_literal(a, i)));
+                elements[i] = build_subgroup_first(ctx, bb, e);
+            }
+            fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
+                    .fn = fn,
+                    .args = singleton(composite_helper(a, t, nodes(a, element_types.count, elements)))
+            }));
+            return;
+        }
+        default:
+            log_string(ERROR, "subgroup_first is not supported on ");
+            log_node(ERROR, t);
+            log_string(ERROR, ".\n");
+            error_die();
+    }
+    SHADY_UNREACHABLE;
+}
+
+static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* src) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    Module* m = ctx->rewriter.dst_module;
+    const Node* t =  get_unqualified_type(src->type);
+    if (is_supported_natively(ctx, t))
+        return gen_primop_e(bb, subgroup_broadcast_first_op, empty(a), singleton(src));
+
+    Node* fn = NULL;
+    Node** found = find_value_dict(const Node*, Node*, ctx->fns, t);
+    if (found)
+        fn = *found;
+    else {
+        const Node* param = var(a, qualified_type_helper(t, false), "src");
+        fn = function(m, singleton(param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
+                      singleton(annotation(a, (Annotation) { .name = "Generated"})), singleton(qualified_type_helper(t, true)));
+        insert_dict(const Node*, Node*, ctx->fns, t, fn);
+        build_fn_body(ctx, fn, param, t);
+    }
+
+    return first(gen_call(bb, fn_addr_helper(a, fn), singleton(src)));
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -86,11 +97,27 @@ static const Node* process(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
+    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
-        case Let_TAG: return process_let(ctx, node);
-        default: return recreate_node_identity(&ctx->rewriter, node);
+        case PrimOp_TAG: {
+            PrimOp payload = node->payload.prim_op;
+            switch (payload.op) {
+                case subgroup_broadcast_first_op: {
+                    BodyBuilder* bb = begin_body(a);
+                    return yield_values_and_wrap_in_block(bb, singleton(
+                            build_subgroup_first(ctx, bb, rewrite_node(r, first(payload.operands)))));
+                }
+                default: break;
+            }
+        }
+        default: break;
     }
+    return recreate_node_identity(&ctx->rewriter, node);
 }
+
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
 
 Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
@@ -100,8 +127,10 @@ Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
+        .fns =  new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    destroy_dict(ctx.fns);
     return dst;
 }
