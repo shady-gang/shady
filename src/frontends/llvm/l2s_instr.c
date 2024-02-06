@@ -512,7 +512,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                         }
                         r = prim_op_helper(a, op, empty(a), nodes(a, num_args, processed_ops));
                         free(str);
-                        break;
+                        goto finish;
                     } else {
                         error_print("Unrecognised shady intrinsic '%s'\n", keyword);
                         error_die();
@@ -522,14 +522,15 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 error_print("Unhandled intrinsic '%s'\n", intrinsic);
                 error_die();
             }
-            if (r)
-                break;
+            finish:
 
-            Nodes ops = convert_operands(p, num_ops, instr);
-            r = call(a, (Call) {
-                    .callee = ops.nodes[num_args],
-                    .args = nodes(a, num_args, ops.nodes),
-            });
+            if (!r) {
+                Nodes ops = convert_operands(p, num_ops, instr);
+                r = call(a, (Call) {
+                        .callee = ops.nodes[num_args],
+                        .args = nodes(a, num_args, ops.nodes),
+                });
+            }
             if (t == unit_type(a))
                 num_results = 0;
             break;

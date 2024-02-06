@@ -209,6 +209,20 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
     if (!node)
         return NULL;
     switch (node->tag) {
+        case RefDecl_TAG: {
+            const Node* decl = node->payload.ref_decl.decl;
+            switch (is_declaration(decl)) {
+                case Declaration_GlobalVariable_TAG: {
+                    const Node* init = decl->payload.global_variable.init;
+                    if (init)
+                        return get_string_literal(arena, init);
+                    break;
+                }
+                default:
+                    break;
+            }
+            return NULL;
+        }
         case PrimOp_TAG: {
             switch (node->payload.prim_op.op) {
                 case lea_op: {

@@ -261,7 +261,17 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             }
             break;
         case RecordType_TAG:
-            printf("struct");
+            if (node->payload.record_type.special & MultipleReturn) {
+                if (node->payload.record_type.members.count == 0) {
+                    printf("unit_t");
+                    break;
+                }
+                printf("multiple_return");
+            } else if (node->payload.record_type.special & DecorateBlock) {
+                printf("block");
+            } else {
+                printf("struct");
+            }
             printf(RESET);
             printf(" {");
             const Nodes* members = &node->payload.record_type.members;
