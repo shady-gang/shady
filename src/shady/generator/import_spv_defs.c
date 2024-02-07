@@ -204,7 +204,6 @@ json_object* import_operand(json_object* operand, json_object* instruction_filte
 json_object* import_filtered_instruction(json_object* instruction, json_object* filter) {
     String name = json_object_get_string(json_object_object_get(instruction, "opname"));
     assert(name && strlen(name) > 2);
-    String node_name = sanitize_node_name(name);
 
     String import_property = json_object_get_string(json_object_object_get(filter, "import"));
     if (!import_property || (strcmp(import_property, "no") == 0)) {
@@ -212,6 +211,7 @@ json_object* import_filtered_instruction(json_object* instruction, json_object* 
     } else if (strcmp(import_property, "yes") != 0) {
         error("a filter's 'import' property needs to be 'yes' or 'no'")
     }
+    String node_name = sanitize_node_name(name);
 
     json_object* node = json_object_new_object();
     json_object_object_add(node, "name", json_object_new_string(node_name));
