@@ -41,9 +41,10 @@ static bool is_supported_natively(Context* ctx, const Type* element_type) {
 
 static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* src);
 
-static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Node* t) {
+static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Type* t) {
     IrArena* a = ctx->rewriter.dst_arena;
     BodyBuilder* bb = begin_body(a);
+    const Type* original_t = t;
     t = get_maybe_nominal_type_body(t);
     switch (is_type(t)) {
         case Type_ArrType_TAG:
@@ -57,17 +58,37 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Node*
             }
             fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
                     .fn = fn,
-                    .args = singleton(composite_helper(a, t, nodes(a, element_types.count, elements)))
+                    .args = singleton(composite_helper(a, original_t, nodes(a, element_types.count, elements)))
             }));
             return;
         }
-        default:
-            log_string(ERROR, "subgroup_first is not supported on ");
-            log_node(ERROR, t);
-            log_string(ERROR, ".\n");
-            error_die();
+        case Type_Int_TAG: {
+            if (t->payload.int_type.width == IntTy64) {
+                const Node* hi = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, param, int32_literal(a, 32)));
+                hi = convert_int_zero_extend(bb, int32_type(a), hi);
+                const Node* lo = convert_int_zero_extend(bb, int32_type(a), param);
+                hi = build_subgroup_first(ctx, bb, hi);
+                lo = build_subgroup_first(ctx, bb, lo);
+                const Node* it = int_type(a, (Int) { .width = IntTy64, .is_signed = t->payload.int_type.is_signed });
+                hi = convert_int_zero_extend(bb, it, hi);
+                lo = convert_int_zero_extend(bb, it, lo);
+                hi = gen_primop_e(bb, lshift_op, empty(a), mk_nodes(a, hi, int32_literal(a, 32)));
+                const Node* result = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, lo, hi));
+                fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
+                        .fn = fn,
+                        .args = singleton(result)
+                }));
+                return;
+            }
+            break;
+        }
+        default: break;
     }
-    SHADY_UNREACHABLE;
+
+    log_string(ERROR, "subgroup_first emulation is not supported for ");
+    log_node(ERROR, t);
+    log_string(ERROR, ".\n");
+    error_die();
 }
 
 static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* src) {

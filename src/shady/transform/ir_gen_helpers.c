@@ -203,6 +203,34 @@ const Node* convert_int_extend_according_to_dst_t(BodyBuilder* bb, const Type* d
     return val;
 }
 
+const Node* convert_int_zero_extend(BodyBuilder* bb, const Type* dst_type, const Node* src) {
+    const Type* src_type = get_unqualified_type(src->type);
+    assert(src_type->tag == Int_TAG);
+    assert(dst_type->tag == Int_TAG);
+
+    const Node* val = src;
+    val = gen_primop_e(bb, reinterpret_op, singleton(
+            int_type(bb->arena, (Int) {.width = src_type->payload.int_type.width, .is_signed = false })), singleton(val));
+    val = gen_primop_e(bb, convert_op, singleton(
+            int_type(bb->arena, (Int) {.width = dst_type->payload.int_type.width, .is_signed = false })), singleton(val));
+    val = gen_primop_e(bb, reinterpret_op, singleton(dst_type), singleton(val));
+    return val;
+}
+
+const Node* convert_int_sign_extend(BodyBuilder* bb, const Type* dst_type,  const Node* src) {
+    const Type* src_type = get_unqualified_type(src->type);
+    assert(src_type->tag == Int_TAG);
+    assert(dst_type->tag == Int_TAG);
+
+    const Node* val = src;
+    val = gen_primop_e(bb, reinterpret_op, singleton(
+            int_type(bb->arena, (Int) {.width = src_type->payload.int_type.width, .is_signed = true })), singleton(val));
+    val = gen_primop_e(bb, convert_op, singleton(
+            int_type(bb->arena, (Int) {.width = dst_type->payload.int_type.width, .is_signed = true })), singleton(val));
+    val = gen_primop_e(bb, reinterpret_op, singleton(dst_type), singleton(val));
+    return val;
+}
+
 const Node* get_default_zero_value(IrArena* a, const Type* t) {
     switch (is_type(t)) {
         case NotAType: error("")

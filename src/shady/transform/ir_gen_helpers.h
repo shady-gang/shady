@@ -33,6 +33,8 @@ const Node* access_decl(Rewriter*, const char* name);
 
 const Node* convert_int_extend_according_to_src_t(BodyBuilder*, const Type* dst_type, const Node* src);
 const Node* convert_int_extend_according_to_dst_t(BodyBuilder*, const Type* dst_type, const Node* src);
+const Node* convert_int_zero_extend(BodyBuilder*, const Type* dst_type, const Node* src);
+const Node* convert_int_sign_extend(BodyBuilder*, const Type* dst_type, const Node* src);
 
 const Node* get_default_zero_value(IrArena*, const Type*);
 
