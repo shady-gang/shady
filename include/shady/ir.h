@@ -9,7 +9,7 @@
 typedef struct IrArena_ IrArena;
 typedef struct Node_ Node;
 typedef struct Node_ Type;
-typedef unsigned int VarId;
+typedef uint32_t VarId;
 typedef const char* String;
 
 //////////////////////////////// Lists & Strings ////////////////////////////////

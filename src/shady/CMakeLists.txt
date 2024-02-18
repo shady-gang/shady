@@ -14,9 +14,10 @@ add_generated_file(FILE_NAME primops_generated.c      TARGET_NAME primops_genera
 add_generated_file(FILE_NAME constructors_generated.c TARGET_NAME constructors_generated SOURCES generator_constructors.c)
 add_generated_file(FILE_NAME visit_generated.c        TARGET_NAME visit_generated        SOURCES generator_visit.c)
 add_generated_file(FILE_NAME rewrite_generated.c      TARGET_NAME rewrite_generated      SOURCES generator_rewrite.c)
+add_generated_file(FILE_NAME print_generated.c        TARGET_NAME print_generated        SOURCES generator_print.c)
 
 add_library(shady_generated INTERFACE)
-add_dependencies(shady_generated node_generated primops_generated type_generated constructors_generated visit_generated rewrite_generated)
+add_dependencies(shady_generated node_generated primops_generated type_generated constructors_generated visit_generated rewrite_generated print_generated)
 target_include_directories(shady_generated INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>")
 target_link_libraries(api INTERFACE "$<BUILD_INTERFACE:shady_generated>")
 

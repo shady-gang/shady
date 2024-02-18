@@ -367,6 +367,9 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             printf("%s", get_declaration_name(node->payload.type_decl_ref.decl));
             break;
         }
+        default:
+            print_node_generated(ctx->printer, node, ctx->config);
+            break;
     }
     printf(RESET);
 }
@@ -525,13 +528,15 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             printf((char*) get_declaration_name(node->payload.fn_addr.fn));
             printf(RESET);
             break;
+        default:
+            print_node_generated(ctx->printer, node, ctx->config);
+            break;
     }
 }
 
 static void print_instruction(PrinterCtx* ctx, const Node* node) {
     switch (is_instruction(node)) {
         case NotAnInstruction: assert(false); break;
-        default: assert(false);
         case Instruction_Comment_TAG: {
             printf(GREY);
             printf("/* %s */", node->payload.comment.string);
@@ -631,6 +636,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             print_case_body(ctx, node->payload.block.inside);
             break;
         }
+        default: print_node_generated(ctx->printer, node, ctx->config);
     }
 }
 
@@ -928,7 +934,9 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
             printf(RESET);
             break;
         }
-        default: error("dunno how to print %s", node_tags[node->tag]);
+        default:
+            print_node_generated(ctx->printer, node, ctx->config);
+            break;
     }
 }
 
@@ -1002,3 +1010,88 @@ void log_module(LogLevel level, CompilerConfig* compiler_cfg, Module* mod) {
     if (level >= get_log_level())
         print_module(open_file_as_printer(stderr), mod, config);
 }
+
+void print_node_operand(Printer* p, const Node* n, String name, NodeClass op_class, const Node* op, PrintConfig config) {
+    print(p, " '%s': %%zu", name, (size_t) op);
+}
+
+void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass op_class, Nodes ops, PrintConfig config) {
+    print(p, " '%s': [", name);
+    for (size_t i = 0; i < ops.count; i++) {
+        print(p, "%%zu", (size_t) ops.nodes[i]);
+        if (i + 1 < ops.count)
+            print(p, ", ");
+    }
+    print(p, "]");
+}
+
+void print_node_operand_const_Node_(Printer* p, const Node* n, String name, const Node* op, PrintConfig config) {
+    print(p, " '%s': %%zu", name, (size_t) op);
+}
+
+void print_node_operand_AddressSpace(Printer* p, const Node* n, String name, AddressSpace as, PrintConfig config) {
+    print(p, " '%s': %s", name, get_address_space_name(as));
+}
+
+void print_node_operand_Op(Printer* p, const Node* n, String name, Op op, PrintConfig config) {
+    print(p, " '%s': %s", name, get_primop_name(op));
+}
+
+void print_node_operand_RecordSpecialFlag(Printer* p, const Node* n, String name, RecordSpecialFlag flags, PrintConfig config) {
+    print(p, " '%s': ", name);
+    if (flags & MultipleReturn)
+        print(p, "MultipleReturn");
+    if (flags & DecorateBlock)
+        print(p, "DecorateBlock");
+}
+
+void print_node_operand_uint32_t(Printer* p, const Node* n, String name, uint32_t i, PrintConfig config) {
+    print(p, " '%s': %u", name, i);
+}
+
+void print_node_operand_uint64_t(Printer* p, const Node* n, String name, uint64_t i, PrintConfig config) {
+    print(p, " '%s': %zu", name, i);
+}
+
+void print_node_operand_IntSizes(Printer* p, const Node* n, String name, IntSizes s, PrintConfig config) {
+    print(p, " '%s': ", name);
+    switch (s) {
+        case IntTy8:  print(p, "8");  break;
+        case IntTy16: print(p, "16"); break;
+        case IntTy32: print(p, "32"); break;
+        case IntTy64: print(p, "64"); break;
+    }
+}
+
+void print_node_operand_FloatSizes(Printer* p, const Node* n, String name, FloatSizes s, PrintConfig config) {
+    print(p, " '%s': ", name);
+    switch (s) {
+        case FloatTy16: print(p, "16"); break;
+        case FloatTy32: print(p, "32"); break;
+        case FloatTy64: print(p, "64"); break;
+    }
+}
+
+void print_node_operand_String(Printer* p, const Node* n, String name, String s, PrintConfig config) {
+    print(p, " '%s': \"%s\"", name, s);
+}
+
+void print_node_operand_Strings(Printer* p, const Node* n, String name, Strings ops, PrintConfig config) {
+    print(p, " '%s': [", name);
+    for (size_t i = 0; i < ops.count; i++) {
+        print(p, "\"%s\"", (size_t) ops.strings[i]);
+        if (i + 1 < ops.count)
+            print(p, ", ");
+    }
+    print(p, "]");
+}
+
+void print_node_operand_bool(Printer* p, const Node* n, String name, bool b, PrintConfig config) {
+    print(p, " '%s': ", name);
+    if (b)
+        print(p, "true");
+    else
+        print(p, "false");
+}
+
+#include "print_generated.c"

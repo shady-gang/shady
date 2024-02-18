@@ -249,7 +249,7 @@
       "class": "type",
       "ops": [
         { "name": "element_type", "class": "type" },
-        { "name": "width", "type": "int" }
+        { "name": "width", "type": "uint32_t" }
       ]
     },
     {
@@ -267,7 +267,7 @@
       "constructor": "custom",
       "ops": [
         { "name": "type", "class": "type" },
-        { "name": "id", "type": "VarId" },
+        { "name": "id", "type": "uint32_t" },
         { "name": "name", "class": "string" },
         { "name": "abs", "type": "const Node*", "ignore": true },
         { "name": "pindex", "type": "unsigned", "ignore": true }
