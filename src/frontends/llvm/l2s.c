@@ -47,7 +47,7 @@ static const Node* write_bb_tail(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
         if (!emitted.instruction)
             continue;
         String names[] = { LLVMGetValueName(instr) };
-        Nodes results = bind_instruction_explicit_result_types(b, emitted.instruction, emitted.result_types, names, false);
+        Nodes results = bind_instruction_explicit_result_types(b, emitted.instruction, emitted.result_types, names);
         if (emitted.result_types.count == 1) {
             const Node* result = first(results);
             insert_dict(LLVMValueRef, const Node*, p->map, instr, result);

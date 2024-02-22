@@ -87,12 +87,16 @@ Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String co
     return bind_internal(bb, instruction, false, SIZE_MAX, NULL, output_names);
 }
 
-Nodes bind_instruction_explicit_result_types(BodyBuilder* bb, const Node* instruction, Nodes provided_types, String const output_names[], bool mut) {
-    return bind_internal(bb, instruction, mut, provided_types.count, provided_types.nodes, output_names);
+Nodes bind_instruction_explicit_result_types(BodyBuilder* bb, const Node* instruction, Nodes provided_types, String const output_names[]) {
+    return bind_internal(bb, instruction, false, provided_types.count, provided_types.nodes, output_names);
 }
 
-Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count, String const output_names[], bool mut) {
-    return bind_internal(bb, instruction, mut, outputs_count, NULL, output_names);
+Nodes create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, String const output_names[]) {
+    return bind_internal(bb, instruction, true, provided_types.count, provided_types.nodes, output_names);
+}
+
+Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count, String const output_names[]) {
+    return bind_internal(bb, instruction, false, outputs_count, NULL, output_names);
 }
 
 void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {

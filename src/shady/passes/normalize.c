@@ -22,7 +22,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
     if (is_instruction(node)) {
         const Node* let_bound;
         let_bound = process_node(ctx, node);
-        return first(bind_instruction_outputs_count(ctx->bb, let_bound, 1, NULL, false));
+        return first(bind_instruction_outputs_count(ctx->bb, let_bound, 1, NULL));
     }
 
     switch (node->tag) {

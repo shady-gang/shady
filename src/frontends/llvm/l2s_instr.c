@@ -37,7 +37,7 @@ static Nodes reinterpret_operands(BodyBuilder* b, Nodes ops, const Type* dst_t) 
     IrArena* a = dst_t->arena;
     LARRAY(const Node*, nops, ops.count);
     for (size_t i = 0; i < ops.count; i++)
-        nops[i] = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(dst_t), singleton(ops.nodes[i])), singleton(dst_t), NULL, false));
+        nops[i] = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(dst_t), singleton(ops.nodes[i])), singleton(dst_t), NULL));
     return nodes(a, ops.count, nops);
 }
 
@@ -101,7 +101,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
 
     const Type* t = convert_type(p, LLVMTypeOf(instr));
 
-#define BIND_PREV_R(t) bind_instruction_explicit_result_types(b, r, singleton(t), NULL, false)
+#define BIND_PREV_R(t) bind_instruction_explicit_result_types(b, r, singleton(t), NULL)
 
     //if (LLVMIsATerminatorInst(instr)) {
     if (LLVMIsAInstruction(instr)) {
@@ -220,10 +220,10 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = convert_type(p, LLVMGetAllocatedType(instr));
             const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivatePhysical });
-            r = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, alloca_op, singleton(allocated_t), empty(a)), singleton(allocated_ptr_t), NULL, false));
+            r = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, alloca_op, singleton(allocated_t), empty(a)), singleton(allocated_ptr_t), NULL));
             if (UNTYPED_POINTERS) {
                 const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivatePhysical });
-                r = first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, singleton(untyped_ptr_t), singleton(r)), 1, NULL, false));
+                r = first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, singleton(untyped_ptr_t), singleton(r)), 1, NULL));
             }
             r = prim_op_helper(a, convert_op, singleton(t), singleton(r));
             break;
@@ -507,7 +507,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                         LARRAY(const Node*, processed_ops, ops.count);
                         for (i = 0; i < num_args; i++) {
                             if (decoded[i].is_byval)
-                                processed_ops[i] = first(bind_instruction_outputs_count(b, prim_op_helper(a, load_op, empty(a), singleton(ops.nodes[i])), 1, NULL, false));
+                                processed_ops[i] = first(bind_instruction_outputs_count(b, prim_op_helper(a, load_op, empty(a), singleton(ops.nodes[i])), 1, NULL));
                             else
                                 processed_ops[i] = ops.nodes[i];
                         }

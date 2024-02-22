@@ -129,7 +129,7 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
 
     BodyBuilder* bb = begin_body(a);
 
-    Nodes initial_values = bind_instruction_outputs_count(bb, ninstruction, old_lam->payload.case_.params.count, NULL, false);
+    Nodes initial_values = bind_instruction_outputs_count(bb, ninstruction, old_lam->payload.case_.params.count, NULL);
     Nodes old_params = old_lam->payload.case_.params;
     for (size_t i = 0; i < old_params.count; i++) {
         const Node* oparam = old_params.nodes[i];
@@ -140,12 +140,12 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
             .type_arguments = nodes(a, 1, (const Node* []){rewrite_node(&ctx->rewriter, type_annotation) }),
             .operands = nodes(a, 0, NULL)
         });
-        const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1, &oparam->payload.var.name, false).nodes[0];
+        const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1, &oparam->payload.var.name).nodes[0];
         const Node* store = prim_op(a, (PrimOp) {
             .op = store_op,
             .operands = nodes(a, 2, (const Node* []) {ptr, initial_values.nodes[0] })
         });
-        bind_instruction_outputs_count(bb, store, 0, NULL, false);
+        bind_instruction_outputs_count(bb, store, 0, NULL);
 
         add_binding(&body_infer_ctx, true, oparam->payload.var.name, ptr);
         log_string(DEBUGV, "Lowered mutable variable ");
