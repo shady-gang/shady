@@ -650,22 +650,28 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
     TerminatorTag tag = is_terminator(node);
     switch (tag) {
         case NotATerminator: assert(false);
-        case Let_TAG:
-        case LetMut_TAG: {
+        case Let_TAG: {
             const Node* instruction = get_let_instruction(node);
+            bool mut = false;
+            if (instruction->tag == LetMut_TAG)
+                mut = true;
             const Node* tail = get_let_tail(node);
             if (!ctx->config.reparseable) {
                 // if the let tail is a case, we apply some syntactic sugar
-                if (tail->payload.case_.params.count > 0) {
+                if (mut || tail->payload.case_.params.count > 0) {
                     printf(GREEN);
-                    if (tag == LetMut_TAG)
+                    if (mut)
                         printf("var");
                     else
                         printf("val");
                     printf(RESET);
                     Nodes params = tail->payload.case_.params;
+                    if (mut) {
+                        params = instruction->payload.let_mut.variables;
+                        instruction = instruction->payload.let_mut.instruction;
+                    }
                     for (size_t i = 0; i < params.count; i++) {
-                        if (tag == LetMut_TAG || !ctx->config.reparseable) {
+                        if (mut || !ctx->config.reparseable) {
                             printf(" ");
                             print_node(params.nodes[i]->payload.var.type);
                         }

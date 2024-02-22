@@ -353,7 +353,6 @@ void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const T
 static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator) {
     switch (is_terminator(terminator)) {
         case NotATerminator: assert(false);
-        case LetMut_TAG:
         case Join_TAG: error("this must be lowered away!");
         case Jump_TAG:
         case Branch_TAG:

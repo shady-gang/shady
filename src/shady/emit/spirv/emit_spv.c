@@ -223,7 +223,6 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
 
             spvb_switch(basic_block_builder, inspectee, default_tgt, terminator->payload.br_switch.case_jumps.count, targets);
         }
-        case LetMut_TAG:
         case TailCall_TAG:
         case Join_TAG: error("Lower me");
         case Terminator_Yield_TAG: {

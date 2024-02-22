@@ -305,7 +305,6 @@ const Node* get_let_instruction(const Node* let) {
 const Node* get_let_tail(const Node* let) {
     switch (let->tag) {
         case Let_TAG: return let->payload.let.tail;
-        case LetMut_TAG: return let->payload.let_mut.tail;
         default: assert(false);
     }
 }

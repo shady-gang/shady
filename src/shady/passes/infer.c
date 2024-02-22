@@ -731,7 +731,6 @@ static const Node* _infer_instruction(Context* ctx, const Node* node, const Type
 static const Node* _infer_terminator(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_terminator(node)) {
-        case Terminator_LetMut_TAG:
         case NotATerminator: assert(false);
         case Let_TAG: {
             const Node* otail = node->payload.let.tail;

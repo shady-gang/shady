@@ -121,16 +121,12 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
 static const Node* desugar_let_mut(Context* ctx, const Node* node) {
     assert(node->tag == LetMut_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
-    Context body_infer_ctx = *ctx;
-    const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.let.instruction);
-
-    const Node* old_lam = node->payload.let.tail;
-    assert(old_lam && is_case(old_lam));
+    const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.let_mut.instruction);
 
     BodyBuilder* bb = begin_body(a);
 
-    Nodes initial_values = bind_instruction_outputs_count(bb, ninstruction, old_lam->payload.case_.params.count, NULL);
-    Nodes old_params = old_lam->payload.case_.params;
+    Nodes old_params = node->payload.let_mut.variables;
+    Nodes initial_values = bind_instruction_outputs_count(bb, ninstruction, old_params.count, NULL);
     for (size_t i = 0; i < old_params.count; i++) {
         const Node* oparam = old_params.nodes[i];
         const Type* type_annotation = oparam->payload.var.type;
@@ -147,14 +143,14 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
         });
         bind_instruction_outputs_count(bb, store, 0, NULL);
 
-        add_binding(&body_infer_ctx, true, oparam->payload.var.name, ptr);
+        add_binding(ctx, true, oparam->payload.var.name, ptr);
         log_string(DEBUGV, "Lowered mutable variable ");
         log_node(DEBUGV, oparam);
         log_string(DEBUGV, ".\n;");
     }
 
-    const Node* terminator = rewrite_node(&body_infer_ctx.rewriter, old_lam->payload.case_.body);
-    return finish_body(bb, terminator);
+    Nodes e = empty(a);
+    return yield_values_and_wrap_in_block_explicit_return_types(bb, empty(a), &e);
 }
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {

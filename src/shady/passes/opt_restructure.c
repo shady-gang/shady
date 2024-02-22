@@ -168,7 +168,6 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
     assert(body);
     switch (is_terminator(body)) {
         case NotATerminator:
-        case LetMut_TAG: assert(false);
         case Let_TAG: {
             const Node* old_tail = get_let_tail(body);
             Nodes otail_params = get_abstraction_params(old_tail);

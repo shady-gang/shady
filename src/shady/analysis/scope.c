@@ -169,7 +169,6 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     if (!terminator)
         return;
     switch (is_terminator(terminator)) {
-        case LetMut_TAG:
         case Let_TAG: {
             const Node* target = get_let_tail(terminator);
             process_instruction(ctx, node, get_let_instruction(terminator), target);

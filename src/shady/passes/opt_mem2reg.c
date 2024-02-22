@@ -393,7 +393,6 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
     switch (is_terminator(old)) {
-        case Terminator_LetMut_TAG:
         case NotATerminator: assert(false);
         case Let_TAG: {
             const Node* oinstruction = get_let_instruction(old);

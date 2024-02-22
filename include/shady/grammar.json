@@ -463,12 +463,12 @@
     },
     {
       "name": "LetMut",
-      "class": "terminator",
+      "class": "instruction",
       "constructor": "custom",
       "front-end-only": true,
       "ops": [
         { "name": "instruction", "class": "instruction" },
-        { "name": "tail", "class": "case" }
+        { "name": "variables", "class": "variable", "list": true }
       ]
     },
     {

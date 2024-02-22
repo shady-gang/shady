@@ -108,10 +108,10 @@ Node* var(IrArena* arena, const Type* type, const char* name) {
     return create_node_helper(arena, node, NULL);
 }
 
-const Node* let_mut(IrArena* arena, const Node* instruction, const Node* tail) {
+const Node* let_mut(IrArena* arena, const Node* instruction, Nodes variables) {
     LetMut payload = {
         .instruction = instruction,
-        .tail = tail,
+        .variables = variables,
     };
 
     Node node;
