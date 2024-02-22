@@ -28,8 +28,6 @@ IrArena* new_ir_arena(ArenaConfig config) {
         .arena = new_arena(),
         .config = config,
 
-        .next_free_id = 0,
-
         .modules = new_list(Module*),
 
         .node_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
@@ -37,8 +35,14 @@ IrArena* new_ir_arena(ArenaConfig config) {
 
         .nodes_set   = new_set(Nodes, (HashFn) hash_nodes, (CmpFn) compare_nodes),
         .strings_set = new_set(Strings, (HashFn) hash_strings, (CmpFn) compare_strings),
+
+        .ids = new_growy(),
     };
     return arena;
+}
+
+const Node* get_node_by_id(const IrArena* a, NodeId id) {
+    return ((const Node**) growy_data(a->ids))[id];
 }
 
 void destroy_ir_arena(IrArena* arena) {
@@ -52,6 +56,7 @@ void destroy_ir_arena(IrArena* arena) {
     destroy_dict(arena->nodes_set);
     destroy_dict(arena->node_set);
     destroy_arena(arena->arena);
+    destroy_growy(arena->ids);
     free(arena);
 }
 
@@ -59,8 +64,9 @@ ArenaConfig get_arena_config(const IrArena* a) {
     return a->config;
 }
 
-VarId fresh_id(IrArena* arena) {
-    return arena->next_free_id++;
+NodeId allocate_node_id(IrArena* arena, const Node* n) {
+    growy_append_object(arena->ids, n);
+    return growy_size(arena->ids) / sizeof(const Node*);
 }
 
 Nodes nodes(IrArena* arena, size_t count, const Node* in_nodes[]) {
@@ -212,7 +218,7 @@ String format_string_interned(IrArena* arena, const char* str, ...) {
 }
 
 const char* unique_name(IrArena* arena, const char* str) {
-    return format_string_interned(arena, "%s_%d", str, fresh_id(arena));
+    return format_string_interned(arena, "%s_%d", str, allocate_node_id(arena, NULL));
 }
 
 KeyHash hash_nodes(Nodes* nodes) {

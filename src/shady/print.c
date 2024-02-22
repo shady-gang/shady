@@ -414,9 +414,9 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
                 printf(YELLOW);
             String name = get_value_name(node);
             if (name)
-                printf("%s_%d", name, node->payload.var.id);
+                printf("%s", name);
             else
-                printf("v%d", node->payload.var.id);
+                printf("%%%d", node->id);
             printf(RESET);
             break;
         case UntypedNumber_TAG:
@@ -1012,13 +1012,13 @@ void log_module(LogLevel level, CompilerConfig* compiler_cfg, Module* mod) {
 }
 
 void print_node_operand(Printer* p, const Node* n, String name, NodeClass op_class, const Node* op, PrintConfig config) {
-    print(p, " '%s': %%zu", name, (size_t) op);
+    print(p, " '%s': %%%zu", name, (size_t) op);
 }
 
 void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass op_class, Nodes ops, PrintConfig config) {
     print(p, " '%s': [", name);
     for (size_t i = 0; i < ops.count; i++) {
-        print(p, "%%zu", (size_t) ops.nodes[i]);
+        print(p, "%%%zu", (size_t) ops.nodes[i]);
         if (i + 1 < ops.count)
             print(p, ", ");
     }
@@ -1026,7 +1026,7 @@ void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass o
 }
 
 void print_node_operand_const_Node_(Printer* p, const Node* n, String name, const Node* op, PrintConfig config) {
-    print(p, " '%s': %%zu", name, (size_t) op);
+    print(p, " '%s': %%%zu", name, (size_t) op);
 }
 
 void print_node_operand_AddressSpace(Printer* p, const Node* n, String name, AddressSpace as, PrintConfig config) {

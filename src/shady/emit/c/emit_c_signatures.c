@@ -59,10 +59,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
         for (size_t i = 0; i < dom.count; i++) {
             String param_name;
             String variable_name = get_value_name(fn->payload.fun.params.nodes[i]);
-            if (variable_name)
-                param_name = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), fn->payload.fun.params.nodes[i]->payload.var.id);
-            else
-                param_name = format_string_arena(emitter->arena->arena, "p%d", fn->payload.fun.params.nodes[i]->payload.var.id);
+            param_name = unique_name(emitter->arena, legalize_c_identifier(emitter, variable_name));
             print(paramp, emit_type(emitter, params.nodes[i]->type, param_name));
             if (i + 1 < dom.count) {
                 print(paramp, ", ");

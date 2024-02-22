@@ -9,7 +9,7 @@
 typedef struct IrArena_ IrArena;
 typedef struct Node_ Node;
 typedef struct Node_ Type;
-typedef uint32_t VarId;
+typedef uint32_t NodeId;
 typedef const char* String;
 
 //////////////////////////////// Lists & Strings ////////////////////////////////
@@ -108,6 +108,7 @@ ArenaConfig default_arena_config();
 IrArena* new_ir_arena(ArenaConfig);
 void destroy_ir_arena(IrArena*);
 ArenaConfig get_arena_config(const IrArena*);
+const Node* get_node_by_id(const IrArena*, NodeId);
 
 //////////////////////////////// Getters ////////////////////////////////
 

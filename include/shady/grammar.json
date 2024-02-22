@@ -267,7 +267,6 @@
       "constructor": "custom",
       "ops": [
         { "name": "type", "class": "type" },
-        { "name": "id", "type": "uint32_t" },
         { "name": "name", "class": "string" },
         { "name": "abs", "type": "const Node*", "ignore": true },
         { "name": "pindex", "type": "unsigned", "ignore": true }

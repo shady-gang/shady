@@ -148,7 +148,9 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
         bind_instruction_outputs_count(bb, store, 0, NULL, false);
 
         add_binding(&body_infer_ctx, true, oparam->payload.var.name, ptr);
-        debugv_print("Lowered mutable variable %s\n", get_value_name_safe(oparam));
+        log_string(DEBUGV, "Lowered mutable variable ");
+        log_node(DEBUGV, oparam);
+        log_string(DEBUGV, ".\n;");
     }
 
     const Node* terminator = rewrite_node(&body_infer_ctx.rewriter, old_lam->payload.case_.body);

@@ -32,10 +32,9 @@ static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String g
         assert(init_values->count == types.count);
     LARRAY(String, names, types.count);
     for (size_t i = 0; i < types.count; i++) {
-        VarId id = fresh_id(emitter->arena);
         String name = given_names ? given_names->strings[i] : given_name;
         assert(name);
-        names[i] = format_string_arena(emitter->arena->arena, "%s_%d", name, id);
+        names[i] = unique_name(emitter->arena, name);
         if (init_values) {
             CTerm initializer = emit_value(emitter, p, init_values->nodes[i]);
             emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, &initializer);

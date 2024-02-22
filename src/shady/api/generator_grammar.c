@@ -67,6 +67,7 @@ static void generate_node_payloads(Growy* g, json_object* src, json_object* node
 static void generate_node_type(Growy* g, json_object* nodes) {
     growy_append_formatted(g, "struct Node_ {\n");
     growy_append_formatted(g, "\tIrArena* arena;\n");
+    growy_append_formatted(g, "\tNodeId id;\n");
     growy_append_formatted(g, "\tconst Type* type;\n");
     growy_append_formatted(g, "\tNodeTag tag;\n");
     growy_append_formatted(g, "\tunion NodesUnion {\n");

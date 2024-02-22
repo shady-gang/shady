@@ -50,6 +50,8 @@ static bool is_legal_c_identifier_char(char c) {
 }
 
 String legalize_c_identifier(Emitter* e, String src) {
+    if (!src)
+        return "unnamed";
     size_t len = strlen(src);
     LARRAY(char, dst, len + 1);
     size_t i;
@@ -388,11 +390,10 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                     case LetBinding: {
                         String variable_name = get_value_name(tail_params.nodes[i]);
 
-                        String bind_to;
-                        if (variable_name)
-                            bind_to = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), fresh_id(emitter->arena));
-                        else
-                            bind_to = format_string_arena(emitter->arena->arena, "v%d", fresh_id(emitter->arena));
+                        if (!variable_name)
+                            variable_name = "";
+
+                        String bind_to = unique_name(emitter->arena, variable_name);
 
                         const Type* t = yield_types.nodes[i];
 
@@ -604,10 +605,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
                     String variable_name = get_value_name(decl->payload.fun.params.nodes[i]);
-                    if (variable_name)
-                        param_name = format_string_arena(emitter->arena->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->payload.var.id);
-                    else
-                        param_name = format_string_arena(emitter->arena->arena, "p%d", decl->payload.fun.params.nodes[i]->payload.var.id);
+                    param_name = unique_name(emitter->arena, legalize_c_identifier(emitter, variable_name));
                     register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 

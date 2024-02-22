@@ -64,7 +64,9 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
         const LTNode* defining_loop = get_loop(looptree_lookup(ctx->loop_tree, defining_cf_node->node));
         if (!is_child(defining_loop, bb_loop)) {
             // that's it, that variable is leaking !
-            debug_print("lcssa: %s~%d is used outside of the loop that defines it %s %s\n", get_value_name_safe(fv), fv->payload.var.id, loop_name(defining_loop), loop_name(bb_loop));
+            log_string(DEBUGV, "lcssa: ");
+            log_node(DEBUGV, fv);
+            log_string(DEBUGV, " (%%%d) is used outside of the loop that defines it %s %s\n", fv->id, loop_name(defining_loop), loop_name(bb_loop));
             const Node* narg = rewrite_node(&ctx->rewriter, fv);
             const Node* nparam = var(a, narg->type, "lcssa_phi");
             *nparams = append_nodes(a, *nparams, nparam);

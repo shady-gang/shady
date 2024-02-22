@@ -5,6 +5,8 @@
 
 #include "arena.h"
 
+#include "growy.h"
+
 #include "stdlib.h"
 #include "stdio.h"
 
@@ -12,7 +14,7 @@ typedef struct IrArena_ {
     Arena* arena;
     ArenaConfig config;
 
-    VarId next_free_id;
+    Growy* ids;
     struct List* modules;
 
     struct Dict* node_set;
@@ -37,7 +39,7 @@ struct BodyBuilder_ {
     struct List* stack;
 };
 
-VarId fresh_id(IrArena*);
+NodeId allocate_node_id(IrArena*, const Node* n);
 
 struct List;
 Nodes list_to_nodes(IrArena*, struct List*);

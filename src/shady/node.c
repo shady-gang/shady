@@ -20,7 +20,7 @@ String get_value_name_safe(const Node* v) {
     if (name)
         return name;
     if (v->tag == Variable_TAG)
-        return format_string_interned(v->arena, "v%d", v->payload.var.id);
+        return format_string_interned(v->arena, "v%d", v->id);
     return node_tags[v->tag];
 }
 

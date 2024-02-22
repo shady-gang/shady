@@ -65,6 +65,7 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     // place the node in the arena and return it
     Node* alloc = (Node*) arena_alloc(arena->arena, sizeof(Node));
     *alloc = node;
+    alloc->id = allocate_node_id(arena, alloc);
     insert_set_get_result(const Node*, arena->node_set, alloc);
 
     post_construction_validation(arena, alloc);
@@ -94,7 +95,6 @@ Node* var(IrArena* arena, const Type* type, const char* name) {
     Variable variable = {
         .type = type,
         .name = string(arena, name),
-        .id = fresh_id(arena)
     };
 
     Node node;
