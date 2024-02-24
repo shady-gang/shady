@@ -4,6 +4,8 @@ project (shady C)
 include(ExternalProject)
 include(FetchContent)
 
+find_package(Git)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
@@ -45,7 +47,20 @@ if(NOT ${LLVM_FOUND} AND WIN32)
                      IMPORTED_LOCATION "${LLVM_DIR}bin/LLVM-C.dll")
         set_property(TARGET LLVM-C PROPERTY
                      IMPORTED_IMPLIB "${LLVM_DIR}lib/LLVM-C.lib")
-        target_include_directories(LLVM-C INTERFACE "vendor")
+        
+        execute_process(
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            COMMAND ${GIT_EXECUTABLE} clone -n --depth 1 --filter=tree:0 https://github.com/llvm/llvm-project/ --branch "llvmorg-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}"
+        )
+        execute_process(
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/llvm-project
+            COMMAND ${GIT_EXECUTABLE} sparse-checkout set --no-cone llvm/include/llvm-c
+        )
+        execute_process(
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/llvm-project
+            COMMAND ${GIT_EXECUTABLE} checkout
+        )
+        target_include_directories(LLVM-C INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/llvm-project/llvm/include)
         target_compile_definitions(LLVM-C INTERFACE -DLLVM_VERSION_MAJOR=${LLVM_VERSION_MAJOR} -DLLVM_VERSION_MINOR=${LLVM_VERSION_MINOR} -DLLVM_VERSION_PATCH=${LLVM_VERSION_PATCH})
         message(STATUS "Win32: Installed LLVM ${LLVM_VERSION} found at ${LLVM_DIR}")
         set(LLVM_FOUND TRUE)
