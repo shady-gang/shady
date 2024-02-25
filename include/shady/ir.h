@@ -342,4 +342,6 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig emitter_config, Modul
 void dump_cfg(FILE* file, Module*);
 void dump_loop_trees(FILE* output, Module* mod);
 
+void free_output(char* output);
+
 #endif
