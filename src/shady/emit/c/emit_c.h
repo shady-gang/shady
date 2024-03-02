@@ -7,13 +7,6 @@
 #include "arena.h"
 #include "printer.h"
 
-#define emit_type c_emit_type
-#define emit_value c_emit_value
-#define emit_instruction c_emit_instruction
-#define emit_lambda_body c_emit_lambda_body
-#define emit_decl c_emit_decl
-#define emit_nominal_type_body c_emit_nominal_type_body
-
 /// SSA-like things, you can read them
 typedef String CValue;
 /// non-SSA like things, they represent addresses
@@ -28,6 +21,7 @@ typedef struct {
 
 #define term_from_cvalue(t) (CTerm) { .value = t }
 #define term_from_cvar(t) (CTerm) { .var = t }
+#define empty_term() (CTerm) { 0 }
 
 typedef Strings Phis;
 
@@ -43,43 +37,34 @@ typedef struct {
     struct Dict* emitted_types;
 } Emitter;
 
-void register_emitted(Emitter*, const Node*, CTerm);
-void register_emitted_type(Emitter*, const Type*, String);
+CTerm register_emitted_cterm(Emitter* emitter, const Node* node, CTerm as);
+CType register_emitted_ctype(Emitter* emitter, const Node* node, CType as);
 
-CTerm* lookup_existing_term(Emitter* emitter, const Node*);
-CType* lookup_existing_type(Emitter* emitter, const Type*);
+CTerm* lookup_existing_cterm(Emitter* emitter, const Node* node);
+CType* lookup_existing_ctype(Emitter* emitter, const Type* node);
 
 CValue to_cvalue(Emitter*, CTerm);
-CAddr deref_term(Emitter*, CTerm);
+CAddr deref_cterm(Emitter*, CTerm);
 
-void emit_decl(Emitter* emitter, const Node* decl);
-CType emit_type(Emitter* emitter, const Type*, const char* identifier);
-String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn);
-void emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
-void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer);
+void c_emit_decl(Emitter* emitter, const Node* decl);
+CType c_emit_type(Emitter* emitter, const Type*, const char* identifier);
+String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn);
+void c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
 
-CTerm emit_value(Emitter* emitter, Printer*, const Node* value);
-CTerm emit_c_builtin(Emitter*, Builtin);
+CTerm c_emit_value(Emitter* emitter, Printer*, const Node* value);
+CTerm c_emit_builtin(Emitter*, Builtin);
 
 String legalize_c_identifier(Emitter*, String);
-String get_record_field_name(const Type* t, size_t i);
+String c_get_record_field_name(const Type* t, size_t i);
 CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Type* ptr_type, CTerm term);
 
-typedef enum { NoBinding, LetBinding } InstrResultBinding;
+void c_emit_terminator(Emitter*, Printer* block_printer, const Node* terminator);
+CTerm c_emit_instruction(Emitter*, Printer* p, const Node* instruction);
+void c_emit_lambda_body_at(Emitter*, Printer*, const Node*, const Nodes* nested_basic_blocks);
+String c_emit_lambda_body(Emitter*, const Node*, const Nodes* nested_basic_blocks);
 
-typedef struct {
-    size_t count;
-    CTerm* results;
-    /// What to do with the results at the call site
-    InstrResultBinding* binding;
-} InstructionOutputs;
-
-void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, InstructionOutputs);
-String emit_lambda_body   (Emitter*,           const Node*, const Nodes* nested_basic_blocks);
-void   emit_lambda_body_at(Emitter*, Printer*, const Node*, const Nodes* nested_basic_blocks);
-
-void emit_pack_code(Printer*, Strings, String dst);
-void emit_unpack_code(Printer*, String src, Strings dst);
+// void emit_pack_code(Printer*, Strings, String dst);
+// void emit_unpack_code(Printer*, String src, Strings dst);
 
 #define free_tmp_str(s) free((char*) (s))
 

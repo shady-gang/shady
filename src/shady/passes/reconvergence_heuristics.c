@@ -240,7 +240,6 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 BodyBuilder* exit_recover_bb = begin_body(arena);
 
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
-                const Node* recreated_exit = rewrite_node(rewriter, exiting_node->node);
 
                 LARRAY(const Node*, recovered_args, exit_allocas[i].count);
                 for (size_t j = 0; j < exit_allocas[i].count; j++)
@@ -248,6 +247,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 exit_numbers[i] = int32_literal(arena, i);
                 Node* exit_bb = basic_block(arena, fn, empty(arena), format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name(exiting_node->node)));
+                register_processed_list(rewriter, get_abstraction_params(exiting_node->node), nodes(arena, exit_allocas[i].count, recovered_args));
+                const Node* recreated_exit = rewrite_node(rewriter, exiting_node->node);
                 if (recreated_exit->tag == BasicBlock_TAG) {
                     exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
                             .target = recreated_exit,
@@ -255,7 +256,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     }));
                 } else {
                     assert(recreated_exit->tag == Case_TAG);
-                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_allocas[i].count, recovered_args)), recreated_exit));
+                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, recreated_exit);
                 }
                 exit_jumps[i] = jump_helper(arena, exit_bb, empty(arena));
             }
@@ -265,10 +266,10 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             else {
                 const Node* loaded_destination = gen_load(outer_bb, exit_destination_alloca);
                 outer_body = finish_body(outer_bb, br_switch(arena, (Switch) {
-                    .switch_value = loaded_destination,
-                    .default_jump = exit_jumps[0],
-                    .case_values = nodes(arena, exiting_nodes_count, exit_numbers),
-                    .case_jumps = nodes(arena, exiting_nodes_count, exit_jumps),
+                    .inspect = loaded_destination,
+                    .default_destination = exit_jumps[0],
+                    .literals = nodes(arena, exiting_nodes_count, exit_numbers),
+                    .destinations = nodes(arena, exiting_nodes_count, exit_jumps),
                 }));
             }
 
@@ -439,30 +440,32 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 register_processed(rewriter, idom, cached);
 
             const Node* control_inner = case_(arena, singleton(join_token), inner_terminator);
-            const Node* new_target = control(arena, (Control) {
-                .inside = control_inner,
-                .yield_types = yield_types
-            });
 
             const Node* recreated_join = rewrite_node(rewriter, idom);
+            const Node* tail_case;
 
             switch (idom->tag) {
                 case BasicBlock_TAG: {
                     const Node* outer_terminator = jump(arena, (Jump) {
-                        .target = recreated_join,
-                        .args = lambda_args
+                            .target = recreated_join,
+                            .args = lambda_args
                     });
 
-                    const Node* c = case_(arena, lambda_args, outer_terminator);
-                    const Node* empty_let = let(arena, new_target, c);
-
-                    return empty_let;
+                    tail_case = case_(arena, lambda_args, outer_terminator);
+                    break;
                 }
                 case Case_TAG:
-                    return let(arena, new_target, recreated_join);
+                    tail_case = recreated_join;
+                    break;
                 default:
                     assert(false);
             }
+
+            return control(arena, (Control) {
+                .inside = control_inner,
+                .yield_types = yield_types,
+                .tail = tail_case,
+            });
         }
         default: break;
     }

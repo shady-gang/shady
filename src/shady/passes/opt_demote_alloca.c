@@ -48,15 +48,7 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
     for (;use; use = use->next_use) {
         if (is_abstraction(use->user) && use->operand_class == NcVariable)
             continue;
-        else if (use->user->tag == Let_TAG && use->operand_class == NcInstruction) {
-            Nodes vars = get_abstraction_params(get_let_tail(use->user));
-            for (size_t i = 0; i < vars.count; i++) {
-                debugv_print("demote_alloca leak analysis: following let-bound variable: ");
-                log_node(DEBUGV, vars.nodes[i]);
-                debugv_print(".\n");
-                visit_ptr_uses(vars.nodes[i], slice_type, k, map);
-            }
-        } else if (use->user->tag == PrimOp_TAG) {
+        else if (use->user->tag == PrimOp_TAG) {
             PrimOp payload = use->user->payload.prim_op;
             switch (payload.op) {
                 case load_op: {
@@ -129,9 +121,9 @@ PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
     PtrSourceKnowledge k = { 0 };
     while (ptr) {
         assert(is_value(ptr));
-        if (ptr->tag == Variable_TAG && ctx->scope_uses) {
-            const Node* instr = get_var_instruction(ctx->scope_uses, ptr);
-            if (instr) {
+        if (ctx->scope_uses) {
+            const Node* instr = ptr;
+            if (instr->tag == PrimOp_TAG) {
                 PrimOp payload = instr->payload.prim_op;
                 switch (payload.op) {
                     case alloca_logical_op:
@@ -178,7 +170,7 @@ static const Node* process(Context* ctx, const Node* old) {
             fun_ctx.scope_uses = NULL;
             return recreate_node_identity(&fun_ctx.rewriter, old);
         }
-        case Let_TAG: {
+        /*case Let_TAG: {
             const Node* oinstruction = get_let_instruction(old);
             const Node* otail = get_let_tail(old);
             const Node* ninstruction = rewrite_node(r, oinstruction);
@@ -202,7 +194,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* nbody = rewrite_node(r, otail->payload.case_.body);
             const Node* tail = case_(r->dst_arena, nodes(r->dst_arena, oparams.count, new_params), nbody);
             return let(a, ninstruction, tail);
-        }
+        }*/
         case PrimOp_TAG: {
             PrimOp payload = old->payload.prim_op;
             switch (payload.op) {

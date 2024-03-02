@@ -44,16 +44,6 @@ const Node* get_case_user(const UsesMap* map, const Node* cas) {
     return use->user;
 }
 
-const Node* get_var_instruction(const UsesMap* map, const Node* var) {
-    const Node* abs = get_var_binding_abstraction(map, var);
-    if (!abs || abs->tag != Case_TAG)
-        return NULL; // variable is not bound by a case
-    const Node* case_user = get_case_user(map, abs);
-    if (!case_user || case_user->tag != Let_TAG)
-        return NULL;
-    return case_user->payload.let.instruction;
-}
-
 bool is_control_static(const UsesMap* map, const Node* control) {
     assert(control->tag == Control_TAG);
     const Node* inside = control->payload.control.inside;

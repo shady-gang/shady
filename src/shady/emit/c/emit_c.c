@@ -18,8 +18,6 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator);
-
 CValue to_cvalue(SHADY_UNUSED Emitter* e, CTerm term) {
     if (term.value)
         return term.value;
@@ -28,7 +26,7 @@ CValue to_cvalue(SHADY_UNUSED Emitter* e, CTerm term) {
     assert(false);
 }
 
-CAddr deref_term(Emitter* e, CTerm term) {
+CAddr deref_cterm(Emitter* e, CTerm term) {
     if (term.value)
         return format_string_arena(e->arena->arena, "(*%s)", term.value);
     if (term.var)
@@ -94,7 +92,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
         return is_stringy ? StringLit : CharsLit;
     } else {
         for (size_t i = 0; i < c.count; i++) {
-            print(p, to_cvalue(e, emit_value(e, block_printer, c.nodes[i])));
+            print(p, to_cvalue(e, c_emit_value(e, block_printer, c.nodes[i])));
             if (i + 1 < c.count)
                 print(p, ", ");
         }
@@ -133,25 +131,25 @@ static void emit_global_variable_definition(Emitter* emitter, String prefix, Str
     }
 
     if (init)
-        print(emitter->fn_defs, "\n%s%s = %s;", prefix, emit_type(emitter, type, decl_center), init);
+        print(emitter->fn_defs, "\n%s%s = %s;", prefix, c_emit_type(emitter, type, decl_center), init);
     else
-        print(emitter->fn_defs, "\n%s%s;", prefix, emit_type(emitter, type, decl_center));
+        print(emitter->fn_defs, "\n%s%s;", prefix, c_emit_type(emitter, type, decl_center));
 
     if (!has_forward_declarations(emitter->config.dialect) || !init)
         return;
 
-    String declaration = emit_type(emitter, type, decl_center);
+    String declaration = c_emit_type(emitter, type, decl_center);
     print(emitter->fn_decls, "\n%s;", declaration);
 }
 
-CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
-    CTerm* found = lookup_existing_term(emitter, value);
+CTerm c_emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
+    CTerm* found = lookup_existing_cterm(emitter, value);
     if (found) return *found;
 
     String emitted = NULL;
 
     switch (is_value(value)) {
-        case NotAValue: assert(false);
+        default: assert(false);
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG: error("lower me");
         case Value_Variable_TAG: error("variables need to be emitted beforehand");
@@ -195,7 +193,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case Value_False_TAG: return term_from_cvalue("false");
         case Value_Undef_TAG: {
             if (emitter->config.dialect == GLSL)
-                return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
+                return c_emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
             String name = unique_name(emitter->arena, "undef");
             emit_global_variable_definition(emitter, "", name, value->payload.undef.type, true, true, NULL);
             emitted = name;
@@ -223,7 +221,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                 }
             } else {
                 for (size_t i = 0; i < elements.count; i++) {
-                    print(p, "%s", to_cvalue(emitter, emit_value(emitter, block_printer, elements.nodes[i])));
+                    print(p, "%s", to_cvalue(emitter, c_emit_value(emitter, block_printer, elements.nodes[i])));
                     if (i + 1 < elements.count)
                         print(p, ", ");
                 }
@@ -240,7 +238,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
 
                     if (block_printer) {
                         String tmp = unique_name(emitter->arena, "composite");
-                        print(block_printer, "\n%s = { %s };", emit_type(emitter, value->type, tmp), emitted);
+                        print(block_printer, "\n%s = { %s };", c_emit_type(emitter, value->type, tmp), emitted);
                         emitted = tmp;
                     } else {
                         // this requires us to end up in the initialisation side of a declaration
@@ -252,13 +250,13 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                     // If we're C89 (ew)
                     if (!emitter->config.allow_compound_literals)
                         goto no_compound_literals;
-                    emitted = format_string_arena(emitter->arena->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), emitted);
+                    emitted = format_string_arena(emitter->arena->arena, "((%s) { %s })", c_emit_type(emitter, value->type, NULL), emitted);
                     break;
                 case GLSL:
                     if (type->tag != PackType_TAG)
                         goto no_compound_literals;
                     // GLSL doesn't have compound literals, but it does have constructor syntax for vectors
-                    emitted = format_string_arena(emitter->arena->arena, "%s(%s)", emit_type(emitter, value->type, NULL), emitted);
+                    emitted = format_string_arena(emitter->arena->arena, "%s(%s)", c_emit_type(emitter, value->type, NULL), emitted);
                     break;
             }
 
@@ -296,16 +294,16 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         }
         case Value_RefDecl_TAG: {
             const Node* decl = value->payload.ref_decl.decl;
-            emit_decl(emitter, decl);
+            c_emit_decl(emitter, decl);
 
             if (emitter->config.dialect == ISPC && decl->tag == GlobalVariable_TAG) {
                 if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !is_decl_builtin(decl)) {
                     assert(block_printer && "ISPC backend cannot statically refer to a varying variable");
-                    return ispc_varying_ptr_helper(emitter, block_printer, decl->type, *lookup_existing_term(emitter, decl));
+                    return ispc_varying_ptr_helper(emitter, block_printer, decl->type, *lookup_existing_cterm(emitter, decl));
                 }
             }
 
-            return *lookup_existing_term(emitter, decl);
+            return *lookup_existing_cterm(emitter, decl);
         }
     }
 
@@ -318,165 +316,17 @@ CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Ty
     String interm = unique_name(emitter->arena, "intermediary_ptr_value");
     const Type* ut = qualified_type_helper(ptr_type, true);
     const Type* vt = qualified_type_helper(ptr_type, false);
-    String lhs = emit_type(emitter, vt, interm);
-    print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, emit_type(emitter, ut, NULL), to_cvalue(emitter, term));
+    String lhs = c_emit_type(emitter, vt, interm);
+    print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, c_emit_type(emitter, ut, NULL), to_cvalue(emitter, term));
     return term_from_cvalue(interm);
 }
 
-void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer) {
-    assert((mut || initializer != NULL) && "unbound results are only allowed when creating a mutable local variable");
-
-    String prefix = "";
-    String center = variable_name;
-
-    // add extra qualifiers if immutable
-    if (!mut) switch (emitter->config.dialect) {
-        case ISPC:
-            center = format_string_arena(emitter->arena->arena, "const %s", center);
-            break;
-        case C:
-            prefix = "register ";
-            center = format_string_arena(emitter->arena->arena, "const %s", center);
-            break;
-        case GLSL:
-            prefix = "const ";
-            break;
-    }
-
-    String decl = c_emit_type(emitter, t, center);
-    if (initializer)
-        print(block_printer, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, *initializer));
-    else
-        print(block_printer, "\n%s%s;", prefix, decl);
-}
-
-static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator) {
-    switch (is_terminator(terminator)) {
-        case NotATerminator: assert(false);
-        case Join_TAG: error("this must be lowered away!");
-        case Jump_TAG:
-        case Branch_TAG:
-        case Switch_TAG:
-        case TailCall_TAG: error("TODO");
-        case Let_TAG: {
-            const Node* instruction = get_let_instruction(terminator);
-
-            // we declare N local variables in order to store the result of the instruction
-            Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
-
-            LARRAY(CTerm, results, yield_types.count);
-            LARRAY(InstrResultBinding, bindings, yield_types.count);
-            InstructionOutputs ioutputs = {
-                .count = yield_types.count,
-                .results = results,
-                .binding = bindings,
-            };
-            emit_instruction(emitter, block_printer, instruction, ioutputs);
-
-            const Node* tail = get_let_tail(terminator);
-            assert(tail->tag == Case_TAG);
-
-            const Nodes tail_params = tail->payload.case_.params;
-            assert(tail_params.count == yield_types.count);
-            for (size_t i = 0; i < yield_types.count; i++) {
-                bool has_result = results[i].value || results[i].var;
-                switch (bindings[i]) {
-                    case NoBinding: {
-                        assert(has_result && "unbound results can't be empty");
-                        register_emitted(emitter, tail_params.nodes[i], results[i]);
-                        break;
-                    }
-                    case LetBinding: {
-                        String variable_name = get_value_name(tail_params.nodes[i]);
-
-                        if (!variable_name)
-                            variable_name = "";
-
-                        String bind_to = unique_name(emitter->arena, variable_name);
-
-                        const Type* t = yield_types.nodes[i];
-
-                        if (has_result)
-                            emit_variable_declaration(emitter, block_printer, t, bind_to, false, &results[i]);
-                        else
-                            emit_variable_declaration(emitter, block_printer, t, bind_to, false, NULL);
-
-                        register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
-                        break;
-                    }
-                    default: assert(false);
-                }
-            }
-            emit_terminator(emitter, block_printer, tail->payload.case_.body);
-
-            break;
-        }
-        case Terminator_Return_TAG: {
-            Nodes args = terminator->payload.fn_ret.args;
-            if (args.count == 0) {
-                print(block_printer, "\nreturn;");
-            } else if (args.count == 1) {
-                print(block_printer, "\nreturn %s;", to_cvalue(emitter, emit_value(emitter, block_printer, args.nodes[0])));
-            } else {
-                String packed = unique_name(emitter->arena, "pack_return");
-                LARRAY(CValue, values, args.count);
-                for (size_t i = 0; i < args.count; i++)
-                    values[i] = to_cvalue(emitter, emit_value(emitter, block_printer, args.nodes[i]));
-                emit_pack_code(block_printer, strings(emitter->arena, args.count, values), packed);
-                print(block_printer, "\nreturn %s;", packed);
-            }
-            break;
-        }
-        case Yield_TAG: {
-            Nodes args = terminator->payload.yield.args;
-            Phis phis = emitter->phis.selection;
-            assert(phis.count == args.count);
-            for (size_t i = 0; i < phis.count; i++)
-                print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, block_printer, args.nodes[i])));
-
-            break;
-        }
-        case MergeContinue_TAG: {
-            Nodes args = terminator->payload.merge_continue.args;
-            Phis phis = emitter->phis.loop_continue;
-            assert(phis.count == args.count);
-            for (size_t i = 0; i < phis.count; i++)
-                print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, block_printer, args.nodes[i])));
-            print(block_printer, "\ncontinue;");
-            break;
-        }
-        case MergeBreak_TAG: {
-            Nodes args = terminator->payload.merge_break.args;
-            Phis phis = emitter->phis.loop_break;
-            assert(phis.count == args.count);
-            for (size_t i = 0; i < phis.count; i++)
-                print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, emit_value(emitter, block_printer, args.nodes[i])));
-            print(block_printer, "\nbreak;");
-            break;
-        }
-        case Terminator_Unreachable_TAG: {
-            switch (emitter->config.dialect) {
-                case C:
-                    print(block_printer, "\n__builtin_unreachable();");
-                    break;
-                case ISPC:
-                    print(block_printer, "\nassert(false);");
-                    break;
-                case GLSL:
-                    print(block_printer, "\n//unreachable");
-                    break;
-            }
-            break;
-        }
-    }
-}
-
-void emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, const Nodes* bbs) {
+void c_emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, const Nodes* bbs) {
     assert(is_terminator(body));
     //print(p, "{");
     indent(p);
 
-    emit_terminator(emitter, p, body);
+    c_emit_terminator(emitter, p, body);
 
     if (bbs && bbs->count > 0) {
         assert(emitter->config.dialect != GLSL);
@@ -487,21 +337,21 @@ void emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, const N
     print(p, "\n");
 }
 
-String emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
+String c_emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
-    emit_lambda_body_at(emitter, p, body, bbs);
+    c_emit_lambda_body_at(emitter, p, body, bbs);
     growy_append_bytes(g, 1, (char[]) { 0 });
     return printer_growy_unwrap(p);
 }
 
-void emit_decl(Emitter* emitter, const Node* decl) {
+void c_emit_decl(Emitter* emitter, const Node* decl) {
     assert(is_declaration(decl));
 
-    CTerm* found = lookup_existing_term(emitter, decl);
+    CTerm* found = lookup_existing_cterm(emitter, decl);
     if (found) return;
 
-    CType* found2 = lookup_existing_type(emitter, decl);
+    CType* found2 = lookup_existing_ctype(emitter, decl);
     if (found2) return;
 
     const char* name = legalize_c_identifier(emitter, get_declaration_name(decl));
@@ -513,12 +363,12 @@ void emit_decl(Emitter* emitter, const Node* decl) {
         case GlobalVariable_TAG: {
             String init = NULL;
             if (decl->payload.global_variable.init)
-                init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
+                init = to_cvalue(emitter, c_emit_value(emitter, NULL, decl->payload.global_variable.init));
 
             const GlobalVariable* gvar = &decl->payload.global_variable;
             if (is_decl_builtin(decl)) {
                 Builtin b = get_decl_builtin(decl);
-                register_emitted(emitter, decl, emit_c_builtin(emitter, b));
+                register_emitted_cterm(emitter, decl, c_emit_builtin(emitter, b));
                 return;
             }
 
@@ -590,25 +440,25 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 address_space_prefix = "";
             }
 
-            register_emitted(emitter, decl, emit_as);
+            register_emitted_cterm(emitter, decl, emit_as);
 
             emit_global_variable_definition(emitter, address_space_prefix, decl_center, decl_type, uniform, false, init);
             return;
         }
         case Function_TAG: {
             emit_as = term_from_cvalue(name);
-            register_emitted(emitter, decl, emit_as);
-            String head = emit_fn_head(emitter, decl->type, name, decl);
+            register_emitted_cterm(emitter, decl, emit_as);
+            String head = c_emit_fn_head(emitter, decl->type, name, decl);
             const Node* body = decl->payload.fun.body;
             if (body) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
                     String variable_name = get_value_name(decl->payload.fun.params.nodes[i]);
                     param_name = unique_name(emitter->arena, legalize_c_identifier(emitter, variable_name));
-                    register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
+                    register_emitted_cterm(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 
-                String fn_body = emit_lambda_body(emitter, body, NULL);
+                String fn_body = c_emit_lambda_body(emitter, body, NULL);
                 String free_me = fn_body;
                 if (emitter->config.dialect == ISPC) {
                     // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
@@ -625,21 +475,21 @@ void emit_decl(Emitter* emitter, const Node* decl) {
         }
         case Constant_TAG: {
             emit_as = term_from_cvalue(name);
-            register_emitted(emitter, decl, emit_as);
+            register_emitted_cterm(emitter, decl, emit_as);
 
             const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
             assert(init_value && "TODO: support some measure of constant expressions");
-            String init = to_cvalue(emitter, emit_value(emitter, NULL, init_value));
+            String init = to_cvalue(emitter, c_emit_value(emitter, NULL, init_value));
             emit_global_variable_definition(emitter, "", decl_center, decl->type, true, true, init);
             return;
         }
         case NominalType_TAG: {
             CType emitted = name;
-            register_emitted_type(emitter, decl, emitted);
+            register_emitted_ctype(emitter, decl, emitted);
             switch (emitter->config.dialect) {
                 case ISPC:
-                case C: print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
-                case GLSL: emit_nominal_type_body(emitter, format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
+                case C: print(emitter->type_decls, "\ntypedef %s;", c_emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
+                case GLSL: c_emit_nominal_type_body(emitter, format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
             }
             return;
         }
@@ -647,21 +497,23 @@ void emit_decl(Emitter* emitter, const Node* decl) {
     }
 }
 
-void register_emitted(Emitter* emitter, const Node* node, CTerm as) {
+CTerm register_emitted_cterm(Emitter* emitter, const Node* node, CTerm as) {
     assert(as.value || as.var);
     insert_dict(const Node*, CTerm, emitter->emitted_terms, node, as);
+    return as;
 }
 
-void register_emitted_type(Emitter* emitter, const Node* node, String as) {
+CType register_emitted_ctype(Emitter* emitter, const Node* node, CType as) {
     insert_dict(const Node*, String, emitter->emitted_types, node, as);
+    return as;
 }
 
-CTerm* lookup_existing_term(Emitter* emitter, const Node* node) {
+CTerm* lookup_existing_cterm(Emitter* emitter, const Node* node) {
     CTerm* found = find_value_dict(const Node*, CTerm, emitter->emitted_terms, node);
     return found;
 }
 
-CType* lookup_existing_type(Emitter* emitter, const Type* node) {
+CType* lookup_existing_ctype(Emitter* emitter, const Type* node) {
     CType* found = find_value_dict(const Node*, CType, emitter->emitted_types, node);
     return found;
 }
@@ -709,7 +561,7 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
 
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++)
-        emit_decl(&emitter, decls.nodes[i]);
+        c_emit_decl(&emitter, decls.nodes[i]);
 
     destroy_printer(emitter.type_decls);
     destroy_printer(emitter.fn_decls);

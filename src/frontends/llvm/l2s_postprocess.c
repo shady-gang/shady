@@ -42,10 +42,11 @@ static const Node* wrap_in_controls(Context* ctx, Controls* controls, const Node
         for (size_t j = 0; j < o_dst_params.count; j++)
             new_control_params[j] = var(a, o_dst_params.nodes[j]->payload.var.type, unique_name(a, "v"));
         Nodes nparams = nodes(a, o_dst_params.count, new_control_params);
-        body = let(a, control(a, (Control) {
+        body = control(a, (Control) {
             .yield_types = get_variables_types(a, o_dst_params),
-            .inside = case_(a, singleton(token), body)
-        }), case_(a, nparams, jump_helper(a, rewrite_node(&ctx->rewriter, dst), nparams)));
+            .inside = case_(a, singleton(token), body),
+            .tail = case_(a, nparams, jump_helper(a, rewrite_node(&ctx->rewriter, dst), nparams))
+        });
     }
     return body;
 }
@@ -223,7 +224,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
         default: break;
     }
 
-    if (op_class == NcTerminator && node->tag != Let_TAG) {
+    if (op_class == NcTerminator) {
         Controls** found = find_value_dict(const Node, Controls*, ctx->controls, ctx->old_fn_or_bb);
         assert(found);
         Controls* controls = *found;

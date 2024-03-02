@@ -74,23 +74,6 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
 
 #include "constructors_generated.c"
 
-const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
-    Let payload = {
-        .instruction = instruction,
-        .tail = tail,
-    };
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = arena,
-        .type = arena->config.check_types ? check_type_let(arena, payload) : NULL,
-        .tag = Let_TAG,
-        .payload.let = payload
-    };
-    return create_node_helper(arena, node, NULL);
-}
-
 Node* var(IrArena* arena, const Type* type, const char* name) {
     Variable variable = {
         .type = type,

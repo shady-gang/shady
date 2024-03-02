@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#pragma GCC diagnostic error "-Wswitch"
+
 struct List* build_scopes(Module* mod) {
     struct List* scopes = new_list(Scope*);
 
@@ -126,84 +128,82 @@ static void add_jump_edge(ScopeBuildContext* ctx, const Node* src, const Node* j
     add_edge(ctx, src, target, JumpEdge);
 }
 
-static void process_instruction(ScopeBuildContext* ctx, CFNode* parent, const Node* instruction, const Node* let_tail) {
-    switch (is_instruction(instruction)) {
-        case NotAnInstruction: error("Grammar problem");
-        case Instruction_Call_TAG:
-        case Instruction_PrimOp_TAG:
-        case Instruction_Comment_TAG:
-            add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
-            return;
-        case Instruction_Block_TAG:
-            add_structural_dominance_edge(ctx, parent, instruction->payload.block.inside, StructuredEnterBodyEdge);
-            add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
-            return;
-        case Instruction_If_TAG:
-            add_structural_dominance_edge(ctx, parent, instruction->payload.if_instr.if_true, StructuredEnterBodyEdge);
-            if(instruction->payload.if_instr.if_false)
-                add_structural_dominance_edge(ctx, parent, instruction->payload.if_instr.if_false, StructuredEnterBodyEdge);
-            break;
-        case Instruction_Match_TAG:
-            for (size_t i = 0; i < instruction->payload.match_instr.cases.count; i++)
-                add_structural_dominance_edge(ctx, parent, instruction->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
-            add_structural_dominance_edge(ctx, parent, instruction->payload.match_instr.default_case, StructuredEnterBodyEdge);
-            break;
-        case Instruction_Loop_TAG:
-            add_structural_dominance_edge(ctx, parent, instruction->payload.loop_instr.body, StructuredEnterBodyEdge);
-            break;
-        case Instruction_Control_TAG:
-            add_structural_dominance_edge(ctx, parent, instruction->payload.control.inside, StructuredEnterBodyEdge);
-            const Node* param = first(get_abstraction_params(instruction->payload.control.inside));
-            CFNode* let_tail_cfnode = get_or_enqueue(ctx, let_tail);
-            insert_dict(const Node*, CFNode*, ctx->join_point_values, param, let_tail_cfnode);
-            break;
-    }
-    add_structural_dominance_edge(ctx, parent, let_tail, StructuredPseudoExitEdge);
-}
-
 static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
     const Node* const abs = node->node;
     assert(is_abstraction(abs));
     assert(!is_function(abs) || abs == ctx->entry);
     const Node* terminator = get_abstraction_body(abs);
-    if (!terminator)
-        return;
-    switch (is_terminator(terminator)) {
-        case Let_TAG: {
-            const Node* target = get_let_tail(terminator);
-            process_instruction(ctx, node, get_let_instruction(terminator), target);
-            break;
+    while (terminator) {
+        switch (is_terminator(terminator)) {
+            case Terminator_Body_TAG:
+                terminator = terminator->payload.body.terminator;
+                continue;
+            case Terminator_If_TAG: {
+                If construct = terminator->payload.structured_if;
+                add_structural_dominance_edge(ctx, node, construct.if_true, StructuredEnterBodyEdge);
+                if (construct.if_false)
+                    add_structural_dominance_edge(ctx, node, construct.if_false, StructuredEnterBodyEdge);
+                add_structural_dominance_edge(ctx, node, construct.tail, StructuredPseudoExitEdge);
+                break;
+            }
+            case Terminator_Match_TAG: {
+                Match construct = terminator->payload.structured_match;
+                for (size_t i = 0; i < construct.cases.count; i++)
+                    add_structural_dominance_edge(ctx, node, construct.cases.nodes[i], StructuredEnterBodyEdge);
+                add_structural_dominance_edge(ctx, node, construct.default_case, StructuredEnterBodyEdge);
+                add_structural_dominance_edge(ctx, node, construct.tail, StructuredPseudoExitEdge);
+                break;
+            }
+            case Terminator_Loop_TAG: {
+                Loop construct = terminator->payload.structured_loop;
+                add_structural_dominance_edge(ctx, node, construct.body, StructuredEnterBodyEdge);
+                add_structural_dominance_edge(ctx, node, construct.tail, StructuredPseudoExitEdge);
+                break;
+            }
+            case Terminator_Control_TAG: {
+                Control construct = terminator->payload.control;
+                add_structural_dominance_edge(ctx, node, construct.inside, StructuredEnterBodyEdge);
+                const Node* param = first(get_abstraction_params(construct.inside));
+                CFNode* let_tail_cfnode = get_or_enqueue(ctx, construct.tail);
+                insert_dict(const Node*, CFNode*, ctx->join_point_values, param, let_tail_cfnode);
+                add_structural_dominance_edge(ctx, node, construct.tail, StructuredPseudoExitEdge);
+                break;
+            }
+            case Jump_TAG: {
+                add_jump_edge(ctx, abs, terminator);
+                break;
+            }
+            case Branch_TAG: {
+                add_jump_edge(ctx, abs, terminator->payload.branch.true_destination);
+                add_jump_edge(ctx, abs, terminator->payload.branch.false_destination);
+                break;
+            }
+            case Switch_TAG: {
+                for (size_t i = 0; i < terminator->payload.br_switch.destinations.count; i++)
+                    add_jump_edge(ctx, abs, terminator->payload.br_switch.destinations.nodes[i]);
+                add_jump_edge(ctx, abs, terminator->payload.br_switch.default_destination);
+                break;
+            }
+            case Join_TAG: {
+                CFNode** dst = find_value_dict(const Node*, CFNode*, ctx->join_point_values, terminator->payload.join.join_point);
+                if (dst)
+                    add_edge(ctx, node->node, (*dst)->node, StructuredLeaveBodyEdge);
+                break;
+            }
+            case Yield_TAG:
+            case MergeContinue_TAG:
+            case MergeBreak_TAG: {
+                break; // TODO i guess
+            }
+            case TailCall_TAG:
+            case Return_TAG:
+            case Unreachable_TAG:
+                break;
+            case NotATerminator:
+                if (terminator->arena->config.check_types) {error("Grammar problem"); }
+                break;
         }
-        case Jump_TAG: {
-            add_jump_edge(ctx, abs, terminator);
-            break;
-        }
-        case Branch_TAG: {
-            add_jump_edge(ctx, abs, terminator->payload.branch.true_jump);
-            add_jump_edge(ctx, abs, terminator->payload.branch.false_jump);
-            break;
-        }
-        case Switch_TAG: {
-            for (size_t i = 0; i < terminator->payload.br_switch.case_jumps.count; i++)
-                add_jump_edge(ctx, abs, terminator->payload.br_switch.case_jumps.nodes[i]);
-            add_jump_edge(ctx, abs, terminator->payload.br_switch.default_jump);
-            break;
-        }
-        case Join_TAG: {
-            CFNode** dst = find_value_dict(const Node*, CFNode*, ctx->join_point_values, terminator->payload.join.join_point);
-            if (dst)
-                add_edge(ctx, node->node, (*dst)->node, StructuredLeaveBodyEdge);
-            break;
-        }
-        case Yield_TAG:
-        case MergeContinue_TAG:
-        case MergeBreak_TAG: {
-            break; // TODO i guess
-        }
-        case TailCall_TAG:
-        case Return_TAG:
-        case Unreachable_TAG: break;
-        case NotATerminator: if (terminator->arena->config.check_types) { error("Grammar problem"); } break;
+        terminator = NULL;
     }
 }
 
@@ -530,7 +530,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     String label = "";
 
     const CFNode* let_chain_end = n;
-    while (body->tag == Let_TAG) {
+    /*while (body->tag == Let_TAG) {
         const Node* instr = body->payload.let.instruction;
         // label = "";
         if (instr->tag == PrimOp_TAG)
@@ -546,7 +546,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
         assert(let_chain_end->node == abs);
         assert(is_case(abs));
         body = get_abstraction_body(abs);
-    }
+    }*/
 
     label = format_string_arena(bb->arena->arena, "%s%s", label, node_tags[body->tag]);
 

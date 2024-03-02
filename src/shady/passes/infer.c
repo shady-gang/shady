@@ -166,7 +166,7 @@ static const Node* _infer_value(Context* ctx, const Node* node, const Type* expe
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
     switch (is_value(node)) {
-        case NotAValue: error("");
+        default: error("");
         case Variable_TAG: return find_processed(&ctx->rewriter, node);
         case Value_ConstrainedValue_TAG: {
             const Type* type = infer(ctx, node->payload.constrained.type, NULL);
@@ -616,23 +616,23 @@ static const Node* _infer_indirect_call(Context* ctx, const Node* node, const Ty
     });
 }
 
-static const Node* _infer_if(Context* ctx, const Node* node, const Type* expected_type) {
+static const Node* _infer_if(Context* ctx, const Node* node) {
     assert(node->tag == If_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
-    const Node* condition = infer(ctx, node->payload.if_instr.condition, bool_type(a));
+    const Node* condition = infer(ctx, node->payload.structured_if.condition, bool_type(a));
 
-    Nodes join_types = infer_nodes(ctx, node->payload.if_instr.yield_types);
+    Nodes join_types = infer_nodes(ctx, node->payload.structured_if.yield_types);
     Context infer_if_body_ctx = *ctx;
     // When we infer the types of the arguments to a call to merge(), they are expected to be varying
     Nodes expected_join_types = annotate_all_types(a, join_types, false);
     infer_if_body_ctx.merge_types = &expected_join_types;
 
-    const Node* true_body = infer(&infer_if_body_ctx, node->payload.if_instr.if_true, wrap_multiple_yield_types(a, nodes(a, 0, NULL)));
+    const Node* true_body = infer(&infer_if_body_ctx, node->payload.structured_if.if_true, wrap_multiple_yield_types(a, nodes(a, 0, NULL)));
     // don't allow seeing the variables made available in the true branch
     infer_if_body_ctx.rewriter = ctx->rewriter;
-    const Node* false_body = node->payload.if_instr.if_false ? infer(&infer_if_body_ctx, node->payload.if_instr.if_false, wrap_multiple_yield_types(a, nodes(a, 0, NULL))) : NULL;
+    const Node* false_body = node->payload.structured_if.if_false ? infer(&infer_if_body_ctx, node->payload.structured_if.if_false, wrap_multiple_yield_types(a, nodes(a, 0, NULL))) : NULL;
 
-    return if_instr(a, (If) {
+    return structured_if(a, (If) {
         .yield_types = join_types,
         .condition = condition,
         .if_true = true_body,
@@ -640,22 +640,36 @@ static const Node* _infer_if(Context* ctx, const Node* node, const Type* expecte
     });
 }
 
-static const Node* _infer_loop(Context* ctx, const Node* node, const Type* expected_type) {
+static const Node* _infer_body(Context* ctx, const Node* node) {
+    assert(node->tag == Body_TAG);
+    IrArena* a = ctx->rewriter.dst_arena;
+
+    Nodes oinstructions = node->payload.body.instructions;
+    LARRAY(const Node*, instructions, oinstructions.count);
+    for (size_t i = 0; i < oinstructions.count; i++)
+        instructions[i] = infer(ctx, oinstructions.nodes[i], /*i + 1 == oinstructions.count ? expected_type : */NULL);
+    return body(a, (Body) {
+        .instructions = nodes(a, oinstructions.count, instructions),
+        .terminator = infer(ctx, node->payload.body.terminator, NULL)
+    });
+}
+
+static const Node* _infer_loop(Context* ctx, const Node* node) {
     assert(node->tag == Loop_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
     Context loop_body_ctx = *ctx;
-    const Node* old_body = node->payload.loop_instr.body;
+    const Node* old_body = node->payload.structured_loop.body;
 
     Nodes old_params = get_abstraction_params(old_body);
     Nodes old_params_types = get_variables_types(a, old_params);
     Nodes new_params_types = infer_nodes(ctx, old_params_types);
 
-    Nodes old_initial_args = node->payload.loop_instr.initial_args;
+    Nodes old_initial_args = node->payload.structured_loop.initial_args;
     LARRAY(const Node*, new_initial_args, old_params.count);
     for (size_t i = 0; i < old_params.count; i++)
         new_initial_args[i] = infer(ctx, old_initial_args.nodes[i], new_params_types.nodes[i]);
 
-    Nodes loop_yield_types = infer_nodes(ctx, node->payload.loop_instr.yield_types);
+    Nodes loop_yield_types = infer_nodes(ctx, node->payload.structured_loop.yield_types);
 
     loop_body_ctx.merge_types = NULL;
     loop_body_ctx.break_types = &loop_yield_types;
@@ -664,14 +678,14 @@ static const Node* _infer_loop(Context* ctx, const Node* node, const Type* expec
     const Node* nbody = infer(&loop_body_ctx, old_body, wrap_multiple_yield_types(a, new_params_types));
     // TODO check new body params match continue types
 
-    return loop_instr(a, (Loop) {
+    return structured_loop(a, (Loop) {
         .yield_types = loop_yield_types,
         .initial_args = nodes(a, old_params.count, new_initial_args),
         .body = nbody,
     });
 }
 
-static const Node* _infer_control(Context* ctx, const Node* node, const Type* expected_type) {
+static const Node* _infer_control(Context* ctx, const Node* node) {
     assert(node->tag == Control_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
 
@@ -696,19 +710,16 @@ static const Node* _infer_control(Context* ctx, const Node* node, const Type* ex
     });
 }
 
-static const Node* _infer_block(Context* ctx, const Node* node, const Type* expected_type) {
-    assert(node->tag == Block_TAG);
+static const Node* _infer_compound_instruction(Context* ctx, const Node* node, const Type* expected_type) {
+    assert(node->tag == CompoundInstruction_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
 
-    Context block_inside_ctx = *ctx;
-    Nodes nyield_types = infer_nodes(ctx, node->payload.block.yield_types);
-    block_inside_ctx.merge_types = &nyield_types;
-    const Node* olam = node->payload.block.inside;
-    const Node* nlam = case_(a, empty(a), infer(&block_inside_ctx, get_abstraction_body(olam), NULL));
-
-    return block(a, (Block) {
-        .yield_types = nyield_types,
-        .inside = nlam
+    Nodes oinstructions = node->payload.compound_instruction.instructions;
+    LARRAY(const Node*, instructions, oinstructions.count);
+    for (size_t i = 0; i < oinstructions.count; i++)
+        instructions[i] = infer(ctx, oinstructions.nodes[i], i + 1 == oinstructions.count ? expected_type : NULL);
+    return compound_instruction(a, (CompoundInstruction) {
+        .instructions = nodes(a, oinstructions.count, instructions)
     });
 }
 
@@ -716,12 +727,8 @@ static const Node* _infer_instruction(Context* ctx, const Node* node, const Type
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return _infer_primop(ctx, node, expected_type);
         case Call_TAG:         return _infer_indirect_call(ctx, node, expected_type);
-        case If_TAG:           return _infer_if    (ctx, node, expected_type);
-        case Loop_TAG:         return _infer_loop  (ctx, node, expected_type);
-        case Match_TAG:        error("TODO")
-        case Control_TAG:      return _infer_control(ctx, node, expected_type);
-        case Block_TAG:        return _infer_block  (ctx, node, expected_type);
-        case Instruction_Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
+        case CompoundInstruction_TAG: return _infer_compound_instruction(ctx, node, expected_type);
+        case Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
         default:               error("TODO")
         case NotAnInstruction: error("not an instruction");
     }
@@ -732,7 +739,12 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_terminator(node)) {
         case NotATerminator: assert(false);
-        case Let_TAG: {
+        case Body_TAG:    return _infer_body  (ctx, node);
+        case If_TAG:      return _infer_if    (ctx, node);
+        case Loop_TAG:    return _infer_loop  (ctx, node);
+        case Match_TAG:   error("TODO")
+        case Control_TAG: return _infer_control(ctx, node);
+        /*case Let_TAG: {
             const Node* otail = node->payload.let.tail;
             Nodes annotated_types = get_variables_types(a, otail->payload.case_.params);
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(a, annotated_types));
@@ -742,7 +754,7 @@ static const Node* _infer_terminator(Context* ctx, const Node* node) {
             }
             const Node* inferred_tail = infer(ctx, otail, wrap_multiple_yield_types(a, inferred_yield_types));
             return let(a, inferred_instruction, inferred_tail);
-        }
+        }*/
         case Return_TAG: {
             const Node* imported_fn = infer(ctx, node->payload.fn_ret.fn, NULL);
             Nodes return_types = imported_fn->payload.fun.return_types;

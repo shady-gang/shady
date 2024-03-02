@@ -100,10 +100,10 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     if (config->specialization.execution_model != EmNone)
         RUN_PASS(specialize_execution_model)
 
-    RUN_PASS(opt_stack)
+    // RUN_PASS(opt_stack) // TODO: re-implement this pass (and/or merge with mem2reg)
 
     RUN_PASS(lower_tailcalls)
-    RUN_PASS(lower_switch_btree)
+    //RUN_PASS(lower_switch_btree)
     RUN_PASS(opt_restructurize)
     RUN_PASS(opt_mem2reg)
 

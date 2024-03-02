@@ -32,6 +32,7 @@ Nodes singleton(const Node*);
 #define mk_nodes(arena, ...) nodes(arena, sizeof((const Node*[]) { __VA_ARGS__ }) / sizeof(const Node*), (const Node*[]) { __VA_ARGS__ })
 
 const Node* first(Nodes nodes);
+const Node* last(Nodes nodes);
 
 Nodes append_nodes(IrArena*, Nodes, const Node*);
 Nodes prepend_nodes(IrArena*, Nodes, const Node*);
@@ -145,9 +146,6 @@ Nodes       get_abstraction_params(const Node* abs);
 
 void        set_abstraction_body  (Node* abs, const Node* body);
 
-const Node* get_let_instruction(const Node* let);
-const Node* get_let_tail(const Node* let);
-
 typedef struct {
     bool enter_loads;
     bool allow_incompatible_types;
@@ -157,7 +155,6 @@ NodeResolveConfig default_node_resolve_config();
 const Node* resolve_ptr_to_value(const Node* node, NodeResolveConfig config);
 
 /// Resolves a variable to the instruction that produces its value (if any)
-const Node* get_var_def(Variable var);
 const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config);
 
 //////////////////////////////// Constructors ////////////////////////////////
@@ -212,11 +209,11 @@ const Node* annotation_value_helper(IrArena* a, String n, const Node* v);
 // instructions
 /// Turns a value into an 'instruction' (the enclosing let will be folded away later)
 /// Useful for local rewrites
+// TODO: remove
 const Node* quote_helper(IrArena*, Nodes values);
 const Node* prim_op_helper(IrArena*, Op, Nodes, Nodes);
 
 // terminators
-const Node* let(IrArena*, const Node* instruction, const Node* tail);
 const Node* let_mut(IrArena*, const Node* instruction, Nodes variables);
 const Node* jump_helper(IrArena* a, const Node* dst, Nodes args);
 
@@ -230,7 +227,7 @@ Type* nominal_type(Module*, Nodes annotations, String name);
 Node* basic_block(IrArena*, Node* function, Nodes params, const char* name);
 const Node* case_(IrArena* a, Nodes params, const Node* body);
 
-/// Used to build a chain of let
+/// Used to build Bodies
 typedef struct BodyBuilder_ BodyBuilder;
 BodyBuilder* begin_body(IrArena*);
 
@@ -245,11 +242,12 @@ Nodes bind_instruction_explicit_result_types(BodyBuilder*, const Node* initial_v
 Nodes create_mutable_variables(BodyBuilder*, const Node* initial_value, Nodes provided_types, String const output_names[]);
 Nodes bind_instruction_outputs_count(BodyBuilder*, const Node* initial_value, size_t outputs_count, String const output_names[]);
 
-void bind_variables(BodyBuilder*, Nodes vars, Nodes values);
+Nodes create_structured_if(BodyBuilder*, Nodes yield_types, const Node* condition, const Node* true_case, const Node* false_case);
+Nodes create_structured_match(BodyBuilder*, Nodes yield_types, const Node* inspect, Nodes literals, Nodes cases, const Node* default_case);
+Nodes create_structured_loop(BodyBuilder*, Nodes yield_types, Nodes initial_values, const Node* iter_case);
 
 const Node* finish_body(BodyBuilder*, const Node* terminator);
 void cancel_body(BodyBuilder*);
-const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder*, Nodes, const Nodes*);
 const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
 const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder*, const Node*, const Nodes*);
 const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder*, const Node*);

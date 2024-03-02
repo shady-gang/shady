@@ -39,7 +39,7 @@ const Node* process(Context* ctx, const Node* old) {
     }
 
     switch (old->tag) {
-        case Let_TAG: {
+        /*case Let_TAG: {
             Let payload = old->payload.let;
             bool side_effects = true;
             if (payload.instruction->tag == PrimOp_TAG)
@@ -67,7 +67,7 @@ const Node* process(Context* ctx, const Node* old) {
                 return rewrite_node(&ctx->rewriter, get_abstraction_body(tail_case));
             }
             break;
-        }
+        }*/
         case BasicBlock_TAG: {
             size_t uses = count_calls(ctx->map, old);
             if (uses <= 1) {

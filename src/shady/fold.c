@@ -1,6 +1,7 @@
 #include "fold.h"
 
 #include "log.h"
+#include "list.h"
 
 #include "type.h"
 #include "portability.h"
@@ -25,92 +26,6 @@ static bool is_one(const Node* node) {
     if (lit && get_int_literal_value(*lit, false) == 1)
         return true;
     return false;
-}
-
-static const Node* fold_let(IrArena* arena, const Node* node) {
-    assert(node->tag == Let_TAG);
-    const Node* instruction = node->payload.let.instruction;
-    const Node* tail = node->payload.let.tail;
-    switch (instruction->tag) {
-        // eliminates blocks by "lifting" their contents out and replacing yield with the tail of the outer let
-        // In other words, we turn these patterns:
-        //
-        // let block {
-        //   let I in case(x) =>
-        //   let J in case(y) =>
-        //   let K in case(z) =>
-        //      ...
-        //   yield (x, y, z) }
-        // in case(a, b, c) => R
-        //
-        // into these:
-        //
-        // let I in case(x) =>
-        // let J in case(y) =>
-        // let K in case(z) =>
-        // ...
-        // R[a->x, b->y, c->z]
-        case Block_TAG: {
-            // follow the terminator of the block until we hit a yield()
-            const Node* lam = instruction->payload.block.inside;
-            const Node* terminator = get_abstraction_body(lam);
-            size_t depth = 0;
-            bool dry_run = true;
-            const Node** lets = NULL;
-            while (true) {
-                assert(is_case(lam));
-                switch (is_terminator(terminator)) {
-                    case NotATerminator: assert(false);
-                    case Terminator_Let_TAG: {
-                        if (lets)
-                            lets[depth] = terminator;
-                        lam = get_let_tail(terminator);
-                        terminator = get_abstraction_body(lam);
-                        depth++;
-                        continue;
-                    }
-                    case Terminator_Yield_TAG: {
-                        if (dry_run) {
-                            lets = calloc(sizeof(const Node*), depth);
-                            dry_run = false;
-                            depth = 0;
-                            // Start over !
-                            lam = instruction->payload.block.inside;
-                            terminator = get_abstraction_body(lam);
-                            continue;
-                        } else {
-                            // wrap the original tail with the args of join()
-                            assert(is_case(tail));
-                            const Node* acc = let(arena, quote_helper(arena, terminator->payload.yield.args), tail);
-                            // rebuild the let chain that we traversed
-                            for (size_t i = 0; i < depth; i++) {
-                                const Node* olet = lets[depth - 1 - i];
-                                const Node* olam = get_let_tail(olet);
-                                assert(olam->tag == Case_TAG);
-                                Nodes params = get_abstraction_params(olam);
-                                for (size_t j = 0; j < params.count; j++) {
-                                    // recycle the params by setting their abs value to NULL
-                                    *((Node**) &(params.nodes[j]->payload.var.abs)) = NULL;
-                                }
-                                const Node* nlam = case_(arena, params, acc);
-                                acc = let(arena, get_let_instruction(olet), nlam);
-                            }
-                            free(lets);
-                            return acc;
-                        }
-                    }
-                    // if we see anything else, give up
-                    default: {
-                        assert(dry_run);
-                        return node;
-                    }
-                }
-            }
-        }
-        default: break;
-    }
-
-    return node;
 }
 
 static const Node* fold_prim_op(IrArena* arena, const Node* node) {
@@ -280,80 +195,107 @@ static bool is_unreachable_case(const Node* c) {
     return b->tag == Unreachable_TAG;
 }
 
+static bool is_unreachable_jump(const Node* j) {
+    assert(j && j->tag == Jump_TAG);
+    const Node* dst = j->payload.jump.target;
+    assert(dst->tag == BasicBlock_TAG);
+    const Node* b = get_abstraction_body(dst);
+    return b->tag == Unreachable_TAG;
+}
+
 const Node* fold_node(IrArena* arena, const Node* node) {
     const Node* folded = node;
     switch (node->tag) {
-        case Let_TAG: folded = fold_let(arena, node); break;
         case PrimOp_TAG: folded = fold_prim_op(arena, node); break;
-        case Block_TAG: {
-            const Node* lam = node->payload.block.inside;
-            const Node* body = lam->payload.case_.body;
-            if (body->tag == Yield_TAG) {
-                return quote_helper(arena, body->payload.yield.args);
-            } else if (body->tag == Let_TAG) {
-                // fold block { let x, y, z = I; yield (x, y, z); } back to I
-                const Node* instr = get_let_instruction(body);
-                const Node* let_case = get_let_tail(body);
-                const Node* let_case_body = get_abstraction_body(let_case);
-                if (let_case_body->tag == Yield_TAG) {
-                    bool only_forwards = true;
-                    Nodes let_case_params = get_abstraction_params(let_case);
-                    Nodes yield_args = let_case_body->payload.yield.args;
-                    if (let_case_params.count == yield_args.count) {
-                        for (size_t i = 0; i < yield_args.count; i++) {
-                            only_forwards &= yield_args.nodes[i] == let_case_params.nodes[i];
-                        }
-                        if (only_forwards) {
-                            debugv_print("Fold: simplify ");
-                            log_node(DEBUGV, node);
-                            debugv_print(" into just ");
-                            log_node(DEBUGV, instr);
-                            debugv_print(".\n");
-                            return instr;
-                        }
+        case Body_TAG: {
+            // Body([], T) => T
+            if (node->payload.body.instructions.count == 0)
+                return node->payload.body.terminator;
+            // Body([Compound(I)], T) => Body(I, T)
+            if (node->payload.body.instructions.count == 1) {
+                const Node* instruction = node->payload.body.instructions.nodes[0];
+                if (instruction->tag == CompoundInstruction_TAG)
+                    return body(arena, (Body) {
+                        .instructions = instruction->payload.compound_instruction.instructions,
+                        .terminator = node->payload.body.terminator,
+                    });
+            }
+            const Node* terminator = node->payload.body.terminator;
+            // Body(I, Body(I2, T)) => Body(I ++ I2, T)
+            if (terminator->tag == Body_TAG) {
+                return body(arena, (Body) {
+                    .instructions = concat_nodes(arena, node->payload.body.instructions, terminator->payload.body.instructions),
+                    .terminator = terminator->payload.body.terminator
+                });
+            }
+            break;
+        }
+        case CompoundInstruction_TAG: {
+            Nodes old_instructions = node->payload.compound_instruction.instructions;
+            struct List* list = NULL;
+            rerun:
+            for (size_t i = 0; i < old_instructions.count; i++) {
+                const Node* instruction = old_instructions.nodes[i];
+                if (instruction->tag == CompoundInstruction_TAG) {
+                    if (list) {
+                        Nodes compound_list = instruction->payload.compound_instruction.instructions;
+                        for (size_t j = 0; j < compound_list.count; j++)
+                            append_list(const Node*, list, compound_list.nodes[j]);
+                    } else {
+                        list = new_list(const Node*);
+                        goto rerun;
                     }
+                } else {
+                    append_list(const Node*, list, instruction);
                 }
             }
+            if (list) {
+                return compound_instruction(arena, (CompoundInstruction) {
+                    .instructions = nodes(arena, entries_count_list(list), read_list(const Node*, list))
+                });
+            }
             break;
         }
-        case If_TAG: {
-            If payload = node->payload.if_instr;
-            const Node* false_case = payload.if_false;
-            if (arena->config.optimisations.delete_unreachable_structured_cases && false_case && is_unreachable_case(false_case))
-                return block(arena, (Block) { .inside = payload.if_true, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+        case Branch_TAG: {
+            Branch payload = node->payload.branch;
+            if (arena->config.optimisations.delete_unreachable_structured_cases) {
+                if (is_unreachable_jump(payload.false_destination))
+                    return payload.true_destination;
+                else if (is_unreachable_jump(payload.true_destination))
+                    return payload.false_destination;
+            }
             break;
         }
-        case Match_TAG: {
+        case Switch_TAG: {
             if (!arena->config.optimisations.delete_unreachable_structured_cases)
                 break;
-            Match payload = node->payload.match_instr;
-            Nodes old_cases = payload.cases;
-            LARRAY(const Node*, literals, old_cases.count);
-            LARRAY(const Node*, cases, old_cases.count);
+            Switch payload = node->payload.br_switch;
+            Nodes old_destinations = payload.destinations;
+            LARRAY(const Node*, literals, old_destinations.count);
+            LARRAY(const Node*, destinations, old_destinations.count);
             size_t new_cases_count = 0;
-            for (size_t i = 0; i < old_cases.count; i++) {
-                const Node* c = old_cases.nodes[i];
-                if (is_unreachable_case(c))
+            for (size_t i = 0; i < old_destinations.count; i++) {
+                const Node* j = old_destinations.nodes[i];
+                if (is_unreachable_jump(j))
                     continue;
-                literals[new_cases_count] = node->payload.match_instr.literals.nodes[i];
-                cases[new_cases_count] = node->payload.match_instr.cases.nodes[i];
+                literals[new_cases_count] = payload.literals.nodes[i];
+                destinations[new_cases_count] = node->payload.structured_match.cases.nodes[i];
                 new_cases_count++;
             }
-            if (new_cases_count == old_cases.count)
+            if (new_cases_count == old_destinations.count)
                 break;
 
-            if (new_cases_count == 1 && is_unreachable_case(payload.default_case))
-                return block(arena, (Block) { .inside = cases[0], .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+            if (new_cases_count == 1 && is_unreachable_jump(payload.default_destination))
+                return destinations[0];
 
             if (new_cases_count == 0)
-                return block(arena, (Block) { .inside = payload.default_case, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+                return payload.default_destination;
 
-            return match_instr(arena, (Match) {
+            return br_switch(arena, (Switch) {
                 .inspect = payload.inspect,
-                .yield_types = payload.yield_types,
-                .default_case = payload.default_case,
+                .default_destination = payload.default_destination,
                 .literals = nodes(arena, new_cases_count, literals),
-                .cases = nodes(arena, new_cases_count, cases),
+                .destinations = nodes(arena, new_cases_count, destinations),
             });
         }
         default: break;

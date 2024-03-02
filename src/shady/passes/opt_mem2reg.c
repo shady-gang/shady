@@ -370,19 +370,9 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
 
             return recreate_node_identity(r, oinstruction);
         }
-        case Instruction_Control_TAG:
-            break;
-        case Instruction_Block_TAG:
+        case Instruction_CompoundInstruction_TAG:
             break;
         case Instruction_Comment_TAG:
-            break;
-        case Instruction_If_TAG:
-            break;
-        case Instruction_Match_TAG:
-            break;
-        case Instruction_Loop_TAG:
-            mark_values_as_escaping(kb, oinstruction->payload.loop_instr.initial_args);
-            // assert(false && "unsupported");
             break;
     }
 
@@ -394,7 +384,17 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
     Rewriter* r = &ctx->rewriter;
     switch (is_terminator(old)) {
         case NotATerminator: assert(false);
-        case Let_TAG: {
+        case Control_TAG:
+            break;
+        case If_TAG:
+            break;
+        case Match_TAG:
+            break;
+        case Loop_TAG:
+            mark_values_as_escaping(kb, old->payload.structured_loop.initial_args);
+            // assert(false && "unsupported");
+            break;
+        /*case Let_TAG: {
             const Node* oinstruction = get_let_instruction(old);
             const Node* ninstruction = rewrite_node(r, oinstruction);
             PtrKnowledge** found = find_value_dict(const Node*, PtrKnowledge*, kb->map, oinstruction);
@@ -408,7 +408,7 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
             }
 
             return let(a, ninstruction, rewrite_node(r, get_let_tail(old)));
-        }
+        }*/
         case Jump_TAG: {
             const Node* old_target = old->payload.jump.target;
             // rewrite_node(&ctx->rewriter, old_target);
@@ -464,10 +464,11 @@ static void handle_bb(Context* ctx, const Node* old) {
     ctx = &fn_ctx;
 
     Nodes params = recreate_variables(&ctx->rewriter, get_abstraction_params(old));
-    Nodes let_params = recreate_variables(&ctx->rewriter, get_abstraction_params(old));
-    register_processed_list(&ctx->rewriter, get_abstraction_params(old), let_params);
+    //Nodes let_params = recreate_variables(&ctx->rewriter, get_abstraction_params(old));
+    register_processed_list(&ctx->rewriter, get_abstraction_params(old), params);
     const Node* nbody = rewrite_node(&ctx->rewriter, get_abstraction_body(old));
-    nbody = let(a, quote_helper(a, params), case_(a, let_params, nbody));
+    //nbody = let(a, quote_helper(a, params), case_(a, let_params, nbody));
+    //nbody = body(a, quote_helper(a, params), case_(a, let_params, nbody));
 
     CFNode* cfnode = scope_lookup(ctx->scope, old);
     BodyBuilder* bb = begin_body(a);

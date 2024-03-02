@@ -13,7 +13,7 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-String get_record_field_name(const Type* t, size_t i) {
+String c_get_record_field_name(const Type* t, size_t i) {
     assert(t->tag == RecordType_TAG);
     RecordType r = t->payload.record_type;
     assert(i < r.members.count);
@@ -23,7 +23,7 @@ String get_record_field_name(const Type* t, size_t i) {
         return r.names.strings[i];
 }
 
-void emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
+void c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     assert(type->tag == RecordType_TAG);
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
@@ -31,8 +31,8 @@ void emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     print(p, "\n%s {", name);
     indent(p);
     for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
-        String member_identifier = get_record_field_name(type, i);
-        print(p, "\n%s;", emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
+        String member_identifier = c_get_record_field_name(type, i);
+        print(p, "\n%s;", c_emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
     }
     deindent(p);
     print(p, "\n};\n");
@@ -43,7 +43,7 @@ void emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     destroy_printer(p);
 }
 
-String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn) {
+String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn) {
     assert(fn_type->tag == FnType_TAG);
     assert(!fn || fn->type == fn_type);
     Nodes codom = fn_type->payload.fn_type.return_types;
@@ -60,14 +60,14 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
             String param_name;
             String variable_name = get_value_name(fn->payload.fun.params.nodes[i]);
             param_name = unique_name(emitter->arena, legalize_c_identifier(emitter, variable_name));
-            print(paramp, emit_type(emitter, params.nodes[i]->type, param_name));
+            print(paramp, c_emit_type(emitter, params.nodes[i]->type, param_name));
             if (i + 1 < dom.count) {
                 print(paramp, ", ");
             }
         }
     } else {
         for (size_t i = 0; i < dom.count; i++) {
-            print(paramp, emit_type(emitter, dom.nodes[i], ""));
+            print(paramp, c_emit_type(emitter, dom.nodes[i], ""));
             if (i + 1 < dom.count) {
                 print(paramp, ", ");
             }
@@ -88,7 +88,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     }
     free_tmp_str(parameters);
 
-    String c_decl = emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
+    String c_decl = c_emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
 
     const Node* entry_point = fn ? lookup_annotation(fn, "EntryPoint") : NULL;
     if (entry_point) switch (emitter->config.dialect) {
@@ -104,12 +104,12 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     return c_decl;
 }
 
-String emit_type(Emitter* emitter, const Type* type, const char* center) {
+String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
     if (center == NULL)
         center = "";
 
     String emitted = NULL;
-    CType* found = lookup_existing_type(emitter, type);
+    CType* found = lookup_existing_ctype(emitter, type);
     if (found) {
         emitted = *found;
         goto type_goes_on_left;
@@ -192,7 +192,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
 
             emitted = unique_name(emitter->arena, "Record");
             String prefixed = format_string_arena(emitter->arena->arena, "struct %s", emitted);
-            emit_nominal_type_body(emitter, prefixed, type);
+            c_emit_nominal_type_body(emitter, prefixed, type);
             // C puts structs in their own namespace so we always need the prefix
             if (emitter->config.dialect == C)
                 emitted = prefixed;
@@ -203,22 +203,22 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             switch (emitter->config.dialect) {
                 case C:
                 case GLSL:
-                    return emit_type(emitter, type->payload.qualified_type.type, center);
+                    return c_emit_type(emitter, type->payload.qualified_type.type, center);
                 case ISPC:
                     if (type->payload.qualified_type.is_uniform)
-                        return emit_type(emitter, type->payload.qualified_type.type, format_string_arena(emitter->arena->arena, "uniform %s", center));
+                        return c_emit_type(emitter, type->payload.qualified_type.type, format_string_arena(emitter->arena->arena, "uniform %s", center));
                     else
-                        return emit_type(emitter, type->payload.qualified_type.type, format_string_arena(emitter->arena->arena, "varying %s", center));
+                        return c_emit_type(emitter, type->payload.qualified_type.type, format_string_arena(emitter->arena->arena, "varying %s", center));
             }
         case Type_PtrType_TAG: {
-            CType t = emit_type(emitter, type->payload.ptr_type.pointed_type, format_string_arena(emitter->arena->arena, "* %s", center));
+            CType t = c_emit_type(emitter, type->payload.ptr_type.pointed_type, format_string_arena(emitter->arena->arena, "* %s", center));
             // we always emit pointers to _uniform_ data, no exceptions
             if (emitter->config.dialect == ISPC)
                 t = format_string_arena(emitter->arena->arena, "uniform %s", t);
             return t;
         }
         case Type_FnType_TAG: {
-            return emit_fn_head(emitter, type, center, NULL);
+            return c_emit_fn_head(emitter, type, center, NULL);
         }
         case Type_ArrType_TAG: {
             emitted = unique_name(emitter->arena, "Array");
@@ -234,7 +234,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                 inner_decl_rhs = format_string_arena(emitter->arena->arena, "arr[%zu]", get_int_literal_value(*resolve_to_int_literal(size), false));
             else
                 inner_decl_rhs = format_string_arena(emitter->arena->arena, "arr[0]");
-            print(p, "\n%s;", emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));
+            print(p, "\n%s;", c_emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));
             deindent(p);
             print(p, "\n};\n");
             growy_append_bytes(g, 1, (char[]) { '\0' });
@@ -273,7 +273,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                 }
                 case ISPC: error("Please lower to something else")
                 case C: {
-                    emitted = emit_type(emitter, element_type, NULL);
+                    emitted = c_emit_type(emitter, element_type, NULL);
                     emitted = format_string_arena(emitter->arena->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width, emitted, emitted);
                     break;
                 }
@@ -281,13 +281,13 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             break;
         }
         case Type_TypeDeclRef_TAG: {
-            emit_decl(emitter, type->payload.type_decl_ref.decl);
-            emitted = *lookup_existing_type(emitter, type->payload.type_decl_ref.decl);
+            c_emit_decl(emitter, type->payload.type_decl_ref.decl);
+            emitted = *lookup_existing_ctype(emitter, type->payload.type_decl_ref.decl);
             goto type_goes_on_left;
         }
     }
     assert(emitted != NULL);
-    register_emitted_type(emitter, type, emitted);
+    register_emitted_ctype(emitter, type, emitted);
 
     type_goes_on_left:
     assert(emitted != NULL);

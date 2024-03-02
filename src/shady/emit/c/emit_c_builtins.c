@@ -17,7 +17,7 @@ static String glsl_builtins[BuiltinsCount] = {
     [BuiltinGlobalInvocationId] = "gl_GlobalInvocationID",
 };
 
-CTerm emit_c_builtin(Emitter* emitter, Builtin b) {
+CTerm c_emit_builtin(Emitter* emitter, Builtin b) {
     String name = NULL;
     switch(emitter->config.dialect) {
         case ISPC: name = ispc_builtins[b]; break;

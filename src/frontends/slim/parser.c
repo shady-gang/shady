@@ -569,7 +569,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             if (has_else) {
                 if_false = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
             }
-            return if_instr(arena, (If) {
+            return structured_if(arena, (If) {
                 .yield_types = yield_types,
                 .condition = condition,
                 .if_true = if_true,
@@ -586,7 +586,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
             const Node* body = case_(arena, parameters, expect_body(ctx, fn, default_loop_end_behaviour));
 
-            return loop_instr(arena, (Loop) {
+            return structured_loop(arena, (Loop) {
                 .initial_args = default_values,
                 .yield_types = yield_types,
                 .body = body
@@ -710,7 +710,7 @@ static const Node* expect_jump(ctxparams) {
 static const Node* accept_terminator(ctxparams, Node* fn) {
     TokenTag tag = curr_token(tokenizer).tag;
     switch (tag) {
-        case let_tok: {
+        /*case let_tok: {
             next_token(tokenizer);
             const Node* instruction = accept_instruction(ctx, fn, false);
             expect(instruction);
@@ -723,7 +723,7 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
                 }
                 default: SHADY_UNREACHABLE;
             }
-        }
+        }*/
         case jump_tok: {
             next_token(tokenizer);
             return expect_jump(ctx);
@@ -743,8 +743,8 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
             return branch(arena, (Branch) {
                 .branch_condition = condition,
-                .true_jump = true_target,
-                .false_jump = false_target,
+                .true_destination = true_target,
+                .false_destination = false_target,
             });
         }
         case switch_tok: {
@@ -774,10 +774,10 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
             expect(accept_token(ctx, rpar_tok));
 
             return br_switch(arena, (Switch) {
-                .switch_value = first(values),
-                .case_values = values,
-                .case_jumps = cases,
-                .default_jump = default_jump,
+                .inspect = first(values),
+                .literals = values,
+                .destinations = cases,
+                .default_destination = default_jump,
             });
         }
         case return_tok: {

@@ -37,16 +37,6 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
             break;
         }
         case RefDecl_TAG: return get_req_cast(ctx, src->payload.ref_decl.decl);
-        case Variable_TAG: {
-            const Node* abs = src->payload.var.abs;
-            if (abs) {
-                const Node* construct = abs->payload.case_.structured_construct;
-                if (construct && construct->tag == Let_TAG) {
-                    return get_req_cast(ctx, construct->payload.let.instruction);
-                }
-            }
-            break;
-        }
         case PrimOp_TAG: {
             PrimOp prim_op = src->payload.prim_op;
             if (prim_op.op == lea_op) {

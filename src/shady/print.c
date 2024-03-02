@@ -120,7 +120,7 @@ static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     }
 }
 
-static void print_abs_body(PrinterCtx* ctx, const Node* block);
+static void print_abs_body(PrinterCtx* ctx, const Node* abs);
 
 static void print_basic_block(PrinterCtx* ctx, const Node* bb) {
     printf(GREEN);
@@ -154,15 +154,22 @@ static void print_dominated_bbs(PrinterCtx* ctx, const CFNode* dominator) {
     }
 }
 
-static void print_abs_body(PrinterCtx* ctx, const Node* block) {
-    assert(!ctx->fn || is_function(ctx->fn));
-    assert(is_abstraction(block));
+static void print_body(PrinterCtx* ctx, const Node* body) {
+    Nodes instructions = body->payload.body.instructions;
+    for (size_t i = 0; i < instructions.count; i++)
+        print_node(instructions.nodes[i]);
+    print_node(body->payload.body.terminator);
+}
 
-    print_node(get_abstraction_body(block));
+static void print_abs_body(PrinterCtx* ctx, const Node* abs) {
+    assert(!ctx->fn || is_function(ctx->fn));
+    assert(is_abstraction(abs));
+
+    print_node(get_abstraction_body(abs));
 
     // TODO: it's likely cleaner to instead print things according to the dominator tree in the first place.
     if (ctx->scope != NULL) {
-        const CFNode* dominator = scope_lookup(ctx->scope, block);
+        const CFNode* dominator = scope_lookup(ctx->scope, abs);
         if (ctx->min_rpo < ((long int) dominator->rpo_index)) {
             size_t save_rpo = ctx->min_rpo;
             ctx->min_rpo = dominator->rpo_index;
@@ -560,84 +567,15 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(")");
             print_args_list(ctx, node->payload.call.args);
             break;
-        } case If_TAG: {
-            printf(GREEN);
-            printf("if");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.if_instr.yield_types);
-            printf("(");
-            print_node(node->payload.if_instr.condition);
-            printf(") ");
-            print_case_body(ctx, node->payload.if_instr.if_true);
-            if (node->payload.if_instr.if_false) {
-                printf(GREEN);
-                printf(" else ");
-                printf(RESET);
-                print_case_body(ctx, node->payload.if_instr.if_false);
-            }
-            break;
-        } case Loop_TAG: {
-            printf(GREEN);
-            printf("loop");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.loop_instr.yield_types);
-            const Node* body = node->payload.loop_instr.body;
-            assert(is_case(body));
-            print_param_list(ctx, body->payload.case_.params, &node->payload.loop_instr.initial_args);
-            print_case_body(ctx, body);
-            break;
-        } case Match_TAG: {
-            printf(GREEN);
-            printf("match");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.match_instr.yield_types);
-            printf("(");
-            print_node(node->payload.match_instr.inspect);
-            printf(")");
-            printf(" {");
-            indent(ctx->printer);
-            for (size_t i = 0; i < node->payload.match_instr.literals.count; i++) {
-                printf("\n");
-                printf(GREEN);
-                printf("case");
-                printf(RESET);
-                printf(" ");
-                print_node(node->payload.match_instr.literals.nodes[i]);
-                printf(": ");
-                print_case_body(ctx, node->payload.match_instr.cases.nodes[i]);
-            }
-
-            printf("\n");
-            printf(GREEN);
-            printf("default");
-            printf(RESET);
-            printf(": ");
-            print_case_body(ctx, node->payload.match_instr.default_case);
-
-            deindent(ctx->printer);
-            printf("\n}");
-            break;
-        } case Control_TAG: {
-            printf(BGREEN);
-            if (ctx->scope_uses) {
-                if (is_control_static(ctx->scope_uses, node))
-                    printf("static ");
-            }
-            printf("control");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.control.yield_types);
-            print_param_list(ctx, node->payload.control.inside->payload.case_.params, NULL);
-            print_case_body(ctx, node->payload.control.inside);
-            break;
-        } case Block_TAG: {
-            printf(BGREEN);
-            printf("block");
-            printf(RESET);
-            print_case_body(ctx, node->payload.block.inside);
+        } case CompoundInstruction_TAG: {
+            Nodes instructions = node->payload.compound_instruction.instructions;
+            for (size_t i = 0; i < instructions.count; i++)
+                print_node(instructions.nodes[i]);
             break;
         }
-        default: print_node_generated(ctx->printer, node, ctx->config);
+        default: break;
     }
+    print_node_generated(ctx->printer, node, ctx->config);
 }
 
 static void print_jump(PrinterCtx* ctx, const Node* node) {
@@ -650,54 +588,84 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
     TerminatorTag tag = is_terminator(node);
     switch (tag) {
         case NotATerminator: assert(false);
-        case Let_TAG: {
-            const Node* instruction = get_let_instruction(node);
-            bool mut = false;
-            if (instruction->tag == LetMut_TAG)
-                mut = true;
-            const Node* tail = get_let_tail(node);
-            if (!ctx->config.reparseable) {
-                // if the let tail is a case, we apply some syntactic sugar
-                if (mut || tail->payload.case_.params.count > 0) {
-                    printf(GREEN);
-                    if (mut)
-                        printf("var");
-                    else
-                        printf("val");
-                    printf(RESET);
-                    Nodes params = tail->payload.case_.params;
-                    if (mut) {
-                        params = instruction->payload.let_mut.variables;
-                        instruction = instruction->payload.let_mut.instruction;
-                    }
-                    for (size_t i = 0; i < params.count; i++) {
-                        if (mut || !ctx->config.reparseable) {
-                            printf(" ");
-                            print_node(params.nodes[i]->payload.var.type);
-                        }
-                        printf(" ");
-                        print_node(params.nodes[i]);
-                        printf(RESET);
-                    }
-                    printf(" = ");
-                }
-                print_node(instruction);
-                printf(";\n");
-                print_abs_body(ctx, tail);
-            } else {
+        case Body_TAG:
+            print_body(ctx, node);
+            break;
+        case If_TAG: {
+            printf(GREEN);
+            printf("if");
+            printf(RESET);
+            print_yield_types(ctx, node->payload.structured_if.yield_types);
+            printf("(");
+            print_node(node->payload.structured_if.condition);
+            printf(") ");
+            print_case_body(ctx, node->payload.structured_if.if_true);
+            if (node->payload.structured_if.if_false) {
                 printf(GREEN);
-                printf("let");
+                printf(" else ");
+                printf(RESET);
+                print_case_body(ctx, node->payload.structured_if.if_false);
+            }
+            print_abs_body(ctx, node->payload.structured_if.tail);
+            break;
+        } case Loop_TAG: {
+            printf(GREEN);
+            printf("loop");
+            printf(RESET);
+            print_yield_types(ctx, node->payload.structured_loop.yield_types);
+            const Node* body = node->payload.structured_loop.body;
+            assert(is_case(body));
+            print_param_list(ctx, body->payload.case_.params, &node->payload.structured_loop.initial_args);
+            print_case_body(ctx, body);
+            print_abs_body(ctx, node->payload.structured_loop.tail);
+            break;
+        } case Match_TAG: {
+            printf(GREEN);
+            printf("match");
+            printf(RESET);
+            print_yield_types(ctx, node->payload.structured_match.yield_types);
+            printf("(");
+            print_node(node->payload.structured_match.inspect);
+            printf(")");
+            printf(" {");
+            indent(ctx->printer);
+            for (size_t i = 0; i < node->payload.structured_match.literals.count; i++) {
+                printf("\n");
+                printf(GREEN);
+                printf("case");
                 printf(RESET);
                 printf(" ");
-                print_node(instruction);
-                printf(GREEN);
-                printf(" in ");
-                printf(RESET);
-                print_node(tail);
-                printf(";");
+                print_node(node->payload.structured_match.literals.nodes[i]);
+                printf(": ");
+                print_case_body(ctx, node->payload.structured_match.cases.nodes[i]);
             }
+
+            printf("\n");
+            printf(GREEN);
+            printf("default");
+            printf(RESET);
+            printf(": ");
+            print_case_body(ctx, node->payload.structured_match.default_case);
+
+            deindent(ctx->printer);
+            printf("\n}");
+            print_abs_body(ctx, node->payload.structured_match.tail);
             break;
-        } case Return_TAG:
+        } case Control_TAG: {
+            printf(BGREEN);
+            if (ctx->scope_uses) {
+                if (is_control_static(ctx->scope_uses, node))
+                    printf("static ");
+            }
+            printf("control");
+            printf(RESET);
+            print_yield_types(ctx, node->payload.control.yield_types);
+            print_param_list(ctx, node->payload.control.inside->payload.case_.params, NULL);
+            print_case_body(ctx, node->payload.control.inside);
+            print_abs_body(ctx, node->payload.control.tail);
+            break;
+        }
+        case Return_TAG:
             printf(BGREEN);
             printf("return");
             printf(RESET);
@@ -727,9 +695,9 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf("(");
             print_node(node->payload.branch.branch_condition);
             printf(", ");
-            print_jump(ctx, node->payload.branch.true_jump);
+            print_jump(ctx, node->payload.branch.true_destination);
             printf(", ");
-            print_jump(ctx, node->payload.branch.false_jump);
+            print_jump(ctx, node->payload.branch.false_destination);
             printf(")");
             printf(";");
             break;
@@ -738,17 +706,17 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf("br_switch ");
             printf(RESET);
             printf("(");
-            print_node(node->payload.br_switch.switch_value);
+            print_node(node->payload.br_switch.inspect);
             printf(", ");
-            for (size_t i = 0; i < node->payload.br_switch.case_values.count; i++) {
-                print_node(node->payload.br_switch.case_values.nodes[i]);
+            for (size_t i = 0; i < node->payload.br_switch.literals.count; i++) {
+                print_node(node->payload.br_switch.literals.nodes[i]);
                 printf(", ");
-                print_jump(ctx, node->payload.br_switch.case_jumps.nodes[i]);
-                if (i + 1 < node->payload.br_switch.case_values.count)
+                print_jump(ctx, node->payload.br_switch.destinations.nodes[i]);
+                if (i + 1 < node->payload.br_switch.literals.count)
                     printf(", ");
             }
             printf(", ");
-            print_jump(ctx, node->payload.br_switch.default_jump);
+            print_jump(ctx, node->payload.br_switch.default_destination);
             printf(") ");
             printf(";");
             break;
@@ -1018,13 +986,13 @@ void log_module(LogLevel level, CompilerConfig* compiler_cfg, Module* mod) {
 }
 
 void print_node_operand(Printer* p, const Node* n, String name, NodeClass op_class, const Node* op, PrintConfig config) {
-    print(p, " '%s': %%%zu", name, (size_t) op);
+    print(p, " '%s': %%%d", name, op->id);
 }
 
 void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass op_class, Nodes ops, PrintConfig config) {
     print(p, " '%s': [", name);
     for (size_t i = 0; i < ops.count; i++) {
-        print(p, "%%%zu", (size_t) ops.nodes[i]);
+        print(p, "%%%d", ops.nodes[i]->id);
         if (i + 1 < ops.count)
             print(p, ", ");
     }
@@ -1032,7 +1000,7 @@ void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass o
 }
 
 void print_node_operand_const_Node_(Printer* p, const Node* n, String name, const Node* op, PrintConfig config) {
-    print(p, " '%s': %%%zu", name, (size_t) op);
+    print(p, " '%s': %%%d", name, op->id);
 }
 
 void print_node_operand_AddressSpace(Printer* p, const Node* n, String name, AddressSpace as, PrintConfig config) {

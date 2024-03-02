@@ -137,6 +137,12 @@
     {
       "name": "jump",
       "generate-enum": false
+    },
+    {
+      "name": "structured_construct",
+      "ops": [
+        { "name": "tail", "class": "case" }
+      ]
     }
   ],
   "nodes": [
@@ -380,7 +386,7 @@
     },
     {
       "name": "Call",
-      "class": "instruction",
+      "class": ["instruction", "value"],
       "ops": [
         { "name": "callee", "class": "value" },
         { "name": "args", "class": "value", "list": true }
@@ -388,7 +394,7 @@
     },
     {
       "name": "PrimOp",
-      "class": "instruction",
+      "class":["instruction", "value"],
       "ops": [
         { "name": "op", "type": "Op" },
         { "name": "type_arguments", "class": "type", "list": true },
@@ -396,53 +402,11 @@
       ]
     },
     {
-      "name": "If",
-      "snake_name": "if_instr",
-      "class": "instruction",
-      "ops": [
-        { "name": "yield_types", "class": "type", "list": true },
-        { "name": "condition", "class": "value" },
-        { "name": "if_true", "class": "case" },
-        { "name": "if_false", "class": "case" }
-      ]
-    },
-    {
-      "name": "Match",
-      "snake_name": "match_instr",
-      "class": "instruction",
-      "ops": [
-        { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inspect", "class": "value" },
-        { "name": "literals", "class": "value", "list": true },
-        { "name": "cases", "class": "case", "list": true },
-        { "name": "default_case", "class": "case" }
-      ]
-    },
-    {
-      "name": "Loop",
-      "snake_name": "loop_instr",
-      "class": "instruction",
-      "ops": [
-        { "name": "yield_types", "class": "type", "list": true },
-        { "name": "body", "class": "case" },
-        { "name": "initial_args", "class": "value", "list": true }
-      ]
-    },
-    {
-      "name": "Control",
-      "class": "instruction",
-      "ops": [
-        { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inside", "class": "case" }
-      ]
-    },
-    {
-      "name": "Block",
-      "class": "instruction",
+      "name": "CompoundInstruction",
+      "class": ["instruction", "value"],
       "description": "Used as a helper to insert multiple instructions in place of one",
       "ops": [
-        { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inside", "class": "case" }
+        { "name": "instructions", "class": "instruction", "list": true }
       ]
     },
     {
@@ -453,17 +417,7 @@
       ]
     },
     {
-      "name": "Let",
-      "class": "terminator",
-      "constructor": "custom",
-      "ops": [
-        { "name": "instruction", "class": "instruction" },
-        { "name": "tail", "class": "case" }
-      ]
-    },
-    {
       "name": "LetMut",
-      "class": "instruction",
       "constructor": "custom",
       "front-end-only": true,
       "ops": [
@@ -496,8 +450,8 @@
       ],
       "ops": [
         { "name": "branch_condition", "class": "value" },
-        { "name": "true_jump", "class": "jump" },
-        { "name": "false_jump", "class": "jump" }
+        { "name": "true_destination", "class": "jump" },
+        { "name": "false_destination", "class": "jump" }
       ]
     },
     {
@@ -506,10 +460,55 @@
       "class": "terminator",
       "description": "N-way variant of Branch. See Branch.",
       "ops": [
-        { "name": "switch_value", "class": "value" },
-        { "name": "case_values", "class": "value", "list": true },
-        { "name": "case_jumps", "class": "jump", "list": true },
-        { "name": "default_jump", "class": "jump" }
+        { "name": "inspect", "class": "value" },
+        { "name": "literals", "class": "value", "list": true },
+        { "name": "destinations", "class": "jump", "list": true },
+        { "name": "default_destination", "class": "jump" }
+      ]
+    },
+    {
+      "name": "If",
+      "snake_name": "structured_if",
+      "class": ["terminator", "structured_construct"],
+      "ops": [
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "condition", "class": "value" },
+        { "name": "if_true", "class": "case" },
+        { "name": "if_false", "class": "case" },
+        { "name": "tail", "class": "case" }
+      ]
+    },
+    {
+      "name": "Match",
+      "snake_name": "structured_match",
+      "class": ["terminator", "structured_construct"],
+      "ops": [
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "inspect", "class": "value" },
+        { "name": "literals", "class": "value", "list": true },
+        { "name": "cases", "class": "case", "list": true },
+        { "name": "default_case", "class": "case" },
+        { "name": "tail", "class": "case" }
+      ]
+    },
+    {
+      "name": "Loop",
+      "snake_name": "structured_loop",
+      "class": ["terminator", "structured_construct"],
+      "ops": [
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "body", "class": "case" },
+        { "name": "initial_args", "class": "value", "list": true },
+        { "name": "tail", "class": "case" }
+      ]
+    },
+    {
+      "name": "Control",
+      "class": ["terminator", "structured_construct"],
+      "ops": [
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "inside", "class": "case" },
+        { "name": "tail", "class": "case" }
       ]
     },
     {
@@ -672,6 +671,16 @@
         { "name": "params", "class": "variable", "list": true },
         { "name": "body", "class": "terminator" },
         { "name": "structured_construct", "type": "const Node*", "ignored": true }
+      ]
+    },
+    {
+      "name": "Body",
+      "description": "Provides a list of instructions and a terminator",
+      "type": false,
+      "class": "terminator",
+      "ops": [
+        { "name": "instructions", "class": "instruction", "list": true },
+        { "name": "terminator", "class": "terminator" }
       ]
     },
     {

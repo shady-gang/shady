@@ -1114,7 +1114,7 @@ static void ensure_types_are_value_types(const Nodes* yield_types) {
     }
 }
 
-const Type* check_type_if_instr(IrArena* arena, If if_instr) {
+const Type* check_type_structured_if(IrArena* arena, If if_instr) {
     ensure_types_are_data_types(&if_instr.yield_types);
     if (get_unqualified_type(if_instr.condition->type) != bool_type(arena))
         error("condition of an if should be bool");
@@ -1122,21 +1122,24 @@ const Type* check_type_if_instr(IrArena* arena, If if_instr) {
     if (if_instr.yield_types.count > 0)
         assert(if_instr.if_false);
 
-    return wrap_multiple_yield_types(arena, add_qualifiers(arena, if_instr.yield_types, false));
+    return noret_type(arena);
+    // return wrap_multiple_yield_types(arena, add_qualifiers(arena, if_instr.yield_types, false));
 }
 
-const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
+const Type* check_type_structured_loop(IrArena* arena, Loop loop_instr) {
     ensure_types_are_data_types(&loop_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
-    return wrap_multiple_yield_types(arena, add_qualifiers(arena, loop_instr.yield_types, false));
+    return noret_type(arena);
+    // return wrap_multiple_yield_types(arena, add_qualifiers(arena, loop_instr.yield_types, false));
 }
 
-const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
+const Type* check_type_structured_match(IrArena* arena, Match match_instr) {
     ensure_types_are_data_types(&match_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
-    return wrap_multiple_yield_types(arena, add_qualifiers(arena, match_instr.yield_types, false));
+    return noret_type(arena);
+    // return wrap_multiple_yield_types(arena, add_qualifiers(arena, match_instr.yield_types, false));
 }
 
 const Type* check_type_control(IrArena* arena, Control control) {
@@ -1158,45 +1161,14 @@ const Type* check_type_control(IrArena* arena, Control control) {
     return wrap_multiple_yield_types(arena, add_qualifiers(arena, join_point_yield_types, false));
 }
 
-const Type* check_type_block(IrArena* arena, Block payload) {
-    ensure_types_are_value_types(&payload.yield_types);
-    assert(is_case(payload.inside));
-    assert(payload.inside->payload.case_.params.count == 0);
-
-    /*const Node* lam = payload.inside;
-    const Node* yield_instr = NULL;
-    while (true) {
-        assert(lam->tag == Case_TAG);
-        const Node* terminator = lam->payload.case_.body;
-        switch (terminator->tag) {
-            case Let_TAG: {
-                lam = terminator->payload.let.tail;
-                continue;
-            }
-            case Yield_TAG:
-                yield_instr = terminator;
-                break;
-            default: assert(false);
-        }
-        break;
-    }
-
-    Nodes yield_values = yield_instr->payload.yield.args;*/
-    return wrap_multiple_yield_types(arena, payload.yield_types);
+const Type* check_type_compound_instruction(IrArena* arena, CompoundInstruction payload) {
+    if (payload.instructions.count == 0)
+        return wrap_multiple_yield_types(arena, empty(arena));
+    return last(payload.instructions)->type;
 }
 
 const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
     return empty_multiple_return_type(arena);
-}
-
-const Type* check_type_let(IrArena* arena, Let let) {
-    assert(is_instruction(let.instruction));
-    assert(is_case(let.tail));
-    Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
-    Nodes param_types = get_variables_types(arena, let.tail->payload.case_.params);
-
-    check_arguments_types_against_parameters_helper(param_types, produced_types);
-    return noret_type(arena);
 }
 
 const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
@@ -1227,16 +1199,16 @@ const Type* check_type_jump(IrArena* arena, Jump jump) {
 }
 
 const Type* check_type_branch(IrArena* arena, Branch payload) {
-    assert(payload.true_jump->tag == Jump_TAG);
-    assert(payload.false_jump->tag == Jump_TAG);
+    assert(payload.true_destination->tag == Jump_TAG);
+    assert(payload.false_destination->tag == Jump_TAG);
     return noret_type(arena);
 }
 
 const Type* check_type_br_switch(IrArena* arena, Switch payload) {
-    for (size_t i = 0; i < payload.case_jumps.count; i++)
-        assert(payload.case_jumps.nodes[i]->tag == Jump_TAG);
-    assert(payload.case_values.count == payload.case_jumps.count);
-    assert(payload.default_jump->tag == Jump_TAG);
+    for (size_t i = 0; i < payload.destinations.count; i++)
+        assert(payload.destinations.nodes[i]->tag == Jump_TAG);
+    assert(payload.destinations.count == payload.destinations.count);
+    assert(payload.default_destination->tag == Jump_TAG);
     return noret_type(arena);
 }
 

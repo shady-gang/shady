@@ -323,7 +323,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             return new;
         }
         case Variable_TAG: error("variables should be recreated as part of decl handling");
-        case Let_TAG: {
+        /*case Let_TAG: {
             const Node* instruction = rewrite_op_helper(rewriter, NcInstruction, "instruction", node->payload.let.instruction);
             if (arena->config.allow_fold && rewriter->config.fold_quote && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
                 Nodes old_params = node->payload.let.tail->payload.case_.params;
@@ -346,7 +346,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             else
                 tail = rewrite_op_helper(rewriter, NcCase, "tail", node->payload.let.tail);
             return let(arena, instruction, tail);
-        }
+        }*/
         case LetMut_TAG: error("De-sugar this by hand")
         case Case_TAG: {
             Nodes params = recreate_variables(rewriter, node->payload.case_.params);

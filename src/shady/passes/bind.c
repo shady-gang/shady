@@ -150,7 +150,7 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
     }
 
     Nodes e = empty(a);
-    return yield_values_and_wrap_in_block_explicit_return_types(bb, empty(a), &e);
+    return yield_values_and_wrap_in_block(bb, empty(a));
 }
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {

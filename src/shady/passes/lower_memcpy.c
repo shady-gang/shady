@@ -60,18 +60,11 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, singleton(uint32_literal(a, 0))));
                     gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, singleton(uint32_literal(a, 0))), loaded_word);
                     const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
-                    bind_instruction(loop_bb, if_instr(a, (If) {
-                        .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)),
-                        .yield_types = empty(a),
-                        .if_true = case_(a, empty(a), merge_continue(a, (MergeContinue) {.args = singleton(next_index)})),
-                        .if_false = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)}))
-                    }));
-
-                    bind_instruction(bb, loop_instr(a, (Loop) {
-                        .yield_types = empty(a),
-                        .body = case_(a, singleton(index), finish_body(loop_bb, unreachable(a))),
-                        .initial_args = singleton(uint32_literal(a, 0))
-                    }));
+                    create_structured_if(loop_bb, empty(a),
+                                         gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)),
+                                         case_(a, empty(a), merge_continue(a, (MergeContinue) {.args = singleton(next_index)})),
+                                         case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)})));
+                    create_structured_loop(bb, empty(a), singleton(uint32_literal(a, 0)), case_(a, singleton(index), finish_body(loop_bb, unreachable(a))));
                     return yield_values_and_wrap_in_block(bb, empty(a));
                 }
                 case memset_op: {
@@ -101,18 +94,11 @@ static const Node* process(Context* ctx, const Node* old) {
                     BodyBuilder* loop_bb = begin_body(a);
                     gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, singleton(uint32_literal(a, 0))), src_value);
                     const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
-                    bind_instruction(loop_bb, if_instr(a, (If) {
-                        .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)),
-                        .yield_types = empty(a),
-                        .if_true = case_(a, empty(a), merge_continue(a, (MergeContinue) {.args = singleton(next_index)})),
-                        .if_false = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)}))
-                    }));
+                    create_structured_if(loop_bb, empty(a), gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)),
+                                         case_(a, empty(a), merge_continue(a, (MergeContinue) { .args = singleton(next_index) })),
+                                         case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)})));
 
-                    bind_instruction(bb, loop_instr(a, (Loop) {
-                        .yield_types = empty(a),
-                        .body = case_(a, singleton(index), finish_body(loop_bb, unreachable(a))),
-                        .initial_args = singleton(uint32_literal(a, 0))
-                    }));
+                    create_structured_loop(bb, empty(a), singleton(uint32_literal(a, 0)), case_(a, singleton(index), finish_body(loop_bb, unreachable(a))));
                     return yield_values_and_wrap_in_block(bb, empty(a));
                 }
                 default: break;

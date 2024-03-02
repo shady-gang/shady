@@ -122,6 +122,11 @@ const Node* first(Nodes nodes) {
     return nodes.nodes[0];
 }
 
+const Node* last(Nodes nodes) {
+    assert(nodes.count > 0);
+    return nodes.nodes[nodes.count - 1];
+}
+
 Nodes append_nodes(IrArena* arena, Nodes old, const Node* new) {
     LARRAY(const Node*, tmp, old.count + 1);
     for (size_t i = 0; i < old.count; i++)

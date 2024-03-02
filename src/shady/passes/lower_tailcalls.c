@@ -116,8 +116,9 @@ static const Node* process(Context* ctx, const Node* old) {
                 if (old->payload.fun.body) {
                     const Node* nbody = rewrite_node(&ctx2.rewriter, old->payload.fun.body);
                     if (entry_point_annotation) {
-                        const Node* lam = case_(a, empty(a), nbody);
-                        nbody = let(a, call(a, (Call) { .callee = fn_addr_helper(a, ctx2.init_fn), .args = empty(a)}), lam);
+                        BodyBuilder* bb = begin_body(a);
+                        bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, ctx2.init_fn), .args = empty(a)}));
+                        nbody = finish_body(bb, nbody);
                     }
                     fun->payload.fun.body = nbody;
                 }
@@ -308,13 +309,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
         const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, empty(a), mk_nodes(a, iterations_count_param, int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
         const Node* bail_true_lam = case_(a, empty(a), break_terminator);
-        const Node* bail_if = if_instr(a, (If) {
-            .condition = bail_condition,
-            .if_true = bail_true_lam,
-            .if_false = NULL,
-            .yield_types = empty(a)
-        });
-        bind_instruction(loop_body_builder, bail_if);
+        create_structured_if(loop_body_builder, empty(a), bail_condition, bail_true_lam, NULL);
     }
 
     struct List* literals = new_list(const Node*);
@@ -328,13 +323,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         bind_instruction(zero_if_case_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: kill thread %d:%d\n" }), sid, local_id) }));
     }
     const Node* zero_if_true_lam = case_(a, empty(a), finish_body(zero_if_case_builder, break_terminator));
-    const Node* zero_if_instruction = if_instr(a, (If) {
-        .condition = should_run,
-        .if_true = zero_if_true_lam,
-        .if_false = NULL,
-        .yield_types = empty(a),
-    });
-    bind_instruction(zero_case_builder, zero_if_instruction);
+    create_structured_if(zero_case_builder, empty(a), should_run, zero_if_true_lam, NULL);
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         bind_instruction(zero_case_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: thread %d:%d escaped death!\n" }), sid, local_id) }));
@@ -364,15 +353,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .args = nodes(a, 0, NULL)
             }));
             const Node* if_true_lam = case_(a, empty(a), finish_body(if_builder, yield(a, (Yield) {.args = nodes(a, 0, NULL)})));
-            const Node* if_instruction = if_instr(a, (If) {
-                .condition = should_run,
-                .if_true = if_true_lam,
-                .if_false = NULL,
-                .yield_types = empty(a),
-            });
-
             BodyBuilder* case_builder = begin_body(a);
-            bind_instruction(case_builder, if_instruction);
+            create_structured_if(case_builder, empty(a), should_run, if_true_lam, NULL);
             const Node* case_lam = case_(a, nodes(a, 0, NULL), finish_body(case_builder, continue_terminator));
 
             append_list(const Node*, literals, fn_lit);
@@ -382,27 +364,17 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* default_case_lam = case_(a, nodes(a, 0, NULL), unreachable(a));
 
-    bind_instruction(loop_body_builder, match_instr(a, (Match) {
-        .yield_types = nodes(a, 0, NULL),
-        .inspect = next_function,
-        .literals = nodes(a, entries_count_list(literals), read_list(const Node*, literals)),
-        .cases = nodes(a, entries_count_list(cases), read_list(const Node*, cases)),
-        .default_case = default_case_lam,
-    }));
-
+    create_structured_match(loop_body_builder, empty(a), next_function,
+                            nodes(a, entries_count_list(literals), read_list(const Node*, literals)),
+                            nodes(a, entries_count_list(cases), read_list(const Node*, cases)),
+                            default_case_lam);
     destroy_list(literals);
     destroy_list(cases);
 
     const Node* loop_inside_lam = case_(a, count_iterations ? singleton(iterations_count_param) : nodes(a, 0, NULL), finish_body(loop_body_builder, unreachable(a)));
 
-    const Node* the_loop = loop_instr(a, (Loop) {
-        .yield_types = nodes(a, 0, NULL),
-        .initial_args = count_iterations ? singleton(int32_literal(a, 0)) : nodes(a, 0, NULL),
-        .body = loop_inside_lam
-    });
-
     BodyBuilder* dispatcher_body_builder = begin_body(a);
-    bind_instruction(dispatcher_body_builder, the_loop);
+    create_structured_loop(dispatcher_body_builder, empty(a), count_iterations ? singleton(int32_literal(a, 0)) : nodes(a, 0, NULL), loop_inside_lam);
     if (ctx->config->printf_trace.god_function)
         bind_instruction(dispatcher_body_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: end of top\n" })) }));
 

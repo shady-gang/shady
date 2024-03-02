@@ -2,6 +2,7 @@ add_library(shady_spirv OBJECT
     emit_spv.c
     emit_spv_type.c
     emit_spv_instructions.c
+    emit_spv_control_flow.c
     spirv_builder.c
 )
 set_property(TARGET shady_spirv PROPERTY POSITION_INDEPENDENT_CODE ON)

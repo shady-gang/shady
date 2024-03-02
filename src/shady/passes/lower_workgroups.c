@@ -125,19 +125,13 @@ static const Node* process(Context* ctx, const Node* node) {
                         assert(false);
                     for (int dim = 0; dim < 3; dim++) {
                         BodyBuilder* body_bb = begin_body(a);
-                        bind_instruction(body_bb, if_instr(a, (If) {
-                                .yield_types = empty(a),
-                                .condition = gen_primop_e(body_bb, gte_op, empty(a), mk_nodes(a, params[dim], maxes[dim])),
-                                .if_true = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)})),
-                                .if_false = NULL
-                        }));
+                        const Node* condition = gen_primop_e(body_bb, gte_op, empty(a), mk_nodes(a, params[dim], maxes[dim]));
+                        const Node* true_case = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)}));
+                        create_structured_if(bb, empty(a), condition, true_case, NULL);
                         bind_instruction(body_bb, instr);
-                        const Node* loop = loop_instr(a, (Loop) {
-                                .yield_types = empty(a),
-                                .initial_args = singleton(uint32_literal(a, 0)),
-                                .body = case_(a, singleton(params[dim]), finish_body(body_bb, merge_continue(a, (MergeContinue) {.args = singleton(gen_primop_e(body_bb, add_op, empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1))))})))
-                        });
-                        instr = loop;
+                        const Node* iter_case = case_(a, singleton(params[dim]), finish_body(body_bb, merge_continue(a, (MergeContinue) {.args = singleton(gen_primop_e(body_bb, add_op, empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1))))})));
+                        create_structured_loop(body_bb, empty(a), singleton(uint32_literal(a, 0)), iter_case);
+                        instr = yield_values_and_wrap_in_block(body_bb, empty(a));
                     }
                 }
 

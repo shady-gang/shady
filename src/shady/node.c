@@ -109,18 +109,6 @@ NodeResolveConfig default_node_resolve_config() {
     };
 }
 
-const Node* get_var_def(Variable var) {
-    if (var.pindex != 0)
-        return NULL;
-    const Node* abs = var.abs;
-    if (!abs || abs->tag != Case_TAG)
-        return NULL;
-    const Node* user = abs->payload.case_.structured_construct;
-    if (user->tag != Let_TAG)
-        return NULL;
-    return user->payload.let.instruction;
-}
-
 const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config) {
     while (node) {
         switch (node->tag) {
@@ -130,13 +118,6 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
             case RefDecl_TAG:
                 node = node->payload.ref_decl.decl;
                 continue;
-            case Variable_TAG: {
-                const Node* def = get_var_def(node->payload.var);
-                if (!def)
-                    break;
-                node = def;
-                continue;
-            }
             case PrimOp_TAG: {
                 switch (node->payload.prim_op.op) {
                     case quote_op: {
@@ -290,21 +271,6 @@ Nodes get_abstraction_params(const Node* abs) {
         case Function_TAG: return abs->payload.fun.params;
         case BasicBlock_TAG: return abs->payload.basic_block.params;
         case Case_TAG: return abs->payload.case_.params;
-        default: assert(false);
-    }
-}
-
-const Node* get_let_instruction(const Node* let) {
-    switch (let->tag) {
-        case Let_TAG: return let->payload.let.instruction;
-        case LetMut_TAG: return let->payload.let_mut.instruction;
-        default: assert(false);
-    }
-}
-
-const Node* get_let_tail(const Node* let) {
-    switch (let->tag) {
-        case Let_TAG: return let->payload.let.tail;
         default: assert(false);
     }
 }

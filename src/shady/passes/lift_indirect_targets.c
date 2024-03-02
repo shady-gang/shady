@@ -175,28 +175,27 @@ static const Node* process_node(Context* ctx, const Node* node) {
             destroy_scope(ctx->scope);
             return new;
         }
-        case Let_TAG: {
-            const Node* oinstruction = get_let_instruction(node);
-            if (oinstruction->tag == Control_TAG) {
-                const Node* oinside = oinstruction->payload.control.inside;
-                assert(is_case(oinside));
-                if (!is_control_static(ctx->scope_uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
-                    const Node* otail = get_let_tail(node);
-                    BodyBuilder* bb = begin_body(a);
-                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string_arena(a->arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
-                    const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
-                    const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
+        case Control_TAG: {
+            const Node* oinside = node->payload.control.inside;
+            assert(is_case(oinside));
+            if (!is_control_static(ctx->scope_uses, node) || ctx->config->hacks.force_join_point_lifting) {
+                const Node* otail = node->payload.control.tail;
+                BodyBuilder* bb = begin_body(a);
+                LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string_arena(a->arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
+                const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
+                const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 
-                    const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), mk_nodes(a, tail_ptr, sp));
-
-                    return finish_body(bb, let(a, quote_helper(a, singleton(jp)), rewrite_node(&ctx->rewriter, oinside)));
-                }
+                const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types), mk_nodes(a, tail_ptr, sp));
+                // Rewrite the case body inline, and map its param to jp
+                register_processed(&ctx->rewriter, first(get_abstraction_params(oinside)), jp);
+                return finish_body(bb, rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
             }
-
-            return recreate_node_identity(&ctx->rewriter, node);
+            break;
         }
-        default: return recreate_node_identity(&ctx->rewriter, node);
+        default:
+            break;
     }
+    return recreate_node_identity(&ctx->rewriter, node);
 }
 
 Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {

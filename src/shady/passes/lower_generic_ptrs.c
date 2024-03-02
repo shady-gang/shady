@@ -124,13 +124,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             //          extracted_tag = nptr >> (64 - 2), for example
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
-            const Node* loaded_value = first(bind_instruction(bb, match_instr(a, (Match) {
-                    .inspect = extracted_tag,
-                    .yield_types = singleton(t),
-                    .literals = nodes(a, max_tag, literals),
-                    .cases = nodes(a, max_tag, cases),
-                    .default_case = case_(a, empty(a), unreachable(a)),
-            })));
+            const Node* loaded_value = first(create_structured_match(bb, singleton(t), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), case_(a, empty(a), unreachable(a))));
             new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value), .fn = new_fn }));
             break;
         }
@@ -156,13 +150,8 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             //          extracted_tag = nptr >> (64 - 2), for example
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
-            bind_instruction(bb, match_instr(a, (Match) {
-                    .inspect = extracted_tag,
-                    .yield_types = empty(a),
-                    .literals = nodes(a, max_tag, literals),
-                    .cases = nodes(a, max_tag, cases),
-                    .default_case = case_(a, empty(a), unreachable(a)),
-            }));
+
+            create_structured_match(bb, empty(a), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), case_(a, empty(a), unreachable(a)));
             new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .fn = new_fn }));
             break;
         }

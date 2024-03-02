@@ -141,8 +141,8 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 return (EmittedInstr) {
                     .terminator = branch(a, (Branch) {
                         .branch_condition = condition,
-                        .true_jump = convert_jump(p, fn, fn_or_bb, targets[0]),
-                        .false_jump = convert_jump(p, fn, fn_or_bb, targets[1]),
+                        .true_destination = convert_jump(p, fn, fn_or_bb, targets[0]),
+                        .false_destination = convert_jump(p, fn, fn_or_bb, targets[1]),
                     })
                 };
             } else {

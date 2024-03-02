@@ -70,7 +70,7 @@ set(SHADY_SOURCES
     passes/lower_tailcalls.c
     passes/lower_mask.c
     passes/lower_fill.c
-    passes/lower_switch_btree.c
+    #passes/lower_switch_btree.c
     passes/setup_stack_frames.c
     passes/eliminate_constants.c
     passes/normalize_builtins.c
@@ -82,7 +82,7 @@ set(SHADY_SOURCES
     passes/lower_generic_globals.c
     passes/mark_leaf_functions.c
     passes/opt_inline.c
-    passes/opt_stack.c
+    #passes/opt_stack.c
     passes/opt_restructure.c
     passes/opt_mem2reg.c
     passes/opt_demote_alloca.c
