@@ -45,4 +45,6 @@ NodeId allocate_node_id(IrArena*, const Node* n);
 struct List;
 Nodes list_to_nodes(IrArena*, struct List*);
 
+const Node* get_insert_helper_yield(InsertHelper);
+
 #endif

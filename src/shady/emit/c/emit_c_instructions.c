@@ -868,23 +868,14 @@ void c_emit_terminator(Emitter* emitter, Printer* block_printer, const Node* ter
     }
 }
 
-static CTerm emit_compound_instruction(Emitter* emitter, Printer* p, const Node* instruction) {
-    Nodes list = instruction->payload.compound_instruction.instructions;
-    CTerm t;
-    for (size_t i = 0; i < list.count; i++) {
-        t = c_emit_instruction(emitter, p, instruction);
-    }
-    return t;
-}
-
 CTerm c_emit_instruction(Emitter* emitter, Printer* p, const Node* instruction) {
     assert(is_instruction(instruction));
 
     switch (is_instruction(instruction)) {
         case NotAnInstruction: assert(false);
+        case Instruction_InsertHelper_TAG: error("Cannot be emitted.")
         case Instruction_PrimOp_TAG:       return emit_primop(emitter, p, instruction);
         case Instruction_Call_TAG:         return emit_call(emitter, p, instruction);
         case Instruction_Comment_TAG:      print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
-        case Instruction_CompoundInstruction_TAG: return emit_compound_instruction(emitter, p, instruction);
     }
 }

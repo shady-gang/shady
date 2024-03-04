@@ -393,20 +393,12 @@ static SpvId emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder,
     return result;
 }
 
-static SpvId emit_compound_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, const Node* instruction) {
-    Nodes list = instruction->payload.compound_instruction.instructions;
-    SpvId id = 0;
-    for (size_t i = 0; i < list.count; i++)
-        id = emit_instruction(emitter, fn_builder, bb_builder, instruction);
-    return id;
-}
-
 SpvId emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, const Node* instruction) {
     assert(instruction && is_instruction(instruction));
 
     switch (is_instruction(instruction)) {
-        case NotAnInstruction: error("");
-        case CompoundInstruction_TAG: return emit_compound_instruction(emitter, fn_builder, bb_builder, instruction);
+        case NotAnInstruction: error("")
+        case InsertHelper_TAG: error("Cannot be emitted.")
         case Call_TAG:                return emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.call);
         case PrimOp_TAG:              return emit_primop(emitter, fn_builder, *bb_builder, instruction);
         case Comment_TAG:             return 0;

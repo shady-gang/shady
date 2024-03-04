@@ -1161,10 +1161,9 @@ const Type* check_type_control(IrArena* arena, Control control) {
     return wrap_multiple_yield_types(arena, add_qualifiers(arena, join_point_yield_types, false));
 }
 
-const Type* check_type_compound_instruction(IrArena* arena, CompoundInstruction payload) {
-    if (payload.instructions.count == 0)
-        return wrap_multiple_yield_types(arena, empty(arena));
-    return last(payload.instructions)->type;
+const Type* check_type_insert_helper(IrArena* arena, InsertHelper payload) {
+    const Node* yield = get_insert_helper_yield(payload);
+    return wrap_multiple_yield_types(arena, get_values_types(arena, yield->payload.yield.args));
 }
 
 const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {

@@ -567,11 +567,6 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(")");
             print_args_list(ctx, node->payload.call.args);
             break;
-        } case CompoundInstruction_TAG: {
-            Nodes instructions = node->payload.compound_instruction.instructions;
-            for (size_t i = 0; i < instructions.count; i++)
-                print_node(instructions.nodes[i]);
-            break;
         }
         default: break;
     }

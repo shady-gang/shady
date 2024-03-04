@@ -275,6 +275,22 @@ Nodes get_abstraction_params(const Node* abs) {
     }
 }
 
+const Node* get_insert_helper_yield(InsertHelper h) {
+    const Node* terminator = h.body;
+    while (true) {
+        if (is_structured_construct(terminator)) {
+            terminator = get_structured_construct_tail(terminator);
+            continue;
+        } else if (terminator->tag == Body_TAG) {
+            terminator = terminator->payload.body.terminator;
+            continue;
+        }else if (terminator->tag == Yield_TAG) {
+            return terminator;
+        }
+        error("Invalid syntax: InsertHelper chain should end with Yield.")
+    }
+}
+
 KeyHash hash_node_payload(const Node* node);
 
 KeyHash hash_node(Node** pnode) {

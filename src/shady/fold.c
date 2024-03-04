@@ -208,51 +208,28 @@ const Node* fold_node(IrArena* arena, const Node* node) {
     switch (node->tag) {
         case PrimOp_TAG: folded = fold_prim_op(arena, node); break;
         case Body_TAG: {
+            Nodes instructions = node->payload.body.instructions;
             // Body([], T) => T
-            if (node->payload.body.instructions.count == 0)
+            if (instructions.count == 0)
                 return node->payload.body.terminator;
-            // Body([Compound(I)], T) => Body(I, T)
-            if (node->payload.body.instructions.count == 1) {
-                const Node* instruction = node->payload.body.instructions.nodes[0];
-                if (instruction->tag == CompoundInstruction_TAG)
-                    return body(arena, (Body) {
-                        .instructions = instruction->payload.compound_instruction.instructions,
-                        .terminator = node->payload.body.terminator,
-                    });
-            }
             const Node* terminator = node->payload.body.terminator;
             // Body(I, Body(I2, T)) => Body(I ++ I2, T)
             if (terminator->tag == Body_TAG) {
                 return body(arena, (Body) {
-                    .instructions = concat_nodes(arena, node->payload.body.instructions, terminator->payload.body.instructions),
+                    .instructions = concat_nodes(arena, instructions, terminator->payload.body.instructions),
                     .terminator = terminator->payload.body.terminator
                 });
             }
-            break;
-        }
-        case CompoundInstruction_TAG: {
-            Nodes old_instructions = node->payload.compound_instruction.instructions;
-            struct List* list = NULL;
-            rerun:
-            for (size_t i = 0; i < old_instructions.count; i++) {
-                const Node* instruction = old_instructions.nodes[i];
-                if (instruction->tag == CompoundInstruction_TAG) {
-                    if (list) {
-                        Nodes compound_list = instruction->payload.compound_instruction.instructions;
-                        for (size_t j = 0; j < compound_list.count; j++)
-                            append_list(const Node*, list, compound_list.nodes[j]);
-                    } else {
-                        list = new_list(const Node*);
-                        goto rerun;
-                    }
-                } else {
-                    append_list(const Node*, list, instruction);
+            // Body(I ++ InsertHelper(..., Yield())
+            for (size_t i = 0; i < instructions.count; i++) {
+                const Node* instruction = instructions.nodes[i];
+                if (instruction->tag == InsertHelper_TAG) {
+                    const Node* tail = body(arena, (Body) {
+                        .instructions = nodes(arena, instructions.count - i - 1, &instructions.nodes[i + 1]),
+                        .terminator = node->payload.body.terminator
+                    });
+                    error("TODO");
                 }
-            }
-            if (list) {
-                return compound_instruction(arena, (CompoundInstruction) {
-                    .instructions = nodes(arena, entries_count_list(list), read_list(const Node*, list))
-                });
             }
             break;
         }

@@ -402,11 +402,14 @@
       ]
     },
     {
-      "name": "CompoundInstruction",
+      "name": "InsertHelper",
       "class": ["instruction", "value"],
-      "description": "Used as a helper to insert multiple instructions in place of one",
+      "description": [
+        "Used as a helper to insert multiple instructions, or even control-flow, where an instruction is expected",
+        "Body must be a chain of Body and structured_construct nodes, eventually ending in Yield."
+      ],
       "ops": [
-        { "name": "instructions", "class": "instruction", "list": true }
+        { "name": "body", "class": "terminator" }
       ]
     },
     {

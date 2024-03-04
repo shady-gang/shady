@@ -710,24 +710,10 @@ static const Node* _infer_control(Context* ctx, const Node* node) {
     });
 }
 
-static const Node* _infer_compound_instruction(Context* ctx, const Node* node, const Type* expected_type) {
-    assert(node->tag == CompoundInstruction_TAG);
-    IrArena* a = ctx->rewriter.dst_arena;
-
-    Nodes oinstructions = node->payload.compound_instruction.instructions;
-    LARRAY(const Node*, instructions, oinstructions.count);
-    for (size_t i = 0; i < oinstructions.count; i++)
-        instructions[i] = infer(ctx, oinstructions.nodes[i], i + 1 == oinstructions.count ? expected_type : NULL);
-    return compound_instruction(a, (CompoundInstruction) {
-        .instructions = nodes(a, oinstructions.count, instructions)
-    });
-}
-
 static const Node* _infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return _infer_primop(ctx, node, expected_type);
         case Call_TAG:         return _infer_indirect_call(ctx, node, expected_type);
-        case CompoundInstruction_TAG: return _infer_compound_instruction(ctx, node, expected_type);
         case Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
         default:               error("TODO")
         case NotAnInstruction: error("not an instruction");

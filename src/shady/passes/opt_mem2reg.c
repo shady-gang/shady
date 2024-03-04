@@ -370,8 +370,6 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
 
             return recreate_node_identity(r, oinstruction);
         }
-        case Instruction_CompoundInstruction_TAG:
-            break;
         case Instruction_Comment_TAG:
             break;
     }
