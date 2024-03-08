@@ -789,6 +789,7 @@ static void emit_body(Emitter* emitter, Printer* p, const Node* body) {
 
 void c_emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator) {
     switch (is_terminator(terminator)) {
+        case InsertHelperEnd_TAG: assert(false);
         case NotATerminator: assert(false);
         case Control_TAG:
         case Join_TAG: error("control/join must be lowered elsewhere");

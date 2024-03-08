@@ -275,7 +275,7 @@ Nodes get_abstraction_params(const Node* abs) {
     }
 }
 
-const Node* get_insert_helper_yield(InsertHelper h) {
+const Node* get_insert_helper_end(InsertHelper h) {
     const Node* terminator = h.body;
     while (true) {
         if (is_structured_construct(terminator)) {
@@ -284,10 +284,10 @@ const Node* get_insert_helper_yield(InsertHelper h) {
         } else if (terminator->tag == Body_TAG) {
             terminator = terminator->payload.body.terminator;
             continue;
-        }else if (terminator->tag == Yield_TAG) {
+        } else if (terminator->tag == InsertHelperEnd_TAG) {
             return terminator;
         }
-        error("Invalid syntax: InsertHelper chain should end with Yield.")
+        error("Invalid syntax: InsertHelper chain should end with InsertHelperEnd.")
     }
 }
 

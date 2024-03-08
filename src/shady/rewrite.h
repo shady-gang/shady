@@ -44,7 +44,7 @@ struct Rewriter_ {
 Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
 Rewriter create_importer(Module* src, Module* dst);
 Module* rebuild_module(Module*);
-Rewriter create_substituter(Module* arena);
+Rewriter create_substituter(IrArena* arena);
 void destroy_rewriter(Rewriter*);
 
 void rewrite_module(Rewriter*);

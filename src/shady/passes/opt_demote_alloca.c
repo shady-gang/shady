@@ -32,7 +32,7 @@ typedef struct {
     bool leaks;
     bool read_from;
     bool non_logical_use;
-    const Node* bound;
+    //const Node* bound;
 } AllocaInfo;
 
 typedef struct {
@@ -225,11 +225,11 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k.src_alloca) {
                         const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.operands.nodes[0]->type)));
                         if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
-                            if (k.src_alloca->bound == rewrite_node(r, first(payload.operands)))
-                                break;
+                            //if (k.src_alloca->bound == rewrite_node(r, first(payload.operands)))
+                            //    break;
                             ctx->todo |= true;
                             BodyBuilder* bb = begin_body(a);
-                            const Node* data = gen_load(bb, k.src_alloca->bound);
+                            const Node* data = gen_load(bb, rewrite_node(r, first(payload.operands)));
                             data = gen_reinterpret_cast(bb, access_type, data);
                             return yield_values_and_wrap_in_block(bb, singleton(data));
                         }
@@ -241,12 +241,12 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k.src_alloca) {
                         const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.operands.nodes[0]->type)));
                         if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
-                            if (k.src_alloca->bound == rewrite_node(r, first(payload.operands)))
-                                break;
+                            //if (k.src_alloca->bound == rewrite_node(r, first(payload.operands)))
+                            //    break;
                             ctx->todo |= true;
                             BodyBuilder* bb = begin_body(a);
                             const Node* data = gen_reinterpret_cast(bb, access_type, rewrite_node(r, payload.operands.nodes[1]));
-                            gen_store(bb, k.src_alloca->bound, data);
+                            gen_store(bb, rewrite_node(r, first(payload.operands)), data);
                             return yield_values_and_wrap_in_block(bb, empty(a));
                         }
                     }

@@ -149,7 +149,7 @@ const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
 const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
     IrArena* a = bb->arena;
     return insert_helper(a, (InsertHelper) {
-        .body = finish_body(bb, yield(a, (Yield) {
+        .body = finish_body(bb, insert_helper_end(a, (InsertHelperEnd) {
             .args = values,
         }))
     });

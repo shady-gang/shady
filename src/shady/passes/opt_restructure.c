@@ -159,6 +159,7 @@ static const Node* structure(Context* ctx, const Node* terminator, const Node* e
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (is_terminator(terminator)) {
+        case InsertHelperEnd_TAG: assert(false);
         case NotATerminator:
         case Body_TAG: {
             return body(a, (Body) {

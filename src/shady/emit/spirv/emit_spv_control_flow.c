@@ -232,6 +232,10 @@ static void add_branch_phis(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb
 
 void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* terminator) {
     switch (is_terminator(terminator)) {
+        case NotATerminator: error("TODO: emit terminator %s", node_tags[terminator->tag]);
+        case TailCall_TAG:
+        case Join_TAG: error("Lower me");
+        case InsertHelperEnd_TAG: assert(false);
         case Body_TAG:  return emit_body(emitter, fn_builder, basic_block_builder, merge_targets, terminator->payload.body);
         case If_TAG:    return emit_if(emitter, fn_builder, basic_block_builder, merge_targets, terminator->payload.structured_if);
         case Match_TAG: return emit_match(emitter, fn_builder, basic_block_builder, merge_targets, terminator->payload.structured_match);
@@ -274,8 +278,6 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
 
             spvb_switch(basic_block_builder, inspectee, default_tgt, terminator->payload.br_switch.destinations.count, targets);
         }
-        case TailCall_TAG:
-        case Join_TAG: error("Lower me");
         case Terminator_Yield_TAG: {
             Nodes args = terminator->payload.yield.args;
             for (size_t i = 0; i < args.count; i++)
@@ -301,7 +303,6 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             spvb_unreachable(basic_block_builder);
             return;
         }
-        case NotATerminator: error("TODO: emit terminator %s", node_tags[terminator->tag]);
     }
     SHADY_UNREACHABLE;
 }

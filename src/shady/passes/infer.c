@@ -724,6 +724,7 @@ static const Node* _infer_instruction(Context* ctx, const Node* node, const Type
 static const Node* _infer_terminator(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_terminator(node)) {
+        case InsertHelperEnd_TAG: assert(false);
         case NotATerminator: assert(false);
         case Body_TAG:    return _infer_body  (ctx, node);
         case If_TAG:      return _infer_if    (ctx, node);
@@ -834,13 +835,13 @@ static const Node* process(Context* src_ctx, const Node* node) {
     if (is_type(node)) {
         assert(expect == NULL);
         return _infer_type(&ctx, node);
+    } else if (is_instruction(node)) {
+        return _infer_instruction(&ctx, node, expect);
     } else if (is_value(node)) {
         const Node* value = _infer_value(&ctx, node, expect);
         assert(is_value_type(value->type));
         return value;
-    }else if (is_instruction(node))
-        return _infer_instruction(&ctx, node, expect);
-    else if (is_terminator(node)) {
+    } else if (is_terminator(node)) {
         assert(expect == NULL);
         return _infer_terminator(&ctx, node);
     } else if (is_declaration(node)) {

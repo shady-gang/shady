@@ -156,8 +156,10 @@ static void print_dominated_bbs(PrinterCtx* ctx, const CFNode* dominator) {
 
 static void print_body(PrinterCtx* ctx, const Node* body) {
     Nodes instructions = body->payload.body.instructions;
-    for (size_t i = 0; i < instructions.count; i++)
+    for (size_t i = 0; i < instructions.count; i++) {
         print_node(instructions.nodes[i]);
+        print(ctx->printer, "\n");
+    }
     print_node(body->payload.body.terminator);
 }
 
@@ -542,6 +544,8 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
 }
 
 static void print_instruction(PrinterCtx* ctx, const Node* node) {
+    if (is_value(node))
+        printf("%%%d ", node->id);
     switch (is_instruction(node)) {
         case NotAnInstruction: assert(false); break;
         case Instruction_Comment_TAG: {
@@ -582,6 +586,7 @@ static void print_jump(PrinterCtx* ctx, const Node* node) {
 static void print_terminator(PrinterCtx* ctx, const Node* node) {
     TerminatorTag tag = is_terminator(node);
     switch (tag) {
+        case InsertHelperEnd_TAG: assert(false);
         case NotATerminator: assert(false);
         case Body_TAG:
             print_body(ctx, node);
@@ -834,10 +839,10 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
 
     if (is_type(node))
         print_type(ctx, node);
-    else if (is_value(node))
-        print_value(ctx, node);
     else if (is_instruction(node))
         print_instruction(ctx, node);
+    else if (is_value(node))
+        print_value(ctx, node);
     else if (is_terminator(node))
         print_terminator(ctx, node);
     else if (node->tag == Case_TAG) {

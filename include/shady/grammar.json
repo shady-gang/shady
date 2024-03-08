@@ -420,15 +420,6 @@
       ]
     },
     {
-      "name": "LetMut",
-      "constructor": "custom",
-      "front-end-only": true,
-      "ops": [
-        { "name": "instruction", "class": "instruction" },
-        { "name": "variables", "class": "variable", "list": true }
-      ]
-    },
-    {
       "name": "TailCall",
       "class": "terminator",
       "ops": [
@@ -544,6 +535,14 @@
     {
       "name": "Yield",
       "class": "terminator",
+      "ops": [
+        { "name": "args", "class": "value", "list": true }
+      ]
+    },
+    {
+      "name": "InsertHelperEnd",
+      "class": "terminator",
+      "type": false,
       "ops": [
         { "name": "args", "class": "value", "list": true }
       ]
@@ -684,6 +683,15 @@
       "ops": [
         { "name": "instructions", "class": "instruction", "list": true },
         { "name": "terminator", "class": "terminator" }
+      ]
+    },
+    {
+      "name": "LetMut",
+      "constructor": "custom",
+      "front-end-only": true,
+      "ops": [
+        { "name": "instruction", "class": "instruction" },
+        { "name": "variables", "class": "variable", "list": true }
       ]
     },
     {

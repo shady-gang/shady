@@ -12,6 +12,9 @@
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
+//RewriteNodeFn rewrite_only_substitute;
+const Node* rewrite_only_substitute(Rewriter*, const Node*);
+
 Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
     return (Rewriter) {
         .src_arena = src->arena,
@@ -19,6 +22,24 @@ Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
         .src_module = src,
         .dst_module = dst,
         .rewrite_fn = fn,
+        .config = {
+            .search_map = true,
+            //.write_map = true,
+            .rebind_let = false,
+            .fold_quote = true,
+        },
+        .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+    };
+}
+
+Rewriter create_substituter(IrArena* a) {
+    return (Rewriter) {
+        .src_arena = a,
+        .dst_arena = a,
+        .src_module = NULL,
+        .dst_module = NULL,
+        .rewrite_fn = rewrite_only_substitute,
         .config = {
             .search_map = true,
             //.write_map = true,
@@ -222,6 +243,7 @@ Node* clone_bb_head(Rewriter* r, const Node* bb) {
 
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
+    assert(rewriter->dst_module && "Cannot recreate decls in a substituter");
     switch (is_declaration(old)) {
         case GlobalVariable_TAG: {
             Nodes new_annotations = rewrite_ops_helper(rewriter, NcAnnotation, "annotations", old->payload.global_variable.annotations);
@@ -368,4 +390,13 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         }
     }
     assert(false);
+}
+
+const Node* rewrite_only_substitute(Rewriter* r, const Node* n) {
+    if (is_declaration(n))
+        return n;
+    return recreate_node_identity(r, n);
+    /*switch (n->tag) {
+        case Variable_TAG: return n;
+    }*/
 }

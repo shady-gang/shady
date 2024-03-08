@@ -195,6 +195,7 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
             case MergeBreak_TAG: {
                 break; // TODO i guess
             }
+            case InsertHelperEnd_TAG: assert(false);
             case TailCall_TAG:
             case Return_TAG:
             case Unreachable_TAG:
