@@ -141,7 +141,7 @@
     {
       "name": "structured_construct",
       "ops": [
-        { "name": "tail", "class": "case" }
+        { "name": "yield_types", "class": "type", "list": true }
       ]
     }
   ],
@@ -402,17 +402,6 @@
       ]
     },
     {
-      "name": "InsertHelper",
-      "class": ["instruction", "value"],
-      "description": [
-        "Used as a helper to insert multiple instructions, or even control-flow, where an instruction is expected",
-        "Body must be a chain of Body and structured_construct nodes, eventually ending in Yield."
-      ],
-      "ops": [
-        { "name": "body", "class": "terminator" }
-      ]
-    },
-    {
       "name": "Comment",
       "class": "instruction",
       "ops": [
@@ -463,59 +452,41 @@
     {
       "name": "If",
       "snake_name": "structured_if",
-      "class": ["terminator", "structured_construct"],
+      "class": ["instruction", "value", "structured_construct"],
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "condition", "class": "value" },
         { "name": "if_true", "class": "case" },
-        { "name": "if_false", "class": "case" },
-        { "name": "tail", "class": "case" }
+        { "name": "if_false", "class": "case" }
       ]
     },
     {
       "name": "Match",
       "snake_name": "structured_match",
-      "class": ["terminator", "structured_construct"],
+      "class": ["instruction", "value", "structured_construct"],
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "inspect", "class": "value" },
         { "name": "literals", "class": "value", "list": true },
         { "name": "cases", "class": "case", "list": true },
-        { "name": "default_case", "class": "case" },
-        { "name": "tail", "class": "case" }
+        { "name": "default_case", "class": "case" }
+      ]
+    },
+    {
+      "name": "Yield",
+      "class": "terminator",
+      "ops": [
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
       "name": "Loop",
       "snake_name": "structured_loop",
-      "class": ["terminator", "structured_construct"],
+      "class": ["instruction", "value", "structured_construct"],
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "body", "class": "case" },
-        { "name": "initial_args", "class": "value", "list": true },
-        { "name": "tail", "class": "case" }
-      ]
-    },
-    {
-      "name": "Control",
-      "class": ["terminator", "structured_construct"],
-      "ops": [
-        { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inside", "class": "case" },
-        { "name": "tail", "class": "case" }
-      ]
-    },
-    {
-      "name": "Join",
-      "class": "terminator",
-      "description": [
-        "Join nodes are used to undo the divergence caused by branches",
-        "At join nodes, an explicit mask is used to force a number of divergent execution paths to resume.",
-        "If @p is_indirect is set, the target must be a function pointer. Otherwise, the target must be a function directly."
-      ],
-      "ops": [
-        { "name": "join_point", "class": "value" },
-        { "name": "args", "class": "value", "list": true }
+        { "name": "initial_args", "class": "value", "list": true }
       ]
     },
     {
@@ -533,16 +504,41 @@
       ]
     },
     {
-      "name": "Yield",
-      "class": "terminator",
+      "name": "Control",
+      "class": ["instruction", "value", "structured_construct"],
       "ops": [
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "inside", "class": "case" }
+      ]
+    },
+    {
+      "name": "Join",
+      "class": "terminator",
+      "description": [
+        "Join nodes are used to undo the divergence caused by branches",
+        "At join nodes, an explicit mask is used to force a number of divergent execution paths to resume.",
+        "If @p is_indirect is set, the target must be a function pointer. Otherwise, the target must be a function directly."
+      ],
+      "ops": [
+        { "name": "join_point", "class": "value" },
         { "name": "args", "class": "value", "list": true }
       ]
     },
     {
-      "name": "InsertHelperEnd",
+      "name": "Region",
+      "class": ["instruction", "value", "structured_construct"],
+      "description": [
+        "Used as a helper to insert multiple instructions, or even control-flow, where an instruction is expected",
+        "Body must be a chain of Body and structured_construct nodes, eventually ending in Yield."
+      ],
+      "ops": [
+        { "name": "yield_types", "class": "type", "list": true },
+        { "name": "body", "class": "terminator" }
+      ]
+    },
+    {
+      "name": "RegionEnd",
       "class": "terminator",
-      "type": false,
       "ops": [
         { "name": "args", "class": "value", "list": true }
       ]

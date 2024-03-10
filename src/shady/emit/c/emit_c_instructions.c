@@ -673,9 +673,10 @@ static CTerm emit_call(Emitter* emitter, Printer* p, const Node* call) {
     return bind_and_register_emitted_cterm(emitter, p, call, term);
 }
 
-static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr) {
+static CTerm emit_if(Emitter* emitter, Printer* p, const Node* if_instr) {
     assert(if_instr->tag == If_TAG);
     const If* if_ = &if_instr->payload.structured_if;
+    Nodes types = if_->yield_types;
     Emitter sub_emiter = *emitter;
     Strings ephis = emit_variable_declarations(emitter, p, "if_phi", NULL, if_->yield_types, true, NULL);
     sub_emiter.phis.selection = ephis;
@@ -692,17 +693,16 @@ static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr) {
         free_tmp_str(false_body);
     }
 
-    const Node* tail = if_->tail;
-    assert(tail->tag == Case_TAG);
-    Nodes tail_params = get_abstraction_params(tail);
+    LARRAY(CTerm, terms, types.count);
     for (size_t i = 0; i < ephis.count; i++)
-        register_emitted_cterm(emitter, tail_params.nodes[i], term_from_cvalue(ephis.strings[i]));
-    c_emit_lambda_body_at(emitter, p, get_abstraction_body(tail), NULL);
+        terms[0] = term_from_cvalue(ephis.strings[i]);
+    return pack_terms(emitter, p, types, terms);
 }
 
-static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr) {
+static CTerm emit_match(Emitter* emitter, Printer* p, const Node* match_instr) {
     assert(match_instr->tag == Match_TAG);
     const Match* match = &match_instr->payload.structured_match;
+    Nodes types = match->yield_types;
     Emitter sub_emiter = *emitter;
     Strings ephis = emit_variable_declarations(emitter, p, "match_phi", NULL, match->yield_types, true, NULL);
     sub_emiter.phis.selection = ephis;
@@ -737,17 +737,16 @@ static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr) {
         free_tmp_str(default_case_body);
     }
 
-    const Node* tail = match->tail;
-    assert(tail->tag == Case_TAG);
-    Nodes tail_params = get_abstraction_params(tail);
+    LARRAY(CTerm, terms, types.count);
     for (size_t i = 0; i < ephis.count; i++)
-        register_emitted_cterm(emitter, tail_params.nodes[i], term_from_cvalue(ephis.strings[i]));
-    c_emit_lambda_body_at(emitter, p, get_abstraction_body(tail), NULL);
+        terms[0] = term_from_cvalue(ephis.strings[i]);
+    return pack_terms(emitter, p, types, terms);
 }
 
-static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr) {
+static CTerm emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr) {
     assert(loop_instr->tag == Loop_TAG);
     const Loop* loop = &loop_instr->payload.structured_loop;
+    Nodes types = loop->yield_types;
 
     Emitter sub_emiter = *emitter;
     Nodes params = get_abstraction_params(loop->body);
@@ -771,12 +770,10 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr) {
     print(p, "\nwhile(true) { %s}", body);
     free_tmp_str(body);
 
-    const Node* tail = loop->tail;
-    assert(tail->tag == Case_TAG);
-    Nodes tail_params = get_abstraction_params(tail);
+    LARRAY(CTerm, terms, types.count);
     for (size_t i = 0; i < ephis.count; i++)
-        register_emitted_cterm(emitter, tail_params.nodes[i], term_from_cvalue(ephis.strings[i]));
-    c_emit_lambda_body_at(emitter, p, get_abstraction_body(tail), NULL);
+        terms[0] = term_from_cvalue(ephis.strings[i]);
+    return pack_terms(emitter, p, types, terms);
 }
 
 static void emit_body(Emitter* emitter, Printer* p, const Node* body) {
@@ -789,23 +786,13 @@ static void emit_body(Emitter* emitter, Printer* p, const Node* body) {
 
 void c_emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator) {
     switch (is_terminator(terminator)) {
-        case InsertHelperEnd_TAG: assert(false);
+        case RegionEnd_TAG: assert(false);
         case NotATerminator: assert(false);
-        case Control_TAG:
         case Join_TAG: error("control/join must be lowered elsewhere");
         case Jump_TAG:
         case Branch_TAG:
         case Switch_TAG:
         case TailCall_TAG: error("TODO");
-        case If_TAG:
-            emit_if(emitter, block_printer, terminator);
-            return;
-        case Match_TAG:
-            emit_match(emitter, block_printer, terminator);
-            return;
-        case Loop_TAG:
-            emit_loop(emitter, block_printer, terminator);
-            return;
         case Body_TAG:
             emit_body(emitter, block_printer, terminator);
             return;
@@ -874,9 +861,13 @@ CTerm c_emit_instruction(Emitter* emitter, Printer* p, const Node* instruction) 
 
     switch (is_instruction(instruction)) {
         case NotAnInstruction: assert(false);
-        case Instruction_InsertHelper_TAG: error("Cannot be emitted.")
+        case Instruction_Region_TAG: error("Cannot be emitted.")
         case Instruction_PrimOp_TAG:       return emit_primop(emitter, p, instruction);
         case Instruction_Call_TAG:         return emit_call(emitter, p, instruction);
         case Instruction_Comment_TAG:      print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
+        case Control_TAG: error("control/join must be lowered elsewhere");
+        case If_TAG: return emit_if(emitter, p, instruction);
+        case Match_TAG: return emit_match(emitter, p, instruction);
+        case Loop_TAG: return emit_loop(emitter, p, instruction);
     }
 }

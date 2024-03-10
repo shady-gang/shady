@@ -87,9 +87,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
 
             const Node* control_lam = case_(a, nodes(a, 1, (const Node* []) {join_point}), control_body);
-            join_context.abs = node->payload.structured_if.tail;
-            const Node* ntail = rewrite_node(&join_context.rewriter, node->payload.structured_if.tail);
-            return control(a, (Control) { .yield_types = yield_types, .inside = control_lam, .tail = ntail });
+            return control(a, (Control) { .yield_types = yield_types, .inside = control_lam });
         }
         case Loop_TAG: {
             const Node* old_loop_body = node->payload.structured_loop.body;
@@ -136,9 +134,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .args = rewrite_nodes(&ctx->rewriter, node->payload.structured_loop.initial_args),
             });
             const Node* outer_body = case_(a, nodes(a, 1, (const Node* []) {break_point}), initial_jump);
-            join_context.abs = node->payload.structured_loop.tail;
-            const Node* ntail = rewrite_node(&join_context.rewriter, node->payload.structured_loop.tail);
-            return control(a, (Control) { .yield_types = yield_types, .inside = outer_body, .tail = ntail });
+            return control(a, (Control) { .yield_types = yield_types, .inside = outer_body });
         }
         case Yield_TAG: {
             if (!cfnode)

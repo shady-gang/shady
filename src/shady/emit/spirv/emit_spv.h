@@ -40,8 +40,9 @@ SpvId emit_decl(Emitter*, const Node*);
 SpvId emit_type(Emitter*, const Type*);
 SpvId emit_value(Emitter*, BBBuilder, const Node*);
 /// SpvId might be zero - indicates instruction with no result.
-SpvId emit_instruction(Emitter*, FnBuilder, BBBuilder*, const Node* instruction);
+SpvId emit_instruction(Emitter*, FnBuilder, BBBuilder*, MergeTargets, const Node* instruction);
 void emit_terminator(Emitter*, FnBuilder, BBBuilder, MergeTargets, const Node* terminator);
+void emit_structured_construct(Emitter*, FnBuilder, BBBuilder*, MergeTargets, const Node* instruction);
 BBBuilder spv_find_basic_block_builder(Emitter* emitter, FnBuilder fn_builder, const Node* bb);
 
 SpvId find_reserved_id(Emitter* emitter, const Node* node);

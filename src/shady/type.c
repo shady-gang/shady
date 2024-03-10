@@ -1122,8 +1122,8 @@ const Type* check_type_structured_if(IrArena* arena, If if_instr) {
     if (if_instr.yield_types.count > 0)
         assert(if_instr.if_false);
 
-    return noret_type(arena);
-    // return wrap_multiple_yield_types(arena, add_qualifiers(arena, if_instr.yield_types, false));
+    // return noret_type(arena);
+    return wrap_multiple_yield_types(arena, add_qualifiers(arena, if_instr.yield_types, false));
 }
 
 const Type* check_type_structured_loop(IrArena* arena, Loop loop_instr) {
@@ -1161,9 +1161,9 @@ const Type* check_type_control(IrArena* arena, Control control) {
     return wrap_multiple_yield_types(arena, add_qualifiers(arena, join_point_yield_types, false));
 }
 
-const Type* check_type_insert_helper(IrArena* arena, InsertHelper payload) {
-    const Node* yield = get_insert_helper_end(payload);
-    return wrap_multiple_yield_types(arena, get_values_types(arena, yield->payload.insert_helper_end.args));
+const Type* check_type_region(IrArena* arena, Region payload) {
+    const Node* yield = get_region_end(payload);
+    return wrap_multiple_yield_types(arena, get_values_types(arena, yield->payload.region_end.args));
 }
 
 const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {

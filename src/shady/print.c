@@ -147,10 +147,10 @@ static void print_dominated_bbs(PrinterCtx* ctx, const CFNode* dominator) {
     for (size_t i = 0; i < dominator->dominates->elements_count; i++) {
         const CFNode* cfnode = read_list(const CFNode*, dominator->dominates)[i];
         // ignore cases that make up basic structural dominance
-        if (find_key_dict(const Node*, dominator->structurally_dominates, cfnode->node))
+        if (find_key_dict(CFNode*, dominator->structurally_dominates, cfnode))
             continue;
-        assert(is_basic_block(cfnode->node));
-        print_basic_block(ctx, cfnode->node);
+        assert(is_basic_block(cfnode->abstraction));
+        print_basic_block(ctx, cfnode->abstraction);
     }
 }
 
@@ -572,25 +572,6 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             print_args_list(ctx, node->payload.call.args);
             break;
         }
-        default: break;
-    }
-    print_node_generated(ctx->printer, node, ctx->config);
-}
-
-static void print_jump(PrinterCtx* ctx, const Node* node) {
-    assert(node->tag == Jump_TAG);
-    print_node(node->payload.jump.target);
-    print_args_list(ctx, node->payload.jump.args);
-}
-
-static void print_terminator(PrinterCtx* ctx, const Node* node) {
-    TerminatorTag tag = is_terminator(node);
-    switch (tag) {
-        case InsertHelperEnd_TAG: assert(false);
-        case NotATerminator: assert(false);
-        case Body_TAG:
-            print_body(ctx, node);
-            break;
         case If_TAG: {
             printf(GREEN);
             printf("if");
@@ -606,7 +587,6 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 printf(RESET);
                 print_case_body(ctx, node->payload.structured_if.if_false);
             }
-            print_abs_body(ctx, node->payload.structured_if.tail);
             break;
         } case Loop_TAG: {
             printf(GREEN);
@@ -617,7 +597,6 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             assert(is_case(body));
             print_param_list(ctx, body->payload.case_.params, &node->payload.structured_loop.initial_args);
             print_case_body(ctx, body);
-            print_abs_body(ctx, node->payload.structured_loop.tail);
             break;
         } case Match_TAG: {
             printf(GREEN);
@@ -649,7 +628,6 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
 
             deindent(ctx->printer);
             printf("\n}");
-            print_abs_body(ctx, node->payload.structured_match.tail);
             break;
         } case Control_TAG: {
             printf(BGREEN);
@@ -662,9 +640,27 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             print_yield_types(ctx, node->payload.control.yield_types);
             print_param_list(ctx, node->payload.control.inside->payload.case_.params, NULL);
             print_case_body(ctx, node->payload.control.inside);
-            print_abs_body(ctx, node->payload.control.tail);
             break;
         }
+        default: break;
+    }
+    print_node_generated(ctx->printer, node, ctx->config);
+}
+
+static void print_jump(PrinterCtx* ctx, const Node* node) {
+    assert(node->tag == Jump_TAG);
+    print_node(node->payload.jump.target);
+    print_args_list(ctx, node->payload.jump.args);
+}
+
+static void print_terminator(PrinterCtx* ctx, const Node* node) {
+    TerminatorTag tag = is_terminator(node);
+    switch (tag) {
+        case RegionEnd_TAG: assert(false);
+        case NotATerminator: assert(false);
+        case Body_TAG:
+            print_body(ctx, node);
+            break;
         case Return_TAG:
             printf(BGREEN);
             printf("return");

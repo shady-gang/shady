@@ -22,8 +22,25 @@ typedef struct {
     CFNode* dst;
 } CFEdge;
 
+typedef enum {
+    CFNodeType_EntryNode,
+    CFNodeType_BBNode,
+    CFNodeType_CaseNode,
+    CFNodeType_Tail,
+} CFNodeType;
+
 struct CFNode_ {
-    const Node* node;
+    CFNodeType type;
+    const Node* abstraction;
+    const Node* body;
+    /// Specifies which part of the body (which instructions) this CFNode accounts for
+    struct {
+        size_t start, end;
+    } range;
+
+    CFNode* parent;
+    CFNode* tail;
+    // const Node* node;
 
     /** @brief Edges where this node is the source
      *
@@ -65,7 +82,7 @@ typedef struct Scope_ {
     /**
      * @ref Dict from const @ref Node* to @ref CFNode*
      */
-    struct Dict* map;
+    struct Dict* abs_map;
 
     CFNode* entry;
     // set by compute_rpo
@@ -99,7 +116,7 @@ Scope* new_scope_lt_impl(const Node* entry, LoopTree* lt, bool flipped);
  */
 #define new_scope_flipped(node) new_scope_impl(node, NULL, true);
 
-CFNode* scope_lookup(Scope*, const Node* block);
+CFNode* scope_lookup(Scope*, const Node* abs);
 void compute_rpo(Scope*);
 void compute_domtree(Scope*);
 

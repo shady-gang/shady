@@ -124,7 +124,7 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
                 case Constant_TAG: {
                     const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
                     if (!init_value && bb_builder) {
-                        return emit_instruction(emitter, NULL, &bb_builder, decl->payload.constant.instruction);
+                        return emit_instruction(emitter, NULL, &bb_builder, (MergeTargets) { 0 }, decl->payload.constant.instruction);
                     }
                     assert(init_value && "TODO: support some measure of constant expressions");
                     new = emit_value(emitter, NULL, init_value);
@@ -154,18 +154,18 @@ BBBuilder spv_find_basic_block_builder(Emitter* emitter, SHADY_UNUSED FnBuilder 
 }
 
 static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const Scope* scope, const CFNode* cf_node) {
-    const Node* bb_node = cf_node->node;
-    assert(is_basic_block(bb_node) || cf_node == scope->entry);
+    assert(cf_node->type == CFNodeType_EntryNode || cf_node->type == CFNodeType_BBNode);
+    const Node* abs = cf_node->abstraction;
 
-    const Node* body = get_abstraction_body(bb_node);
+    const Node* body = get_abstraction_body(abs);
 
     // Find the preassigned ID to this
-    BBBuilder bb_builder = spv_find_basic_block_builder(emitter, fn_builder, bb_node);
+    BBBuilder bb_builder = spv_find_basic_block_builder(emitter, fn_builder, abs);
     SpvId bb_id = get_block_builder_id(bb_builder);
     spvb_add_bb(fn_builder, bb_builder);
 
-    if (is_basic_block(bb_node))
-        spvb_name(emitter->file_builder, bb_id, bb_node->payload.basic_block.name);
+    if (is_basic_block(abs))
+        spvb_name(emitter->file_builder, bb_id, abs->payload.basic_block.name);
 
     MergeTargets merge_targets = {
         .continue_target = 0,
@@ -199,9 +199,9 @@ static void emit_function(Emitter* emitter, const Node* node) {
         for (size_t i = 0; i < scope->size; i++) {
             CFNode* cfnode = read_list(CFNode*, scope->contents)[i];
             assert(cfnode);
-            const Node* bb = cfnode->node;
-            if (is_case(bb))
+            if (cfnode->type != CFNodeType_EntryNode && cfnode->type != CFNodeType_BBNode)
                 continue;
+            const Node* bb = cfnode->abstraction;
             assert(is_basic_block(bb) || bb == node);
             SpvId bb_id = spvb_fresh_id(emitter->file_builder);
             BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, bb_id);
@@ -224,7 +224,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
             CFNode* cfnode = scope->rpo[i];
             if (i == 0)
                 assert(cfnode == scope->entry);
-            if (is_case(cfnode->node))
+            if (cfnode->type != CFNodeType_EntryNode && cfnode->type != CFNodeType_BBNode)
                 continue;
             emit_basic_block(emitter, fn_builder, scope, cfnode);
         }

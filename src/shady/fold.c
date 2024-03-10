@@ -223,18 +223,16 @@ const Node* fold_node(IrArena* arena, const Node* node) {
             // Body(I ++ InsertHelper(..., InsertHelperEnd())
             for (size_t i = 0; i < instructions.count; i++) {
                 const Node* instruction = instructions.nodes[i];
-                if (instruction->tag == InsertHelper_TAG) {
-                    const Node* old_tail = instruction->payload.insert_helper.body;
+                if (instruction->tag == Region_TAG) {
+                    const Node* old_tail = instruction->payload.region.body;
                     struct List* list = new_list(const Node*);
                     Nodes values;
-                    while (is_structured_construct(old_tail) || old_tail->tag == Body_TAG) {
+                    while (old_tail->tag == Body_TAG) {
                         append_list(const Node*, list, old_tail);
-                        if (old_tail->tag != Body_TAG)
-                            old_tail = get_structured_construct_tail(old_tail);
                         old_tail = old_tail->payload.body.terminator;
                     }
-                    assert(old_tail->tag == InsertHelperEnd_TAG);
-                    values = old_tail->payload.insert_helper_end.args;
+                    assert(old_tail->tag == RegionEnd_TAG);
+                    values = old_tail->payload.region_end.args;
 
                     Rewriter s = create_substituter(arena);
                     register_processed(&s, instruction, tuple_helper(arena, values));
@@ -247,34 +245,10 @@ const Node* fold_node(IrArena* arena, const Node* node) {
 
                     size_t size = entries_count_list(list);
                     for (size_t j = size - 1; j <= size; j++) {
-                        const Node* construct = read_list(const Node*, list)[j];
-                        switch (is_structured_construct(construct)) {
-                            case NotAStructured_construct: assert(false);
-                            case Structured_construct_If_TAG: {
-                                If payload = construct->payload.structured_if;
-                                payload.tail = new_tail;
-                                new_tail = structured_if(arena, payload);
-                                break;
-                            }
-                            case Structured_construct_Match_TAG:{
-                                Match payload = construct->payload.structured_match;
-                                payload.tail = new_tail;
-                                new_tail = structured_match(arena, payload);
-                                break;
-                            }
-                            case Structured_construct_Loop_TAG:{
-                                Loop payload = construct->payload.structured_loop;
-                                payload.tail = new_tail;
-                                new_tail = structured_loop(arena, payload);
-                                break;
-                            }
-                            case Structured_construct_Control_TAG:{
-                                Control payload = construct->payload.control;
-                                payload.tail = new_tail;
-                                new_tail = control(arena, payload);
-                                break;
-                            }
-                        }
+                        const Node* old_body = read_list(const Node*, list)[j];
+                        Body payload = old_body->payload.body;
+                        payload.terminator = new_tail;
+                        new_tail = body(arena, payload);
                     }
 
                     return body(arena, (Body) {

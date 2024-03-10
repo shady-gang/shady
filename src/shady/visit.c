@@ -32,14 +32,16 @@ void visit_ops(Visitor* visitor, NodeClass op_class, String op_name, Nodes ops) 
 }
 
 void visit_function_rpo(Visitor* visitor, const Node* function) {
-    assert(function->tag == Function_TAG);
+    /*assert(function->tag == Function_TAG);
     Scope* scope = new_scope(function);
-    assert(scope->rpo[0]->node == function);
+    assert(scope->rpo[0]->type == CFNodeType_EntryNode);
+    assert(scope->rpo[0]->abstraction == function);
     for (size_t i = 1; i < scope->size; i++) {
         const Node* node = scope->rpo[i]->node;
-        visit_node(visitor, node);
+        visit_node(visitor, scope->rpo[i]);
     }
-    destroy_scope(scope);
+    destroy_scope(scope);*/
+    assert(false);
 }
 
 #pragma GCC diagnostic error "-Wswitch"

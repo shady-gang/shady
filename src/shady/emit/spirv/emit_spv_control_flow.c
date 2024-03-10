@@ -8,25 +8,21 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static void emit_join_case_body(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, MergeTargets merge_targets, const Node* tail, size_t results_count, SpvId results[]) {
-    assert(tail->tag == Case_TAG);
-    Nodes tail_params = get_abstraction_params(tail);
-    for (size_t i = 0; i < results_count; i++)
-        register_result(emitter, tail_params.nodes[i], results[i]);
-    assert(is_case(tail));
-    emit_terminator(emitter, fn_builder, bb_builder, merge_targets, tail->payload.case_.body);
+static SpvId finish_structured_construct(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, Nodes types, SpvId results[]) {
+    const Type* t = wrap_multiple_yield_types(emitter->arena, types);
+    return spvb_composite(bb_builder, spv_emit_type(emitter, t), types.count, results);
 }
 
-static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, MergeTargets merge_targets, If if_instr) {
+static SpvId emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets merge_targets, If if_instr) {
     Nodes yield_types = if_instr.yield_types;
     SpvId join_bb_id = spvb_fresh_id(emitter->file_builder);
 
     SpvId true_id = spvb_fresh_id(emitter->file_builder);
     SpvId false_id = if_instr.if_false ? spvb_fresh_id(emitter->file_builder) : join_bb_id;
 
-    spvb_selection_merge(bb_builder, join_bb_id, 0);
-    SpvId condition = emit_value(emitter, bb_builder, if_instr.condition);
-    spvb_branch_conditional(bb_builder, condition, true_id, false_id);
+    spvb_selection_merge(*bb_builder, join_bb_id, 0);
+    SpvId condition = emit_value(emitter, *bb_builder, if_instr.condition);
+    spvb_branch_conditional(*bb_builder, condition, true_id, false_id);
 
     // When 'join' is codegen'd, these will be filled with the values given to it
     BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
@@ -58,15 +54,16 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder
 
     spvb_add_bb(fn_builder, join_bb);
 
-    emit_join_case_body(emitter, fn_builder, join_bb, merge_targets, if_instr.tail, yield_types.count, results);
+    *bb_builder = join_bb;
+    return finish_structured_construct(emitter, fn_builder, join_bb, yield_types, results);
 }
 
-static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, MergeTargets merge_targets, Match match) {
+static SpvId emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets merge_targets, Match match) {
     Nodes yield_types = match.yield_types;
     SpvId join_bb_id = spvb_fresh_id(emitter->file_builder);
 
     assert(get_unqualified_type(match.inspect->type)->tag == Int_TAG);
-    SpvId inspectee = emit_value(emitter, bb_builder, match.inspect);
+    SpvId inspectee = emit_value(emitter, *bb_builder, match.inspect);
 
     SpvId default_id = spvb_fresh_id(emitter->file_builder);
 
@@ -87,8 +84,8 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_buil
         literals_and_cases[i * literal_case_entry_size + literal_width] = spvb_fresh_id(emitter->file_builder);
     }
 
-    spvb_selection_merge(bb_builder, join_bb_id, 0);
-    spvb_switch(bb_builder, inspectee, default_id, match.cases.count * literal_case_entry_size, literals_and_cases);
+    spvb_selection_merge(*bb_builder, join_bb_id, 0);
+    spvb_switch(*bb_builder, inspectee, default_id, match.cases.count * literal_case_entry_size, literals_and_cases);
 
     // When 'join' is codegen'd, these will be filled with the values given to it
     BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
@@ -120,10 +117,11 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_buil
 
     spvb_add_bb(fn_builder, join_bb);
 
-    emit_join_case_body(emitter, fn_builder, join_bb, merge_targets, match.tail, yield_types.count, results);
+    *bb_builder = join_bb;
+    return finish_structured_construct(emitter, fn_builder, join_bb, yield_types, results);
 }
 
-static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, MergeTargets merge_targets, Loop loop_instr) {
+static SpvId emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets merge_targets, Loop loop_instr) {
     Nodes yield_types = loop_instr.yield_types;
 
     const Node* body = loop_instr.body;
@@ -144,7 +142,7 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_build
     spvb_name(emitter->file_builder, continue_id, "loop_continue");
 
     SpvId next_id = spvb_fresh_id(emitter->file_builder);
-    BBBuilder next = spvb_begin_bb(fn_builder, next_id);
+    BBBuilder join_bb = spvb_begin_bb(fn_builder, next_id);
     spvb_name(emitter->file_builder, next_id, "loop_next");
 
     // Wire up the phi nodes for loop exit
@@ -154,7 +152,7 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_build
         SpvId yielded_type = emit_type(emitter, get_unqualified_type(yield_types.nodes[i]));
 
         SpvId break_phi_id = spvb_fresh_id(emitter->file_builder);
-        SpvbPhi* phi = spvb_add_phi(next, yielded_type, break_phi_id);
+        SpvbPhi* phi = spvb_add_phi(join_bb, yielded_type, break_phi_id);
         loop_break_phis[i] = phi;
         results[i] = break_phi_id;
     }
@@ -172,14 +170,14 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_build
         // We already know the two edges into the header so we immediately add the Phi sources for it.
         SpvId loop_param_id = spvb_fresh_id(emitter->file_builder);
         SpvbPhi* loop_param_phi = spvb_add_phi(header_builder, loop_param_type, loop_param_id);
-        SpvId param_initial_value = emit_value(emitter, bb_builder, loop_instr.initial_args.nodes[i]);
-        spvb_add_phi_source(loop_param_phi, get_block_builder_id(bb_builder), param_initial_value);
+        SpvId param_initial_value = emit_value(emitter, *bb_builder, loop_instr.initial_args.nodes[i]);
+        spvb_add_phi_source(loop_param_phi, get_block_builder_id(*bb_builder), param_initial_value);
         spvb_add_phi_source(loop_param_phi, get_block_builder_id(continue_builder), continue_phi_id);
         register_result(emitter, body_params.nodes[i], loop_param_id);
     }
 
     // The current block goes to the header (it can't be the header itself !)
-    spvb_branch(bb_builder, header_id);
+    spvb_branch(*bb_builder, header_id);
     spvb_add_bb(fn_builder, header_builder);
 
     // the header block receives the loop merge annotation
@@ -200,15 +198,16 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_build
     spvb_add_bb(fn_builder, continue_builder);
 
     // We start the next block
-    spvb_add_bb(fn_builder, next);
+    spvb_add_bb(fn_builder, join_bb);
 
-    emit_join_case_body(emitter, fn_builder, next, merge_targets, loop_instr.tail, yield_types.count, results);
+    *bb_builder = join_bb;
+    return finish_structured_construct(emitter, fn_builder, join_bb, yield_types, results);
 }
 
 static void emit_body(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, MergeTargets merge_targets, Body body) {
     for (size_t i = 0; i < body.instructions.count; i++) {
         const Node* instruction = body.instructions.nodes[i];
-        spv_emit_instruction(emitter, fn_builder, &bb_builder, instruction);
+        spv_emit_instruction(emitter, fn_builder, &bb_builder, merge_targets, instruction);
     }
     spv_emit_terminator(emitter, fn_builder, bb_builder, merge_targets, body.terminator);
 }
@@ -230,17 +229,26 @@ static void add_branch_phis(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb
     }
 }
 
+void emit_structured_construct(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets merge_targets, const Node* instruction) {
+    SpvId id;
+    switch (is_structured_construct(instruction)) {
+        case NotAStructured_construct: error("");
+        case Control_TAG:              error("Control must be lowered beforehand.");
+        case Region_TAG:               error("Cannot be emitted.")
+        case If_TAG:                   id = emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.structured_if);       break;
+        case Match_TAG:                id = emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.structured_match); break;
+        case Loop_TAG:                 id = emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.structured_loop);   break;
+    }
+    register_result(emitter, instruction, id);
+}
+
 void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* terminator) {
     switch (is_terminator(terminator)) {
         case NotATerminator: error("TODO: emit terminator %s", node_tags[terminator->tag]);
         case TailCall_TAG:
         case Join_TAG: error("Lower me");
-        case InsertHelperEnd_TAG: assert(false);
+        case RegionEnd_TAG: assert(false);
         case Body_TAG:  return emit_body(emitter, fn_builder, basic_block_builder, merge_targets, terminator->payload.body);
-        case If_TAG:    return emit_if(emitter, fn_builder, basic_block_builder, merge_targets, terminator->payload.structured_if);
-        case Match_TAG: return emit_match(emitter, fn_builder, basic_block_builder, merge_targets, terminator->payload.structured_match);
-        case Loop_TAG:  return emit_loop(emitter, fn_builder, basic_block_builder, merge_targets, terminator->payload.structured_loop);
-        case Control_TAG: error("Control must be lowered beforehand.");
         case Return_TAG: {
             const Nodes* ret_values = &terminator->payload.fn_ret.args;
             switch (ret_values->count) {

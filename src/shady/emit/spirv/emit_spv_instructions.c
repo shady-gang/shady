@@ -393,12 +393,14 @@ static SpvId emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder,
     return result;
 }
 
-SpvId emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, const Node* instruction) {
+SpvId emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets merge_targets, const Node* instruction) {
     assert(instruction && is_instruction(instruction));
-
+    if (is_structured_construct(instruction)) {
+        emit_structured_construct(emitter, fn_builder, bb_builder, merge_targets, instruction);
+        return 0;
+    }
     switch (is_instruction(instruction)) {
-        case NotAnInstruction: error("")
-        case InsertHelper_TAG: error("Cannot be emitted.")
+        default:                      error("Cannot emmit instruction %s", node_tags[instruction->tag]);
         case Call_TAG:                return emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.call);
         case PrimOp_TAG:              return emit_primop(emitter, fn_builder, *bb_builder, instruction);
         case Comment_TAG:             return 0;

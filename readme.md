@@ -68,10 +68,10 @@ Metal shading language and C backends are on the table in the future.
     * Qualified value types (`uniform` or `varying`), type system can enforce uniformity for sensitive operations
     * Meta-instructions for conventional structured control flow (`if`, `match`, `loop`), no convergence annotations required
     * Experimental new dynamically structured control flow primitives (paper/writeup coming later)
-* Nodes are either nominal (top-level declarations, variables and basic blocks) or structural (everything else). Structural nodes are immutable and subject to hash-consing and folding ops during construction.
+* Nodes are either nominal (top-level declarations, variables and basic blocks) or structural (everything else). Structural abs_map are immutable and subject to hash-consing and folding ops during construction.
 * Shady is written in standard C11 and requires few dependencies to build: CMake, JSON-C and the SPIRV-Headers.
 
-The grammar is defined in [grammar.json](include/shady/grammar.json), this file is used to define the various nodes in the IR, and generate much of the boilerplate code (node hashing, rewriting, visitors, ...). Some finer concepts are expressed in [ir.h](include/shady/grammar.h) or even [type.h](src/shady/type.h). There is also a number of x-macros used as "rich" enums.
+The grammar is defined in [grammar.json](include/shady/grammar.json), this file is used to define the various abs_map in the IR, and generate much of the boilerplate code (node hashing, rewriting, visitors, ...). Some finer concepts are expressed in [ir.h](include/shady/grammar.h) or even [type.h](src/shady/type.h). There is also a number of x-macros used as "rich" enums.
 
 ## Language syntax
 

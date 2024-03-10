@@ -608,8 +608,8 @@ static const Node* process(Context* ctx, const Node* old) {
 
         for (size_t i = 1; i < ctx->scope->size; i++) {
             CFNode* cf_node = ctx->scope->rpo[i];
-            if (cf_node->node->tag == BasicBlock_TAG)
-                handle_bb(ctx, cf_node->node);
+            if (cf_node->type == CFNodeType_BBNode)
+                handle_bb(ctx, cf_node->abstraction);
         }
 
         //handle_bb_wrappers(ctx);

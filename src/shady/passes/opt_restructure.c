@@ -155,72 +155,107 @@ static ControlEntry* search_containing_control(Context* ctx, const Node* old_tok
     return entry;
 }
 
+static const Node* collect_buffered_instructions(const Node* terminator, const Node* buffer[], size_t buffer_size, size_t* count) {
+    IrArena* a = terminator->arena;
+    Nodes instructions = nodes(a, *count, &buffer[buffer_size - 1 - *count]);
+    *count = 0;
+    return body(a, (Body) {
+        .instructions = instructions,
+        .terminator = terminator
+    });
+}
+
+static const Node* structure_body(Context* ctx, const Node* body, const Node* exit_ladder) {
+    IrArena* a = ctx->rewriter.dst_arena;
+
+    const Node* old_terminator = body->payload.body.terminator;
+    // const Node* original_exit_ladder = exit_ladder;
+    // const Node* terminator = structure(ctx, body->payload.body.terminator, exit_ladder);
+    // const Node* terminator = NULL;
+
+    Nodes old_instructions = body->payload.body.instructions;
+    LARRAY(const Node*, buffer, old_instructions.count);
+    size_t count = 0;
+
+    for (size_t i = old_instructions.count - 1; i < old_instructions.count; i--) {
+        const Node* old_instruction = old_instructions.nodes[i];
+        switch (is_structured_construct(old_instruction)) {
+            case NotAStructured_construct:
+                buffer[old_instructions.count - 1 - (count++)] = rewrite_node(&ctx->rewriter, old_instruction);
+                continue;
+            case Region_TAG:
+            case If_TAG:
+            case Loop_TAG:
+            case Match_TAG: error("not supposed to exist in IR at this stage");
+            case Control_TAG: {
+                const Node* old_control_body = old_instruction->payload.control.inside;
+                assert(old_control_body->tag == Case_TAG);
+                Nodes old_control_params = get_abstraction_params(old_control_body);
+                assert(old_control_params.count == 1);
+
+                // const Node* old_tail = terminator->payload.control.tail;
+                // assert(old_tail->tag == Case_TAG);
+
+                // Create N temporary variables to hold the join point arguments
+                BodyBuilder* bb_outer = begin_body(a);
+                Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.control.yield_types);
+                LARRAY(const Node*, phis, yield_types.count);
+                for (size_t j = 0; j < yield_types.count; j++) {
+                    const Type* type = yield_types.nodes[j];
+                    assert(is_data_type(type));
+                    phis[j] = first(bind_instruction_named(bb_outer, prim_op(a, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(type) }), (String []) {"ctrl_phi" }));
+                }
+
+                // Create a new context to rewrite the terminator with
+                // TODO: Bail if we try to re-enter the same control construct
+                Context control_ctx = *ctx;
+                ControlEntry control_entry = {
+                    .parent = ctx->control_stack,
+                    .old_token = first(old_control_params),
+                    .phis = phis,
+                    .depth = ctx->control_stack ? ctx->control_stack->depth + 1 : 1,
+                };
+                control_ctx.control_stack = &control_entry;
+
+                // Set the depth for threads entering the control terminator
+                bind_instruction(bb_outer, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, ctx->level_ptr, int32_literal(a, control_entry.depth)) }));
+
+                // Start building out the tail, first it needs to dereference the phi variables to recover the arguments given to join()
+                BodyBuilder* bb2 = begin_body(a);
+                LARRAY(const Node*, phi_values, yield_types.count);
+                for (size_t j = 0; j < yield_types.count; j++) {
+                    phi_values[i] = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(phis[j]) })));
+                    // register_processed(&ctx->rewriter, otail_params.nodes[j], phi_values[j]);
+                    // register_processed(&ctx->rewriter, get_abstraction_params(old_tail).nodes[j], phi_values[j]);
+                }
+
+                register_processed(&ctx->rewriter, old_instruction, tuple_helper(a, nodes(a, yield_types.count, phi_values)));
+
+                // Wrap the tail in a guarded if, to handle 'far' joins
+                const Node* level_value = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(ctx->level_ptr) })));
+                const Node* guard = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
+                const Node* true_body = structure(ctx, get_abstraction_body(old_tail), yield(a, (Yield) { .args = empty(a) }));
+                const Node* if_true_lam = case_(a, empty(a), true_body);
+                create_structured_if(bb2, empty(a), guard, if_true_lam, NULL);
+
+                return finish_body(bb_outer, structure(&control_ctx, old_control_body, finish_body(bb2, exit_ladder)));
+            }
+        }
+    }
+
+    return body(a, (Body) {
+        .instructions = rewrite_nodes(&ctx->rewriter, terminator->payload.body.old_instructions),
+        .terminator = terminator,
+    });
+}
+
 static const Node* structure(Context* ctx, const Node* terminator, const Node* exit_ladder) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (is_terminator(terminator)) {
-        case InsertHelperEnd_TAG: assert(false);
         case NotATerminator:
-        case Body_TAG: {
-            return body(a, (Body) {
-                .instructions = rewrite_nodes(&ctx->rewriter, terminator->payload.body.instructions),
-                .terminator = structure(ctx, terminator->payload.body.terminator, exit_ladder)
-            });
-        }
-        case If_TAG:
-        case Loop_TAG:
-        case Match_TAG: error("not supposed to exist in IR at this stage");
-        case Control_TAG: {
-            const Node* old_control_body = terminator->payload.control.inside;
-            assert(old_control_body->tag == Case_TAG);
-            Nodes old_control_params = get_abstraction_params(old_control_body);
-            assert(old_control_params.count == 1);
-
-            const Node* old_tail = terminator->payload.control.tail;
-            assert(old_tail->tag == Case_TAG);
-
-            // Create N temporary variables to hold the join point arguments
-            BodyBuilder* bb_outer = begin_body(a);
-            Nodes yield_types = rewrite_nodes(&ctx->rewriter, terminator->payload.control.yield_types);
-            LARRAY(const Node*, phis, yield_types.count);
-            for (size_t i = 0; i < yield_types.count; i++) {
-                const Type* type = yield_types.nodes[i];
-                assert(is_data_type(type));
-                phis[i] = first(bind_instruction_named(bb_outer, prim_op(a, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(type) }), (String []) {"ctrl_phi" }));
-            }
-
-            // Create a new context to rewrite the terminator with
-            // TODO: Bail if we try to re-enter the same control construct
-            Context control_ctx = *ctx;
-            ControlEntry control_entry = {
-                .parent = ctx->control_stack,
-                .old_token = first(old_control_params),
-                .phis = phis,
-                .depth = ctx->control_stack ? ctx->control_stack->depth + 1 : 1,
-            };
-            control_ctx.control_stack = &control_entry;
-
-            // Set the depth for threads entering the control terminator
-            bind_instruction(bb_outer, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, ctx->level_ptr, int32_literal(a, control_entry.depth)) }));
-
-            // Start building out the tail, first it needs to dereference the phi variables to recover the arguments given to join()
-            BodyBuilder* bb2 = begin_body(a);
-            LARRAY(const Node*, phi_values, yield_types.count);
-            for (size_t i = 0; i < yield_types.count; i++) {
-                phi_values[i] = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(phis[i]) })));
-                // register_processed(&ctx->rewriter, otail_params.nodes[i], phi_values[i]);
-                register_processed(&ctx->rewriter, get_abstraction_params(old_tail).nodes[i], phi_values[i]);
-            }
-
-            // Wrap the tail in a guarded if, to handle 'far' joins
-            const Node* level_value = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(ctx->level_ptr) })));
-            const Node* guard = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
-            const Node* true_body = structure(ctx, get_abstraction_body(old_tail), yield(a, (Yield) { .args = empty(a) }));
-            const Node* if_true_lam = case_(a, empty(a), true_body);
-            create_structured_if(bb2, empty(a), guard, if_true_lam, NULL);
-
-            return finish_body(bb_outer, structure(&control_ctx, old_control_body, finish_body(bb2, exit_ladder)));
-        }
+        case RegionEnd_TAG: assert(false);
+        case Body_TAG: return structure_body(ctx, terminator, exit_ladder);
         case Jump_TAG: {
             BodyBuilder* bb = begin_body(a);
             return handle_bb_callsite(ctx, bb, terminator, exit_ladder);

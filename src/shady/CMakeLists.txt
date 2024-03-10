@@ -43,7 +43,7 @@ set(SHADY_SOURCES
     analysis/verify.c
     analysis/callgraph.c
     analysis/uses.c
-    analysis/looptree.c
+    #analysis/looptree.c
     analysis/leak.c
 
     transform/memory_layout.c
@@ -57,7 +57,7 @@ set(SHADY_SOURCES
     passes/infer.c
     passes/lower_cf_instrs.c
     passes/lift_indirect_targets.c
-    passes/lcssa.c
+    #passes/lcssa.c
     passes/lower_callf.c
     passes/lower_alloca.c
     passes/lower_stack.c
@@ -86,7 +86,7 @@ set(SHADY_SOURCES
     passes/opt_restructure.c
     passes/opt_mem2reg.c
     passes/opt_demote_alloca.c
-    passes/reconvergence_heuristics.c
+    #passes/reconvergence_heuristics.c
     passes/simt2d.c
     passes/specialize_entry_point.c
     passes/specialize_execution_model.c

@@ -715,6 +715,10 @@ static const Node* _infer_instruction(Context* ctx, const Node* node, const Type
         case PrimOp_TAG:       return _infer_primop(ctx, node, expected_type);
         case Call_TAG:         return _infer_indirect_call(ctx, node, expected_type);
         case Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
+        case If_TAG:      return _infer_if    (ctx, node);
+        case Loop_TAG:    return _infer_loop  (ctx, node);
+        case Match_TAG:   error("TODO")
+        case Control_TAG: return _infer_control(ctx, node);
         default:               error("TODO")
         case NotAnInstruction: error("not an instruction");
     }
@@ -724,24 +728,9 @@ static const Node* _infer_instruction(Context* ctx, const Node* node, const Type
 static const Node* _infer_terminator(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_terminator(node)) {
-        case InsertHelperEnd_TAG: assert(false);
+        case RegionEnd_TAG: assert(false);
         case NotATerminator: assert(false);
         case Body_TAG:    return _infer_body  (ctx, node);
-        case If_TAG:      return _infer_if    (ctx, node);
-        case Loop_TAG:    return _infer_loop  (ctx, node);
-        case Match_TAG:   error("TODO")
-        case Control_TAG: return _infer_control(ctx, node);
-        /*case Let_TAG: {
-            const Node* otail = node->payload.let.tail;
-            Nodes annotated_types = get_variables_types(a, otail->payload.case_.params);
-            const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, wrap_multiple_yield_types(a, annotated_types));
-            Nodes inferred_yield_types = unwrap_multiple_yield_types(a, inferred_instruction->type);
-            for (size_t i = 0; i < inferred_yield_types.count; i++) {
-                assert(is_value_type(inferred_yield_types.nodes[i]));
-            }
-            const Node* inferred_tail = infer(ctx, otail, wrap_multiple_yield_types(a, inferred_yield_types));
-            return let(a, inferred_instruction, inferred_tail);
-        }*/
         case Return_TAG: {
             const Node* imported_fn = infer(ctx, node->payload.fn_ret.fn, NULL);
             Nodes return_types = imported_fn->payload.fun.return_types;

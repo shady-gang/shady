@@ -275,16 +275,13 @@ Nodes get_abstraction_params(const Node* abs) {
     }
 }
 
-const Node* get_insert_helper_end(InsertHelper h) {
+const Node* get_region_end(Region h) {
     const Node* terminator = h.body;
     while (true) {
-        if (is_structured_construct(terminator)) {
-            terminator = get_structured_construct_tail(terminator);
-            continue;
-        } else if (terminator->tag == Body_TAG) {
+        if (terminator->tag == Body_TAG) {
             terminator = terminator->payload.body.terminator;
             continue;
-        } else if (terminator->tag == InsertHelperEnd_TAG) {
+        } else if (terminator->tag == RegionEnd_TAG) {
             return terminator;
         }
         error("Invalid syntax: InsertHelper chain should end with InsertHelperEnd.")

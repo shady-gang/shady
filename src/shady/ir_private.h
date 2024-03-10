@@ -37,7 +37,6 @@ void destroy_module(Module* m);
 struct BodyBuilder_ {
     IrArena* arena;
     struct List* instructions_list;
-    struct List* constructs_stack;
 };
 
 NodeId allocate_node_id(IrArena*, const Node* n);
@@ -45,6 +44,6 @@ NodeId allocate_node_id(IrArena*, const Node* n);
 struct List;
 Nodes list_to_nodes(IrArena*, struct List*);
 
-const Node* get_insert_helper_end(InsertHelper h);
+const Node* get_region_end(Region);
 
 #endif

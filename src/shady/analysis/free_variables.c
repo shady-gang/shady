@@ -39,7 +39,7 @@ static void search_op_for_free_variables(Context* visitor, NodeClass class, Stri
 }
 
 static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
-    const Node* abs = cfnode->node;
+    const Node* abs = cfnode->abstraction;
 
     bool is_named = abs->tag != Case_TAG;
 
