@@ -6,6 +6,7 @@ add_library(shady_c OBJECT
 )
 set_property(TARGET shady_c PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+target_include_directories(shady_c PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 target_link_libraries(shady_c PUBLIC "api")
 target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:common>")
 target_link_libraries(shady_c PUBLIC "$<BUILD_INTERFACE:shady_generated>")
