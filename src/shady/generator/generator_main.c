@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         error_die();
     }
     free(generated);
-    for (size_t i = 0; i < sizeof(json_files) / sizeof(json_files[0]); i++) {
+    for (size_t i = 0; i < inputs_count; i++) {
         free(json_files[i].contents);
         json_object_put(json_files[i].root);
     }
