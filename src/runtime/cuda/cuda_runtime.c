@@ -3,6 +3,7 @@
 #include "log.h"
 #include "portability.h"
 #include "list.h"
+#include "dict.h"
 
 #include <string.h>
 
@@ -13,7 +14,24 @@ static void shutdown_cuda_runtime(CudaBackend* b) {
 static const char* cuda_device_get_name(CudaDevice* device) { return device->name; }
 
 static void cuda_device_cleanup(CudaDevice* device) {
+    size_t i = 0;
+    CudaKernel* kernel;
+    while (dict_iter(device->specialized_programs, &i, NULL, &kernel)) {
+        shd_cuda_destroy_specialized_kernel(kernel);
+    }
+    destroy_dict(device->specialized_programs);
+}
 
+CudaCommand shd_cuda_launch_kernel(CudaDevice* device, Program* p, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
+    CudaKernel* kernel = shd_cuda_get_specialized_program(device, p, entry_point);
+}
+
+static KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
+    return hash_murmur(ptr, sizeof(SpecProgramKey));
+}
+
+static bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
+    return memcmp(a, b, sizeof(SpecProgramKey)) == 0;
 }
 
 static CudaDevice* create_cuda_device(CudaBackend* b, int ordinal) {
@@ -27,8 +45,10 @@ static CudaDevice* create_cuda_device(CudaBackend* b, int ordinal) {
             .allocate_buffer = (Buffer* (*)(Device*, size_t)) shd_cuda_allocate_buffer,
             .can_import_host_memory = (bool (*)(Device*)) shd_cuda_can_import_host_memory,
             .import_host_memory_as_buffer = (Buffer* (*)(Device*, void*, size_t)) shd_cuda_import_host_memory,
+            .launch_kernel = (Command*(*)(Device*, Program*, String, int, int, int, int, void**)) shd_cuda_launch_kernel,
         },
         .handle = handle,
+        .specialized_programs = new_dict(SpecProgramKey, CudaKernel*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys),
     };
     CHECK_CUDA(cuDeviceGetName(device->name, 255, handle), goto dealloc_and_return_null);
     return device;

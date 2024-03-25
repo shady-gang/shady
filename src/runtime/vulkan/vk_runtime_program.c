@@ -331,9 +331,9 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
 
     CHECK(run_compiler_passes(&config, &spec->specialized_module) == CompilationNoError, return false);
 
-    Module* new_mod;
-    emit_spirv(&config, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes, &new_mod);
-    spec->specialized_module = new_mod;
+    Module* final_mod;
+    emit_spirv(&config, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes, &final_mod);
+    spec->specialized_module = final_mod;
 
     if (spec->key.base->runtime->config.dump_spv) {
         String module_name = get_module_name(spec->specialized_module);

@@ -208,11 +208,11 @@ static bool get_physical_device_caps(SHADY_UNUSED VkrBackend* runtime, VkPhysica
     return false;
 }
 
-KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
+static KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
     return hash_murmur(ptr, sizeof(SpecProgramKey));
 }
 
-bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
+static bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
     return memcmp(a, b, sizeof(SpecProgramKey)) == 0;
 }
 
