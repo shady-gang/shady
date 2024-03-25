@@ -69,6 +69,7 @@ static CudaDevice* create_cuda_device(CudaBackend* b, int ordinal) {
         .specialized_programs = new_dict(SpecProgramKey, CudaKernel*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys),
     };
     CHECK_CUDA(cuDeviceGetName(device->name, 255, handle), goto dealloc_and_return_null);
+    CHECK_CUDA(cuCtxCreate(&device->context, 0, handle), goto dealloc_and_return_null);
     return device;
 
     dealloc_and_return_null:

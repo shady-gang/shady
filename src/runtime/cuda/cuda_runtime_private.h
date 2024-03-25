@@ -21,6 +21,7 @@ typedef struct CudaBackend_ {
 typedef struct {
     Device base;
     CUdevice handle;
+    CUcontext context;
     char name[256];
     struct Dict* specialized_programs;
 } CudaDevice;
