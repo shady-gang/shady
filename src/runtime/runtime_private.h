@@ -69,4 +69,5 @@ struct Buffer_ {
 void unload_program(Program*);
 
 Backend* initialize_vk_backend(Runtime*);
+Backend* initialize_cuda_backend(Runtime*);
 #endif

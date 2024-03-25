@@ -19,6 +19,12 @@ Runtime* initialize_runtime(RuntimeConfig config) {
     CHECK(vk_backend, goto init_fail_free);
     append_list(Backend*, runtime->backends, vk_backend);
 #endif
+#if CUDA_BACKEND_PRESENT
+    Backend* cuda_backend = initialize_cuda_backend(runtime);
+    CHECK(cuda_backend, goto init_fail_free);
+    append_list(Backend*, runtime->backends, cuda_backend);
+#endif
+
     info_print("Shady runtime successfully initialized !\n");
     return runtime;
 
