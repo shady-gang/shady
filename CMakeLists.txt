@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.13)
 project (shady C)
 
 include(ExternalProject)
@@ -15,17 +15,21 @@ endif()
 
 add_subdirectory(SPIRV-Headers)
 
-FetchContent_Declare(
-  json-c
-  GIT_REPOSITORY https://github.com/json-c/json-c
-  GIT_TAG master
-  OVERRIDE_FIND_PACKAGE
-)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+    FetchContent_Declare(
+        json-c
+        GIT_REPOSITORY https://github.com/json-c/json-c
+        GIT_TAG master
+        OVERRIDE_FIND_PACKAGE
+    )
 
-FetchContent_MakeAvailable(json-c)
-add_library(json-c::json-c ALIAS json-c)
-configure_file(${json-c_SOURCE_DIR}/json.h.cmakein ${json-c_BINARY_DIR}/json-c/json.h @ONLY)
-target_include_directories(json-c PUBLIC $<BUILD_INTERFACE:${json-c_BINARY_DIR}>)
+    FetchContent_MakeAvailable(json-c)
+    add_library(json-c::json-c ALIAS json-c)
+    configure_file(${json-c_SOURCE_DIR}/json.h.cmakein ${json-c_BINARY_DIR}/json-c/json.h @ONLY)
+    target_include_directories(json-c PUBLIC $<BUILD_INTERFACE:${json-c_BINARY_DIR}>)
+else ()
+    message("CMake 3.24 or later is required to use FetchContent")
+endif ()
 
 find_package(LLVM QUIET)
 if(NOT ${LLVM_FOUND} AND WIN32)
