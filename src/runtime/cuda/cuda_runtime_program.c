@@ -85,3 +85,12 @@ CudaKernel* shd_cuda_get_specialized_program(CudaDevice* device, Program* progra
     insert_dict(SpecProgramKey, CudaKernel*, device->specialized_programs, key, spec);
     return spec;
 }
+
+bool shd_cuda_destroy_specialized_kernel(CudaKernel* kernel) {
+    free(kernel->cuda_code);
+    free(kernel->ptx);
+    CHECK_CUDA(cuModuleUnload(kernel->cuda_module), return false);
+
+    free(kernel);
+    return true;
+}
