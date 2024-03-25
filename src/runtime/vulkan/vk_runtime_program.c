@@ -9,6 +9,8 @@
 #include "arena.h"
 #include "util.h"
 
+#include "../../shady/transform/memory_layout.h"
+
 #include <stdlib.h>
 #include <string.h>
 

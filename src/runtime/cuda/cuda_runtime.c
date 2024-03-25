@@ -22,8 +22,26 @@ static void cuda_device_cleanup(CudaDevice* device) {
     destroy_dict(device->specialized_programs);
 }
 
-CudaCommand shd_cuda_launch_kernel(CudaDevice* device, Program* p, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
+bool cuda_command_wait(CudaCommand* command) {
+    CHECK_CUDA(cuCtxSynchronize(), return false);
+    return true;
+}
+
+CudaCommand* shd_cuda_launch_kernel(CudaDevice* device, Program* p, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
     CudaKernel* kernel = shd_cuda_get_specialized_program(device, p, entry_point);
+
+    CudaCommand* cmd = calloc(sizeof(CudaCommand), 1);
+    *cmd = (CudaCommand) {
+        .base = {
+            .wait_for_completion = (bool(*)(Command*)) cuda_command_wait
+        }
+    };
+    ArenaConfig final_config = get_arena_config(get_module_arena(kernel->final_module));
+    unsigned int gx = final_config.specializations.workgroup_size[0];
+    unsigned int gy = final_config.specializations.workgroup_size[1];
+    unsigned int gz = final_config.specializations.workgroup_size[2];
+    CHECK_CUDA(cuLaunchKernel(kernel->entry_point_function, dimx, dimy, dimz, gx, gy, gz, 0, 0, args, NULL), return NULL);
+    return cmd;
 }
 
 static KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
