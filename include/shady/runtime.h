@@ -14,7 +14,7 @@ typedef struct {
 typedef struct Runtime_  Runtime;
 typedef struct Device_   Device;
 typedef struct Program_  Program;
-typedef struct Command_ Command;
+typedef struct Command_  Command;
 typedef struct Buffer_   Buffer;
 
 Runtime* initialize_runtime(RuntimeConfig config);

@@ -15,6 +15,11 @@ struct Runtime_ {
     struct List* programs;
 };
 
+typedef enum {
+    VulkanRuntimeBackend,
+    CUDARuntimeBackend,
+} ShdRuntimeBackend;
+
 typedef struct Backend_ Backend;
 struct Backend_ {
     Runtime* runtime;
@@ -44,12 +49,12 @@ struct Command_ {
 };
 
 struct Buffer_ {
-    void (*destroy)(Buffer*);
+    ShdRuntimeBackend backend_tag;
+    void     (*destroy)(Buffer*);
     void*    (*get_host_ptr)(Buffer*);
     uint64_t (*get_device_ptr)(Buffer*);
-
-    bool (*copy_into)(Buffer* dst, size_t buffer_offset, void* src, size_t bytes);
-    bool (*copy_from)(Buffer* src, size_t buffer_offset, void* dst, size_t bytes);
+    bool     (*copy_into)(Buffer* dst, size_t buffer_offset, void* src, size_t bytes);
+    bool     (*copy_from)(Buffer* src, size_t buffer_offset, void* dst, size_t bytes);
 };
 
 void unload_program(Program*);

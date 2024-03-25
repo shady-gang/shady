@@ -2,7 +2,7 @@ find_package(CUDA)
 
 if (CUDA_FOUND)
     message("Cuda found.")
-    add_library(cuda_runtime STATIC cuda_runtime.c)
+    add_library(cuda_runtime STATIC cuda_runtime.c cuda_runtime_buffer.c)
     target_link_libraries(cuda_runtime PUBLIC api)
     target_link_libraries(cuda_runtime PUBLIC shady)
     target_link_libraries(cuda_runtime PRIVATE "$<BUILD_INTERFACE:common>")

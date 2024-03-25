@@ -253,6 +253,7 @@ err_post_commands_create:
 }
 
 static bool vkr_copy_to_buffer_fallback(VkrBuffer* dst, size_t buffer_offset, void* src, size_t size) {
+    CHECK(dst->base.backend_tag == VulkanRuntimeBackend, return false);
     VkrDevice* device = dst->device;
 
     VkrBuffer* src_buf = vkr_allocate_buffer_device_(device, size, AllocHostVisible);
@@ -276,6 +277,7 @@ static bool vkr_copy_to_buffer_fallback(VkrBuffer* dst, size_t buffer_offset, vo
 }
 
 static bool vkr_copy_from_buffer_fallback(VkrBuffer* src, size_t buffer_offset, void* dst, size_t size) {
+    CHECK(src->base.backend_tag == VulkanRuntimeBackend, return false);
     VkrDevice* device = src->device;
 
     VkrBuffer* dst_buf = vkr_allocate_buffer_device_(device, size, AllocHostVisible);
@@ -299,6 +301,7 @@ static bool vkr_copy_from_buffer_fallback(VkrBuffer* src, size_t buffer_offset, 
 }
 
 static bool vkr_copy_to_buffer_importing(VkrBuffer* dst, size_t buffer_offset, void* src, size_t size) {
+    CHECK(dst->base.backend_tag == VulkanRuntimeBackend, return false);
     VkrDevice* device = dst->device;
 
     VkrBuffer* src_buf = vkr_import_buffer_host(device, src, size);
@@ -317,6 +320,7 @@ err_post_buffer_import:
 }
 
 static bool vkr_copy_from_buffer_importing(VkrBuffer* src, size_t buffer_offset, void* dst, size_t size) {
+    CHECK(src->base.backend_tag == VulkanRuntimeBackend, return false);
     VkrDevice* device = src->device;
 
     VkrBuffer* dst_buf = vkr_import_buffer_host(device, dst, size);
@@ -336,6 +340,7 @@ err_post_buffer_import:
 
 static Buffer make_base_buffer(VkrDevice* device) {
     Buffer buffer = {
+        .backend_tag = VulkanRuntimeBackend,
         .destroy = (void(*)(Buffer*)) vkr_destroy_buffer,
         .get_device_ptr = (uint64_t(*)(Buffer*)) vkr_get_buffer_device_pointer,
         .get_host_ptr = (void*(*)(Buffer*)) vkr_get_buffer_host_pointer,
