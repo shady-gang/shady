@@ -185,6 +185,7 @@ static bool emit_using_entry(CTerm* out, Emitter* emitter, Printer* p, const ISe
 static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
     const ISelTableEntry* isel_entry = NULL;
     switch (emitter->config.dialect) {
+        case CDialect_CUDA: /* TODO: do better than that */
         case CDialect_C11: isel_entry = &isel_table_c[op]; break;
         case CDialect_GLSL: isel_entry = &isel_table_glsl[op]; break;
         case CDialect_ISPC: isel_entry = &isel_table_ispc[op]; break;
@@ -402,6 +403,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
             switch (emitter->config.dialect) {
+                case CDialect_CUDA:
                 case CDialect_C11: {
                     String src = unique_name(arena, "bitcast_src");
                     String dst = unique_name(arena, "bitcast_result");
@@ -548,6 +550,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
         case subgroup_elect_first_op: {
             switch (emitter->config.dialect) {
+                case CDialect_CUDA: error("TODO")
                 case CDialect_ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))")); break;
                 case CDialect_C11:
                 case CDialect_GLSL: error("TODO")
@@ -558,6 +561,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case subgroup_broadcast_first_op: {
             CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             switch (emitter->config.dialect) {
+                case CDialect_CUDA: error("TODO")
                 case CDialect_ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
                 case CDialect_C11:
                 case CDialect_GLSL: error("TODO")
@@ -583,6 +587,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 case CDialect_ISPC:
                     print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
                     break;
+                case CDialect_CUDA:
                 case CDialect_C11:
                     print(p, "\nprintf(%s);", args_list);
                     break;

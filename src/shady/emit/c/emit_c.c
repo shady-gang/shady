@@ -106,6 +106,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
 static bool has_forward_declarations(CDialect dialect) {
     switch (dialect) {
         case CDialect_C11: return true;
+        case CDialect_CUDA: return true;
         case CDialect_GLSL: // no global variable forward declarations in GLSL
         case CDialect_ISPC: // ISPC seems to share this quirk
             return false;
@@ -123,6 +124,7 @@ static void emit_global_variable_definition(Emitter* emitter, String prefix, Str
                 decl_center = format_string_arena(emitter->arena->arena, "varying %s", decl_center);
             break;
         case CDialect_C11:
+        case CDialect_CUDA:
             if (constant)
                 decl_center = format_string_arena(emitter->arena->arena, "const %s", decl_center);
             break;
@@ -248,6 +250,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                     }
                     break;
                 }
+                case CDialect_CUDA:
                 case CDialect_C11:
                     // If we're C89 (ew)
                     if (!emitter->config.allow_compound_literals)
@@ -335,6 +338,7 @@ void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const T
             center = format_string_arena(emitter->arena->arena, "const %s", center);
             break;
         case CDialect_C11:
+        case CDialect_CUDA:
             prefix = "register ";
             center = format_string_arena(emitter->arena->arena, "const %s", center);
             break;
@@ -456,6 +460,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
         }
         case Terminator_Unreachable_TAG: {
             switch (emitter->config.dialect) {
+                case CDialect_CUDA:
                 case CDialect_C11:
                     print(block_printer, "\n__builtin_unreachable();");
                     break;
@@ -535,11 +540,9 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 case AsSubgroupLogical:
                 case AsSubgroupPhysical:
                     switch (emitter->config.dialect) {
-                        case CDialect_C11:
-                        case CDialect_GLSL:
-                            warn_print("C and GLSL do not have a 'subgroup' level addressing space, using shared instead");
-                            address_space_prefix = "shared ";
-                            break;
+                        default:
+                            warn_print("Non-ISPC dialects of C do not have a 'subgroup' level addressing space, using shared instead");
+                            goto case_shared;
                         case CDialect_ISPC:
                             address_space_prefix = "";
                             break;
@@ -552,10 +555,14 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 case AsGlobalPhysical:
                     address_space_prefix = "";
                     break;
+                case_shared:
                 case AsSharedPhysical:
                 case AsSharedLogical:
                     switch (emitter->config.dialect) {
                         case CDialect_C11:
+                            break;
+                        case CDialect_CUDA:
+                            address_space_prefix = "__shared__ ";
                             break;
                         case CDialect_GLSL:
                             address_space_prefix = "shared ";
@@ -565,6 +572,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                             break;
                     }
                     break;
+
                 case AsExternal:
                     address_space_prefix = "extern ";
                     break;
@@ -638,7 +646,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             register_emitted_type(emitter, decl, emitted);
             switch (emitter->config.dialect) {
                 case CDialect_ISPC:
-                case CDialect_C11: print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
+                default: print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
                 case CDialect_GLSL: emit_nominal_type_body(emitter, format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
             }
             return;
@@ -727,6 +735,7 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
     switch (emitter.config.dialect) {
         case CDialect_ISPC:
             break;
+        case CDialect_CUDA: /* TODO: probably don't wanna do this */
         case CDialect_C11:
             print(finalp, "\n#include <stdbool.h>");
             print(finalp, "\n#include <stdint.h>");

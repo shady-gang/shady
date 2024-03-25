@@ -328,7 +328,8 @@ void emit_spirv(CompilerConfig* config, Module*, size_t* output_size, char** out
 typedef enum {
     CDialect_C11,
     CDialect_GLSL,
-    CDialect_ISPC
+    CDialect_ISPC,
+    CDialect_CUDA,
 } CDialect;
 
 typedef struct {

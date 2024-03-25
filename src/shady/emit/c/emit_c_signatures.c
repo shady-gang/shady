@@ -76,8 +76,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     growy_append_bytes(paramg, 1, (char[]) { 0 });
     const char* parameters = printer_growy_unwrap(paramp);
     switch (emitter->config.dialect) {
-        case CDialect_ISPC:
-        case CDialect_C11:
+        default:
             center = format_string_arena(emitter->arena->arena, "(%s)(%s)", center, parameters);
             break;
         case CDialect_GLSL:
@@ -98,6 +97,8 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
                 break;
             case CDialect_ISPC:
                 c_decl = format_string_arena(emitter->arena->arena, "export %s", c_decl);
+            case CDialect_CUDA:
+                c_decl = format_string_arena(emitter->arena->arena, "__kernel__ %s", c_decl);
                 break;
         }
 
@@ -138,6 +139,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                     emitted = ispc_int_types[type->payload.int_type.width][type->payload.int_type.is_signed];
                     break;
                 }
+                case CDialect_CUDA:
                 case CDialect_C11: {
                     const char* c_classic_int_types[4][2] = {
                             { "unsigned char" , "char"  },
@@ -201,8 +203,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         }
         case Type_QualifiedType_TAG:
             switch (emitter->config.dialect) {
-                case CDialect_C11:
-                case CDialect_GLSL:
+                default:
                     return emit_type(emitter, type->payload.qualified_type.type, center);
                 case CDialect_ISPC:
                     if (type->payload.qualified_type.is_uniform)
@@ -245,8 +246,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
 
             // ditto from RecordType
             switch (emitter->config.dialect) {
-                case CDialect_C11:
-                case CDialect_ISPC:
+                default:
                     emitted = prefixed;
                     break;
                 case CDialect_GLSL:
@@ -258,6 +258,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             int width = type->payload.pack_type.width;
             const Type* element_type = type->payload.pack_type.element_type;
             switch (emitter->config.dialect) {
+                case CDialect_CUDA: error("TODO")
                 case CDialect_GLSL: {
                     assert(is_glsl_scalar_type(element_type));
                     assert(width > 1);

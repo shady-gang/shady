@@ -19,7 +19,7 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
     CHECK(run_compiler_passes(&config, &dst_mod) == CompilationNoError, return false);
 
     CEmitterConfig emitter_config = {
-        .dialect = CUDA,
+        .dialect = CDialect_CUDA,
         .explicitly_sized_types = true,
         .allow_compound_literals = true,
     };
