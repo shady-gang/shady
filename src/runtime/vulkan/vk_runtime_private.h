@@ -190,13 +190,6 @@ bool vkr_wait_completion(VkrCommand* cmd);
 
 VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args);
 
-typedef struct {
-    size_t num_args;
-    const size_t* arg_offset;
-    const size_t* arg_size;
-    size_t args_size;
-} ProgramParamsInfo;
-
 typedef struct ProgramResourceInfo_ ProgramResourceInfo;
 struct ProgramResourceInfo_ {
     bool is_bound;

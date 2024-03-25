@@ -70,6 +70,7 @@ static CudaKernel* create_specialized_program(CudaDevice* device, SpecProgramKey
     CHECK(emit_cuda_c_code(kernel), return NULL);
     CHECK(cuda_c_to_ptx(kernel), return NULL);
     CHECK(load_ptx_into_cuda_program(kernel), return NULL);
+    CHECK(shd_extract_parameters_info(&kernel->parameters, kernel->final_module), return false);
 
     return kernel;
 }

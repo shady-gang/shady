@@ -36,6 +36,13 @@ struct Device_ {
     bool (*can_import_host_memory)(Device*);
 };
 
+typedef struct {
+    size_t num_args;
+    const size_t* arg_offset;
+    const size_t* arg_size;
+    size_t args_size;
+} ProgramParamsInfo;
+
 struct Program_ {
     Runtime* runtime;
     const CompilerConfig* base_config;
@@ -43,6 +50,8 @@ struct Program_ {
     IrArena* arena;
     Module* module;
 };
+
+bool shd_extract_parameters_info(ProgramParamsInfo* info, Module* mod);
 
 struct Command_ {
     bool (*wait_for_completion)(Command*);
