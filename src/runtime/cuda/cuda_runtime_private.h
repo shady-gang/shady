@@ -16,6 +16,7 @@ typedef struct {
 
 typedef struct CudaBackend_ {
     Backend base;
+    size_t num_devices;
 } CudaBackend;
 
 typedef struct {

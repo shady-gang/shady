@@ -84,6 +84,7 @@ static bool probe_cuda_devices(CudaBackend* b) {
         CudaDevice* device = create_cuda_device(b, i);
         if (!device)
             continue;
+        b->num_devices++;
         append_list(CudaDevice*, b->base.runtime->devices, device);
     }
     return true;
@@ -99,7 +100,7 @@ Backend* initialize_cuda_backend(Runtime* base) {
 
     CHECK_CUDA(cuInit(0), goto init_fail_free);
     CHECK(probe_cuda_devices(backend), goto init_fail_free);
-    info_print("Shady CUDA backend successfully initialized !\n");
+    info_print("Shady CUDA backend successfully initialized, found %d devices\n", backend->num_devices);
     return &backend->base;
 
     init_fail_free:
