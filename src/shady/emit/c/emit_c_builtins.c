@@ -20,8 +20,8 @@ static String glsl_builtins[BuiltinsCount] = {
 CTerm emit_c_builtin(Emitter* emitter, Builtin b) {
     String name = NULL;
     switch(emitter->config.dialect) {
-        case ISPC: name = ispc_builtins[b]; break;
-        case GLSL: name = glsl_builtins[b]; break;
+        case CDialect_ISPC: name = ispc_builtins[b]; break;
+        case CDialect_GLSL: name = glsl_builtins[b]; break;
         default: break;
     }
     if (name)

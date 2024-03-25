@@ -105,9 +105,9 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
 
 static bool has_forward_declarations(CDialect dialect) {
     switch (dialect) {
-        case C: return true;
-        case GLSL: // no global variable forward declarations in GLSL
-        case ISPC: // ISPC seems to share this quirk
+        case CDialect_C11: return true;
+        case CDialect_GLSL: // no global variable forward declarations in GLSL
+        case CDialect_ISPC: // ISPC seems to share this quirk
             return false;
     }
 }
@@ -116,17 +116,17 @@ static void emit_global_variable_definition(Emitter* emitter, String prefix, Str
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
     switch (emitter->config.dialect) {
         // ISPC defaults to varying, even for constants... yuck
-        case ISPC:
+        case CDialect_ISPC:
             if (uniform)
                 decl_center = format_string_arena(emitter->arena->arena, "uniform %s", decl_center);
             else
                 decl_center = format_string_arena(emitter->arena->arena, "varying %s", decl_center);
             break;
-        case C:
+        case CDialect_C11:
             if (constant)
                 decl_center = format_string_arena(emitter->arena->arena, "const %s", decl_center);
             break;
-        case GLSL:
+        case CDialect_GLSL:
             if (constant)
                 prefix = format_string_arena(emitter->arena->arena, "%s %s", "const", prefix);
             break;
@@ -163,7 +163,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
 
             bool is_long = value->payload.int_literal.width == IntTy64;
             bool is_signed = value->payload.int_literal.is_signed;
-            if (emitter->config.dialect == GLSL) {
+            if (emitter->config.dialect == CDialect_GLSL) {
                 if (!is_signed)
                     emitted = format_string_arena(emitter->arena->arena, "%sU", emitted);
                 if (is_long)
@@ -194,7 +194,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case Value_True_TAG: return term_from_cvalue("true");
         case Value_False_TAG: return term_from_cvalue("false");
         case Value_Undef_TAG: {
-            if (emitter->config.dialect == GLSL)
+            if (emitter->config.dialect == CDialect_GLSL)
                 return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
             String name = unique_name(emitter->arena, "undef");
             emit_global_variable_definition(emitter, "", name, value->payload.undef.type, true, true, NULL);
@@ -233,7 +233,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
 
             switch (emitter->config.dialect) {
                 no_compound_literals:
-                case ISPC: {
+                case CDialect_ISPC: {
                     // arrays need double the brackets
                     if (type->tag == ArrType_TAG)
                         emitted = format_string_arena(emitter->arena->arena, "{ %s }", emitted);
@@ -248,13 +248,13 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                     }
                     break;
                 }
-                case C:
+                case CDialect_C11:
                     // If we're C89 (ew)
                     if (!emitter->config.allow_compound_literals)
                         goto no_compound_literals;
                     emitted = format_string_arena(emitter->arena->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), emitted);
                     break;
-                case GLSL:
+                case CDialect_GLSL:
                     if (type->tag != PackType_TAG)
                         goto no_compound_literals;
                     // GLSL doesn't have compound literals, but it does have constructor syntax for vectors
@@ -298,7 +298,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             const Node* decl = value->payload.ref_decl.decl;
             emit_decl(emitter, decl);
 
-            if (emitter->config.dialect == ISPC && decl->tag == GlobalVariable_TAG) {
+            if (emitter->config.dialect == CDialect_ISPC && decl->tag == GlobalVariable_TAG) {
                 if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !is_decl_builtin(decl)) {
                     assert(block_printer && "ISPC backend cannot statically refer to a varying variable");
                     return ispc_varying_ptr_helper(emitter, block_printer, decl->type, *lookup_existing_term(emitter, decl));
@@ -331,14 +331,14 @@ void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const T
 
     // add extra qualifiers if immutable
     if (!mut) switch (emitter->config.dialect) {
-        case ISPC:
+        case CDialect_ISPC:
             center = format_string_arena(emitter->arena->arena, "const %s", center);
             break;
-        case C:
+        case CDialect_C11:
             prefix = "register ";
             center = format_string_arena(emitter->arena->arena, "const %s", center);
             break;
-        case GLSL:
+        case CDialect_GLSL:
             prefix = "const ";
             break;
     }
@@ -456,13 +456,13 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
         }
         case Terminator_Unreachable_TAG: {
             switch (emitter->config.dialect) {
-                case C:
+                case CDialect_C11:
                     print(block_printer, "\n__builtin_unreachable();");
                     break;
-                case ISPC:
+                case CDialect_ISPC:
                     print(block_printer, "\nassert(false);");
                     break;
-                case GLSL:
+                case CDialect_GLSL:
                     print(block_printer, "\n//unreachable");
                     break;
             }
@@ -479,7 +479,7 @@ void emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, const N
     emit_terminator(emitter, p, body);
 
     if (bbs && bbs->count > 0) {
-        assert(emitter->config.dialect != GLSL);
+        assert(emitter->config.dialect != CDialect_GLSL);
         error("TODO");
     }
 
@@ -535,12 +535,12 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 case AsSubgroupLogical:
                 case AsSubgroupPhysical:
                     switch (emitter->config.dialect) {
-                        case C:
-                        case GLSL:
+                        case CDialect_C11:
+                        case CDialect_GLSL:
                             warn_print("C and GLSL do not have a 'subgroup' level addressing space, using shared instead");
                             address_space_prefix = "shared ";
                             break;
-                        case ISPC:
+                        case CDialect_ISPC:
                             address_space_prefix = "";
                             break;
                     }
@@ -555,12 +555,12 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 case AsSharedPhysical:
                 case AsSharedLogical:
                     switch (emitter->config.dialect) {
-                        case C:
+                        case CDialect_C11:
                             break;
-                        case GLSL:
+                        case CDialect_GLSL:
                             address_space_prefix = "shared ";
                             break;
-                        case ISPC:
+                        case CDialect_ISPC:
                             // ISPC doesn't really know what "shared" is
                             break;
                     }
@@ -610,7 +610,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
 
                 String fn_body = emit_lambda_body(emitter, body, NULL);
                 String free_me = fn_body;
-                if (emitter->config.dialect == ISPC) {
+                if (emitter->config.dialect == CDialect_ISPC) {
                     // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
                     // therefore we must tell ISPC to please, pretty please, mask everything by branching on what the mask should be
                     fn_body = format_string_arena(emitter->arena->arena, "if ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
@@ -637,9 +637,9 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             CType emitted = name;
             register_emitted_type(emitter, decl, emitted);
             switch (emitter->config.dialect) {
-                case ISPC:
-                case C: print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
-                case GLSL: emit_nominal_type_body(emitter, format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
+                case CDialect_ISPC:
+                case CDialect_C11: print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
+                case CDialect_GLSL: emit_nominal_type_body(emitter, format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
             }
             return;
         }
@@ -674,10 +674,10 @@ static Module* run_backend_specific_passes(CompilerConfig* config, CEmitterConfi
     Module* old_mod = NULL;
     Module** pmod = &initial_mod;
 
-    if (econfig->dialect == ISPC) {
+    if (econfig->dialect == CDialect_ISPC) {
         RUN_PASS(lower_workgroups)
     }
-    if (econfig->dialect != GLSL) {
+    if (econfig->dialect != CDialect_GLSL) {
         RUN_PASS(lower_vec_arr)
     }
     if (config->lower.simt_to_explicit_simd) {
@@ -718,23 +718,23 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
     Growy* final = new_growy();
     Printer* finalp = open_growy_as_printer(final);
 
-    if (emitter.config.dialect == GLSL) {
+    if (emitter.config.dialect == CDialect_GLSL) {
         print(finalp, "#version 420\n");
     }
 
     print(finalp, "/* file generated by shady */\n");
 
     switch (emitter.config.dialect) {
-        case ISPC:
+        case CDialect_ISPC:
             break;
-        case C:
+        case CDialect_C11:
             print(finalp, "\n#include <stdbool.h>");
             print(finalp, "\n#include <stdint.h>");
             print(finalp, "\n#include <stddef.h>");
             print(finalp, "\n#include <stdio.h>");
             print(finalp, "\n#include <math.h>");
             break;
-        case GLSL:
+        case CDialect_GLSL:
             print(finalp, "#extension GL_ARB_gpu_shader_int64: require\n");
             print(finalp, "#define ubyte uint\n");
             print(finalp, "#define uchar uint\n");

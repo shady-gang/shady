@@ -51,7 +51,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     Growy* paramg = new_growy();
     Printer* paramp = open_growy_as_printer(paramg);
     Nodes dom = fn_type->payload.fn_type.param_types;
-    if (dom.count == 0 && emitter->config.dialect == C)
+    if (dom.count == 0 && emitter->config.dialect == CDialect_C11)
         print(paramp, "void");
     else if (fn) {
         Nodes params = fn->payload.fun.params;
@@ -76,11 +76,11 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     growy_append_bytes(paramg, 1, (char[]) { 0 });
     const char* parameters = printer_growy_unwrap(paramp);
     switch (emitter->config.dialect) {
-        case ISPC:
-        case C:
+        case CDialect_ISPC:
+        case CDialect_C11:
             center = format_string_arena(emitter->arena->arena, "(%s)(%s)", center, parameters);
             break;
-        case GLSL:
+        case CDialect_GLSL:
             // GLSL does not accept functions declared like void (foo)(int);
             // it also does not support higher-order functions and/or function pointers, so we drop the parentheses
             center = format_string_arena(emitter->arena->arena, "%s(%s)", center, parameters);
@@ -92,11 +92,11 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
 
     const Node* entry_point = fn ? lookup_annotation(fn, "EntryPoint") : NULL;
     if (entry_point) switch (emitter->config.dialect) {
-            case C:
+            case CDialect_C11:
                 break;
-            case GLSL:
+            case CDialect_GLSL:
                 break;
-            case ISPC:
+            case CDialect_ISPC:
                 c_decl = format_string_arena(emitter->arena->arena, "export %s", c_decl);
                 break;
         }
@@ -128,7 +128,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         case Bool_TAG: emitted = "bool"; break;
         case Int_TAG: {
             switch (emitter->config.dialect) {
-                case ISPC: {
+                case CDialect_ISPC: {
                     const char* ispc_int_types[4][2] = {
                         { "uint8" , "int8"  },
                         { "uint16", "int16" },
@@ -138,7 +138,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                     emitted = ispc_int_types[type->payload.int_type.width][type->payload.int_type.is_signed];
                     break;
                 }
-                case C: {
+                case CDialect_C11: {
                     const char* c_classic_int_types[4][2] = {
                             { "unsigned char" , "char"  },
                             { "unsigned short", "short" },
@@ -154,7 +154,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                     emitted = (emitter->config.explicitly_sized_types ? c_explicit_int_sizes : c_classic_int_types)[type->payload.int_type.width][type->payload.int_type.is_signed];
                     break;
                 }
-                case GLSL:
+                case CDialect_GLSL:
                     switch (type->payload.int_type.width) {
                         case IntTy8:  warn_print("vanilla GLSL does not support 8-bit integers\n");
                             emitted = "ubyte";
@@ -194,17 +194,17 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             String prefixed = format_string_arena(emitter->arena->arena, "struct %s", emitted);
             emit_nominal_type_body(emitter, prefixed, type);
             // C puts structs in their own namespace so we always need the prefix
-            if (emitter->config.dialect == C)
+            if (emitter->config.dialect == CDialect_C11)
                 emitted = prefixed;
 
             break;
         }
         case Type_QualifiedType_TAG:
             switch (emitter->config.dialect) {
-                case C:
-                case GLSL:
+                case CDialect_C11:
+                case CDialect_GLSL:
                     return emit_type(emitter, type->payload.qualified_type.type, center);
-                case ISPC:
+                case CDialect_ISPC:
                     if (type->payload.qualified_type.is_uniform)
                         return emit_type(emitter, type->payload.qualified_type.type, format_string_arena(emitter->arena->arena, "uniform %s", center));
                     else
@@ -213,7 +213,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         case Type_PtrType_TAG: {
             CType t = emit_type(emitter, type->payload.ptr_type.pointed_type, format_string_arena(emitter->arena->arena, "* %s", center));
             // we always emit pointers to _uniform_ data, no exceptions
-            if (emitter->config.dialect == ISPC)
+            if (emitter->config.dialect == CDialect_ISPC)
                 t = format_string_arena(emitter->arena->arena, "uniform %s", t);
             return t;
         }
@@ -245,11 +245,11 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
 
             // ditto from RecordType
             switch (emitter->config.dialect) {
-                case C:
-                case ISPC:
+                case CDialect_C11:
+                case CDialect_ISPC:
                     emitted = prefixed;
                     break;
-                case GLSL:
+                case CDialect_GLSL:
                     break;
             }
             break;
@@ -258,7 +258,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             int width = type->payload.pack_type.width;
             const Type* element_type = type->payload.pack_type.element_type;
             switch (emitter->config.dialect) {
-                case GLSL: {
+                case CDialect_GLSL: {
                     assert(is_glsl_scalar_type(element_type));
                     assert(width > 1);
                     String base;
@@ -271,8 +271,8 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                     emitted = format_string_arena(emitter->arena->arena, "%s%d", base, width);
                     break;
                 }
-                case ISPC: error("Please lower to something else")
-                case C: {
+                case CDialect_ISPC: error("Please lower to something else")
+                case CDialect_C11: {
                     emitted = emit_type(emitter, element_type, NULL);
                     emitted = format_string_arena(emitter->arena->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width, emitted, emitted);
                     break;

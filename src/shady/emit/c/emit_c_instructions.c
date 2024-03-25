@@ -185,9 +185,9 @@ static bool emit_using_entry(CTerm* out, Emitter* emitter, Printer* p, const ISe
 static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
     const ISelTableEntry* isel_entry = NULL;
     switch (emitter->config.dialect) {
-        case C: isel_entry = &isel_table_c[op]; break;
-        case GLSL: isel_entry = &isel_table_glsl[op]; break;
-        case ISPC: isel_entry = &isel_table_ispc[op]; break;
+        case CDialect_C11: isel_entry = &isel_table_c[op]; break;
+        case CDialect_GLSL: isel_entry = &isel_table_glsl[op]; break;
+        case CDialect_ISPC: isel_entry = &isel_table_ispc[op]; break;
     }
     if (isel_entry->isel_mechanism == IsNone)
         isel_entry = &isel_table[op];
@@ -254,7 +254,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
             emit_variable_declaration(emitter, p, first(prim_op->type_arguments), variable_name, true, NULL);
             outputs.results[0] = variable;
-            if (emitter->config.dialect == ISPC) {
+            if (emitter->config.dialect == CDialect_ISPC) {
                 outputs.results[0] = ispc_varying_ptr_helper(emitter, p, get_unqualified_type(node->type), variable);
             }
             outputs.binding[0] = NoBinding;
@@ -276,7 +276,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             CAddr dereferenced = deref_term(emitter, emit_value(emitter, p, addr));
             CValue cvalue = to_cvalue(emitter, emit_value(emitter, p, value));
             // ISPC lets you broadcast to a uniform address space iff the address is non-uniform, otherwise we need to do this
-            if (emitter->config.dialect == ISPC && addr_uniform && is_addr_space_uniform(arena, addr_type->payload.ptr_type.address_space) && !value_uniform)
+            if (emitter->config.dialect == CDialect_ISPC && addr_uniform && is_addr_space_uniform(arena, addr_type->payload.ptr_type.address_space) && !value_uniform)
                 cvalue = format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", cvalue);
 
             print(p, "\n%s = %s;", dereferenced, cvalue);
@@ -307,7 +307,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 switch (is_type(pointee_type)) {
                     case ArrType_TAG: {
                         CTerm index = emit_value(emitter, p, selector);
-                        if (emitter->config.dialect == GLSL)
+                        if (emitter->config.dialect == CDialect_GLSL)
                             acc = term_from_cvar(format_string_arena(arena->arena, "(%s.arr[int(%s)])", deref_term(emitter, acc), to_cvalue(emitter, index)));
                         else
                             acc = term_from_cvar(format_string_arena(arena->arena, "(%s.arr[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
@@ -326,7 +326,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                         // ISPC cannot deal with subscripting if you've done pointer arithmetic (!) inside the expression
                         // so hum we just need to introduce a temporary variable to hold the pointer expression so far, and go again from there
                         // See https://github.com/ispc/ispc/issues/2496
-                        if (emitter->config.dialect == ISPC) {
+                        if (emitter->config.dialect == CDialect_ISPC) {
                             String interm = unique_name(arena, "lea_intermediary_ptr_value");
                             print(p, "\n%s = %s;", emit_type(emitter, qualified_type_helper(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
                             acc = term_from_cvalue(interm);
@@ -347,7 +347,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             }
             assert(outputs.count == 1);
             outputs.results[0] = acc;
-            outputs.binding[0] = emitter->config.dialect == ISPC ? LetBinding : NoBinding;
+            outputs.binding[0] = emitter->config.dialect == CDialect_ISPC ? LetBinding : NoBinding;
             outputs.binding[0] = NoBinding;
             return;
         }
@@ -384,7 +384,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             CTerm src = emit_value(emitter, p, first(prim_op->operands));
             const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
-            if (emitter->config.dialect == GLSL) {
+            if (emitter->config.dialect == CDialect_GLSL) {
                 if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
                     CType t = emit_type(emitter, dst_type, NULL);
                     term = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", t, to_cvalue(emitter, src)));
@@ -402,7 +402,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
             switch (emitter->config.dialect) {
-                case C: {
+                case CDialect_C11: {
                     String src = unique_name(arena, "bitcast_src");
                     String dst = unique_name(arena, "bitcast_result");
                     print(p, "\n%s = %s;", emit_type(emitter, src_type, src), to_cvalue(emitter, src_value));
@@ -412,7 +412,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     outputs.binding[0] = NoBinding;
                     break;
                 }
-                case GLSL: {
+                case CDialect_GLSL: {
                     String n = NULL;
                     if (dst_type->tag == Float_TAG) {
                         assert(src_type->tag == Int_TAG);
@@ -448,7 +448,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     error_print(".\n");
                     error_die();
                 }
-                case ISPC: {
+                case CDialect_ISPC: {
                     if (dst_type->tag == Float_TAG) {
                         assert(src_type->tag == Int_TAG);
                         String n;
@@ -520,7 +520,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                         break;
                     }
                     case Type_ArrType_TAG: {
-                        if (emitter->config.dialect == GLSL)
+                        if (emitter->config.dialect == CDialect_GLSL)
                             acc = format_string_arena(emitter->arena->arena, "(%s.arr[int(%s)])", acc, to_cvalue(emitter, emit_value(emitter, p, index)));
                         else
                             acc = format_string_arena(emitter->arena->arena, "(%s.arr[%s])", acc, to_cvalue(emitter, emit_value(emitter, p, index)));
@@ -548,9 +548,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
         case subgroup_elect_first_op: {
             switch (emitter->config.dialect) {
-                case ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))")); break;
-                case C:
-                case GLSL: error("TODO")
+                case CDialect_ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))")); break;
+                case CDialect_C11:
+                case CDialect_GLSL: error("TODO")
             }
             break;
         }
@@ -558,9 +558,9 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case subgroup_broadcast_first_op: {
             CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             switch (emitter->config.dialect) {
-                case ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
-                case C:
-                case GLSL: error("TODO")
+                case CDialect_ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
+                case CDialect_C11:
+                case CDialect_GLSL: error("TODO")
             }
             break;
         }
@@ -571,7 +571,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             for (size_t i = 0; i < prim_op->operands.count; i++) {
                 CValue str = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[i]));
 
-                if (emitter->config.dialect == ISPC && i > 0)
+                if (emitter->config.dialect == CDialect_ISPC && i > 0)
                     str = format_string_arena(emitter->arena->arena, "extract(%s, printf_thread_index)", str);
 
                 if (i > 0)
@@ -580,13 +580,13 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     args_list = str;
             }
             switch (emitter->config.dialect) {
-                case ISPC:
+                case CDialect_ISPC:
                     print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
                     break;
-                case C:
+                case CDialect_C11:
                     print(p, "\nprintf(%s);", args_list);
                     break;
-                case GLSL: warn_print("printf is not supported in GLSL");
+                case CDialect_GLSL: warn_print("printf is not supported in GLSL");
                     break;
             }
 

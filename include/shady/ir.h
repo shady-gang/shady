@@ -326,9 +326,9 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
 void emit_spirv(CompilerConfig* config, Module*, size_t* output_size, char** output, Module** new_mod);
 
 typedef enum {
-    C,
-    GLSL,
-    ISPC
+    CDialect_C11,
+    CDialect_GLSL,
+    CDialect_ISPC
 } CDialect;
 
 typedef struct {
