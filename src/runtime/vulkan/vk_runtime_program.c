@@ -129,7 +129,6 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
 }
 
 static bool extract_layout(VkrSpecProgram* program) {
-    CHECK(shd_extract_parameters_info(&program->parameters, program->specialized_module), return false);
     if (program->parameters.args_size > program->device->caps.properties.base.properties.limits.maxPushConstantsSize) {
         error_print("EntryPointArgs exceed available push constant space\n");
         return false;
@@ -227,6 +226,8 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
     config.specialization.entry_point = spec->key.entry_point;
 
     CHECK(run_compiler_passes(&config, &spec->specialized_module) == CompilationNoError, return false);
+
+    CHECK(shd_extract_parameters_info(&spec->parameters, spec->specialized_module), return false);
 
     Module* final_mod;
     emit_spirv(&config, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes, &final_mod);

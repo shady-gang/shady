@@ -54,7 +54,6 @@ typedef struct {
     };
     CUmodule cuda_module;
     CUfunction entry_point_function;
-    ProgramParamsInfo parameters;
 } CudaKernel;
 
 CudaBuffer* shd_cuda_allocate_buffer(CudaDevice*, size_t size);
