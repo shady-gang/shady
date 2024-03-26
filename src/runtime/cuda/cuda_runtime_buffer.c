@@ -19,16 +19,28 @@ static void* cuda_get_host_ptr(CudaBuffer* buffer) {
     return (void*) buffer->host_ptr;
 }
 
+static bool cuda_copy_to_buffer_fallback(CudaBuffer* dst, size_t dst_offset, void* src, size_t size) {
+    CHECK_CUDA(cuMemcpyHtoD(dst->device_ptr + dst_offset, src, size), return false);
+    return true;
+}
+
+static bool cuda_copy_from_buffer_fallback(CudaBuffer* src, size_t src_offset, void* dst, size_t size) {
+    CHECK_CUDA(cuMemcpyDtoH(dst, src->device_ptr + src_offset, size), return false);
+    return true;
+}
+
 static CudaBuffer* new_buffer_common(size_t size) {
     CudaBuffer* buffer = calloc(sizeof(CudaBuffer), 1);
     *buffer = (CudaBuffer) {
-            .base = {
-                    .backend_tag = CUDARuntimeBackend,
-                    .get_host_ptr = (void*(*)(Buffer*)) cuda_get_host_ptr,
-                    .get_device_ptr = (uint64_t(*)(Buffer*)) cuda_get_deviceptr,
-                    .destroy = (void(*)(Buffer*)) cuda_destroy_buffer,
-            },
-            .size = size,
+        .base = {
+            .backend_tag = CUDARuntimeBackend,
+            .get_host_ptr = (void*(*)(Buffer*)) cuda_get_host_ptr,
+            .get_device_ptr = (uint64_t(*)(Buffer*)) cuda_get_deviceptr,
+            .destroy = (void(*)(Buffer*)) cuda_destroy_buffer,
+            .copy_into = (bool(*)(Buffer*, size_t, void*, size_t)) cuda_copy_to_buffer_fallback,
+            .copy_from = (bool(*)(Buffer*, size_t, void*, size_t)) cuda_copy_from_buffer_fallback,
+        },
+        .size = size,
     };
     return buffer;
 }
