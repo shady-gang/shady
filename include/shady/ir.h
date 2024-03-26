@@ -85,7 +85,6 @@ typedef struct {
             SubgroupMaskInt64
         } subgroup_mask_representation;
 
-        uint32_t subgroup_size;
         uint32_t workgroup_size[3];
     } specializations;
 

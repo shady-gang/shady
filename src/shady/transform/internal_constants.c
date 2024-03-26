@@ -1,6 +1,7 @@
 #include "internal_constants.h"
 
 #include "portability.h"
+#include "ir_private.h"
 
 #include <string.h>
 

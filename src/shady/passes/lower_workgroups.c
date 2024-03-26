@@ -80,9 +80,9 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Node* subgroup_id[3];
                 uint32_t num_subgroups[3];
                 const Node* num_subgroups_literals[3];
-                assert(a->config.specializations.subgroup_size);
+                assert(ctx->config->specialization.subgroup_size);
                 assert(a->config.specializations.workgroup_size[0] && a->config.specializations.workgroup_size[1] && a->config.specializations.workgroup_size[2]);
-                num_subgroups[0] = a->config.specializations.workgroup_size[0] / a->config.specializations.subgroup_size;
+                num_subgroups[0] = a->config.specializations.workgroup_size[0] / ctx->config->specialization.subgroup_size;
                 num_subgroups[1] = a->config.specializations.workgroup_size[1];
                 num_subgroups[2] = a->config.specializations.workgroup_size[2];
                 String names2[] = { "sgx", "sgy", "sgz" };
@@ -97,7 +97,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 // write the local ID
                 const Node* local_id[3];
                 // local_id[0] = SUBGROUP_SIZE * subgroup_id[0] + subgroup_local_id
-                local_id[0] = gen_primop_e(bb2, add_op, empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, empty(a), mk_nodes(a, uint32_literal(a, a->config.specializations.subgroup_size), subgroup_id[0])), gen_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
+                local_id[0] = gen_primop_e(bb2, add_op, empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, empty(a), mk_nodes(a, uint32_literal(a, ctx->config->specialization.subgroup_size), subgroup_id[0])), gen_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
                 local_id[1] = subgroup_id[1];
                 local_id[2] = subgroup_id[2];
                 gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_builtin(ctx->rewriter.src_module, BuiltinLocalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
