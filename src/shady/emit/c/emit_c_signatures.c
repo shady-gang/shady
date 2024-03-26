@@ -59,7 +59,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
         for (size_t i = 0; i < dom.count; i++) {
             String param_name;
             String variable_name = get_value_name(fn->payload.fun.params.nodes[i]);
-            param_name = unique_name(emitter->arena, legalize_c_identifier(emitter, variable_name));
+            param_name = format_string_interned(emitter->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), fn->payload.fun.params.nodes[i]->id);
             print(paramp, emit_type(emitter, params.nodes[i]->type, param_name));
             if (i + 1 < dom.count) {
                 print(paramp, ", ");
@@ -90,7 +90,8 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     String c_decl = emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
 
     const Node* entry_point = fn ? lookup_annotation(fn, "EntryPoint") : NULL;
-    if (entry_point) switch (emitter->config.dialect) {
+    if (entry_point) {
+        switch (emitter->config.dialect) {
             case CDialect_C11:
                 break;
             case CDialect_GLSL:
@@ -98,9 +99,12 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
             case CDialect_ISPC:
                 c_decl = format_string_arena(emitter->arena->arena, "export %s", c_decl);
             case CDialect_CUDA:
-                c_decl = format_string_arena(emitter->arena->arena, "__kernel__ %s", c_decl);
+                c_decl = format_string_arena(emitter->arena->arena, "extern \"C\" __global__ %s", c_decl);
                 break;
         }
+    } else if (emitter->config.dialect == CDialect_CUDA) {
+        c_decl = format_string_arena(emitter->arena->arena, "__device__ %s", c_decl);
+    }
 
     return c_decl;
 }

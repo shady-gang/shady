@@ -135,15 +135,15 @@ static void emit_global_variable_definition(Emitter* emitter, String prefix, Str
     }
 
     if (init)
-        print(emitter->fn_defs, "\n%s%s = %s;", prefix, emit_type(emitter, type, decl_center), init);
+        print(emitter->fn_decls, "\n%s%s = %s;", prefix, emit_type(emitter, type, decl_center), init);
     else
-        print(emitter->fn_defs, "\n%s%s;", prefix, emit_type(emitter, type, decl_center));
+        print(emitter->fn_decls, "\n%s%s;", prefix, emit_type(emitter, type, decl_center));
 
-    if (!has_forward_declarations(emitter->config.dialect) || !init)
-        return;
-
-    String declaration = emit_type(emitter, type, decl_center);
-    print(emitter->fn_decls, "\n%s;", declaration);
+    //if (!has_forward_declarations(emitter->config.dialect) || !init)
+    //    return;
+    //
+    //String declaration = emit_type(emitter, type, decl_center);
+    //print(emitter->fn_decls, "\n%s;", declaration);
 }
 
 CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
@@ -550,7 +550,15 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     break;
                 case AsPrivatePhysical:
                 case AsPrivateLogical:
-                    address_space_prefix = "";
+                    switch (emitter->config.dialect) {
+                        case CDialect_CUDA:
+                            address_space_prefix = "__device__ ";
+                            break;
+                        default:
+                            address_space_prefix = "";
+                            break;
+                    }
+                    break;
                 case AsGlobalLogical:
                 case AsGlobalPhysical:
                     address_space_prefix = "";
@@ -612,7 +620,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
                     String variable_name = get_value_name(decl->payload.fun.params.nodes[i]);
-                    param_name = unique_name(emitter->arena, legalize_c_identifier(emitter, variable_name));
+                    param_name = format_string_interned(emitter->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
                     register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 
@@ -735,7 +743,8 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
     switch (emitter.config.dialect) {
         case CDialect_ISPC:
             break;
-        case CDialect_CUDA: /* TODO: probably don't wanna do this */
+        case CDialect_CUDA:
+            break;
         case CDialect_C11:
             print(finalp, "\n#include <stdbool.h>");
             print(finalp, "\n#include <stdint.h>");

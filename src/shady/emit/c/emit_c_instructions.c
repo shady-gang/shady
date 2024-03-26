@@ -409,7 +409,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     String dst = unique_name(arena, "bitcast_result");
                     print(p, "\n%s = %s;", emit_type(emitter, src_type, src), to_cvalue(emitter, src_value));
                     print(p, "\n%s;", emit_type(emitter, dst_type, dst));
-                    print(p, "\nmemcpy(&%s, &s, sizeof(%s));", dst, src, src);
+                    print(p, "\nmemcpy(&%s, &%s, sizeof(%s));", dst, src, src);
                     outputs.results[0] = term_from_cvalue(dst);
                     outputs.binding[0] = NoBinding;
                     break;

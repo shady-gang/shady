@@ -15,12 +15,12 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
     CompilerConfig config = get_compiler_config_for_device(spec->device, spec->key.base->base_config);
     config.specialization.entry_point = spec->key.entry_point;
 
-    Module* dst_mod;
+    Module* dst_mod = spec->key.base->module;
     CHECK(run_compiler_passes(&config, &dst_mod) == CompilationNoError, return false);
 
     CEmitterConfig emitter_config = {
         .dialect = CDialect_CUDA,
-        .explicitly_sized_types = true,
+        .explicitly_sized_types = false,
         .allow_compound_literals = true,
     };
     Module* final_mod;
@@ -35,6 +35,7 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
     nvrtcResult compile_result = nvrtcCompileProgram(program, 0, false);
     if (compile_result != NVRTC_SUCCESS) {
         error_print("NVRTC compilation failed: %s\n", nvrtcGetErrorString(compile_result));
+        debug_print("Dumping source:\n%s", kernel->cuda_code);
     }
 
     size_t log_size;
