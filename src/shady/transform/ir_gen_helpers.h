@@ -23,7 +23,8 @@ void gen_store(BodyBuilder*, const Node* ptr, const Node* value);
 const Node* gen_lea(BodyBuilder*, const Node* base, const Node* offset, Nodes selectors);
 const Node* gen_extract(BodyBuilder*, const Node* base, Nodes selectors);
 void gen_comment(BodyBuilder*, String str);
-const Node* get_builtin(Module* m, Builtin b, String n);
+const Node* get_builtin(Module* m, Builtin b);
+const Node* get_or_create_builtin(Module* m, Builtin b, String n);
 const Node* gen_builtin_load(Module*, BodyBuilder*, Builtin);
 
 typedef struct Rewriter_ Rewriter;

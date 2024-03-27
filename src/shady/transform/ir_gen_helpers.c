@@ -111,7 +111,7 @@ void gen_comment(BodyBuilder* bb, String str) {
     bind_instruction(bb, comment(bb->arena, (Comment) { .string = str }));
 }
 
-const Node* get_builtin(Module* m, Builtin b, String n) {
+const Node* get_builtin(Module* m, Builtin b) {
     Nodes decls = get_module_declarations(m);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
@@ -126,14 +126,22 @@ const Node* get_builtin(Module* m, Builtin b, String n) {
             return decl;
     }
 
+    return NULL;
+}
+
+const Node* get_or_create_builtin(Module* m, Builtin b, String n) {
+    const Node* decl = get_builtin(m, b);
+    if (decl)
+        return decl;
+
     AddressSpace as = get_builtin_as(b);
     IrArena* a = get_module_arena(m);
-    Node* decl = global_var(m, singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a, get_builtin_name(b)))), get_builtin_type(a, b), n ? n : format_string_arena(a->arena, "builtin_%s", get_builtin_name(b)), as);
+    decl = global_var(m, singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a, get_builtin_name(b)))), get_builtin_type(a, b), n ? n : format_string_arena(a->arena, "builtin_%s", get_builtin_name(b)), as);
     return decl;
 }
 
 const Node* gen_builtin_load(Module* m, BodyBuilder* bb, Builtin b) {
-    return gen_load(bb, ref_decl_helper(bb->arena, get_builtin(m, b, NULL)));
+    return gen_load(bb, ref_decl_helper(bb->arena, get_or_create_builtin(m, b, NULL)));
 }
 
 bool is_builtin_load_op(const Node* n, Builtin* out) {
