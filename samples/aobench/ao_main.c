@@ -97,11 +97,9 @@ void render_device(const CompilerConfig* compiler_config, unsigned char *img, in
         }
     }
 
-    set_log_level(INFO);
-
     RuntimeConfig runtime_config = (RuntimeConfig) {
-            .use_validation = true,
-            .dump_spv = true,
+        .use_validation = true,
+        .dump_spv = true,
     };
 
     info_print("Shady checkerboard test starting...\n");
