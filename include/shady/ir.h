@@ -335,6 +335,7 @@ typedef struct {
     CDialect dialect;
     bool explicitly_sized_types;
     bool allow_compound_literals;
+    bool decay_unsized_arrays;
 } CEmitterConfig;
 
 void emit_c(CompilerConfig compiler_config, CEmitterConfig emitter_config, Module*, size_t* output_size, char** output, Module** new_mod);

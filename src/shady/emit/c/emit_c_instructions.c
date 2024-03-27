@@ -195,6 +195,16 @@ static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
     return isel_entry;
 }
 
+static String index_into_array(Emitter* emitter, const Type* arr_type, CTerm expr, CTerm index) {
+    IrArena* arena = emitter->arena;
+
+    String index2 = emitter->config.dialect == CDialect_GLSL ? format_string_arena(arena->arena, "int(%s)", to_cvalue(emitter, index)) : to_cvalue(emitter, index);
+    if (emitter->config.decay_unsized_arrays && !arr_type->payload.arr_type.size)
+        return format_string_arena(arena->arena, "((&%s)[%s])", deref_term(emitter, expr), index2);
+    else
+        return format_string_arena(arena->arena, "(%s.arr[%s])", deref_term(emitter, expr), index2);
+}
+
 static void emit_primop(Emitter* emitter, Printer* p, const Node* node, InstructionOutputs outputs) {
     assert(node->tag == PrimOp_TAG);
     IrArena* arena = emitter->arena;
@@ -296,7 +306,8 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this
                 // this means such code is never going to be legal in GLSL
                 // also the cast is to account for our arrays-in-structs hack
-                acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &(%s.arr[%s]))", emit_type(emitter, curr_ptr_type, NULL), deref_term(emitter, acc), to_cvalue(emitter, offset)));
+                const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
+                acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &%s)", emit_type(emitter, curr_ptr_type, NULL), index_into_array(emitter, pointee_type, acc, offset)));
                 uniform &= is_qualified_type_uniform(prim_op->operands.nodes[1]->type);
             }
 
@@ -308,10 +319,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 switch (is_type(pointee_type)) {
                     case ArrType_TAG: {
                         CTerm index = emit_value(emitter, p, selector);
-                        if (emitter->config.dialect == CDialect_GLSL)
-                            acc = term_from_cvar(format_string_arena(arena->arena, "(%s.arr[int(%s)])", deref_term(emitter, acc), to_cvalue(emitter, index)));
-                        else
-                            acc = term_from_cvar(format_string_arena(arena->arena, "(%s.arr[%s])", deref_term(emitter, acc), to_cvalue(emitter, index)));
+                        acc = term_from_cvar(index_into_array(emitter, pointee_type, acc, index));
                         curr_ptr_type = ptr_type(arena, (PtrType) {
                                 .pointed_type = pointee_type->payload.arr_type.element_type,
                                 .address_space = curr_ptr_type->payload.ptr_type.address_space
@@ -522,10 +530,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                         break;
                     }
                     case Type_ArrType_TAG: {
-                        if (emitter->config.dialect == CDialect_GLSL)
-                            acc = format_string_arena(emitter->arena->arena, "(%s.arr[int(%s)])", acc, to_cvalue(emitter, emit_value(emitter, p, index)));
-                        else
-                            acc = format_string_arena(emitter->arena->arena, "(%s.arr[%s])", acc, to_cvalue(emitter, emit_value(emitter, p, index)));
+                        acc = index_into_array(emitter, t, term_from_cvar(acc), emit_value(emitter, p, index));
                         break;
                     }
                     default:

@@ -231,9 +231,12 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
             Growy* g = new_growy();
             Printer* p = open_growy_as_printer(g);
 
+            const Node* size = type->payload.arr_type.size;
+            if (!size && emitter->config.decay_unsized_arrays)
+                return emit_type(emitter, type->payload.arr_type.element_type, center);
+
             print(p, "\n%s {", prefixed);
             indent(p);
-            const Node* size = type->payload.arr_type.size;
             String inner_decl_rhs;
             if (size)
                 inner_decl_rhs = format_string_arena(emitter->arena->arena, "arr[%zu]", get_int_literal_value(*resolve_to_int_literal(size), false));
