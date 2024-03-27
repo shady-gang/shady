@@ -45,6 +45,8 @@ typedef struct {
     struct Dict* emitted_types;
 
     int total_workgroup_size;
+    bool use_private_globals;
+    Printer* entrypoint_prelude;
 } Emitter;
 
 void register_emitted(Emitter*, const Node*, CTerm);

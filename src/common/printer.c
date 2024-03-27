@@ -132,6 +132,7 @@ Printer* print(Printer* p, const char* f, ...) {
 
 const char* printer_growy_unwrap(Printer* p) {
     assert(p->output == PoGrowy);
+    growy_append_bytes(p->growy, 1, "\0");
     const char* insides = growy_deconstruct(p->growy);
     free(p);
     return insides;

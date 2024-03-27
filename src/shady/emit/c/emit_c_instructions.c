@@ -624,6 +624,11 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
 
     Growy* g = new_growy();
     Printer* paramsp = open_growy_as_printer(g);
+    if (emitter->use_private_globals) {
+        print(paramsp, "__shady_private_globals");
+        if (args.count > 0)
+            print(paramsp, ", ");
+    }
     for (size_t i = 0; i < args.count; i++) {
         print(paramsp, to_cvalue(emitter, emit_value(emitter, p, args.nodes[i])));
         if (i + 1 < args.count)

@@ -48,6 +48,8 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     assert(!fn || fn->type == fn_type);
     Nodes codom = fn_type->payload.fn_type.return_types;
 
+    const Node* entry_point = fn ? lookup_annotation(fn, "EntryPoint") : NULL;
+
     Growy* paramg = new_growy();
     Printer* paramp = open_growy_as_printer(paramg);
     Nodes dom = fn_type->payload.fn_type.param_types;
@@ -56,6 +58,11 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     else if (fn) {
         Nodes params = fn->payload.fun.params;
         assert(params.count == dom.count);
+        if (emitter->use_private_globals && !entry_point) {
+            print(paramp, "__shady_PrivateGlobals* __shady_private_globals");
+            if (params.count > 0)
+                print(paramp, ", ");
+        }
         for (size_t i = 0; i < dom.count; i++) {
             String param_name;
             String variable_name = get_value_name(fn->payload.fun.params.nodes[i]);
@@ -66,6 +73,11 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
             }
         }
     } else {
+        if (emitter->use_private_globals) {
+            print(paramp, "__shady_PrivateGlobals*");
+            if (dom.count > 0)
+                print(paramp, ", ");
+        }
         for (size_t i = 0; i < dom.count; i++) {
             print(paramp, emit_type(emitter, dom.nodes[i], ""));
             if (i + 1 < dom.count) {
@@ -88,8 +100,6 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     free_tmp_str(parameters);
 
     String c_decl = emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
-
-    const Node* entry_point = fn ? lookup_annotation(fn, "EntryPoint") : NULL;
     if (entry_point) {
         switch (emitter->config.dialect) {
             case CDialect_C11:

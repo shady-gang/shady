@@ -136,9 +136,10 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
             switch (as) {
                 case AsPrivateLogical:
                 case AsPrivatePhysical:
+                    assert(false);
                     // Note: this requires many hacks.
-                    prefix = "__shared__ ";
-                    decl_center = format_string_arena(emitter->arena->arena, "__shady_make_thread_local(%s)", decl_center);
+                    prefix = "__device__ ";
+                    decl_center = format_string_arena(emitter->arena->arena, "__shady_private_globals.%s", decl_center);
                     break;
                 case AsSharedPhysical:
                 case AsSharedLogical: prefix = "__shared__ "; break;
@@ -588,10 +589,15 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
             if ((decl->payload.global_variable.address_space == AsPrivatePhysical || decl->payload.global_variable.address_space == AsPrivateLogical) && emitter->config.dialect == CDialect_CUDA) {
-                // HACK
+                if (emitter->use_private_globals) {
+                    register_emitted(emitter, decl, term_from_cvar(format_string_arena(emitter->arena->arena, "__shady_private_globals->%s", name)));
+                    // HACK
+                    return;
+                }
                 emit_as = term_from_cvar(format_string_interned(emitter->arena, "__shady_thread_local_access(%s)", name));
                 if (init)
                     init = format_string_interned(emitter->arena, "__shady_replicate_thread_local(%s)", init);
+                register_emitted(emitter, decl, emit_as);
             }
             register_emitted(emitter, decl, emit_as);
 
@@ -620,7 +626,13 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     fn_body = format_string_arena(emitter->arena->arena, "if ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
                     // I hate everything about this too.
                 } else if (emitter->config.dialect == CDialect_CUDA) {
-                    fn_body = format_string_arena(emitter->arena->arena, "__shady_prepare_builtins();\n%s", fn_body);
+                    if (lookup_annotation(decl, "EntryPoint")) {
+                        // fn_body = format_string_arena(emitter->arena->arena, "\n__shady_entry_point_init();%s", fn_body);
+                        if (emitter->use_private_globals) {
+                            fn_body = format_string_arena(emitter->arena->arena, "\n__shady_PrivateGlobals __shady_private_globals_alloc;\n __shady_PrivateGlobals* __shady_private_globals = &__shady_private_globals_alloc;\n%s", fn_body);
+                        }
+                        fn_body = format_string_arena(emitter->arena->arena, "\n__shady_prepare_builtins();%s", fn_body);
+                    }
                 }
                 print(emitter->fn_defs, "\n%s { %s }", head, fn_body);
                 free_tmp_str(free_me);
@@ -694,6 +706,33 @@ static Module* run_backend_specific_passes(CompilerConfig* config, CEmitterConfi
     return *pmod;
 }
 
+static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
+    Growy* g = new_growy();
+    Printer* p = open_growy_as_printer(g);
+
+    print(p, "typedef struct __shady_PrivateGlobals {\n");
+    Nodes decls = get_module_declarations(m);
+    size_t count = 0;
+    for (size_t i = 0; i < decls.count; i++) {
+        const Node* decl = decls.nodes[i];
+        if (decl->tag != GlobalVariable_TAG)
+            continue;
+        AddressSpace as = decl->payload.global_variable.address_space;
+        if (as != AsPrivatePhysical && as != AsPrivateLogical)
+            continue;
+        print(p, "%s;\n", c_emit_type(emitter, decl->payload.global_variable.type, decl->payload.global_variable.name));
+        count++;
+    }
+    print(p, "} __shady_PrivateGlobals;\n");
+
+    if (count == 0) {
+        destroy_printer(p);
+        destroy_growy(g);
+        return NULL;
+    }
+    return printer_growy_unwrap(p);
+}
+
 void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
     IrArena* initial_arena = get_module_arena(mod);
     mod = run_backend_specific_passes(&compiler_config, &config, mod);
@@ -723,6 +762,13 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
                 .element_type = uint32_type(arena)
         }), "uvec3"));
         print(emitter.fn_defs, shady_cuda_builtins_src);
+
+        String private_globals = collect_private_globals_in_struct(&emitter, mod);
+        if (private_globals) {
+            emitter.use_private_globals = true;
+            print(emitter.type_decls, private_globals);
+            free((void*)private_globals);
+        }
     }
 
     Nodes decls = get_module_declarations(mod);
@@ -781,6 +827,7 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
     print(finalp, "\n");
     print(finalp, "\n");
     print(finalp, "\n");
+    growy_append_bytes(final, 1, "\0");
 
     destroy_growy(type_decls_g);
     destroy_growy(fn_decls_g);
