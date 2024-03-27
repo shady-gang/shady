@@ -51,8 +51,6 @@ struct Program_ {
     Module* module;
 };
 
-bool shd_extract_parameters_info(ProgramParamsInfo* info, Module* mod);
-
 struct Command_ {
     bool (*wait_for_completion)(Command*);
 };
