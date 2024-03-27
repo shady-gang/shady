@@ -1,5 +1,8 @@
 #include "emit_c.h"
 
+#include "shady_cuda_prelude_src.h"
+#include "shady_cuda_builtins_src.h"
+
 #include "portability.h"
 #include "dict.h"
 #include "log.h"
@@ -132,7 +135,11 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
         case CDialect_CUDA:
             switch (as) {
                 case AsPrivateLogical:
-                case AsPrivatePhysical: prefix = "__device__ "; break;
+                case AsPrivatePhysical:
+                    // Note: this requires many hacks.
+                    prefix = "__shared__ ";
+                    decl_center = format_string_arena(emitter->arena->arena, "__shady_make_thread_local(%s)", decl_center);
+                    break;
                 case AsSharedPhysical:
                 case AsSharedLogical: prefix = "__shared__ "; break;
                 case AsGlobalLogical:
@@ -572,14 +579,20 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             const GlobalVariable* gvar = &decl->payload.global_variable;
             if (is_decl_builtin(decl)) {
                 Builtin b = get_decl_builtin(decl);
-                register_emitted(emitter, decl, emit_c_builtin(emitter, b));
+                CTerm t = emit_c_builtin(emitter, b);
+                register_emitted(emitter, decl, t);
                 return;
             }
 
             decl_type = decl->payload.global_variable.type;
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
-
+            if ((decl->payload.global_variable.address_space == AsPrivatePhysical || decl->payload.global_variable.address_space == AsPrivateLogical) && emitter->config.dialect == CDialect_CUDA) {
+                // HACK
+                emit_as = term_from_cvar(format_string_interned(emitter->arena, "__shady_thread_local_access(%s)", name));
+                if (init)
+                    init = format_string_interned(emitter->arena, "__shady_replicate_thread_local(%s)", init);
+            }
             register_emitted(emitter, decl, emit_as);
 
             AddressSpace as = decl->payload.global_variable.address_space;
@@ -606,6 +619,8 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     // therefore we must tell ISPC to please, pretty please, mask everything by branching on what the mask should be
                     fn_body = format_string_arena(emitter->arena->arena, "if ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
                     // I hate everything about this too.
+                } else if (emitter->config.dialect == CDialect_CUDA) {
+                    fn_body = format_string_arena(emitter->arena->arena, "__shady_prepare_builtins();\n%s", fn_body);
                 }
                 print(emitter->fn_defs, "\n%s { %s }", head, fn_body);
                 free_tmp_str(free_me);
@@ -698,6 +713,18 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
         .emitted_types = new_dict(Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
+    // builtins magic (hack) for CUDA
+    if (emitter.config.dialect == CDialect_CUDA) {
+        emitter.total_workgroup_size = emitter.arena->config.specializations.workgroup_size[0];
+        emitter.total_workgroup_size *= emitter.arena->config.specializations.workgroup_size[1];
+        emitter.total_workgroup_size *= emitter.arena->config.specializations.workgroup_size[2];
+        print(emitter.type_decls, "\ntypedef %s;\n", emit_type(&emitter, arr_type(arena, (ArrType) {
+                .size = int32_literal(arena, 3),
+                .element_type = uint32_type(arena)
+        }), "uvec3"));
+        print(emitter.fn_defs, shady_cuda_builtins_src);
+    }
+
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++)
         emit_decl(&emitter, decls.nodes[i]);
@@ -718,8 +745,15 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
     switch (emitter.config.dialect) {
         case CDialect_ISPC:
             break;
-        case CDialect_CUDA:
+        case CDialect_CUDA: {
+            print(finalp, "#define __shady_workgroup_size %d\n", emitter.total_workgroup_size);
+            print(finalp, "#define __shady_replicate_thread_local(v) { ");
+            for (size_t i = 0; i < emitter.total_workgroup_size; i++)
+                print(finalp, "v, ");
+            print(finalp, "}\n");
+            print(finalp, shady_cuda_prelude_src);
             break;
+        }
         case CDialect_C11:
             print(finalp, "\n#include <stdbool.h>");
             print(finalp, "\n#include <stdint.h>");

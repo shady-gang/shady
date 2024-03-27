@@ -43,6 +43,8 @@ typedef struct {
 
     struct Dict* emitted_terms;
     struct Dict* emitted_types;
+
+    int total_workgroup_size;
 } Emitter;
 
 void register_emitted(Emitter*, const Node*, CTerm);
