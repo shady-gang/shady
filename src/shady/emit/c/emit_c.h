@@ -28,6 +28,8 @@ typedef struct {
 
 #define term_from_cvalue(t) (CTerm) { .value = t }
 #define term_from_cvar(t) (CTerm) { .var = t }
+#define empty_term() (CTerm) { 0 }
+#define is_term_empty(t) (!t.var && !t.value)
 
 typedef Strings Phis;
 
@@ -56,6 +58,7 @@ void emit_decl(Emitter* emitter, const Node* decl);
 CType emit_type(Emitter* emitter, const Type*, const char* identifier);
 String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn);
 void emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
+
 void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer);
 
 CTerm emit_value(Emitter* emitter, Printer*, const Node* value);

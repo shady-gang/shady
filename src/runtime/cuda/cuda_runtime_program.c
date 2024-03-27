@@ -21,7 +21,7 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
     CEmitterConfig emitter_config = {
         .dialect = CDialect_CUDA,
         .explicitly_sized_types = false,
-        .allow_compound_literals = true,
+        .allow_compound_literals = false,
     };
     Module* final_mod;
     emit_c(config, emitter_config, dst_mod, &spec->cuda_code_size, &spec->cuda_code, &final_mod);

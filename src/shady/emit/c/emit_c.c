@@ -113,25 +113,74 @@ static bool has_forward_declarations(CDialect dialect) {
     }
 }
 
-static void emit_global_variable_definition(Emitter* emitter, String prefix, String decl_center, const Type* type, bool uniform, bool constant, String init) {
+static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init) {
+    String prefix = NULL;
+
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
     switch (emitter->config.dialect) {
-        // ISPC defaults to varying, even for constants... yuck
-        case CDialect_ISPC:
-            if (uniform)
-                decl_center = format_string_arena(emitter->arena->arena, "uniform %s", decl_center);
-            else
-                decl_center = format_string_arena(emitter->arena->arena, "varying %s", decl_center);
-            break;
-        case CDialect_C11:
-        case CDialect_CUDA:
+        case CDialect_C11: {
+            if (as != AsGeneric) warn_print_once(c11_non_generic_as, "warning: standard C does not have address spaces\n");
+            prefix = "";
             if (constant)
                 decl_center = format_string_arena(emitter->arena->arena, "const %s", decl_center);
             break;
-        case CDialect_GLSL:
-            if (constant)
-                prefix = format_string_arena(emitter->arena->arena, "%s %s", "const", prefix);
+        }
+        case CDialect_ISPC:
+            // ISPC doesn't really do address space qualifiers.
+            prefix = "";
             break;
+        case CDialect_CUDA:
+            switch (as) {
+                case AsPrivateLogical:
+                case AsPrivatePhysical: prefix = "__device__ "; break;
+                case AsSharedPhysical:
+                case AsSharedLogical: prefix = "__shared__ "; break;
+                case AsGlobalLogical:
+                case AsGlobalPhysical: {
+                    if (constant)
+                        prefix = "__constant__ ";
+                    else
+                        prefix = "__device__ __managed__ ";
+                    break;
+                }
+                default: {
+                    prefix = format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
+                    warn_print("warning: address space %s not supported in CUDA for global variables\n", get_address_space_name(as));
+                    break;
+                }
+            }
+            break;
+        case CDialect_GLSL:
+            switch (as) {
+                case AsSharedLogical: prefix = "shared "; break;
+                case AsInput:
+                case AsUInput: prefix = "in "; break;
+                case AsOutput: prefix = "out "; break;
+                case AsPrivateLogical: prefix = ""; break;
+                case AsUniformConstant: prefix = "uniform"; break;
+                case AsGlobalLogical: {
+                    assert(constant && "Only constants are supported");
+                    prefix = "const ";
+                    break;
+                }
+                default: {
+                    prefix = format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
+                    warn_print("warning: address space %s not supported in GLSL for global variables\n", get_address_space_name(as));
+                    break;
+                }
+            }
+            break;
+    }
+
+    assert(prefix);
+
+    // ISPC wants uniform/varying annotations
+    if (emitter->config.dialect == CDialect_ISPC) {
+        bool uniform = is_addr_space_uniform(emitter->arena, as);
+        if (uniform)
+            decl_center = format_string_arena(emitter->arena->arena, "uniform %s", decl_center);
+        else
+            decl_center = format_string_arena(emitter->arena->arena, "varying %s", decl_center);
     }
 
     if (init)
@@ -199,7 +248,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             if (emitter->config.dialect == CDialect_GLSL)
                 return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
             String name = unique_name(emitter->arena, "undef");
-            emit_global_variable_definition(emitter, "", name, value->payload.undef.type, true, true, NULL);
+            emit_global_variable_definition(emitter, AsGlobalLogical, name, value->payload.undef.type, true, NULL);
             emitted = name;
             break;
         }
@@ -531,84 +580,10 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
 
-            bool uniform = is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space);
-
-            String address_space_prefix = NULL;
-            switch (decl->payload.global_variable.address_space) {
-                case AsGeneric:
-                    break;
-                case AsSubgroupLogical:
-                case AsSubgroupPhysical:
-                    switch (emitter->config.dialect) {
-                        default:
-                            warn_print("Non-ISPC dialects of C do not have a 'subgroup' level addressing space, using shared instead");
-                            goto case_shared;
-                        case CDialect_ISPC:
-                            address_space_prefix = "";
-                            break;
-                    }
-                    break;
-                case AsPrivatePhysical:
-                case AsPrivateLogical:
-                    switch (emitter->config.dialect) {
-                        case CDialect_CUDA:
-                            address_space_prefix = "__device__ ";
-                            break;
-                        default:
-                            address_space_prefix = "";
-                            break;
-                    }
-                    break;
-                case AsGlobalLogical:
-                case AsGlobalPhysical:
-                    address_space_prefix = "";
-                    break;
-                case_shared:
-                case AsSharedPhysical:
-                case AsSharedLogical:
-                    switch (emitter->config.dialect) {
-                        case CDialect_C11:
-                            break;
-                        case CDialect_CUDA:
-                            address_space_prefix = "__shared__ ";
-                            break;
-                        case CDialect_GLSL:
-                            address_space_prefix = "shared ";
-                            break;
-                        case CDialect_ISPC:
-                            // ISPC doesn't really know what "shared" is
-                            break;
-                    }
-                    break;
-
-                case AsExternal:
-                    address_space_prefix = "extern ";
-                    break;
-                case AsInput:
-                case AsUInput:
-                    address_space_prefix = "in ";
-                    break;
-                case AsOutput:
-                    address_space_prefix = "out ";
-                    break;
-                case AsUniform:
-                case AsImage:
-                case AsUniformConstant:
-                case AsShaderStorageBufferObject:
-                case AsFunctionLogical:
-                case AsPushConstant:
-                    break; // error("These only make sense for SPIR-V !")
-                default: error("Unhandled address space");
-            }
-
-            if (!address_space_prefix) {
-                warn_print("No known address space prefix for as %d, this might produce broken code\n", decl->payload.global_variable.address_space);
-                address_space_prefix = "";
-            }
-
             register_emitted(emitter, decl, emit_as);
 
-            emit_global_variable_definition(emitter, address_space_prefix, decl_center, decl_type, uniform, false, init);
+            AddressSpace as = decl->payload.global_variable.address_space;
+            emit_global_variable_definition(emitter, as, decl_center, decl_type, false, init);
             return;
         }
         case Function_TAG: {
@@ -646,7 +621,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
             assert(init_value && "TODO: support some measure of constant expressions");
             String init = to_cvalue(emitter, emit_value(emitter, NULL, init_value));
-            emit_global_variable_definition(emitter, "", decl_center, decl->type, true, true, init);
+            emit_global_variable_definition(emitter, AsGlobalLogical, decl_center, decl->type, true, init);
             return;
         }
         case NominalType_TAG: {

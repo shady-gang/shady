@@ -29,6 +29,13 @@ void log_module(LogLevel level, CompilerConfig*, Module*);
 #define warn_print(...)  log_string(WARN, __VA_ARGS__)
 #define error_print(...) log_string(ERROR, __VA_ARGS__)
 
+#define debugvv_print_once(flag, ...) { static bool flag = false; if (!flag) { flag = true; debugvv_print(__VA_ARGS__ ); } }
+#define debugv_print_once(flag, ...)  { static bool flag = false; if (!flag) { flag = true; debugv_print(__VA_ARGS__ );  } }
+#define debug_print_once(flag, ...)   { static bool flag = false; if (!flag) { flag = true; debug_print(__VA_ARGS__ );   } }
+#define info_print_once(flag, ...)    { static bool flag = false; if (!flag) { flag = true; info_print(__VA_ARGS__ );    } }
+#define warn_print_once(flag, ...)    { static bool flag = false; if (!flag) { flag = true; warn_print(__VA_ARGS__ );    } }
+#define error_print_once(flag, ...)   { static bool flag = false; if (!flag) { flag = true; error_print(__VA_ARGS__ );   } }
+
 #ifdef _MSC_VER
 #define SHADY_UNREACHABLE __assume(0)
 #else
