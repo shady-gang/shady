@@ -3,6 +3,7 @@
 #include "log.h"
 #include "portability.h"
 #include "dict.h"
+#include "util.h"
 
 static CompilerConfig get_compiler_config_for_device(CudaDevice* device, const CompilerConfig* base_config) {
     CompilerConfig config = *base_config;
@@ -38,6 +39,9 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
         error_print("NVRTC compilation failed: %s\n", nvrtcGetErrorString(compile_result));
         debug_print("Dumping source:\n%s", kernel->cuda_code);
     }
+
+    if (get_log_level() <= DEBUG)
+        write_file("cuda_dump.cu", kernel->cuda_code_size - 1, kernel->cuda_code);
 
     size_t log_size;
     CHECK_NVRTC(nvrtcGetProgramLogSize(program, &log_size), return false);
