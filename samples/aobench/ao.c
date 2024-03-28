@@ -2,7 +2,11 @@
 
 #include "ao.h"
 
-unsigned int FNVHash(char* str, unsigned int length) {
+#ifndef FUNCTION
+#define FUNCTION
+#endif
+
+FUNCTION unsigned int FNVHash(char* str, unsigned int length) {
     const unsigned int fnv_prime = 0x811C9DC5;
     unsigned int hash = 0;
     unsigned int i = 0;
@@ -16,31 +20,31 @@ unsigned int FNVHash(char* str, unsigned int length) {
     return hash;
 }
 
-unsigned int nrand(unsigned int* rng) {
+FUNCTION unsigned int nrand(unsigned int* rng) {
     unsigned int orand = *rng;
     *rng = FNVHash((char*) &orand, 4);
     return *rng;
 }
 
-Scalar drand48(Ctx* ctx) {
+FUNCTION Scalar drand48(Ctx* ctx) {
     Scalar n = (nrand(&ctx->rng) / 65536.0f);
     n = n - floorf(n);
     return n;
 }
 
-static Scalar vdot(vec v0, vec v1)
+FUNCTION static Scalar vdot(vec v0, vec v1)
 {
     return v0.x * v1.x + v0.y * v1.y + v0.z * v1.z;
 }
 
-static void vcross(vec *c, vec v0, vec v1)
+FUNCTION static void vcross(vec *c, vec v0, vec v1)
 {
     c->x = v0.y * v1.z - v0.z * v1.y;
     c->y = v0.z * v1.x - v0.x * v1.z;
     c->z = v0.x * v1.y - v0.y * v1.x;
 }
 
-static void vnormalize(vec *c)
+FUNCTION static void vnormalize(vec *c)
 {
     Scalar length = sqrtf(vdot((*c), (*c)));
 
@@ -51,7 +55,7 @@ static void vnormalize(vec *c)
     }
 }
 
-static void
+FUNCTION static void
 ray_sphere_intersect(Isect *isect, const Ray *ray, const Sphere *sphere)
 {
     vec rs;
@@ -84,7 +88,7 @@ ray_sphere_intersect(Isect *isect, const Ray *ray, const Sphere *sphere)
     }
 }
 
-static void
+FUNCTION static void
 ray_plane_intersect(Isect *isect, const Ray *ray, const Plane *plane)
 {
     Scalar d = -vdot(plane->p, plane->n);
@@ -106,7 +110,7 @@ ray_plane_intersect(Isect *isect, const Ray *ray, const Plane *plane)
     }
 }
 
-static void
+FUNCTION static void
 orthoBasis(vec *basis, vec n)
 {
     basis[2] = n;
@@ -129,7 +133,7 @@ orthoBasis(vec *basis, vec n)
     vnormalize(&basis[1]);
 }
 
-static void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
+FUNCTION static void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
 {
     int    i, j;
     int    ntheta = NAO_SAMPLES;
@@ -189,7 +193,7 @@ static void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
     col->z = occlusion;
 }
 
-unsigned char aobench_clamp(Scalar f)
+FUNCTION unsigned char aobench_clamp(Scalar f)
 {
     Scalar s = (f * 255.5f);
 
@@ -199,7 +203,7 @@ unsigned char aobench_clamp(Scalar f)
     return (unsigned char) s;
 }
 
-void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigned char* img) {
+FUNCTION void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigned char* img) {
     Scalar pixel[3] = { 0, 0, 0 };
 
     ctx->rng = x * w + y;
@@ -259,7 +263,7 @@ void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigne
     img[3 * (y * w + x) + 2] = aobench_clamp(pixel[2]);
 }
 
-void init_scene(Ctx* ctx)
+FUNCTION void init_scene(Ctx* ctx)
 {
     ctx->spheres[0].center.x = -2.0f;
     ctx->spheres[0].center.y =  0.0f;
@@ -286,7 +290,7 @@ void init_scene(Ctx* ctx)
 
 }
 
-Ctx get_init_context() {
+FUNCTION Ctx get_init_context() {
     return (Ctx) {
         .rng = 0xFEEFDEED,
     };
