@@ -65,7 +65,7 @@ typedef struct {
     uint32_t x, y, z;
 } Vec3u;
 
-Vec3u builtin_NumWorkgroups;
+extern Vec3u builtin_NumWorkgroups;
 
 void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
     struct timespec ts;

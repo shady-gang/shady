@@ -836,7 +836,7 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
     destroy_dict(emitter.emitted_types);
     destroy_dict(emitter.emitted_terms);
 
-    *output_size = growy_size(final);
+    *output_size = growy_size(final) - 1;
     *output = growy_deconstruct(final);
     destroy_printer(finalp);
 

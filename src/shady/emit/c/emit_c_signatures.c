@@ -108,6 +108,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
                 break;
             case CDialect_ISPC:
                 c_decl = format_string_arena(emitter->arena->arena, "export %s", c_decl);
+                break;
             case CDialect_CUDA:
                 c_decl = format_string_arena(emitter->arena->arena, "extern \"C\" __global__ %s", c_decl);
                 break;
