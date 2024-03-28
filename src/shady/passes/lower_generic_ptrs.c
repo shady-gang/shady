@@ -62,7 +62,7 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
 }
 
 static bool allowed(Context* ctx, AddressSpace as) {
-    if (as == AsGlobalPhysical && ctx->config->hacks.no_physical_global_ptrs)
+    if (as == AsGlobalPhysical && ctx->config->hacks.assume_no_physical_global_ptrs)
         return false;
     if (as == AsSharedPhysical && !ctx->rewriter.dst_arena->config.allow_shared_memory)
         return false;

@@ -265,6 +265,9 @@ struct CompilerConfig_ {
     } target_spirv_version;
 
     struct {
+        bool emulate_generic_ptrs;
+        bool emulate_physical_memory;
+
         bool emulate_subgroup_ops;
         bool emulate_subgroup_ops_extended_types;
         bool simt_to_explicit_simd;
@@ -275,7 +278,7 @@ struct CompilerConfig_ {
     struct {
         bool spv_shuffle_instead_of_broadcast_first;
         bool force_join_point_lifting;
-        bool no_physical_global_ptrs;
+        bool assume_no_physical_global_ptrs;
     } hacks;
 
     struct {
@@ -298,7 +301,7 @@ struct CompilerConfig_ {
     } shader_diagnostics;
 
     struct {
-        bool skip_generated, skip_builtin, skip_internal;
+        bool print_generated, print_builtin, print_internal;
     } logging;
 
     struct {

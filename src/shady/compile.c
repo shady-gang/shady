@@ -23,10 +23,15 @@ CompilerConfig default_compiler_config() {
             .minor = 4
         },
 
+        .lower = {
+            .emulate_physical_memory = true,
+            .emulate_generic_ptrs = true,
+        },
+
         .logging = {
             // most of the time, we are not interested in seeing generated & internal code in the debug output
-            .skip_internal = true,
-            .skip_generated = true,
+            .print_internal = true,
+            .print_generated = true,
         },
 
         .optimisations = {
@@ -113,13 +118,20 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_mask)
     RUN_PASS(lower_memcpy)
     RUN_PASS(lower_subgroup_ops)
-
-    RUN_PASS(lower_alloca)
+    if (config->lower.emulate_physical_memory) {
+        RUN_PASS(lower_alloca)
+    }
     RUN_PASS(lower_stack)
-    RUN_PASS(lower_lea)
+    if (config->lower.emulate_physical_memory) {
+        RUN_PASS(lower_lea)
+    }
     RUN_PASS(lower_generic_globals)
-    RUN_PASS(lower_generic_ptrs)
-    RUN_PASS(lower_physical_ptrs)
+    if (config->lower.emulate_generic_ptrs) {
+        RUN_PASS(lower_generic_ptrs)
+    }
+    if (config->lower.emulate_physical_memory) {
+        RUN_PASS(lower_physical_ptrs)
+    }
     RUN_PASS(lower_subgroup_vars)
     RUN_PASS(lower_memory_layout)
 

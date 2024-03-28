@@ -81,6 +81,23 @@ void cli_parse_common_args(int* pargc, char** argv) {
     cli_pack_remaining_args(pargc, argv);
 }
 
+#define PARSE_TOGGLE_OPTION(f, name) \
+if (strcmp(argv[i], "--no-"#name) == 0) { \
+    config->f = false; argv[i] = NULL; continue; \
+} else if (strcmp(argv[i], "--"#name) == 0) { \
+    config->f = true; argv[i] = NULL; continue; \
+}
+
+#define TOGGLE_OPTIONS(F) \
+F(lower.emulate_physical_memory, emulate-physical-memory) \
+F(dynamic_scheduling, dynamic-scheduling) \
+F(hacks.force_join_point_lifting, lift-join-points) \
+F(hacks.assume_no_physical_global_ptrs, assume-no-physical-global-ptrs) \
+F(logging.print_internal, print-internal) \
+F(logging.print_generated, print-builtin) \
+F(logging.print_generated, print-generated) \
+F(lower.simt_to_explicit_simd, lower-simt-to-simd) \
+
 void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
     int argc = *pargc;
 
@@ -88,11 +105,10 @@ void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
     for (int i = 1; i < argc; i++) {
         if (argv[i] == NULL)
             continue;
-        if (strcmp(argv[i], "--no-dynamic-scheduling") == 0) {
-            config->dynamic_scheduling = false;
-        } else if (strcmp(argv[i], "--lift-join-points") == 0) {
-            config->hacks.force_join_point_lifting = true;
-        } else if (strcmp(argv[i], "--entry-point") == 0) {
+
+        TOGGLE_OPTIONS(PARSE_TOGGLE_OPTION)
+
+        if (strcmp(argv[i], "--entry-point") == 0) {
             argv[i] = NULL;
             i++;
             if (i == argc)
@@ -123,14 +139,6 @@ void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
                 default: break;
             }
             config->specialization.execution_model = em;
-        } else if (strcmp(argv[i], "--simt2d") == 0) {
-            config->lower.simt_to_explicit_simd = true;
-        } else if (strcmp(argv[i], "--print-internal") == 0) {
-            config->logging.skip_internal = false;
-        } else if (strcmp(argv[i], "--print-generated") == 0) {
-            config->logging.skip_generated = false;
-        } else if (strcmp(argv[i], "--no-physical-global-ptrs") == 0) {
-            config->hacks.no_physical_global_ptrs = true;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             continue;

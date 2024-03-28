@@ -6,9 +6,9 @@
 #include <stdbool.h>
 
 typedef struct {
-    bool skip_builtin;
-    bool skip_internal;
-    bool skip_generated;
+    bool print_builtin;
+    bool print_internal;
+    bool print_generated;
     bool print_ptrs;
     bool color;
     bool reparseable;
