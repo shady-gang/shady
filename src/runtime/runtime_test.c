@@ -2,6 +2,8 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
 
+#include "runtime_app_common.h"
+
 #include "log.h"
 #include "portability.h"
 #include "util.h"
@@ -11,6 +13,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <stdlib.h>
+
+typedef struct {
+    DriverConfig driver_config;
+    RuntimeConfig runtime_config;
+    CommonAppArgs common_app_args;
+} Args;
 
 static const char* default_shader =
 "@EntryPoint(\"Compute\") @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn my_kernel(uniform i32 a, uniform ptr global i32 b) {\n"
@@ -18,43 +27,6 @@ static const char* default_shader =
 "    debug_printf(\"hi %d 0x%lx\\n\", a, rb);\n"
 "    return ();\n"
 "}";
-
-typedef struct {
-    DriverConfig driver_config;
-    RuntimeConfig runtime_config;
-    size_t device;
-} Args;
-
-static void parse_runtime_arguments(int* pargc, char** argv, Args* args) {
-    int argc = *pargc;
-
-    bool help = false;
-    for (int i = 1; i < argc; i++) {
-        if (argv[i] == NULL)
-            continue;
-        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            help = true;
-            continue;
-        } else if (strcmp(argv[i], "--device") == 0 || strcmp(argv[i], "-d") == 0) {
-            argv[i] = NULL;
-            i++;
-            args->device = strtol(argv[i], NULL, 10);
-        } else {
-            continue;
-        }
-        argv[i] = NULL;
-    }
-
-    if (help) {
-        error_print("Usage: runtime_test [source.slim]\n");
-        error_print("Available arguments: \n");
-        error_print("  --log-level debug[v[v]], info, warn, error]\n");
-        error_print("  --print-builtin\n");
-        error_print("  --print-generated\n");
-        error_print("  --device n\n");
-        exit(0);
-    }
-}
 
 int main(int argc, char* argv[]) {
     set_log_level(INFO);
@@ -65,7 +37,7 @@ int main(int argc, char* argv[]) {
         .use_validation = true,
         .dump_spv = true,
     };
-    parse_runtime_arguments(&argc, argv, &args);
+    cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
     cli_parse_input_files(args.driver_config.input_filenames, &argc, argv);
@@ -73,7 +45,7 @@ int main(int argc, char* argv[]) {
     info_print("Shady runtime test starting...\n");
 
     Runtime* runtime = initialize_runtime(args.runtime_config);
-    Device* device = get_device(runtime, args.device);
+    Device* device = get_device(runtime, args.common_app_args.device);
     assert(device);
 
     Program* program;

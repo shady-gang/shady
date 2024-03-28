@@ -1,18 +1,23 @@
 #include "ao.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <stdint.h>
-#include <time.h>
+#include "../runtime/runtime_app_common.h"
 
 #include "shady/runtime.h"
 #include "shady/driver.h"
 
 #include "log.h"
-#include "list.h"
 #include "util.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <time.h>
+
+typedef struct {
+    CompilerConfig compiler_config;
+    RuntimeConfig runtime_config;
+    CommonAppArgs common_app_args;
+} Args;
 
 static uint64_t timespec_to_nano(struct timespec t) {
     return t.tv_sec * 1000000000 + t.tv_nsec;
@@ -88,7 +93,7 @@ void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
 }
 #endif
 
-void render_device(const CompilerConfig* compiler_config, unsigned char *img, int w, int h, int nsubsamples, String path) {
+void render_device(Args* args, unsigned char *img, int w, int h, int nsubsamples, String path) {
     for (size_t i = 0; i < WIDTH; i++) {
         for (size_t j = 0; j < HEIGHT; j++) {
             img[j * WIDTH * 3 + i * 3 + 0] = 255;
@@ -97,15 +102,10 @@ void render_device(const CompilerConfig* compiler_config, unsigned char *img, in
         }
     }
 
-    RuntimeConfig runtime_config = (RuntimeConfig) {
-        .use_validation = true,
-        .dump_spv = true,
-    };
-
     info_print("Shady checkerboard test starting...\n");
 
-    Runtime* runtime = initialize_runtime(runtime_config);
-    Device* device = get_device(runtime, 0);
+    Runtime* runtime = initialize_runtime(args->runtime_config);
+    Device* device = get_device(runtime, args->common_app_args.device);
     assert(device);
 
     img[0] = 69;
@@ -116,7 +116,7 @@ void render_device(const CompilerConfig* compiler_config, unsigned char *img, in
 
     info_print("Device-side address is: %zu\n", buf_addr);
 
-    Program* program = load_program_from_disk(runtime, compiler_config, path);
+    Program* program = load_program_from_disk(runtime, &args->compiler_config, path);
 
     // run it twice to compile everything and benefit from caches
     wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / 16, HEIGHT / 16, 1, 1, (void*[]) { &buf_addr }));
@@ -138,20 +138,28 @@ void render_device(const CompilerConfig* compiler_config, unsigned char *img, in
 
 int main(int argc, char **argv) {
     set_log_level(INFO);
+    Args args = {
+        .compiler_config = default_compiler_config(),
+        .runtime_config = {
+            .use_validation = true,
+            .dump_spv = true,
+        }
+    };
     CompilerConfig compiler_config = default_compiler_config();
 
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&compiler_config, &argc, argv);
+    cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
 
     bool do_host = false, do_ispc = false, do_device = false, do_all = true;
     for (size_t i = 0; i < argc; i++) {
-        if (strcmp(argv[i], "--device") == 0) {
+        if (strcmp(argv[i], "--only-device") == 0) {
             do_device = true;
             do_all = false;
-        } else if (strcmp(argv[i], "--host") == 0) {
+        } else if (strcmp(argv[i], "--only-host") == 0) {
             do_host = true;
             do_all = false;
-        } else if (strcmp(argv[i], "--ispc") == 0) {
+        } else if (strcmp(argv[i], "--only-ispc") == 0) {
             do_ispc = true;
             do_all = false;
         }
@@ -172,7 +180,7 @@ int main(int argc, char **argv) {
 #endif
 
     if (do_device || do_all) {
-        render_device(&compiler_config, img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
+        render_device(&args, img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
         saveppm("device.ppm", WIDTH, HEIGHT, img);
     }
 
