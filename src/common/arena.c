@@ -24,7 +24,7 @@ Arena* new_arena() {
     *arena = (Arena) {
         .nblocks = 0,
         .maxblocks = 256,
-        .blocks = malloc(256 * sizeof(size_t)),
+        .blocks = malloc(256 * sizeof(void*)),
         .available = 0,
     };
     for (int i = 0; i < arena->maxblocks; i++)
@@ -40,20 +40,39 @@ void destroy_arena(Arena* arena) {
     free(arena);
 }
 
+static void* new_block(Arena* arena, size_t size) {
+    assert(arena->nblocks <= arena->maxblocks);
+    // we need more storage for the block pointers themselves !
+    if (arena->nblocks == arena->maxblocks) {
+        arena->maxblocks *= 2;
+        arena->blocks = realloc(arena->blocks, arena->maxblocks * sizeof(void*));
+    }
+
+    void* allocated = malloc(size);
+    assert(allocated);
+    arena->blocks[arena->nblocks++] = allocated;
+    return allocated;
+}
+
 void* arena_alloc(Arena* arena, size_t size) {
     size = round_up(size, (size_t) sizeof(max_align_t));
     if (size == 0)
         return NULL;
+    if (size > alloc_size) {
+        void* allocated = new_block(arena, size);
+        memset(allocated, 0, size);
+        // swap the last two blocks
+        if (arena->nblocks >= 2) {
+            void* swap = arena->blocks[arena->nblocks - 1];
+            arena->blocks[arena->nblocks - 1] = arena->blocks[arena->nblocks - 2];
+            arena->blocks[arena->nblocks - 2] = swap;
+        }
+        return allocated;
+    }
+
     // arena is full
     if (size > arena->available) {
-        assert(arena->nblocks <= arena->maxblocks);
-        // we need more storage for the block pointers themselves !
-        if (arena->nblocks == arena->maxblocks) {
-            arena->maxblocks *= 2;
-            arena->blocks = realloc(arena->blocks, arena->maxblocks);
-        }
-
-        arena->blocks[arena->nblocks++] = malloc(alloc_size);
+        new_block(arena, alloc_size);
         arena->available = alloc_size;
     }
 
