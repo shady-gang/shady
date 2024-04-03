@@ -571,6 +571,33 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             term = term_from_cvalue(acc);
             break;
         }
+        case shuffle_op: {
+            String dst = unique_name(arena, "shuffled");
+            const Node* lhs = prim_op->operands.nodes[0];
+            const Node* rhs = prim_op->operands.nodes[1];
+            String lhs_e = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[0]));
+            String rhs_e = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+            const Type* lhs_t = lhs->type;
+            const Type* rhs_t = rhs->type;
+            bool lhs_u = deconstruct_qualified_type(&lhs_t);
+            bool rhs_u = deconstruct_qualified_type(&rhs_t);
+            size_t left_size = lhs_t->payload.pack_type.width;
+            // size_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
+            String suffixes = "xyzw";
+            print(p, "\n%s = vec%d(", c_emit_type(emitter, node->type, dst), prim_op->operands.count - 2);
+            for (size_t i = 2; i < prim_op->operands.count; i++) {
+                const IntLiteral* selector = resolve_to_int_literal(prim_op->operands.nodes[i]);
+                if (selector->value < left_size)
+                    print(p, "%s.%c\n", lhs_e, suffixes[selector->value]);
+                else
+                    print(p, "%s.%c\n", rhs_e, suffixes[selector->value - left_size]);
+                if (i + 1 < prim_op->operands.count)
+                    print(p, ", ");
+            }
+            print(p, ");\n");
+            term = term_from_cvalue(dst);
+            break;
+        }
         case get_stack_base_op:
         case push_stack_op:
         case pop_stack_op:
@@ -587,7 +614,13 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             }
             break;
         }
-        case subgroup_assume_uniform_op:
+        case subgroup_assume_uniform_op: {
+            if (emitter->config.dialect != CDialect_ISPC) {
+                outputs.results[0] = emit_value(emitter, p, prim_op->operands.nodes[0]);
+                outputs.binding[0] = NoBinding;
+                return;
+            }
+        }
         case subgroup_broadcast_first_op: {
             CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             switch (emitter->config.dialect) {
