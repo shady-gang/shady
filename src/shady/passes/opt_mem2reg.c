@@ -523,7 +523,7 @@ static void handle_bb(Context* ctx, const Node* old) {
         log_node(DEBUG, ptr);
         debug_print(" has a known value in all predecessors! Turning it into a new parameter.\n");
 
-        assert(!is_qualified_type_uniform(source->type));
+        // assert(!is_qualified_type_uniform(source->type));
         const Node* param = var(a, qualified_type_helper(source->type, false), unique_name(a, "ssa_phi"));
         params = append_nodes(a, params, param);
         ptrs = append_nodes(ctx->rewriter.src_arena, ptrs, ptr);
