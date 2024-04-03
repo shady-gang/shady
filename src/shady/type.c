@@ -172,10 +172,11 @@ size_t get_type_bitwidth(const Type* t) {
 
 bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     switch (as) {
+        case AsInput:
+        case AsOutput:
         case AsFunctionLogical:
         case AsPrivateLogical:
         case AsPrivatePhysical:
-        case AsInput:
             return !arena->config.is_simt;
         default:
             return true;

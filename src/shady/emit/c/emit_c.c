@@ -576,6 +576,9 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             String init = NULL;
             if (decl->payload.global_variable.init)
                 init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
+            AddressSpace ass = decl->payload.global_variable.address_space;
+            if (ass == AsInput || ass == AsOutput)
+                init = NULL;
 
             const GlobalVariable* gvar = &decl->payload.global_variable;
             if (is_decl_builtin(decl)) {
