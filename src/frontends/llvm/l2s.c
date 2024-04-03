@@ -118,7 +118,15 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     assert(fn_type->tag == FnType_TAG);
     assert(fn_type->payload.fn_type.param_types.count == params.count);
     Nodes annotations = empty(a);
-    annotations = append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Exported" }));
+    switch (LLVMGetLinkage(fn)) {
+        case LLVMExternalLinkage:
+        case LLVMExternalWeakLinkage: {
+            annotations = append_nodes(a, annotations, annotation(a, (Annotation) {.name = "Exported"}));
+            break;
+        }
+        default:
+            break;
+    }
     Node* f = function(p->dst, params, LLVMGetValueName(fn), annotations, fn_type->payload.fn_type.return_types);
     const Node* r = fn_addr_helper(a, f);
     insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
