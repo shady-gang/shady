@@ -7,11 +7,13 @@
 
 #include "log.h"
 #include "portability.h"
+#include "shady/ir.h"
 
 #include <assert.h>
 
 typedef struct {
     Rewriter rewriter;
+    const CompilerConfig* config;
 } Context;
 
 static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset, size_t n_indices, const Node** indices) {
@@ -105,8 +107,11 @@ static const Node* process(Context* ctx, const Node* old) {
                     assert(old_base_ptr_t->tag == PtrType_TAG);
                     const Node* old_result_t = old->type;
                     deconstruct_qualified_type(&old_result_t);
-                    // Leave logical ptrs alone
-                    if (!is_physical_as(old_base_ptr_t->payload.ptr_type.address_space))
+                    bool must_lower = false;
+                    // we have to lower generic pointers if we emulate them using ints
+                    must_lower |= ctx->config->lower.emulate_generic_ptrs && old_base_ptr_t->payload.ptr_type.address_space == AsGeneric;
+                    must_lower |= ctx->config->lower.emulate_physical_memory && is_physical_as(old_base_ptr_t->payload.ptr_type.address_space);
+                    if (!must_lower)
                         break;
                     BodyBuilder* bb = begin_body(a);
                     Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
@@ -132,7 +137,8 @@ Module* lower_lea(const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process)
+        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .config = config,
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);

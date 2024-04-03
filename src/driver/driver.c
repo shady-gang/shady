@@ -33,7 +33,7 @@ SourceLanguage guess_source_language(const char* filename) {
     else if (string_ends_with(filename, ".slim"))
         return SrcShadyIR;
 
-    warn_print("unknown filename extension '%s', interpreting as Slim sourcecode by default.");
+    warn_print("unknown filename extension '%s', interpreting as Slim sourcecode by default.", filename);
     return SrcSlim;
 }
 

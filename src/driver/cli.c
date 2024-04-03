@@ -90,6 +90,7 @@ if (strcmp(argv[i], "--no-"#name) == 0) { \
 
 #define TOGGLE_OPTIONS(F) \
 F(lower.emulate_physical_memory, emulate-physical-memory) \
+F(lower.emulate_generic_ptrs, emulate-generic-pointers) \
 F(dynamic_scheduling, dynamic-scheduling) \
 F(hacks.force_join_point_lifting, lift-join-points) \
 F(hacks.assume_no_physical_global_ptrs, assume-no-physical-global-ptrs) \
