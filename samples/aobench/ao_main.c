@@ -119,11 +119,11 @@ void render_device(Args* args, unsigned char *img, int w, int h, int nsubsamples
     Program* program = load_program_from_disk(runtime, &args->compiler_config, path);
 
     // run it twice to compile everything and benefit from caches
-    wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / 16, HEIGHT / 16, 1, 1, (void*[]) { &buf_addr }));
+    wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void*[]) { &buf_addr }));
     struct timespec ts;
     timespec_get(&ts, TIME_UTC);
     uint64_t tsn = timespec_to_nano(ts);
-    wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / 16, HEIGHT / 16, 1, 1, (void*[]) { &buf_addr }));
+    wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void*[]) { &buf_addr }));
     struct timespec tp;
     timespec_get(&tp, TIME_UTC);
     uint64_t tpn = timespec_to_nano(tp);

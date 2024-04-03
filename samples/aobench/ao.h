@@ -2,6 +2,7 @@
 #define HEIGHT       2048
 #define NSUBSAMPLES  1
 #define NAO_SAMPLES  8
+#define BLOCK_SIZE 16
 
 typedef float Scalar;
 

@@ -58,7 +58,7 @@ FUNCTION static void vnormalize(vec *c)
 FUNCTION static void
 ray_sphere_intersect(Isect *isect, const Ray *ray, const Sphere *sphere)
 {
-    vec rs;
+    vec rs = { 0 };
 
     rs.x = ray->org.x - sphere->center.x;
     rs.y = ray->org.y - sphere->center.y;

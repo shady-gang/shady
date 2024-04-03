@@ -17,7 +17,7 @@ void debug_printf_i32_i32(const __constant char*, int, int) __asm__("__shady::pr
 
 }
 
-__attribute__((reqd_work_group_size(16, 16, 1)))
+__attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 kernel void aobench_kernel(global unsigned char* out) {
     int x = get_global_id(0);
     int y = get_global_id(1);
