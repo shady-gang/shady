@@ -413,7 +413,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             } else
                 printf(YELLOW);
             String name = get_value_name(node);
-            if (name)
+            if (name && strlen(name) > 0)
                 printf("%s", name);
             else
                 printf("%%%d", node->id);
