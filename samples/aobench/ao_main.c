@@ -146,10 +146,9 @@ int main(int argc, char **argv) {
             .dump_spv = true,
         }
     };
-    CompilerConfig compiler_config = default_compiler_config();
 
     cli_parse_common_args(&argc, argv);
-    cli_parse_compiler_config_args(&compiler_config, &argc, argv);
+    cli_parse_compiler_config_args(&args.compiler_config, &argc, argv);
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
 
     bool do_host = false, do_ispc = false, do_device = false, do_all = true;
