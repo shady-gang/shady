@@ -305,6 +305,8 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                         case AsGlobalPhysical:
                             op = convert_op;
                             break;
+                        case AsGeneric: // generic-to-generic isn't a conversion.
+                            break;
                         default: {
                             warn_print("Cannot cast address space %s to Generic! Ignoring.\n", get_address_space_name(src_t->payload.ptr_type.address_space));
                             r = quote_helper(a, singleton(src));
