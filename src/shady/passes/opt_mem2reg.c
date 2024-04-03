@@ -267,9 +267,13 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                         const Type* load_result_t = rewrite_node(&ctx->rewriter, optr->type);
                         bool lrt_u = deconstruct_qualified_type(&load_result_t);
                         deconstruct_pointer_type(&load_result_t);
-                        assert(!lrt_u || kv_u);
-                        if (is_reinterpret_cast_legal(load_result_t, known_value_t))
-                            return prim_op_helper(a, reinterpret_op, singleton(load_result_t), singleton(known_value));
+                        // assert(!lrt_u || kv_u);
+                        if (is_reinterpret_cast_legal(load_result_t, known_value_t)) {
+                            const Node* n = prim_op_helper(a, reinterpret_op, singleton(load_result_t), singleton(known_value));
+                            if (lrt_u && !kv_u)
+                                n = prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(known_value));
+                            return n;
+                        }
                     } else {
                         const KnowledgeBase* phi_kb = kb;
                         while (phi_kb->dominator_kb) {
@@ -519,6 +523,7 @@ static void handle_bb(Context* ctx, const Node* old) {
         log_node(DEBUG, ptr);
         debug_print(" has a known value in all predecessors! Turning it into a new parameter.\n");
 
+        assert(!is_qualified_type_uniform(source->type));
         const Node* param = var(a, qualified_type_helper(source->type, false), unique_name(a, "ssa_phi"));
         params = append_nodes(a, params, param);
         ptrs = append_nodes(ctx->rewriter.src_arena, ptrs, ptr);
