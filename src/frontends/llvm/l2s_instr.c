@@ -375,21 +375,27 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             Op op;
             bool cast_to_signed = false;
             switch(LLVMGetFCmpPredicate(instr)) {
+                case LLVMRealUEQ:
                 case LLVMRealOEQ:
                     op = eq_op;
                     break;
+                case LLVMRealUNE:
                 case LLVMRealONE:
                     op = neq_op;
                     break;
+                case LLVMRealUGT:
                 case LLVMRealOGT:
                     op = gt_op;
                     break;
+                case LLVMRealUGE:
                 case LLVMRealOGE:
                     op = gte_op;
                     break;
+                case LLVMRealULT:
                 case LLVMRealOLT:
                     op = lt_op;
                     break;
+                case LLVMRealULE:
                 case LLVMRealOLE:
                     op = lte_op;
                     break;
