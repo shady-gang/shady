@@ -286,6 +286,7 @@ struct CompilerConfig_ {
             bool after_every_pass;
             bool delete_unused_instructions;
         } cleanup;
+        bool inline_everything;
     } optimisations;
 
     struct {
