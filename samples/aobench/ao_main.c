@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
 #endif
 
     if (do_device || do_all) {
-        render_device(&args, img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.cl.spv");
+        render_device(&args, img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.comp.c.ll");
         saveppm("device.ppm", WIDTH, HEIGHT, img);
     }
 
