@@ -87,9 +87,9 @@ static const ISelTableEntry isel_table[PRIMOPS_COUNT] = {
     [or_op]  = { IsMono, OsInfix,  "|" },
     [xor_op] = { IsMono, OsInfix,  "^" },
     [not_op] = { IsMono, OsPrefix, "!" },
-    [rshift_arithm_op] = { IsMono, OsInfix,  ">>" },
+    /*[rshift_arithm_op] = { IsMono, OsInfix,  ">>" },
     [rshift_logical_op] = { IsMono, OsInfix,  ">>" }, // TODO achieve desired right shift semantics through unsigned/signed casts
-    [lshift_op] = { IsMono, OsInfix,  "<<" },
+    [lshift_op] = { IsMono, OsInfix,  "<<" },*/
 };
 
 static const ISelTableEntry isel_table_c[PRIMOPS_COUNT] = {
@@ -256,6 +256,19 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case sign_op: {
             CValue src = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             term = term_from_cvalue(format_string_arena(arena->arena, "(%s > 0 ? 1 : -1)", src));
+            break;
+        }
+        case lshift_op:
+        case rshift_arithm_op:
+        case rshift_logical_op: {
+            CValue src = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
+            const Node* offset = prim_op->operands.nodes[1];
+            CValue c_offset = to_cvalue(emitter, emit_value(emitter, p, offset));
+            if (emitter->config.dialect == CDialect_GLSL) {
+                if (get_unqualified_type(offset->type)->payload.int_type.width == IntTy64)
+                    c_offset = format_string_arena(arena->arena, "int(%s)", c_offset);
+            }
+            term = term_from_cvalue(format_string_arena(arena->arena, "(%s %s %s)", src, prim_op->op == lshift_op ? "<<" : ">>", c_offset));
             break;
         }
         case alloca_op:
