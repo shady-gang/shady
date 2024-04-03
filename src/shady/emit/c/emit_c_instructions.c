@@ -106,7 +106,19 @@ static const ISelTableEntry isel_table_c[PRIMOPS_COUNT] = {
     [pow_op] = { IsPoly, OsCall, .f_ops = {"powf", "powf", "pow"}},
 };
 
-static const ISelTableEntry isel_table_glsl[PRIMOPS_COUNT] = { 0 };
+static const ISelTableEntry isel_table_glsl[PRIMOPS_COUNT] = {
+    [abs_op] = { IsMono, OsCall, "abs" },
+
+    [sin_op] = { IsMono, OsCall, "sin" },
+    [cos_op] = { IsMono, OsCall, "cos" },
+    [floor_op] = { IsMono, OsCall, "floor" },
+    [ceil_op] = { IsMono, OsCall, "ceil" },
+    [round_op] = { IsMono, OsCall, "round" },
+
+    [sqrt_op] = { IsMono, OsCall, "sqrt" },
+    [exp_op] = { IsMono, OsCall, "exp" },
+    [pow_op] = { IsMono, OsCall, "pow" },
+};
 
 static const ISelTableEntry isel_table_ispc[PRIMOPS_COUNT] = {
     [abs_op] = { IsMono, OsCall, "abs" },
