@@ -6,7 +6,7 @@
 #define FUNCTION
 #endif
 
-FUNCTION unsigned int FNVHash(char* str, unsigned int length) {
+FUNCTION static unsigned int FNVHash(char* str, unsigned int length) {
     const unsigned int fnv_prime = 0x811C9DC5;
     unsigned int hash = 0;
     unsigned int i = 0;
@@ -20,13 +20,13 @@ FUNCTION unsigned int FNVHash(char* str, unsigned int length) {
     return hash;
 }
 
-FUNCTION unsigned int nrand(unsigned int* rng) {
+FUNCTION static unsigned int nrand(unsigned int* rng) {
     unsigned int orand = *rng;
     *rng = FNVHash((char*) &orand, 4);
     return *rng;
 }
 
-FUNCTION Scalar drand48(Ctx* ctx) {
+FUNCTION static Scalar drand48(Ctx* ctx) {
     Scalar n = (nrand(&ctx->rng) / 65536.0f);
     n = n - floorf(n);
     return n;
@@ -193,7 +193,7 @@ FUNCTION static void ambient_occlusion(Ctx* ctx, vec *col, const Isect *isect)
     col->z = occlusion;
 }
 
-FUNCTION unsigned char aobench_clamp(Scalar f)
+FUNCTION static unsigned char aobench_clamp(Scalar f)
 {
     Scalar s = (f * 255.5f);
 
@@ -203,7 +203,13 @@ FUNCTION unsigned char aobench_clamp(Scalar f)
     return (unsigned char) s;
 }
 
-FUNCTION void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigned char* img) {
+FUNCTION EXTERNAL_FN Ctx get_init_context() {
+    return (Ctx) {
+            .rng = 0xFEEFDEED,
+    };
+}
+
+FUNCTION EXTERNAL_FN void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigned char* img) {
     Scalar pixel[3] = { 0, 0, 0 };
 
     ctx->rng = x * w + y;
@@ -263,7 +269,7 @@ FUNCTION void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples
     img[3 * (y * w + x) + 2] = aobench_clamp(pixel[2]);
 }
 
-FUNCTION void init_scene(Ctx* ctx)
+FUNCTION EXTERNAL_FN void init_scene(Ctx* ctx)
 {
     ctx->spheres[0].center.x = -2.0f;
     ctx->spheres[0].center.y =  0.0f;
@@ -288,10 +294,4 @@ FUNCTION void init_scene(Ctx* ctx)
     ctx->plane.n.y = 1.0f;
     ctx->plane.n.z = 0.0f;
 
-}
-
-FUNCTION Ctx get_init_context() {
-    return (Ctx) {
-        .rng = 0xFEEFDEED,
-    };
 }

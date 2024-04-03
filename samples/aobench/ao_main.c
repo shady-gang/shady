@@ -1,3 +1,4 @@
+#define EXTERNAL_FN /* not static */
 #include "ao.h"
 #include "../runtime/runtime_app_common.h"
 

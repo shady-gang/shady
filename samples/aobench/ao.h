@@ -64,6 +64,10 @@ typedef struct {
     unsigned int rng;
 } Ctx;
 
-Ctx get_init_context();
-void init_scene(Ctx*);
-void render_pixel(Ctx*, int x, int y, int w, int h, int nsubsamples, unsigned char* img);
+#ifndef EXTERNAL_FN
+#define EXTERNAL_FN static
+#endif
+
+EXTERNAL_FN Ctx get_init_context();
+EXTERNAL_FN void init_scene(Ctx*);
+EXTERNAL_FN void render_pixel(Ctx*, int x, int y, int w, int h, int nsubsamples, unsigned char* img);
