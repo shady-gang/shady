@@ -272,10 +272,19 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
         } case LLVMSExt: {
             // reinterpret as signed, convert to change size, reinterpret back to target T
             const Type* src_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
-            const Type* signed_src_t = change_int_t_sign(src_t, true);
-            const Type* signed_dst_t = change_int_t_sign(t, true);
-            r = prim_op_helper(a, convert_op, singleton(signed_dst_t), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_src_t));
-            r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R(signed_dst_t));
+            Nodes ops = convert_operands(p, num_ops, instr);
+            if (src_t->tag == Bool_TAG) {
+                assert(t->tag == Int_TAG);
+                const Node* zero = int_literal(a, (IntLiteral) { .value = 0, .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed });
+                uint64_t i = UINT64_MAX >> (64 - int_size_in_bytes(t->payload.int_type.width) * 8);
+                const Node* ones = int_literal(a, (IntLiteral) { .value = i, .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed });
+                r = prim_op_helper(a, select_op, empty(a), mk_nodes(a, first(ops), ones, zero));
+            } else {
+                const Type* signed_src_t = change_int_t_sign(src_t, true);
+                const Type* signed_dst_t = change_int_t_sign(t, true);
+                r = prim_op_helper(a, convert_op, singleton(signed_dst_t), reinterpret_operands(b, ops, signed_src_t));
+                r = prim_op_helper(a, reinterpret_op, singleton(t), BIND_PREV_R(signed_dst_t));
+            }
             break;
         } case LLVMFPToUI:
         case LLVMFPToSI:
@@ -437,6 +446,14 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 }
                 if (strcmp(intrinsic, "llvm.dbg.label") == 0) {
                     // TODO
+                    return (EmittedInstr) { 0 };
+                }
+                if (strcmp(intrinsic, "llvm.dbg.value") == 0) {
+                    // TODO
+                    return (EmittedInstr) { 0 };
+                }
+                if (string_starts_with(intrinsic, "llvm.lifetime")) {
+                    // don't care
                     return (EmittedInstr) { 0 };
                 }
                 if (string_starts_with(intrinsic, "llvm.memcpy")) {

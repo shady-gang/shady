@@ -65,6 +65,17 @@ bool lexical_scope_is_nested(Nodes scope, Nodes parentMaybe) {
 
 bool compare_nodes(Nodes* a, Nodes* b);
 
+static Nodes remake_variables(Context* ctx, Nodes old) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    LARRAY(const Node*, nvars, old.count);
+    for (size_t i = 0; i < old.count; i++) {
+        const Node* node = old.nodes[i];
+            nvars[i] = var(a, node->payload.var.type ? qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.var.type), false) : NULL, node->payload.var.name);
+        assert(nvars[i]->tag == Variable_TAG);
+    }
+    return nodes(a, old.count, nvars);
+}
+
 static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (node->tag) {
@@ -156,7 +167,6 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                         } else if (compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
                             debug_print("We need to introduce a control() block at %s, pointing at %s\n.", get_abstraction_name(dom->node), get_abstraction_name(dst));
                             Controls** found = find_value_dict(const Node, Controls*, ctx->controls, dom->node);
-                            assert(found);
                             if (found) {
                                 Controls* controls = *found;
                                 const Node* join_token = NULL;
@@ -174,15 +184,15 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                                     controls->tokens = append_nodes(a, controls->tokens, join_token);
                                     controls->destinations = append_nodes(a, controls->destinations, dst);
                                 }
-                                Nodes nargs = recreate_variables(&ctx->rewriter, get_abstraction_params(dst));
-
+                                Nodes nparams = remake_variables(ctx, get_abstraction_params(dst));
+                                //register_processed_list(&ctx->rewriter, get_abstraction_params(dst), nparams);
                                 Node* fn = src;
                                 if (fn->tag == BasicBlock_TAG)
                                     fn = (Node*) fn->payload.basic_block.fn;
                                 assert(fn->tag == Function_TAG);
-                                Node* wrapper = basic_block(a, fn, nargs, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name(dst)));
+                                Node* wrapper = basic_block(a, fn, nparams, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name(dst)));
                                 wrapper->payload.basic_block.body = join(a, (Join) {
-                                    .args = nargs,
+                                    .args = nparams,
                                     .join_point = join_token
                                 });
                                 return jump_helper(a, wrapper, rewrite_nodes(&ctx->rewriter, node->payload.jump.args));
@@ -247,7 +257,7 @@ void postprocess(Parser* p, Module* src, Module* dst) {
 
     ctx.rewriter.rewrite_op_fn = (RewriteOpFn) process_op;
     ctx.rewriter.config.process_variables = true;
-    // ctx.rewriter.config.search_map = false;
+    ctx.rewriter.config.search_map = true;
     // ctx.rewriter.config.write_map = false;
 
     rewrite_module(&ctx.rewriter);
