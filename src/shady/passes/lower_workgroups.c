@@ -179,6 +179,7 @@ Module* lower_workgroups(const CompilerConfig* config, Module* src) {
         .config = config,
         .globals = calloc(sizeof(Node*), PRIMOPS_COUNT),
     };
+    ctx.rewriter.config.rebind_let = true;
     rewrite_module(&ctx.rewriter);
     free(ctx.globals);
     destroy_rewriter(&ctx.rewriter);

@@ -695,6 +695,8 @@ static Module* run_backend_specific_passes(CompilerConfig* config, CEmitterConfi
     Module* old_mod = NULL;
     Module** pmod = &initial_mod;
 
+    // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
+    RUN_PASS(eliminate_constants)
     if (econfig->dialect == CDialect_ISPC) {
         RUN_PASS(lower_workgroups)
     }
@@ -704,8 +706,6 @@ static Module* run_backend_specific_passes(CompilerConfig* config, CEmitterConfi
     if (config->lower.simt_to_explicit_simd) {
         RUN_PASS(simt2d)
     }
-    // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
-    RUN_PASS(eliminate_constants)
     return *pmod;
 }
 
