@@ -56,10 +56,23 @@ static const Node* write_bb_tail(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
     assert(false);
 }
 
+typedef struct {
+    LLVMBasicBlockRef bb;
+    LLVMValueRef instr;
+    Node* nbb;
+} TodoBB;
+
 const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
     const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, bb);
     if (found) return *found;
+    assert(false);
+}
+
+static TodoBB prepare_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
     IrArena* a = get_module_arena(p->dst);
+    debug_print("l2s: converting BB %s %d\n", LLVMGetBasicBlockName(bb), bb);
+    if (get_log_level() <= DEBUG)
+        LLVMDumpValue(bb);
 
     struct List* phis = new_list(LLVMValueRef);
     Nodes params = empty(a);
@@ -85,9 +98,14 @@ const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
         Node* nbb = basic_block(a, fn, params, name);
         insert_dict(LLVMValueRef, const Node*, p->map, bb, nbb);
         insert_dict(const Node*, struct List*, p->phis, nbb, phis);
-        BodyBuilder* b = begin_body(a);
-        nbb->payload.basic_block.body = write_bb_tail(p, nbb, b, bb, instr);
-        return nbb;
+        TodoBB todo = {
+            .bb = bb,
+            .instr = instr,
+            .nbb = nbb,
+        };
+        //append_list(TodoBB, p->todo_bbs, todo);
+        //return nbb;
+        return todo;
     }
 }
 
@@ -107,12 +125,14 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     debug_print("Converting function: %s\n", LLVMGetValueName(fn));
 
     Nodes params = empty(a);
-    for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam && oparam <= LLVMGetLastParam(fn); oparam = LLVMGetNextParam(oparam)) {
+    for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam; oparam = LLVMGetNextParam(oparam)) {
         LLVMTypeRef ot = LLVMTypeOf(oparam);
         const Type* t = convert_type(p, ot);
         const Node* param = var(a, t, LLVMGetValueName(oparam));
         insert_dict(LLVMValueRef, const Node*, p->map, oparam, param);
         params = append_nodes(a, params, param);
+        if (oparam == LLVMGetLastParam(fn))
+            break;
     }
     const Type* fn_type = convert_type(p, LLVMGlobalGetValueType(fn));
     assert(fn_type->tag == FnType_TAG);
@@ -131,11 +151,39 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     const Node* r = fn_addr_helper(a, f);
     insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
 
-    if (LLVMCountBasicBlocks(fn) > 0) {
+    /*if (LLVMCountBasicBlocks(fn) > 0) {
         LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
         BodyBuilder* b = begin_body(a);
         insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
         f->payload.fun.body = write_bb_tail(p, f, b, first_bb, LLVMGetFirstInstruction(first_bb));
+    }*/
+
+    if (LLVMCountBasicBlocks(fn) > 0) {
+        struct List* todo_bbs = new_list(TodoBB);
+
+        for (LLVMBasicBlockRef bb = LLVMGetEntryBasicBlock(fn); bb; bb = LLVMGetNextBasicBlock(bb)) {
+            if (bb == LLVMGetEntryBasicBlock(fn)) {
+                LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
+                insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
+            } else {
+                TodoBB todo = prepare_bb(p, f, bb);
+                append_list(TodoBB, todo_bbs, todo);
+            }
+            if (bb == LLVMGetLastBasicBlock(fn))
+                break;
+        }
+
+        LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
+        BodyBuilder* entry_bb = begin_body(a);
+        f->payload.fun.body = write_bb_tail(p, f, entry_bb, first_bb, LLVMGetFirstInstruction(first_bb));
+
+        for (size_t i = 0; i < entries_count_list(todo_bbs); i++) {
+            TodoBB todo = read_list(TodoBB, todo_bbs)[i];
+            BodyBuilder* bb = begin_body(a);
+            todo.nbb->payload.basic_block.body = write_bb_tail(p, todo.nbb, bb, todo.bb, todo.instr);
+        }
+
+        destroy_list(todo_bbs);
     }
 
     return r;
