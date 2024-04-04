@@ -55,6 +55,11 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
     CHECK_NVRTC(nvrtcGetPTX(program, kernel->ptx), return false);
     CHECK_NVRTC(nvrtcDestroyProgram(&program), return false);
 
+    String override_file = getenv("SHADY_OVERRIDE_PTX");
+    if (override_file) {
+        read_file(override_file, &kernel->ptx_size, &kernel->ptx);
+    }
+
     return true;
 }
 
