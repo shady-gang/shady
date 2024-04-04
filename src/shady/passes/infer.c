@@ -686,7 +686,7 @@ static const Node* _infer_control(Context* ctx, const Node* node, const Type* ex
     });
     jpt = qualified_type(a, (QualifiedType) { .is_uniform = true, .type = jpt });
     const Node* jp = var(a, jpt, ojp->payload.var.name);
-    register_processed(&ctx->rewriter, ojp, jp);
+    register_processed(&joinable_ctx.rewriter, ojp, jp);
 
     const Node* nlam = case_(a, singleton(jp), infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 

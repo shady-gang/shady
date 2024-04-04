@@ -214,12 +214,6 @@ Nodes recreate_variables(Rewriter* rewriter, Nodes old) {
     return nodes(rewriter->dst_arena, old.count, nvars);
 }
 
-Node* clone_bb_head(Rewriter* r, const Node* bb) {
-    assert(bb && bb->tag == BasicBlock_TAG);
-    Nodes nparams = recreate_variables(r, get_abstraction_params(bb));
-    return basic_block(r->dst_arena, (Node*) bb->payload.basic_block.fn, nparams, get_abstraction_name(bb));
-}
-
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
     switch (is_declaration(old)) {

@@ -414,9 +414,8 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
                 printf(YELLOW);
             String name = get_value_name(node);
             if (name && strlen(name) > 0)
-                printf("%s", name);
-            else
-                printf("%%%d", node->id);
+                printf("%s_", name);
+            printf("%%%d", node->id);
             printf(RESET);
             break;
         case UntypedNumber_TAG:
