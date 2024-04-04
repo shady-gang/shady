@@ -198,7 +198,6 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     String intrinsic = is_llvm_intrinsic(global);
     if (intrinsic) {
         if (strcmp(intrinsic, "llvm.global.annotations") == 0) {
-            process_llvm_annotations(p, global);
             return NULL;
         }
         warn_print("Skipping unknown LLVM intrinsic function: %s\n", name);
@@ -257,6 +256,10 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
         .src = src,
         .dst = dirty,
     };
+
+    LLVMValueRef global_annotations = LLVMGetNamedGlobal(src, "llvm.global.annotations");
+    if (global_annotations)
+        process_llvm_annotations(&p, global_annotations);
 
     for (LLVMValueRef fn = LLVMGetFirstFunction(src); fn && fn <= LLVMGetNextFunction(fn); fn = LLVMGetLastFunction(src)) {
         convert_function(&p, fn);
