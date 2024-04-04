@@ -147,6 +147,8 @@ int main(int argc, char **argv) {
         }
     };
 
+    args.compiler_config.hacks.restructure_everything = true;
+
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&args.compiler_config, &argc, argv);
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);

@@ -18,6 +18,7 @@
 
 typedef struct Context_ {
     Rewriter rewriter;
+    const CompilerConfig* config;
     const Node* current_fn;
     const Node* current_abstraction;
     Scope* fwd_scope;
@@ -320,11 +321,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case Case_TAG:
         case BasicBlock_TAG:
-            if (!ctx->current_fn || !lookup_annotation(ctx->current_fn, "Restructure"))
+            if (!ctx->current_fn || !(lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->hacks.restructure_everything))
                 break;
             return process_abstraction(ctx, node);
         case Branch_TAG: {
-            if (!ctx->current_fn || !lookup_annotation(ctx->current_fn, "Restructure"))
+            if (!ctx->current_fn || !(lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->hacks.restructure_everything))
                 break;
             assert(ctx->fwd_scope);
 
@@ -469,13 +470,14 @@ static const Node* process_node(Context* ctx, const Node* node) {
     return recreate_node_identity(rewriter, node);
 }
 
-Module* reconvergence_heuristics(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* reconvergence_heuristics(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .config = config,
         .current_fn = NULL,
         .fwd_scope = NULL,
         .back_scope = NULL,
