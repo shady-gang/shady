@@ -96,9 +96,8 @@ set(SHADY_SOURCES
     passes/spirv_lift_globals_ssbo.c
 )
 
-add_library(shady OBJECT ${SHADY_SOURCES})
+add_library(shady ${SHADY_SOURCES})
 target_include_directories(shady PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
-set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 if (WIN32)
     if (MSVC)
@@ -111,7 +110,7 @@ endif()
 add_subdirectory(internal)
 add_subdirectory(emit)
 
-target_link_libraries(shady PUBLIC "api")
-target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:common>")
+target_link_libraries(shady PRIVATE "api")
+target_link_libraries(shady INTERFACE "$<BUILD_INTERFACE:common>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
