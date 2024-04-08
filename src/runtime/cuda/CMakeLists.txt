@@ -8,6 +8,6 @@ if (CUDAToolkit_FOUND)
     target_link_libraries(cuda_runtime PRIVATE "$<BUILD_INTERFACE:murmur3>")
     target_link_libraries(cuda_runtime PRIVATE CUDA::cudart CUDA::cuda_driver CUDA::nvrtc)
 
-    target_link_libraries(runtime PRIVATE cuda_runtime)
+    target_link_libraries(runtime PRIVATE "$<BUILD_INTERFACE:cuda_runtime>")
     target_compile_definitions(runtime PUBLIC CUDA_BACKEND_PRESENT=1)
 endif ()
