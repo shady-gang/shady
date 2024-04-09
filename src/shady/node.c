@@ -208,6 +208,9 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
                         return get_string_literal(arena, init);
                     break;
                 }
+                case Declaration_Constant_TAG: {
+                    return get_string_literal(arena, decl->payload.constant.instruction);
+                }
                 default:
                     break;
             }
