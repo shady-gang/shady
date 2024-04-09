@@ -85,8 +85,8 @@ ShadyErrorCodes driver_load_source_file_from_filename(const char* filename, Modu
         goto exit;
     }
     err = driver_load_source_file(lang, len, contents, mod);
-    exit:
     free((void*) contents);
+    exit:
     return err;
 }
 
