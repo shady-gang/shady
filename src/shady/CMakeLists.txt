@@ -39,6 +39,7 @@ set(SHADY_SOURCES
     module.c
 
     analysis/scope.c
+    analysis/scope_dump.c
     analysis/free_variables.c
     analysis/verify.c
     analysis/callgraph.c
