@@ -17,6 +17,7 @@ typedef struct Context_ {
     const Node* current_fn;
     Scope* scope;
     const UsesMap* scope_uses;
+    struct Dict* scope_vars;
     LoopTree* loop_tree;
     struct Dict* lifted_arguments;
 } Context;
@@ -55,9 +56,11 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
     *lparams = empty(a);
     *nargs = empty(a);
 
-    struct List* fvs = compute_free_variables(ctx->scope, old);
-    for (size_t i = 0; i < entries_count_list(fvs); i++) {
-        const Node* fv = read_list(const Node*, fvs)[i];
+    const Node* fv;
+    size_t i = 0;
+    CFNode* cf_node = scope_lookup(ctx->scope, old);
+    CFNodeVariables* node_vars = *find_value_dict(CFNode*, CFNodeVariables*, ctx->scope_vars, cf_node);
+    while (dict_iter(node_vars->free_set, &i, &fv, NULL)) {
         const Node* defining_abs = get_var_binding_abstraction(ctx->scope_uses, fv);
         const CFNode* defining_cf_node = scope_lookup(ctx->scope, defining_abs);
         assert(defining_cf_node);
@@ -74,7 +77,6 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
             *nargs = append_nodes(a, *nargs, narg);
         }
     }
-    destroy_list(fvs);
 
     if (nparams->count > 0)
         insert_dict(const Node*, Nodes, ctx->lifted_arguments, old, *nparams);
@@ -152,6 +154,7 @@ const Node* process_node(Context* ctx, const Node* old) {
             ctx->current_fn = old;
             ctx->scope = new_scope(old);
             ctx->scope_uses = create_uses_map(old, (NcDeclaration | NcType));
+            ctx->scope_vars = compute_scope_variables_map(ctx->scope);
             ctx->loop_tree = build_loop_tree(ctx->scope);
 
             Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
@@ -160,6 +163,7 @@ const Node* process_node(Context* ctx, const Node* old) {
             destroy_loop_tree(ctx->loop_tree);
             destroy_uses_map(ctx->scope_uses);
             destroy_scope(ctx->scope);
+            destroy_scope_variables_map(ctx->scope_vars);
             return new;
         }
         case Jump_TAG: {

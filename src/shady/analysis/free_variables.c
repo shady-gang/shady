@@ -8,6 +8,7 @@
 #include "list.h"
 #include "dict.h"
 
+#include <stdlib.h>
 #include <assert.h>
 
 KeyHash hash_node(Node**);
@@ -15,20 +16,20 @@ bool compare_node(Node**, Node**);
 
 typedef struct {
     Visitor visitor;
-    struct Dict* bound_set;
-    struct Dict* set;
-    struct List* free_list;
+    struct Dict* map;
+    CFNodeVariables* current_scope;
 } Context;
 
 static void search_op_for_free_variables(Context* visitor, NodeClass class, String op_name, const Node* node) {
     assert(node);
     switch (node->tag) {
         case Variable_TAG: {
-            if (find_key_dict(const Node*, visitor->bound_set, node))
-                return;
-            if (insert_set_get_result(const Node*, visitor->set, node)) {
-                append_list(const Node*, visitor->free_list, node);
+            Nodes params = get_abstraction_params(visitor->current_scope->node->node);
+            for (size_t i = 0; i < params.count; i++) {
+                if (params.nodes[i] == node)
+                    return;
             }
+            insert_set_get_result(const Node*, visitor->current_scope->free_set, node);
             break;
         }
         case Function_TAG:
@@ -38,26 +39,36 @@ static void search_op_for_free_variables(Context* visitor, NodeClass class, Stri
     }
 }
 
-static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
+static CFNodeVariables* create_node_variables(CFNode* cfnode) {
+    CFNodeVariables* v = calloc(sizeof(CFNodeVariables), 1);
+    *v = (CFNodeVariables) {
+        .node = cfnode,
+        .free_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
+    };
+    return v;
+}
+
+static CFNodeVariables* visit_domtree(Context* ctx, CFNode* cfnode, int depth, CFNodeVariables* parent) {
+    Context new_context = *ctx;
+    ctx = &new_context;
+
+    ctx->current_scope = create_node_variables(cfnode);
+    if (parent) {
+        ctx->current_scope->bound_set = clone_dict(parent->bound_set);
+    } else {
+        ctx->current_scope->bound_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    }
+    insert_dict(CFNode*, CFNodeVariables*, ctx->map, cfnode, ctx->current_scope);
     const Node* abs = cfnode->node;
 
     bool is_named = abs->tag != Case_TAG;
-
-    if (is_named) {
-        for (int i = 0; i < depth; i++)
-            debugvv_print(" ");
-        debugvv_print("%s\n", get_abstraction_name(abs));
-    }
 
     // Bind parameters
     Nodes params = get_abstraction_params(abs);
     for (size_t j = 0; j < params.count; j++) {
         const Node* param = params.nodes[j];
-        bool r = insert_set_get_result(const Node*, ctx->bound_set, param);
-        // assert(r);
-        // this can happen if you visit the domtree of a CFG starting _inside_ a loop
-        // we will meet some unbound params but eventually we'll enter their definition after the fact
-        // those params should still be considered free in this case.
+        bool r = insert_set_get_result(const Node*, ctx->current_scope->bound_set, param);
+        assert(r);
     }
 
     const Node* body = get_abstraction_body(abs);
@@ -66,35 +77,83 @@ static void visit_domtree(Context* ctx, CFNode* cfnode, int depth) {
 
     for (size_t i = 0; i < entries_count_list(cfnode->dominates); i++) {
         CFNode* child = read_list(CFNode*, cfnode->dominates)[i];
-        visit_domtree(ctx, child, depth + (is_named ? 1 : 0));
+        CFNodeVariables* child_variables = visit_domtree(ctx, child, depth + (is_named ? 1 : 1), ctx->current_scope);
+        size_t j = 0;
+        const Node* free_var;
+        while (dict_iter(child_variables->free_set, &j, &free_var, NULL)) {
+            for (size_t k = 0; k < params.count; k++) {
+                if (params.nodes[k] == free_var)
+                    goto next;
+            }
+            insert_set_get_result(const Node*, ctx->current_scope->free_set, free_var);
+            next:;
+        }
     }
+
+    /*String abs_name = get_abstraction_name_unsafe(abs);
+    for (int i = 0; i < depth; i++)
+        debugvv_print(" ");
+    if (abs_name)
+        debugvv_print("%s: ", abs_name);
+    else
+        debugvv_print("%%%d: ", abs->id);
+
+    if (true) {
+        bool prev = false;
+        size_t i = 0;
+        const Node* free_var;
+        while (dict_iter(ctx->current_scope->free_set, &i, &free_var, NULL)) {
+            if (prev) {
+                debugvv_print(", ");
+            }
+            log_node(DEBUGVV, free_var);
+            prev = true;
+        }
+    }
+
+    if (true) {
+        debugvv_print(". Binds: ");
+        bool prev = false;
+        for (size_t i = 0; i < params.count; i++) {
+            if (prev) {
+                debugvv_print(", ");
+            }
+            log_node(DEBUGVV, params.nodes[i]);
+            prev = true;
+        }
+    }
+
+    debugvv_print("\n");*/
 
     // Unbind parameters
     for (size_t j = 0; j < params.count; j++) {
         const Node* param = params.nodes[j];
-        bool r = remove_dict(const Node*, ctx->bound_set, param);
+        bool r = remove_dict(const Node*, ctx->current_scope->bound_set, param);
         assert(r);
     }
+
+    return ctx->current_scope;
 }
 
-struct List* compute_free_variables(const Scope* scope, const Node* at) {
-    struct Dict* bound_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
-    struct Dict* set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
-    struct List* free_list = new_list(const Node*);
-
+struct Dict* compute_scope_variables_map(const Scope* scope) {
     Context ctx = {
         .visitor = {
             .visit_op_fn = (VisitOpFn) search_op_for_free_variables,
         },
-        .bound_set = bound_set,
-        .set = set,
-        .free_list = free_list,
+        .map = new_dict(CFNode*, CFNodeVariables*, (HashFn) hash_ptr, (CmpFn) compare_ptrs),
     };
 
-    debugv_print("Computing free variables...\n");
-    visit_domtree(&ctx, scope_lookup(scope, at), 0);
+    debugv_print("Computing free variables for function '%s' ...\n", get_abstraction_name(scope->entry->node));
+    visit_domtree(&ctx, scope->entry, 0, NULL);
+    return ctx.map;
+}
 
-    destroy_dict(bound_set);
-    destroy_dict(set);
-    return free_list;
+void destroy_scope_variables_map(struct Dict* map) {
+    size_t i = 0;
+    CFNodeVariables* value;
+    while (dict_iter(map, &i, NULL, &value)) {
+        destroy_dict(value->bound_set);
+        destroy_dict(value->free_set);
+        free((void*) value);
+    }
 }

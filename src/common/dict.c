@@ -334,3 +334,11 @@ KeyHash hash_murmur(const void* data, size_t size) {
     final ^= out[3];
     return final;
 }
+
+KeyHash hash_ptr(void** p) {
+    return hash_murmur(p, sizeof(void*));
+}
+
+bool compare_ptrs(void** a, void** b) {
+    return *a == *b;
+}

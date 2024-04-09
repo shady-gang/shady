@@ -263,6 +263,16 @@ String get_abstraction_name(const Node* abs) {
     }
 }
 
+String get_abstraction_name_unsafe(const Node* abs) {
+    assert(is_abstraction(abs));
+    switch (abs->tag) {
+        case Function_TAG: return abs->payload.fun.name;
+        case BasicBlock_TAG: return abs->payload.basic_block.name;
+        case Case_TAG: return NULL;
+        default: assert(false);
+    }
+}
+
 const Node* get_abstraction_body(const Node* abs) {
     assert(is_abstraction(abs));
     switch (abs->tag) {

@@ -46,13 +46,16 @@ static void verify_scoping(Module* mod) {
     struct List* scopes = build_scopes(mod);
     for (size_t i = 0; i < entries_count_list(scopes); i++) {
         Scope* scope = read_list(Scope*, scopes)[i];
-        struct List* leaking = compute_free_variables(scope, scope->entry->node);
-        for (size_t j = 0; j < entries_count_list(leaking); j++) {
-            log_node(ERROR, read_list(const Node*, leaking)[j]);
+        struct Dict* map = compute_scope_variables_map(scope);
+        CFNodeVariables* entry_vars = *find_value_dict(CFNode*, CFNodeVariables*, map, scope->entry);
+        size_t j = 0;
+        const Node* leaking;
+        while (dict_iter(entry_vars->free_set, &j, &leaking, NULL)) {
+            log_node(ERROR, leaking);
             error_print("\n");
         }
-        assert(entries_count_list(leaking) == 0);
-        destroy_list(leaking);
+        assert(entries_count_dict(entry_vars->free_set) == 0);
+        destroy_scope_variables_map(map);
         destroy_scope(scope);
     }
     destroy_list(scopes);

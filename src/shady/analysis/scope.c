@@ -550,9 +550,10 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
 
     label = format_string_arena(bb->arena->arena, "%s%s", label, node_tags[body->tag]);
 
-    if (is_basic_block(bb)) {
-        label = format_string_arena(bb->arena->arena, "%s\n%s", get_abstraction_name(bb), label);
-    }
+    String abs_name = get_abstraction_name_unsafe(bb);
+    if (!abs_name)
+        abs_name = format_string_interned(bb->arena, "%%%d", bb->id);
+    label = format_string_arena(bb->arena->arena, "%s\n%s", abs_name, label);
 
     fprintf(output, "bb_%zu [label=\"%s\", color=\"%s\", shape=box];\n", (size_t) n, label, color);
 

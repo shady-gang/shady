@@ -26,6 +26,7 @@ typedef struct Context_ {
     Rewriter rewriter;
     Scope* scope;
     const UsesMap* scope_uses;
+    struct Dict* scope_vars;
 
     struct Dict* lifted;
     bool disable_lowering;
@@ -78,19 +79,23 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     String name = is_basic_block(cont) ? format_string_arena(a->arena, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(a, given_name);
 
     // Compute the live stuff we'll need
-    Scope* scope = new_scope(cont);
-    struct List* recover_context = compute_free_variables(scope, cont);
-    size_t recover_context_size = entries_count_list(recover_context);
-    destroy_scope(scope);
+    CFNode* cf_node = scope_lookup(ctx->scope, cont);
+    CFNodeVariables* node_vars = *find_value_dict(CFNode*, CFNodeVariables*, ctx->scope_vars, cf_node);
+    struct List* recover_context = new_list(const Node*);
+    size_t recover_context_size = entries_count_dict(node_vars->free_set);
 
-    debugv_print("free (spilled) variables at '%s': ", name);
-    for (size_t i = 0; i < recover_context_size; i++) {
-        const Node* item = read_list(const Node*, recover_context)[i];
-        debugv_print(get_value_name_safe(item));
-        if (i + 1 < recover_context_size)
-            debugv_print(", ");
+    {
+        debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", name, entries_count_dict(node_vars->free_set));
+        size_t i = 0;
+        const Node* item;
+        while (dict_iter(node_vars->free_set, &i, &item, NULL)) {
+            append_list(const Node*, recover_context, item );
+            debugv_print(get_value_name_safe(item));
+            if (i + 1 < recover_context_size)
+                debugv_print(", ");
+        }
+        debugv_print("\n");
     }
-    debugv_print("\n");
 
     // Create and register new parameters for the lifted continuation
     Nodes new_params = recreate_variables(&ctx->rewriter, oparams);
@@ -166,12 +171,14 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Context fn_ctx = *ctx;
             fn_ctx.scope = new_scope(node);
             fn_ctx.scope_uses = create_uses_map(node, (NcDeclaration | NcType));
+            fn_ctx.scope_vars = compute_scope_variables_map(fn_ctx.scope);
             ctx = &fn_ctx;
 
             Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
             recreate_decl_body_identity(&ctx->rewriter, node, new);
 
             destroy_uses_map(ctx->scope_uses);
+            destroy_scope_variables_map(ctx->scope_vars);
             destroy_scope(ctx->scope);
             return new;
         }
