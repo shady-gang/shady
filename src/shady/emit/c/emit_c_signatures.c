@@ -160,7 +160,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                             { "unsigned char" , "char"  },
                             { "unsigned short", "short" },
                             { "unsigned int"  , "int" },
-                            { "unsigned long" , "long" },
+                            { "unsigned long long" , "long long" },
                     };
                     const char* c_explicit_int_sizes[4][2] = {
                             { "uint8_t" , "int8_t"  },
