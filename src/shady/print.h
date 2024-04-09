@@ -12,6 +12,7 @@ typedef struct {
     bool print_ptrs;
     bool color;
     bool reparseable;
+    bool in_cfg;
 } PrintConfig;
 
 void print_module(Printer* printer, Module* mod, PrintConfig config);
