@@ -24,7 +24,9 @@ Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
             if (type->payload.record_type.special == MultipleReturn)
                 return type->payload.record_type.members;
             // fallthrough
-        default: return nodes(arena, 1, (const Node* []) { type });
+        default:
+            assert(is_value_type(type));
+            return nodes(arena, 1, (const Node* []) { type });
     }
 }
 
