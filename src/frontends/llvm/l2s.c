@@ -230,7 +230,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     return r;
 }
 
-bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
+bool parse_llvm_into_shady(const CompilerConfig* config, Module* dst, size_t len, const char* data) {
     LLVMContextRef context = LLVMContextCreate();
     LLVMModuleRef src;
     LLVMMemoryBufferRef mem = LLVMCreateMemoryBufferWithMemoryRange(data, len, "my_great_buffer", false);
@@ -248,6 +248,7 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
     Module* dirty = new_module(get_module_arena(dst), "dirty");
     Parser p = {
         .ctx = context,
+        .config = config,
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations = new_dict(LLVMValueRef, ParsedAnnotation, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .scopes = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),

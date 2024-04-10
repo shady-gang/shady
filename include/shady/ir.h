@@ -281,6 +281,7 @@ struct CompilerConfig_ {
         bool force_join_point_lifting;
         bool assume_no_physical_global_ptrs;
         bool restructure_everything;
+        bool recover_structure;
     } hacks;
 
     struct {

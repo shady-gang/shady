@@ -11,6 +11,7 @@
 
 typedef struct {
     Rewriter rewriter;
+    const CompilerConfig* config;
     Parser* p;
     Scope* curr_scope;
     const Node* old_fn_or_bb;
@@ -138,6 +139,8 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             assert(src && dst);
             rewrite_node(&ctx->rewriter, dst);
 
+            if (!ctx->config->hacks.recover_structure)
+                break;
             Nodes* src_lexical_scope = find_value_dict(const Node*, Nodes, ctx->p->scopes, src);
             Nodes* dst_lexical_scope = find_value_dict(const Node*, Nodes, ctx->p->scopes, dst);
             if (!src_lexical_scope) {
@@ -251,6 +254,7 @@ void postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .config = p->config,
         .p = p,
         .controls = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
     };

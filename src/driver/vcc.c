@@ -55,6 +55,8 @@ int main(int argc, char** argv) {
         .tmp_filename = NULL,
         .delete_tmp_file = true
     };
+    args.config.hacks.recover_structure = true;
+
     cli_parse_driver_arguments(&args, &argc, argv);
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&args.config, &argc, argv);
@@ -143,7 +145,7 @@ int main(int argc, char** argv) {
         char* llvm_ir;
         if (!read_file(vcc_options.tmp_filename, &len, &llvm_ir))
             exit(InputFileIOError);
-        driver_load_source_file(SrcLLVM, len, llvm_ir, mod);
+        driver_load_source_file(&args.config, SrcLLVM, len, llvm_ir, mod);
         free(llvm_ir);
 
         if (vcc_options.delete_tmp_file)

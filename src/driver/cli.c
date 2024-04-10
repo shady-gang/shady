@@ -100,6 +100,7 @@ F(logging.print_generated, print-generated) \
 F(lower.simt_to_explicit_simd, lower-simt-to-simd) \
 F(optimisations.inline_everything, inline-everything) \
 F(hacks.restructure_everything, restructure-everything) \
+F(hacks.recover_structure, recover-structure) \
 
 void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
     int argc = *pargc;
