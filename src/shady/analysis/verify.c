@@ -42,7 +42,7 @@ static void verify_same_arena(Module* mod) {
     destroy_dict(visitor.once);
 }
 
-static void verify_scoping(Module* mod) {
+static void verify_scoping(const CompilerConfig* config, Module* mod) {
     struct List* scopes = build_scopes(mod);
     for (size_t i = 0; i < entries_count_list(scopes); i++) {
         Scope* scope = read_list(Scope*, scopes)[i];
@@ -54,7 +54,10 @@ static void verify_scoping(Module* mod) {
             log_node(ERROR, leaking);
             error_print("\n");
         }
-        assert(entries_count_dict(entry_vars->free_set) == 0);
+        if (entries_count_dict(entry_vars->free_set) > 0) {
+            log_module(ERROR, config, mod);
+            error_die();
+        }
         destroy_scope_variables_map(map);
         destroy_scope(scope);
     }
@@ -118,12 +121,12 @@ static void verify_bodies(Module* mod) {
     }
 }
 
-void verify_module(Module* mod) {
+void verify_module(const CompilerConfig* config, Module* mod) {
     verify_same_arena(mod);
     // before we normalize the IR, scopes are broken because decls appear where they should not
     // TODO add a normalized flag to the IR and check grammar is adhered to strictly
     if (get_module_arena(mod)->config.check_types) {
-        verify_scoping(mod);
+        verify_scoping(config, mod);
         verify_bodies(mod);
     }
 }

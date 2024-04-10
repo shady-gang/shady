@@ -973,7 +973,6 @@ void print_module(Printer* printer, Module* mod, PrintConfig config) {
     };
     print_mod_impl(&ctx, mod);
     flush(ctx.printer);
-    destroy_printer(ctx.printer);
 }
 
 void print_node(Printer* printer, const Node* node, PrintConfig config) {

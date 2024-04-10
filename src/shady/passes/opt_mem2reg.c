@@ -688,7 +688,7 @@ Module* opt_mem2reg(const CompilerConfig* config, Module* src) {
         destroy_dict(ctx.bb_new_args);
         destroy_arena(ctx.a);
 
-        verify_module(dst);
+        verify_module(config, dst);
 
         if (get_module_arena(src) != initial_arena)
             destroy_ir_arena(get_module_arena(src));
