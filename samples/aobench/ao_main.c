@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
 
     bool do_host = false, do_ispc = false, do_device = false, do_all = true;
-    for (size_t i = 0; i < argc; i++) {
+    for (size_t i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--only-device") == 0) {
             do_device = true;
             do_all = false;
@@ -164,6 +164,9 @@ int main(int argc, char **argv) {
         } else if (strcmp(argv[i], "--only-ispc") == 0) {
             do_ispc = true;
             do_all = false;
+        } else {
+            error_print("Unrecognised argument: %s\n", argv[i]);
+            error_die();
         }
     }
 
