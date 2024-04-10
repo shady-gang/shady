@@ -1,6 +1,6 @@
 if (TARGET vcc)
     add_executable(aobench_host ao_host.c ao_main.c)
-    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ao.comp.c.ll COMMAND vcc ARGS ${CMAKE_CURRENT_SOURCE_DIR}/ao.comp.cpp --only-run-clang -o ${CMAKE_CURRENT_BINARY_DIR}/ao.comp.c.ll COMMENT ao.comp.c.ll DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ao.comp.cpp)
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ao.comp.c.ll COMMAND vcc ARGS ${CMAKE_CURRENT_SOURCE_DIR}/ao.comp.cpp --only-run-clang -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/ao.comp.c.ll COMMENT ao.comp.c.ll DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ao.comp.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ao.c)
 
     set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/ao_main.c APPEND PROPERTY OBJECT_DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ao.comp.c.ll)
     add_custom_command(TARGET aobench_host POST_BUILD

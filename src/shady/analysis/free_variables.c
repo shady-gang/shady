@@ -128,8 +128,9 @@ static CFNodeVariables* visit_domtree(Context* ctx, CFNode* cfnode, int depth, C
     // Unbind parameters
     for (size_t j = 0; j < params.count; j++) {
         const Node* param = params.nodes[j];
-        bool r = remove_dict(const Node*, ctx->current_scope->bound_set, param);
-        assert(r);
+        assert(find_key_dict(const Node*, ctx->current_scope->bound_set, param));
+        //bool r = remove_dict(const Node*, ctx->current_scope->bound_set, param);
+        //assert(r);
     }
 
     return ctx->current_scope;
