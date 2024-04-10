@@ -295,3 +295,10 @@ void dump_loop_trees(FILE* output, Module* mod) {
     destroy_list(scopes);
     fprintf(output, "}\n");
 }
+
+
+void dump_loop_trees_auto(Module* mod) {
+    FILE* f = fopen("loop_trees.dot", "wb");
+    dump_loop_trees(f, mod);
+    fclose(f);
+}

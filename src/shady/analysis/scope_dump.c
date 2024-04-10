@@ -162,3 +162,43 @@ void dump_cfg_auto(Module* mod) {
     dump_cfg(f, mod);
     fclose(f);
 }
+
+static void dump_domtree_cfnode(Printer* p, CFNode* idom) {
+    String name = get_abstraction_name_unsafe(idom->node);
+    if (name)
+        print(p, "bb_%zu [label=\"%s\", shape=box];\n", (size_t) idom, name);
+    else
+        print(p, "bb_%zu [label=\"%%%d\", shape=box];\n", (size_t) idom, idom->node->id);
+
+    for (size_t i = 0; i < entries_count_list(idom->dominates); i++) {
+        CFNode* child = read_list(CFNode*, idom->dominates)[i];
+        dump_domtree_cfnode(p, child);
+        print(p, "bb_%zu -> bb_%zu;\n", (size_t) (idom), (size_t) (child));
+    }
+}
+
+void dump_domtree_scope(Printer* p, Scope* s) {
+    print(p, "subgraph cluster_%s {\n", get_abstraction_name(s->entry->node));
+    dump_domtree_cfnode(p, s->entry);
+    print(p, "}\n");
+}
+
+void dump_domtree_module(Printer* p, Module* mod) {
+    print(p, "digraph G {\n");
+    struct List* scopes = build_scopes(mod);
+    for (size_t i = 0; i < entries_count_list(scopes); i++) {
+        Scope* scope = read_list(Scope*, scopes)[i];
+        dump_domtree_scope(p, scope);
+        destroy_scope(scope);
+    }
+    destroy_list(scopes);
+    print(p, "}\n");
+}
+
+void dump_domtree_auto(Module* mod) {
+    FILE* f = fopen("domtree.dot", "wb");
+    Printer* p = open_file_as_printer(f);
+    dump_domtree_module(p, mod);
+    destroy_printer(p);
+    fclose(f);
+}
