@@ -13,6 +13,10 @@ if (MSVC)
   add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
+if (WIN32)
+  set(BUILD_SHARED_LIBS OFF)
+endif()
+
 add_subdirectory(SPIRV-Headers)
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
