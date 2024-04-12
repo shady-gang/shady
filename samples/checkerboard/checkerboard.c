@@ -72,7 +72,7 @@ int main(int argc, char **argv)
     driver_load_source_file(&compiler_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, m);
     Program* program = new_program_from_module(runtime, &compiler_config, m);
 
-    wait_completion(launch_kernel(program, device, "main", 16, 16, 1, 1, (void*[]) { &buf_addr }));
+    wait_completion(launch_kernel(program, device, "checkerboard", 16, 16, 1, 1, (void*[]) { &buf_addr }));
 
     copy_from_buffer(buf, 0, img, buf_size);
     info_print("data %d\n", (int) img[0]);
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
     destroy_buffer(buf);
 
     shutdown_runtime(runtime);
-    saveppm("ao.ppm", WIDTH, HEIGHT, img);
+    saveppm("checkerboard.ppm", WIDTH, HEIGHT, img);
     destroy_ir_arena(a);
     free(img);
 }
