@@ -101,7 +101,6 @@ typedef struct {
     } optimisations;
 } ArenaConfig;
 
-typedef struct CompilerConfig_ CompilerConfig;
 ArenaConfig default_arena_config();
 
 IrArena* new_ir_arena(ArenaConfig);
@@ -256,7 +255,7 @@ const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder*, const Node*);
 
 //////////////////////////////// Compilation ////////////////////////////////
 
-struct CompilerConfig_ {
+typedef struct CompilerConfig_ {
     bool dynamic_scheduling;
     uint32_t per_thread_stack_size;
 
@@ -317,7 +316,7 @@ struct CompilerConfig_ {
     struct {
         struct { void* uptr; void (*fn)(void*, String, Module*); } after_pass;
     } hooks;
-};
+} CompilerConfig;
 
 CompilerConfig default_compiler_config();
 
