@@ -245,7 +245,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
-                Nodes exit_wrapper_params = get_abstraction_params(exit_helpers[i]);
+                Nodes exit_wrapper_params = get_abstraction_params(exit_wrappers[i]);
                 BodyBuilder* exit_wrapper_bb = begin_body(arena);
 
                 for (size_t j = 0; j < exit_param_allocas[i].count; j++)
