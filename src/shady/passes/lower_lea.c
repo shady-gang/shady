@@ -110,7 +110,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     bool must_lower = false;
                     // we have to lower generic pointers if we emulate them using ints
                     must_lower |= ctx->config->lower.emulate_generic_ptrs && old_base_ptr_t->payload.ptr_type.address_space == AsGeneric;
-                    must_lower |= ctx->config->lower.emulate_physical_memory && is_physical_as(old_base_ptr_t->payload.ptr_type.address_space);
+                    must_lower |= ctx->config->lower.emulate_physical_memory && !old_base_ptr_t->payload.ptr_type.is_reference;
                     if (!must_lower)
                         break;
                     BodyBuilder* bb = begin_body(a);

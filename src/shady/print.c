@@ -307,7 +307,7 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case PtrType_TAG: {
-            printf("ptr");
+            printf(node->payload.ptr_type.is_reference ? "ref" : "ptr");
             printf(RESET);
             printf("(");
             printf(BLUE);
@@ -807,8 +807,9 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             const GlobalVariable* gvar = &node->payload.global_variable;
             print_annotations(ctx, gvar->annotations);
             printf(BLUE);
+            printf("var ");
+            printf(BLUE);
             printf(get_address_space_name(gvar->address_space));
-            printf(RESET);
             printf(" ");
             print_node(gvar->type);
             printf(BYELLOW);

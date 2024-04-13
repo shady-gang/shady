@@ -225,7 +225,8 @@
       "class": "type",
       "ops": [
         { "name": "address_space", "type": "AddressSpace" },
-        { "name": "pointed_type", "class": "type" }
+        { "name": "pointed_type", "class": "type" },
+        { "name": "is_reference", "type": "bool" }
       ]
     },
     {

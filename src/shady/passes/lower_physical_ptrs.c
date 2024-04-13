@@ -309,7 +309,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
                     const Type* ptr_type = old_ptr->type;
                     bool uniform_ptr = deconstruct_qualified_type(&ptr_type);
                     assert(ptr_type->tag == PtrType_TAG);
-                    if (!is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
+                    if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                         break;
                     BodyBuilder* bb = begin_body(a);
 
@@ -331,7 +331,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             break;
         }
         case PtrType_TAG: {
-            if (is_as_emulated(ctx, old->payload.ptr_type.address_space))
+            if (!old->payload.ptr_type.is_reference && is_as_emulated(ctx, old->payload.ptr_type.address_space))
                 return int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
             break;
         }

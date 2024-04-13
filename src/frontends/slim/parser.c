@@ -215,16 +215,20 @@ static const Node* accept_value(ctxparams) {
     }
 }
 
-static AddressSpace expect_ptr_address_space(ctxparams) {
+static AddressSpace accept_address_space(ctxparams) {
     switch (curr_token(tokenizer).tag) {
-        case global_tok:  next_token(tokenizer); return AsGlobalPhysical;
-        case private_tok: next_token(tokenizer); return AsPrivatePhysical;
-        case shared_tok:  next_token(tokenizer); return AsSharedPhysical;
-        case subgroup_tok:  next_token(tokenizer); return AsSubgroupPhysical;
+        case global_tok:   next_token(tokenizer); return AsGlobal;
+        case private_tok:  next_token(tokenizer); return AsPrivate;
+        case shared_tok:   next_token(tokenizer); return AsShared;
+        case subgroup_tok: next_token(tokenizer); return AsSubgroup;
         case generic_tok:  next_token(tokenizer); return AsGeneric;
-        default: error("expected address space qualifier");
+        case input_tok:    next_token(tokenizer); return AsInput;
+        case output_tok:   next_token(tokenizer); return AsOutput;
+        case extern_tok:   next_token(tokenizer); return AsExternal;
+        default:
+            break;
     }
-    SHADY_UNREACHABLE;
+    return NumAddressSpaces;
 }
 
 static const Type* accept_unqualified_type(ctxparams) {
@@ -235,12 +239,27 @@ static const Type* accept_unqualified_type(ctxparams) {
     } else if (accept_token(ctx, mask_t_tok)) {
         return mask_type(arena);
     } else if (accept_token(ctx, ptr_tok)) {
-        AddressSpace as = expect_ptr_address_space(ctx);
+        AddressSpace as = accept_address_space(ctx);
+        if (as == NumAddressSpaces) {
+            error("expected address space qualifier");
+        }
         const Type* elem_type = accept_unqualified_type(ctx);
         expect(elem_type);
         return ptr_type(arena, (PtrType) {
            .address_space = as,
            .pointed_type = elem_type,
+        });
+    } else if (accept_token(ctx, ref_tok)) {
+        AddressSpace as = accept_address_space(ctx);
+        if (as == NumAddressSpaces) {
+            error("expected address space qualifier");
+        }
+        const Type* elem_type = accept_unqualified_type(ctx);
+        expect(elem_type);
+        return ptr_type(arena, (PtrType) {
+           .address_space = as,
+           .pointed_type = elem_type,
+           .is_reference = true,
         });
     } else if (config.front_end && accept_token(ctx, lsbracket_tok)) {
         const Type* elem_type = accept_unqualified_type(ctx);

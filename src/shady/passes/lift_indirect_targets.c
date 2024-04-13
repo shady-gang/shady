@@ -52,7 +52,7 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, struct L
         const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
         const Type* t = nvar->type;
         deconstruct_qualified_type(&t);
-        assert(t->tag != PtrType_TAG || is_physical_as(t->payload.ptr_type.address_space));
+        assert(t->tag != PtrType_TAG || !t->payload.ptr_type.is_reference && "References cannot be spilled");
         const Node* save_instruction = prim_op(a, (PrimOp) {
             .op = push_stack_op,
             .type_arguments = singleton(get_unqualified_type(nvar->type)),
