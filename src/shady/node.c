@@ -153,6 +153,7 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                             continue;
                         }
                     }
+                    case convert_op:
                     case reinterpret_op: {
                         if (config.allow_incompatible_types) {
                             node = first(node->payload.prim_op.operands);

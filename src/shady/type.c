@@ -163,7 +163,7 @@ size_t get_type_bitwidth(const Type* t) {
         case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;
         case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
         case PtrType_TAG: {
-            if (is_physical_as(t->payload.ptr_type.address_space))
+            if (t->arena->config.address_spaces[t->payload.ptr_type.address_space].physical)
                 return int_size_in_bytes(t->arena->config.memory.ptr_size) * 8;
             break;
         }
@@ -176,9 +176,8 @@ bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     switch (as) {
         case AsInput:
         case AsOutput:
-        case AsFunctionLogical:
-        case AsPrivateLogical:
-        case AsPrivatePhysical:
+        case AsFunction:
+        case AsPrivate:
             return !arena->config.is_simt;
         default:
             return true;
@@ -397,15 +396,11 @@ const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
 }
 
 const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
-    assert((arena->config.untyped_ptrs || ptr_type.pointed_type) && "Shady does not support untyped pointers, but can infer them, see infer.c");
-    if (!arena->config.allow_subgroup_memory) {
-        assert(ptr_type.address_space != AsSubgroupPhysical);
-        assert(ptr_type.address_space != AsSubgroupLogical);
+    if (!arena->config.address_spaces[ptr_type.address_space].allowed) {
+        error_print("Address space %s is not allowed in this arena\n", get_address_space_name(ptr_type.address_space));
+        error_die();
     }
-    if (!arena->config.allow_shared_memory) {
-        assert(ptr_type.address_space != AsSharedPhysical);
-        assert(ptr_type.address_space != AsSharedLogical);
-    }
+    assert(ptr_type.pointed_type && "Shady does not support untyped pointers, but can infer them, see infer.c");
     if (ptr_type.pointed_type) {
         if (ptr_type.pointed_type->tag == ArrType_TAG) {
             assert(is_data_type(ptr_type.pointed_type->payload.arr_type.element_type));
@@ -755,8 +750,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(is_subtype(val_expected_type, val->type));
             return empty_multiple_return_type(arena);
         }
-        case alloca_logical_op:  as = AsFunctionLogical; goto alloca_case;
-        case alloca_op:          as = AsPrivatePhysical; goto alloca_case;
+        case alloca_logical_op:  as = AsFunction; goto alloca_case;
+        case alloca_op:          as = AsPrivate; goto alloca_case;
         alloca_case: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 0);

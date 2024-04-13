@@ -51,7 +51,7 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
 
     if (node->tag == PrimOp_TAG) {
         switch (node->payload.prim_op.op) {
-            case alloca_op: as = AsPrivatePhysical; break;
+            case alloca_op: as = AsPrivate; break;
             default: goto not_alloca;
         }
 

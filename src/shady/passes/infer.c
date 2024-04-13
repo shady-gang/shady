@@ -240,14 +240,14 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
                 const Node* decl = ref_decl->payload.ref_decl.decl;
                 if (decl->tag == GlobalVariable_TAG) {
                     AddressSpace as = decl->payload.global_variable.address_space;
-                    if (is_physical_as(as)) {
+                    /*if (is_physical_as(as)) {
                         const Node* untyped_ptr = ptr_type(a, (PtrType) {.address_space = as, .pointed_type = unit_type(a)});
                         Node* cast_constant = constant(ctx->rewriter.dst_module, empty(a), untyped_ptr, format_string_interned(a, "%s_cast", get_declaration_name(decl)));
                         cast_constant->payload.constant.instruction = prim_op_helper(a, reinterpret_op, singleton(untyped_ptr), singleton(ref_decl));
                         const Node* cast_ref_decl = ref_decl_helper(a, cast_constant);
                         register_processed(r, node, cast_ref_decl);
                         return cast_ref_decl;
-                    }
+                    }*/
                 }
             }
             break;
@@ -532,7 +532,7 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* exp
                 .operands = new_ops
             })));
 
-            if (was_untyped && is_physical_as(get_pointer_type_address_space(src_ptr))) {
+            if (was_untyped) {
                 const Type* result_t = type_untyped_ptr(base_datatype, unit_type(a));
                 result = gen_reinterpret_cast(bb, result_t, result);
             }

@@ -20,7 +20,7 @@ typedef struct {
     const CompilerConfig* config;
 } Context;
 
-static AddressSpace generic_ptr_tags[4] = { AsGlobalPhysical, AsSharedPhysical, AsSubgroupPhysical, AsPrivatePhysical };
+static AddressSpace generic_ptr_tags[4] = { AsGlobal, AsShared, AsSubgroup, AsPrivate };
 
 static size_t generic_ptr_tag_bitwidth = 2;
 
@@ -36,7 +36,7 @@ static uint64_t get_tag_for_addr_space(AddressSpace as) {
         if (generic_ptr_tags[i] == as)
             return (uint64_t) i;
     }
-    error("this address space can't be converted to generic");
+    error("address space '%s' can't be converted to generic", get_address_space_name(as));
 }
 
 static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t tag, const Node* nptr, const Type* element_type) {
@@ -62,11 +62,8 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
 }
 
 static bool allowed(Context* ctx, AddressSpace as) {
-    if (as == AsGlobalPhysical && ctx->config->hacks.assume_no_physical_global_ptrs)
-        return false;
-    if (as == AsSharedPhysical && !ctx->rewriter.dst_arena->config.allow_shared_memory)
-        return false;
-    if (as == AsSubgroupPhysical && !ctx->rewriter.dst_arena->config.allow_subgroup_memory)
+    // if an address space is logical-only, or isn't allowed at all in the module, we can skip emitting a case for it.
+    if (!ctx->rewriter.dst_arena->config.address_spaces[as].physical || !ctx->rewriter.dst_arena->config.address_spaces[as].allowed)
         return false;
     return true;
 }

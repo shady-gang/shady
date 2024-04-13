@@ -9,17 +9,17 @@
     u32 payload;
 };
 
-@Internal private u32 actual_subgroup_size;
+@Internal var logical private u32 actual_subgroup_size;
 
-@Internal subgroup u32 scheduler_cursor = 0;
-@Internal subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
-@Internal subgroup [u32; SUBGROUP_SIZE] resume_at;
+@Internal var logical subgroup u32 scheduler_cursor = 0;
+@Internal var logical subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
+@Internal var logical subgroup [u32; SUBGROUP_SIZE] resume_at;
 
-@Internal subgroup u32 next_fn;
-@Internal subgroup TreeNode active_branch;
+@Internal var logical subgroup u32 next_fn;
+@Internal var logical subgroup TreeNode active_branch;
 
 @Internal @Builtin("SubgroupLocalInvocationId")
-input u32 subgroup_local_id;
+var logical input u32 subgroup_local_id;
 
 @Internal @Leaf
 fn builtin_init_scheduler() {

@@ -73,8 +73,10 @@ typedef struct {
     bool validate_builtin_types; // do @Builtins variables need to match their type in builtins.h ?
     bool is_simt;
 
-    bool allow_subgroup_memory;
-    bool allow_shared_memory;
+    struct {
+        bool physical;
+        bool allowed;
+    } address_spaces[NumAddressSpaces];
 
     struct {
         /// Selects which type the subgroup intrinsic primops use to manipulate masks
@@ -278,7 +280,6 @@ typedef struct CompilerConfig_ {
     struct {
         bool spv_shuffle_instead_of_broadcast_first;
         bool force_join_point_lifting;
-        bool assume_no_physical_global_ptrs;
         bool restructure_everything;
         bool recover_structure;
     } hacks;

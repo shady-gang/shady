@@ -17,11 +17,10 @@ bool compare_node(Node**, Node**);
 
 SpvStorageClass emit_addr_space(Emitter* emitter, AddressSpace address_space) {
     switch(address_space) {
-        case AsGlobalLogical:                return SpvStorageClassStorageBuffer;
-        case AsSharedLogical:                return SpvStorageClassWorkgroup;
-        case AsPrivateLogical:               return SpvStorageClassPrivate;
-        case AsFunctionLogical:              return SpvStorageClassFunction;
-        case AsGlobalPhysical:
+        case AsShared:                       return SpvStorageClassWorkgroup;
+        case AsPrivate:                      return SpvStorageClassPrivate;
+        case AsFunction:                     return SpvStorageClassFunction;
+        case AsGlobal:
             spvb_set_addressing_model(emitter->file_builder, SpvAddressingModelPhysicalStorageBuffer64);
             spvb_extension(emitter->file_builder, "SPV_KHR_physical_storage_buffer");
             spvb_capability(emitter->file_builder, SpvCapabilityPhysicalStorageBufferAddresses);

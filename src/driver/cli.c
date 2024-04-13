@@ -93,7 +93,6 @@ F(lower.emulate_physical_memory, emulate-physical-memory) \
 F(lower.emulate_generic_ptrs, emulate-generic-pointers) \
 F(dynamic_scheduling, dynamic-scheduling) \
 F(hacks.force_join_point_lifting, lift-join-points) \
-F(hacks.assume_no_physical_global_ptrs, assume-no-physical-global-ptrs) \
 F(logging.print_internal, print-internal) \
 F(logging.print_generated, print-builtin) \
 F(logging.print_generated, print-generated) \

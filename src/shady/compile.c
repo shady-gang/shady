@@ -49,11 +49,9 @@ CompilerConfig default_compiler_config() {
 }
 
 ArenaConfig default_arena_config() {
-    return (ArenaConfig) {
+    ArenaConfig config = {
         .is_simt = true,
         .validate_builtin_types = false,
-        .allow_subgroup_memory = true,
-        .allow_shared_memory = true,
 
         .memory = {
             .word_size = IntTy8,
@@ -64,6 +62,14 @@ ArenaConfig default_arena_config() {
             .delete_unreachable_structured_cases = true,
         },
     };
+
+    for (size_t i = 0; i < NumAddressSpaces; i++) {
+        // by default, all address spaces are physical !
+        config.address_spaces[i].physical = true;
+        config.address_spaces[i].allowed = true;
+    }
+
+    return config;
 }
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {

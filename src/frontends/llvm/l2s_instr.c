@@ -219,10 +219,10 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
         case LLVMAlloca: {
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = convert_type(p, LLVMGetAllocatedType(instr));
-            const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivatePhysical });
+            const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivate });
             r = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, alloca_op, singleton(allocated_t), empty(a)), singleton(allocated_ptr_t), NULL));
             if (UNTYPED_POINTERS) {
-                const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivatePhysical });
+                const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivate });
                 r = first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, singleton(untyped_ptr_t), singleton(r)), 1, NULL));
             }
             r = prim_op_helper(a, convert_op, singleton(t), singleton(r));
@@ -308,24 +308,13 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             if (src_t->tag == PtrType_TAG && t->tag == PtrType_TAG) {
                 if ((t->payload.ptr_type.address_space == AsGeneric)) {
                     switch (src_t->payload.ptr_type.address_space) {
-                        case AsPrivatePhysical:
-                        case AsSubgroupPhysical:
-                        case AsSharedPhysical:
-                        case AsGlobalPhysical:
-                            op = convert_op;
-                            break;
                         case AsGeneric: // generic-to-generic isn't a conversion.
                             break;
                         default: {
-                            warn_print("Cannot cast address space %s to Generic! Ignoring.\n", get_address_space_name(src_t->payload.ptr_type.address_space));
-                            r = quote_helper(a, singleton(src));
-                            goto shortcut;
+                            op = convert_op;
+                            break;
                         }
                     }
-                } else if (!is_physical_as(t->payload.ptr_type.address_space)) {
-                    warn_print("Cannot cast address space %s since it's non-physical. Ignoring.\n", get_address_space_name(src_t->payload.ptr_type.address_space));
-                    r = quote_helper(a, singleton(src));
-                    goto shortcut;
                 }
             } else {
                 assert(opcode != LLVMAddrSpaceCast);

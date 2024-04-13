@@ -29,6 +29,23 @@ static const Node* assert_and_strip_fn_addr(const Node* fn) {
     return fn;
 }
 
+static const Node* look_past_stuff(const Node* thing) {
+    if (thing->tag == Constant_TAG) {
+        const Node* instr = thing->payload.constant.instruction;
+        assert(instr->tag == PrimOp_TAG);
+        thing = instr;
+    }
+    if (thing->tag == PrimOp_TAG) {
+        switch (thing->payload.prim_op.op) {
+            case reinterpret_op:
+            case convert_op:
+            case lea_op: thing = first(thing->payload.prim_op.operands); break;
+            default: assert(false);
+        }
+    }
+    return thing;
+}
+
 void process_llvm_annotations(Parser* p, LLVMValueRef global) {
     IrArena* a = get_module_arena(p->dst);
     const Type* t = convert_type(p, LLVMGlobalGetValueType(global));
@@ -39,19 +56,11 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
     assert(value->tag == Composite_TAG && value->payload.composite.contents.count == arr_size);
     for (size_t i = 0; i < arr_size; i++) {
         const Node* entry = value->payload.composite.contents.nodes[i];
+        entry = look_past_stuff(entry);
         assert(entry->tag == Composite_TAG);
         const Node* annotation_payload = entry->payload.composite.contents.nodes[1];
         // eliminate dummy reinterpret cast
-        if (annotation_payload->tag == Constant_TAG) {
-            const Node* instr = annotation_payload->payload.constant.instruction;
-            assert(instr->tag == PrimOp_TAG);
-            switch (instr->payload.prim_op.op) {
-                case reinterpret_op:
-                case convert_op:
-                case lea_op: annotation_payload = first(instr->payload.prim_op.operands); break;
-                default: assert(false);
-            }
-        }
+        annotation_payload = look_past_stuff(annotation_payload);
         if (annotation_payload->tag == RefDecl_TAG) {
             annotation_payload = annotation_payload->payload.ref_decl.decl;
         }
