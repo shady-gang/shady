@@ -189,6 +189,38 @@ static void wipe_all_leaked_pointers(KnowledgeBase* kb) {
     }
 }
 
+static const Node* find_or_request_known_ptr_value(Context* ctx, KnowledgeBase* kb, const Node* optr) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    PtrKnowledge* ok = get_last_valid_ptr_knowledge(kb, optr);
+    const Node* known_value = get_known_value(kb, ok);
+    if (known_value) {
+        const Type* known_value_t = known_value->type;
+        bool kv_u = deconstruct_qualified_type(&known_value_t);
+
+        const Type* load_result_t = rewrite_node(&ctx->rewriter, optr->type);
+        bool lrt_u = deconstruct_qualified_type(&load_result_t);
+        deconstruct_pointer_type(&load_result_t);
+        // assert(!lrt_u || kv_u);
+        if (is_reinterpret_cast_legal(load_result_t, known_value_t)) {
+            const Node* n = prim_op_helper(a, reinterpret_op, singleton(load_result_t), singleton(known_value));
+            if (lrt_u && !kv_u)
+                n = prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(known_value));
+            return n;
+        }
+    } else {
+        const KnowledgeBase* phi_kb = kb;
+        while (phi_kb->dominator_kb) {
+            phi_kb = phi_kb->dominator_kb;
+        }
+        debug_print("mem2reg: It'd sure be nice to know the value of ");
+        log_node(DEBUG, optr);
+        debug_print(" at phi-like node %s.\n", get_abstraction_name(phi_kb->cfnode->node));
+        // log_node(DEBUG, phi_location->node);
+        insert_set_get_key(const Node*, phi_kb->potential_additional_params, optr);
+    }
+    return NULL;
+}
+
 static PtrKnowledge* find_or_create_ptr_knowledge_for_updating(Context* ctx, KnowledgeBase* kb, const Node* optr, bool create) {
     Rewriter* r = &ctx->rewriter;
     PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, optr);
@@ -311,33 +343,9 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                 }
                 case load_op: {
                     const Node* optr = first(payload.operands);
-                    PtrKnowledge* ok = get_last_valid_ptr_knowledge(kb, optr);
-                    const Node* known_value = get_known_value(kb, ok);
-                    if (known_value) {
-                        const Type* known_value_t = known_value->type;
-                        bool kv_u = deconstruct_qualified_type(&known_value_t);
-
-                        const Type* load_result_t = rewrite_node(&ctx->rewriter, optr->type);
-                        bool lrt_u = deconstruct_qualified_type(&load_result_t);
-                        deconstruct_pointer_type(&load_result_t);
-                        // assert(!lrt_u || kv_u);
-                        if (is_reinterpret_cast_legal(load_result_t, known_value_t)) {
-                            const Node* n = prim_op_helper(a, reinterpret_op, singleton(load_result_t), singleton(known_value));
-                            if (lrt_u && !kv_u)
-                                n = prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(known_value));
-                            return n;
-                        }
-                    } else {
-                        const KnowledgeBase* phi_kb = kb;
-                        while (phi_kb->dominator_kb) {
-                            phi_kb = phi_kb->dominator_kb;
-                        }
-                        debug_print("mem2reg: It'd sure be nice to know the value of ");
-                        log_node(DEBUG, first(payload.operands));
-                        debug_print(" at phi-like node %s.\n", get_abstraction_name(phi_kb->cfnode->node));
-                        // log_node(DEBUG, phi_location->node);
-                        insert_set_get_key(const Node*, phi_kb->potential_additional_params, optr);
-                    }
+                    const Node* known_value = find_or_request_known_ptr_value(ctx, kb, optr);
+                    if (known_value)
+                        return known_value;
                     // const Node* other_ptr = get_known_address(&ctx->rewriter, ok);
                     // if (other_ptr && optr != other_ptr) {
                     //     return prim_op_helper(a, load_op, empty(a), singleton(other_ptr));
