@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
 
     int32_t a0 = 42;
     uint64_t a1 = get_buffer_device_pointer(buffer);
-    wait_completion(launch_kernel(program, device, "my_kernel", 1, 1, 1, 2, (void*[]) { &a0, &a1 }));
+    wait_completion(launch_kernel(program, device, args.driver_config.config.specialization.entry_point ? args.driver_config.config.specialization.entry_point : "my_kernel", 1, 1, 1, 2, (void*[]) { &a0, &a1 }));
 
     destroy_buffer(buffer);
 
