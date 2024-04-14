@@ -1,4 +1,5 @@
 #define EXTERNAL_FN /* not static */
+
 #include "ao.h"
 #include "../runtime/runtime_app_common.h"
 
@@ -24,7 +25,7 @@ static uint64_t timespec_to_nano(struct timespec t) {
     return t.tv_sec * 1000000000 + t.tv_nsec;
 }
 
-void saveppm(const char *fname, int w, int h, unsigned char *img) {
+void saveppm(const char *fname, int w, int h, TEXEL_T* img) {
     FILE *fp;
 
     fp = fopen(fname, "wb");
@@ -33,11 +34,15 @@ void saveppm(const char *fname, int w, int h, unsigned char *img) {
     fprintf(fp, "P6\n");
     fprintf(fp, "%d %d\n", w, h);
     fprintf(fp, "255\n");
-    fwrite(img, w * h * 3, 1, fp);
+    // fwrite(img, w * h * 3, 1, fp);
+    for (size_t i = 0; i < w * h * 3; i++) {
+        unsigned char c = img[i];
+        fwrite(&c, 1, 1, fp);
+    }
     fclose(fp);
 }
 
-void render_host(unsigned char *img, int w, int h, int nsubsamples) {
+void render_host(TEXEL_T* img, int w, int h, int nsubsamples) {
     int x, y;
     Scalar* fimg = (Scalar *)malloc(sizeof(Scalar) * w * h * 3);
     memset((void *)fimg, 0, sizeof(Scalar) * w * h * 3);
@@ -68,7 +73,7 @@ typedef struct {
 
 extern Vec3u builtin_NumWorkgroups;
 
-void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
+void render_ispc(TEXEL_T* img, int w, int h, int nsubsamples) {
     struct timespec ts;
     timespec_get(&ts, TIME_UTC);
     uint64_t tsn = timespec_to_nano(ts);
@@ -94,7 +99,7 @@ void render_ispc(unsigned char *img, int w, int h, int nsubsamples) {
 }
 #endif
 
-void render_device(Args* args, unsigned char *img, int w, int h, int nsubsamples, String path) {
+void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, String path, bool import_memory) {
     for (size_t i = 0; i < WIDTH; i++) {
         for (size_t j = 0; j < HEIGHT; j++) {
             img[j * WIDTH * 3 + i * 3 + 0] = 255;
@@ -112,7 +117,12 @@ void render_device(Args* args, unsigned char *img, int w, int h, int nsubsamples
     img[0] = 69;
     info_print("malloc'd address is: %zu\n", (size_t) img);
 
-    Buffer* buf = import_buffer_host(device, img, sizeof(uint8_t) * WIDTH * HEIGHT * 3);
+    Buffer* buf;
+    if (import_memory)
+        buf = import_buffer_host(device, img, sizeof(*img) * WIDTH * HEIGHT * 3);
+    else
+        buf = allocate_buffer_device(device, sizeof(*img) * WIDTH * HEIGHT * 3);
+
     uint64_t buf_addr = get_buffer_device_pointer(buf);
 
     info_print("Device-side address is: %zu\n", buf_addr);
@@ -132,6 +142,8 @@ void render_device(Args* args, unsigned char *img, int w, int h, int nsubsamples
 
     debug_print("data %d\n", (int) img[0]);
 
+    if (!import_memory)
+        copy_from_buffer(buf, 0, img, sizeof(*img) * WIDTH * HEIGHT * 3);
     destroy_buffer(buf);
 
     shutdown_runtime(runtime);
@@ -170,7 +182,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    unsigned char *img = (unsigned char *)malloc(WIDTH * HEIGHT * 3);
+    void *img = malloc(WIDTH * HEIGHT * 3 * sizeof(TEXEL_T));
 
     if (do_host || do_all) {
         render_host(img, WIDTH, HEIGHT, NSUBSAMPLES);
@@ -185,7 +197,7 @@ int main(int argc, char **argv) {
 #endif
 
     if (do_device || do_all) {
-        render_device(&args, img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.comp.c.ll");
+        render_device(&args, img, WIDTH, HEIGHT, NSUBSAMPLES, "./ao.comp.c.ll", false);
         saveppm("device.ppm", WIDTH, HEIGHT, img);
     }
 

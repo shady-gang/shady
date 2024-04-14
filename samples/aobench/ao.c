@@ -203,13 +203,13 @@ FUNCTION static unsigned char aobench_clamp(Scalar f)
     return (unsigned char) s;
 }
 
-FUNCTION EXTERNAL_FN Ctx get_init_context() {
+EXTERNAL_FN Ctx get_init_context() {
     return (Ctx) {
             .rng = 0xFEEFDEED,
     };
 }
 
-FUNCTION EXTERNAL_FN void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, unsigned char* img) {
+EXTERNAL_FN void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamples, TEXEL_T* img) {
     Scalar pixel[3] = { 0, 0, 0 };
 
     ctx->rng = x * w + y;
@@ -269,7 +269,7 @@ FUNCTION EXTERNAL_FN void render_pixel(Ctx* ctx, int x, int y, int w, int h, int
     img[3 * (y * w + x) + 2] = aobench_clamp(pixel[2]);
 }
 
-FUNCTION EXTERNAL_FN void init_scene(Ctx* ctx)
+EXTERNAL_FN void init_scene(Ctx* ctx)
 {
     ctx->spheres[0].center.x = -2.0f;
     ctx->spheres[0].center.y =  0.0f;
