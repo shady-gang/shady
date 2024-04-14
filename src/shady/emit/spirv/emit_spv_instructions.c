@@ -385,7 +385,10 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 assert(results_count == 1);
                 results[0] = result;
             } else {
-                error("TODO: OpPtrAccessChain")
+                const Type* target_type = instr->type;
+                SpvId result = spvb_ptr_access_chain(bb_builder, emit_type(emitter, target_type), base, emit_value(emitter, bb_builder, args.nodes[1]), args.count - 2, indices);
+                assert(results_count == 1);
+                results[0] = result;
             }
             return;
         }
