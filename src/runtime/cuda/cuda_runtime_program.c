@@ -34,7 +34,8 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
 static bool cuda_c_to_ptx(CudaKernel* kernel) {
     nvrtcProgram program;
     CHECK_NVRTC(nvrtcCreateProgram(&program, kernel->cuda_code, kernel->key.entry_point, 0, NULL, NULL), return false);
-    nvrtcResult compile_result = nvrtcCompileProgram(program, 0, false);
+    const char* args[] = { "--use_fast_math" };
+    nvrtcResult compile_result = nvrtcCompileProgram(program, sizeof(args) / sizeof(*args), args);
     if (compile_result != NVRTC_SUCCESS) {
         error_print("NVRTC compilation failed: %s\n", nvrtcGetErrorString(compile_result));
         debug_print("Dumping source:\n%s", kernel->cuda_code);
