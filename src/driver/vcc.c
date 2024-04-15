@@ -152,6 +152,7 @@ int main(int argc, char** argv) {
             remove(vcc_options.tmp_filename);
 
         driver_compile(&args, mod);
+        destroy_ir_arena(get_module_arena(mod));
     }
 
     info_print("Done\n");

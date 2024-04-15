@@ -1033,8 +1033,11 @@ void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod)
         config.print_builtin = compiler_cfg->logging.print_builtin;
         config.print_internal = compiler_cfg->logging.print_internal;
     }
-    if (level >= get_log_level())
-        print_module(open_file_as_printer(stderr), mod, config);
+    if (level >= get_log_level()) {
+        Printer* p = open_file_as_printer(stderr);
+        print_module(p, mod, config);
+        destroy_printer(p);
+    }
 }
 
 void print_node_operand(Printer* p, const Node* n, String name, NodeClass op_class, const Node* op, PrintConfig config) {

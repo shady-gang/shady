@@ -157,4 +157,5 @@ void destroy_scope_variables_map(struct Dict* map) {
         destroy_dict(value->free_set);
         free((void*) value);
     }
+    destroy_dict(map);
 }

@@ -104,6 +104,7 @@ ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
         if (err)
             return err;
         link_module(mod, m);
+        destroy_ir_arena(get_module_arena(m));
     }
 
     return NoError;

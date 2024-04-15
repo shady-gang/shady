@@ -378,9 +378,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
     Rewriter* rewriter = &ctx->rewriter;
     IrArena* arena = rewriter->dst_arena;
 
+    Context new_context = *ctx;
+
     switch (node->tag) {
         case Function_TAG: {
-            Context new_context = *ctx;
             ctx = &new_context;
             ctx->current_fn = node;
             ctx->fwd_scope = new_scope(ctx->current_fn);
@@ -397,7 +398,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case Constant_TAG: {
-            Context new_context = *ctx;
             ctx = &new_context;
             ctx->current_fn = NULL;
             rewriter = &ctx->rewriter;
