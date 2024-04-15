@@ -113,6 +113,7 @@ add_subdirectory(emit)
 target_link_libraries(shady PRIVATE "api")
 target_link_libraries(shady INTERFACE "common")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
+target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/shady DESTINATION include)
 install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
