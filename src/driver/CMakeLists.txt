@@ -1,6 +1,6 @@
 add_library(driver driver.c cli.c)
-target_link_libraries(driver PUBLIC "$<BUILD_INTERFACE:api>")
-target_link_libraries(driver PUBLIC "$<BUILD_INTERFACE:shady>")
+target_link_libraries(driver PUBLIC "api")
+target_link_libraries(driver PUBLIC "shady")
 set_target_properties(driver PROPERTIES OUTPUT_NAME "shady_driver")
 install(TARGETS driver EXPORT shady_export_set)
 
