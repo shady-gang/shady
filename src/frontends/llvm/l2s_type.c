@@ -49,18 +49,6 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             Node* decl = NULL;
             const Node* result = NULL;
             if (name) {
-                if (strcmp(name, "struct.__shady_builtin_sampler2D") == 0)
-                    return sampled_image_type(a, (SampledImageType) { .image_type = image_type(a, (ImageType) {
-                        //.sampled_type = pack_type(a, (PackType) { .element_type = float_type(a, (Float) { .width = FloatTy32 }), .width = 4 }),
-                        .sampled_type = float_type(a, (Float) { .width = FloatTy32 }),
-                        .dim = 1,
-                        .depth = 0,
-                        .arrayed = 0,
-                        .ms = 0,
-                        .sampled = 1,
-                        .imageformat = 0
-                    } ) });
-
                 decl = nominal_type(p->dst, empty(a), name);
                 result = type_decl_ref_helper(a, decl);
                 insert_dict(LLVMTypeRef, const Type*, p->map, t, result);
@@ -89,7 +77,21 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             return arr_type(a, (ArrType) { .element_type = elem_t, .size = uint32_literal(a, length)});
         }
         case LLVMPointerTypeKind: {
-            AddressSpace as = convert_llvm_address_space(LLVMGetPointerAddressSpace(t));
+            unsigned int llvm_as = LLVMGetPointerAddressSpace(t);
+            switch (llvm_as) {
+                case 0x1000: return sampled_image_type(a, (SampledImageType) { .image_type = image_type(a, (ImageType) {
+                            //.sampled_type = pack_type(a, (PackType) { .element_type = float_type(a, (Float) { .width = FloatTy32 }), .width = 4 }),
+                            .sampled_type = float_type(a, (Float) { .width = FloatTy32 }),
+                            .dim = 1,
+                            .depth = 0,
+                            .arrayed = 0,
+                            .ms = 0,
+                            .sampled = 1,
+                            .imageformat = 0
+                    } ) });
+                default: break;
+            }
+            AddressSpace as = convert_llvm_address_space(llvm_as);
             const Type* pointee = NULL;
 #if !UNTYPED_POINTERS
             LLVMTypeRef element_type = LLVMGetElementType(t);

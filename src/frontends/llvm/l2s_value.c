@@ -130,6 +130,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             return get_default_zero_value(a, convert_type(p, LLVMTypeOf(v)));
         case LLVMConstantArrayValueKind: {
             assert(t->tag == ArrType_TAG);
+            assert(LLVMIsConstant(v));
             if (LLVMIsConstantString(v)) {
                 size_t idc;
                 r = string_lit_helper(a, LLVMGetAsString(v, &idc));
