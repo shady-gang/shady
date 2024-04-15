@@ -131,12 +131,6 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             return get_default_zero_value(a, convert_type(p, LLVMTypeOf(v)));
         case LLVMConstantArrayValueKind: {
             assert(t->tag == ArrType_TAG);
-            assert(LLVMIsConstant(v));
-            if (LLVMIsConstantString(v)) {
-                size_t idc;
-                r = string_lit_helper(a, LLVMGetAsString(v, &idc));
-                break;
-            }
             size_t arr_size = get_int_literal_value(*resolve_to_int_literal(t->payload.arr_type.size), false);
             assert(arr_size >= 0 && arr_size < INT32_MAX && "sanity check");
             LARRAY(const Node*, elements, arr_size);
