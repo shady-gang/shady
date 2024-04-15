@@ -92,9 +92,6 @@ bool is_subtype(const Type* supertype, const Type* type) {
         } case PtrType_TAG: {
             if (supertype->payload.ptr_type.address_space != type->payload.ptr_type.address_space)
                 return false;
-            // if either pointer type is untyped, both need to be
-            if (supertype->arena->config.untyped_ptrs && (!supertype->payload.ptr_type.pointed_type || !type->payload.ptr_type.pointed_type))
-                return !supertype->payload.ptr_type.pointed_type && !type->payload.ptr_type.pointed_type;
             if (!supertype->payload.ptr_type.is_reference && type->payload.ptr_type.is_reference)
                 return false;
             return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
@@ -786,7 +783,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const IntLiteral* lit = resolve_to_int_literal(offset);
             bool offset_is_zero = lit && lit->value == 0;
             assert(offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference && "if an offset is used, the base cannot be a reference");
-            assert(offset_is_zero || pointee_type->tag == ArrType_TAG && "if an offset is used, the base ptr must point to an array");
             uniform &= offset_uniform;
 
             Nodes indices = nodes(arena, prim_op.operands.count - 2, &prim_op.operands.nodes[2]);

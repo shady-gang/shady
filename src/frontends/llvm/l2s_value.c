@@ -80,12 +80,13 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
                 name = unique_name(a, "constant_expr");
             Nodes annotations = singleton(annotation(a, (Annotation) { .name = "SkipOnInfer" }));
             annotations = empty(a);
-            Node* decl = constant(p->dst, annotations, NULL, name);
+            assert(t);
+            Node* decl = constant(p->dst, annotations, t, name);
             r = ref_decl_helper(a, decl);
             insert_dict(LLVMTypeRef, const Type*, p->map, v, r);
             BodyBuilder* bb = begin_body(a);
             EmittedInstr emitted = convert_instruction(p, NULL, bb, v);
-            Nodes types = singleton(convert_type(p, LLVMTypeOf(v)));
+            Nodes types = singleton(t);
             decl->payload.constant.instruction = bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, emitted.instruction, &types);
             return r;
         }

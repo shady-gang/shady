@@ -58,11 +58,13 @@ const Type* get_pointee_type(IrArena* arena, const Type* type) {
 
 void step_composite(const Type** datatype, bool* uniform, const Node* selector, bool allow_entering_pack) {
     const Type* current_type = *datatype;
-    const Type* selector_type = selector->type;
-    bool selector_uniform = deconstruct_qualified_type(&selector_type);
 
-    assert(selector_type->tag == Int_TAG && "selectors must be integers");
-    *uniform &= selector_uniform;
+    if (selector->arena->config.check_types) {
+        const Type* selector_type = selector->type;
+        bool selector_uniform = deconstruct_qualified_type(&selector_type);
+        assert(selector_type->tag == Int_TAG && "selectors must be integers");
+        *uniform &= selector_uniform;
+    }
 
     try_again:
     switch (current_type->tag) {

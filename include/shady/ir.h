@@ -69,7 +69,6 @@ typedef struct {
     bool check_op_classes;
     bool check_types;
     bool allow_fold;
-    bool untyped_ptrs;
     bool validate_builtin_types; // do @Builtins variables need to match their type in builtins.h ?
     bool is_simt;
 

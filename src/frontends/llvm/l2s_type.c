@@ -1,4 +1,5 @@
 #include "l2s_private.h"
+#include "type.h"
 
 #include "portability.h"
 #include "log.h"
@@ -39,6 +40,8 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             const Type* ret_type = convert_type(p, LLVMGetReturnType(t));
             if (LLVMGetTypeKind(LLVMGetReturnType(t)) == LLVMVoidTypeKind)
                 ret_type = empty_multiple_return_type(a);
+            else
+                ret_type = qualified_type_helper(ret_type, false);
             return fn_type(a, (FnType) {
                 .param_types = nodes(a, num_params, cparam_types),
                 .return_types = ret_type == empty_multiple_return_type(a) ? empty(a) : singleton(ret_type)
@@ -96,6 +99,8 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
 #if !UNTYPED_POINTERS
             LLVMTypeRef element_type = LLVMGetElementType(t);
             pointee = convert_type(p, element_type);
+#else
+            pointee = unit_type(a);
 #endif
             return ptr_type(a, (PtrType) {
                 .address_space = as,

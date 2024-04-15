@@ -30,8 +30,9 @@ CompilerConfig default_compiler_config() {
 
         .logging = {
             // most of the time, we are not interested in seeing generated & internal code in the debug output
-            .print_internal = true,
-            .print_generated = true,
+            //.print_internal = true,
+            //.print_generated = true,
+            .print_builtin = true,
         },
 
         .optimisations = {

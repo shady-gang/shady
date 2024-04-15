@@ -24,10 +24,13 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 
     switch (node->tag) {
-        case Constant_TAG: return NULL;
+        case Constant_TAG:
+            if (!node->payload.constant.instruction)
+                break;
+            return NULL;
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
-            if (decl->tag == Constant_TAG) {
+            if (decl->tag == Constant_TAG && decl->payload.constant.instruction) {
                 const Node* value = get_quoted_value(decl->payload.constant.instruction);
                 if (value)
                     return rewrite_node(&ctx->rewriter, value);

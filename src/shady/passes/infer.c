@@ -78,8 +78,9 @@ static const Node* infer_type(Context* ctx, const Type* type) {
         }
         case PtrType_TAG: {
             const Node* element_type = infer(ctx, type->payload.ptr_type.pointed_type, NULL);
-            if (!element_type)
-                element_type = unit_type(a);
+            assert(element_type);
+            //if (!element_type)
+            //    element_type = unit_type(a);
             return ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = type->payload.ptr_type.address_space });
         }
         default: return recreate_node_identity(&ctx->rewriter, type);
@@ -117,15 +118,18 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
         case Constant_TAG: {
             const Constant* oconstant = &node->payload.constant;
             const Type* imported_hint = infer(ctx, oconstant->type_hint, NULL);
-            const Node* instruction;
+            const Node* instruction = NULL;
             if (imported_hint) {
                 assert(is_data_type(imported_hint));
                 Nodes s = singleton(qualified_type_helper(imported_hint, true));
-                instruction = infer_instruction(ctx, oconstant->instruction, &s);
-            } else {
+                if (oconstant->instruction)
+                    instruction = infer_instruction(ctx, oconstant->instruction, &s);
+            } else if (oconstant->instruction) {
                 instruction = infer_instruction(ctx, oconstant->instruction, NULL);
             }
-            imported_hint = get_unqualified_type(instruction->type);
+            if (instruction)
+                imported_hint = get_unqualified_type(instruction->type);
+            assert(imported_hint);
 
             Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
             register_processed(&ctx->rewriter, node, nconstant);
@@ -233,25 +237,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
         case True_TAG: return true_lit(a);
         case False_TAG: return false_lit(a);
         case StringLiteral_TAG: return string_lit(a, (StringLiteral) { .string = string(a, node->payload.string_lit.string )});
-        case RefDecl_TAG: {
-            if (get_arena_config(ctx->rewriter.src_arena).untyped_ptrs) {
-                const Node* ref_decl = recreate_node_identity(&ctx->rewriter, node);
-                assert(ref_decl->tag == RefDecl_TAG);
-                const Node* decl = ref_decl->payload.ref_decl.decl;
-                if (decl->tag == GlobalVariable_TAG) {
-                    AddressSpace as = decl->payload.global_variable.address_space;
-                    /*if (is_physical_as(as)) {
-                        const Node* untyped_ptr = ptr_type(a, (PtrType) {.address_space = as, .pointed_type = unit_type(a)});
-                        Node* cast_constant = constant(ctx->rewriter.dst_module, empty(a), untyped_ptr, format_string_interned(a, "%s_cast", get_declaration_name(decl)));
-                        cast_constant->payload.constant.instruction = prim_op_helper(a, reinterpret_op, singleton(untyped_ptr), singleton(ref_decl));
-                        const Node* cast_ref_decl = ref_decl_helper(a, cast_constant);
-                        register_processed(r, node, cast_ref_decl);
-                        return cast_ref_decl;
-                    }*/
-                }
-            }
-            break;
-        }
+        case RefDecl_TAG: break;
         case FnAddr_TAG: break;
         case Value_Undef_TAG: break;
         case Value_Composite_TAG: {
@@ -356,57 +342,6 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
     return bb;
 }
 
-static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* element_type) {
-    assert(element_type);
-    IrArena* a = untyped_ptr_t->arena;
-    assert(untyped_ptr_t->tag == PtrType_TAG);
-    const Type* typed_ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = untyped_ptr_t->payload.ptr_type.address_space });
-    return typed_ptr_t;
-}
-
-static const Node* reinterpret_cast_helper(BodyBuilder* bb, const Node* ptr, const Type* typed_ptr_t) {
-    IrArena* a = ptr->arena;
-    ptr = gen_reinterpret_cast(bb, typed_ptr_t, ptr);
-    return ptr;
-}
-
-// Turns untyped pointers back into typed pointers
-// For physical pointers, we can just reinterpret them
-// For logical pointers, we need to do some stupid best-effort tricks and pray it works out
-// the sort of casts we can allow are casting a pointer to a composite to a pointer to one of it's first elements
-// we just attempt to do LEAs until we hit the right type, or some unrecoverable error
-static void fix_source_pointer(BodyBuilder* bb, const Node** operand, const Type* element_type) {
-    IrArena* a = element_type->arena;
-    const Type* original_operand_t = get_unqualified_type((*operand)->type);
-    assert(original_operand_t->tag == PtrType_TAG);
-    if (is_physical_ptr_type(original_operand_t)) {
-        // typed loads - normalise to typed ptrs instead by generating an extra cast!
-        const Type *ptr_type = original_operand_t;
-        ptr_type = type_untyped_ptr(ptr_type, element_type);
-        *operand = reinterpret_cast_helper(bb, *operand, ptr_type);
-    } else {
-        // we can't insert a cast but maybe we can make this work
-        do {
-            const Node* ptr_t = get_unqualified_type((*operand)->type);
-            const Type* pointee = get_pointer_type_element(ptr_t);
-            if (pointee == element_type)
-                return;
-            pointee = get_maybe_nominal_type_body(pointee);
-            if (pointee->tag == RecordType_TAG) {
-                *operand = gen_lea(bb, *operand, int32_literal(a, 0), singleton(int32_literal(a, 0)));
-                continue;
-            }
-            if (pointee->tag == ArrType_TAG) {
-                *operand = gen_lea(bb, *operand, int32_literal(a, 0), singleton(int32_literal(a, 0)));
-                continue;
-            }
-            // TODO: better diagnostics
-            error_print("Fatal: Trying to type-pun a pointer in logical memory (%s)\n", get_address_space_name(get_pointer_type_address_space(ptr_t)));
-            error_die();
-        } while(true);
-    }
-}
-
 static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* expected_types) {
     assert(node->tag == PrimOp_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
@@ -438,27 +373,20 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* exp
             assert(type_args.count == 1);
             const Type* element_type = type_args.nodes[0];
             assert(is_data_type(element_type));
-            //new_inputs_scratch[0] = element_type;
             goto rebuild;
         }
         case load_op: {
             assert(old_operands.count == 1);
             assert(type_args.count <= 1);
             new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
-            if (type_args.count == 1) {
-                fix_source_pointer(bb, &new_operands[0], first(type_args));
-                type_args = empty(a);
-            }
+            assert(type_args.count == 0);
             goto rebuild;
         }
         case store_op: {
             assert(old_operands.count == 2);
             assert(type_args.count <= 1);
             new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
-            if (type_args.count == 1) {
-                fix_source_pointer(bb, &new_operands[0], first(type_args));
-                type_args = empty(a);
-            }
+            assert(type_args.count == 0);
             const Type* ptr_type = get_unqualified_type(new_operands[0]->type);
             assert(ptr_type->tag == PtrType_TAG);
             const Type* element_t = ptr_type->payload.ptr_type.pointed_type;
@@ -498,44 +426,17 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* exp
             const Type* src_ptr = remove_uniformity_qualifier(new_operands[0]->type);
             const Type* base_datatype = src_ptr;
             assert(base_datatype->tag == PtrType_TAG);
-            AddressSpace as = get_pointer_type_address_space(base_datatype);
-            bool was_untyped = false;
-            if (type_args.count == 1) {
-                was_untyped = true;
-                base_datatype = type_untyped_ptr(base_datatype, first(type_args));
-                new_operands[0] = reinterpret_cast_helper(bb, new_operands[0], base_datatype);
-                type_args = empty(a);
-            }
+            assert(type_args.count == 0);
 
             Nodes new_ops = nodes(a, old_operands.count, new_operands);
 
             const Node* offset = new_operands[1];
-            const IntLiteral* offset_lit = resolve_to_int_literal(offset);
-            if ((!offset_lit || offset_lit->value) != 0 && base_datatype->tag != ArrType_TAG) {
-                warn_print("LEA used on a pointer to a non-array type!\n");
-                const Type* arrayed_src_t = ptr_type(a, (PtrType) {
-                        .address_space = as,
-                        .pointed_type = arr_type(a, (ArrType) {
-                            .element_type = get_pointer_type_element(base_datatype),
-                            .size = NULL
-                        }),
-                });
-                const Node* cast_base = gen_reinterpret_cast(bb, arrayed_src_t, first(new_ops));
-                Nodes final_lea_ops = mk_nodes(a, cast_base, offset, int32_literal(a, 0));
-                final_lea_ops = concat_nodes(a, final_lea_ops, nodes(a, old_operands.count - 2, new_operands + 2));
-                new_ops = final_lea_ops;
-            }
 
             const Node* result = first(bind_instruction(bb, prim_op(a, (PrimOp) {
                 .op = lea_op,
                 .type_arguments = empty(a),
                 .operands = new_ops
             })));
-
-            if (was_untyped) {
-                const Type* result_t = type_untyped_ptr(base_datatype, unit_type(a));
-                result = gen_reinterpret_cast(bb, result_t, result);
-            }
 
             return yield_values_and_wrap_in_block(bb, singleton(result));
         }
@@ -874,7 +775,6 @@ Module* infer_program(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     assert(!aconfig.check_types);
     aconfig.check_types = true;
-    aconfig.untyped_ptrs = false;
     aconfig.allow_fold = true; // TODO was moved here because a refactor, does this cause issues ?
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));

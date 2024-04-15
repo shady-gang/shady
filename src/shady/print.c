@@ -832,11 +832,13 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(BYELLOW);
             printf(" %s", cnst->name);
             printf(RESET);
-            printf(" = ");
-            if (get_quoted_value(cnst->instruction))
-                print_node(get_quoted_value(cnst->instruction));
-            else
-                print_node(cnst->instruction);
+            if (cnst->instruction) {
+                printf(" = ");
+                if (get_quoted_value(cnst->instruction))
+                    print_node(get_quoted_value(cnst->instruction));
+                else
+                    print_node(cnst->instruction);
+            }
             printf(";\n");
             break;
         }

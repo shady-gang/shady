@@ -396,6 +396,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
             destroy_scope_variables_map(ctx->scope_vars);
             return new;
         }
+        case Constant_TAG: {
+            Context new_context = *ctx;
+            ctx = &new_context;
+            ctx->current_fn = NULL;
+            rewriter = &ctx->rewriter;
+            break;
+        }
         case Case_TAG:
         case BasicBlock_TAG:
             if (!ctx->current_fn || !(lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->hacks.restructure_everything))

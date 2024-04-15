@@ -37,9 +37,9 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
     const IntLiteral* offset_value = resolve_to_int_literal(offset);
     bool offset_is_zero = offset_value && offset_value->value == 0;
     if (!offset_is_zero) {
-        const Type* arr_type = pointer_type->payload.ptr_type.pointed_type;
-        assert(arr_type->tag == ArrType_TAG);
-        const Type* element_type = arr_type->payload.arr_type.element_type;
+        const Type* element_type = pointer_type->payload.ptr_type.pointed_type;
+        // assert(arr_type->tag == ArrType_TAG);
+        // const Type* element_type = arr_type->payload.arr_type.element_type;
 
         const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 

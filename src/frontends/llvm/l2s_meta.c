@@ -27,7 +27,7 @@ static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, Strin
     String name = LLVMGetValueName(v);
     if (!name || strlen(name) == 0)
         name = unique_name(a, node_name);
-    Node* g = global_var(p->dst, singleton(annotation(a, (Annotation) { .name = "SkipOnInfer" })), NULL, name, AsDebugInfo);
+    Node* g = global_var(p->dst, singleton(annotation(a, (Annotation) { .name = "LLVMMetaData" })), NULL, name, AsDebugInfo);
     const Node* r = ref_decl_helper(a, g);
     insert_dict(LLVMValueRef, const Type*, p->map, v, r);
 
