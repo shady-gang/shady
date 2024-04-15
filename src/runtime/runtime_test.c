@@ -50,12 +50,13 @@ int main(int argc, char* argv[]) {
 
     Program* program;
     IrArena* arena = NULL;
+    arena = new_ir_arena(default_arena_config());
     if (entries_count_list(args.driver_config.input_filenames) == 0) {
-        program = load_program(runtime, &args.driver_config.config, default_shader);
+        Module* module;
+        driver_load_source_file(&args.driver_config.config, SrcSlim, strlen(default_shader), default_shader, "runtime_test", &module);
+        program = new_program_from_module(runtime, &args.driver_config.config, module);
     } else {
-        arena = new_ir_arena(default_arena_config());
         Module* module = new_module(arena, "my_module");
-
         int err = driver_load_source_files(&args.driver_config, module);
         if (err)
             return err;

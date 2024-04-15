@@ -1356,13 +1356,16 @@ bool compare_spvid(SpvId* pa, SpvId* pb) {
     return *pa == *pb;
 }
 
-S2SError parse_spirv_into_shady(Module* dst, size_t len, const char* data) {
+S2SError parse_spirv_into_shady(size_t len, const char* data, String name, Module** dst) {
+    IrArena* a = new_ir_arena(default_arena_config());
+    *dst = new_module(a, name);
+
     SpvParser parser = {
         .cursor = 0,
         .len = len / sizeof(uint32_t),
         .words = (uint32_t*) data,
-        .mod = dst,
-        .arena = get_module_arena(dst),
+        .mod = *dst,
+        .arena = get_module_arena(*dst),
 
         .decorations_arena = new_arena(),
         .phi_arguments = new_dict(SpvId, SpvPhiArgs*, (HashFn) hash_spvid, (CmpFn) compare_spvid),

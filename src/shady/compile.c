@@ -51,7 +51,11 @@ CompilerConfig default_compiler_config() {
 ArenaConfig default_arena_config() {
     ArenaConfig config = {
         .is_simt = true,
-        .validate_builtin_types = false,
+        .name_bound = true,
+        .allow_fold = true,
+        .check_types = true,
+        .validate_builtin_types = true,
+        .check_op_classes = true,
 
         .memory = {
             .word_size = IntTy8,
@@ -72,26 +76,22 @@ ArenaConfig default_arena_config() {
     return config;
 }
 
+void add_scheduler_source(const CompilerConfig* config, Module* dst) {
+    ParserConfig pconfig = {
+        .front_end = true,
+    };
+    Module* builtin_scheduler_mod = parse_slim_module(config, pconfig, shady_scheduler_src, "builtin_scheduler");
+    debug_print("Adding builtin scheduler code");
+    link_module(dst, builtin_scheduler_mod);
+}
+
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     if (config->dynamic_scheduling) {
-        debugv_print("Parsing builtin scheduler code");
-        ParserConfig pconfig = {
-            .front_end = true,
-        };
-        parse_shady_ir(pconfig, shady_scheduler_src, *pmod);
+        add_scheduler_source(config, *pmod);
     }
 
     IrArena* initial_arena = (*pmod)->arena;
     Module* old_mod = NULL;
-
-    generate_dummy_constants(config, *pmod);
-
-    if (!get_module_arena(*pmod)->config.name_bound)
-        RUN_PASS(bind_program)
-    RUN_PASS(normalize)
-
-    RUN_PASS(normalize_builtins)
-    RUN_PASS(infer_program)
 
     RUN_PASS(reconvergence_heuristics)
 

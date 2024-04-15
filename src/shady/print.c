@@ -1024,7 +1024,7 @@ void log_node(LogLevel level, const Node* node) {
     }
 }
 
-void log_module(LogLevel level, CompilerConfig* compiler_cfg, Module* mod) {
+void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod) {
     PrintConfig config = { .color = true };
     if (compiler_cfg) {
         config.print_generated = compiler_cfg->logging.print_generated;

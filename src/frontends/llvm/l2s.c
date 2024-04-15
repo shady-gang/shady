@@ -230,7 +230,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     return r;
 }
 
-bool parse_llvm_into_shady(const CompilerConfig* config, Module* dst, size_t len, const char* data) {
+bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
     LLVMContextRef context = LLVMContextCreate();
     LLVMModuleRef src;
     LLVMMemoryBufferRef mem = LLVMCreateMemoryBufferWithMemoryRange(data, len, "my_great_buffer", false);
@@ -245,7 +245,12 @@ bool parse_llvm_into_shady(const CompilerConfig* config, Module* dst, size_t len
     get_module_arena(dst)->config.untyped_ptrs = true; // tolerate untyped ptrs...
 #endif
 
-    Module* dirty = new_module(get_module_arena(dst), "dirty");
+    ArenaConfig aconfig = default_arena_config();
+    aconfig.check_types = false;
+    aconfig.allow_fold = false;
+
+    IrArena* arena = new_ir_arena(aconfig);
+    Module* dirty = new_module(arena, "dirty");
     Parser p = {
         .ctx = context,
         .config = config,
@@ -274,7 +279,14 @@ bool parse_llvm_into_shady(const CompilerConfig* config, Module* dst, size_t len
         global = LLVMGetNextGlobal(global);
     }
 
-    postprocess(&p, dirty, dst);
+    aconfig.check_types = true;
+    aconfig.allow_fold = true;
+    IrArena* arena2 = new_ir_arena(aconfig);
+    *dst = new_module(arena2, name);
+    postprocess(&p, dirty, *dst);
+    log_module(DEBUG, config, *dst);
+    verify_module(config, *dst);
+    destroy_ir_arena(arena);
 
     destroy_dict(p.map);
     destroy_dict(p.annotations);

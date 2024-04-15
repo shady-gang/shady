@@ -127,7 +127,9 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
 
     info_print("Device-side address is: %zu\n", buf_addr);
 
-    Program* program = load_program_from_disk(runtime, &args->compiler_config, path);
+    Module* m;
+    CHECK(driver_load_source_file_from_filename(&args->compiler_config, path, "aobench", &m) == NoError, return);
+    Program* program = new_program_from_module(runtime, &args->compiler_config, m);
 
     // run it twice to compile everything and benefit from caches
     wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void*[]) { &buf_addr }));

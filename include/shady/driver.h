@@ -26,8 +26,8 @@ typedef enum {
 } SourceLanguage;
 
 SourceLanguage guess_source_language(const char* filename);
-ShadyErrorCodes driver_load_source_file(const CompilerConfig* config, SourceLanguage lang, size_t, const char* file_contents, Module* mod);
-ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* config, const char* filename, Module* mod);
+ShadyErrorCodes driver_load_source_file(const CompilerConfig* config, SourceLanguage lang, size_t, const char* file_contents, String, Module** mod);
+ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* config, const char* filename, String, Module** mod);
 
 typedef enum {
     TgtAuto,

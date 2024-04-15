@@ -326,6 +326,7 @@ typedef enum CompilationResult_ {
 } CompilationResult;
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
+void link_module(Module* dst, Module* src);
 
 //////////////////////////////// Emission ////////////////////////////////
 
