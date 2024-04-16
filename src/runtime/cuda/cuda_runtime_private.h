@@ -24,6 +24,8 @@ typedef struct {
     CUdevice handle;
     CUcontext context;
     char name[256];
+    int cc_major;
+    int cc_minor;
     struct Dict* specialized_programs;
 } CudaDevice;
 
