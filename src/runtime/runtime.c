@@ -74,8 +74,8 @@ Device* get_an_device(Runtime* r) {
 
 const char* get_device_name(Device* d) { return d->get_name(d); }
 
-Command* launch_kernel(Program* p, Device* d, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
-    return d->launch_kernel(d, p, entry_point, dimx, dimy, dimz, args_count, args);
+Command* launch_kernel(Program* p, Device* d, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions* extra_options) {
+    return d->launch_kernel(d, p, entry_point, dimx, dimy, dimz, args_count, args, extra_options);
 }
 
 bool wait_completion(Command* cmd) { return cmd->wait_for_completion(cmd); }

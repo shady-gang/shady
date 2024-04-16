@@ -181,6 +181,9 @@ struct VkrCommand_ {
     VkCommandBuffer cmd_buf;
     VkFence done_fence;
     bool submitted;
+
+    uint64_t* profiled_gpu_time;
+    VkQueryPool query_pool;
 };
 
 VkrCommand* vkr_begin_command(VkrDevice* device);
@@ -188,7 +191,7 @@ bool vkr_submit_command(VkrCommand* commands);
 void vkr_destroy_command(VkrCommand* commands);
 bool vkr_wait_completion(VkrCommand* cmd);
 
-VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args);
+VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions*);
 
 typedef struct ProgramResourceInfo_ ProgramResourceInfo;
 struct ProgramResourceInfo_ {

@@ -24,10 +24,16 @@ static void cuda_device_cleanup(CudaDevice* device) {
 
 bool cuda_command_wait(CudaCommand* command) {
     CHECK_CUDA(cuCtxSynchronize(), return false);
+    if (command->profiled_gpu_time) {
+        cudaEventSynchronize(command->stop);
+        float ms;
+        cudaEventElapsedTime(&ms, command->start, command->stop);
+        *command->profiled_gpu_time = (uint64_t) ((double) ms * 1000000);
+    }
     return true;
 }
 
-CudaCommand* shd_cuda_launch_kernel(CudaDevice* device, Program* p, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args) {
+CudaCommand* shd_cuda_launch_kernel(CudaDevice* device, Program* p, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions* options) {
     CudaKernel* kernel = shd_cuda_get_specialized_program(device, p, entry_point);
 
     CudaCommand* cmd = calloc(sizeof(CudaCommand), 1);
@@ -36,11 +42,20 @@ CudaCommand* shd_cuda_launch_kernel(CudaDevice* device, Program* p, String entry
             .wait_for_completion = (bool(*)(Command*)) cuda_command_wait
         }
     };
+
+    if (options && options->profiled_gpu_time) {
+        cmd->profiled_gpu_time = options->profiled_gpu_time;
+        cudaEventCreate(&cmd->start);
+        cudaEventCreate(&cmd->stop);
+        cudaEventRecord(cmd->start, 0);
+    }
+
     ArenaConfig final_config = get_arena_config(get_module_arena(kernel->final_module));
     unsigned int gx = final_config.specializations.workgroup_size[0];
     unsigned int gy = final_config.specializations.workgroup_size[1];
     unsigned int gz = final_config.specializations.workgroup_size[2];
     CHECK_CUDA(cuLaunchKernel(kernel->entry_point_function, dimx, dimy, dimz, gx, gy, gz, 0, 0, args, NULL), return NULL);
+    cudaEventRecord(cmd->stop, 0);
     return cmd;
 }
 
@@ -63,7 +78,7 @@ static CudaDevice* create_cuda_device(CudaBackend* b, int ordinal) {
             .allocate_buffer = (Buffer* (*)(Device*, size_t)) shd_cuda_allocate_buffer,
             .can_import_host_memory = (bool (*)(Device*)) shd_cuda_can_import_host_memory,
             .import_host_memory_as_buffer = (Buffer* (*)(Device*, void*, size_t)) shd_cuda_import_host_memory,
-            .launch_kernel = (Command*(*)(Device*, Program*, String, int, int, int, int, void**)) shd_cuda_launch_kernel,
+            .launch_kernel = (Command*(*)(Device*, Program*, String, int, int, int, int, void**, ExtraKernelOptions*)) shd_cuda_launch_kernel,
         },
         .handle = handle,
         .specialized_programs = new_dict(SpecProgramKey, CudaKernel*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys),

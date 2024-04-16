@@ -132,15 +132,19 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
     Program* program = new_program_from_module(runtime, &args->compiler_config, m);
 
     // run it twice to compile everything and benefit from caches
-    wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void*[]) { &buf_addr }));
+    wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void*[]) { &buf_addr }, NULL));
     struct timespec ts;
     timespec_get(&ts, TIME_UTC);
     uint64_t tsn = timespec_to_nano(ts);
-    wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void*[]) { &buf_addr }));
+    uint64_t profiled_gpu_time = 0;
+    ExtraKernelOptions extra_kernel_options = {
+        .profiled_gpu_time = &profiled_gpu_time
+    };
+    wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void*[]) { &buf_addr }, &extra_kernel_options));
     struct timespec tp;
     timespec_get(&tp, TIME_UTC);
     uint64_t tpn = timespec_to_nano(tp);
-    info_print("device rendering took %d us\n", (tpn - tsn) / 1000);
+    info_print("device rendering took %dus (gpu time: %dus)\n", (tpn - tsn) / 1000, profiled_gpu_time / 1000);
 
     debug_print("data %d\n", (int) img[0]);
 

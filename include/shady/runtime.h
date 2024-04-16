@@ -30,7 +30,11 @@ typedef struct Module_ Module;
 
 Program* new_program_from_module(Runtime*, const CompilerConfig*, Module*);
 
-Command* launch_kernel(Program*, Device*, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args);
+typedef struct {
+    uint64_t* profiled_gpu_time;
+} ExtraKernelOptions;
+
+Command* launch_kernel(Program*, Device*, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions*);
 bool wait_completion(Command*);
 
 Buffer* allocate_buffer_device(Device*, size_t);

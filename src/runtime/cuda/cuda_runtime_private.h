@@ -4,6 +4,7 @@
 #include "../runtime_private.h"
 
 #include <cuda.h>
+#include <cuda_runtime.h>
 #include <nvrtc.h>
 
 #define CHECK_NVRTC(x, failure_handler) { nvrtcResult the_result_ = x; if (the_result_ != NVRTC_SUCCESS) { const char* msg = nvrtcGetErrorString(the_result_); error_print(#x " failed (%s)\n", msg); failure_handler; } }
@@ -40,6 +41,9 @@ typedef struct {
 
 typedef struct {
     Command base;
+
+    uint64_t* profiled_gpu_time;
+    cudaEvent_t start, stop;
 } CudaCommand;
 
 typedef struct {
