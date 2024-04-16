@@ -53,7 +53,7 @@ static void bind_program_resources(VkrCommand* cmd, VkrSpecProgram* prog) {
 
 static Command make_command_base() {
     return (Command) {
-            .wait_for_completion = (bool(*)(Command*)) vkr_wait_completion,
+        .wait_for_completion = (bool(*)(Command*)) vkr_wait_completion,
     };
 }
 
@@ -92,7 +92,7 @@ VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_
         };
         CHECK_VK(vkCreateQueryPool(device->device, &qpci, NULL, &cmd->query_pool), {});
         cmd->profiled_gpu_time = options->profiled_gpu_time;
-        vkCmdResetQueryPool(cmd->cmd_buf, cmd->query_pool, 0, 1);
+        vkCmdResetQueryPool(cmd->cmd_buf, cmd->query_pool, 0, 2);
         vkCmdWriteTimestamp(cmd->cmd_buf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, cmd->query_pool, 0);
     }
 
@@ -174,7 +174,7 @@ bool vkr_wait_completion(VkrCommand* cmd) {
     if (cmd->profiled_gpu_time) {
         uint64_t ts[2];
         CHECK_VK(vkGetQueryPoolResults(cmd->device->device, cmd->query_pool, 0, 2, sizeof(uint64_t) * 2, ts, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT), {});
-        *cmd->profiled_gpu_time = ts[1] - ts[0];
+        *cmd->profiled_gpu_time = (ts[1] - ts[0]) * cmd->device->caps.properties.base.properties.limits.timestampPeriod;
     }
     vkr_destroy_command(cmd);
     return true;
