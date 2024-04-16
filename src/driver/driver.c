@@ -86,8 +86,8 @@ ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* conf
         goto exit;
     }
     err = driver_load_source_file(config, lang, len, contents, name, mod);
-    exit:
     free((void*) contents);
+    exit:
     return err;
 }
 
