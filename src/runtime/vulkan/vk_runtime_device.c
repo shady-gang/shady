@@ -208,12 +208,16 @@ static bool get_physical_device_caps(SHADY_UNUSED VkrBackend* runtime, VkPhysica
     return false;
 }
 
+KeyHash hash_string(const char** string);
+bool compare_string(const char** a, const char** b);
+
 static KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
-    return hash_murmur(ptr, sizeof(SpecProgramKey));
+    return hash_murmur(ptr->base, sizeof(Program*)) ^ hash_string(&ptr->entry_point);
 }
 
 static bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
-    return memcmp(a, b, sizeof(SpecProgramKey)) == 0;
+	assert(!!a & !!b);
+    return a->base == b->base && strcmp(a->entry_point, b->entry_point) == 0;
 }
 
 static void obtain_device_pointers(VkrDevice* device) {
