@@ -1,4 +1,5 @@
 #include "emit_spv.h"
+#include "type.h"
 
 #include "portability.h"
 #include "log.h"
@@ -208,6 +209,13 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         }
         case Type_MaskType_TAG:
         case Type_JoinPointType_TAG: error("These must be lowered beforehand")
+    }
+
+    if (is_data_type(type)) {
+        if (type->tag == PtrType_TAG && type->payload.ptr_type.address_space == AsGlobal) {
+            TypeMemLayout elem_mem_layout = get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);
+            spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) {elem_mem_layout.size_in_bytes});
+        }
     }
 
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
