@@ -88,12 +88,16 @@ void add_scheduler_source(const CompilerConfig* config, Module* dst) {
 }
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
-    if (config->dynamic_scheduling) {
-        add_scheduler_source(config, *pmod);
-    }
-
     IrArena* initial_arena = (*pmod)->arena;
     Module* old_mod = NULL;
+	
+    if (config->dynamic_scheduling) {
+		*pmod = import(config, *pmod); // we don't want to mess with the original module
+	
+        add_scheduler_source(config, *pmod);
+		log_module(ERROR, config, *pmod);
+		//exit(0);
+	}
 
     RUN_PASS(reconvergence_heuristics)
 
