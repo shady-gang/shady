@@ -497,8 +497,9 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 } else if (string_starts_with(intrinsic, "llvm.fmuladd")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     num_results = 1;
-                    r = prim_op_helper(a, mul_op, empty(a), nodes(a, 2, ops.nodes));
-                    r = prim_op_helper(a, add_op, empty(a), mk_nodes(a, first(BIND_PREV_R(convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0))))), ops.nodes[2]));
+                    r = prim_op_helper(a, fma_op, empty(a), nodes(a, 3, ops.nodes));
+                    // r = prim_op_helper(a, mul_op, empty(a), nodes(a, 2, ops.nodes));
+                    // r = prim_op_helper(a, add_op, empty(a), mk_nodes(a, first(BIND_PREV_R(convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0))))), ops.nodes[2]));
                     break;
                 } else if (string_starts_with(intrinsic, "llvm.fabs")) {
                     Nodes ops = convert_operands(p, num_ops, instr);

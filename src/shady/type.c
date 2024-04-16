@@ -698,6 +698,25 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             return qualified_type_helper(first_operand_type, result_uniform);
         }
+        case fma_op: {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 3);
+            const Type* first_operand_type = get_unqualified_type(first(prim_op.operands)->type);
+
+            bool result_uniform = true;
+            for (size_t i = 0; i < prim_op.operands.count; i++) {
+                const Node* arg = prim_op.operands.nodes[i];
+                const Type* operand_type = arg->type;
+                bool operand_uniform = deconstruct_qualified_type(&operand_type);
+
+                assert(get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
+                assert(first_operand_type == operand_type &&  "operand type mismatch");
+
+                result_uniform &= operand_uniform;
+            }
+
+            return qualified_type_helper(first_operand_type, result_uniform);
+        }
         case abs_op:
         case sign_op:
         {

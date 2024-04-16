@@ -270,6 +270,23 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             term = term_from_cvalue(format_string_arena(arena->arena, "(%s > 0 ? 1 : -1)", src));
             break;
         }
+        case fma_op: {
+            CValue a = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[0]));
+            CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+            CValue c = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[2]));
+            switch (emitter->config.dialect) {
+                case CDialect_C11:
+                case CDialect_CUDA: {
+                    term = term_from_cvalue(format_string_arena(arena->arena, "fmaf(%s, %s, %s)", a, b, c));
+                    break;
+                }
+                default: {
+                    term = term_from_cvalue(format_string_arena(arena->arena, "(%s * %s) + %s", a, b, c));
+                    break;
+                }
+            }
+            break;
+        }
         case lshift_op:
         case rshift_arithm_op:
         case rshift_logical_op: {
