@@ -1,13 +1,16 @@
 #include "l2s_private.h"
-#include "shady/ir_private.h"
+
+#include "ir_private.h"
+#include "type.h"
+#include "analysis/verify.h"
 
 #include "log.h"
 #include "dict.h"
 #include "list.h"
 #include "util.h"
+#include "portability.h"
 
 #include "llvm-c/IRReader.h"
-#include "portability.h"
 
 #include <assert.h>
 #include <string.h>
@@ -80,7 +83,7 @@ static TodoBB prepare_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
     while (instr) {
         switch (LLVMGetInstructionOpcode(instr)) {
             case LLVMPHI: {
-                const Node* nparam = var(a, convert_type(p, LLVMTypeOf(instr)), "phi");
+                const Node* nparam = var(a, qualified_type_helper(convert_type(p, LLVMTypeOf(instr)), false), "phi");
                 insert_dict(LLVMValueRef, const Node*, p->map, instr, nparam);
                 append_list(LLVMValueRef, phis, instr);
                 params = append_nodes(a, params, nparam);
@@ -128,7 +131,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam; oparam = LLVMGetNextParam(oparam)) {
         LLVMTypeRef ot = LLVMTypeOf(oparam);
         const Type* t = convert_type(p, ot);
-        const Node* param = var(a, t, LLVMGetValueName(oparam));
+        const Node* param = var(a, qualified_type_helper(t, false), LLVMGetValueName(oparam));
         insert_dict(LLVMValueRef, const Node*, p->map, oparam, param);
         params = append_nodes(a, params, param);
         if (oparam == LLVMGetLastParam(fn))
@@ -217,6 +220,13 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
         decl = global_var(p->dst, empty(a), type, name, as);
         if (value && as != AsUniformConstant)
             decl->payload.global_variable.init = convert_value(p, value);
+
+        if (UNTYPED_POINTERS) {
+            Node* untyped_wrapper = constant(p->dst, empty(a), ptr_t, format_string_interned(a, "%s_untyped", name));
+            untyped_wrapper->payload.constant.instruction = quote_helper(a, singleton(ref_decl_helper(a, decl)));
+            untyped_wrapper->payload.constant.instruction = prim_op_helper(a, reinterpret_op, singleton(ptr_t), singleton(ref_decl_helper(a, decl)));
+            decl = untyped_wrapper;
+        }
     } else {
         const Type* type = convert_type(p, LLVMTypeOf(global));
         decl = constant(p->dst, empty(a), type, name);
@@ -230,7 +240,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     return r;
 }
 
-bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
+bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
     LLVMContextRef context = LLVMContextCreate();
     LLVMModuleRef src;
     LLVMMemoryBufferRef mem = LLVMCreateMemoryBufferWithMemoryRange(data, len, "my_great_buffer", false);
@@ -241,13 +251,16 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
         error_die();
     }
     info_print("LLVM IR parsed successfully\n");
-#if UNTYPED_POINTERS
-    get_module_arena(dst)->config.untyped_ptrs = true; // tolerate untyped ptrs...
-#endif
 
-    Module* dirty = new_module(get_module_arena(dst), "dirty");
+    ArenaConfig aconfig = default_arena_config();
+    aconfig.check_types = false;
+    aconfig.allow_fold = false;
+
+    IrArena* arena = new_ir_arena(aconfig);
+    Module* dirty = new_module(arena, "dirty");
     Parser p = {
         .ctx = context,
+        .config = config,
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations = new_dict(LLVMValueRef, ParsedAnnotation, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .scopes = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
@@ -272,8 +285,16 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
             break;
         global = LLVMGetNextGlobal(global);
     }
+    log_module(DEBUG, config, dirty);
 
-    postprocess(&p, dirty, dst);
+    aconfig.check_types = true;
+    aconfig.allow_fold = true;
+    IrArena* arena2 = new_ir_arena(aconfig);
+    *dst = new_module(arena2, name);
+    postprocess(&p, dirty, *dst);
+    log_module(DEBUG, config, *dst);
+    verify_module(config, *dst);
+    destroy_ir_arena(arena);
 
     destroy_dict(p.map);
     destroy_dict(p.annotations);

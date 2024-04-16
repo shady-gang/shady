@@ -92,9 +92,8 @@ bool is_subtype(const Type* supertype, const Type* type) {
         } case PtrType_TAG: {
             if (supertype->payload.ptr_type.address_space != type->payload.ptr_type.address_space)
                 return false;
-            // if either pointer type is untyped, both need to be
-            if (supertype->arena->config.untyped_ptrs && (!supertype->payload.ptr_type.pointed_type || !type->payload.ptr_type.pointed_type))
-                return !supertype->payload.ptr_type.pointed_type && !type->payload.ptr_type.pointed_type;
+            if (!supertype->payload.ptr_type.is_reference && type->payload.ptr_type.is_reference)
+                return false;
             return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
         }
         case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width && supertype->payload.int_type.is_signed == type->payload.int_type.is_signed;
@@ -161,7 +160,7 @@ size_t get_type_bitwidth(const Type* t) {
         case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;
         case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
         case PtrType_TAG: {
-            if (is_physical_as(t->payload.ptr_type.address_space))
+            if (t->arena->config.address_spaces[t->payload.ptr_type.address_space].physical)
                 return int_size_in_bytes(t->arena->config.memory.ptr_size) * 8;
             break;
         }
@@ -174,9 +173,8 @@ bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     switch (as) {
         case AsInput:
         case AsOutput:
-        case AsFunctionLogical:
-        case AsPrivateLogical:
-        case AsPrivatePhysical:
+        case AsFunction:
+        case AsPrivate:
             return !arena->config.is_simt;
         default:
             return true;
@@ -301,8 +299,9 @@ bool is_ordered_type(const Type* t) {
 bool is_physical_ptr_type(const Type* t) {
     if (t->tag != PtrType_TAG)
         return false;
-    AddressSpace as = t->payload.ptr_type.address_space;
-    return is_physical_as(as);
+    return !t->payload.ptr_type.is_reference;
+    // AddressSpace as = t->payload.ptr_type.address_space;
+    // return t->arena->config.address_spaces[as].physical;
 }
 
 bool is_generic_ptr_type(const Type* t) {
@@ -394,15 +393,11 @@ const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
 }
 
 const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
-    assert((arena->config.untyped_ptrs || ptr_type.pointed_type) && "Shady does not support untyped pointers, but can infer them, see infer.c");
-    if (!arena->config.allow_subgroup_memory) {
-        assert(ptr_type.address_space != AsSubgroupPhysical);
-        assert(ptr_type.address_space != AsSubgroupLogical);
+    if (!arena->config.address_spaces[ptr_type.address_space].allowed) {
+        error_print("Address space %s is not allowed in this arena\n", get_address_space_name(ptr_type.address_space));
+        error_die();
     }
-    if (!arena->config.allow_shared_memory) {
-        assert(ptr_type.address_space != AsSharedPhysical);
-        assert(ptr_type.address_space != AsSharedLogical);
-    }
+    assert(ptr_type.pointed_type && "Shady does not support untyped pointers, but can infer them, see infer.c");
     if (ptr_type.pointed_type) {
         if (ptr_type.pointed_type->tag == ArrType_TAG) {
             assert(is_data_type(ptr_type.pointed_type->payload.arr_type.element_type));
@@ -752,8 +747,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(is_subtype(val_expected_type, val->type));
             return empty_multiple_return_type(arena);
         }
-        case alloca_logical_op:  as = AsFunctionLogical; goto alloca_case;
-        case alloca_op:          as = AsPrivatePhysical; goto alloca_case;
+        case alloca_logical_op:  as = AsFunction; goto alloca_case;
+        case alloca_op:          as = AsPrivate; goto alloca_case;
         alloca_case: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 0);
@@ -764,6 +759,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = ptr_type(arena, (PtrType) {
                     .pointed_type = elem_type,
                     .address_space = as,
+                    .is_reference = as == AsFunction
                 })
             });
         }
@@ -775,7 +771,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool uniform = is_qualified_type_uniform(base->type);
 
             const Type* base_ptr_type = get_unqualified_type(base->type);
-            assert(base_ptr_type->tag == PtrType_TAG && "lea expects a pointer as a base");
+            assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
             const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
             const Node* offset = prim_op.operands.nodes[1];
@@ -786,7 +782,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             const IntLiteral* lit = resolve_to_int_literal(offset);
             bool offset_is_zero = lit && lit->value == 0;
-            assert(offset_is_zero || pointee_type->tag == ArrType_TAG && "if an offset is used, the base pointer must point to an array");
+            assert(offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference && "if an offset is used, the base cannot be a reference");
             uniform &= offset_uniform;
 
             Nodes indices = nodes(arena, prim_op.operands.count - 2, &prim_op.operands.nodes[2]);
@@ -794,7 +790,11 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = uniform,
-                .type = ptr_type(arena, (PtrType) { .pointed_type = pointee_type, .address_space = base_ptr_type->payload.ptr_type.address_space })
+                .type = ptr_type(arena, (PtrType) {
+                    .pointed_type = pointee_type,
+                    .address_space = base_ptr_type->payload.ptr_type.address_space,
+                    .is_reference = base_ptr_type->payload.ptr_type.is_reference
+                })
             });
         }
         case memcpy_op: {
@@ -1017,7 +1017,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case get_stack_base_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 0);
-            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = uint8_type(arena), .size = NULL }), .address_space = prim_op.op == get_stack_base_op ? AsPrivatePhysical : AsSubgroupPhysical});
+            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = uint8_type(arena), .size = NULL }), .address_space = AsPrivate});
             return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = ptr });
         }
         case set_stack_pointer_op: {
@@ -1322,7 +1322,8 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
 
     return ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
-        .address_space = global_variable.address_space
+        .address_space = global_variable.address_space,
+        .is_reference = lookup_annotation_list(global_variable.annotations, "Logical"),
     });
 }
 

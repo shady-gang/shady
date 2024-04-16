@@ -325,7 +325,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
 
             size_t operands_count = 0;
             uint32_t operands[2];
-            if (ptr_type->payload.ptr_type.address_space == AsGlobalPhysical) {
+            if (ptr_type->payload.ptr_type.address_space == AsGlobal) {
                 // TODO only do this in VK mode ?
                 TypeMemLayout layout = get_mem_layout(emitter->arena, elem_type);
                 operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
@@ -347,7 +347,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
 
             size_t operands_count = 0;
             uint32_t operands[2];
-            if (ptr_type->payload.ptr_type.address_space == AsGlobalPhysical) {
+            if (ptr_type->payload.ptr_type.address_space == AsGlobal) {
                 // TODO only do this in VK mode ?
                 TypeMemLayout layout = get_mem_layout(emitter->arena, elem_type);
                 operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
@@ -364,7 +364,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
         case alloca_logical_op: {
             const Type* elem_type = first(type_arguments);
             SpvId result = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
-                .address_space = AsFunctionLogical,
+                .address_space = AsFunction,
                 .pointed_type = elem_type
             })), SpvStorageClassFunction);
             assert(results_count == 1);
@@ -385,7 +385,10 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 assert(results_count == 1);
                 results[0] = result;
             } else {
-                error("TODO: OpPtrAccessChain")
+                const Type* target_type = instr->type;
+                SpvId result = spvb_ptr_access_chain(bb_builder, emit_type(emitter, target_type), base, emit_value(emitter, bb_builder, args.nodes[1]), args.count - 2, indices);
+                assert(results_count == 1);
+                results[0] = result;
             }
             return;
         }

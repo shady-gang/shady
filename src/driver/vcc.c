@@ -55,6 +55,8 @@ int main(int argc, char** argv) {
         .tmp_filename = NULL,
         .delete_tmp_file = true
     };
+    args.config.hacks.recover_structure = true;
+
     cli_parse_driver_arguments(&args, &argc, argv);
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&args.config, &argc, argv);
@@ -68,7 +70,6 @@ int main(int argc, char** argv) {
 
     ArenaConfig aconfig = default_arena_config();
     IrArena* arena = new_ir_arena(aconfig);
-    Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
     int clang_retval = system("clang --version");
     if (clang_retval != 0)
@@ -138,18 +139,20 @@ int main(int argc, char** argv) {
     if (clang_returned)
         exit(ClangInvocationFailed);
 
+    Module* mod;
     if (!vcc_options.only_run_clang) {
         size_t len;
         char* llvm_ir;
         if (!read_file(vcc_options.tmp_filename, &len, &llvm_ir))
             exit(InputFileIOError);
-        driver_load_source_file(SrcLLVM, len, llvm_ir, mod);
+        driver_load_source_file(&args.config, SrcLLVM, len, llvm_ir, "my_module", &mod); // TODO name module after first filename, or perhaps the last one
         free(llvm_ir);
 
         if (vcc_options.delete_tmp_file)
             remove(vcc_options.tmp_filename);
 
         driver_compile(&args, mod);
+        destroy_ir_arena(get_module_arena(mod));
     }
 
     info_print("Done\n");

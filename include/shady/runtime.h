@@ -29,8 +29,6 @@ typedef struct CompilerConfig_ CompilerConfig;
 typedef struct Module_ Module;
 
 Program* new_program_from_module(Runtime*, const CompilerConfig*, Module*);
-Program* load_program(Runtime*, const CompilerConfig*, const char* program_src);
-Program* load_program_from_disk(Runtime*, const CompilerConfig*, const char* path);
 
 Command* launch_kernel(Program*, Device*, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args);
 bool wait_completion(Command*);

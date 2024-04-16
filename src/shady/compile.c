@@ -30,8 +30,9 @@ CompilerConfig default_compiler_config() {
 
         .logging = {
             // most of the time, we are not interested in seeing generated & internal code in the debug output
-            .print_internal = true,
-            .print_generated = true,
+            //.print_internal = true,
+            //.print_generated = true,
+            .print_builtin = true,
         },
 
         .optimisations = {
@@ -49,11 +50,13 @@ CompilerConfig default_compiler_config() {
 }
 
 ArenaConfig default_arena_config() {
-    return (ArenaConfig) {
+    ArenaConfig config = {
         .is_simt = true,
-        .validate_builtin_types = false,
-        .allow_subgroup_memory = true,
-        .allow_shared_memory = true,
+        .name_bound = true,
+        .allow_fold = true,
+        .check_types = true,
+        .validate_builtin_types = true,
+        .check_op_classes = true,
 
         .memory = {
             .word_size = IntTy8,
@@ -64,30 +67,38 @@ ArenaConfig default_arena_config() {
             .delete_unreachable_structured_cases = true,
         },
     };
+
+    for (size_t i = 0; i < NumAddressSpaces; i++) {
+        // by default, all address spaces are physical !
+        config.address_spaces[i].physical = true;
+        config.address_spaces[i].allowed = true;
+    }
+
+    return config;
+}
+
+void add_scheduler_source(const CompilerConfig* config, Module* dst) {
+    ParserConfig pconfig = {
+        .front_end = true,
+    };
+    Module* builtin_scheduler_mod = parse_slim_module(config, pconfig, shady_scheduler_src, "builtin_scheduler");
+    debug_print("Adding builtin scheduler code");
+    link_module(dst, builtin_scheduler_mod);
+    destroy_ir_arena(get_module_arena(builtin_scheduler_mod));
 }
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
-    if (config->dynamic_scheduling) {
-        debugv_print("Parsing builtin scheduler code");
-        ParserConfig pconfig = {
-            .front_end = true,
-        };
-        parse_shady_ir(pconfig, shady_scheduler_src, *pmod);
-    }
-
     IrArena* initial_arena = (*pmod)->arena;
     Module* old_mod = NULL;
+	
+    if (config->dynamic_scheduling) {
+		*pmod = import(config, *pmod); // we don't want to mess with the original module
+	
+        add_scheduler_source(config, *pmod);
+		log_module(ERROR, config, *pmod);
+		//exit(0);
+	}
 
-    generate_dummy_constants(config, *pmod);
-
-    if (!get_module_arena(*pmod)->config.name_bound)
-        RUN_PASS(bind_program)
-    RUN_PASS(normalize)
-
-    RUN_PASS(normalize_builtins)
-    RUN_PASS(infer_program)
-
-    RUN_PASS(lcssa)
     RUN_PASS(reconvergence_heuristics)
 
     RUN_PASS(lower_cf_instrs)

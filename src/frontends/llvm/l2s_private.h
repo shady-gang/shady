@@ -11,6 +11,7 @@
 #include <string.h>
 
 typedef struct {
+    const CompilerConfig* config;
     LLVMContextRef ctx;
     struct Dict* map;
     struct Dict* annotations;

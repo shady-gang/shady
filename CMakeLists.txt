@@ -8,9 +8,16 @@ find_package(Git)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
 if (MSVC)
   add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+endif()
+
+if (WIN32)
+  set(BUILD_SHARED_LIBS OFF)
 endif()
 
 add_subdirectory(SPIRV-Headers)
@@ -98,20 +105,11 @@ endif()
 
 include(CMakePackageConfigHelpers)
 
-install(TARGETS api EXPORT shady_export_set)
-install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
-
 if (TARGET vcc)
   add_subdirectory(vcc-std)
 endif ()
 
-if (TARGET runtime)
-  install(TARGETS runtime EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
-endif()
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/shady DESTINATION include)
 install(EXPORT shady_export_set DESTINATION share/cmake/shady/ NAMESPACE shady:: FILE shady-targets.cmake)
 
 configure_file(cmake/shady-config.cmake.in shady-config.cmake @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/shady-config.cmake" DESTINATION share/cmake/shady)
-#install(FILES "${CMAKE_CURRENT_BINARY_DIR}/shady-config.cmake" DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/shady)

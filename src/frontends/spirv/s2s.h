@@ -8,6 +8,6 @@ typedef enum {
     S2S_FailedParsingGeneric,
 } S2SError;
 
-S2SError parse_spirv_into_shady(Module* dst, size_t len, const char* data);
+S2SError parse_spirv_into_shady(size_t len, const char* data, String name, Module**);
 
 #endif

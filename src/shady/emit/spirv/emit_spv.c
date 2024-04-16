@@ -291,7 +291,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
         SpvId param_id = spvb_parameter(fn_builder, emit_type(emitter, param_type));
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
         deconstruct_qualified_type(&param_type);
-        if (param_type->tag == PtrType_TAG && param_type->payload.ptr_type.address_space == AsGlobalPhysical) {
+        if (param_type->tag == PtrType_TAG && param_type->payload.ptr_type.address_space == AsGlobal) {
             spvb_decorate(emitter->file_builder, param_id, SpvDecorationAliased, 0, NULL);
         }
     }
@@ -359,7 +359,6 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
             SpvId init = 0;
             if (gvar->init)
                 init = emit_value(emitter, NULL, gvar->init);
-            assert(!is_physical_as(gvar->address_space));
             SpvStorageClass storage_class = emit_addr_space(emitter, gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), storage_class, false, init);
 

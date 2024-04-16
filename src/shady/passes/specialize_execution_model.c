@@ -31,8 +31,8 @@ static void specialize_arena_config(const CompilerConfig* config, Module* m, Are
     switch (config->specialization.execution_model) {
         case EmVertex:
         case EmFragment: {
-            target->allow_subgroup_memory = false;
-            target->allow_shared_memory = false;
+            target->address_spaces[AsShared].allowed = false;
+            target->address_spaces[AsSubgroup].allowed = false;
         }
         default: break;
     }

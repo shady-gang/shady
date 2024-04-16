@@ -46,4 +46,7 @@ bool insert_dict_and_get_result_impl(struct Dict*, void* key, void* value);
 
 KeyHash hash_murmur(const void* data, size_t size);
 
+KeyHash hash_ptr(void**);
+bool compare_ptrs(void**, void**);
+
 #endif

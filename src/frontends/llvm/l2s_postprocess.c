@@ -11,6 +11,7 @@
 
 typedef struct {
     Rewriter rewriter;
+    const CompilerConfig* config;
     Parser* p;
     Scope* curr_scope;
     const Node* old_fn_or_bb;
@@ -78,8 +79,36 @@ static Nodes remake_variables(Context* ctx, Nodes old) {
 
 static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
-        case Variable_TAG: return var(a, node->payload.var.type ? qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.var.type), false) : NULL, node->payload.var.name);
+        case Variable_TAG: {
+            assert(node->payload.var.type);
+            if (node->payload.var.type->tag == QualifiedType_TAG)
+                return var(a, node->payload.var.type ? rewrite_node(&ctx->rewriter, node->payload.var.type) : NULL, node->payload.var.name);
+            return var(a, qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.var.type), false), node->payload.var.name);
+        }
+        case Block_TAG: {
+            Nodes yield_types = rewrite_nodes(r, node->payload.block.yield_types);
+            const Node* ninside = rewrite_node(r, node->payload.block.inside);
+            const Node* term = get_abstraction_body(ninside);
+            while (term->tag == Let_TAG) {
+                term = get_abstraction_body(get_let_tail(term));
+            }
+            assert(term->tag == Yield_TAG);
+            yield_types = get_values_types(a, term->payload.yield.args);
+            return block(a, (Block) {
+                .yield_types = yield_types,
+                .inside = ninside,
+            });
+        }
+        case Constant_TAG: {
+            Node* new = recreate_node_identity(r, node);
+            BodyBuilder* bb = begin_body(a);
+            const Node* value = first(bind_instruction(bb, new->payload.constant.instruction));
+            value = first(bind_instruction(bb, prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(value))));
+            new->payload.constant.instruction = yield_values_and_wrap_in_block(bb, singleton(value));
+            return new;
+        }
         case Function_TAG: {
             Context fn_ctx = *ctx;
             fn_ctx.curr_scope = new_scope(node);
@@ -138,6 +167,8 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             assert(src && dst);
             rewrite_node(&ctx->rewriter, dst);
 
+            if (!ctx->config->hacks.recover_structure)
+                break;
             Nodes* src_lexical_scope = find_value_dict(const Node*, Nodes, ctx->p->scopes, src);
             Nodes* dst_lexical_scope = find_value_dict(const Node*, Nodes, ctx->p->scopes, dst);
             if (!src_lexical_scope) {
@@ -180,7 +211,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                                     const Type* jp_type = join_point_type(a, (JoinPointType) {
                                         .yield_types = get_variables_types(a, get_abstraction_params(dst))
                                     });
-                                    join_token = var(a, jp_type, get_abstraction_name(dst));
+                                    join_token = var(a, qualified_type_helper(jp_type, false), get_abstraction_name(dst));
                                     controls->tokens = append_nodes(a, controls->tokens, join_token);
                                     controls->destinations = append_nodes(a, controls->destinations, dst);
                                 }
@@ -190,6 +221,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                                 if (fn->tag == BasicBlock_TAG)
                                     fn = (Node*) fn->payload.basic_block.fn;
                                 assert(fn->tag == Function_TAG);
+                                fn = rewrite_node(r, fn);
                                 Node* wrapper = basic_block(a, fn, nparams, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name(dst)));
                                 wrapper->payload.basic_block.body = join(a, (Join) {
                                     .args = nparams,
@@ -211,13 +243,15 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             break;
         }
         case GlobalVariable_TAG: {
+            if (lookup_annotation(node, "LLVMMetaData"))
+                return NULL;
             AddressSpace as = node->payload.global_variable.address_space;
             const Node* old_init = node->payload.global_variable.init;
-            Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations);
-            const Type* type = rewrite_node(&ctx->rewriter, node->payload.global_variable.type);
+            Nodes annotations = rewrite_nodes(r, node->payload.global_variable.annotations);
+            const Type* type = rewrite_node(r, node->payload.global_variable.type);
             ParsedAnnotation* an = find_annotation(ctx->p, node);
             while (an) {
-                annotations = append_nodes(a, annotations, an->payload);
+                annotations = append_nodes(a, annotations, rewrite_node(r, an->payload));
                 if (strcmp(get_annotation_name(an->payload), "Builtin") == 0)
                     old_init = NULL;
                 if (strcmp(get_annotation_name(an->payload), "UniformConstant") == 0)
@@ -225,9 +259,9 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                 an = an->next;
             }
             Node* decl = global_var(ctx->rewriter.dst_module, annotations, type, get_declaration_name(node), as);
-            register_processed(&ctx->rewriter, node, decl);
+            register_processed(r, node, decl);
             if (old_init)
-                decl->payload.global_variable.init = rewrite_node(&ctx->rewriter, old_init);
+                decl->payload.global_variable.init = rewrite_node(r, old_init);
             return decl;
         }
         default: break;
@@ -251,6 +285,7 @@ void postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .config = p->config,
         .p = p,
         .controls = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
     };

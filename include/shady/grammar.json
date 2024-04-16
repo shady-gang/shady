@@ -2,53 +2,32 @@
   "address-spaces": [
     {
       "name": "Generic",
-      "llvm-id": 0,
-      "physical": true
+      "llvm-id": 0
     },
     {
-      "name": "GlobalPhysical",
+      "name": "Global",
       "description": "Global memory, all threads see the same data (not necessarily consistent!)",
-      "llvm-id": 1,
-      "physical": true
+      "llvm-id": 1
     },
     {
-      "name": "SharedPhysical",
+      "name": "Shared",
       "description": "Points into workgroup-private memory (aka shared memory)",
-      "llvm-id": 3,
-      "physical": true
+      "llvm-id": 3
     },
     {
-      "name": "SubgroupPhysical",
+      "name": "Subgroup",
       "description": [
         "Points into subgroup-private memory",
         "All threads in a subgroup see the same contents for the same address, but threads in different subgroups see different data.",
         "Needs to be lowered to something else since targets do not understand this" ],
-      "llvm-id": 9,
-      "physical": true
+      "llvm-id": 9
     },
     {
-      "name": "PrivatePhysical",
+      "name": "Private",
       "description": [
         "Points into thread-private memory (all threads see different contents for the same address)"
       ],
-      "llvm-id": 5,
-      "physical": true
-    },
-    {
-      "name": "GlobalLogical",
-      "llvm-id": 388
-    },
-    {
-      "name": "SharedLogical",
-      "llvm-id": 387
-    },
-    {
-      "name": "SubgroupLogical",
-      "llvm-id": 386
-    },
-    {
-      "name": "PrivateLogical",
-      "llvm-id": 385
+      "llvm-id": 5
     },
     {
       "name": "Input",
@@ -74,8 +53,8 @@
       "llvm-id": 392
     },
     {
-      "name": "FunctionLogical",
-      "description": "Weird SPIR-V nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)",
+      "name": "Function",
+      "description": "Weird SPIR-V nonsense: this is like Private, but with non-static lifetimes (ie function lifetime)",
       "llvm-id": 393
     },
     {
@@ -225,7 +204,8 @@
       "class": "type",
       "ops": [
         { "name": "address_space", "type": "AddressSpace" },
-        { "name": "pointed_type", "class": "type" }
+        { "name": "pointed_type", "class": "type" },
+        { "name": "is_reference", "type": "bool" }
       ]
     },
     {

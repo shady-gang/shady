@@ -16,6 +16,17 @@ typedef struct {
     const CompilerConfig* config;
 } Context;
 
+// TODO: make this configuration-dependant
+static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
+    switch (as) {
+        case AsPrivate:  return true; // TODO have a config option to do this with swizzled global memory
+        case AsSubgroup: return true;
+        case AsShared:   return true;
+        case AsGlobal:  return true; // TODO have a config option to do this with SSBOs
+        default: return false;
+    }
+}
+
 static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset, size_t n_indices, const Node** indices) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
@@ -26,9 +37,9 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
     const IntLiteral* offset_value = resolve_to_int_literal(offset);
     bool offset_is_zero = offset_value && offset_value->value == 0;
     if (!offset_is_zero) {
-        const Type* arr_type = pointer_type->payload.ptr_type.pointed_type;
-        assert(arr_type->tag == ArrType_TAG);
-        const Type* element_type = arr_type->payload.arr_type.element_type;
+        const Type* element_type = pointer_type->payload.ptr_type.pointed_type;
+        // assert(arr_type->tag == ArrType_TAG);
+        // const Type* element_type = arr_type->payload.arr_type.element_type;
 
         const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
@@ -110,7 +121,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     bool must_lower = false;
                     // we have to lower generic pointers if we emulate them using ints
                     must_lower |= ctx->config->lower.emulate_generic_ptrs && old_base_ptr_t->payload.ptr_type.address_space == AsGeneric;
-                    must_lower |= ctx->config->lower.emulate_physical_memory && is_physical_as(old_base_ptr_t->payload.ptr_type.address_space);
+                    must_lower |= ctx->config->lower.emulate_physical_memory && !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
                     if (!must_lower)
                         break;
                     BodyBuilder* bb = begin_body(a);

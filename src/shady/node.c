@@ -140,7 +140,7 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
             case PrimOp_TAG: {
                 switch (node->payload.prim_op.op) {
                     case quote_op: {
-                        node = first(node->payload.prim_op.operands);;
+                        node = first(node->payload.prim_op.operands);
                         continue;
                     }
                     case load_op: {
@@ -153,6 +153,7 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                             continue;
                         }
                     }
+                    case convert_op:
                     case reinterpret_op: {
                         if (config.allow_incompatible_types) {
                             node = first(node->payload.prim_op.operands);
@@ -199,19 +200,19 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
     if (!node)
         return NULL;
     switch (node->tag) {
+        case Declaration_GlobalVariable_TAG: {
+            const Node* init = node->payload.global_variable.init;
+            if (init) {
+                return get_string_literal(arena, init);
+            }
+            break;
+        }
+        case Declaration_Constant_TAG: {
+            return get_string_literal(arena, node->payload.constant.instruction);
+        }
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
-            switch (is_declaration(decl)) {
-                case Declaration_GlobalVariable_TAG: {
-                    const Node* init = decl->payload.global_variable.init;
-                    if (init)
-                        return get_string_literal(arena, init);
-                    break;
-                }
-                default:
-                    break;
-            }
-            return NULL;
+            return get_string_literal(arena, decl);
         }
         case PrimOp_TAG: {
             switch (node->payload.prim_op.op) {
@@ -259,6 +260,16 @@ String get_abstraction_name(const Node* abs) {
         case Function_TAG: return abs->payload.fun.name;
         case BasicBlock_TAG: return abs->payload.basic_block.name;
         case Case_TAG: return "case";
+        default: assert(false);
+    }
+}
+
+String get_abstraction_name_unsafe(const Node* abs) {
+    assert(is_abstraction(abs));
+    switch (abs->tag) {
+        case Function_TAG: return abs->payload.fun.name;
+        case BasicBlock_TAG: return abs->payload.basic_block.name;
+        case Case_TAG: return NULL;
         default: assert(false);
     }
 }

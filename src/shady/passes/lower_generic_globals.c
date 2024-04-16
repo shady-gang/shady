@@ -17,7 +17,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case GlobalVariable_TAG: {
             if (node->payload.global_variable.address_space == AsGeneric) {
-                AddressSpace dst_as = AsGlobalPhysical;
+                AddressSpace dst_as = AsGlobal;
                 const Type* t = rewrite_node(&ctx->rewriter, node->payload.global_variable.type);
                 Node* new_global = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations), t, node->payload.global_variable.name, dst_as);
 

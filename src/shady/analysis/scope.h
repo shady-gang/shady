@@ -99,7 +99,7 @@ Scope* new_scope_lt_impl(const Node* entry, LoopTree* lt, bool flipped);
  */
 #define new_scope_flipped(node) new_scope_impl(node, NULL, true);
 
-CFNode* scope_lookup(Scope*, const Node* block);
+CFNode* scope_lookup(Scope*, const Node* abs);
 void compute_rpo(Scope*);
 void compute_domtree(Scope*);
 

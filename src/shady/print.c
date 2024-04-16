@@ -307,7 +307,7 @@ static void print_type(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case PtrType_TAG: {
-            printf("ptr");
+            printf(node->payload.ptr_type.is_reference ? "ref" : "ptr");
             printf(RESET);
             printf("(");
             printf(BLUE);
@@ -567,6 +567,8 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("(");
             print_node(node->payload.if_instr.condition);
             printf(") ");
+            if (ctx->config.in_cfg)
+                break;
             print_case_body(ctx, node->payload.if_instr.if_true);
             if (node->payload.if_instr.if_false) {
                 printf(GREEN);
@@ -580,6 +582,8 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("loop");
             printf(RESET);
             print_yield_types(ctx, node->payload.loop_instr.yield_types);
+            if (ctx->config.in_cfg)
+                break;
             const Node* body = node->payload.loop_instr.body;
             assert(is_case(body));
             print_param_list(ctx, body->payload.case_.params, &node->payload.loop_instr.initial_args);
@@ -593,6 +597,8 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("(");
             print_node(node->payload.match_instr.inspect);
             printf(")");
+            if (ctx->config.in_cfg)
+                break;
             printf(" {");
             indent(ctx->printer);
             for (size_t i = 0; i < node->payload.match_instr.literals.count; i++) {
@@ -625,6 +631,8 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf("control");
             printf(RESET);
             print_yield_types(ctx, node->payload.control.yield_types);
+            if (ctx->config.in_cfg)
+                break;
             print_param_list(ctx, node->payload.control.inside->payload.case_.params, NULL);
             print_case_body(ctx, node->payload.control.inside);
             break;
@@ -681,8 +689,10 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                     printf(" = ");
                 }
                 print_node(instruction);
-                printf(";\n");
-                print_abs_body(ctx, tail);
+                if (!ctx->config.in_cfg) {
+                    printf(";\n");
+                    print_abs_body(ctx, tail);
+                }
             } else {
                 printf(GREEN);
                 printf("let");
@@ -797,8 +807,9 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             const GlobalVariable* gvar = &node->payload.global_variable;
             print_annotations(ctx, gvar->annotations);
             printf(BLUE);
+            printf("var ");
+            printf(BLUE);
             printf(get_address_space_name(gvar->address_space));
-            printf(RESET);
             printf(" ");
             print_node(gvar->type);
             printf(BYELLOW);
@@ -821,11 +832,13 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(BYELLOW);
             printf(" %s", cnst->name);
             printf(RESET);
-            printf(" = ");
-            if (get_quoted_value(cnst->instruction))
-                print_node(get_quoted_value(cnst->instruction));
-            else
-                print_node(cnst->instruction);
+            if (cnst->instruction) {
+                printf(" = ");
+                if (get_quoted_value(cnst->instruction))
+                    print_node(get_quoted_value(cnst->instruction));
+                else
+                    print_node(cnst->instruction);
+            }
             printf(";\n");
             break;
         }
@@ -963,7 +976,6 @@ void print_module(Printer* printer, Module* mod, PrintConfig config) {
     };
     print_mod_impl(&ctx, mod);
     flush(ctx.printer);
-    destroy_printer(ctx.printer);
 }
 
 void print_node(Printer* printer, const Node* node, PrintConfig config) {
@@ -973,47 +985,59 @@ void print_node(Printer* printer, const Node* node, PrintConfig config) {
     };
     print_node_impl(&ctx, node);
     flush(ctx.printer);
-    destroy_printer(ctx.printer);
 }
 
 void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
-    print_node(open_growy_as_printer(g), node, (PrintConfig) { .reparseable = true });
+    Printer* p = open_growy_as_printer(g);
+    print_node(p, node, (PrintConfig) { .reparseable = true });
+    destroy_printer(p);
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
 }
 
 void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
-    print_module(open_growy_as_printer(g), mod, (PrintConfig) { .reparseable = true, });
+    Printer* p = open_growy_as_printer(g);
+    print_module(p, mod, (PrintConfig) { .reparseable = true, });
+    destroy_printer(p);
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
 }
 
 void dump_node(const Node* node) {
-    print_node(open_file_as_printer(stdout), node, (PrintConfig) { .color = true });
+    Printer* p = open_file_as_printer(stdout);
+    print_node(p, node, (PrintConfig) { .color = true });
     printf("\n");
 }
 
 void dump_module(Module* mod) {
-    print_module(open_file_as_printer(stdout), mod, (PrintConfig) { .color = true });
+    Printer* p = open_file_as_printer(stdout);
+    print_module(p, mod, (PrintConfig) { .color = true });
+    destroy_printer(p);
     printf("\n");
 }
 
 void log_node(LogLevel level, const Node* node) {
-    if (level >= get_log_level())
-        print_node(open_file_as_printer(stderr), node, (PrintConfig) { .color = true });
+    if (level >= get_log_level()) {
+        Printer* p = open_file_as_printer(stderr);
+        print_node(p, node, (PrintConfig) { .color = true });
+        destroy_printer(p);
+    }
 }
 
-void log_module(LogLevel level, CompilerConfig* compiler_cfg, Module* mod) {
+void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod) {
     PrintConfig config = { .color = true };
     if (compiler_cfg) {
         config.print_generated = compiler_cfg->logging.print_generated;
         config.print_builtin = compiler_cfg->logging.print_builtin;
         config.print_internal = compiler_cfg->logging.print_internal;
     }
-    if (level >= get_log_level())
-        print_module(open_file_as_printer(stderr), mod, config);
+    if (level >= get_log_level()) {
+        Printer* p = open_file_as_printer(stderr);
+        print_module(p, mod, config);
+        destroy_printer(p);
+    }
 }
 
 void print_node_operand(Printer* p, const Node* n, String name, NodeClass op_class, const Node* op, PrintConfig config) {

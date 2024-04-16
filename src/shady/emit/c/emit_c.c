@@ -134,17 +134,14 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
             break;
         case CDialect_CUDA:
             switch (as) {
-                case AsPrivateLogical:
-                case AsPrivatePhysical:
+                case AsPrivate:
                     assert(false);
                     // Note: this requires many hacks.
                     prefix = "__device__ ";
                     decl_center = format_string_arena(emitter->arena->arena, "__shady_private_globals.%s", decl_center);
                     break;
-                case AsSharedPhysical:
-                case AsSharedLogical: prefix = "__shared__ "; break;
-                case AsGlobalLogical:
-                case AsGlobalPhysical: {
+                case AsShared: prefix = "__shared__ "; break;
+                case AsGlobal: {
                     if (constant)
                         prefix = "__constant__ ";
                     else
@@ -160,13 +157,13 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
             break;
         case CDialect_GLSL:
             switch (as) {
-                case AsSharedLogical: prefix = "shared "; break;
+                case AsShared: prefix = "shared "; break;
                 case AsInput:
                 case AsUInput: prefix = "in "; break;
                 case AsOutput: prefix = "out "; break;
-                case AsPrivateLogical: prefix = ""; break;
+                case AsPrivate: prefix = ""; break;
                 case AsUniformConstant: prefix = "uniform"; break;
-                case AsGlobalLogical: {
+                case AsGlobal: {
                     assert(constant && "Only constants are supported");
                     prefix = "const ";
                     break;
@@ -240,7 +237,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                     float f;
                     memcpy(&f, &v, sizeof(uint32_t));
                     double d = (double) f;
-                    emitted = format_string_arena(emitter->arena->arena, "%.9g", d); break;
+                    emitted = format_string_arena(emitter->arena->arena, "%#.9gf", d); break;
                 }
                 case FloatTy64: {
                     double d;
@@ -256,7 +253,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             if (emitter->config.dialect == CDialect_GLSL)
                 return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
             String name = unique_name(emitter->arena, "undef");
-            emit_global_variable_definition(emitter, AsGlobalLogical, name, value->payload.undef.type, true, NULL);
+            emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);
             emitted = name;
             break;
         }
@@ -396,7 +393,6 @@ void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const T
             break;
         case CDialect_C11:
         case CDialect_CUDA:
-            prefix = "register ";
             center = format_string_arena(emitter->arena->arena, "const %s", center);
             break;
         case CDialect_GLSL:
@@ -591,7 +587,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             decl_type = decl->payload.global_variable.type;
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
-            if ((decl->payload.global_variable.address_space == AsPrivatePhysical || decl->payload.global_variable.address_space == AsPrivateLogical) && emitter->config.dialect == CDialect_CUDA) {
+            if ((decl->payload.global_variable.address_space == AsPrivate) && emitter->config.dialect == CDialect_CUDA) {
                 if (emitter->use_private_globals) {
                     register_emitted(emitter, decl, term_from_cvar(format_string_arena(emitter->arena->arena, "__shady_private_globals->%s", name)));
                     // HACK
@@ -651,7 +647,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
             assert(init_value && "TODO: support some measure of constant expressions");
             String init = to_cvalue(emitter, emit_value(emitter, NULL, init_value));
-            emit_global_variable_definition(emitter, AsGlobalLogical, decl_center, decl->type, true, init);
+            emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init);
             return;
         }
         case NominalType_TAG: {
@@ -721,7 +717,7 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
         if (decl->tag != GlobalVariable_TAG)
             continue;
         AddressSpace as = decl->payload.global_variable.address_space;
-        if (as != AsPrivatePhysical && as != AsPrivateLogical)
+        if (as != AsPrivate)
             continue;
         print(p, "%s;\n", c_emit_type(emitter, decl->payload.global_variable.type, decl->payload.global_variable.name));
         count++;

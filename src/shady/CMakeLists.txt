@@ -39,6 +39,7 @@ set(SHADY_SOURCES
     module.c
 
     analysis/scope.c
+    analysis/scope_dump.c
     analysis/free_variables.c
     analysis/verify.c
     analysis/callgraph.c
@@ -57,7 +58,6 @@ set(SHADY_SOURCES
     passes/infer.c
     passes/lower_cf_instrs.c
     passes/lift_indirect_targets.c
-    passes/lcssa.c
     passes/lower_callf.c
     passes/lower_alloca.c
     passes/lower_stack.c
@@ -96,9 +96,8 @@ set(SHADY_SOURCES
     passes/spirv_lift_globals_ssbo.c
 )
 
-add_library(shady OBJECT ${SHADY_SOURCES})
+add_library(shady ${SHADY_SOURCES})
 target_include_directories(shady PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
-set_property(TARGET shady PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 if (WIN32)
     if (MSVC)
@@ -111,7 +110,10 @@ endif()
 add_subdirectory(internal)
 add_subdirectory(emit)
 
-target_link_libraries(shady PUBLIC "api")
-target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:common>")
-target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
+target_link_libraries(shady PRIVATE "api")
+target_link_libraries(shady INTERFACE "common")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
+target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/shady DESTINATION include)
+install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})

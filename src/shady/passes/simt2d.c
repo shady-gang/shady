@@ -52,7 +52,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         }), (String[]) {"allocated"}));
                     }
                     //return yield_values_and_wrap_in_control(bb, singleton(widen(ctx, allocated)));
-                    const Node* result_type = maybe_packed_type_helper(ptr_type(a, (PtrType) { .address_space = AsFunctionLogical, .pointed_type = type }), ctx->width);
+                    const Node* result_type = maybe_packed_type_helper(ptr_type(a, (PtrType) { .address_space = AsFunction, .pointed_type = type }), ctx->width);
                     const Node* packed = composite_helper(a, result_type, nodes(a, ctx->width, allocated));
                     return yield_values_and_wrap_in_block(bb, singleton(packed));
                 }

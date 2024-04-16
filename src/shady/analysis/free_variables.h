@@ -4,7 +4,15 @@
 #include "shady/ir.h"
 
 typedef struct Scope_ Scope;
+typedef struct CFNode_ CFNode;
 
-struct List* compute_free_variables(const Scope* scope, const Node*);
+typedef struct {
+    CFNode* node;
+    struct Dict* bound_set;
+    struct Dict* free_set;
+} CFNodeVariables;
+
+struct Dict* compute_scope_variables_map(const Scope* scope);
+void destroy_scope_variables_map(struct Dict*);
 
 #endif
