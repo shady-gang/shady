@@ -393,7 +393,6 @@ void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const T
             break;
         case CDialect_C11:
         case CDialect_CUDA:
-            prefix = "register ";
             center = format_string_arena(emitter->arena->arena, "const %s", center);
             break;
         case CDialect_GLSL:
