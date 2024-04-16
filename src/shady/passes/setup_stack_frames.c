@@ -31,7 +31,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(r, node);
             Context ctx2 = *ctx;
-            ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames");
+            ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
 
             BodyBuilder* bb = begin_body(a);
             if (!ctx2.disable_lowering) {

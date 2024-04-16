@@ -101,17 +101,20 @@ static const Node* process_let(Context* ctx, const Node* node) {
         const PrimOp* oprim_op = &old_instruction->payload.prim_op;
         switch (oprim_op->op) {
             case get_stack_pointer_op: {
+                assert(ctx->stack);
                 BodyBuilder* bb = begin_body(a);
                 const Node* sp = gen_load(bb, ctx->stack_pointer);
                 return finish_body(bb, let(a, quote_helper(a, singleton(sp)), tail));
             }
             case set_stack_pointer_op: {
+                assert(ctx->stack);
                 BodyBuilder* bb = begin_body(a);
                 const Node* val = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
                 gen_store(bb, ctx->stack_pointer, val);
                 return finish_body(bb, let(a, quote_helper(a, empty(a)), tail));
             }
             case get_stack_base_op: {
+                assert(ctx->stack);
                 BodyBuilder* bb = begin_body(a);
                 const Node* stack_pointer = ctx->stack_pointer;
                 const Node* stack_size = gen_load(bb, stack_pointer);
@@ -126,6 +129,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             }
             case push_stack_op:
             case pop_stack_op: {
+                assert(ctx->stack);
                 BodyBuilder* bb = begin_body(a);
                 const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
 
@@ -161,8 +165,10 @@ static const Node* process_node(Context* ctx, const Node* old) {
         // Make sure to zero-init the stack pointers
         // TODO isn't this redundant with thoose things having an initial value already ?
         // is this an old forgotten workaround ?
-        const Node* stack_pointer = ctx->stack_pointer;
-        gen_store(bb, stack_pointer, uint32_literal(a, 0));
+        if (ctx->stack) {
+            const Node* stack_pointer = ctx->stack_pointer;
+            gen_store(bb, stack_pointer, uint32_literal(a, 0));
+        }
         new->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body));
         return new;
     }
@@ -181,22 +187,6 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
-    const Type* stack_base_element = uint8_type(a);
-    const Type* stack_arr_type = arr_type(a, (ArrType) {
-        .element_type = stack_base_element,
-        .size = uint32_literal(a, config->per_thread_stack_size),
-    });
-    const Type* stack_counter_t = uint32_type(a);
-
-    Nodes annotations = mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }));
-
-    // Arrays for the stacks
-    Node* stack_decl = global_var(dst, annotations, stack_arr_type, "stack", AsPrivate);
-
-    // Pointers into those arrays
-    Node* stack_ptr_decl = global_var(dst, append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Logical" })), stack_counter_t, "stack_ptr", AsPrivate);
-    stack_ptr_decl->payload.global_variable.init = uint32_literal(a, 0);
-
     Context ctx = {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
 
@@ -204,10 +194,28 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
 
         .push = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .pop = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
-
-        .stack = ref_decl_helper(a, stack_decl),
-        .stack_pointer = ref_decl_helper(a, stack_ptr_decl),
     };
+
+    if (config->per_thread_stack_size > 0) {
+        const Type* stack_base_element = uint8_type(a);
+        const Type* stack_arr_type = arr_type(a, (ArrType) {
+                .element_type = stack_base_element,
+                .size = uint32_literal(a, config->per_thread_stack_size),
+        });
+        const Type* stack_counter_t = uint32_type(a);
+
+        Nodes annotations = mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }));
+
+        // Arrays for the stacks
+        Node* stack_decl = global_var(dst, annotations, stack_arr_type, "stack", AsPrivate);
+
+        // Pointers into those arrays
+        Node* stack_ptr_decl = global_var(dst, append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Logical" })), stack_counter_t, "stack_ptr", AsPrivate);
+        stack_ptr_decl->payload.global_variable.init = uint32_literal(a, 0);
+
+        ctx.stack = ref_decl_helper(a, stack_decl);
+        ctx.stack_pointer = ref_decl_helper(a, stack_ptr_decl);
+    }
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);

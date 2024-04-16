@@ -121,8 +121,14 @@ void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
             argv[i] = NULL;
             i++;
             if (i == argc)
-                error("Missing subgroup size name");
+                error("Missing subgroup size");
             config->specialization.subgroup_size = atoi(argv[i]);
+        } else if (strcmp(argv[i], "--stack-size") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc)
+                error("Missing stack size");
+            config->per_thread_stack_size = atoi(argv[i]);
         } else if (strcmp(argv[i], "--execution-model") == 0) {
             argv[i] = NULL;
             i++;
