@@ -69,12 +69,13 @@ typedef struct {
     bool check_op_classes;
     bool check_types;
     bool allow_fold;
-    bool untyped_ptrs;
     bool validate_builtin_types; // do @Builtins variables need to match their type in builtins.h ?
     bool is_simt;
 
-    bool allow_subgroup_memory;
-    bool allow_shared_memory;
+    struct {
+        bool physical;
+        bool allowed;
+    } address_spaces[NumAddressSpaces];
 
     struct {
         /// Selects which type the subgroup intrinsic primops use to manipulate masks
@@ -101,7 +102,6 @@ typedef struct {
     } optimisations;
 } ArenaConfig;
 
-typedef struct CompilerConfig_ CompilerConfig;
 ArenaConfig default_arena_config();
 
 IrArena* new_ir_arena(ArenaConfig);
@@ -139,6 +139,7 @@ Nodes filter_out_annotation(IrArena*, Nodes, const char* name);
 
 bool        is_abstraction        (const Node*);
 String      get_abstraction_name  (const Node* abs);
+String      get_abstraction_name_unsafe(const Node* abs);
 const Node* get_abstraction_body  (const Node* abs);
 Nodes       get_abstraction_params(const Node* abs);
 
@@ -255,7 +256,7 @@ const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder*, const Node*);
 
 //////////////////////////////// Compilation ////////////////////////////////
 
-struct CompilerConfig_ {
+typedef struct CompilerConfig_ {
     bool dynamic_scheduling;
     uint32_t per_thread_stack_size;
 
@@ -278,8 +279,8 @@ struct CompilerConfig_ {
     struct {
         bool spv_shuffle_instead_of_broadcast_first;
         bool force_join_point_lifting;
-        bool assume_no_physical_global_ptrs;
         bool restructure_everything;
+        bool recover_structure;
     } hacks;
 
     struct {
@@ -315,7 +316,7 @@ struct CompilerConfig_ {
     struct {
         struct { void* uptr; void (*fn)(void*, String, Module*); } after_pass;
     } hooks;
-};
+} CompilerConfig;
 
 CompilerConfig default_compiler_config();
 
@@ -324,6 +325,7 @@ typedef enum CompilationResult_ {
 } CompilationResult;
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
+void link_module(Module* dst, Module* src);
 
 //////////////////////////////// Emission ////////////////////////////////
 

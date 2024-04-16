@@ -19,4 +19,3 @@ message(FATAL_ERROR "Failed to find LLVM-C target, but found LLVM module earlier
 endif()
 
 target_link_libraries(shady_fe_llvm PRIVATE api common shady)
-set_property(TARGET shady_fe_llvm PROPERTY POSITION_INDEPENDENT_CODE ON)

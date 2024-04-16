@@ -23,14 +23,14 @@ static const Node* process(Context* ctx, NodeClass class, String op_name, const 
     switch (node->tag) {
         case PtrType_TAG: {
             AddressSpace as = node->payload.ptr_type.address_space;
-            if (as == AsSubgroupLogical) {
-                return ptr_type(a, (PtrType) { .pointed_type = rewrite_op(&ctx->rewriter, NcType, "pointed_type", node->payload.ptr_type.pointed_type), .address_space = AsSharedLogical });
+            if (as == AsSubgroup) {
+                return ptr_type(a, (PtrType) { .pointed_type = rewrite_op(&ctx->rewriter, NcType, "pointed_type", node->payload.ptr_type.pointed_type), .address_space = AsShared, .is_reference = node->payload.ptr_type.is_reference });
             }
             break;
         }
         case RefDecl_TAG: {
             const Node* odecl = node->payload.ref_decl.decl;
-            if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsSubgroupLogical)
+            if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsSubgroup)
                 break;
             assert(ctx->b);
             const Node* ndecl = rewrite_op(&ctx->rewriter, NcDeclaration, "decl", odecl);
@@ -40,14 +40,15 @@ static const Node* process(Context* ctx, NodeClass class, String op_name, const 
         }
         case GlobalVariable_TAG: {
             AddressSpace as = node->payload.global_variable.address_space;
-            if (as == AsSubgroupLogical) {
+            if (as == AsSubgroup) {
                 const Type* ntype = rewrite_op(&ctx->rewriter, NcType, "type", node->payload.global_variable.type);
                 const Type* atype = arr_type(a, (ArrType) {
                     .element_type = ntype,
                     .size = ref_decl_helper(a, rewrite_op(&ctx->rewriter, NcDeclaration, "decl", get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG")))
                 });
 
-                Node* new = global_var(ctx->rewriter.dst_module, rewrite_ops(&ctx->rewriter, NcAnnotation, "annotations", node->payload.global_variable.annotations), atype, node->payload.global_variable.name, AsSharedLogical);
+                assert(lookup_annotation(node, "Logical") && "All subgroup variables should be logical by now!");
+                Node* new = global_var(ctx->rewriter.dst_module, rewrite_ops(&ctx->rewriter, NcAnnotation, "annotations", node->payload.global_variable.annotations), atype, node->payload.global_variable.name, AsShared);
                 register_processed(&ctx->rewriter, node, new);
 
                 if (node->payload.global_variable.init) {

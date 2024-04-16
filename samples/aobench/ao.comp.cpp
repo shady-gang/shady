@@ -32,27 +32,21 @@ float cosf(float) __asm__("shady::prim_op::cos");
 float fmodf(float, float) __asm__("shady::prim_op::mod");
 float fabsf(float) __asm__("shady::prim_op::abs");
 float floorf(float) __asm__("shady::prim_op::floor");
+
+#define EXTERNAL_FN static
+#define FUNCTION static
+
 #include "ao.c"
 
-extern "C" __attribute__((annotate("shady::workgroup_size::16::16::1")))
-compute_shader void aobench_kernel(global unsigned char* out) {
-    //outColor = (vec4) { fragColor[0], fragColor[1], fragColor[2], 1.0f };
-    //outColor = (vec4) { fragCoord[0] / 1024, fragCoord[1] / 1024, 1.0f, 1.0f };
+#define xstr(s) str(s)
+#define str(s) #s
 
+extern "C" __attribute__((annotate("shady::workgroup_size::" xstr(BLOCK_SIZE) "::" xstr(BLOCK_SIZE) "::1")))
+compute_shader void aobench_kernel(global TEXEL_T* out) {
     Ctx ctx = get_init_context();
     init_scene(&ctx);
 
     int x = global_id.x;
     int y = global_id.y;
-    //int x = (int) fragCoord.x % 1024;
-    //int y = (int) fragCoord.y % 1024;
-
-    // unsigned int out[3]; // = { 55, 0, 0};
-    out[0] = 255;
-    out[1] = 255;
-    render_pixel(&ctx, x + 3, y, WIDTH, HEIGHT, NSUBSAMPLES, (unsigned char*) out);
-    //out[2] = 155;
-    // out[0] = x / 4;
-    // out[1] = y / 4;
-    //outColor = (vec4) { ((int) out[0]) / 255.0f, ((int) out[1]) / 255.0f, ((int) out[2]) / 255.0f, 1.0f };
+    render_pixel(&ctx, x, y, WIDTH, HEIGHT, NSUBSAMPLES, (TEXEL_T*) out);
 }

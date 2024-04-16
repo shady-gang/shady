@@ -191,10 +191,10 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     Nodes annotations = mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }));
 
     // Arrays for the stacks
-    Node* stack_decl = global_var(dst, annotations, stack_arr_type, "stack", AsPrivatePhysical);
+    Node* stack_decl = global_var(dst, annotations, stack_arr_type, "stack", AsPrivate);
 
     // Pointers into those arrays
-    Node* stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "stack_ptr", AsPrivateLogical);
+    Node* stack_ptr_decl = global_var(dst, append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Logical" })), stack_counter_t, "stack_ptr", AsPrivate);
     stack_ptr_decl->payload.global_variable.init = uint32_literal(a, 0);
 
     Context ctx = {

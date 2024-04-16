@@ -28,7 +28,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case RefDecl_TAG: {
             const Node* odecl = node->payload.ref_decl.decl;
-            if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobalPhysical)
+            if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
                 break;
             assert(ctx->bb && "this RefDecl node isn't appearing in an abstraction - we cannot replace it with a load!");
             const Node* ptr_addr = gen_lea(ctx->bb, ref_decl_helper(a, ctx->lifted_globals_decl), int32_literal(a, 0), singleton(rewrite_node(&ctx->rewriter, odecl)));
@@ -36,7 +36,7 @@ static const Node* process(Context* ctx, const Node* node) {
             return ptr;
         }
         case GlobalVariable_TAG:
-            if (node->payload.global_variable.address_space != AsGlobalPhysical)
+            if (node->payload.global_variable.address_space != AsGlobal)
                 break;
             assert(false);
         default: break;
@@ -77,7 +77,7 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
     size_t lifted_globals_count = 0;
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* odecl = old_decls.nodes[i];
-        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobalPhysical)
+        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
             continue;
 
         member_tys[lifted_globals_count] = rewrite_node(&ctx.rewriter, odecl->type);
@@ -101,7 +101,7 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
     lifted_globals_count = 0;
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* odecl = old_decls.nodes[i];
-        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobalPhysical)
+        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
             continue;
         if (odecl->payload.global_variable.init)
             annotations = append_nodes(a, annotations, annotation_values(a, (AnnotationValues) {

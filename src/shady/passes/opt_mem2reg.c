@@ -77,7 +77,7 @@ static PtrKnowledge* get_last_valid_ptr_knowledge(const KnowledgeBase* kb, const
     return k;
 }
 
-static PtrKnowledge* create_ptr_knowledge(KnowledgeBase* kb, const Node* instruction) {
+static PtrKnowledge* create_root_ptr_knowledge(KnowledgeBase* kb, const Node* instruction) {
     PtrKnowledge* k = arena_alloc(kb->a, sizeof(PtrKnowledge));
     PtrSourceKnowledge* sk = arena_alloc(kb->a, sizeof(PtrSourceKnowledge));
     *k = (PtrKnowledge) { .source = sk, .state = PSUnknown/*, .ptr_address = address_value*/ };
@@ -170,7 +170,8 @@ static KnowledgeBase* create_kb(Context* ctx, const Node* old) {
         }
     }
     assert(kb->map);
-    insert_dict(const Node*, KnowledgeBase*, ctx->abs_to_kb, old, kb);
+    bool ok = insert_dict(const Node*, KnowledgeBase*, ctx->abs_to_kb, old, kb);
+    assert(ok);
     return kb;
 }
 
@@ -181,15 +182,99 @@ static void wipe_all_leaked_pointers(KnowledgeBase* kb) {
     while (dict_iter(kb->map, &i, &ptr, &k)) {
         if (k->ptr_has_leaked) {
             k->ptr_value = NULL;
+            debugvv_print("mem2reg: wiping the know ptr value for ");
+            log_node(DEBUGVV, ptr);
+            debug_print(".\n");
         }
     }
 }
 
-static void mark_values_as_escaping(KnowledgeBase* kb, Nodes values);
-static void mark_value_as_escaping(KnowledgeBase* kb, const Node* value) {
-    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, value);
-    if (k)
+static const Node* find_or_request_known_ptr_value(Context* ctx, KnowledgeBase* kb, const Node* optr) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    PtrKnowledge* ok = get_last_valid_ptr_knowledge(kb, optr);
+    const Node* known_value = get_known_value(kb, ok);
+    if (known_value) {
+        const Type* known_value_t = known_value->type;
+        bool kv_u = deconstruct_qualified_type(&known_value_t);
+
+        const Type* load_result_t = rewrite_node(&ctx->rewriter, optr->type);
+        bool lrt_u = deconstruct_qualified_type(&load_result_t);
+        deconstruct_pointer_type(&load_result_t);
+        // assert(!lrt_u || kv_u);
+        if (is_reinterpret_cast_legal(load_result_t, known_value_t)) {
+            const Node* n = prim_op_helper(a, reinterpret_op, singleton(load_result_t), singleton(known_value));
+            if (lrt_u && !kv_u)
+                n = prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(known_value));
+            return n;
+        }
+    } else {
+        const KnowledgeBase* phi_kb = kb;
+        while (phi_kb->dominator_kb) {
+            phi_kb = phi_kb->dominator_kb;
+        }
+        debug_print("mem2reg: It'd sure be nice to know the value of ");
+        log_node(DEBUG, optr);
+        debug_print(" at phi-like node %s.\n", get_abstraction_name(phi_kb->cfnode->node));
+        // log_node(DEBUG, phi_location->node);
+        insert_set_get_key(const Node*, phi_kb->potential_additional_params, optr);
+    }
+    return NULL;
+}
+
+static PtrKnowledge* find_or_create_ptr_knowledge_for_updating(Context* ctx, KnowledgeBase* kb, const Node* optr, bool create) {
+    Rewriter* r = &ctx->rewriter;
+    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, optr);
+    if (k) {
+        k = update_ptr_knowledge(kb, optr, k);
+    } else {
+        PtrSourceKnowledge* sk = NULL;
+        CFNode* cf_node = scope_lookup(ctx->scope, ctx->oabs);
+        // we're creating a new chain of knowledge, but we want to use the same source if possible
+        while (cf_node) {
+            KnowledgeBase* kb2 = get_kb(ctx, cf_node->node);
+            assert(kb2);
+            PtrKnowledge* k2 = get_last_valid_ptr_knowledge(kb2, optr);
+            if (k2) {
+                sk = k2->source;
+                break;
+            }
+            cf_node = cf_node->idom;
+        }
+        if (sk) {
+            k = arena_alloc(ctx->a, sizeof(PtrKnowledge));
+            *k = (PtrKnowledge) {
+                    .source = sk,
+                    .ptr_has_leaked = true // TODO: this is wrong in the "too conservative" way
+                    // fixing this requires accounting for the dominance relation properly
+                    // to visit all predecessors first, then merging the knowledge
+            };
+            insert_ptr_knowledge(kb, optr, k);
+        } else if (create) {
+            // just make up a new source and assume it leaks/aliases
+            k = create_root_ptr_knowledge(kb, optr);
+            const Type* t = optr->type;
+            deconstruct_qualified_type(&t);
+            assert(t->tag == PtrType_TAG);
+            k->source->as = t->payload.ptr_type.address_space;
+            k->source->type = rewrite_node(r, get_pointer_type_element(t));
+            k->ptr_has_leaked = true;
+        }
+    }
+    return k;
+}
+
+static void mark_values_as_escaping(Context* ctx, KnowledgeBase* kb, Nodes values);
+
+static void mark_value_as_escaping(Context* ctx, KnowledgeBase* kb, const Node* value) {
+    PtrKnowledge* k = find_or_create_ptr_knowledge_for_updating(ctx, kb, value, false);
+    if (k) {
+        debugvv_print("mem2reg: marking ");
+        log_node(DEBUGVV, value);
+        debug_print(" as leaking.\n");
         k->ptr_has_leaked = true;
+        if (k->alias_old_address)
+            mark_value_as_escaping(ctx, kb, k->alias_old_address);
+    }
     switch (is_value(value)) {
         case NotAValue: assert(false);
         case Value_Variable_TAG:
@@ -211,10 +296,10 @@ static void mark_value_as_escaping(KnowledgeBase* kb, const Node* value) {
         case Value_NullPtr_TAG:
             break;
         case Value_Composite_TAG:
-            mark_values_as_escaping(kb, value->payload.composite.contents);
+            mark_values_as_escaping(ctx, kb, value->payload.composite.contents);
             break;
         case Value_Fill_TAG:
-            mark_value_as_escaping(kb, value->payload.fill.value);
+            mark_value_as_escaping(ctx, kb, value->payload.fill.value);
             break;
         case Value_Undef_TAG:
             break;
@@ -225,9 +310,9 @@ static void mark_value_as_escaping(KnowledgeBase* kb, const Node* value) {
     }
 }
 
-static void mark_values_as_escaping(KnowledgeBase* kb, Nodes values) {
+static void mark_values_as_escaping(Context* ctx, KnowledgeBase* kb, Nodes values) {
     for (size_t i = 0; i < values.count; i++)
-        mark_value_as_escaping(kb, values.nodes[i]);
+        mark_value_as_escaping(ctx, kb, values.nodes[i]);
 }
 
 static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const Node* oinstruction) {
@@ -243,7 +328,7 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
             switch (payload.op) {
                 case alloca_logical_op:
                 case alloca_op: {
-                    PtrKnowledge* k = create_ptr_knowledge(kb, oinstruction);
+                    PtrKnowledge* k = create_root_ptr_knowledge(kb, oinstruction);
                     const Type* t = oinstruction->type;
                     deconstruct_qualified_type(&t);
                     assert(t->tag == PtrType_TAG);
@@ -258,33 +343,9 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                 }
                 case load_op: {
                     const Node* optr = first(payload.operands);
-                    PtrKnowledge* ok = get_last_valid_ptr_knowledge(kb, optr);
-                    const Node* known_value = get_known_value(kb, ok);
-                    if (known_value) {
-                        const Type* known_value_t = known_value->type;
-                        bool kv_u = deconstruct_qualified_type(&known_value_t);
-
-                        const Type* load_result_t = rewrite_node(&ctx->rewriter, optr->type);
-                        bool lrt_u = deconstruct_qualified_type(&load_result_t);
-                        deconstruct_pointer_type(&load_result_t);
-                        // assert(!lrt_u || kv_u);
-                        if (is_reinterpret_cast_legal(load_result_t, known_value_t)) {
-                            const Node* n = prim_op_helper(a, reinterpret_op, singleton(load_result_t), singleton(known_value));
-                            if (lrt_u && !kv_u)
-                                n = prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(known_value));
-                            return n;
-                        }
-                    } else {
-                        const KnowledgeBase* phi_kb = kb;
-                        while (phi_kb->dominator_kb) {
-                            phi_kb = phi_kb->dominator_kb;
-                        }
-                        debug_print("mem2reg: It'd sure be nice to know the value of ");
-                        log_node(DEBUG, first(payload.operands));
-                        debug_print(" at phi-like node %s.\n", get_abstraction_name(phi_kb->cfnode->node));
-                        // log_node(DEBUG, phi_location->node);
-                        insert_set_get_key(const Node*, phi_kb->potential_additional_params, optr);
-                    }
+                    const Node* known_value = find_or_request_known_ptr_value(ctx, kb, optr);
+                    if (known_value)
+                        return known_value;
                     // const Node* other_ptr = get_known_address(&ctx->rewriter, ok);
                     // if (other_ptr && optr != other_ptr) {
                     //     return prim_op_helper(a, load_op, empty(a), singleton(other_ptr));
@@ -293,42 +354,7 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                 }
                 case store_op: {
                     const Node* optr = first(payload.operands);
-                    PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, optr);
-                    if (k) {
-                        k = update_ptr_knowledge(kb, optr, k);
-                    } else {
-                        PtrSourceKnowledge* sk = NULL;
-                        CFNode* node = scope_lookup(ctx->scope, ctx->oabs);
-                        while (node) {
-                            KnowledgeBase* kb2 = get_kb(ctx, node->node);
-                            assert(kb2);
-                            PtrKnowledge* k2 = get_last_valid_ptr_knowledge(kb2, optr);
-                            if (k2) {
-                                sk = k2->source;
-                                break;
-                            }
-                            node = node->idom;
-                        }
-                        if (sk) {
-                            k = arena_alloc(ctx->a, sizeof(PtrKnowledge));
-                            *k = (PtrKnowledge) {
-                                .source = sk,
-                                .ptr_has_leaked = true // TODO: this is wrong in the "too conservative" way
-                                                       // fixing this requires accounting for the dominance relation properly
-                                                       // to visit all predecessors first, then merging the knowledge
-                            };
-                            insert_ptr_knowledge(kb, optr, k);
-                        } else {
-                            // just make up a new source and assume it leaks/aliases
-                            k = create_ptr_knowledge(kb, optr);
-                            const Type* t = optr->type;
-                            deconstruct_qualified_type(&t);
-                            assert(t->tag == PtrType_TAG);
-                            k->source->as = t->payload.ptr_type.address_space;
-                            k->source->type = rewrite_node(r, get_pointer_type_element(t));
-                            k->ptr_has_leaked = true;
-                        }
-                    }
+                    PtrKnowledge* k = find_or_create_ptr_knowledge_for_updating(ctx, kb, optr, true);
                     if (k) {
                         k->state = PSKnownValue;
                         k->ptr_value = rewrite_node(r, payload.operands.nodes[1]);
@@ -341,6 +367,11 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                     // if we have knowledge on a particular ptr, the same knowledge propagates if we bitcast it!
                     PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, first(payload.operands));
                     if (k) {
+                        debug_print("mem2reg: the reinterpreted ptr ");
+                        log_node(DEBUG, oinstruction);
+                        debug_print(" is the same as ");
+                        log_node(DEBUG, first(payload.operands));
+                        debug_print(".\n");
                         k = update_ptr_knowledge(kb, oinstruction, k);
                         k->state = PSKnownAlias;
                         k->alias_old_address = first(payload.operands);
@@ -363,12 +394,12 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                             k->alias_old_address = first(payload.operands);
                         }
                     }
-                    break;
+                    return rewritten;
                 }
                 default: break;
             }
 
-            mark_values_as_escaping(kb, payload.operands);
+            mark_values_as_escaping(ctx, kb, payload.operands);
             if (has_primop_got_side_effects(payload.op))
                 wipe_all_leaked_pointers(kb);
 
@@ -385,7 +416,7 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
         case Instruction_Match_TAG:
             break;
         case Instruction_Loop_TAG:
-            mark_values_as_escaping(kb, oinstruction->payload.loop_instr.initial_args);
+            mark_values_as_escaping(ctx, kb, oinstruction->payload.loop_instr.initial_args);
             // assert(false && "unsupported");
             break;
     }
@@ -431,7 +462,7 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
             return jump_helper(a, wrapper, args);
         }
         case Terminator_TailCall_TAG:
-            mark_values_as_escaping(kb, old->payload.tail_call.args);
+            mark_values_as_escaping(ctx, kb, old->payload.tail_call.args);
             break;
         case Terminator_Branch_TAG:
             break;
@@ -439,7 +470,7 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
             break;
         case Terminator_Join_TAG:
             // TODO: local joins are fine
-            mark_values_as_escaping(kb, old->payload.join.args);
+            mark_values_as_escaping(ctx, kb, old->payload.join.args);
             break;
         case Terminator_MergeContinue_TAG:
             break;
@@ -448,7 +479,7 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
         case Terminator_Yield_TAG:
             break;
         case Terminator_Return_TAG:
-            mark_values_as_escaping(kb, old->payload.fn_ret.args);
+            mark_values_as_escaping(ctx, kb, old->payload.fn_ret.args);
             break;
         case Terminator_Unreachable_TAG:
             break;
@@ -688,7 +719,7 @@ Module* opt_mem2reg(const CompilerConfig* config, Module* src) {
         destroy_dict(ctx.bb_new_args);
         destroy_arena(ctx.a);
 
-        verify_module(dst);
+        verify_module(config, dst);
 
         if (get_module_arena(src) != initial_arena)
             destroy_ir_arena(get_module_arena(src));

@@ -40,14 +40,29 @@ typedef struct {
     struct Dict* join_point_values;
 } ScopeBuildContext;
 
-CFNode* scope_lookup(Scope* scope, const Node* block) {
-    CFNode** found = find_value_dict(const Node*, CFNode*, scope->map, block);
+CFNode* scope_lookup(Scope* scope, const Node* abs) {
+    CFNode** found = find_value_dict(const Node*, CFNode*, scope->map, abs);
     if (found) {
-        assert((*found)->node);
-        return *found;
+        CFNode* cfnode = *found;
+        assert(cfnode->node);
+        assert(cfnode->node == abs);
+        return cfnode;
     }
     assert(false);
     return NULL;
+}
+
+static CFNode* new_cfnode(Arena* a) {
+    CFNode* new = arena_alloc(a, sizeof(CFNode));
+    *new = (CFNode) {
+        .succ_edges = new_list(CFEdge),
+        .pred_edges = new_list(CFEdge),
+        .rpo_index = SIZE_MAX,
+        .idom = NULL,
+        .dominates = NULL,
+        .structurally_dominates = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+    };
+    return new;
 }
 
 static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
@@ -56,16 +71,8 @@ static CFNode* get_or_enqueue(ScopeBuildContext* ctx, const Node* abs) {
     CFNode** found = find_value_dict(const Node*, CFNode*, ctx->nodes, abs);
     if (found) return *found;
 
-    CFNode* new = arena_alloc(ctx->arena, sizeof(CFNode));
-    *new = (CFNode) {
-        .node = abs,
-        .succ_edges = new_list(CFEdge),
-        .pred_edges = new_list(CFEdge),
-        .rpo_index = SIZE_MAX,
-        .idom = NULL,
-        .dominates = NULL,
-        .structurally_dominates = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
-    };
+    CFNode* new = new_cfnode(ctx->arena);
+    new->node = abs;
     assert(abs && new->node);
     insert_dict(const Node*, CFNode*, ctx->nodes, abs, new);
     append_list(Node*, ctx->queue, new);
@@ -101,8 +108,9 @@ static void add_edge(ScopeBuildContext* ctx, const Node* src, const Node* dst, C
     assert(is_structural_edge(type) == (bool) is_case(dst));
     if (ctx->lt && !in_loop(ctx->lt, ctx->entry, dst))
         return;
-    if (ctx->lt && dst == ctx->entry)
+    if (ctx->lt && dst == ctx->entry) {
         return;
+    }
 
     CFNode* src_node = get_or_enqueue(ctx, src);
     CFNode* dst_node = get_or_enqueue(ctx, dst);
@@ -200,7 +208,9 @@ static void process_cf_node(ScopeBuildContext* ctx, CFNode* node) {
         case MergeBreak_TAG: {
             break; // TODO i guess
         }
-        case TailCall_TAG:
+        case TailCall_TAG: {
+
+        }
         case Return_TAG:
         case Unreachable_TAG: break;
         case NotATerminator: if (terminator->arena->config.check_types) { error("Grammar problem"); } break;
@@ -214,7 +224,7 @@ static void flip_scope(Scope* scope) {
     scope->entry = NULL;
 
     for (size_t i = 0; i < scope->size; i++) {
-        CFNode * cur = read_list(CFNode*, scope->contents)[i];
+        CFNode* cur = read_list(CFNode*, scope->contents)[i];
 
         struct List* tmp = cur->succ_edges;
         cur->succ_edges = cur->pred_edges;
@@ -223,32 +233,23 @@ static void flip_scope(Scope* scope) {
         for (size_t j = 0; j < entries_count_list(cur->succ_edges); j++) {
             CFEdge* edge = &read_list(CFEdge, cur->succ_edges)[j];
 
-            CFNode* tmp = edge->dst;
+            CFNode* tmp2 = edge->dst;
             edge->dst = edge->src;
-            edge->src = tmp;
+            edge->src = tmp2;
         }
 
         for (size_t j = 0; j < entries_count_list(cur->pred_edges); j++) {
             CFEdge* edge = &read_list(CFEdge, cur->pred_edges)[j];
 
-            CFNode* tmp = edge->dst;
+            CFNode* tmp2 = edge->dst;
             edge->dst = edge->src;
-            edge->src = tmp;
+            edge->src = tmp2;
         }
 
         if (entries_count_list(cur->pred_edges) == 0) {
             if (scope->entry != NULL) {
                 if (scope->entry->node) {
-                    CFNode* new_entry = arena_alloc(scope->arena, sizeof(CFNode));
-                    *new_entry = (CFNode) {
-                        .node = NULL,
-                        .succ_edges = new_list(CFEdge),
-                        .pred_edges = new_list(CFEdge),
-                        .rpo_index = SIZE_MAX,
-                        .idom = NULL,
-                        .dominates = NULL,
-                    };
-
+                    CFNode* new_entry = new_cfnode(scope->arena);
                     CFEdge prev_entry_edge = {
                         .type = JumpEdge,
                         .src = new_entry,
@@ -272,6 +273,7 @@ static void flip_scope(Scope* scope) {
         }
     }
 
+    assert(scope->entry);
     if (!scope->entry->node) {
         scope->size += 1;
         append_list(Node*, scope->contents, scope->entry);
@@ -396,7 +398,7 @@ static size_t post_order_visit(Scope* scope, CFNode* n, size_t i) {
 
 void compute_rpo(Scope* scope) {
     scope->rpo = malloc(sizeof(const CFNode*) * scope->size);
-    size_t index = post_order_visit(scope,  scope->entry, scope->size);
+    size_t index = post_order_visit(scope, scope->entry, scope->size);
     assert(index == 0);
 
     // debug_print("RPO: ");
@@ -422,9 +424,9 @@ void compute_domtree(Scope* scope) {
             continue;
         for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
             CFEdge e = read_list(CFEdge, n->pred_edges)[j];
-            CFNode* p = e.src;
-            if (p->rpo_index < n->rpo_index) {
-                n->idom = p;
+            CFNode* pred = e.src;
+            if (pred->rpo_index < n->rpo_index) {
+                n->idom = pred;
                 goto outer_loop;
             }
         }
@@ -463,166 +465,4 @@ void compute_domtree(Scope* scope) {
             continue;
         append_list(CFNode*, n->idom->dominates, n);
     }
-}
-
-/**
- * @param node: Start node.
- * @param target: List to extend. @ref List of @ref CFNode*
- */
-static void get_undominated_children(const CFNode* node, struct List* target) {
-    for (size_t i = 0; i < entries_count_list(node->succ_edges); i++) {
-        CFEdge edge = read_list(CFEdge, node->succ_edges)[i];
-
-        bool contained = false;
-        for (size_t j = 0; j < entries_count_list(node->dominates); j++) {
-            CFNode* dominated = read_list(CFNode*, node->dominates)[j];
-            if (edge.dst == dominated) {
-                contained = true;
-                break;
-            }
-        }
-        if (!contained)
-            append_list(CFNode*, target, edge.dst);
-    }
-}
-
-//TODO: this function can produce duplicates.
-struct List* scope_get_dom_frontier(Scope* scope, const CFNode* node) {
-    struct List* dom_frontier = new_list(CFNode*);
-
-    get_undominated_children(node, dom_frontier);
-    for (size_t i = 0; i < entries_count_list(node->dominates); i++) {
-        CFNode* dom = read_list(CFNode*, node->dominates)[i];
-        get_undominated_children(dom, dom_frontier);
-    }
-
-    return dom_frontier;
-}
-
-static int extra_uniqueness = 0;
-
-static CFNode* get_let_pred(const CFNode* n) {
-    if (entries_count_list(n->pred_edges) == 1) {
-        CFEdge pred = read_list(CFEdge, n->pred_edges)[0];
-        assert(pred.dst == n);
-        if (pred.type == LetTailEdge && entries_count_list(pred.src->succ_edges) == 1) {
-            assert(is_case(n->node));
-            return pred.src;
-        }
-    }
-    return NULL;
-}
-
-static void dump_cf_node(FILE* output, const CFNode* n) {
-    const Node* bb = n->node;
-    const Node* body = get_abstraction_body(bb);
-    if (!body)
-        return;
-    if (get_let_pred(n))
-        return;
-
-    String color = "black";
-    if (is_case(bb))
-        color = "green";
-    else if (is_basic_block(bb))
-        color = "blue";
-
-    String label = "";
-
-    const CFNode* let_chain_end = n;
-    while (body->tag == Let_TAG) {
-        const Node* instr = body->payload.let.instruction;
-        // label = "";
-        if (instr->tag == PrimOp_TAG)
-            label = format_string_arena(bb->arena->arena, "%slet ... = %s (...)\n", label, get_primop_name(instr->payload.prim_op.op));
-        else
-            label = format_string_arena(bb->arena->arena, "%slet ... = %s (...)\n", label, node_tags[instr->tag]);
-
-        if (entries_count_list(let_chain_end->succ_edges) != 1 || read_list(CFEdge, let_chain_end->succ_edges)[0].type != LetTailEdge)
-            break;
-
-        let_chain_end = read_list(CFEdge, let_chain_end->succ_edges)[0].dst;
-        const Node* abs = body->payload.let.tail;
-        assert(let_chain_end->node == abs);
-        assert(is_case(abs));
-        body = get_abstraction_body(abs);
-    }
-
-    label = format_string_arena(bb->arena->arena, "%s%s", label, node_tags[body->tag]);
-
-    if (is_basic_block(bb)) {
-        label = format_string_arena(bb->arena->arena, "%s\n%s", get_abstraction_name(bb), label);
-    }
-
-    fprintf(output, "bb_%zu [label=\"%s\", color=\"%s\", shape=box];\n", (size_t) n, label, color);
-
-    for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
-        CFNode* d = read_list(CFNode*, n->dominates)[i];
-        if (!find_key_dict(const Node*, n->structurally_dominates, d->node))
-            dump_cf_node(output, d);
-    }
-}
-
-static void dump_cfg_scope(FILE* output, Scope* scope) {
-    extra_uniqueness++;
-
-    const Node* entry = scope->entry->node;
-    fprintf(output, "subgraph cluster_%s {\n", get_abstraction_name(entry));
-    fprintf(output, "label = \"%s\";\n", get_abstraction_name(entry));
-    for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const CFNode* n = read_list(const CFNode*, scope->contents)[i];
-        dump_cf_node(output, n);
-    }
-    for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
-        const CFNode* src_node = bb_node;
-        while (true) {
-            const CFNode* let_parent = get_let_pred(src_node);
-            if (let_parent)
-                src_node = let_parent;
-            else
-                break;
-        }
-
-        for (size_t j = 0; j < entries_count_list(bb_node->succ_edges); j++) {
-            CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
-            const CFNode* target_node = edge.dst;
-
-            if (edge.type == LetTailEdge && get_let_pred(target_node) == bb_node)
-                continue;
-
-            String edge_color = "black";
-            switch (edge.type) {
-                case LetTailEdge:             edge_color = "green"; break;
-                case StructuredEnterBodyEdge: edge_color = "blue"; break;
-                case StructuredLeaveBodyEdge: edge_color = "red"; break;
-                case StructuredPseudoExitEdge: edge_color = "darkred"; break;
-                default: break;
-            }
-
-            fprintf(output, "bb_%zu -> bb_%zu [color=\"%s\"];\n", (size_t) (src_node), (size_t) (target_node), edge_color);
-        }
-    }
-    fprintf(output, "}\n");
-}
-
-void dump_cfg(FILE* output, Module* mod) {
-    if (output == NULL)
-        output = stderr;
-
-    fprintf(output, "digraph G {\n");
-    struct List* scopes = build_scopes(mod);
-    for (size_t i = 0; i < entries_count_list(scopes); i++) {
-        Scope* scope = read_list(Scope*, scopes)[i];
-        dump_cfg_scope(output, scope);
-        destroy_scope(scope);
-    }
-    destroy_list(scopes);
-    fprintf(output, "}\n");
-}
-
-void dump_cfg_auto(Module* mod) {
-    FILE* f = fopen("cfg.dot", "wb");
-    dump_cfg(f, mod);
-    fclose(f);
 }

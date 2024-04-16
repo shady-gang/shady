@@ -13,6 +13,7 @@
 
 #include "../analysis/scope.h"
 #include "../analysis/looptree.h"
+#include "../analysis/free_variables.h"
 
 #include <assert.h>
 
@@ -24,6 +25,7 @@ typedef struct Context_ {
     Scope* fwd_scope;
     Scope* back_scope;
     LoopTree* current_looptree;
+    struct Dict* scope_vars;
 } Context;
 
 static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
@@ -55,6 +57,30 @@ static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode
     for (size_t i = 0; i < entries_count_list(block->dominates); i++) {
         const CFNode* target = read_list(CFNode*, block->dominates)[i];
         gather_exiting_nodes(lt, entry, target, exiting_nodes);
+    }
+}
+
+static void find_unbound_vars(const Node* node, struct Dict* bound_set, struct Dict* free_set, struct List* leaking) {
+    const Node* free_post;
+    size_t i = 0;
+    while (dict_iter(free_set, &i, &free_post, NULL)) {
+        const Node* bound_pre;
+        size_t j = 0;
+        while (dict_iter(bound_set, &j, &bound_pre, NULL)) {
+            if (bound_pre == free_post) {
+                goto next;
+            }
+        }
+
+        log_string(DEBUGVV, "Found variable used outside it's control scope: ");
+        log_node(DEBUGVV, free_post);
+        log_string(DEBUGVV, " (original:");
+        log_node(DEBUGVV, node);
+        log_string(DEBUGVV, " )\n");
+
+        append_list(const Node*, leaking, free_post);
+
+        next:;
     }
 }
 
@@ -101,14 +127,34 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             Nodes nparams = recreate_variables(rewriter, get_abstraction_params(node));
             Nodes inner_yield_types = strip_qualifiers(arena, get_variables_types(arena, nparams));
 
-            LARRAY(Nodes, exit_allocas, exiting_nodes_count);
+            CFNode* cf_pre = scope_lookup(ctx->fwd_scope, node);
+            // assert(cf_pre->idom && "cfg entry nodes can't be loop headers anyhow");
+            // cf_pre = cf_pre->idom;
+            CFNodeVariables* pre = *find_value_dict(CFNode*, CFNodeVariables*, ctx->scope_vars, cf_pre);
+
+            LARRAY(Nodes, exit_param_allocas, exiting_nodes_count);
+            LARRAY(struct List*, leaking, exiting_nodes_count);
+            LARRAY(Nodes, exit_fwd_allocas, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
                 Nodes exit_param_types = rewrite_nodes(rewriter, get_variables_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
-                LARRAY(const Node*, allocas, exit_param_types.count);
+                LARRAY(const Node*, exit_param_allocas_tmp, exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++)
-                    allocas[j] = gen_primop_e(outer_bb, alloca_op, singleton(get_unqualified_type(exit_param_types.nodes[j])), empty(arena));
-                exit_allocas[i] = nodes(arena, exit_param_types.count, allocas);
+                    exit_param_allocas_tmp[j] = gen_primop_e(outer_bb, alloca_op, singleton(get_unqualified_type(exit_param_types.nodes[j])), empty(arena));
+                exit_param_allocas[i] = nodes(arena, exit_param_types.count, exit_param_allocas_tmp);
+
+                // Search for what's required after the exit but not in scope at the loop header
+                // this is similar to the LCSSA constraint, but here it's because controls have hard scopes
+                CFNode* cf_post = scope_lookup(ctx->fwd_scope, exiting_node->node);
+                CFNodeVariables* post = *find_value_dict(CFNode*, CFNodeVariables*, ctx->scope_vars, cf_post);
+                leaking[i] = new_list(const Type*);
+                find_unbound_vars(exiting_node->node, pre->bound_set, post->free_set, leaking[i]);
+
+                size_t leaking_count = entries_count_list(leaking[i]);
+                LARRAY(const Node*, exit_fwd_allocas_tmp, leaking_count);
+                for (size_t j = 0; j < leaking_count; j++)
+                    exit_fwd_allocas_tmp[j] = gen_primop_e(outer_bb, alloca_op, singleton(rewrite_node(rewriter, get_unqualified_type(read_list(const Node*, leaking[i])[j]->type))), empty(arena));
+                exit_fwd_allocas[i] = nodes(arena, leaking_count, exit_fwd_allocas_tmp);
             }
 
             const Node* exit_destination_alloca = NULL;
@@ -125,31 +171,24 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     .yield_types = inner_yield_types
             }), true), "jp_continue");
 
-
             LARRAY(const Node*, exit_wrappers, exiting_nodes_count);
+            LARRAY(Node*, exit_helpers, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
+                exit_helpers[i] = basic_block(arena, fn, empty(arena), format_string_arena(arena->arena, "exit_helper_%d", i));
+
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
                 Nodes exit_wrapper_params = recreate_variables(&ctx->rewriter, get_abstraction_params(exiting_node->node));
-                BodyBuilder* exit_wrapper_bb = begin_body(arena);
-
-                for (size_t j = 0; j < exit_allocas[i].count; j++)
-                    gen_store(exit_wrapper_bb, exit_allocas[i].nodes[j], exit_wrapper_params.nodes[j]);
-
-                const Node* exit_wrapper_body = finish_body(exit_wrapper_bb, join(arena, (Join) {
-                    .join_point = join_token_exit,
-                    .args = empty(arena)
-                }));
 
                 switch (exiting_node->node->tag) {
                     case BasicBlock_TAG: {
                         Node* pre_join_exit_bb = basic_block(arena, fn, exit_wrapper_params, format_string_arena(arena->arena, "exit_wrapper_%d", i));
-                        pre_join_exit_bb->payload.basic_block.body = exit_wrapper_body;
+                        pre_join_exit_bb->payload.basic_block.body = jump_helper(arena, exit_helpers[i], empty(arena));
                         exit_wrappers[i] = pre_join_exit_bb;
                         break;
                     }
                     case Case_TAG:
-                        exit_wrappers[i] = case_(arena, exit_wrapper_params, exit_wrapper_body);
+                        exit_wrappers[i] = case_(arena, exit_wrapper_params, jump_helper(arena, exit_helpers[i], empty(arena)));
                         break;
                     default:
                         assert(false);
@@ -196,9 +235,39 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             //     assert(!search_processed(rewriter, old_params.nodes[i]));
             // }
 
+            struct Dict* old_map = rewriter->map;
+            rewriter->map = clone_dict(rewriter->map);
             Nodes inner_loop_params = recreate_variables(rewriter, get_abstraction_params(node));
             register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
             const Node* loop_body = recreate_node_identity(rewriter, get_abstraction_body(node));
+
+            // save the context
+            for (size_t i = 0; i < exiting_nodes_count; i++) {
+                CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
+                assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
+                Nodes exit_wrapper_params = get_abstraction_params(exit_wrappers[i]);
+                BodyBuilder* exit_wrapper_bb = begin_body(arena);
+
+                for (size_t j = 0; j < exit_param_allocas[i].count; j++)
+                    gen_store(exit_wrapper_bb, exit_param_allocas[i].nodes[j], exit_wrapper_params.nodes[j]);
+                if (exiting_nodes_count > 1)
+                    gen_store(exit_wrapper_bb, exit_destination_alloca, int32_literal(arena, i));
+
+                for (size_t j = 0; j < exit_fwd_allocas[i].count; j++) {
+                    gen_store(exit_wrapper_bb, exit_fwd_allocas[i].nodes[j], rewrite_node(rewriter, read_list(const Node*, leaking[i])[j]));
+                }
+
+                const Node* exit_wrapper_body = finish_body(exit_wrapper_bb, join(arena, (Join) {
+                    .join_point = join_token_exit,
+                    .args = empty(arena)
+                }));
+
+                exit_helpers[i]->payload.basic_block.body = exit_wrapper_body;
+            }
+
+            destroy_dict(rewriter->map);
+            rewriter->map = old_map;
+            register_processed_list(rewriter, get_abstraction_params(node), nparams);
 
             // restore the old context
             for (size_t i = 0; i < exiting_nodes_count; i++) {
@@ -211,7 +280,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 register_processed(rewriter, node, cached_entry);
 
             BodyBuilder* inner_bb = begin_body(arena);
-            const Node* inner_control = control (arena, (Control) {
+            const Node* inner_control = control(arena, (Control) {
                 .inside = case_(arena, singleton(join_token_continue), loop_body),
                 .yield_types = inner_yield_types
             });
@@ -223,7 +292,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     .target = loop_outer,
                     .args = inner_control_results
             }));
-            const Node* outer_control = control (arena, (Control) {
+            const Node* outer_control = control(arena, (Control) {
                 .inside = case_(arena, singleton(join_token_exit), jump(arena, (Jump) {
                         .target = loop_outer,
                         .args = nparams
@@ -233,34 +302,40 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             bind_instruction(outer_bb, outer_control);
 
-            const Node* outer_body;
-
             LARRAY(const Node*, exit_numbers, exiting_nodes_count);
             LARRAY(const Node*, exit_jumps, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 BodyBuilder* exit_recover_bb = begin_body(arena);
 
+                // recover the context
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
+                for (size_t j = 0; j < exit_fwd_allocas[i].count; j++) {
+                    const Node* recovered = gen_load(exit_recover_bb, exit_fwd_allocas[i].nodes[j]);
+                    register_processed(rewriter, read_list(const Node*, leaking[i])[j], recovered);
+                }
+
                 const Node* recreated_exit = rewrite_node(rewriter, exiting_node->node);
 
-                LARRAY(const Node*, recovered_args, exit_allocas[i].count);
-                for (size_t j = 0; j < exit_allocas[i].count; j++)
-                    recovered_args[j] = gen_load(exit_recover_bb, exit_allocas[i].nodes[j]);
+                LARRAY(const Node*, recovered_args, exit_param_allocas[i].count);
+                for (size_t j = 0; j < exit_param_allocas[i].count; j++)
+                    recovered_args[j] = gen_load(exit_recover_bb, exit_param_allocas[i].nodes[j]);
 
                 exit_numbers[i] = int32_literal(arena, i);
                 Node* exit_bb = basic_block(arena, fn, empty(arena), format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name(exiting_node->node)));
                 if (recreated_exit->tag == BasicBlock_TAG) {
                     exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
-                            .target = recreated_exit,
-                            .args = nodes(arena, exit_allocas[i].count, recovered_args),
+                        .target = recreated_exit,
+                        .args = nodes(arena, exit_param_allocas[i].count, recovered_args),
                     }));
                 } else {
                     assert(recreated_exit->tag == Case_TAG);
-                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_allocas[i].count, recovered_args)), recreated_exit));
+                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_param_allocas[i].count, recovered_args)), recreated_exit));
                 }
                 exit_jumps[i] = jump_helper(arena, exit_bb, empty(arena));
+                destroy_list(leaking[i]);
             }
 
+            const Node* outer_body;
             if (exiting_nodes_count == 1)
                 outer_body = finish_body(outer_bb, exit_jumps[0]->payload.jump.target->payload.basic_block.body);
             else {
@@ -303,21 +378,30 @@ static const Node* process_node(Context* ctx, const Node* node) {
     Rewriter* rewriter = &ctx->rewriter;
     IrArena* arena = rewriter->dst_arena;
 
+    Context new_context = *ctx;
+
     switch (node->tag) {
         case Function_TAG: {
-            Context new_context = *ctx;
             ctx = &new_context;
             ctx->current_fn = node;
             ctx->fwd_scope = new_scope(ctx->current_fn);
             ctx->back_scope = new_scope_flipped(ctx->current_fn);
             ctx->current_looptree = build_loop_tree(ctx->fwd_scope);
+            ctx->scope_vars = compute_scope_variables_map(ctx->fwd_scope);
 
             const Node* new = process_abstraction(ctx, node);;
 
             destroy_scope(ctx->fwd_scope);
             destroy_scope(ctx->back_scope);
             destroy_loop_tree(ctx->current_looptree);
+            destroy_scope_variables_map(ctx->scope_vars);
             return new;
+        }
+        case Constant_TAG: {
+            ctx = &new_context;
+            ctx->current_fn = NULL;
+            rewriter = &ctx->rewriter;
+            break;
         }
         case Case_TAG:
         case BasicBlock_TAG:
@@ -360,7 +444,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 idom = cfnode->idom->node;
             }
 
-            if(!idom) {
+            if (!idom) {
                 break;
             }
 

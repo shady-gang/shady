@@ -203,33 +203,36 @@ AddressSpace convert_storage_class(SpvStorageClass class) {
     switch (class) {
         case SpvStorageClassInput:                 return AsInput;
         case SpvStorageClassOutput:                return AsOutput;
-        case SpvStorageClassWorkgroup:             return AsSharedPhysical;
-        case SpvStorageClassCrossWorkgroup:        return AsGlobalPhysical;
-        case SpvStorageClassPhysicalStorageBuffer: return AsGlobalPhysical;
-        case SpvStorageClassPrivate:               return AsPrivatePhysical;
-        case SpvStorageClassFunction:              return AsPrivatePhysical;
+        case SpvStorageClassWorkgroup:             return AsShared;
+        case SpvStorageClassCrossWorkgroup:        return AsGlobal;
+        case SpvStorageClassPhysicalStorageBuffer: return AsGlobal;
+        case SpvStorageClassPrivate:               return AsPrivate;
+        case SpvStorageClassFunction:              return AsPrivate;
         case SpvStorageClassGeneric:               return AsGeneric;
         case SpvStorageClassPushConstant:          return AsPushConstant;
         case SpvStorageClassAtomicCounter:
-        error("TODO");
+            break;
         case SpvStorageClassImage:                 return AsImage;
-            error("TODO");
-        case SpvStorageClassStorageBuffer:         return AsGlobalLogical;
+            break;
+        case SpvStorageClassStorageBuffer:         return AsShaderStorageBufferObject;
         case SpvStorageClassUniformConstant:
-        case SpvStorageClassUniform:               return AsGlobalPhysical; // TODO: should probably depend on CL/VK flavours!
+        case SpvStorageClassUniform:               return AsGlobal; // TODO: should probably depend on CL/VK flavours!
         case SpvStorageClassCallableDataKHR:
         case SpvStorageClassIncomingCallableDataKHR:
         case SpvStorageClassRayPayloadKHR:
         case SpvStorageClassHitAttributeKHR:
         case SpvStorageClassIncomingRayPayloadKHR:
         case SpvStorageClassShaderRecordBufferKHR:
-            error("Unsupported");
+            break;
         case SpvStorageClassCodeSectionINTEL:
         case SpvStorageClassDeviceOnlyINTEL:
         case SpvStorageClassHostOnlyINTEL:
         case SpvStorageClassMax:
-            error("Unsupported");
+            break;
+        default:
+            break;
     }
+    error("s2s: Unsupported storage class: %d\n", class);
 }
 
 typedef struct {
@@ -1353,13 +1356,16 @@ bool compare_spvid(SpvId* pa, SpvId* pb) {
     return *pa == *pb;
 }
 
-S2SError parse_spirv_into_shady(Module* dst, size_t len, const char* data) {
+S2SError parse_spirv_into_shady(size_t len, const char* data, String name, Module** dst) {
+    IrArena* a = new_ir_arena(default_arena_config());
+    *dst = new_module(a, name);
+
     SpvParser parser = {
         .cursor = 0,
         .len = len / sizeof(uint32_t),
         .words = (uint32_t*) data,
-        .mod = dst,
-        .arena = get_module_arena(dst),
+        .mod = *dst,
+        .arena = get_module_arena(*dst),
 
         .decorations_arena = new_arena(),
         .phi_arguments = new_dict(SpvId, SpvPhiArgs*, (HashFn) hash_spvid, (CmpFn) compare_spvid),

@@ -33,7 +33,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     case BuiltinWorkgroupId:
                     case BuiltinGlobalInvocationId:
                     case BuiltinLocalInvocationId:
-                        return global_var(m, filtered_as, rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivateLogical);
+                        return global_var(m, filtered_as, rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivate);
                     case BuiltinNumWorkgroups:
                         return global_var(m, filtered_as, rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsExternal);
                     default:
