@@ -33,7 +33,8 @@ Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
 void destroy_rewriter(Rewriter* r) {
     assert(r->map);
     destroy_dict(r->map);
-    destroy_dict(r->decls_map);
+    if (!r->parent)
+        destroy_dict(r->decls_map);
 }
 
 Rewriter create_importer(Module* src, Module* dst) {
@@ -137,11 +138,27 @@ static Nodes rewrite_ops_helper(Rewriter* rewriter, NodeClass class, String op_n
     return rewrite_nodes_with_fn(rewriter, old_nodes, rewriter->rewrite_fn);
 }
 
+static const Node* search_processed_(const Rewriter* ctx, const Node* old, bool deep) {
+    if (is_declaration(old)) {
+        const Node** found = find_value_dict(const Node*, const Node*, ctx->decls_map, old);
+        return found ? *found : NULL;
+    }
+
+    while (ctx) {
+        assert(ctx->map && "this rewriter has no processed cache");
+        const Node** found = find_value_dict(const Node*, const Node*, ctx->map, old);
+        if (found)
+            return *found;
+        if (deep)
+            ctx = ctx->parent;
+        else
+            ctx = NULL;
+    }
+    return NULL;
+}
+
 const Node* search_processed(const Rewriter* ctx, const Node* old) {
-    struct Dict* map = is_declaration(old) ? ctx->decls_map : ctx->map;
-    assert(map && "this rewriter has no processed cache");
-    const Node** found = find_value_dict(const Node*, const Node*, map, old);
-    return found ? *found : NULL;
+    return search_processed_(ctx, old, false);
 }
 
 const Node* find_processed(const Rewriter* ctx, const Node* old) {
@@ -154,7 +171,7 @@ void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
     assert(old->arena == ctx->src_arena);
     assert(new->arena == ctx->dst_arena);
 #ifndef NDEBUG
-    const Node* found = search_processed(ctx, old);
+    const Node* found = search_processed_(ctx, old, false);
     if (found) {
         error_print("Trying to replace ");
         log_node(ERROR, old);
@@ -190,6 +207,7 @@ bool compare_node(Node**, Node**);
 #include "rewrite_generated.c"
 
 void rewrite_module(Rewriter* rewriter) {
+    assert(rewriter->dst_module != rewriter->src_module);
     Nodes old_decls = get_module_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
         if (old_decls.nodes[i]->tag == NominalType_TAG) continue;

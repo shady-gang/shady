@@ -37,6 +37,9 @@ struct Rewriter_ {
         bool fold_quote;
         bool process_variables;
     } config;
+
+    Rewriter* parent;
+
     struct Dict* map;
     struct Dict* decls_map;
 };
