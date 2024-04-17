@@ -100,6 +100,11 @@ static bool fill_device_properties(VkrDeviceCaps* caps) {
         append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.external_memory_host);
     }
 
+    if (caps->supported_extensions[ShadySupportsKHR_driver_properties]) {
+        caps->properties.driver_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+        append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.driver_properties);
+    }
+
     vkGetPhysicalDeviceProperties2(caps->physical_device, &caps->properties.base);
 
     if (caps->supported_extensions[ShadySupportsEXT_subgroup_size_control] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
@@ -110,11 +115,6 @@ static bool fill_device_properties(VkrDeviceCaps* caps) {
         caps->subgroup_size.min = caps->properties.subgroup.subgroupSize;
     }
     debug_print("Subgroup size range for device '%s' is [%d; %d]\n", caps->properties.base.properties.deviceName, caps->subgroup_size.min, caps->subgroup_size.max);
-
-    if (caps->supported_extensions[ShadySupportsKHR_driver_properties]) {
-        caps->properties.driver_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
-        append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.driver_properties);
-    }
     return true;
 }
 
