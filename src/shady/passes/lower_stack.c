@@ -59,7 +59,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     if (!push) // for pop, we decrease the stack size first
         stack_size = gen_primop_ce(bb, sub_op, 2, (const Node* []) { stack_size, element_size});
 
-    const Node* addr = gen_lea(bb, stack, stack_size, nodes(a, 1, (const Node* []) {uint32_literal(a, 0) }));
+    const Node* addr = gen_lea(bb, ctx->stack, int32_literal(a, 0), singleton(stack_size));
     assert(get_unqualified_type(addr->type)->tag == PtrType_TAG);
     AddressSpace addr_space = get_unqualified_type(addr->type)->payload.ptr_type.address_space;
 
@@ -118,7 +118,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 BodyBuilder* bb = begin_body(a);
                 const Node* stack_pointer = ctx->stack_pointer;
                 const Node* stack_size = gen_load(bb, stack_pointer);
-                const Node* stack_base_ptr = gen_lea(bb, ctx->stack, stack_size, empty(a));
+                const Node* stack_base_ptr = gen_lea(bb, ctx->stack, int32_literal(a, 0), singleton(stack_size));
                 if (ctx->config->printf_trace.stack_size) {
                     if (oprim_op->op == get_stack_base_op)
                         bind_instruction(bb, prim_op(a, (PrimOp) {.op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) {.string = "trace: stack_size=%d\n"}), stack_size)}));

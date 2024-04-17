@@ -94,7 +94,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             }
             if (config->printf_trace.memory_accesses) {
                 AddressSpace as = get_unqualified_type(arr->type)->payload.ptr_type.address_space;
-                String template = format_string_interned(a, "loaded %s at %s:%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
+                String template = format_string_interned(a, "loaded %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
                 const Node* widened = acc;
                 if (element_type->payload.int_type.width < IntTy32)
                     widened = gen_conversion(bb, uint32_type(a), acc);
@@ -198,7 +198,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             }
             if (config->printf_trace.memory_accesses) {
                 AddressSpace as = get_unqualified_type(arr->type)->payload.ptr_type.address_space;
-                String template = format_string_interned(a, "stored %s at %s:%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
+                String template = format_string_interned(a, "stored %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
                 const Node* widened = value;
                 if (element_type->payload.int_type.width < IntTy32)
                     widened = gen_conversion(bb, uint32_type(a), value);
