@@ -113,8 +113,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lift_indirect_targets)
     RUN_PASS(opt_mem2reg) // run because we can now weaken non-leaking allocas
 
-    if (config->specialization.execution_model != EmNone)
-        RUN_PASS(specialize_execution_model)
+    RUN_PASS(specialize_execution_model)
 
     RUN_PASS(opt_stack)
 

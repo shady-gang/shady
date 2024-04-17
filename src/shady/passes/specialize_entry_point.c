@@ -50,9 +50,7 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case Constant_TAG: {
             Node* ncnst = (Node*) recreate_node_identity(&ctx->rewriter, node);
-            if (strcmp(get_declaration_name(ncnst), "SUBGROUP_SIZE") == 0) {
-                ncnst->payload.constant.instruction = quote_helper(a, singleton(uint32_literal(a, ctx->config->specialization.subgroup_size)));
-            } else if (strcmp(get_declaration_name(ncnst), "SUBGROUPS_PER_WG") == 0) {
+            if (strcmp(get_declaration_name(ncnst), "SUBGROUPS_PER_WG") == 0) {
                 // SUBGROUPS_PER_WG = (NUMBER OF INVOCATIONS IN SUBGROUP / SUBGROUP SIZE)
                 // Note: this computations assumes only full subgroups are launched, if subgroups can launch partially filled then this relationship does not hold.
                 uint32_t wg_size[3];
@@ -87,9 +85,6 @@ static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
 }
 
 static void specialize_arena_config(const CompilerConfig* config, Module* src, ArenaConfig* target) {
-    size_t subgroup_size = config->specialization.subgroup_size;
-    assert(subgroup_size);
-
     const Node* old_entry_point_decl = find_entry_point(src, config);
     if (old_entry_point_decl->tag != Function_TAG)
         error("%s is not a function", config->specialization.entry_point);
