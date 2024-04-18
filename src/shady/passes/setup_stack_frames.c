@@ -35,7 +35,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             BodyBuilder* bb = begin_body(a);
             if (!ctx2.disable_lowering) {
-                ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_pointer_op } ), (String []) {format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
+                ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_size_op } ), (String []) {format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
             }
             if (node->payload.fun.body)
                 fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
@@ -49,7 +49,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 assert(ctx->entry_stack_offset);
                 // Restore SP before calling exit
                 bind_instruction(bb, prim_op(a, (PrimOp) {
-                    .op = set_stack_pointer_op,
+                    .op = set_stack_size_op,
                     .operands = nodes(a, 1, (const Node* []) {ctx->entry_stack_offset })
                 }));
             }

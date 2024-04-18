@@ -64,7 +64,7 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, struct L
         bind_instruction(builder, save_instruction);
     }
 
-    const Node* sp = gen_primop_ce(builder, get_stack_pointer_op, 0, NULL);
+    const Node* sp = gen_primop_ce(builder, get_stack_size_op, 0, NULL);
 
     return sp;
 }
@@ -134,7 +134,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
 
     // Recover that stuff inside the new body
     BodyBuilder* bb = begin_body(a);
-    gen_primop(bb, set_stack_pointer_op, empty(a), singleton(payload));
+    gen_primop(bb, set_stack_size_op, empty(a), singleton(payload));
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
         assert(ovar->tag == Variable_TAG);

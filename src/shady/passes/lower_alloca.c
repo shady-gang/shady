@@ -142,7 +142,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (!ctx->entry_stack_offset) {
                     //String tmp_name = format_string_arena(a->arena, "stack_ptr_before_alloca_%s", get_abstraction_name(fun));
                     String tmp_name = "stack_ptr_before_alloca";
-                    ctx->entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_pointer_op } ), (String []) { tmp_name }));
+                    ctx->entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_size_op } ), (String []) { tmp_name }));
                 }
 
                 //const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands)), found_slot->offset));
@@ -154,7 +154,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 //bool last = found_slot->i == ctx->num_slots - 1;
                 //if (last) {
                     const Node* updated_stack_ptr = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, ctx->entry_stack_offset, ctx->frame_size));
-                    gen_primop(bb, set_stack_pointer_op, empty(a), singleton(updated_stack_ptr));
+                    gen_primop(bb, set_stack_size_op, empty(a), singleton(updated_stack_ptr));
                 //}
 
                 return yield_values_and_wrap_in_block(bb, singleton(slot));

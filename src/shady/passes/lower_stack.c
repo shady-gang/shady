@@ -100,13 +100,13 @@ static const Node* process_let(Context* ctx, const Node* node) {
     if (old_instruction->tag == PrimOp_TAG) {
         const PrimOp* oprim_op = &old_instruction->payload.prim_op;
         switch (oprim_op->op) {
-            case get_stack_pointer_op: {
+            case get_stack_size_op: {
                 assert(ctx->stack);
                 BodyBuilder* bb = begin_body(a);
                 const Node* sp = gen_load(bb, ctx->stack_pointer);
                 return finish_body(bb, let(a, quote_helper(a, singleton(sp)), tail));
             }
-            case set_stack_pointer_op: {
+            case set_stack_size_op: {
                 assert(ctx->stack);
                 BodyBuilder* bb = begin_body(a);
                 const Node* val = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
