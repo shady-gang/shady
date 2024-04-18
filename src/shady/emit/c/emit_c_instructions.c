@@ -349,7 +349,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 // this means such code is never going to be legal in GLSL
                 // also the cast is to account for our arrays-in-structs hack
                 const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
-                acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &%s)", emit_type(emitter, curr_ptr_type, NULL), index_into_array(emitter, pointee_type, acc, offset)));
+                acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &(%s)[%s])", emit_type(emitter, curr_ptr_type, NULL), to_cvalue(emitter, acc), to_cvalue(emitter, offset)));
                 uniform &= is_qualified_type_uniform(prim_op->operands.nodes[1]->type);
             }
 

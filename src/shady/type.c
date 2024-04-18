@@ -802,6 +802,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const IntLiteral* lit = resolve_to_int_literal(offset);
             bool offset_is_zero = lit && lit->value == 0;
             assert(offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference && "if an offset is used, the base cannot be a reference");
+            assert(offset_is_zero || is_data_type(pointee_type) && "if an offset is used, the base must point to a data type");
             uniform &= offset_uniform;
 
             Nodes indices = nodes(arena, prim_op.operands.count - 2, &prim_op.operands.nodes[2]);
@@ -1036,7 +1037,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case get_stack_base_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 0);
-            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = uint8_type(arena), .size = NULL }), .address_space = AsPrivate});
+            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = uint8_type(arena), .address_space = AsPrivate});
             return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = ptr });
         }
         case set_stack_pointer_op: {

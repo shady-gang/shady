@@ -352,6 +352,9 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                     // }
                     return prim_op_helper(a, load_op, empty(a), singleton(rewrite_node(r, optr)));
                 }
+                // case memcpy_op: {
+                //     const Node* optr = first(payload.operands);
+                // }
                 case store_op: {
                     const Node* optr = first(payload.operands);
                     PtrKnowledge* k = find_or_create_ptr_knowledge_for_updating(ctx, kb, optr, true);
