@@ -357,7 +357,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
             BodyBuilder* if_builder = begin_body(a);
             if (ctx->config->printf_trace.god_function) {
                 const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
-                bind_instruction(if_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: thread %d:%d will run fn %d with mask = %lx\n" }), sid, local_id, fn_lit, next_mask) }));
+                bind_instruction(if_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: thread %d:%d will run fn %ul with mask = %lx\n" }), sid, local_id, fn_lit, next_mask) }));
             }
             bind_instruction(if_builder, call(a, (Call) {
                 .callee = fn_addr_helper(a, find_processed(&ctx->rewriter, decl)),

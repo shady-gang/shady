@@ -1,9 +1,10 @@
+#include "cli.h"
+
 #include "shady/driver.h"
 #include "shady/ir.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
-#include <string.h>
 
 #include "log.h"
 #include "portability.h"
@@ -81,25 +82,18 @@ void cli_parse_common_args(int* pargc, char** argv) {
     cli_pack_remaining_args(pargc, argv);
 }
 
-#define PARSE_TOGGLE_OPTION(f, name) \
-if (strcmp(argv[i], "--no-"#name) == 0) { \
-    config->f = false; argv[i] = NULL; continue; \
-} else if (strcmp(argv[i], "--"#name) == 0) { \
-    config->f = true; argv[i] = NULL; continue; \
-}
-
-#define TOGGLE_OPTIONS(F) \
-F(lower.emulate_physical_memory, emulate-physical-memory) \
-F(lower.emulate_generic_ptrs, emulate-generic-pointers) \
-F(dynamic_scheduling, dynamic-scheduling) \
-F(hacks.force_join_point_lifting, lift-join-points) \
-F(logging.print_internal, print-internal) \
-F(logging.print_generated, print-builtin) \
-F(logging.print_generated, print-generated) \
-F(lower.simt_to_explicit_simd, lower-simt-to-simd) \
-F(optimisations.inline_everything, inline-everything) \
-F(hacks.restructure_everything, restructure-everything) \
-F(hacks.recover_structure, recover-structure) \
+#define COMPILER_CONFIG_TOGGLE_OPTIONS(F) \
+F(config->lower.emulate_physical_memory, emulate-physical-memory) \
+F(config->lower.emulate_generic_ptrs, emulate-generic-pointers) \
+F(config->dynamic_scheduling, dynamic-scheduling) \
+F(config->hacks.force_join_point_lifting, lift-join-points) \
+F(config->logging.print_internal, print-internal) \
+F(config->logging.print_generated, print-builtin) \
+F(config->logging.print_generated, print-generated) \
+F(config->lower.simt_to_explicit_simd, lower-simt-to-simd) \
+F(config->optimisations.inline_everything, inline-everything) \
+F(config->hacks.restructure_everything, restructure-everything) \
+F(config->hacks.recover_structure, recover-structure) \
 
 void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
     int argc = *pargc;
@@ -109,7 +103,7 @@ void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
         if (argv[i] == NULL)
             continue;
 
-        TOGGLE_OPTIONS(PARSE_TOGGLE_OPTION)
+        COMPILER_CONFIG_TOGGLE_OPTIONS(PARSE_TOGGLE_OPTION)
 
         if (strcmp(argv[i], "--entry-point") == 0) {
             argv[i] = NULL;

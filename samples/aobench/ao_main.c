@@ -159,16 +159,14 @@ int main(int argc, char **argv) {
     set_log_level(INFO);
     Args args = {
         .compiler_config = default_compiler_config(),
-        .runtime_config = {
-            .use_validation = true,
-            .dump_spv = true,
-        }
+        .runtime_config = default_runtime_config(),
     };
 
     args.compiler_config.hacks.restructure_everything = true;
 
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&args.compiler_config, &argc, argv);
+    cli_parse_runtime_config(&args.runtime_config, &argc, argv);
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
 
     bool do_host = false, do_ispc = false, do_device = false, do_all = true;

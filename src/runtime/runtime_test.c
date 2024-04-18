@@ -32,13 +32,11 @@ int main(int argc, char* argv[]) {
     set_log_level(INFO);
     Args args = {
         .driver_config = default_driver_config(),
-    };
-    args.runtime_config = (RuntimeConfig) {
-        .use_validation = true,
-        .dump_spv = true,
+        .runtime_config = default_runtime_config(),
     };
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
     cli_parse_common_args(&argc, argv);
+    cli_parse_runtime_config(&args.runtime_config, &argc, argv);
     cli_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
     cli_parse_input_files(args.driver_config.input_filenames, &argc, argv);
 

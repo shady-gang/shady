@@ -1,4 +1,4 @@
-add_library(runtime runtime.c runtime_program.c)
+add_library(runtime runtime.c runtime_program.c runtime_cli.c)
 target_link_libraries(runtime PUBLIC driver)
 set_target_properties(runtime PROPERTIES OUTPUT_NAME "shady_runtime")
 

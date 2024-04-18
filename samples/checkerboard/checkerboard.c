@@ -43,13 +43,11 @@ int main(int argc, char **argv)
     set_log_level(INFO);
     CompilerConfig compiler_config = default_compiler_config();
 
-    RuntimeConfig runtime_config = (RuntimeConfig) {
-        .use_validation = true,
-        .dump_spv = true,
-    };
+    RuntimeConfig runtime_config = default_runtime_config();
 
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&compiler_config, &argc, argv);
+    cli_parse_runtime_config(&runtime_config, &argc, argv);
 
     info_print("Shady checkerboard test starting...\n");
 

@@ -39,8 +39,6 @@ typedef enum {
 
 CodegenTarget guess_target(const char* filename);
 
-void cli_pack_remaining_args(int* pargc, char** argv);
-
 // parses 'common' arguments such as log level etc
 void cli_parse_common_args(int* pargc, char** argv);
 // parses compiler pipeline options

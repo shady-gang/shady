@@ -11,6 +11,9 @@ typedef struct {
     bool allow_no_devices;
 } RuntimeConfig;
 
+RuntimeConfig default_runtime_config();
+void cli_parse_runtime_config(RuntimeConfig* config, int* pargc, char** argv);
+
 typedef struct Runtime_  Runtime;
 typedef struct Device_   Device;
 typedef struct Program_  Program;
