@@ -47,10 +47,28 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     info = find_value_dict(const Node*, FnInfo, ctx->fns, fn_node->fn);
     assert(info);
 
-    if (fn_node->is_address_captured || fn_node->is_recursive) {
+    if (fn_node->is_address_captured || fn_node->is_recursive || fn_node->calls_indirect) {
         info->is_leaf = false;
         info->done = true;
-        debugv_print("Function %s can't be a leaf function because %s.\n", get_abstraction_name(fn_node->fn), fn_node->is_address_captured ? "its address is captured" : "it is recursive" );
+        debugv_print("Function %s can't be a leaf function because", get_abstraction_name(fn_node->fn));
+        bool and = false;
+        if (fn_node->is_address_captured) {
+            debugv_print("its address is captured");
+            and = true;
+        }
+        if (fn_node->is_recursive) {
+            if (and)
+                debugv_print(" and ");
+            debugv_print("it is recursive");
+            and = true;
+        }
+        if (fn_node->calls_indirect) {
+            if (and)
+                debugv_print(" and ");
+            debugv_print("it makes indirect calls");
+            and = true;
+        }
+        debugv_print(".\n");
         return false;
     }
 

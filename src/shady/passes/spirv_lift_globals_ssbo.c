@@ -104,7 +104,7 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
         if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
             continue;
         if (odecl->payload.global_variable.init)
-            annotations = append_nodes(a, annotations, annotation_values(a, (AnnotationValues) {
+            ctx.lifted_globals_decl->payload.global_variable.annotations = append_nodes(a, ctx.lifted_globals_decl->payload.global_variable.annotations, annotation_values(a, (AnnotationValues) {
                     .name = "InitialValue",
                     .values = mk_nodes(a, int32_literal(a, lifted_globals_count), rewrite_node(&ctx.rewriter, odecl->payload.global_variable.init))
             }));

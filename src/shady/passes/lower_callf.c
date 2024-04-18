@@ -24,6 +24,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
     if (found) return found;
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
+    Rewriter* r = &ctx->rewriter;
 
     if (old->tag == Function_TAG) {
         Context ctx2 = *ctx;
@@ -67,6 +68,19 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         return recreate_node_identity(&ctx->rewriter, old);
 
     switch (old->tag) {
+        case FnType_TAG: {
+            Nodes param_types = rewrite_nodes(r, old->payload.fn_type.param_types);
+            Nodes returned_types = rewrite_nodes(&ctx->rewriter, old->payload.fn_type.return_types);
+            const Type* jp_type = qualified_type(a, (QualifiedType) {
+                    .type = join_point_type(a, (JoinPointType) { .yield_types = strip_qualifiers(a, returned_types) }),
+                    .is_uniform = false
+            });
+            param_types = append_nodes(a, param_types, jp_type);
+            return fn_type(a, (FnType) {
+                .param_types = param_types,
+                .return_types = empty(a),
+            });
+        }
         case Return_TAG: {
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.args);
 

@@ -8,6 +8,7 @@
 
 #include "arena.h"
 #include "util.h"
+#include "type.h"
 
 #include "../../shady/transform/memory_layout.h"
 
@@ -39,6 +40,46 @@ VkDescriptorType as_to_descriptor_type(AddressSpace as) {
         case AsUniform: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         case AsShaderStorageBufferObject: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         default: error("No mapping to a descriptor type");
+    }
+}
+
+static void write_value(unsigned char* tgt, const Node* value) {
+    IrArena* a = value->arena;
+    switch (value->tag) {
+        case IntLiteral_TAG: {
+            switch (value->payload.int_literal.width) {
+                case IntTy8: *((uint8_t*) tgt) = (uint8_t) (value->payload.int_literal.value & 0xFF); break;
+                case IntTy16: *((uint16_t*) tgt) = (uint16_t) (value->payload.int_literal.value & 0xFFFF); break;
+                case IntTy32: *((uint32_t*) tgt) = (uint32_t) (value->payload.int_literal.value & 0xFFFFFFFF); break;
+                case IntTy64: *((uint64_t*) tgt) = (uint64_t) (value->payload.int_literal.value); break;
+            }
+            break;
+        }
+        case Composite_TAG: {
+            Nodes values = value->payload.composite.contents;
+            const Type* struct_t = value->payload.composite.type;
+            struct_t = get_maybe_nominal_type_body(struct_t);
+
+            if (struct_t->tag == RecordType_TAG) {
+                LARRAY(FieldLayout, fields, values.count);
+                get_record_layout(a, struct_t, fields);
+                for (size_t i = 0; i < values.count; i++) {
+                    // TypeMemLayout layout = get_mem_layout(value->arena, get_unqualified_type(element->type));
+                    write_value(tgt + fields->offset_in_bytes, values.nodes[i]);
+                }
+            } else if (struct_t->tag == ArrType_TAG) {
+                for (size_t i = 0; i < values.count; i++) {
+                    TypeMemLayout layout = get_mem_layout(value->arena, get_unqualified_type(values.nodes[i]->type));
+                    write_value(tgt, values.nodes[i]);
+                    tgt += layout.size_in_bytes;
+                }
+            } else {
+                assert(false);
+            }
+            break;
+        }
+        default:
+            assert(false);
     }
 }
 
@@ -78,6 +119,8 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
 
             for (size_t j = 0; j < struct_t->payload.record_type.members.count; j++) {
                 const Type* member_t = struct_t->payload.record_type.members.nodes[j];
+                assert(member_t->tag == PtrType_TAG);
+                member_t = get_pointee_type(program->arena, member_t);
                 TypeMemLayout layout = get_mem_layout(program->specialized_module->arena, member_t);
 
                 ProgramResourceInfo* constant_res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
@@ -93,6 +136,15 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 res_info->size += sizeof(void*);
 
                 // TODO initial value
+                Nodes annotations = get_declaration_annotations(decl);
+                for (size_t k = 0; k < annotations.count; k++) {
+                    const Node* a = annotations.nodes[k];
+                    if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && resolve_to_int_literal(first(get_annotation_values(a)))->value == j) {
+                        constant_res_info->default_data = calloc(1, layout.size_in_bytes);
+                        write_value(constant_res_info->default_data, get_annotation_values(a).nodes[1]);
+                        //printf("wowie");
+                    }
+                }
             }
 
             if (vkr_can_import_host_memory(program->device))
@@ -394,11 +446,13 @@ static bool prepare_resources(VkrSpecProgram* program) {
             resource->buffer = allocate_buffer_device(program->device, resource->size);
         }
 
-        // TODO: initial data!
-        // if (!resource->host_owned)
-        char* zeroes = calloc(1, resource->size);
-        copy_to_buffer(resource->buffer, 0, zeroes, resource->size);
-        free(zeroes);
+        if (resource->default_data) {
+            copy_to_buffer(resource->buffer, 0, resource->default_data, resource->size);
+        } else {
+            char* zeroes = calloc(1, resource->size);
+            copy_to_buffer(resource->buffer, 0, zeroes, resource->size);
+            free(zeroes);
+        }
 
         if (resource->parent) {
             char* dst = resource->parent->host_ptr;

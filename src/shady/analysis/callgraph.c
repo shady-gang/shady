@@ -38,7 +38,10 @@ static const Node* ignore_immediate_fn_addr(const Node* node) {
     return node;
 }
 
+static CGNode* analyze_fn(CallGraph* graph, const Node* fn);
+
 static void visit_callsite(CGVisitor* visitor, const Node* callee, const Node* instr) {
+    assert(visitor->root);
     assert(callee->tag == Function_TAG);
     CGNode* target = analyze_fn(visitor->graph, callee);
     // Immediate recursion
@@ -55,10 +58,11 @@ static void visit_callsite(CGVisitor* visitor, const Node* callee, const Node* i
 }
 
 static void search_for_callsites(CGVisitor* visitor, const Node* node) {
-    assert(is_abstraction(visitor->abs));
+    assert((visitor->abs && is_abstraction(visitor->abs)) || !visitor->root);
     switch (node->tag) {
         case Function_TAG: {
             assert(false);
+            // analyze_fn(visitor->graph, node)->is_address_captured = true;
             break;
         }
         case BasicBlock_TAG:
@@ -74,12 +78,15 @@ static void search_for_callsites(CGVisitor* visitor, const Node* node) {
             break;
         }
         case Call_TAG: {
+            assert(visitor->root && "calls can only occur in functions");
             const Node* callee = node->payload.call.callee;
             callee = ignore_immediate_fn_addr(callee);
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);
-            else
+            else {
+                visitor->root->calls_indirect = true;
                 visit_op(&visitor->visitor, NcValue, "callee", callee);
+            }
             visit_ops(&visitor->visitor, NcValue, "args", node->payload.call.args);
             break;
         }
@@ -216,8 +223,29 @@ CallGraph* new_callgraph(Module* mod) {
 
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
-        if (decls.nodes[i]->tag == Function_TAG) {
-            analyze_fn(graph, decls.nodes[i]);
+        const Node* decl = decls.nodes[i];
+        if (decl->tag == Function_TAG) {
+            analyze_fn(graph, decl);
+        } else if (decl->tag == GlobalVariable_TAG && decl->payload.global_variable.init) {
+            CGVisitor v = {
+                .visitor = {
+                    .visit_node_fn = (VisitNodeFn) search_for_callsites
+                },
+                .graph = graph,
+                .root = NULL,
+                .abs = NULL,
+            };
+            search_for_callsites(&v, decl->payload.global_variable.init);
+        } else if (decl->tag == Constant_TAG && decl->payload.constant.instruction) {
+            CGVisitor v = {
+                .visitor = {
+                    .visit_node_fn = (VisitNodeFn) search_for_callsites
+                },
+                .graph = graph,
+                .root = NULL,
+                .abs = NULL,
+            };
+            search_for_callsites(&v, decl->payload.constant.instruction);
         }
     }
 

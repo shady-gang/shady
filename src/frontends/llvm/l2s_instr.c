@@ -452,13 +452,18 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             LLVMValueRef callee = LLVMGetCalledValue(instr);
             callee = remove_ptr_bitcasts(p, callee);
             assert(num_args + 1 == num_ops);
-            String intrinsic = is_llvm_intrinsic(callee);
-            if (!intrinsic)
-                intrinsic = is_shady_intrinsic(callee);
+            String intrinsic = NULL;
+            if (LLVMIsAFunction(callee) || LLVMIsAConstant(callee)) {
+                intrinsic = is_llvm_intrinsic(callee);
+                if (!intrinsic)
+                    intrinsic = is_shady_intrinsic(callee);
+            }
             if (intrinsic) {
                 assert(LLVMIsAFunction(callee));
                 if (strcmp(intrinsic, "llvm.dbg.declare") == 0) {
                     const Node* target = convert_value(p, LLVMGetOperand(instr, 0));
+                    if (target->tag != Variable_TAG)
+                        return (EmittedInstr) { 0 };
                     assert(target->tag == Variable_TAG);
                     const Node* meta = convert_value(p, LLVMGetOperand(instr, 1));
                     assert(meta->tag == RefDecl_TAG);

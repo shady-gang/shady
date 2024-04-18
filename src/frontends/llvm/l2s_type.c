@@ -36,7 +36,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             LLVMGetParamTypes(t, param_types);
             LARRAY(const Type*, cparam_types, num_params);
             for (size_t i = 0; i < num_params; i++)
-                cparam_types[i] = convert_type(p, param_types[i]);
+                cparam_types[i] = qualified_type_helper(convert_type(p, param_types[i]), false);
             const Type* ret_type = convert_type(p, LLVMGetReturnType(t));
             if (LLVMGetTypeKind(LLVMGetReturnType(t)) == LLVMVoidTypeKind)
                 ret_type = empty_multiple_return_type(a);
