@@ -618,13 +618,13 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case get_stack_base_op:
         case push_stack_op:
         case pop_stack_op:
-        case get_stack_pointer_op:
-        case set_stack_pointer_op: error("Stack operations need to be lowered.");
+        case get_stack_size_op:
+        case set_stack_size_op: error("Stack operations need to be lowered.");
         case default_join_point_op:
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
         case subgroup_elect_first_op: {
             switch (emitter->config.dialect) {
-                case CDialect_CUDA: error("TODO")
+                case CDialect_CUDA: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "__shady_elect_first()")); break;
                 case CDialect_ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))")); break;
                 case CDialect_C11:
                 case CDialect_GLSL: error("TODO")
@@ -641,7 +641,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case subgroup_broadcast_first_op: {
             CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             switch (emitter->config.dialect) {
-                case CDialect_CUDA: error("TODO")
+                case CDialect_CUDA: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value)); break;
                 case CDialect_ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
                 case CDialect_C11:
                 case CDialect_GLSL: error("TODO")
