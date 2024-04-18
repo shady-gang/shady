@@ -36,6 +36,12 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
 }
 
 static bool cuda_c_to_ptx(CudaKernel* kernel) {
+    String override_file = getenv("SHADY_OVERRIDE_PTX");
+    if (override_file) {
+        read_file(override_file, &kernel->ptx_size, &kernel->ptx);
+        return true;
+    }
+
     nvrtcProgram program;
     CHECK_NVRTC(nvrtcCreateProgram(&program, kernel->cuda_code, kernel->key.entry_point, 0, NULL, NULL), return false);
 
@@ -67,11 +73,6 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
     kernel->ptx = calloc(kernel->ptx_size, 1);
     CHECK_NVRTC(nvrtcGetPTX(program, kernel->ptx), return false);
     CHECK_NVRTC(nvrtcDestroyProgram(&program), return false);
-
-    String override_file = getenv("SHADY_OVERRIDE_PTX");
-    if (override_file) {
-        read_file(override_file, &kernel->ptx_size, &kernel->ptx);
-    }
 
     if (get_log_level() <= DEBUG)
         write_file("cuda_dump.ptx", kernel->ptx_size - 1, kernel->ptx);
