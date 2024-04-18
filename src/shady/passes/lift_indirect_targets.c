@@ -100,14 +100,13 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     CFNodeVariables* node_vars = *find_value_dict(CFNode*, CFNodeVariables*, ctx->scope_vars, cf_node);
     struct List* recover_context = new_list(const Node*);
 
-    // add_to_recover_context(recover_context, node_vars->free_set, cont);
     add_to_recover_context(recover_context, node_vars->bound_set, cont);
     size_t recover_context_size = entries_count_list(recover_context);
 
     debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", name, recover_context_size);
     for (size_t i = 0; i < recover_context_size; i++) {
         const Node* item = read_list(const Node*, recover_context)[i];
-        debugv_print(get_value_name_safe(item));
+        debugv_print("%s %%%d", get_value_name(item) ? get_value_name(item) : "", item->id);
         if (i + 1 < recover_context_size)
             debugv_print(", ");
     }
@@ -122,13 +121,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     insert_dict(const Node*, LiftedCont*, ctx->lifted, cont, lifted_cont);
 
     Context lifting_ctx = *ctx;
-    // struct Dict* old_map = lifting_ctx.rewriter.map;
-    // lifting_ctx.rewriter.map = clone_dict(lifting_ctx.rewriter.map);
-
-    // lifting_ctx.rewriter = create_rewriter(ctx->rewriter.src_module, ctx->rewriter.dst_module, (RewriteNodeFn) process_node);
-    // lifting_ctx.rewriter.decls_map = NULL;
-    lifting_ctx.rewriter.map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
-    lifting_ctx.rewriter.parent = &ctx->rewriter;
+    lifting_ctx.rewriter = create_children_rewriter(&ctx->rewriter);
     register_processed_list(&lifting_ctx.rewriter, oparams, new_params);
 
     const Node* payload = var(a, qualified_type_helper(uint32_type(a), false), "sp");
@@ -160,9 +153,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     }
 
     const Node* substituted = rewrite_node(&lifting_ctx.rewriter, obody);
-    //destroy_dict(lifting_ctx.rewriter.processed);
     destroy_rewriter(&lifting_ctx.rewriter);
-    // lifting_ctx.rewriter.map = old_map;
 
     assert(is_terminator(substituted));
     new_fn->payload.fun.body = finish_body(bb, substituted);

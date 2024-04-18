@@ -17,10 +17,10 @@ String get_value_name(const Node* v) {
 
 String get_value_name_safe(const Node* v) {
     String name = get_value_name(v);
-    if (name)
+    if (name && strlen(name) > 0)
         return name;
     if (v->tag == Variable_TAG)
-        return format_string_interned(v->arena, "v%d", v->id);
+        return format_string_interned(v->arena, "%%%d", v->id);
     return node_tags[v->tag];
 }
 

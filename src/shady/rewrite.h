@@ -48,6 +48,8 @@ Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
 Rewriter create_importer(Module* src, Module* dst);
 Module* rebuild_module(Module*);
 Rewriter create_substituter(Module* arena);
+
+Rewriter create_children_rewriter(Rewriter* parent);
 void destroy_rewriter(Rewriter*);
 
 void rewrite_module(Rewriter*);

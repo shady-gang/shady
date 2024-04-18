@@ -146,10 +146,9 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
     uint64_t tpn = timespec_to_nano(tp);
     info_print("device rendering took %dus (gpu time: %dus)\n", (tpn - tsn) / 1000, profiled_gpu_time / 1000);
 
-    debug_print("data %d\n", (int) img[0]);
-
     if (!import_memory)
         copy_from_buffer(buf, 0, img, sizeof(*img) * WIDTH * HEIGHT * 3);
+    debug_print("data %d\n", (int) img[0]);
     destroy_buffer(buf);
 
     shutdown_runtime(runtime);

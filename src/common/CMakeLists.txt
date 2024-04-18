@@ -1,4 +1,4 @@
-add_library(common STATIC list.c dict.c log.c portability.c util.c growy.c arena.c printer.c)
+add_library(common list.c dict.c log.c portability.c util.c growy.c arena.c printer.c)
 target_link_libraries(common PRIVATE "$<BUILD_INTERFACE:murmur3>")
 set_property(TARGET common PROPERTY POSITION_INDEPENDENT_CODE ON)
 

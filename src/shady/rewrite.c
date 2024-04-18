@@ -50,6 +50,13 @@ Module* rebuild_module(Module* src) {
     return dst;
 }
 
+Rewriter create_children_rewriter(Rewriter* parent) {
+    Rewriter r = *parent;
+    r.map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    r.parent = parent;
+    return r;
+}
+
 const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNodeFn fn) {
     assert(rewriter->rewrite_fn);
     if (!node)
