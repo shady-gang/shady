@@ -410,7 +410,7 @@ const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
         const Node* maybe_record_type = ptr_type.pointed_type;
         if (maybe_record_type->tag == TypeDeclRef_TAG)
             maybe_record_type = get_nominal_type_body(maybe_record_type);
-        if (maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == DecorateBlock) {
+        if (maybe_record_type && maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == DecorateBlock) {
             return NULL;
         }
         assert(is_data_type(ptr_type.pointed_type));

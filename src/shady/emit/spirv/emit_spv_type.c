@@ -144,9 +144,19 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             new = spvb_float_type(emitter->file_builder, width);
             break;
         } case PtrType_TAG: {
-            SpvId pointee = emit_type(emitter, type->payload.ptr_type.pointed_type);
             SpvStorageClass sc = emit_addr_space(emitter, type->payload.ptr_type.address_space);
+            const Type* pointed_type = type->payload.ptr_type.pointed_type;
+            if (get_maybe_nominal_type_decl(pointed_type) && sc == SpvStorageClassPhysicalStorageBuffer) {
+                new = spvb_forward_ptr_type(emitter->file_builder, sc);
+                insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
+                SpvId pointee = emit_type(emitter, pointed_type);
+                spvb_ptr_type_define(emitter->file_builder, new, sc, pointee);
+                return new;
+            }
+
+            SpvId pointee = emit_type(emitter, pointed_type);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
+
             //if (is_physical_as(type->payload.ptr_type.address_space) && type->payload.ptr_type.pointed_type->tag == ArrType_TAG) {
             //    TypeMemLayout elem_mem_layout = get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);
             //    spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) {elem_mem_layout.size_in_bytes});
@@ -193,8 +203,9 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
                 break;
             }
             new = spvb_fresh_id(emitter->file_builder);
+            insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
             emit_nominal_type_body(emitter, type, new);
-            break;
+            return new;
         }
         case Type_TypeDeclRef_TAG: {
             new = emit_decl(emitter, type->payload.type_decl_ref.decl);
