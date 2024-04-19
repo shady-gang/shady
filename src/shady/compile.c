@@ -151,6 +151,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     if (config->lower.simt_to_explicit_simd)
         RUN_PASS(simt2d)
     RUN_PASS(lower_fill)
+    RUN_PASS(lower_nullptr)
     RUN_PASS(normalize_builtins)
 
     return CompilationNoError;

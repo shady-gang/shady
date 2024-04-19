@@ -70,6 +70,7 @@ set(SHADY_SOURCES
     passes/lower_tailcalls.c
     passes/lower_mask.c
     passes/lower_fill.c
+    passes/lower_nullptr.c
     passes/lower_switch_btree.c
     passes/setup_stack_frames.c
     passes/eliminate_constants.c

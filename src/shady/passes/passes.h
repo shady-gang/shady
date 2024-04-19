@@ -98,6 +98,7 @@ RewritePass lower_int;
 RewritePass lower_vec_arr;
 RewritePass lower_workgroups;
 RewritePass lower_fill;
+RewritePass lower_nullptr;
 
 /// @}
 
