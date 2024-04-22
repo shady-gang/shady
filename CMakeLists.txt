@@ -11,6 +11,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+option(SHADY_USE_FETCHCONTENT "Use FetchContent to grab json-c" ON)
+option(SHADY_WIN32_FIX_PARTIAL_LLVM_INSTALL "If you install LLVM on windows, it doesn't come with header files. This fixes it" ON)
 
 if (MSVC)
   add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
@@ -22,7 +24,7 @@ endif()
 
 add_subdirectory(SPIRV-Headers)
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24" AND ${SHADY_USE_FETCHCONTENT})
     FetchContent_Declare(
         json-c
         GIT_REPOSITORY https://github.com/json-c/json-c
@@ -39,7 +41,7 @@ else ()
 endif ()
 
 find_package(LLVM QUIET)
-if(NOT ${LLVM_FOUND} AND WIN32)
+if(NOT ${LLVM_FOUND} AND WIN32 AND ${SHADY_WIN32_FIX_PARTIAL_LLVM_INSTALL})
     find_program(clang_exe "clang.exe")
     if(${clang_exe} STREQUAL "clang_exe-NOTFOUND")
         message(STATUS "Win32: Installed LLVM not found")
