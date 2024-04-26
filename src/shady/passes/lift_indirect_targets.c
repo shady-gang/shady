@@ -147,7 +147,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
         }), &ovar->payload.var.name));
 
         if (is_qualified_type_uniform(ovar->type))
-            recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .operands = singleton(recovered_value) }), &ovar->payload.var.name));
+            recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = singleton(recovered_value) }), &ovar->payload.var.name));
 
         register_processed(&lifting_ctx.rewriter, ovar, recovered_value);
     }
