@@ -140,12 +140,12 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 })
             };
         case LLVMBr: {
-            unsigned n_successors = LLVMGetNumSuccessors(instr);
-            LARRAY(LLVMBasicBlockRef , targets, n_successors);
-            for (size_t i = 0; i < n_successors; i++)
+            unsigned n_targets = LLVMGetNumSuccessors(instr);
+            LARRAY(LLVMBasicBlockRef, targets, n_targets);
+            for (size_t i = 0; i < n_targets; i++)
                 targets[i] = LLVMGetSuccessor(instr, i);
             if (LLVMIsConditional(instr)) {
-                assert(n_successors == 2);
+                assert(n_targets == 2);
                 const Node* condition = convert_value(p, LLVMGetCondition(instr));
                 return (EmittedInstr) {
                     .terminator = branch(a, (Branch) {
@@ -155,14 +155,31 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                     })
                 };
             } else {
-                assert(n_successors == 1);
+                assert(n_targets == 1);
                 return (EmittedInstr) {
                     .terminator = convert_jump(p, fn, fn_or_bb, targets[0])
                 };
             }
         }
-        case LLVMSwitch:
-            goto unimplemented;
+        case LLVMSwitch: {
+            const Node* inspectee = convert_value(p, LLVMGetOperand(instr, 0));
+            const Node* default_jump = convert_jump(p, fn, fn_or_bb, LLVMGetOperand(instr, 1));
+            int n_targets = LLVMGetNumOperands(instr) / 2 - 1;
+            LARRAY(const Node*, targets, n_targets);
+            LARRAY(const Node*, literals, n_targets);
+            for (size_t i = 0; i < n_targets; i++) {
+                literals[i] = convert_value(p, LLVMGetOperand(instr, i * 2 + 2));
+                targets[i] = convert_jump(p, fn, fn_or_bb, LLVMGetOperand(instr, i * 2 + 3));
+            }
+            return (EmittedInstr) {
+                .terminator = br_switch(a, (Switch) {
+                        .switch_value = inspectee,
+                        .default_jump = default_jump,
+                        .case_values = nodes(a, n_targets, literals),
+                        .case_jumps = nodes(a, n_targets, targets)
+                })
+            };
+        }
         case LLVMIndirectBr:
             goto unimplemented;
         case LLVMInvoke:
