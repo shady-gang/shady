@@ -1,7 +1,7 @@
 #include "shady/ir.h"
 #include "log.h"
 #include "visit.h"
-#include "analysis/scope.h"
+#include "analysis/cfg.h"
 
 #include <assert.h>
 
@@ -33,13 +33,13 @@ void visit_ops(Visitor* visitor, NodeClass op_class, String op_name, Nodes ops) 
 
 void visit_function_rpo(Visitor* visitor, const Node* function) {
     assert(function->tag == Function_TAG);
-    Scope* scope = new_scope(function);
-    assert(scope->rpo[0]->node == function);
-    for (size_t i = 1; i < scope->size; i++) {
-        const Node* node = scope->rpo[i]->node;
+    CFG* cfg = build_fn_cfg(function);
+    assert(cfg->rpo[0]->node == function);
+    for (size_t i = 1; i < cfg->size; i++) {
+        const Node* node = cfg->rpo[i]->node;
         visit_node(visitor, node);
     }
-    destroy_scope(scope);
+    destroy_cfg(cfg);
 }
 
 #pragma GCC diagnostic error "-Wswitch"

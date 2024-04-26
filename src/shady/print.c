@@ -1,6 +1,6 @@
 #include "print.h"
 #include "ir_private.h"
-#include "analysis/scope.h"
+#include "analysis/cfg.h"
 #include "analysis/uses.h"
 #include "analysis/leak.h"
 
@@ -21,8 +21,8 @@ typedef struct PrinterCtx_ PrinterCtx;
 struct PrinterCtx_ {
     Printer* printer;
     const Node* fn;
-    Scope* scope;
-    const UsesMap* scope_uses;
+    CFG* cfg;
+    const UsesMap* uses;
     long int min_rpo;
     PrintConfig config;
 };
@@ -161,8 +161,8 @@ static void print_abs_body(PrinterCtx* ctx, const Node* block) {
     print_node(get_abstraction_body(block));
 
     // TODO: it's likely cleaner to instead print things according to the dominator tree in the first place.
-    if (ctx->scope != NULL) {
-        const CFNode* dominator = scope_lookup(ctx->scope, block);
+    if (ctx->cfg != NULL) {
+        const CFNode* dominator = cfg_lookup(ctx->cfg, block);
         if (ctx->min_rpo < ((long int) dominator->rpo_index)) {
             size_t save_rpo = ctx->min_rpo;
             ctx->min_rpo = dominator->rpo_index;
@@ -187,11 +187,11 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
 
     PrinterCtx sub_ctx = *ctx;
     if (node->arena->config.check_op_classes) {
-        Scope* scope = new_scope(node);
-        sub_ctx.scope = scope;
+        CFG* cfg = build_fn_cfg(node);
+        sub_ctx.cfg = cfg;
         sub_ctx.fn = node;
         if (node->arena->config.check_types && node->arena->config.allow_fold) {
-            sub_ctx.scope_uses = create_uses_map(node, (NcDeclaration | NcType));
+            sub_ctx.uses = create_uses_map(node, (NcDeclaration | NcType));
         }
     }
     ctx = &sub_ctx;
@@ -214,9 +214,9 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     printf("\n}");
 
     if (node->arena->config.check_op_classes) {
-        if (sub_ctx.scope_uses)
-            destroy_uses_map(sub_ctx.scope_uses);
-        destroy_scope(sub_ctx.scope);
+        if (sub_ctx.uses)
+            destroy_uses_map(sub_ctx.uses);
+        destroy_cfg(sub_ctx.cfg);
     }
 }
 
@@ -405,7 +405,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case Variable_TAG:
-            if (ctx->scope_uses) {
+            if (ctx->uses) {
                 // if ((*find_value_dict(const Node*, Uses*, ctx->uses->map, node))->escapes_defining_block)
                 //     printf(MANGENTA);
                 // else
@@ -624,8 +624,8 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             break;
         } case Control_TAG: {
             printf(BGREEN);
-            if (ctx->scope_uses) {
-                if (is_control_static(ctx->scope_uses, node))
+            if (ctx->uses) {
+                if (is_control_static(ctx->uses, node))
                     printf("static ");
             }
             printf("control");
@@ -799,7 +799,7 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
         return;
 
     PrinterCtx sub_ctx = *ctx;
-    sub_ctx.scope = NULL;
+    sub_ctx.cfg = NULL;
     ctx = &sub_ctx;
 
     switch (node->tag) {

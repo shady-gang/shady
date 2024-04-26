@@ -1,4 +1,4 @@
-#include "scope.h"
+#include "cfg.h"
 
 #include "shady/ir_private.h"
 #include "shady/print.h"
@@ -99,18 +99,18 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     }
 }
 
-static void dump_cfg_scope(FILE* output, Scope* scope) {
+static void dump_cfg(FILE* output, CFG* cfg) {
     extra_uniqueness++;
 
-    const Node* entry = scope->entry->node;
+    const Node* entry = cfg->entry->node;
     fprintf(output, "subgraph cluster_%s {\n", get_abstraction_name(entry));
     fprintf(output, "label = \"%s\";\n", get_abstraction_name(entry));
-    for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const CFNode* n = read_list(const CFNode*, scope->contents)[i];
+    for (size_t i = 0; i < entries_count_list(cfg->contents); i++) {
+        const CFNode* n = read_list(const CFNode*, cfg->contents)[i];
         dump_cf_node(output, n);
     }
-    for (size_t i = 0; i < entries_count_list(scope->contents); i++) {
-        const CFNode* bb_node = read_list(const CFNode*, scope->contents)[i];
+    for (size_t i = 0; i < entries_count_list(cfg->contents); i++) {
+        const CFNode* bb_node = read_list(const CFNode*, cfg->contents)[i];
         const CFNode* src_node = bb_node;
         while (true) {
             const CFNode* let_parent = get_let_pred(src_node);
@@ -142,24 +142,24 @@ static void dump_cfg_scope(FILE* output, Scope* scope) {
     fprintf(output, "}\n");
 }
 
-void dump_cfg(FILE* output, Module* mod) {
+void dump_cfgs(FILE* output, Module* mod) {
     if (output == NULL)
         output = stderr;
 
     fprintf(output, "digraph G {\n");
-    struct List* scopes = build_scopes(mod);
-    for (size_t i = 0; i < entries_count_list(scopes); i++) {
-        Scope* scope = read_list(Scope*, scopes)[i];
-        dump_cfg_scope(output, scope);
-        destroy_scope(scope);
+    struct List* cfgs = build_cfgs(mod);
+    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
+        CFG* cfg = read_list(CFG*, cfgs)[i];
+        dump_cfg(output, cfg);
+        destroy_cfg(cfg);
     }
-    destroy_list(scopes);
+    destroy_list(cfgs);
     fprintf(output, "}\n");
 }
 
 void dump_cfg_auto(Module* mod) {
     FILE* f = fopen("cfg.dot", "wb");
-    dump_cfg(f, mod);
+    dump_cfgs(f, mod);
     fclose(f);
 }
 
@@ -177,7 +177,7 @@ static void dump_domtree_cfnode(Printer* p, CFNode* idom) {
     }
 }
 
-void dump_domtree_scope(Printer* p, Scope* s) {
+void dump_domtree_cfg(Printer* p, CFG* s) {
     print(p, "subgraph cluster_%s {\n", get_abstraction_name(s->entry->node));
     dump_domtree_cfnode(p, s->entry);
     print(p, "}\n");
@@ -185,13 +185,13 @@ void dump_domtree_scope(Printer* p, Scope* s) {
 
 void dump_domtree_module(Printer* p, Module* mod) {
     print(p, "digraph G {\n");
-    struct List* scopes = build_scopes(mod);
-    for (size_t i = 0; i < entries_count_list(scopes); i++) {
-        Scope* scope = read_list(Scope*, scopes)[i];
-        dump_domtree_scope(p, scope);
-        destroy_scope(scope);
+    struct List* cfgs = build_cfgs(mod);
+    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
+        CFG* cfg = read_list(CFG*, cfgs)[i];
+        dump_domtree_cfg(p, cfg);
+        destroy_cfg(cfg);
     }
-    destroy_list(scopes);
+    destroy_list(cfgs);
     print(p, "}\n");
 }
 

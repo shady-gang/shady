@@ -347,7 +347,7 @@ typedef struct {
 
 void emit_c(CompilerConfig compiler_config, CEmitterConfig emitter_config, Module*, size_t* output_size, char** output, Module** new_mod);
 
-void dump_cfg(FILE* file, Module*);
+void dump_cfgs(FILE* output, Module* mod);
 void dump_loop_trees(FILE* output, Module* mod);
 
 void free_output(char* output);

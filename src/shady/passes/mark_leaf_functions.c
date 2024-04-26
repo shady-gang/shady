@@ -7,7 +7,7 @@
 #include "../rewrite.h"
 
 #include "../analysis/callgraph.h"
-#include "../analysis/scope.h"
+#include "../analysis/cfg.h"
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"
 
@@ -17,8 +17,8 @@ typedef struct {
     struct Dict* fns;
 
     bool is_leaf;
-    Scope* scope;
-    const UsesMap* scope_uses;
+    CFG* cfg;
+    const UsesMap* uses;
 } Context;
 
 typedef struct {
@@ -104,8 +104,8 @@ static const Node* process(Context* ctx, const Node* node) {
             Context fn_ctx = *ctx;
             CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
             fn_ctx.is_leaf = is_leaf_fn(ctx, fn_node);
-            fn_ctx.scope = new_scope(node);
-            fn_ctx.scope_uses = create_uses_map(node, (NcDeclaration | NcType));
+            fn_ctx.cfg = build_fn_cfg(node);
+            fn_ctx.uses = create_uses_map(node, (NcDeclaration | NcType));
             ctx = &fn_ctx;
 
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
@@ -122,13 +122,13 @@ static const Node* process(Context* ctx, const Node* node) {
                 }));
             }
 
-            destroy_uses_map(fn_ctx.scope_uses);
-            destroy_scope(fn_ctx.scope);
+            destroy_uses_map(fn_ctx.uses);
+            destroy_cfg(fn_ctx.cfg);
             return new;
         }
         case Control_TAG: {
-            if (!is_control_static(ctx->scope_uses, node)) {
-                debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->scope->entry->node));
+            if (!is_control_static(ctx->uses, node)) {
+                debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->cfg->entry->node));
                 log_node(DEBUGV, first(node->payload.control.inside->payload.case_.params));
                 debugv_print("escapes its control block, preventing restructuring.\n");
                 ctx->is_leaf = false;
@@ -149,7 +149,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         break;
                 }
             }
-            debugv_print("Function %s can't be a leaf function because it joins with ", get_abstraction_name(ctx->scope->entry->node));
+            debugv_print("Function %s can't be a leaf function because it joins with ", get_abstraction_name(ctx->cfg->entry->node));
             log_node(DEBUGV, old_jp);
             debugv_print("which is not bound by a control node within that function.\n");
             // we join with some random join point; we can't be a leaf :(

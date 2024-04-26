@@ -7,13 +7,13 @@
 #include "../shady/rewrite.h"
 #include "../shady/type.h"
 #include "../shady/ir_private.h"
-#include "../shady/analysis/scope.h"
+#include "../shady/analysis/cfg.h"
 
 typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
     Parser* p;
-    Scope* curr_scope;
+    CFG* cfg;
     const Node* old_fn_or_bb;
     struct Dict* controls;
 } Context;
@@ -127,7 +127,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
         }
         case Function_TAG: {
             Context fn_ctx = *ctx;
-            fn_ctx.curr_scope = new_scope(node);
+            fn_ctx.cfg = build_fn_cfg(node);
             fn_ctx.old_fn_or_bb = node;
             Controls controls;
             initialize_controls(ctx, &controls, node);
@@ -165,7 +165,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                 });
             } else
                 decl->payload.fun.body = rewrite_node(&fn_ctx.rewriter, node->payload.fun.body);
-            destroy_scope(fn_ctx.curr_scope);
+            destroy_cfg(fn_ctx.cfg);
             return decl;
         }
         case BasicBlock_TAG: {
@@ -198,9 +198,9 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             } else if (lexical_scope_is_nested(*src_lexical_scope, *dst_lexical_scope)) {
                 debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", get_abstraction_name(src), get_abstraction_name(dst));
 
-                CFNode* src_cfnode = scope_lookup(ctx->curr_scope, src);
+                CFNode* src_cfnode = cfg_lookup(ctx->cfg, src);
                 assert(src_cfnode->node);
-                CFNode* target_cfnode = scope_lookup(ctx->curr_scope, dst);
+                CFNode* target_cfnode = cfg_lookup(ctx->cfg, dst);
                 assert(src_cfnode && target_cfnode);
                 CFNode* dom = src_cfnode->idom;
                 while (dom) {

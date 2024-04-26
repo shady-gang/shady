@@ -6,7 +6,7 @@
 
 #include "../type.h"
 #include "../rewrite.h"
-#include "../analysis/scope.h"
+#include "../analysis/cfg.h"
 
 #include <assert.h>
 
@@ -16,7 +16,7 @@ typedef struct Context_ {
     Node* current_fn;
 
     struct Dict* structured_join_tokens;
-    Scope* scope;
+    CFG* cfg;
     const Node* abs;
 } Context;
 
@@ -141,13 +141,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
         Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
         sub_ctx.disable_lowering = lookup_annotation(fun, "Structured");
         sub_ctx.current_fn = fun;
-        sub_ctx.scope = new_scope(node);
+        sub_ctx.cfg = build_fn_cfg(node);
         sub_ctx.abs = node;
         fun->payload.fun.body = rewrite_node(&sub_ctx.rewriter, node->payload.fun.body);
-        destroy_scope(sub_ctx.scope);
+        destroy_cfg(sub_ctx.cfg);
         return fun;
     } else if (node->tag == Constant_TAG) {
-        sub_ctx.scope = NULL;
+        sub_ctx.cfg = NULL;
         sub_ctx.abs = NULL;
         sub_ctx.current_fn = NULL;
         ctx = &sub_ctx;
@@ -161,7 +161,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (ctx->disable_lowering)
         return recreate_node_identity(&ctx->rewriter, node);
 
-    CFNode* cfnode = ctx->scope ? scope_lookup(ctx->scope, ctx->abs) : NULL;
+    CFNode* cfnode = ctx->cfg ? cfg_lookup(ctx->cfg, ctx->abs) : NULL;
     switch (node->tag) {
         case Let_TAG: return process_let(ctx, node);
         case Yield_TAG: {

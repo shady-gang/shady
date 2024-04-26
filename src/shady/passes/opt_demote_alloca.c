@@ -20,7 +20,7 @@ typedef struct Context_ {
     Rewriter rewriter;
     bool disable_lowering;
 
-    const UsesMap* scope_uses;
+    const UsesMap* uses;
     const CompilerConfig* config;
     Arena* arena;
     struct Dict* alloca_info;
@@ -129,8 +129,8 @@ PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
     PtrSourceKnowledge k = { 0 };
     while (ptr) {
         assert(is_value(ptr));
-        if (ptr->tag == Variable_TAG && ctx->scope_uses) {
-            const Node* instr = get_var_instruction(ctx->scope_uses, ptr);
+        if (ptr->tag == Variable_TAG && ctx->uses) {
+            const Node* instr = get_var_instruction(ctx->uses, ptr);
             if (instr) {
                 PrimOp payload = instr->payload.prim_op;
                 switch (payload.op) {
@@ -166,16 +166,16 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
             Context fun_ctx = *ctx;
-            fun_ctx.scope_uses = create_uses_map(old, (NcDeclaration | NcType));
+            fun_ctx.uses = create_uses_map(old, (NcDeclaration | NcType));
             fun_ctx.disable_lowering = lookup_annotation_with_string_payload(old, "DisableOpt", "demote_alloca");
             if (old->payload.fun.body)
                 fun->payload.fun.body = rewrite_node(&fun_ctx.rewriter, old->payload.fun.body);
-            destroy_uses_map(fun_ctx.scope_uses);
+            destroy_uses_map(fun_ctx.uses);
             return fun;
         }
         case Constant_TAG: {
             Context fun_ctx = *ctx;
-            fun_ctx.scope_uses = NULL;
+            fun_ctx.uses = NULL;
             return recreate_node_identity(&fun_ctx.rewriter, old);
         }
         case Let_TAG: {
@@ -210,8 +210,8 @@ static const Node* process(Context* ctx, const Node* old) {
                 case alloca_logical_op: {
                     AllocaInfo* k = arena_alloc(ctx->arena, sizeof(AllocaInfo));
                     *k = (AllocaInfo) { .type = rewrite_node(r, first(payload.type_arguments)) };
-                    assert(ctx->scope_uses);
-                    visit_ptr_uses(old, first(payload.type_arguments), k, ctx->scope_uses);
+                    assert(ctx->uses);
+                    visit_ptr_uses(old, first(payload.type_arguments), k, ctx->uses);
                     insert_dict(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
                     debugv_print("demote_alloca: uses analysis results for ");
                     log_node(DEBUGV, old);

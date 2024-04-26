@@ -11,7 +11,7 @@
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
 
-#include "../analysis/scope.h"
+#include "../analysis/cfg.h"
 #include "../analysis/looptree.h"
 #include "../analysis/free_variables.h"
 
@@ -22,10 +22,10 @@ typedef struct Context_ {
     const CompilerConfig* config;
     const Node* current_fn;
     const Node* current_abstraction;
-    Scope* fwd_scope;
-    Scope* back_scope;
+    CFG* fwd_cfg;
+    CFG* rev_cfg;
     LoopTree* current_looptree;
-    struct Dict* scope_vars;
+    struct Dict* live_vars;
 } Context;
 
 static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
@@ -92,7 +92,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
     Rewriter* rewriter = &ctx->rewriter;
     IrArena* arena = rewriter->dst_arena;
 
-    CFNode* current_node = scope_lookup(ctx->fwd_scope, node);
+    CFNode* current_node = cfg_lookup(ctx->fwd_cfg, node);
     LTNode* lt_node = looptree_lookup(ctx->current_looptree, node);
     LTNode* loop_header = NULL;
 
@@ -127,10 +127,10 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             Nodes nparams = recreate_variables(rewriter, get_abstraction_params(node));
             Nodes inner_yield_types = strip_qualifiers(arena, get_variables_types(arena, nparams));
 
-            CFNode* cf_pre = scope_lookup(ctx->fwd_scope, node);
+            CFNode* cf_pre = cfg_lookup(ctx->fwd_cfg, node);
             // assert(cf_pre->idom && "cfg entry nodes can't be loop headers anyhow");
             // cf_pre = cf_pre->idom;
-            CFNodeVariables* pre = *find_value_dict(CFNode*, CFNodeVariables*, ctx->scope_vars, cf_pre);
+            CFNodeVariables* pre = *find_value_dict(CFNode*, CFNodeVariables*, ctx->live_vars, cf_pre);
 
             LARRAY(Nodes, exit_param_allocas, exiting_nodes_count);
             LARRAY(struct List*, leaking, exiting_nodes_count);
@@ -145,8 +145,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 // Search for what's required after the exit but not in scope at the loop header
                 // this is similar to the LCSSA constraint, but here it's because controls have hard scopes
-                CFNode* cf_post = scope_lookup(ctx->fwd_scope, exiting_node->node);
-                CFNodeVariables* post = *find_value_dict(CFNode*, CFNodeVariables*, ctx->scope_vars, cf_post);
+                CFNode* cf_post = cfg_lookup(ctx->fwd_cfg, exiting_node->node);
+                CFNodeVariables* post = *find_value_dict(CFNode*, CFNodeVariables*, ctx->live_vars, cf_post);
                 leaking[i] = new_list(const Type*);
                 find_unbound_vars(exiting_node->node, pre->bound_set, post->free_set, leaking[i]);
 
@@ -384,17 +384,17 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Function_TAG: {
             ctx = &new_context;
             ctx->current_fn = node;
-            ctx->fwd_scope = new_scope(ctx->current_fn);
-            ctx->back_scope = new_scope_flipped(ctx->current_fn);
-            ctx->current_looptree = build_loop_tree(ctx->fwd_scope);
-            ctx->scope_vars = compute_scope_variables_map(ctx->fwd_scope);
+            ctx->fwd_cfg = build_cfg(ctx->current_fn, ctx->current_fn, NULL, false);
+            ctx->rev_cfg = build_cfg(ctx->current_fn, ctx->current_fn, NULL, true);
+            ctx->current_looptree = build_loop_tree(ctx->fwd_cfg);
+            ctx->live_vars = compute_cfg_variables_map(ctx->fwd_cfg);
 
             const Node* new = process_abstraction(ctx, node);;
 
-            destroy_scope(ctx->fwd_scope);
-            destroy_scope(ctx->back_scope);
+            destroy_cfg(ctx->fwd_cfg);
+            destroy_cfg(ctx->rev_cfg);
             destroy_loop_tree(ctx->current_looptree);
-            destroy_scope_variables_map(ctx->scope_vars);
+            destroy_cfg_variables_map(ctx->live_vars);
             return new;
         }
         case Constant_TAG: {
@@ -411,9 +411,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Branch_TAG: {
             if (!ctx->current_fn || !(lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->hacks.restructure_everything))
                 break;
-            assert(ctx->fwd_scope);
+            assert(ctx->fwd_cfg);
 
-            CFNode* cfnode = scope_lookup(ctx->back_scope, ctx->current_abstraction);
+            CFNode* cfnode = cfg_lookup(ctx->rev_cfg, ctx->current_abstraction);
             const Node* idom = NULL;
 
             LTNode* current_loop = looptree_lookup(ctx->current_looptree, ctx->current_abstraction)->parent;
@@ -421,7 +421,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             if (entries_count_list(current_loop->cf_nodes)) {
                 bool leaves_loop = false;
-                CFNode* current_node = scope_lookup(ctx->fwd_scope, ctx->current_abstraction);
+                CFNode* current_node = cfg_lookup(ctx->fwd_cfg, ctx->current_abstraction);
                 for (size_t i = 0; i < entries_count_list(current_node->succ_edges); i++) {
                     CFEdge edge = read_list(CFEdge, current_node->succ_edges)[i];
                     LTNode* lt_target = looptree_lookup(ctx->current_looptree, edge.dst->node);
@@ -434,11 +434,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                 if (!leaves_loop) {
                     const Node* current_loop_head = read_list(CFNode*, current_loop->cf_nodes)[0]->node;
-                    Scope* loop_scope = new_scope_lt_flipped(current_loop_head, ctx->current_looptree);
-                    CFNode* idom_cf = scope_lookup(loop_scope, ctx->current_abstraction)->idom;
+                    CFG* loop_cfg = build_cfg(ctx->current_fn, current_loop_head, ctx->current_looptree, true);
+                    CFNode* idom_cf = cfg_lookup(loop_cfg, ctx->current_abstraction)->idom;
                     if (idom_cf)
                         idom = idom_cf->node;
-                    destroy_scope(loop_scope);
+                    destroy_cfg(loop_cfg);
                 }
             } else {
                 idom = cfnode->idom->node;
@@ -448,14 +448,14 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 break;
             }
 
-            if (scope_lookup(ctx->fwd_scope, idom)->idom->node!= ctx->current_abstraction)
+            if (cfg_lookup(ctx->fwd_cfg, idom)->idom->node != ctx->current_abstraction)
                 break;
 
             assert(is_abstraction(idom) && idom->tag != Function_TAG);
 
             LTNode* lt_node = looptree_lookup(ctx->current_looptree, ctx->current_abstraction);
             LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, idom);
-            CFNode* current_node = scope_lookup(ctx->fwd_scope, ctx->current_abstraction);
+            CFNode* current_node = cfg_lookup(ctx->fwd_cfg, ctx->current_abstraction);
 
             assert(lt_node);
             assert(idom_lt_node);
@@ -563,8 +563,8 @@ Module* reconvergence_heuristics(const CompilerConfig* config, Module* src) {
         .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
         .current_fn = NULL,
-        .fwd_scope = NULL,
-        .back_scope = NULL,
+        .fwd_cfg = NULL,
+        .rev_cfg = NULL,
         .current_looptree = NULL,
     };
 

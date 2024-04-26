@@ -3,7 +3,7 @@
 #include "log.h"
 #include "../visit.h"
 
-#include "../analysis/scope.h"
+#include "../analysis/cfg.h"
 
 #include "list.h"
 #include "dict.h"
@@ -136,7 +136,7 @@ static CFNodeVariables* visit_domtree(Context* ctx, CFNode* cfnode, int depth, C
     return ctx->current_scope;
 }
 
-struct Dict* compute_scope_variables_map(const Scope* scope) {
+struct Dict* compute_cfg_variables_map(const CFG* cfg) {
     Context ctx = {
         .visitor = {
             .visit_op_fn = (VisitOpFn) search_op_for_free_variables,
@@ -144,12 +144,12 @@ struct Dict* compute_scope_variables_map(const Scope* scope) {
         .map = new_dict(CFNode*, CFNodeVariables*, (HashFn) hash_ptr, (CmpFn) compare_ptrs),
     };
 
-    debugv_print("Computing free variables for function '%s' ...\n", get_abstraction_name(scope->entry->node));
-    visit_domtree(&ctx, scope->entry, 0, NULL);
+    debugv_print("Computing free variables for function '%s' ...\n", get_abstraction_name(cfg->entry->node));
+    visit_domtree(&ctx, cfg->entry, 0, NULL);
     return ctx.map;
 }
 
-void destroy_scope_variables_map(struct Dict* map) {
+void destroy_cfg_variables_map(struct Dict* map) {
     size_t i = 0;
     CFNodeVariables* value;
     while (dict_iter(map, &i, NULL, &value)) {

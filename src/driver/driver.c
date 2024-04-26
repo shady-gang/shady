@@ -125,7 +125,7 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
     if (args->cfg_output_filename) {
         FILE* f = fopen(args->cfg_output_filename, "wb");
         assert(f);
-        dump_cfg(f, mod);
+        dump_cfgs(f, mod);
         fclose(f);
         debug_print("CFG dumped\n");
     }

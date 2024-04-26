@@ -11,7 +11,7 @@
 #include "../ir_private.h"
 
 #include "../transform/ir_gen_helpers.h"
-#include "../analysis/scope.h"
+#include "../analysis/cfg.h"
 #include "../analysis/free_variables.h"
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"
@@ -25,9 +25,9 @@ bool compare_node(Node**, Node**);
 
 typedef struct Context_ {
     Rewriter rewriter;
-    Scope* scope;
-    const UsesMap* scope_uses;
-    struct Dict* scope_vars;
+    CFG* cfg;
+    const UsesMap* uses;
+    struct Dict* live_vars;
 
     struct Dict* lifted;
     bool disable_lowering;
@@ -96,8 +96,8 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name
     String name = is_basic_block(cont) ? format_string_arena(a->arena, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(a, given_name);
 
     // Compute the live stuff we'll need
-    CFNode* cf_node = scope_lookup(ctx->scope, cont);
-    CFNodeVariables* node_vars = *find_value_dict(CFNode*, CFNodeVariables*, ctx->scope_vars, cf_node);
+    CFNode* cf_node = cfg_lookup(ctx->cfg, cont);
+    CFNodeVariables* node_vars = *find_value_dict(CFNode*, CFNodeVariables*, ctx->live_vars, cf_node);
     struct List* recover_context = new_list(const Node*);
 
     add_to_recover_context(recover_context, node_vars->bound_set, cont);
@@ -173,18 +173,18 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 ctx = (Context*) ctx->rewriter.parent;
 
             Context fn_ctx = *ctx;
-            fn_ctx.scope = new_scope(node);
-            fn_ctx.scope_uses = create_uses_map(node, (NcDeclaration | NcType));
-            fn_ctx.scope_vars = compute_scope_variables_map(fn_ctx.scope);
+            fn_ctx.cfg = build_fn_cfg(node);
+            fn_ctx.uses = create_uses_map(node, (NcDeclaration | NcType));
+            fn_ctx.live_vars = compute_cfg_variables_map(fn_ctx.cfg);
             fn_ctx.disable_lowering = lookup_annotation(node, "Internal");
             ctx = &fn_ctx;
 
             Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
             recreate_decl_body_identity(&ctx->rewriter, node, new);
 
-            destroy_uses_map(ctx->scope_uses);
-            destroy_scope_variables_map(ctx->scope_vars);
-            destroy_scope(ctx->scope);
+            destroy_uses_map(ctx->uses);
+            destroy_cfg_variables_map(ctx->live_vars);
+            destroy_cfg(ctx->cfg);
             return new;
         }
         default:
@@ -200,12 +200,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (oinstruction->tag == Control_TAG) {
                 const Node* oinside = oinstruction->payload.control.inside;
                 assert(is_case(oinside));
-                if (!is_control_static(ctx->scope_uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
+                if (!is_control_static(ctx->uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
                     *ctx->todo = true;
 
                     const Node* otail = get_let_tail(node);
                     BodyBuilder* bb = begin_body(a);
-                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string_arena(a->arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
+                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string_arena(a->arena, "post_control_%s", get_abstraction_name(ctx->cfg->entry->node))));
                     const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                     const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 

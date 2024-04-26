@@ -5,7 +5,7 @@
 #include "arena.h"
 #include "log.h"
 
-#include "../analysis/scope.h"
+#include "../analysis/cfg.h"
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"
 #include "../analysis/verify.h"
@@ -58,7 +58,7 @@ typedef struct {
 
 typedef struct {
     Rewriter rewriter;
-    Scope* scope;
+    CFG* cfg;
     struct Dict* abs_to_kb;
     const Node* oabs;
     Arena* a;
@@ -138,16 +138,16 @@ static void destroy_kb(KnowledgeBase* kb) {
 }
 
 static KnowledgeBase* get_kb(Context* ctx, const Node* abs) {
-    assert(ctx->scope);
+    assert(ctx->cfg);
     KnowledgeBase** found = find_value_dict(const Node*, KnowledgeBase*, ctx->abs_to_kb, abs);
     assert(found);
     return *found;
 }
 
 static KnowledgeBase* create_kb(Context* ctx, const Node* old) {
-    assert(ctx->scope);
+    assert(ctx->cfg);
     arena_alloc(ctx->a, sizeof(KnowledgeBase));
-    CFNode* cf_node = scope_lookup(ctx->scope, old);
+    CFNode* cf_node = cfg_lookup(ctx->cfg, old);
     KnowledgeBase* kb = arena_alloc(ctx->a, sizeof(KnowledgeBase));
     *kb = (KnowledgeBase) {
         .cfnode = cf_node,
@@ -228,7 +228,7 @@ static PtrKnowledge* find_or_create_ptr_knowledge_for_updating(Context* ctx, Kno
         k = update_ptr_knowledge(kb, optr, k);
     } else {
         PtrSourceKnowledge* sk = NULL;
-        CFNode* cf_node = scope_lookup(ctx->scope, ctx->oabs);
+        CFNode* cf_node = cfg_lookup(ctx->cfg, ctx->oabs);
         // we're creating a new chain of knowledge, but we want to use the same source if possible
         while (cf_node) {
             KnowledgeBase* kb2 = get_kb(ctx, cf_node->node);
@@ -507,7 +507,7 @@ static void handle_bb(Context* ctx, const Node* old) {
     const Node* nbody = rewrite_node(&ctx->rewriter, get_abstraction_body(old));
     nbody = let(a, quote_helper(a, params), case_(a, let_params, nbody));
 
-    CFNode* cfnode = scope_lookup(ctx->scope, old);
+    CFNode* cfnode = cfg_lookup(ctx->cfg, old);
     BodyBuilder* bb = begin_body(a);
     size_t i = 0;
     const Node* ptr;
@@ -574,7 +574,7 @@ static void handle_bb(Context* ctx, const Node* old) {
         next_potential_param: continue;
     }
 
-    Node* fn = (Node*) rewrite_node(&ctx->rewriter, ctx->scope->entry->node);
+    Node* fn = (Node*) rewrite_node(&ctx->rewriter, ctx->cfg->entry->node);
     String s = format_string_interned(a, "%s_", get_abstraction_name(old));
     //String s = get_abstraction_name(old);
     Node* new_bb = basic_block(a, fn, params, s);
@@ -637,17 +637,17 @@ static const Node* process(Context* ctx, const Node* old) {
     KnowledgeBase* kb = NULL;
     if (old->tag == Function_TAG) {
         // if (lookup_annotation(old, "Internal")) {
-        //     fn_ctx.scope = NULL;
+        //     fn_ctx.cfg = NULL;
         //     return recreate_node_identity(&fn_ctx.rewriter, old);;
         // }
-        fn_ctx.scope = new_scope(old);
+        fn_ctx.cfg = build_fn_cfg(old);
         fn_ctx.abs_to_kb = new_dict(const Node*, KnowledgeBase**, (HashFn) hash_node, (CmpFn) compare_node);
         fn_ctx.todo_jumps = new_list(TodoJump),
         kb = create_kb(ctx, old);
         const Node* new_fn = recreate_node_identity(&fn_ctx.rewriter, old);
 
-        for (size_t i = 1; i < ctx->scope->size; i++) {
-            CFNode* cf_node = ctx->scope->rpo[i];
+        for (size_t i = 1; i < ctx->cfg->size; i++) {
+            CFNode* cf_node = ctx->cfg->rpo[i];
             if (cf_node->node->tag == BasicBlock_TAG)
                 handle_bb(ctx, cf_node->node);
         }
@@ -657,7 +657,7 @@ static const Node* process(Context* ctx, const Node* old) {
         handle_jump_wrappers(ctx);
         destroy_list(fn_ctx.todo_jumps);
 
-        destroy_scope(fn_ctx.scope);
+        destroy_cfg(fn_ctx.cfg);
         size_t i = 0;
         while (dict_iter(fn_ctx.abs_to_kb, &i, NULL, &kb)) {
             destroy_kb(kb);
@@ -665,14 +665,14 @@ static const Node* process(Context* ctx, const Node* old) {
         destroy_dict(fn_ctx.abs_to_kb);
         return new_fn;
     } else if (old->tag == Constant_TAG) {
-        fn_ctx.scope = NULL;
+        fn_ctx.cfg = NULL;
         fn_ctx.abs_to_kb = NULL;
         fn_ctx.todo_jumps = NULL;
         ctx = &fn_ctx;
     }
 
     // setup a new KB if this is a fresh abstraction
-    if (is_abstraction(old) && ctx->scope) {
+    if (is_abstraction(old) && ctx->cfg) {
         kb = create_kb(ctx, old);
     } else if (ctx->oabs && ctx->abs_to_kb) {
         // otherwise look up the enclosing one, if any

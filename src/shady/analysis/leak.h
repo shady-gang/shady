@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include "uses.h"
-#include "scope.h"
+#include "cfg.h"
 
 typedef void (VisitEnclosingAbsCallback)(void*, const Use*);
 void visit_enclosing_abstractions(UsesMap*, const Node*, void* uptr, VisitEnclosingAbsCallback fn);

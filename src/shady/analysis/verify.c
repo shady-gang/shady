@@ -1,6 +1,6 @@
 #include "verify.h"
 #include "free_variables.h"
-#include "scope.h"
+#include "cfg.h"
 #include "log.h"
 
 #include "../visit.h"
@@ -43,11 +43,11 @@ static void verify_same_arena(Module* mod) {
 }
 
 static void verify_scoping(const CompilerConfig* config, Module* mod) {
-    struct List* scopes = build_scopes(mod);
-    for (size_t i = 0; i < entries_count_list(scopes); i++) {
-        Scope* scope = read_list(Scope*, scopes)[i];
-        struct Dict* map = compute_scope_variables_map(scope);
-        CFNodeVariables* entry_vars = *find_value_dict(CFNode*, CFNodeVariables*, map, scope->entry);
+    struct List* cfgs = build_cfgs(mod);
+    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
+        CFG* cfg = read_list(CFG*, cfgs)[i];
+        struct Dict* map = compute_cfg_variables_map(cfg);
+        CFNodeVariables* entry_vars = *find_value_dict(CFNode*, CFNodeVariables*, map, cfg->entry);
         size_t j = 0;
         const Node* leaking;
         while (dict_iter(entry_vars->free_set, &j, &leaking, NULL)) {
@@ -58,16 +58,16 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
             log_module(ERROR, config, mod);
             error_die();
         }
-        destroy_scope_variables_map(map);
-        destroy_scope(scope);
+        destroy_cfg_variables_map(map);
+        destroy_cfg(cfg);
     }
-    destroy_list(scopes);
+    destroy_list(cfgs);
 }
 
 static void verify_nominal_node(const Node* fn, const Node* n) {
     switch (n->tag) {
         case Function_TAG: {
-            assert(!fn && "functions cannot be part of a scope, except as the entry");
+            assert(!fn && "functions cannot be part of a CFG, except as the entry");
             break;
         }
         case BasicBlock_TAG: {
@@ -101,20 +101,20 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
 }
 
 static void verify_bodies(Module* mod) {
-    struct List* scopes = build_scopes(mod);
-    for (size_t i = 0; i < entries_count_list(scopes); i++) {
-        Scope* scope = read_list(Scope*, scopes)[i];
+    struct List* cfgs = build_cfgs(mod);
+    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
+        CFG* cfg = read_list(CFG*, cfgs)[i];
 
-        for (size_t j = 0; j < scope->size; j++) {
-            CFNode* n = scope->rpo[j];
+        for (size_t j = 0; j < cfg->size; j++) {
+            CFNode* n = cfg->rpo[j];
             if (n->node->tag == BasicBlock_TAG) {
-                verify_nominal_node(scope->entry->node, n->node);
+                verify_nominal_node(cfg->entry->node, n->node);
             }
         }
 
-        destroy_scope(scope);
+        destroy_cfg(cfg);
     }
-    destroy_list(scopes);
+    destroy_list(cfgs);
 
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {

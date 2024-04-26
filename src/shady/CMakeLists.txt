@@ -38,8 +38,8 @@ set(SHADY_SOURCES
     annotation.c
     module.c
 
-    analysis/scope.c
-    analysis/scope_dump.c
+    analysis/cfg.c
+    analysis/cfg_dump.c
     analysis/free_variables.c
     analysis/verify.c
     analysis/callgraph.c

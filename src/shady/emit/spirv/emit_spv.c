@@ -7,7 +7,7 @@
 
 #include "shady/builtins.h"
 #include "../../ir_private.h"
-#include "../../analysis/scope.h"
+#include "../../analysis/cfg.h"
 #include "../../type.h"
 #include "../../compile.h"
 
@@ -255,9 +255,9 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
     SHADY_UNREACHABLE;
 }
 
-static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const Scope* scope, const CFNode* cf_node) {
+static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFG* cfg, const CFNode* cf_node) {
     const Node* bb_node = cf_node->node;
-    assert(is_basic_block(bb_node) || cf_node == scope->entry);
+    assert(is_basic_block(bb_node) || cf_node == cfg->entry);
 
     const Node* body = get_abstraction_body(bb_node);
 
@@ -297,10 +297,10 @@ static void emit_function(Emitter* emitter, const Node* node) {
     }
 
     if (node->payload.fun.body) {
-        Scope* scope = new_scope(node);
-        // reserve a bunch of identifiers for the basic blocks in the scope
-        for (size_t i = 0; i < scope->size; i++) {
-            CFNode* cfnode = read_list(CFNode*, scope->contents)[i];
+        CFG* cfg = build_fn_cfg(node);
+        // reserve a bunch of identifiers for the basic blocks in the CFG
+        for (size_t i = 0; i < cfg->size; i++) {
+            CFNode* cfnode = read_list(CFNode*, cfg->contents)[i];
             assert(cfnode);
             const Node* bb = cfnode->node;
             if (is_case(bb))
@@ -322,17 +322,17 @@ static void emit_function(Emitter* emitter, const Node* node) {
             }
         }
         // emit the blocks using the dominator tree
-        //emit_basic_block(emitter, fn_builder, &scope, scope.entry);
-        for (size_t i = 0; i < scope->size; i++) {
-            CFNode* cfnode = scope->rpo[i];
+        //emit_basic_block(emitter, fn_builder, &cfg, cfg.entry);
+        for (size_t i = 0; i < cfg->size; i++) {
+            CFNode* cfnode = cfg->rpo[i];
             if (i == 0)
-                assert(cfnode == scope->entry);
+                assert(cfnode == cfg->entry);
             if (is_case(cfnode->node))
                 continue;
-            emit_basic_block(emitter, fn_builder, scope, cfnode);
+            emit_basic_block(emitter, fn_builder, cfg, cfnode);
         }
 
-        destroy_scope(scope);
+        destroy_cfg(cfg);
 
         spvb_define_function(emitter->file_builder, fn_builder);
     } else {
