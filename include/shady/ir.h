@@ -140,6 +140,7 @@ Nodes filter_out_annotation(IrArena*, Nodes, const char* name);
 bool        is_abstraction        (const Node*);
 String      get_abstraction_name  (const Node* abs);
 String      get_abstraction_name_unsafe(const Node* abs);
+String      get_abstraction_name_safe(const Node* abs);
 const Node* get_abstraction_body  (const Node* abs);
 Nodes       get_abstraction_params(const Node* abs);
 

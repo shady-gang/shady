@@ -60,14 +60,22 @@ static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode
     }
 }
 
-static void find_unbound_vars(const Node* node, struct Dict* bound_set, struct Dict* free_set, struct List* leaking) {
+static bool find_in_nodes(Nodes nodes, const Node* n) {
+    for (size_t i = 0; i < nodes.count; i++)
+        if (nodes.nodes[i] == n)
+            return true;
+    return false;
+}
+
+static void find_unbound_vars(const Node* loop_header, const Node* exiting_node, struct Dict* bound_set, struct Dict* free_set, struct List* leaking) {
     const Node* free_post;
     size_t i = 0;
+    Nodes ignore = get_abstraction_params(loop_header);
     while (dict_iter(free_set, &i, &free_post, NULL)) {
         const Node* bound_pre;
         size_t j = 0;
         while (dict_iter(bound_set, &j, &bound_pre, NULL)) {
-            if (bound_pre == free_post) {
+            if (bound_pre == free_post && !find_in_nodes(ignore, bound_pre)) {
                 goto next;
             }
         }
@@ -75,7 +83,7 @@ static void find_unbound_vars(const Node* node, struct Dict* bound_set, struct D
         log_string(DEBUGVV, "Found variable used outside it's control scope: ");
         log_node(DEBUGVV, free_post);
         log_string(DEBUGVV, " (original:");
-        log_node(DEBUGVV, node);
+        log_node(DEBUGVV, exiting_node);
         log_string(DEBUGVV, " )\n");
 
         append_list(const Node*, leaking, free_post);
@@ -117,7 +125,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
         gather_exiting_nodes(ctx->current_looptree, current_node, current_node, exiting_nodes);
 
         for (size_t i = 0; i < entries_count_list(exiting_nodes); i++) {
-            debugv_print("Node %s exits the loop headed at %s\n", get_abstraction_name(read_list(CFNode*, exiting_nodes)[i]->node), get_abstraction_name(node));
+            debugv_print("Node %s exits the loop headed at %s\n", get_abstraction_name_safe(read_list(CFNode*, exiting_nodes)[i]->node), get_abstraction_name_safe(node));
         }
 
         BodyBuilder* outer_bb = begin_body(arena);
@@ -148,7 +156,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 CFNode* cf_post = cfg_lookup(ctx->fwd_cfg, exiting_node->node);
                 CFNodeVariables* post = *find_value_dict(CFNode*, CFNodeVariables*, ctx->live_vars, cf_post);
                 leaking[i] = new_list(const Type*);
-                find_unbound_vars(exiting_node->node, pre->bound_set, post->free_set, leaking[i]);
+                find_unbound_vars(node, exiting_node->node, pre->bound_set, post->free_set, leaking[i]);
 
                 size_t leaking_count = entries_count_list(leaking[i]);
                 LARRAY(const Node*, exit_fwd_allocas_tmp, leaking_count);
@@ -267,7 +275,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             destroy_dict(rewriter->map);
             rewriter->map = old_map;
-            register_processed_list(rewriter, get_abstraction_params(node), nparams);
+            //register_processed_list(rewriter, get_abstraction_params(node), nparams);
 
             // restore the old context
             for (size_t i = 0; i < exiting_nodes_count; i++) {
@@ -321,7 +329,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     recovered_args[j] = gen_load(exit_recover_bb, exit_param_allocas[i].nodes[j]);
 
                 exit_numbers[i] = int32_literal(arena, i);
-                Node* exit_bb = basic_block(arena, fn, empty(arena), format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name(exiting_node->node)));
+                Node* exit_bb = basic_block(arena, fn, empty(arena), format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name_safe(exiting_node->node)));
                 if (recreated_exit->tag == BasicBlock_TAG) {
                     exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
                         .target = recreated_exit,
@@ -502,7 +510,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
-            Node* pre_join = basic_block(arena, fn, exit_args, format_string_arena(arena->arena, "merge_%s_%s", get_abstraction_name(ctx->current_abstraction) , get_abstraction_name(idom)));
+            Node* pre_join = basic_block(arena, fn, exit_args, format_string_arena(arena->arena, "merge_%s_%s", get_abstraction_name_safe(ctx->current_abstraction) , get_abstraction_name_safe(idom)));
             pre_join->payload.basic_block.body = join(arena, (Join) {
                 .join_point = join_token,
                 .args = exit_args

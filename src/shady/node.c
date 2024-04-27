@@ -274,6 +274,13 @@ String get_abstraction_name_unsafe(const Node* abs) {
     }
 }
 
+String get_abstraction_name_safe(const Node* abs) {
+    String name = get_abstraction_name_unsafe(abs);
+    if (name)
+        return name;
+    return format_string_interned(abs->arena, "%%%d", abs->id);
+}
+
 const Node* get_abstraction_body(const Node* abs) {
     assert(is_abstraction(abs));
     switch (abs->tag) {
