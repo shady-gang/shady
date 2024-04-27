@@ -520,7 +520,6 @@ bool compare_string(const char** a, const char** b);
 
 static Module* run_backend_specific_passes(CompilerConfig* config, Module* initial_mod) {
     IrArena* initial_arena = initial_mod->arena;
-    Module* old_mod = NULL;
     Module** pmod = &initial_mod;
 
     RUN_PASS(lower_entrypoint_args)

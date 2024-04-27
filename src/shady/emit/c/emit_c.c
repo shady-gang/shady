@@ -688,7 +688,6 @@ bool compare_node(Node**, Node**);
 
 static Module* run_backend_specific_passes(CompilerConfig* config, CEmitterConfig* econfig, Module* initial_mod) {
     IrArena* initial_arena = initial_mod->arena;
-    Module* old_mod = NULL;
     Module** pmod = &initial_mod;
 
     // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.

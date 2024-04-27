@@ -87,9 +87,30 @@ void add_scheduler_source(const CompilerConfig* config, Module* dst) {
     destroy_ir_arena(get_module_arena(builtin_scheduler_mod));
 }
 
+void run_pass_impl(CompilerConfig* config, Module** pmod, IrArena* initial_arena, RewritePass pass, String pass_name) {
+    Module* old_mod = NULL;
+    old_mod = *pmod;
+    *pmod = pass(config, *pmod);
+    (*pmod)->sealed = true;
+    if (SHADY_RUN_VERIFY)
+        verify_module(config, *pmod);
+    if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena)
+        destroy_ir_arena(get_module_arena(old_mod));
+    old_mod = *pmod;
+    if (config->optimisations.cleanup.after_every_pass)
+        *pmod = cleanup(config, *pmod);
+    debugvv_print("After pass %s: \n", pass_name);
+    log_module(DEBUGVV, config, *pmod);
+    if (SHADY_RUN_VERIFY)
+        verify_module(config, *pmod);
+    if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena)
+        destroy_ir_arena(get_module_arena(old_mod));
+    if (config->hooks.after_pass.fn)
+        config->hooks.after_pass.fn(config->hooks.after_pass.uptr, pass_name, *pmod);
+}
+
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     IrArena* initial_arena = (*pmod)->arena;
-    Module* old_mod = NULL;
 	
     if (config->dynamic_scheduling) {
 		*pmod = import(config, *pmod); // we don't want to mess with the original module
