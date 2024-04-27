@@ -17,6 +17,7 @@ typedef struct {
     struct Dict* annotations;
     struct Dict* scopes;
     struct Dict* phis;
+    struct List* jumps_todo;
     Arena* annotations_arena;
     LLVMModuleRef src;
     Module* dst;
@@ -57,6 +58,14 @@ typedef struct {
 typedef struct {
     struct List* list;
 } BBPhis;
+
+typedef struct {
+    Node* wrapper;
+    Node* src;
+    LLVMBasicBlockRef dst;
+} JumpTodo;
+
+void convert_jump_finish(Parser* p, Node* fn, JumpTodo todo);
 
 EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
 
