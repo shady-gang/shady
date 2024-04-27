@@ -126,7 +126,10 @@ static void print_basic_block(PrinterCtx* ctx, const Node* bb) {
     printf(GREEN);
     printf("\n\ncont");
     printf(BYELLOW);
-    printf(" %s", bb->payload.basic_block.name);
+    if (bb->payload.basic_block.name && strlen(bb->payload.basic_block.name) > 0)
+        printf(" %s", bb->payload.basic_block.name);
+    else
+        printf(" %%%d", bb->id);
     printf(RESET);
     if (ctx->config.print_ptrs) {
         printf(" %zu:: ", (size_t)(void*)bb);
@@ -948,7 +951,10 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         }
         case BasicBlock_TAG: {
             printf(BYELLOW);
-            printf("%s", node->payload.basic_block.name);
+            if (node->payload.basic_block.name && strlen(node->payload.basic_block.name) > 0)
+                printf("%s", node->payload.basic_block.name);
+            else
+                printf("%%%d", node->id);
             printf(RESET);
             break;
         }
