@@ -55,29 +55,30 @@ LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
     return v;
 }
 
-static const Node* convert_jump_lazy(Parser* p, Node* fn, Node* fn_or_bb, LLVMBasicBlockRef dst) {
-    IrArena* a = fn->arena;
-    const Node* wrapper_bb = basic_block(a, fn, empty(a), NULL);
+static const Node* convert_jump_lazy(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef dst) {
+    IrArena* a = fn_or_bb->arena;
+    const Node* wrapper_bb = basic_block(a, fn_ctx->fn, empty(a), NULL);
     JumpTodo todo = {
         .wrapper = wrapper_bb,
         .src = fn_or_bb,
         .dst = dst,
     };
-    append_list(JumpTodo, p->jumps_todo, todo);
+    append_list(JumpTodo, fn_ctx->jumps_todo, todo);
+    convert_basic_block(p, fn_ctx, dst);
     return jump_helper(a, wrapper_bb, empty(a));
 }
 
-void convert_jump_finish(Parser* p, Node* fn, JumpTodo todo) {
-    IrArena* a = fn->arena;
-    const Node* dst_bb = convert_basic_block(p, fn, todo.dst);
-    BBPhis* phis = find_value_dict(const Node*, BBPhis, p->phis, dst_bb);
+void convert_jump_finish(Parser* p, FnParseCtx* fn_ctx, JumpTodo todo) {
+    IrArena* a = fn_ctx->fn->arena;
+    const Node* dst_bb = convert_basic_block(p, fn_ctx, todo.dst);
+    BBPhis* phis = find_value_dict(const Node*, BBPhis, fn_ctx->phis, dst_bb);
     assert(phis);
     size_t params_count = entries_count_list(phis->list);
     LARRAY(const Node*, params, params_count);
     for (size_t i = 0; i < params_count; i++) {
         LLVMValueRef phi = read_list(LLVMValueRef, phis->list)[i];
         for (size_t j = 0; j < LLVMCountIncoming(phi); j++) {
-            if (convert_basic_block(p, fn, LLVMGetIncomingBlock(phi, j)) == todo.src) {
+            if (convert_basic_block(p, fn_ctx, LLVMGetIncomingBlock(phi, j)) == todo.src) {
                 params[i] = convert_value(p, LLVMGetIncomingValue(phi, j));
                 goto next;
             }
@@ -98,13 +99,8 @@ static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* eleme
 }
 
 /// instr may be an instruction or a constantexpr
-EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
-    Node* fn = fn_or_bb;
-    if (fn) {
-        if (fn_or_bb->tag == BasicBlock_TAG)
-            fn = (Node*) fn_or_bb->payload.basic_block.fn;
-        assert(fn->tag == Function_TAG);
-    }
+EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
+    Node* fn = fn_ctx ? fn_ctx->fn : NULL;
 
     IrArena* a = get_module_arena(p->dst);
     int num_ops = LLVMGetNumOperands(instr);
@@ -133,13 +129,13 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             if (!found) {
                 Nodes str = scope_to_string(p, dbgloc);
                 insert_dict(const Node*, Nodes, p->scopes, fn_or_bb, str);
-                debug_print("Found a debug location for ");
-                log_node(DEBUG, fn_or_bb);
+                debugv_print("Found a debug location for ");
+                log_node(DEBUGV, fn_or_bb);
                 for (size_t i = 0; i < str.count; i++) {
-                    log_node(DEBUG, str.nodes[i]);
-                    debug_print(" -> ");
+                    log_node(DEBUGV, str.nodes[i]);
+                    debugv_print(" -> ");
                 }
-                debug_print(" (depth= %zu)\n", str.count);
+                debugv_print(" (depth= %zu)\n", str.count);
             }
         }
     }
@@ -162,26 +158,26 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 return (EmittedInstr) {
                     .terminator = branch(a, (Branch) {
                         .branch_condition = condition,
-                        .true_jump = convert_jump_lazy(p, fn, fn_or_bb, targets[0]),
-                        .false_jump = convert_jump_lazy(p, fn, fn_or_bb, targets[1]),
+                        .true_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0]),
+                        .false_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[1]),
                     })
                 };
             } else {
                 assert(n_targets == 1);
                 return (EmittedInstr) {
-                    .terminator = convert_jump_lazy(p, fn, fn_or_bb, targets[0])
+                    .terminator = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0])
                 };
             }
         }
         case LLVMSwitch: {
             const Node* inspectee = convert_value(p, LLVMGetOperand(instr, 0));
-            const Node* default_jump = convert_jump_lazy(p, fn, fn_or_bb, LLVMGetOperand(instr, 1));
+            const Node* default_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, LLVMGetOperand(instr, 1));
             int n_targets = LLVMGetNumOperands(instr) / 2 - 1;
             LARRAY(const Node*, targets, n_targets);
             LARRAY(const Node*, literals, n_targets);
             for (size_t i = 0; i < n_targets; i++) {
                 literals[i] = convert_value(p, LLVMGetOperand(instr, i * 2 + 2));
-                targets[i] = convert_jump_lazy(p, fn, fn_or_bb, LLVMGetOperand(instr, i * 2 + 3));
+                targets[i] = convert_jump_lazy(p, fn_ctx, fn_or_bb, LLVMGetOperand(instr, i * 2 + 3));
             }
             return (EmittedInstr) {
                 .terminator = br_switch(a, (Switch) {

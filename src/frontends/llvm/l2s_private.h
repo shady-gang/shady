@@ -16,12 +16,16 @@ typedef struct {
     struct Dict* map;
     struct Dict* annotations;
     struct Dict* scopes;
-    struct Dict* phis;
-    struct List* jumps_todo;
     Arena* annotations_arena;
     LLVMModuleRef src;
     Module* dst;
 } Parser;
+
+typedef struct {
+    Node* fn;
+    struct Dict* phis;
+    struct List* jumps_todo;
+} FnParseCtx;
 
 #ifndef LLVM_VERSION_MAJOR
 #error "Missing LLVM_VERSION_MAJOR"
@@ -47,7 +51,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t);
 const Node* convert_metadata(Parser* p, LLVMMetadataRef meta);
 const Node* convert_global(Parser* p, LLVMValueRef global);
 const Node* convert_function(Parser* p, LLVMValueRef fn);
-const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb);
+const Node* convert_basic_block(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
 
 typedef struct {
     const Node* terminator;
@@ -65,9 +69,8 @@ typedef struct {
     LLVMBasicBlockRef dst;
 } JumpTodo;
 
-void convert_jump_finish(Parser* p, Node* fn, JumpTodo todo);
-
-EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
+void convert_jump_finish(Parser* p, FnParseCtx*, JumpTodo todo);
+EmittedInstr convert_instruction(Parser* p, FnParseCtx*, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
 
 Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc);
 

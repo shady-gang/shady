@@ -36,7 +36,8 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-static const Node* write_bb_tail(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
+static const Node* write_bb_tail(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
+    BodyBuilder* b = begin_body(fn_or_bb->arena);
     LLVMValueRef instr;
     for (instr = first_instr; instr; instr = LLVMGetNextInstruction(instr)) {
         bool last = instr == LLVMGetLastInstruction(bb);
@@ -44,7 +45,7 @@ static const Node* write_bb_tail(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             assert(LLVMGetBasicBlockTerminator(bb) == instr);
         // LLVMDumpValue(instr);
         // printf("\n");
-        EmittedInstr emitted = convert_instruction(p, fn_or_bb, b, instr);
+        EmittedInstr emitted = convert_instruction(p, fn_ctx, fn_or_bb, b, instr);
         if (emitted.terminator)
             return finish_body(b, emitted.terminator);
         if (!emitted.instruction)
@@ -65,7 +66,7 @@ typedef struct {
     Node* nbb;
 } TodoBB;
 
-static TodoBB prepare_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
+static TodoBB prepare_bb(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
     IrArena* a = get_module_arena(p->dst);
     debug_print("l2s: preparing BB %s %d\n", LLVMGetBasicBlockName(bb), bb);
     if (get_log_level() <= DEBUG)
@@ -92,9 +93,9 @@ static TodoBB prepare_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
         String name = LLVMGetBasicBlockName(bb);
         if (!name || strlen(name) == 0)
             name = unique_name(a, "bb");
-        Node* nbb = basic_block(a, fn, params, name);
+        Node* nbb = basic_block(a, fn_ctx->fn, params, name);
         insert_dict(LLVMValueRef, const Node*, p->map, bb, nbb);
-        insert_dict(const Node*, struct List*, p->phis, nbb, phis);
+        insert_dict(const Node*, struct List*, fn_ctx->phis, nbb, phis);
         TodoBB todo = {
             .bb = bb,
             .instr = instr,
@@ -106,15 +107,14 @@ static TodoBB prepare_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
     }
 }
 
-const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
+const Node* convert_basic_block(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
     IrArena* a = get_module_arena(p->dst);
     const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, bb);
     if (found) return *found;
     // assert(false);
 
-    TodoBB todo = prepare_bb(p, fn, bb);
-    BodyBuilder* bb_bb = begin_body(a);
-    todo.nbb->payload.basic_block.body = write_bb_tail(p, todo.nbb, bb_bb, todo.bb, todo.instr);
+    TodoBB todo = prepare_bb(p, fn_ctx, bb);
+    todo.nbb->payload.basic_block.body = write_bb_tail(p, fn_ctx, todo.nbb, todo.bb, todo.instr);
     return todo.nbb;
 }
 
@@ -157,20 +157,33 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
             break;
     }
     Node* f = function(p->dst, params, LLVMGetValueName(fn), annotations, fn_type->payload.fn_type.return_types);
+    FnParseCtx fn_parse_ctx = {
+        .fn = f,
+        .phis = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node),
+        .jumps_todo = new_list(JumpTodo),
+    };
     const Node* r = fn_addr_helper(a, f);
     insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
 
     if (LLVMCountBasicBlocks(fn) > 0) {
         LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
         insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
-        BodyBuilder* b = begin_body(a);
-        f->payload.fun.body = write_bb_tail(p, f, b, first_bb, LLVMGetFirstInstruction(first_bb));
+        f->payload.fun.body = write_bb_tail(p, &fn_parse_ctx, f, first_bb, LLVMGetFirstInstruction(first_bb));
     }
 
-    while (entries_count_list(p->jumps_todo) > 0) {
-        JumpTodo todo = pop_last_list(JumpTodo, p->jumps_todo);
-        convert_jump_finish(p, f, todo);
+    while (entries_count_list(fn_parse_ctx.jumps_todo) > 0) {
+        JumpTodo todo = pop_last_list(JumpTodo, fn_parse_ctx.jumps_todo);
+        convert_jump_finish(p, &fn_parse_ctx, todo);
     }
+    {
+        size_t i = 0;
+        struct List* phis_list;
+        while (dict_iter(fn_parse_ctx.phis, &i, NULL, &phis_list)) {
+            destroy_list(phis_list);
+        }
+    }
+    destroy_dict(fn_parse_ctx.phis);
+    destroy_list(fn_parse_ctx.jumps_todo);
 
     return r;
 }
@@ -247,8 +260,6 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations = new_dict(LLVMValueRef, ParsedAnnotation, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .scopes = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
-        .phis = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node),
-        .jumps_todo = new_list(JumpTodo),
         .annotations_arena = new_arena(),
         .src = src,
         .dst = dirty,
@@ -283,15 +294,6 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     destroy_dict(p.map);
     destroy_dict(p.annotations);
     destroy_dict(p.scopes);
-    {
-        size_t i = 0;
-        struct List* phis_list;
-        while (dict_iter(p.phis, &i, NULL, &phis_list)) {
-            destroy_list(phis_list);
-        }
-    }
-    destroy_dict(p.phis);
-    destroy_list(p.jumps_todo);
     destroy_arena(p.annotations_arena);
 
     LLVMContextDispose(context);

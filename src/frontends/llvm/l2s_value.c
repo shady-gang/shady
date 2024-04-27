@@ -85,7 +85,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             r = ref_decl_helper(a, decl);
             insert_dict(LLVMTypeRef, const Type*, p->map, v, r);
             BodyBuilder* bb = begin_body(a);
-            EmittedInstr emitted = convert_instruction(p, NULL, bb, v);
+            EmittedInstr emitted = convert_instruction(p, NULL, NULL, bb, v);
             Nodes types = singleton(t);
             decl->payload.constant.instruction = bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, emitted.instruction, &types);
             return r;
