@@ -204,12 +204,14 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         case Jump_TAG: {
             add_branch_phis(emitter, fn_builder, basic_block_builder, terminator);
             spvb_branch(basic_block_builder, find_reserved_id(emitter, terminator->payload.jump.target));
+            return;
         }
         case Branch_TAG: {
             SpvId condition = emit_value(emitter, basic_block_builder, terminator->payload.branch.branch_condition);
             add_branch_phis(emitter, fn_builder, basic_block_builder, terminator->payload.branch.true_jump);
             add_branch_phis(emitter, fn_builder, basic_block_builder, terminator->payload.branch.false_jump);
             spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_jump->payload.jump.target), find_reserved_id(emitter, terminator->payload.branch.false_jump->payload.jump.target));
+            return;
         }
         case Switch_TAG: {
             SpvId inspectee = emit_value(emitter, basic_block_builder, terminator->payload.br_switch.switch_value);
@@ -222,6 +224,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             SpvId default_tgt = find_reserved_id(emitter, terminator->payload.br_switch.default_jump->payload.jump.target);
 
             spvb_switch(basic_block_builder, inspectee, default_tgt, terminator->payload.br_switch.case_jumps.count, targets);
+            return;
         }
         case TailCall_TAG:
         case Join_TAG: error("Lower me");
