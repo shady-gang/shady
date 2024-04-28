@@ -65,6 +65,18 @@ const Node* get_declaration(const Module*, String);
 //////////////////////////////// IR Arena ////////////////////////////////
 
 typedef struct {
+    IntSizes ptr_size;
+    /// The base type for emulated memory
+    IntSizes word_size;
+} PointerModel;
+
+typedef struct {
+    PointerModel memory;
+} TargetConfig;
+
+TargetConfig default_target_config();
+
+typedef struct {
     bool name_bound;
     bool check_op_classes;
     bool check_types;
@@ -89,11 +101,7 @@ typedef struct {
         uint32_t workgroup_size[3];
     } specializations;
 
-    struct {
-        IntSizes ptr_size;
-        /// The base type for emulated memory
-        IntSizes word_size;
-    } memory;
+    PointerModel memory;
 
     /// 'folding' optimisations - happen in the constructors directly
     struct {
@@ -102,7 +110,7 @@ typedef struct {
     } optimisations;
 } ArenaConfig;
 
-ArenaConfig default_arena_config();
+ArenaConfig default_arena_config(const TargetConfig* target);
 
 IrArena* new_ir_arena(ArenaConfig);
 void destroy_ir_arena(IrArena*);
@@ -313,6 +321,8 @@ typedef struct CompilerConfig_ {
         ExecutionModel execution_model;
         uint32_t subgroup_size;
     } specialization;
+
+    TargetConfig target;
 
     struct {
         struct { void* uptr; void (*fn)(void*, String, Module*); } after_pass;

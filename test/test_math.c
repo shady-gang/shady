@@ -91,7 +91,8 @@ static void test_int_literals(IrArena* a) {
 int main(int argc, char** argv) {
     cli_parse_common_args(&argc, argv);
 
-    ArenaConfig acfg = default_arena_config();
+    TargetConfig target_config = default_target_config();
+    ArenaConfig acfg = default_arena_config(&target_config);
     acfg.check_types = true;
     acfg.allow_fold = true;
     IrArena* a = new_ir_arena(acfg);

@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         exit(MissingInputArg);
     }
 
-    ArenaConfig aconfig = default_arena_config();
+    ArenaConfig aconfig = default_arena_config(&args.config.target);
     IrArena* arena = new_ir_arena(aconfig);
 
     int clang_retval = system("clang --version");

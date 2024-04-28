@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 
     info_print("Device-side address is: %zu\n", buf_addr);
 
-    IrArena* a = new_ir_arena(default_arena_config());
+    IrArena* a = new_ir_arena(default_arena_config(&compiler_config.target));
     Module* m;
     if (driver_load_source_file(&compiler_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, "checkerboard", &m) != NoError)
         error("Failed to load checkerboard module");

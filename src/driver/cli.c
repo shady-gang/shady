@@ -95,6 +95,18 @@ F(config->optimisations.inline_everything, inline-everything) \
 F(config->hacks.restructure_everything, restructure-everything) \
 F(config->hacks.recover_structure, recover-structure) \
 
+static IntSizes parse_int_size(String argv) {
+    if (strcmp(argv, "8") == 0)
+        return IntTy8;
+    if (strcmp(argv, "16") == 0)
+        return IntTy16;
+    if (strcmp(argv, "32") == 0)
+        return IntTy32;
+    if (strcmp(argv, "64") == 0)
+        return IntTy64;
+    error("Valid pointer sizes are 8, 16, 32 or 64.");
+}
+
 void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
     int argc = *pargc;
 
@@ -142,6 +154,14 @@ void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
                 default: break;
             }
             config->specialization.execution_model = em;
+        } else if (strcmp(argv[i], "--word-size") == 0) {
+            argv[i] = NULL;
+            i++;
+            config->target.memory.word_size = parse_int_size(argv[i]);
+        } else if (strcmp(argv[i], "--pointer-size") == 0) {
+            argv[i] = NULL;
+            i++;
+            config->target.memory.ptr_size = parse_int_size(argv[i]);
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             continue;
@@ -157,6 +177,8 @@ void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
         error_print("  --no-dynamic-scheduling                   Disable the built-in dynamic scheduler, restricts code to only leaf functions\n");
         error_print("  --simt2d                                  Emits SIMD code instead of SIMT, only effective with the C backend.\n");
         error_print("  --entry-point <foo>                       Selects an entry point for the program to be specialized on.\n");
+        error_print("  --word-size <8|16|32|64>                  Sets the word size for physical memory emulation (default=32)\n");
+        error_print("  --pointer-size <8|16|32|64>               Sets the pointer size for physical pointers (default=64)\n");
 #define EM(name, _) #name", "
         error_print("  --execution-model <em>                   Selects an entry point for the program to be specialized on.\nPossible values: " EXECUTION_MODELS(EM));
 #undef EM

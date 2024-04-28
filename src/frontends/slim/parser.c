@@ -1108,7 +1108,7 @@ static void parse_shady_ir(ParserConfig config, const char* contents, Module* mo
 #include "transform/internal_constants.h"
 
 Module* parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, const char* contents, String name) {
-    ArenaConfig aconfig = default_arena_config();
+    ArenaConfig aconfig = default_arena_config(&config->target);
     aconfig.name_bound = false;
     aconfig.check_op_classes = false;
     aconfig.check_types = false;

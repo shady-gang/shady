@@ -37,6 +37,7 @@ set(SHADY_SOURCES
     compile.c
     annotation.c
     module.c
+    config.c
 
     analysis/cfg.c
     analysis/cfg_dump.c

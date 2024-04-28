@@ -248,7 +248,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     }
     info_print("LLVM IR parsed successfully\n");
 
-    ArenaConfig aconfig = default_arena_config();
+    ArenaConfig aconfig = default_arena_config(&config->target);
     aconfig.check_types = false;
     aconfig.allow_fold = false;
 
