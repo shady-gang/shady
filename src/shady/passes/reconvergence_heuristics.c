@@ -132,8 +132,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
         size_t exiting_nodes_count = entries_count_list(exiting_nodes);
         if (exiting_nodes_count > 0) {
-            Nodes nparams = recreate_variables(rewriter, get_abstraction_params(node));
-            Nodes inner_yield_types = strip_qualifiers(arena, get_variables_types(arena, nparams));
+            Nodes nparams = recreate_params(rewriter, get_abstraction_params(node));
+            Nodes inner_yield_types = strip_qualifiers(arena, get_param_types(arena, nparams));
 
             CFNode* cf_pre = cfg_lookup(ctx->fwd_cfg, node);
             // assert(cf_pre->idom && "cfg entry nodes can't be loop headers anyhow");
@@ -145,7 +145,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             LARRAY(Nodes, exit_fwd_allocas, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
-                Nodes exit_param_types = rewrite_nodes(rewriter, get_variables_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
+                Nodes exit_param_types = rewrite_nodes(rewriter, get_param_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
                 LARRAY(const Node*, exit_param_allocas_tmp, exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++)
                     exit_param_allocas_tmp[j] = gen_primop_e(outer_bb, alloca_op, singleton(get_unqualified_type(exit_param_types.nodes[j])), empty(arena));
@@ -171,11 +171,11 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             Node* fn = (Node*) find_processed(rewriter, ctx->current_fn);
 
-            const Node* join_token_exit = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
+            const Node* join_token_exit = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
                     .yield_types = empty(arena)
             }), true), "jp_exit");
 
-            const Node* join_token_continue = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
+            const Node* join_token_continue = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
                     .yield_types = inner_yield_types
             }), true), "jp_continue");
 
@@ -186,7 +186,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
-                Nodes exit_wrapper_params = recreate_variables(&ctx->rewriter, get_abstraction_params(exiting_node->node));
+                Nodes exit_wrapper_params = recreate_params(&ctx->rewriter, get_abstraction_params(exiting_node->node));
 
                 switch (exiting_node->node->tag) {
                     case BasicBlock_TAG: {
@@ -203,7 +203,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 }
             }
 
-            Nodes continue_wrapper_params = recreate_variables(rewriter, get_abstraction_params(node));
+            Nodes continue_wrapper_params = recreate_params(rewriter, get_abstraction_params(node));
             const Node* continue_wrapper_body = join(arena, (Join) {
                 .join_point = join_token_continue,
                 .args = continue_wrapper_params
@@ -245,7 +245,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             struct Dict* old_map = rewriter->map;
             rewriter->map = clone_dict(rewriter->map);
-            Nodes inner_loop_params = recreate_variables(rewriter, get_abstraction_params(node));
+            Nodes inner_loop_params = recreate_params(rewriter, get_abstraction_params(node));
             register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
             const Node* loop_body = recreate_node_identity(rewriter, get_abstraction_body(node));
 
@@ -489,16 +489,16 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                 for (size_t j = 0; j < old_params.count; j++) {
                     //TODO: Is this correct?
-                    assert(old_params.nodes[j]->tag == Variable_TAG);
-                    const Node* qualified_type = rewrite_node(rewriter, old_params.nodes[j]->payload.var.type);
+                    assert(old_params.nodes[j]->tag == Param_TAG);
+                    const Node* qualified_type = rewrite_node(rewriter, old_params.nodes[j]->payload.param.type);
                     //const Node* qualified_type = rewrite_node(rewriter, old_params.nodes[j]->type);
 
                     //This should always contain a qualified type?
                     //if (contains_qualified_type(types[j]))
                     types[j] = get_unqualified_type(qualified_type);
 
-                    inner_args[j] = var(arena, qualified_type, old_params.nodes[j]->payload.var.name);
-                    outer_args[j] = var(arena, qualified_type, old_params.nodes[j]->payload.var.name);
+                    inner_args[j] = param(arena, qualified_type, old_params.nodes[j]->payload.param.name);
+                    outer_args[j] = param(arena, qualified_type, old_params.nodes[j]->payload.param.name);
                 }
 
                 yield_types = nodes(arena, old_params.count, types);
@@ -506,7 +506,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 lambda_args = nodes(arena, old_params.count, outer_args);
             }
 
-            const Node* join_token = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
+            const Node* join_token = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 

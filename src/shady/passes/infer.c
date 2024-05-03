@@ -103,9 +103,9 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
 
             LARRAY(const Node*, nparams, node->payload.fun.params.count);
             for (size_t i = 0; i < node->payload.fun.params.count; i++) {
-                const Variable* old_param = &node->payload.fun.params.nodes[i]->payload.var;
+                const Param* old_param = &node->payload.fun.params.nodes[i]->payload.param;
                 const Type* imported_param_type = infer(ctx, old_param->type, NULL);
-                nparams[i] = var(a, imported_param_type, old_param->name);
+                nparams[i] = param(a, imported_param_type, old_param->name);
                 register_processed(&body_context.rewriter, node->payload.fun.params.nodes[i], nparams[i]);
             }
 
@@ -171,7 +171,8 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
     Rewriter* r = &ctx->rewriter;
     switch (is_value(node)) {
         case NotAValue: error("");
-        case Variable_TAG: return find_processed(&ctx->rewriter, node);
+        case Param_TAG:
+        case Variablez_TAG: return find_processed(&ctx->rewriter, node);
         case Value_ConstrainedValue_TAG: {
             const Type* type = infer(ctx, node->payload.constrained.type, NULL);
             bool expect_uniform = false;
@@ -298,9 +299,9 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
     for (size_t i = 0; i < inferred_arg_type.count; i++) {
         if (node->payload.case_.params.count == 0) {
             // syntax sugar: make up a parameter if there was none
-            nparams[i] = var(a, inferred_arg_type.nodes[i], unique_name(a, "_"));
+            nparams[i] = param(a, inferred_arg_type.nodes[i], unique_name(a, "_"));
         } else {
-            const Variable* old_param = &node->payload.case_.params.nodes[i]->payload.var;
+            const Param* old_param = &node->payload.case_.params.nodes[i]->payload.param;
             // for the param type: use the inferred one if none is already provided
             // if one is provided, check the inferred argument type is a subtype of the param type
             const Type* param_type = old_param->type ? infer_type(ctx, old_param->type) : NULL;
@@ -308,7 +309,7 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
             if (!param_type || param_type->tag != PtrType_TAG || param_type->payload.ptr_type.pointed_type)
                 param_type = inferred_arg_type.nodes[i];
             assert(is_subtype(param_type, inferred_arg_type.nodes[i]));
-            nparams[i] = var(a, param_type, old_param->name);
+            nparams[i] = param(a, param_type, old_param->name);
             register_processed(&body_context.rewriter, node->payload.case_.params.nodes[i], nparams[i]);
         }
     }
@@ -324,12 +325,12 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
     Context body_context = *ctx;
     LARRAY(const Node*, nparams, node->payload.basic_block.params.count);
     for (size_t i = 0; i < node->payload.basic_block.params.count; i++) {
-        const Variable* old_param = &node->payload.basic_block.params.nodes[i]->payload.var;
+        const Param* old_param = &node->payload.basic_block.params.nodes[i]->payload.param;
         // for the param type: use the inferred one if none is already provided
         // if one is provided, check the inferred argument type is a subtype of the param type
         const Type* param_type = infer(ctx, old_param->type, NULL);
         assert(param_type);
-        nparams[i] = var(a, param_type, old_param->name);
+        nparams[i] = param(a, param_type, old_param->name);
         register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
     }
 
@@ -546,7 +547,7 @@ static const Node* infer_loop(Context* ctx, const Node* node, const Nodes* expec
     const Node* old_body = node->payload.loop_instr.body;
 
     Nodes old_params = get_abstraction_params(old_body);
-    Nodes old_params_types = get_variables_types(a, old_params);
+    Nodes old_params_types = get_param_types(a, old_params);
     Nodes new_params_types = infer_nodes(ctx, old_params_types);
     new_params_types = annotate_all_types(a, new_params_types, false);
 
@@ -586,7 +587,7 @@ static const Node* infer_control(Context* ctx, const Node* node, const Nodes* ex
             .yield_types = yield_types
     });
     jpt = qualified_type(a, (QualifiedType) { .is_uniform = true, .type = jpt });
-    const Node* jp = var(a, jpt, ojp->payload.var.name);
+    const Node* jp = param(a, jpt, ojp->payload.param.name);
     register_processed(&joinable_ctx.rewriter, ojp, jp);
 
     const Node* nlam = case_(a, singleton(jp), infer(&joinable_ctx, get_abstraction_body(olam), NULL));
@@ -635,7 +636,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         case NotATerminator: assert(false);
         case Let_TAG: {
             const Node* otail = node->payload.let.tail;
-            Nodes annotated_types = get_variables_types(a, otail->payload.case_.params);
+            Nodes annotated_types = get_param_types(a, otail->payload.case_.params);
             const Node* inferred_instruction = infer_instruction(ctx, node->payload.let.instruction, &annotated_types);
             Nodes inferred_yield_types = unwrap_multiple_yield_types(a, inferred_instruction->type);
             for (size_t i = 0; i < inferred_yield_types.count; i++) {
@@ -660,7 +661,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         case Jump_TAG: {
             assert(is_basic_block(node->payload.jump.target));
             const Node* ntarget = infer(ctx, node->payload.jump.target, NULL);
-            Nodes param_types = get_variables_types(a, get_abstraction_params(ntarget));
+            Nodes param_types = get_param_types(a, get_abstraction_params(ntarget));
 
             LARRAY(const Node*, tmp, node->payload.jump.args.count);
             for (size_t i = 0; i < node->payload.jump.args.count; i++)

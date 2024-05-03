@@ -120,8 +120,8 @@ const Node* get_node_by_id(const IrArena*, NodeId);
 //////////////////////////////// Getters ////////////////////////////////
 
 /// Get the name out of a global variable, function or constant
-String get_value_name(const Node*);
 String get_value_name_safe(const Node*);
+String get_value_name_unsafe(const Node*);
 void set_variable_name(Node* var, String);
 
 const Node* get_quoted_value(const Node* instruction);
@@ -166,7 +166,7 @@ NodeResolveConfig default_node_resolve_config();
 const Node* resolve_ptr_to_value(const Node* node, NodeResolveConfig config);
 
 /// Resolves a variable to the instruction that produces its value (if any)
-const Node* get_var_def(Variable var);
+const Node* get_var_def(Variablez var);
 const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config);
 
 //////////////////////////////// Constructors ////////////////////////////////
@@ -209,7 +209,7 @@ const Node* fp_literal_helper(IrArena*, FloatSizes, double);
 const Node* type_decl_ref_helper(IrArena*, const Node* decl);
 
 // values
-Node* var(IrArena*, const Type* type, const char* name);
+Node* param(IrArena*, const Type* type, const char* name);
 
 const Node* tuple_helper(IrArena*, Nodes contents);
 const Node* composite_helper(IrArena*, const Type*, Nodes contents);

@@ -23,6 +23,8 @@ BodyBuilder* begin_body(IrArena* a) {
     return bb;
 }
 
+Node* var(IrArena* arena, const char* name, const Node* instruction, size_t i);
+
 static Nodes create_output_variables(IrArena* a, const Node* value, size_t outputs_count, const Node** output_types, String const output_names[]) {
     Nodes types;
     if (a->config.check_types) {
@@ -51,7 +53,7 @@ static Nodes create_output_variables(IrArena* a, const Node* value, size_t outpu
     LARRAY(Node*, vars, types.count);
     for (size_t i = 0; i < types.count; i++) {
         String var_name = output_names ? output_names[i] : NULL;
-        vars[i] = (Node*) var(a, types.nodes[i], var_name);
+        vars[i] = (Node*) var(a, var_name, value, i);
     }
 
     // for (size_t i = 0; i < outputs_count; i++) {

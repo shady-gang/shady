@@ -23,12 +23,16 @@ typedef struct {
 static void search_op_for_free_variables(Context* visitor, NodeClass class, String op_name, const Node* node) {
     assert(node);
     switch (node->tag) {
-        case Variable_TAG: {
+        case Param_TAG: {
             Nodes params = get_abstraction_params(visitor->current_scope->node->node);
             for (size_t i = 0; i < params.count; i++) {
                 if (params.nodes[i] == node)
                     return;
             }
+            insert_set_get_result(const Node*, visitor->current_scope->free_set, node);
+            break;
+        }
+        case Variablez_TAG: {
             insert_set_get_result(const Node*, visitor->current_scope->free_set, node);
             break;
         }

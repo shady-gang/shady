@@ -55,7 +55,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Node* num = rewrite_node(&ctx->rewriter, old_ops.nodes[2]);
                     const Node* num_in_bytes = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num));
 
-                    const Node* index = var(a, qualified_type_helper(uint32_type(a), false), "memcpy_i");
+                    const Node* index = param(a, qualified_type_helper(uint32_type(a), false), "memcpy_i");
                     BodyBuilder* loop_bb = begin_body(a);
                     const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, singleton(uint32_literal(a, 0))));
                     gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, singleton(uint32_literal(a, 0))), loaded_word);
@@ -97,7 +97,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Node* num = rewrite_node(&ctx->rewriter, old_ops.nodes[2]);
                     const Node* num_in_bytes = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num));
 
-                    const Node* index = var(a, qualified_type_helper(uint32_type(a), false), "memset_i");
+                    const Node* index = param(a, qualified_type_helper(uint32_type(a), false), "memset_i");
                     BodyBuilder* loop_bb = begin_body(a);
                     gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, singleton(uint32_literal(a, 0))), src_value);
                     const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));

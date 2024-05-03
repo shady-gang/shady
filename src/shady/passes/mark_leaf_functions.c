@@ -109,7 +109,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx = &fn_ctx;
 
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-            Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            Node* new = function(ctx->rewriter.dst_module, recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             for (size_t i = 0; i < new->payload.fun.params.count; i++)
                 register_processed(&ctx->rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
             register_processed(&ctx->rewriter, node, new);
@@ -138,8 +138,8 @@ static const Node* process(Context* ctx, const Node* node) {
         case Join_TAG: {
             const Node* old_jp = node->payload.join.join_point;
             // is it associated with a control node ?
-            if (old_jp->tag == Variable_TAG) {
-                const Node* abs = old_jp->payload.var.abs;
+            if (old_jp->tag == Param_TAG) {
+                const Node* abs = old_jp->payload.param.abs;
                 assert(abs);
                 if (abs->tag == Case_TAG) {
                     const Node* structured = abs->payload.case_.structured_construct;

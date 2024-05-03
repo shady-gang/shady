@@ -85,7 +85,7 @@ inline static bool is_nominal(const Node* node) {
     NodeTag tag = node->tag;
     if (node->tag == PrimOp_TAG && has_primop_got_side_effects(node->payload.prim_op.op))
         return true;
-    return tag == Function_TAG || tag == BasicBlock_TAG || tag == Constant_TAG || tag == Variable_TAG || tag == GlobalVariable_TAG || tag == NominalType_TAG || tag == Case_TAG;
+    return tag == Function_TAG || tag == BasicBlock_TAG || tag == Constant_TAG || tag == Param_TAG || tag == GlobalVariable_TAG || tag == NominalType_TAG || tag == Case_TAG;
 }
 
 inline static bool is_function(const Node* node) { return node->tag == Function_TAG; }

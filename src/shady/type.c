@@ -418,9 +418,15 @@ const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     return NULL;
 }
 
-const Type* check_type_var(IrArena* arena, Variable variable) {
+const Type* check_type_param(IrArena* arena, Param variable) {
     assert(is_value_type(variable.type));
     return variable.type;
+}
+
+const Type* check_type_varz(IrArena* arena, Variablez variable) {
+    Nodes types = unwrap_multiple_yield_types(arena, variable.instruction->type);
+    assert(variable.iindex < types.count);
+    return types.nodes[variable.iindex];
 }
 
 const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
@@ -1214,7 +1220,7 @@ const Type* check_type_let(IrArena* arena, Let let) {
     assert(is_instruction(let.instruction));
     assert(is_case(let.tail));
     Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
-    Nodes param_types = get_variables_types(arena, let.tail->payload.case_.params);
+    Nodes param_types = get_param_types(arena, let.tail->payload.case_.params);
 
     check_arguments_types_against_parameters_helper(param_types, produced_types);
     return noret_type(arena);
@@ -1309,15 +1315,15 @@ const Type* check_type_fun(IrArena* arena, Function fn) {
     for (size_t i = 0; i < fn.return_types.count; i++) {
         assert(is_value_type(fn.return_types.nodes[i]));
     }
-    return fn_type(arena, (FnType) { .param_types = get_variables_types(arena, (&fn)->params), .return_types = (&fn)->return_types });
+    return fn_type(arena, (FnType) { .param_types = get_param_types(arena, (&fn)->params), .return_types = (&fn)->return_types });
 }
 
 const Type* check_type_basic_block(IrArena* arena, BasicBlock bb) {
-    return bb_type(arena, (BBType) { .param_types = get_variables_types(arena, (&bb)->params) });
+    return bb_type(arena, (BBType) { .param_types = get_param_types(arena, (&bb)->params) });
 }
 
 const Type* check_type_case_(IrArena* arena, Case lam) {
-    return lam_type(arena, (LamType) { .param_types = get_variables_types(arena, (&lam)->params) });
+    return lam_type(arena, (LamType) { .param_types = get_param_types(arena, (&lam)->params) });
 }
 
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {

@@ -41,10 +41,10 @@ static const Node* wrap_in_controls(Context* ctx, Controls* controls, const Node
         Nodes o_dst_params = get_abstraction_params(dst);
         LARRAY(const Node*, new_control_params, o_dst_params.count);
         for (size_t j = 0; j < o_dst_params.count; j++)
-            new_control_params[j] = var(a, o_dst_params.nodes[j]->payload.var.type, unique_name(a, "v"));
+            new_control_params[j] = param(a, o_dst_params.nodes[j]->payload.param.type, unique_name(a, "v"));
         Nodes nparams = nodes(a, o_dst_params.count, new_control_params);
         body = let(a, control(a, (Control) {
-            .yield_types = get_variables_types(a, o_dst_params),
+            .yield_types = get_param_types(a, o_dst_params),
             .inside = case_(a, singleton(token), body)
         }), case_(a, nparams, jump_helper(a, rewrite_node(&ctx->rewriter, dst), nparams)));
     }
@@ -66,13 +66,13 @@ bool lexical_scope_is_nested(Nodes scope, Nodes parentMaybe) {
 
 bool compare_nodes(Nodes* a, Nodes* b);
 
-static Nodes remake_variables(Context* ctx, Nodes old) {
+static Nodes remake_params(Context* ctx, Nodes old) {
     IrArena* a = ctx->rewriter.dst_arena;
     LARRAY(const Node*, nvars, old.count);
     for (size_t i = 0; i < old.count; i++) {
         const Node* node = old.nodes[i];
-            nvars[i] = var(a, node->payload.var.type ? qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.var.type), false) : NULL, node->payload.var.name);
-        assert(nvars[i]->tag == Variable_TAG);
+            nvars[i] = param(a, node->payload.param.type ? qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.param.type), false) : NULL, node->payload.param.name);
+        assert(nvars[i]->tag == Param_TAG);
     }
     return nodes(a, old.count, nvars);
 }
@@ -81,11 +81,11 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
-        case Variable_TAG: {
-            assert(node->payload.var.type);
-            if (node->payload.var.type->tag == QualifiedType_TAG)
-                return var(a, node->payload.var.type ? rewrite_node(&ctx->rewriter, node->payload.var.type) : NULL, node->payload.var.name);
-            return var(a, qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.var.type), false), node->payload.var.name);
+        case Param_TAG: {
+            assert(node->payload.param.type);
+            if (node->payload.param.type->tag == QualifiedType_TAG)
+                return param(a, node->payload.param.type ? rewrite_node(&ctx->rewriter, node->payload.param.type) : NULL, node->payload.param.name);
+            return param(a, qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.param.type), false), node->payload.param.name);
         }
         case Block_TAG: {
             Nodes yield_types = rewrite_nodes(r, node->payload.block.yield_types);
@@ -131,7 +131,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             fn_ctx.old_fn_or_bb = node;
             Controls controls;
             initialize_controls(ctx, &controls, node);
-            Nodes new_params = recreate_variables(&fn_ctx.rewriter, node->payload.fun.params);
+            Nodes new_params = recreate_params(&fn_ctx.rewriter, node->payload.fun.params);
             Nodes old_annotations = node->payload.fun.annotations;
             ParsedAnnotation* an = find_annotation(ctx->p, node);
             Op primop_intrinsic = PRIMOPS_COUNT;
@@ -150,7 +150,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                     primop_intrinsic = op;
                 } else if (strcmp(get_annotation_name(an->payload), "EntryPoint") == 0) {
                     for (size_t i = 0; i < new_params.count; i++)
-                        new_params = change_node_at_index(a, new_params, i, var(a, qualified_type_helper(get_unqualified_type(new_params.nodes[i]->payload.var.type), true), new_params.nodes[i]->payload.var.name));
+                        new_params = change_node_at_index(a, new_params, i, param(a, qualified_type_helper(get_unqualified_type(new_params.nodes[i]->payload.param.type), true), new_params.nodes[i]->payload.param.name));
                 }
                 old_annotations = append_nodes(a, old_annotations, an->payload);
                 an = an->next;
@@ -225,13 +225,13 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                                 }
                                 if (!join_token) {
                                     const Type* jp_type = join_point_type(a, (JoinPointType) {
-                                        .yield_types = get_variables_types(a, get_abstraction_params(dst))
+                                        .yield_types = get_param_types(a, get_abstraction_params(dst))
                                     });
-                                    join_token = var(a, qualified_type_helper(jp_type, false), get_abstraction_name(dst));
+                                    join_token = param(a, qualified_type_helper(jp_type, false), get_abstraction_name(dst));
                                     controls->tokens = append_nodes(a, controls->tokens, join_token);
                                     controls->destinations = append_nodes(a, controls->destinations, dst);
                                 }
-                                Nodes nparams = remake_variables(ctx, get_abstraction_params(dst));
+                                Nodes nparams = remake_params(ctx, get_abstraction_params(dst));
                                 //register_processed_list(&ctx->rewriter, get_abstraction_params(dst), nparams);
                                 Node* fn = src;
                                 if (fn->tag == BasicBlock_TAG)
@@ -307,7 +307,7 @@ void postprocess(Parser* p, Module* src, Module* dst) {
     };
 
     ctx.rewriter.rewrite_op_fn = (RewriteOpFn) process_op;
-    ctx.rewriter.config.process_variables = true;
+    ctx.rewriter.config.process_params = true;
     ctx.rewriter.config.search_map = true;
     // ctx.rewriter.config.write_map = false;
 

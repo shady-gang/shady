@@ -890,7 +890,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 assert(s > 0);
                 if (is_param) {
                     const Node* param = get_definition_by_id(parser, get_result_defined_at(parser, instruction_offset))->node;
-                    assert(param && param->tag == Variable_TAG);
+                    assert(param && param->tag == Param_TAG);
                     params = concat_nodes(parser->arena, params, singleton(param));
                 }
                 size += s;

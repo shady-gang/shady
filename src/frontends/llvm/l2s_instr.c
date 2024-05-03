@@ -487,9 +487,9 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 assert(LLVMIsAFunction(callee));
                 if (strcmp(intrinsic, "llvm.dbg.declare") == 0) {
                     const Node* target = convert_value(p, LLVMGetOperand(instr, 0));
-                    if (target->tag != Variable_TAG)
+                    if (target->tag != Variablez_TAG)
                         return (EmittedInstr) { 0 };
-                    assert(target->tag == Variable_TAG);
+                    assert(target->tag == Variablez_TAG);
                     const Node* meta = convert_value(p, LLVMGetOperand(instr, 1));
                     assert(meta->tag == RefDecl_TAG);
                     meta = meta->payload.ref_decl.decl;

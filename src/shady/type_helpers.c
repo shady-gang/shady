@@ -112,11 +112,11 @@ void enter_composite(const Type** datatype, bool* uniform, Nodes indices, bool a
     }
 }
 
-Nodes get_variables_types(IrArena* arena, Nodes variables) {
+Nodes get_param_types(IrArena* arena, Nodes variables) {
     LARRAY(const Type*, arr, variables.count);
     for (size_t i = 0; i < variables.count; i++) {
-        assert(variables.nodes[i]->tag == Variable_TAG);
-        arr[i] = variables.nodes[i]->payload.var.type;
+        assert(variables.nodes[i]->tag == Param_TAG);
+        arr[i] = variables.nodes[i]->payload.param.type;
     }
     return nodes(arena, variables.count, arr);
 }

@@ -35,7 +35,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         BodyBuilder* bb = begin_body(a);
         if (!ctx2.disable_lowering) {
             Nodes oparams = get_abstraction_params(old);
-            Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
+            Nodes nparams = recreate_params(&ctx->rewriter, oparams);
             register_processed_list(&ctx->rewriter, oparams, nparams);
 
             // Supplement an additional parameter for the join point

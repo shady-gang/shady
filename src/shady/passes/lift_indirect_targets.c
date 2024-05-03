@@ -110,14 +110,15 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, String given_na
     debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", get_abstraction_name_safe(liftee), recover_context_size);
     for (size_t i = 0; i < recover_context_size; i++) {
         const Node* item = read_list(const Node*, recover_context)[i];
-        debugv_print("%s %%%d", get_value_name(item) ? get_value_name(item) : "", item->id);
+        String item_name = get_value_name_unsafe(item);
+        debugv_print("%s %%%d", item_name ? item_name : "", item->id);
         if (i + 1 < recover_context_size)
             debugv_print(", ");
     }
     debugv_print("\n");
 
     // Create and register new parameters for the lifted continuation
-    Nodes new_params = recreate_variables(&ctx->rewriter, oparams);
+    Nodes new_params = recreate_params(&ctx->rewriter, oparams);
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = liftee;
@@ -128,7 +129,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, String given_na
     lifting_ctx.rewriter = create_children_rewriter(&ctx->rewriter);
     register_processed_list(&lifting_ctx.rewriter, oparams, new_params);
 
-    const Node* payload = var(a, qualified_type_helper(uint32_type(a), false), "sp");
+    const Node* payload = param(a, qualified_type_helper(uint32_type(a), false), "sp");
 
     // Keep annotations the same
     Nodes annotations = nodes(a, 0, NULL);
@@ -141,17 +142,18 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, String given_na
     gen_primop(bb, set_stack_size_op, empty(a), singleton(payload));
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
-        assert(ovar->tag == Variable_TAG);
+        // assert(ovar->tag == Variable_TAG);
 
         const Type* value_type = rewrite_node(&ctx->rewriter, ovar->type);
 
+        String param_name = get_value_name_unsafe(ovar);
         const Node* recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) {
             .op = pop_stack_op,
             .type_arguments = singleton(get_unqualified_type(value_type))
-        }), &ovar->payload.var.name));
+        }), &param_name));
 
         if (is_qualified_type_uniform(ovar->type))
-            recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = singleton(recovered_value) }), &ovar->payload.var.name));
+            recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = singleton(recovered_value) }), &param_name));
 
         register_processed(&lifting_ctx.rewriter, ovar, recovered_value);
     }

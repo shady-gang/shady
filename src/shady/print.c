@@ -61,7 +61,7 @@ static void print_param_list(PrinterCtx* ctx, Nodes params, const Nodes* default
     for (size_t i = 0; i < params.count; i++) {
         const Node* param = params.nodes[i];
         if (ctx->config.print_ptrs) printf("%zu::", (size_t)(void*) param);
-        print_node(param->payload.var.type);
+        print_node(param->payload.param.type);
         printf(" ");
         print_node(param);
         printf(RESET);
@@ -407,7 +407,8 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.constrained.value);
             break;
         }
-        case Variable_TAG:
+        case Value_Variablez_TAG:
+        case Value_Param_TAG:
             if (ctx->uses) {
                 // if ((*find_value_dict(const Node*, Uses*, ctx->uses->map, node))->escapes_defining_block)
                 //     printf(MANGENTA);
@@ -415,7 +416,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
                     printf(YELLOW);
             } else
                 printf(YELLOW);
-            String name = get_value_name(node);
+            String name = get_value_name_unsafe(node);
             if (name && strlen(name) > 0)
                 printf("%s_", name);
             printf("%%%d", node->id);
@@ -683,7 +684,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                     for (size_t i = 0; i < params.count; i++) {
                         if (mut || !ctx->config.reparseable) {
                             printf(" ");
-                            print_node(params.nodes[i]->payload.var.type);
+                            print_node(params.nodes[i]->payload.param.type);
                         }
                         printf(" ");
                         print_node(params.nodes[i]);
@@ -1127,6 +1128,10 @@ void print_node_operand_bool(Printer* p, const Node* n, String name, bool b, Pri
         print(p, "true");
     else
         print(p, "false");
+}
+
+void print_node_operand_unsigned(Printer* p, const Node* n, String name, unsigned u, PrintConfig config) {
+    print(p, " '%s': %u", name, u);
 }
 
 #include "print_generated.c"

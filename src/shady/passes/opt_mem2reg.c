@@ -277,7 +277,8 @@ static void mark_value_as_escaping(Context* ctx, KnowledgeBase* kb, const Node* 
     }
     switch (is_value(value)) {
         case NotAValue: assert(false);
-        case Value_Variable_TAG:
+        case Value_Param_TAG:
+        case Value_Variablez_TAG:
             break;
         case Value_ConstrainedValue_TAG:
             break;
@@ -454,7 +455,7 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
 
             //String s = format_string_interned(a, "%s_", get_abstraction_name(old_target));
             String s = get_abstraction_name(old_target);
-            Node* wrapper = basic_block(a, (Node*) rewrite_node(r, old_target->payload.basic_block.fn), recreate_variables(r, get_abstraction_params(old_target)), s);
+            Node* wrapper = basic_block(a, (Node*) rewrite_node(r, old_target->payload.basic_block.fn), recreate_params(r, get_abstraction_params(old_target)), s);
             TodoJump todo = {
                 .old_jump = old,
                 .wrapper_bb = wrapper,
@@ -501,8 +502,8 @@ static void handle_bb(Context* ctx, const Node* old) {
     fn_ctx.oabs = old;
     ctx = &fn_ctx;
 
-    Nodes params = recreate_variables(&ctx->rewriter, get_abstraction_params(old));
-    Nodes let_params = recreate_variables(&ctx->rewriter, get_abstraction_params(old));
+    Nodes params = recreate_params(&ctx->rewriter, get_abstraction_params(old));
+    Nodes let_params = recreate_params(&ctx->rewriter, get_abstraction_params(old));
     register_processed_list(&ctx->rewriter, get_abstraction_params(old), let_params);
     const Node* nbody = rewrite_node(&ctx->rewriter, get_abstraction_body(old));
     nbody = let(a, quote_helper(a, params), case_(a, let_params, nbody));

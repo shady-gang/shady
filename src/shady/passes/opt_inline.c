@@ -152,7 +152,7 @@ static const Node* process(Context* ctx, const Node* node) {
             }
 
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-            Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            Node* new = function(ctx->rewriter.dst_module, recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             register_processed(r, node, new);
 
             Context fn_ctx = *ctx;
@@ -201,7 +201,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 nfn = ctx->inlined_call->host_fn;
             else
                 nfn = rewrite_node(r, ofn);
-            Nodes nparams = recreate_variables(r, get_abstraction_params(node));
+            Nodes nparams = recreate_params(r, get_abstraction_params(node));
             register_processed_list(r, get_abstraction_params(node), nparams);
             Node* bb = basic_block(a, (Node*) nfn, nparams, get_abstraction_name(node));
             register_processed(r, node, bb);

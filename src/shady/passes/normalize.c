@@ -34,7 +34,8 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
         case Function_TAG: {
             return fn_addr_helper(a, process_node(ctx, node));
         }
-        case Variable_TAG: return find_processed(&ctx->rewriter, node);
+        case Variablez_TAG:
+        case Param_TAG: return find_processed(&ctx->rewriter, node);
         default:
             break;
     }
@@ -65,7 +66,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED Str
         }
         case NcValue:
             return force_to_be_value(ctx, node);
-        case NcVariable:
+        case NcParam:
             break;
         case NcInstruction: {
             if (is_instruction(node))
@@ -111,7 +112,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case BasicBlock_TAG: {
-            Node* new = basic_block(a, (Node*) rewrite_node(&ctx->rewriter, node->payload.basic_block.fn), recreate_variables(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
+            Node* new = basic_block(a, (Node*) rewrite_node(&ctx->rewriter, node->payload.basic_block.fn), recreate_params(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
             register_processed(&ctx->rewriter, node, new);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new->payload.basic_block.params);
             BodyBuilder* bb = begin_body(a);
@@ -122,7 +123,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case Case_TAG: {
-            Nodes new_params = recreate_variables(&ctx->rewriter, node->payload.case_.params);
+            Nodes new_params = recreate_params(&ctx->rewriter, node->payload.case_.params);
             register_processed_list(&ctx->rewriter, node->payload.case_.params, new_params);
             BodyBuilder* bb = begin_body(a);
             Context ctx2 = *ctx;

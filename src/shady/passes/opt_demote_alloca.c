@@ -46,7 +46,7 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
 
     const Use* use = get_first_use(map, ptr_value);
     for (;use; use = use->next_use) {
-        if (is_abstraction(use->user) && use->operand_class == NcVariable)
+        if (is_abstraction(use->user) && use->operand_class == NcParam)
             continue;
         else if (use->user->tag == Let_TAG && use->operand_class == NcInstruction) {
             Nodes vars = get_abstraction_params(get_let_tail(use->user));
@@ -129,8 +129,8 @@ PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
     PtrSourceKnowledge k = { 0 };
     while (ptr) {
         assert(is_value(ptr));
-        if (ptr->tag == Variable_TAG && ctx->uses) {
-            const Node* instr = get_var_instruction(ctx->uses, ptr);
+        if (ptr->tag == Variablez_TAG && ctx->uses) {
+            const Node* instr = get_var_def(ptr->payload.varz);
             if (instr) {
                 PrimOp payload = instr->payload.prim_op;
                 switch (payload.op) {
@@ -192,9 +192,10 @@ static const Node* process(Context* ctx, const Node* old) {
             Nodes oparams = otail->payload.case_.params;
             Nodes ntypes = unwrap_multiple_yield_types(r->dst_arena, ninstruction->type);
             assert(ntypes.count == oparams.count);
+            // TODO use recreate_params()
             LARRAY(const Node*, new_params, oparams.count);
             for (size_t i = 0; i < oparams.count; i++) {
-                new_params[i] = var(r->dst_arena, ntypes.nodes[i], oparams.nodes[i]->payload.var.name);
+                new_params[i] = param(r->dst_arena, ntypes.nodes[i], oparams.nodes[i]->payload.param.name);
                 register_processed(r, oparams.nodes[i], new_params[i]);
             }
             if (info)

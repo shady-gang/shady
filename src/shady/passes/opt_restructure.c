@@ -155,7 +155,7 @@ static const Node* rebuild_let(Context* ctx, const Node* old_let, const Node* ne
     const Node* old_tail = get_let_tail(old_let);
     Nodes otail_params = get_abstraction_params(old_tail);
 
-    Nodes rewritten_params = recreate_variables(&ctx->rewriter, otail_params);
+    Nodes rewritten_params = recreate_params(&ctx->rewriter, otail_params);
     register_processed_list(&ctx->rewriter, otail_params, rewritten_params);
     const Node* structured_lam = case_(a, rewritten_params, structure(ctx, old_tail, exit_ladder));
     return let(a, new_instruction, structured_lam);

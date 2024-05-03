@@ -74,7 +74,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             assert(is_case(old_loop_body));
 
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_variables_types(a, old_loop_body->payload.case_.params));
+            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_param_types(a, old_loop_body->payload.case_.params));
             param_types = strip_qualifiers(a, param_types);
 
             const Type* break_jp_type = qualified_type(a, (QualifiedType) {
@@ -91,7 +91,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             Nodes jps = mk_nodes(a, break_point, continue_point);
             insert_dict(const Node*, Nodes, ctx->structured_join_tokens, old_instruction, jps);
 
-            Nodes new_params = recreate_variables(&ctx->rewriter, old_loop_body->payload.case_.params);
+            Nodes new_params = recreate_params(&ctx->rewriter, old_loop_body->payload.case_.params);
             Node* loop_body = basic_block(a, ctx->current_fn, new_params, unique_name(a, "loop_body"));
             register_processed_list(&join_context.rewriter, old_loop_body->payload.case_.params, loop_body->payload.basic_block.params);
 

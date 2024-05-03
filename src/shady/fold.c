@@ -90,7 +90,7 @@ static const Node* fold_let(IrArena* arena, const Node* node) {
                                 Nodes params = get_abstraction_params(olam);
                                 for (size_t j = 0; j < params.count; j++) {
                                     // recycle the params by setting their abs value to NULL
-                                    *((Node**) &(params.nodes[j]->payload.var.abs)) = NULL;
+                                    *((Node**) &(params.nodes[j]->payload.param.abs)) = NULL;
                                 }
                                 const Node* nlam = case_(arena, params, acc);
                                 acc = let(arena, get_let_instruction(olet), nlam);

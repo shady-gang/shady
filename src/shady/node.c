@@ -8,25 +8,27 @@
 #include <string.h>
 #include <assert.h>
 
-String get_value_name(const Node* v) {
+String get_value_name_unsafe(const Node* v) {
     assert(v && is_value(v));
-    if (v->tag == Variable_TAG)
-        return v->payload.var.name;
+    if (v->tag == Param_TAG)
+        return v->payload.param.name;
+    if (v->tag == Variablez_TAG)
+        return v->payload.varz.name;
     return NULL;
 }
 
 String get_value_name_safe(const Node* v) {
-    String name = get_value_name(v);
+    String name = get_value_name_unsafe(v);
     if (name && strlen(name) > 0)
         return name;
-    if (v->tag == Variable_TAG)
-        return format_string_interned(v->arena, "%%%d", v->id);
-    return node_tags[v->tag];
+    //if (v->tag == Variable_TAG)
+    return format_string_interned(v->arena, "%%%d", v->id);
+    //return node_tags[v->tag];
 }
 
 void set_variable_name(Node* var, String name) {
-    assert(var->tag == Variable_TAG);
-    var->payload.var.name = string(var->arena, name);
+    assert(var->tag == Variablez_TAG);
+    var->payload.varz.name = string(var->arena, name);
 }
 
 int64_t get_int_literal_value(IntLiteral literal, bool sign_extend) {
@@ -109,16 +111,8 @@ NodeResolveConfig default_node_resolve_config() {
     };
 }
 
-const Node* get_var_def(Variable var) {
-    if (var.pindex != 0)
-        return NULL;
-    const Node* abs = var.abs;
-    if (!abs || abs->tag != Case_TAG)
-        return NULL;
-    const Node* user = abs->payload.case_.structured_construct;
-    if (user->tag != Let_TAG)
-        return NULL;
-    return user->payload.let.instruction;
+const Node* get_var_def(Variablez var) {
+    return var.instruction;
 }
 
 const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config) {
@@ -130,8 +124,8 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
             case RefDecl_TAG:
                 node = node->payload.ref_decl.decl;
                 continue;
-            case Variable_TAG: {
-                const Node* def = get_var_def(node->payload.var);
+            case Variablez_TAG: {
+                const Node* def = get_var_def(node->payload.varz);
                 if (!def)
                     break;
                 node = def;

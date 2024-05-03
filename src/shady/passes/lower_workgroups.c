@@ -52,13 +52,13 @@ static const Node* process(Context* ctx, const Node* node) {
                 assert(node->payload.fun.return_types.count == 0 && "entry points do not return at this stage");
 
                 Nodes wannotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-                Nodes wparams = recreate_variables(&ctx->rewriter, node->payload.fun.params);
+                Nodes wparams = recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* wrapper = function(m, wparams, get_abstraction_name(node), wannotations, empty(a));
                 register_processed(&ctx->rewriter, node, wrapper);
 
                 // recreate the old entry point, but this time it's not the entry point anymore
                 Nodes nannotations = filter_out_annotation(a, wannotations, "EntryPoint");
-                Nodes nparams = recreate_variables(&ctx->rewriter, node->payload.fun.params);
+                Nodes nparams = recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* inner = function(m, nparams, format_string_arena(a->arena, "%s_wrapped", get_abstraction_name(node)), nannotations, empty(a));
                 register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
                 inner->payload.fun.body = recreate_node_identity(&ctx->rewriter, node->payload.fun.body);

@@ -210,7 +210,8 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case NotAValue: assert(false);
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG: error("lower me");
-        case Value_Variable_TAG: error("variables need to be emitted beforehand");
+        case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
+        case Variablez_TAG: error("tried to emit a variable: all variables should be register by their binding let !");
         case Value_IntLiteral_TAG: {
             if (value->payload.int_literal.is_signed)
                 emitted = format_string_arena(emitter->arena->arena, "%" PRIi64, value->payload.int_literal.value);
@@ -444,7 +445,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                         break;
                     }
                     case LetBinding: {
-                        String variable_name = get_value_name(tail_params.nodes[i]);
+                        String variable_name = get_value_name_unsafe(tail_params.nodes[i]);
 
                         if (!variable_name)
                             variable_name = "";
@@ -612,7 +613,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             if (body) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
-                    String variable_name = get_value_name(decl->payload.fun.params.nodes[i]);
+                    String variable_name = get_value_name_unsafe(decl->payload.fun.params.nodes[i]);
                     param_name = format_string_interned(emitter->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
                     register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
