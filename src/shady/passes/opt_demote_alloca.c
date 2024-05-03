@@ -48,14 +48,22 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
     for (;use; use = use->next_use) {
         if (is_abstraction(use->user) && use->operand_class == NcParam)
             continue;
+        if (use->operand_class == NcVariable)
+            continue;
+        if (use->user->tag == Variablez_TAG) {
+            debugv_print("demote_alloca leak analysis: following let-bound variable: ");
+            log_node(DEBUGV, use->user);
+            debugv_print(".\n");
+            visit_ptr_uses(use->user, slice_type, k, map);
+        }
         else if (use->user->tag == Let_TAG && use->operand_class == NcInstruction) {
-            Nodes vars = use->user->payload.let.variables;
+            /*Nodes vars = use->user->payload.let.variables;
             for (size_t i = 0; i < vars.count; i++) {
                 debugv_print("demote_alloca leak analysis: following let-bound variable: ");
                 log_node(DEBUGV, vars.nodes[i]);
                 debugv_print(".\n");
                 visit_ptr_uses(vars.nodes[i], slice_type, k, map);
-            }
+            }*/
         } else if (use->user->tag == PrimOp_TAG) {
             PrimOp payload = use->user->payload.prim_op;
             switch (payload.op) {
