@@ -49,8 +49,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 		*pmod = import(config, *pmod); // we don't want to mess with the original module
 	
         add_scheduler_source(config, *pmod);
-		log_module(ERROR, config, *pmod);
-		//exit(0);
 	}
 
     RUN_PASS(reconvergence_heuristics)
