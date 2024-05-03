@@ -1217,12 +1217,10 @@ const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
-    assert(is_instruction(let.instruction));
-    assert(is_case(let.tail));
     Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
     Nodes param_types = get_param_types(arena, let.tail->payload.case_.params);
-
-    check_arguments_types_against_parameters_helper(param_types, produced_types);
+    assert(param_types.count == 0);
+    // check_arguments_types_against_parameters_helper(param_types, produced_types);
     return noret_type(arena);
 }
 

@@ -172,6 +172,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (found) return found;
 
     IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
 
     switch (is_declaration(node)) {
         case Function_TAG: {
@@ -217,7 +218,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     // dumbass hack
                     jp = gen_primop_e(bb, subgroup_assume_uniform_op, empty(a), singleton(jp));
 
-                    return finish_body(bb, let(a, quote_helper(a, singleton(jp)), rewrite_node(&ctx->rewriter, oinside)));
+                    register_processed(r, first(get_abstraction_params(oinside)), jp);
+                    return finish_body(bb, rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
                 }
             }
             break;

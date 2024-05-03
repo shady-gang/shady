@@ -192,13 +192,13 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         }
         case Let_TAG: {
             const Node* tail = get_let_tail(terminator);
-            Nodes params = tail->payload.case_.params;
-            LARRAY(SpvId, results, params.count);
-            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, get_let_instruction(terminator), params.count, results);
+            Nodes vars = terminator->payload.let.variables;
+            LARRAY(SpvId, results, vars.count);
+            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, get_let_instruction(terminator), vars.count, results);
             assert(tail->tag == Case_TAG);
 
-            for (size_t i = 0; i < params.count; i++)
-                register_result(emitter, params.nodes[i], results[i]);
+            for (size_t i = 0; i < vars.count; i++)
+                register_result(emitter, vars.nodes[i], results[i]);
             emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, tail->payload.case_.body);
             return;
         }

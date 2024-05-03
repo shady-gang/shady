@@ -239,6 +239,15 @@ Nodes recreate_params(Rewriter* rewriter, Nodes oparams) {
     return nodes(rewriter->dst_arena, oparams.count, nparams);
 }
 
+Nodes recreate_vars(IrArena* arena, Nodes ovars, const Node* instruction) {
+    LARRAY(const Node*, nvars_arr, ovars.count);
+    for (size_t i = 0; i < ovars.count; i++) {
+        nvars_arr[i] = var(arena, ovars.nodes[i]->payload.varz.name, instruction, i);
+    }
+    Nodes nvars = nodes(arena, ovars.count, nvars_arr);
+    return nvars;
+}
+
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
     switch (is_declaration(old)) {
@@ -322,6 +331,51 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
     return tail;
 }*/
 
+void bind_variables2(BodyBuilder* bb, Nodes vars, const Node* instr);
+
+// eliminates blocks by "lifting" their contents out and replacing yield with the tail of the outer let
+// In other words, we turn these patterns:
+//
+// let block {
+//   let I in case(x) =>
+//   let J in case(y) =>
+//   let K in case(z) =>
+//      ...
+//   yield (x, y, z) }
+// in case(a, b, c) => R
+//
+// into these:
+//
+// let I in case(x) =>
+// let J in case(y) =>
+// let K in case(z) =>
+// ...
+// R[a->x, b->y, c->z]
+Nodes flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* bb) {
+    assert(instruction->tag == Block_TAG);
+    // follow the terminator of the block until we hit a yield()
+    const Node* const lam = instruction->payload.block.inside;
+    assert(is_case(lam));
+    const Node* terminator = get_abstraction_body(lam);
+    while (true) {
+        switch (is_terminator(terminator)) {
+            case NotATerminator: assert(false);
+            case Terminator_Let_TAG: {
+                bind_variables2(bb, terminator->payload.let.variables, terminator->payload.let.instruction);
+                terminator = get_abstraction_body(terminator->payload.let.tail);
+                continue;
+            }
+            case Terminator_Yield_TAG: {
+                return terminator->payload.yield.args;
+            }
+                // if we see anything else, give up
+            default: {
+                assert(false && "invalid block");
+            }
+        }
+    }
+}
+
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;
@@ -344,28 +398,24 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Param_TAG: error("params should be rewritten by the abstraction rewrite logic");
         case Variablez_TAG: error("variables should be rewritten by the binding let");
         case Let_TAG: {
+            BodyBuilder* bb = begin_body(arena);
             const Node* instruction = rewrite_op_helper(rewriter, NcInstruction, "instruction", node->payload.let.instruction);
-            if (arena->config.allow_fold && rewriter->config.fold_quote && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
-                Nodes old_params = node->payload.let.tail->payload.case_.params;
-                Nodes new_args = instruction->payload.prim_op.operands;
-                assert(old_params.count == new_args.count);
-                register_processed_list(rewriter, old_params, new_args);
-                for (size_t i = 0; i < old_params.count; i++) {
-                    String old_name = get_value_name_unsafe(old_params.nodes[i]);
-                    if (!old_name) continue;
-                    const Node* new_arg = new_args.nodes[i];
-                    if (new_arg->tag == Variablez_TAG && !get_value_name_unsafe(new_arg)) {
-                        set_variable_name((Node*) new_arg, old_name);
-                    }
-                }
-                return rewrite_op_helper(rewriter, NcTerminator, "body", node->payload.let.tail->payload.case_.body);
+            // optimization: fold blocks
+            if (instruction->tag == Block_TAG) {
+                instruction = quote_helper(arena, flatten_block(arena, instruction, bb));
             }
-            const Node* tail;
-            // if (rewriter->config.rebind_let)
-            //     tail = rebind_let(rewriter, instruction, node->payload.let.tail);
-            // else
-                tail = rewrite_op_helper(rewriter, NcCase, "tail", node->payload.let.tail); //TODO
-            return let(arena, instruction, tail);
+            Nodes ovars = node->payload.let.variables;
+            // optimization: eliminate unecessary quotes by rewriting variables into their values directly
+            if (instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
+                register_processed_list(rewriter, ovars, instruction->payload.prim_op.operands);
+                return finish_body(bb, get_abstraction_body(rewrite_op_helper(rewriter, NcCase, "tail", node->payload.let.tail)));
+            }
+            // rewrite variables now
+            Nodes nvars = recreate_vars(arena, ovars, instruction);
+            register_processed_list(rewriter, ovars, nvars);
+            // bind_variables2(bb, nvars, instruction);
+            const Node* nlet = let(arena, instruction, nvars, rewrite_op_helper(rewriter, NcCase, "tail", node->payload.let.tail));
+            return finish_body(bb, nlet);
         }
         case LetMut_TAG: error("De-sugar this by hand")
         case Case_TAG: {

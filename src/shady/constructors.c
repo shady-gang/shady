@@ -74,11 +74,14 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
 
 #include "constructors_generated.c"
 
-const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
+const Node* let(IrArena* arena, const Node* instruction, Nodes vars, const Node* tail) {
     Let payload = {
         .instruction = instruction,
+        .variables = vars,
         .tail = tail,
     };
+
+    assert(is_case(tail) && get_abstraction_params(tail).count == 0);
 
     Node node;
     memset((void*) &node, 0, sizeof(Node));
@@ -91,7 +94,7 @@ const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
     return create_node_helper(arena, node, NULL);
 }
 
-Node* var(IrArena* arena, const char* name, const Node* instruction, size_t i) {
+const Node* var(IrArena* arena, const char* name, const Node* instruction, size_t i) {
     Variablez variable = {
         .name = string(arena, name),
         .instruction = instruction,
@@ -126,10 +129,11 @@ Node* param(IrArena* arena, const Type* type, const char* name) {
     return create_node_helper(arena, node, NULL);
 }
 
-const Node* let_mut(IrArena* arena, const Node* instruction, Nodes variables) {
+const Node* let_mut(IrArena* arena, const Node* instruction, Nodes variables, Nodes types) {
     LetMut payload = {
         .instruction = instruction,
         .variables = variables,
+        .types = types,
     };
 
     Node node;

@@ -111,11 +111,11 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
     if (found)
         fn = *found;
     else {
-        const Node* param = var(a, qualified_type_helper(t, false), "src");
-        fn = function(m, singleton(param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
+        const Node* src_param = param(a, qualified_type_helper(t, false), "src");
+        fn = function(m, singleton(src_param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
                       singleton(annotation(a, (Annotation) { .name = "Generated"})), singleton(qualified_type_helper(t, true)));
         insert_dict(const Node*, Node*, ctx->fns, t, fn);
-        build_fn_body(ctx, fn, param, t);
+        build_fn_body(ctx, fn, src_param, t);
     }
 
     return first(gen_call(bb, fn_addr_helper(a, fn), singleton(src)));

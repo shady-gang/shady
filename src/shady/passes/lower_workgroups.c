@@ -72,7 +72,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Node* workgroup_id[3];
                 const Node* num_workgroups[3];
                 for (int dim = 0; dim < 3; dim++) {
-                    workgroup_id[dim] = var(a, qualified_type_helper(uint32_type(a), false), names[dim]);
+                    workgroup_id[dim] = param(a, qualified_type_helper(uint32_type(a), false), names[dim]);
                     num_workgroups[dim] = gen_extract(bb, workgroup_num_vec3, singleton(uint32_literal(a, dim)));
                 }
 
@@ -87,7 +87,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 num_subgroups[2] = a->config.specializations.workgroup_size[2];
                 String names2[] = { "sgx", "sgy", "sgz" };
                 for (int dim = 0; dim < 3; dim++) {
-                    subgroup_id[dim] = var(a, qualified_type_helper(uint32_type(a), false), names2[dim]);
+                    subgroup_id[dim] = param(a, qualified_type_helper(uint32_type(a), false), names2[dim]);
                     num_subgroups_literals[dim] = uint32_literal(a, num_subgroups[dim]);
                 }
 

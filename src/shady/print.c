@@ -669,25 +669,26 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             const Node* tail = get_let_tail(node);
             if (!ctx->config.reparseable) {
                 // if the let tail is a case, we apply some syntactic sugar
-                if (mut || tail->payload.case_.params.count > 0) {
+                Nodes variables = node->payload.let.variables;
+                if (mut || variables.count > 0) {
                     printf(GREEN);
                     if (mut)
                         printf("var");
                     else
                         printf("val");
                     printf(RESET);
-                    Nodes params = tail->payload.case_.params;
                     if (mut) {
-                        params = instruction->payload.let_mut.variables;
+                        variables = instruction->payload.let_mut.variables;
                         instruction = instruction->payload.let_mut.instruction;
                     }
-                    for (size_t i = 0; i < params.count; i++) {
-                        if (mut || !ctx->config.reparseable) {
+                    for (size_t i = 0; i < variables.count; i++) {
+                        // TODO: fix let mut
+                        if (node->arena->config.check_types && (mut || !ctx->config.reparseable)) {
                             printf(" ");
-                            print_node(params.nodes[i]->payload.param.type);
+                            print_node(variables.nodes[i]->type);
                         }
                         printf(" ");
-                        print_node(params.nodes[i]);
+                        print_node(variables.nodes[i]);
                         printf(RESET);
                     }
                     printf(" = ");

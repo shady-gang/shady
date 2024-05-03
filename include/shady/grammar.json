@@ -89,6 +89,10 @@
       "generate-enum": false
     },
     {
+      "name": "variable",
+      "generate-enum": false
+    },
+    {
       "name": "instruction"
     },
     {
@@ -254,7 +258,7 @@
     {
       "name": "Variablez",
       "snake_name": "varz",
-      "class": ["value"],
+      "class": ["value", "variable"],
       "constructor": "custom",
       "ops": [
         { "name": "name", "class": "string" },
@@ -448,6 +452,7 @@
       "constructor": "custom",
       "ops": [
         { "name": "instruction", "class": "instruction" },
+        { "name": "variables", "class": "variable", "list": true },
         { "name": "tail", "class": "case" }
       ]
     },
@@ -458,7 +463,8 @@
       "front-end-only": true,
       "ops": [
         { "name": "instruction", "class": "instruction" },
-        { "name": "variables", "class": "param", "list": true }
+        { "name": "variables", "class": "param", "list": true },
+        { "name": "types", "class": "type", "list": true }
       ]
     },
     {
@@ -655,8 +661,7 @@
       "constructor": "custom",
       "class": "case",
       "description": [
-        "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs",
-        "Most notably, the tails of standard `let` nodes"
+        "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs"
       ],
       "ops": [
         { "name": "params", "class": "param", "list": true },

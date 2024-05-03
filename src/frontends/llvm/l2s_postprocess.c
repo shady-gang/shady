@@ -39,14 +39,12 @@ static const Node* wrap_in_controls(Context* ctx, Controls* controls, const Node
         const Node* token = controls->tokens.nodes[i];
         const Node* dst = controls->destinations.nodes[i];
         Nodes o_dst_params = get_abstraction_params(dst);
-        LARRAY(const Node*, new_control_params, o_dst_params.count);
-        for (size_t j = 0; j < o_dst_params.count; j++)
-            new_control_params[j] = param(a, o_dst_params.nodes[j]->payload.param.type, unique_name(a, "v"));
-        Nodes nparams = nodes(a, o_dst_params.count, new_control_params);
-        body = let(a, control(a, (Control) {
-            .yield_types = get_param_types(a, o_dst_params),
-            .inside = case_(a, singleton(token), body)
-        }), case_(a, nparams, jump_helper(a, rewrite_node(&ctx->rewriter, dst), nparams)));
+        BodyBuilder* bb = begin_body(a);
+        Nodes results = bind_instruction(bb, control(a, (Control) {
+                .yield_types = get_param_types(a, o_dst_params),
+                .inside = case_(a, singleton(token), body)
+        }));
+        body = finish_body(bb, jump_helper(a, rewrite_node(&ctx->rewriter, dst), results));
     }
     return body;
 }

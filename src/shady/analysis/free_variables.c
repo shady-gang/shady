@@ -23,24 +23,28 @@ typedef struct {
 static void search_op_for_free_variables(Context* visitor, NodeClass class, String op_name, const Node* node) {
     assert(node);
     switch (node->tag) {
-        case Param_TAG: {
-            Nodes params = get_abstraction_params(visitor->current_scope->node->node);
-            for (size_t i = 0; i < params.count; i++) {
-                if (params.nodes[i] == node)
-                    return;
+        case Let_TAG: {
+            Nodes variables = node->payload.let.variables;
+            for (size_t j = 0; j < variables.count; j++) {
+                const Node* var = variables.nodes[j];
+                bool r = insert_set_get_result(const Node*, visitor->current_scope->bound_set, var);
+                assert(r);
             }
-            insert_set_get_result(const Node*, visitor->current_scope->free_set, node);
             break;
         }
-        case Variablez_TAG: {
-            insert_set_get_result(const Node*, visitor->current_scope->free_set, node);
-            break;
+        case Variablez_TAG:
+        case Param_TAG: {
+            const Node** found = find_key_dict(const Node*, visitor->current_scope->bound_set, node);
+            if (!found)
+                insert_set_get_result(const Node*, visitor->current_scope->free_set, node);
+            return;
         }
         case Function_TAG:
         case Case_TAG:
         case BasicBlock_TAG: assert(false);
-        default: visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node); break;
+        default: break;
     }
+    visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK | NcVariable, node);
 }
 
 static CFNodeVariables* create_node_variables(CFNode* cfnode) {
@@ -57,11 +61,7 @@ static CFNodeVariables* visit_domtree(Context* ctx, CFNode* cfnode, int depth, C
     ctx = &new_context;
 
     ctx->current_scope = create_node_variables(cfnode);
-    if (parent) {
-        ctx->current_scope->bound_set = clone_dict(parent->bound_set);
-    } else {
-        ctx->current_scope->bound_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
-    }
+    ctx->current_scope->bound_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node);
     insert_dict(CFNode*, CFNodeVariables*, ctx->map, cfnode, ctx->current_scope);
     const Node* abs = cfnode->node;
 
@@ -85,12 +85,18 @@ static CFNodeVariables* visit_domtree(Context* ctx, CFNode* cfnode, int depth, C
         size_t j = 0;
         const Node* free_var;
         while (dict_iter(child_variables->free_set, &j, &free_var, NULL)) {
-            for (size_t k = 0; k < params.count; k++) {
-                if (params.nodes[k] == free_var)
-                    goto next;
-            }
-            insert_set_get_result(const Node*, ctx->current_scope->free_set, free_var);
+            const Node** found = find_key_dict(const Node*, ctx->current_scope->bound_set, free_var);
+            if (!found)
+                insert_set_get_result(const Node*, ctx->current_scope->free_set, free_var);
             next:;
+        }
+    }
+
+    if (parent) {
+        size_t j = 0;
+        const Node* bound;
+        while (dict_iter(parent->bound_set, &j, &bound, NULL)) {
+            insert_set_get_result(const Node*, ctx->current_scope->bound_set, bound);
         }
     }
 

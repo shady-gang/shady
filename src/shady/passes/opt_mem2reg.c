@@ -437,16 +437,17 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
             const Node* oinstruction = get_let_instruction(old);
             const Node* ninstruction = rewrite_node(r, oinstruction);
             PtrKnowledge** found = find_value_dict(const Node*, PtrKnowledge*, kb->map, oinstruction);
+            Nodes ovars = old->payload.let.variables;
             if (found) { // copy any knownledge about an instruction to the bound variable
-                const Node* old_case = get_let_tail(old);
-                Nodes old_params = get_abstraction_params(old_case);
-                assert(old_params.count == 1);
+                assert(ovars.count == 1);
                 PtrKnowledge* k = *found;
-                const Node* first_param = first(old_params);
+                const Node* first_param = first(ovars);
                 insert_dict(const Node*, PtrKnowledge*, kb->map, first_param, k);
             }
 
-            return let(a, ninstruction, rewrite_node(r, get_let_tail(old)));
+            Nodes nvars = recreate_vars(a, ovars, ninstruction);
+            register_processed_list(r, ovars, nvars);
+            return let(a, ninstruction, nvars, rewrite_node(r, get_let_tail(old)));
         }
         case Jump_TAG: {
             const Node* old_target = old->payload.jump.target;
@@ -503,10 +504,11 @@ static void handle_bb(Context* ctx, const Node* old) {
     ctx = &fn_ctx;
 
     Nodes params = recreate_params(&ctx->rewriter, get_abstraction_params(old));
-    Nodes let_params = recreate_params(&ctx->rewriter, get_abstraction_params(old));
-    register_processed_list(&ctx->rewriter, get_abstraction_params(old), let_params);
+    //Nodes let_params = recreate_params(&ctx->rewriter, get_abstraction_params(old));
+    //register_processed_list(&ctx->rewriter, get_abstraction_params(old), let_params);
+    register_processed_list(r, get_abstraction_params(old), params);
     const Node* nbody = rewrite_node(&ctx->rewriter, get_abstraction_body(old));
-    nbody = let(a, quote_helper(a, params), case_(a, let_params, nbody));
+    //nbody = let(a, quote_helper(a, params), case_(a, let_params, nbody));
 
     CFNode* cfnode = cfg_lookup(ctx->cfg, old);
     BodyBuilder* bb = begin_body(a);
@@ -559,14 +561,14 @@ static void handle_bb(Context* ctx, const Node* old) {
         debug_print(" has a known value in all predecessors! Turning it into a new parameter.\n");
 
         // assert(!is_qualified_type_uniform(source->type));
-        const Node* param = var(a, qualified_type_helper(source->type, false), unique_name(a, "ssa_phi"));
-        params = append_nodes(a, params, param);
+        const Node* nparam = param(a, qualified_type_helper(source->type, false), unique_name(a, "ssa_phi"));
+        params = append_nodes(a, params, nparam);
         ptrs = append_nodes(ctx->rewriter.src_arena, ptrs, ptr);
-        gen_store(bb, rewrite_node(r, ptr), param);
+        gen_store(bb, rewrite_node(r, ptr), nparam);
 
         PtrKnowledge* k = arena_alloc(ctx->a, sizeof(PtrKnowledge));
         *k = (PtrKnowledge) {
-            .ptr_value = param,
+            .ptr_value = nparam,
             .source = source,
             .ptr_has_leaked = uk.ptr_has_leaked
         };

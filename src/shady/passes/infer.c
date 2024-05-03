@@ -635,15 +635,19 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
     switch (is_terminator(node)) {
         case NotATerminator: assert(false);
         case Let_TAG: {
-            const Node* otail = node->payload.let.tail;
-            Nodes annotated_types = get_param_types(a, otail->payload.case_.params);
-            const Node* inferred_instruction = infer_instruction(ctx, node->payload.let.instruction, &annotated_types);
+            // const Node* otail = node->payload.let.ttail;
+            // Nodes annotated_types = get_param_types(a, otail->payload.case_.params);
+            const Node* inferred_instruction = infer_instruction(ctx, node->payload.let.instruction, NULL);
             Nodes inferred_yield_types = unwrap_multiple_yield_types(a, inferred_instruction->type);
+            LARRAY(const Node*, vars, inferred_yield_types.count);
             for (size_t i = 0; i < inferred_yield_types.count; i++) {
                 assert(is_value_type(inferred_yield_types.nodes[i]));
             }
-            const Node* inferred_tail = infer_case(ctx, otail, inferred_yield_types);
-            return let(a, inferred_instruction, inferred_tail);
+            // const Node* inferred_tail = infer_case(ctx, otail, inferred_yield_types);
+            Nodes ovars = node->payload.let.variables;
+            Nodes nvars = recreate_vars(a, ovars, inferred_instruction);
+            register_processed_list(&ctx->rewriter, ovars, nvars);
+            return let(a, inferred_instruction, nvars, infer_case(ctx, node->payload.let.tail, empty(a)));
         }
         case Return_TAG: {
             const Node* imported_fn = infer(ctx, node->payload.fn_ret.fn, NULL);

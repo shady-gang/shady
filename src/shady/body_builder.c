@@ -23,7 +23,7 @@ BodyBuilder* begin_body(IrArena* a) {
     return bb;
 }
 
-Node* var(IrArena* arena, const char* name, const Node* instruction, size_t i);
+const Node* var(IrArena* arena, const char* name, const Node* instruction, size_t i);
 
 static Nodes create_output_variables(IrArena* a, const Node* value, size_t outputs_count, const Node** output_types, String const output_names[]) {
     Nodes types;
@@ -93,7 +93,7 @@ Nodes bind_instruction_explicit_result_types(BodyBuilder* bb, const Node* instru
 
 Nodes create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, String const output_names[]) {
     Nodes mutable_vars = create_output_variables(bb->arena, instruction, provided_types.count, provided_types.nodes, output_names);
-    const Node* let_mut_instr = let_mut(bb->arena, instruction, mutable_vars);
+    const Node* let_mut_instr = let_mut(bb->arena, instruction, mutable_vars, provided_types);
     return bind_internal(bb, let_mut_instr, 0, NULL, NULL);
 }
 
@@ -109,12 +109,19 @@ void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {
     append_list(StackEntry, bb->stack, entry);
 }
 
+void bind_variables2(BodyBuilder* bb, Nodes vars, const Node* instr) {
+    StackEntry entry = {
+        .instr = instr,
+        .vars = vars,
+    };
+    append_list(StackEntry, bb->stack, entry);
+}
+
 const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
     size_t stack_size = entries_count_list(bb->stack);
     for (size_t i = stack_size - 1; i < stack_size; i--) {
         StackEntry entry = read_list(StackEntry, bb->stack)[i];
-        const Node* lam = case_(bb->arena, entry.vars, terminator);
-        terminator = let(bb->arena, entry.instr, lam);
+        terminator = let(bb->arena, entry.instr, entry.vars, case_(bb->arena, empty(bb->arena), terminator));
     }
 
     destroy_list(bb->stack);

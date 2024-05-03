@@ -129,21 +129,21 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
     Nodes initial_values = bind_instruction_outputs_count(bb, ninstruction, old_params.count, NULL);
     for (size_t i = 0; i < old_params.count; i++) {
         const Node* oparam = old_params.nodes[i];
-        const Type* type_annotation = oparam->payload.param.type;
+        const Type* type_annotation = node->payload.let_mut.types.nodes[i];
         assert(type_annotation);
         const Node* alloca = prim_op(a, (PrimOp) {
             .op = alloca_op,
             .type_arguments = nodes(a, 1, (const Node* []){rewrite_node(&ctx->rewriter, type_annotation) }),
             .operands = nodes(a, 0, NULL)
         });
-        const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1, &oparam->payload.param.name).nodes[0];
+        const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1, &oparam->payload.varz.name).nodes[0];
         const Node* store = prim_op(a, (PrimOp) {
             .op = store_op,
             .operands = nodes(a, 2, (const Node* []) {ptr, initial_values.nodes[0] })
         });
         bind_instruction_outputs_count(bb, store, 0, NULL);
 
-        add_binding(ctx, true, oparam->payload.param.name, ptr);
+        add_binding(ctx, true, oparam->payload.varz.name, ptr);
         log_string(DEBUGV, "Lowered mutable variable ");
         log_node(DEBUGV, oparam);
         log_string(DEBUGV, ".\n;");
@@ -200,6 +200,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
 
 static const Node* bind_node(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
     if (node == NULL)
         return NULL;
 
@@ -275,6 +276,14 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new_bb_params);
             new_bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, node->payload.basic_block.body);
             return new_bb;
+        }
+        case Let_TAG: {
+            const Node* ninstr = rewrite_node(r, get_let_instruction(node));
+            Nodes ovars = node->payload.let.variables;
+            Nodes nvars = recreate_vars(a, ovars, ninstr);
+            for (size_t i = 0; i < nvars.count; i++)
+                add_binding(ctx, false, nvars.nodes[i]->payload.varz.name, nvars.nodes[i]);
+            return let(a, ninstr, nvars, rewrite_node(r, get_let_tail(node)));
         }
         case Case_TAG: {
             Nodes old_params = node->payload.case_.params;

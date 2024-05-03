@@ -336,8 +336,11 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                         .args = nodes(arena, exit_param_allocas[i].count, recovered_args),
                     }));
                 } else {
-                    assert(recreated_exit->tag == Case_TAG);
-                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_param_allocas[i].count, recovered_args)), recreated_exit));
+                    // TODO: rewrite
+                    assert(get_abstraction_params(recreated_exit).count == 0);
+                    error("")
+                    // assert(recreated_exit->tag == Case_TAG);
+                    // exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_param_allocas[i].count, recovered_args)), recreated_exit));
                 }
                 exit_jumps[i] = jump_helper(arena, exit_bb, empty(arena));
                 destroy_list(leaking[i]);
@@ -474,18 +477,15 @@ static const Node* process_node(Context* ctx, const Node* node) {
             //Regular if/then/else case. Control flow joins at the immediate post dominator.
             Nodes yield_types;
             Nodes exit_args;
-            Nodes lambda_args;
 
             Nodes old_params = get_abstraction_params(idom);
 
             if (old_params.count == 0) {
                 yield_types = empty(arena);
                 exit_args = empty(arena);
-                lambda_args = empty(arena);
             } else {
                 LARRAY(const Node*, types,old_params.count);
                 LARRAY(const Node*, inner_args,old_params.count);
-                LARRAY(const Node*, outer_args,old_params.count);
 
                 for (size_t j = 0; j < old_params.count; j++) {
                     //TODO: Is this correct?
@@ -498,12 +498,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     types[j] = get_unqualified_type(qualified_type);
 
                     inner_args[j] = param(arena, qualified_type, old_params.nodes[j]->payload.param.name);
-                    outer_args[j] = param(arena, qualified_type, old_params.nodes[j]->payload.param.name);
                 }
 
                 yield_types = nodes(arena, old_params.count, types);
                 exit_args = nodes(arena, old_params.count, inner_args);
-                lambda_args = nodes(arena, old_params.count, outer_args);
             }
 
             const Node* join_token = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
@@ -532,7 +530,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 register_processed(rewriter, idom, cached);
 
             const Node* control_inner = case_(arena, singleton(join_token), inner_terminator);
-            const Node* new_target = control(arena, (Control) {
+            const Node* control_instruction = control(arena, (Control) {
                 .inside = control_inner,
                 .yield_types = yield_types
             });
@@ -541,18 +539,16 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             switch (idom->tag) {
                 case BasicBlock_TAG: {
-                    const Node* outer_terminator = jump(arena, (Jump) {
+                    BodyBuilder* bb = begin_body(arena);
+                    Nodes results = bind_instruction(bb, control_instruction);
+                    return finish_body(bb, jump(arena, (Jump) {
                         .target = recreated_join,
-                        .args = lambda_args
-                    });
-
-                    const Node* c = case_(arena, lambda_args, outer_terminator);
-                    const Node* empty_let = let(arena, new_target, c);
-
-                    return empty_let;
+                        .args = results
+                    }));
                 }
                 case Case_TAG:
-                    return let(arena, new_target, recreated_join);
+                    error("todo");
+                    // return let(arena, control_instruction, recreated_join);
                 default:
                     assert(false);
             }

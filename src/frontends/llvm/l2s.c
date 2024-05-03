@@ -78,7 +78,7 @@ static TodoBB prepare_bb(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
     while (instr) {
         switch (LLVMGetInstructionOpcode(instr)) {
             case LLVMPHI: {
-                const Node* nparam = var(a, qualified_type_helper(convert_type(p, LLVMTypeOf(instr)), false), "phi");
+                const Node* nparam = param(a, qualified_type_helper(convert_type(p, LLVMTypeOf(instr)), false), "phi");
                 insert_dict(LLVMValueRef, const Node*, p->map, instr, nparam);
                 append_list(LLVMValueRef, phis, instr);
                 params = append_nodes(a, params, nparam);
@@ -137,9 +137,9 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam; oparam = LLVMGetNextParam(oparam)) {
         LLVMTypeRef ot = LLVMTypeOf(oparam);
         const Type* t = convert_type(p, ot);
-        const Node* param = var(a, qualified_type_helper(t, false), LLVMGetValueName(oparam));
-        insert_dict(LLVMValueRef, const Node*, p->map, oparam, param);
-        params = append_nodes(a, params, param);
+        const Node* nparam = param(a, qualified_type_helper(t, false), LLVMGetValueName(oparam));
+        insert_dict(LLVMValueRef, const Node*, p->map, oparam, nparam);
+        params = append_nodes(a, params, nparam);
         if (oparam == LLVMGetLastParam(fn))
             break;
     }

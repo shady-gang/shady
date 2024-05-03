@@ -64,6 +64,7 @@ void  recreate_decl_body_identity(Rewriter*, const Node*, Node*);
 /// Rewrites a variable under a new identity
 const Node* recreate_param(Rewriter* rewriter, const Node* old);
 Nodes recreate_params(Rewriter* rewriter, Nodes oparams);
+Nodes recreate_vars(IrArena* arena, Nodes ovars, const Node* instruction);
 Node* clone_bb_head(Rewriter*, const Node* bb);
 //const Node* rebind_let(Rewriter*, const Node* ninstruction, const Node* ocase);
 

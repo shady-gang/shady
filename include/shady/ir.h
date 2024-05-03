@@ -225,8 +225,9 @@ const Node* quote_helper(IrArena*, Nodes values);
 const Node* prim_op_helper(IrArena*, Op, Nodes, Nodes);
 
 // terminators
-const Node* let(IrArena*, const Node* instruction, const Node* tail);
-const Node* let_mut(IrArena*, const Node* instruction, Nodes variables);
+const Node* var(IrArena* arena, const char* name, const Node* instruction, size_t i);
+const Node* let(IrArena*, const Node* instruction, Nodes vars, const Node* tail);
+const Node* let_mut(IrArena*, const Node* instruction, Nodes variables, Nodes types);
 const Node* jump_helper(IrArena* a, const Node* dst, Nodes args);
 
 // decl ctors

@@ -104,7 +104,7 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         append_list(struct Dict*, ctx->tmp_alloc_stack, tmp_processed);
         ctx2.rewriter.map = tmp_processed;
         for (size_t i = 0; i < oargs.count; i++) {
-            nparams[i] = var(a, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
+            nparams[i] = param(a, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
             register_processed(&ctx2.rewriter, oparams.nodes[i], nparams[i]);
         }
 
@@ -115,7 +115,7 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         // Just jumps to the actual ladder
         const Node* exit_ladder_trampoline = case_(a, empty(a), jump(a, (Jump) {.target = inner_exit_ladder_bb, .args = empty(a)}));
 
-        const Node* structured = structure(&ctx2, dst, let(a, quote_helper(a, empty(a)), exit_ladder_trampoline));
+        const Node* structured = structure(&ctx2, dst, let(a, quote_helper(a, empty(a)), empty(a), exit_ladder_trampoline));
         assert(is_terminator(structured));
         // forget we rewrote all that
         destroy_dict(tmp_processed);
@@ -154,11 +154,14 @@ static const Node* rebuild_let(Context* ctx, const Node* old_let, const Node* ne
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* old_tail = get_let_tail(old_let);
     Nodes otail_params = get_abstraction_params(old_tail);
+    assert(otail_params.count == 0);
 
-    Nodes rewritten_params = recreate_params(&ctx->rewriter, otail_params);
-    register_processed_list(&ctx->rewriter, otail_params, rewritten_params);
-    const Node* structured_lam = case_(a, rewritten_params, structure(ctx, old_tail, exit_ladder));
-    return let(a, new_instruction, structured_lam);
+    Nodes ovars = old_let->payload.let.variables;
+    Nodes nvars = recreate_vars(a, ovars, new_instruction);
+    register_processed_list(&ctx->rewriter, ovars, nvars);
+
+    const Node* structured_lam = case_(a, empty(a), structure(ctx, old_tail, exit_ladder));
+    return let(a, new_instruction, nvars, structured_lam);
 }
 
 static const Node* structure(Context* ctx, const Node* abs, const Node* exit_ladder) {
@@ -170,7 +173,8 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         case NotATerminator:
         case Let_TAG: {
             const Node* old_tail = get_let_tail(body);
-            Nodes otail_params = get_abstraction_params(old_tail);
+            Nodes ovars = body->payload.let.variables;
+            //Nodes otail_params = get_abstraction_params(old_tail);
 
             const Node* old_instr = get_let_instruction(body);
             switch (is_instruction(old_instr)) {
@@ -229,7 +233,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     LARRAY(const Node*, phi_values, yield_types.count);
                     for (size_t i = 0; i < yield_types.count; i++) {
                         phi_values[i] = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(phis[i]) })));
-                        register_processed(&ctx->rewriter, otail_params.nodes[i], phi_values[i]);
+                        register_processed(&ctx->rewriter, ovars.nodes[i], phi_values[i]);
                     }
 
                     // Wrap the tail in a guarded if, to handle 'far' joins
@@ -245,7 +249,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     }));
 
                     const Node* tail_lambda = case_(a, empty(a), finish_body(bb2, exit_ladder));
-                    return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, quote_helper(a, empty(a)), tail_lambda)));
+                    return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, quote_helper(a, empty(a)), empty(a), tail_lambda)));
                 }
                 default: {
                     break;
@@ -278,7 +282,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 .if_false = if_false_lam,
             });
             const Node* post_merge_lam = case_(a, empty(a), exit_ladder);
-            return let(a, instr, post_merge_lam);
+            return let(a, instr, empty(a), post_merge_lam);
         }
         case Switch_TAG: {
             const Node* switch_value = rewrite_node(&ctx->rewriter, body->payload.br_switch.switch_value);
@@ -300,7 +304,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 .cases = nodes(a, body->payload.br_switch.case_jumps.count, cases),
                 .literals = rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values),
             });
-            return let(a, instr, case_(a, empty(a), exit_ladder));
+            return let(a, instr, empty(a), case_(a, empty(a), exit_ladder));
         }
         case Join_TAG: {
             ControlEntry* control = search_containing_control(ctx, body->payload.join.join_point);
