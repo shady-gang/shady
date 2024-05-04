@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stdalign.h>
 
+#include "portability.h"
+
 typedef uint32_t KeyHash;
 typedef KeyHash (*HashFn)(void*);
 typedef bool (*CmpFn)(void*, void*);
