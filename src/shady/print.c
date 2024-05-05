@@ -522,13 +522,13 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
         }
         case Value_RefDecl_TAG: {
             printf(BYELLOW);
-            printf((char*) get_declaration_name(node->payload.ref_decl.decl));
+            printf("%s", (char*) get_declaration_name(node->payload.ref_decl.decl));
             printf(RESET);
             break;
         }
         case FnAddr_TAG:
             printf(BYELLOW);
-            printf((char*) get_declaration_name(node->payload.fn_addr.fn));
+            printf("%s", (char*) get_declaration_name(node->payload.fn_addr.fn));
             printf(RESET);
             break;
         default:

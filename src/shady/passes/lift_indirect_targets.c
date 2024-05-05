@@ -68,31 +68,27 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, struct L
     return sp;
 }
 
-static void add_to_recover_context(struct List* recover_context, struct Dict* set, const Node* except) {
-    Nodes params = get_abstraction_params(except);
+static void add_to_recover_context(struct List* recover_context, struct Dict* set, Nodes except) {
     size_t i = 0;
     const Node* item;
     while (dict_iter(set, &i, &item, NULL)) {
-        for (size_t j = 0; j < params.count; j++) {
-            if (item == params.nodes[j])
-                goto skip;
-        }
+        if (find_in_nodes(except, item))
+            continue;
         append_list(const Node*, recover_context, item );
-        skip:;
     }
 }
 
-static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, String given_name) {
+static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, Nodes ovariables) {
     assert(is_basic_block(liftee) || is_case(liftee));
     LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, liftee);
     if (found)
         return *found;
 
     IrArena* a = ctx->rewriter.dst_arena;
-    Nodes oparams = get_abstraction_params(liftee);
+    //Nodes oparams = get_abstraction_params(liftee);
     const Node* obody = get_abstraction_body(liftee);
 
-    String name = is_basic_block(liftee) ? format_string_arena(a->arena, "%s_%s", get_abstraction_name(liftee->payload.basic_block.fn), get_abstraction_name(liftee)) : unique_name(a, given_name);
+    String name = get_abstraction_name_safe(liftee);
 
     // Compute the live stuff we'll need
     CFG* cfg_rooted_in_liftee = build_cfg(ctx->cfg->entry->node, liftee, NULL, false);
@@ -101,7 +97,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, String given_na
     CFNodeVariables* node_vars = *find_value_dict(CFNode*, CFNodeVariables*, live_vars, cf_node);
     struct List* recover_context = new_list(const Node*);
 
-    add_to_recover_context(recover_context, node_vars->free_set, liftee);
+    add_to_recover_context(recover_context, node_vars->free_set, ovariables);
     size_t recover_context_size = entries_count_list(recover_context);
 
     destroy_cfg_variables_map(live_vars);
@@ -118,7 +114,10 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, String given_na
     debugv_print("\n");
 
     // Create and register new parameters for the lifted continuation
-    Nodes new_params = recreate_params(&ctx->rewriter, oparams);
+    LARRAY(const Node*, new_params_arr, ovariables.count);
+    for (size_t i = 0; i < ovariables.count; i++)
+        new_params_arr[i] = param(a, rewrite_node(&ctx->rewriter, ovariables.nodes[i]->type), get_value_name_unsafe(ovariables.nodes[i]));
+    Nodes new_params = nodes(a, ovariables.count, new_params_arr);
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = liftee;
@@ -127,7 +126,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, String given_na
 
     Context lifting_ctx = *ctx;
     lifting_ctx.rewriter = create_children_rewriter(&ctx->rewriter);
-    register_processed_list(&lifting_ctx.rewriter, oparams, new_params);
+    register_processed_list(&lifting_ctx.rewriter, ovariables, new_params);
 
     const Node* payload = param(a, qualified_type_helper(uint32_type(a), false), "sp");
 
@@ -210,7 +209,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                     const Node* otail = get_let_tail(node);
                     BodyBuilder* bb = begin_body(a);
-                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string_arena(a->arena, "lifted %s", get_abstraction_name_safe(otail))));
+                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, node->payload.let.variables);
                     const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                     const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 

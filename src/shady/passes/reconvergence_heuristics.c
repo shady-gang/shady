@@ -60,13 +60,6 @@ static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode
     }
 }
 
-static bool find_in_nodes(Nodes nodes, const Node* n) {
-    for (size_t i = 0; i < nodes.count; i++)
-        if (nodes.nodes[i] == n)
-            return true;
-    return false;
-}
-
 static void find_unbound_vars(const Node* loop_header, const Node* exiting_node, struct Dict* bound_set, struct Dict* free_set, struct List* leaking) {
     const Node* free_post;
     size_t i = 0;

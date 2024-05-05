@@ -37,6 +37,7 @@ Nodes append_nodes(IrArena*, Nodes, const Node*);
 Nodes prepend_nodes(IrArena*, Nodes, const Node*);
 Nodes concat_nodes(IrArena*, Nodes, Nodes);
 Nodes change_node_at_index(IrArena*, Nodes, size_t, const Node*);
+bool find_in_nodes(Nodes nodes, const Node* n);
 
 String string_sized(IrArena*, size_t size, const char* start);
 String string(IrArena*, const char*);

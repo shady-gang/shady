@@ -67,7 +67,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
 
     const Node* popped_value = NULL;
     if (push)
-        gen_store(bb, addr, param);
+        gen_store(bb, addr, value_param);
     else
         popped_value = gen_primop_ce(bb, load_op, 1, (const Node* []) { addr });
 

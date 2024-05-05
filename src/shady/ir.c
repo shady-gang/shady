@@ -157,6 +157,13 @@ Nodes change_node_at_index(IrArena* arena, Nodes old, size_t i, const Node* n) {
     return nodes(arena, old.count, tmp);
 }
 
+bool find_in_nodes(Nodes nodes, const Node* n) {
+    for (size_t i = 0; i < nodes.count; i++)
+        if (nodes.nodes[i] == n)
+            return true;
+    return false;
+}
+
 /// takes care of structural sharing
 static const char* string_impl(IrArena* arena, size_t size, const char* zero_terminated) {
     if (!zero_terminated)
