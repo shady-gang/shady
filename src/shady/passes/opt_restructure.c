@@ -132,9 +132,12 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
             inner_exit_ladder_bb->payload.basic_block.body = merge_break(a, (MergeBreak) { .args = empty(a) });
             return finish_body(bb, exit_ladder);
         } else {
-            bind_variables(bb, nodes(a, oargs.count, nparams), rewrite_nodes(&ctx->rewriter, oargs));
+            Node* bb2 = basic_block(a, ctx->fn, nodes(a, oargs.count, nparams), NULL);
+            bb2->payload.basic_block.body = structured;
+            //bind_variables(bb, nodes(a, oargs.count, nparams), rewrite_nodes(&ctx->rewriter, oargs));
             inner_exit_ladder_bb->payload.basic_block.body = exit_ladder;
-            return finish_body(bb, structured);
+            //return finish_body(bb, structured);
+            return finish_body(bb, jump_helper(a, bb2, rewrite_nodes(&ctx->rewriter, oargs)));
         }
     }
 }
