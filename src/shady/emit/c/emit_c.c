@@ -434,18 +434,18 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             const Node* tail = get_let_tail(terminator);
             assert(tail->tag == Case_TAG);
 
-            const Nodes tail_params = tail->payload.case_.params;
-            assert(tail_params.count == yield_types.count);
+            Nodes vars = terminator->payload.let.variables;
+            assert(vars.count == yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
                 bool has_result = results[i].value || results[i].var;
                 switch (bindings[i]) {
                     case NoBinding: {
                         assert(has_result && "unbound results can't be empty");
-                        register_emitted(emitter, tail_params.nodes[i], results[i]);
+                        register_emitted(emitter, vars.nodes[i], results[i]);
                         break;
                     }
                     case LetBinding: {
-                        String variable_name = get_value_name_unsafe(tail_params.nodes[i]);
+                        String variable_name = get_value_name_unsafe(vars.nodes[i]);
 
                         if (!variable_name)
                             variable_name = "";
@@ -459,7 +459,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                         else
                             emit_variable_declaration(emitter, block_printer, t, bind_to, false, NULL);
 
-                        register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
+                        register_emitted(emitter, vars.nodes[i], term_from_cvalue(bind_to));
                         break;
                     }
                     default: assert(false);
