@@ -162,7 +162,7 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
                 case AsUInput: prefix = "in "; break;
                 case AsOutput: prefix = "out "; break;
                 case AsPrivate: prefix = ""; break;
-                case AsUniformConstant: prefix = "uniform"; break;
+                case AsUniformConstant: prefix = "uniform "; break;
                 case AsGlobal: {
                     assert(constant && "Only constants are supported");
                     prefix = "const ";
