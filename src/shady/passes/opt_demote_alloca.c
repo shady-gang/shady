@@ -46,16 +46,24 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
 
     const Use* use = get_first_use(map, ptr_value);
     for (;use; use = use->next_use) {
-        if (is_abstraction(use->user) && use->operand_class == NcVariable)
+        if (is_abstraction(use->user) && use->operand_class == NcParam)
             continue;
+        if (use->operand_class == NcVariable)
+            continue;
+        if (use->user->tag == Variablez_TAG) {
+            debugv_print("demote_alloca leak analysis: following let-bound variable: ");
+            log_node(DEBUGV, use->user);
+            debugv_print(".\n");
+            visit_ptr_uses(use->user, slice_type, k, map);
+        }
         else if (use->user->tag == Let_TAG && use->operand_class == NcInstruction) {
-            Nodes vars = get_abstraction_params(get_let_tail(use->user));
+            /*Nodes vars = use->user->payload.let.variables;
             for (size_t i = 0; i < vars.count; i++) {
                 debugv_print("demote_alloca leak analysis: following let-bound variable: ");
                 log_node(DEBUGV, vars.nodes[i]);
                 debugv_print(".\n");
                 visit_ptr_uses(vars.nodes[i], slice_type, k, map);
-            }
+            }*/
         } else if (use->user->tag == PrimOp_TAG) {
             PrimOp payload = use->user->payload.prim_op;
             switch (payload.op) {
@@ -129,9 +137,9 @@ PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
     PtrSourceKnowledge k = { 0 };
     while (ptr) {
         assert(is_value(ptr));
-        if (ptr->tag == Variable_TAG && ctx->uses) {
-            const Node* instr = get_var_instruction(ctx->uses, ptr);
-            if (instr) {
+        if (ptr->tag == Variablez_TAG && ctx->uses) {
+            const Node* instr = get_var_def(ptr->payload.varz);
+            if (instr->tag == PrimOp_TAG) {
                 PrimOp payload = instr->payload.prim_op;
                 switch (payload.op) {
                     case alloca_logical_op:
@@ -180,28 +188,25 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case Let_TAG: {
             const Node* oinstruction = get_let_instruction(old);
+            Nodes ovars = old->payload.let.variables;
             const Node* otail = get_let_tail(old);
             const Node* ninstruction = rewrite_node(r, oinstruction);
             AllocaInfo** found_info = find_value_dict(const Node*, AllocaInfo*, ctx->alloca_info, oinstruction);
             AllocaInfo* info = NULL;
             if (found_info) {
-                const Node* ovar = first(get_abstraction_params(otail));
+                const Node* ovar = first(ovars);
                 info = *found_info;
                 insert_dict(const Node*, AllocaInfo*, ctx->alloca_info, ovar, info);
             }
-            Nodes oparams = otail->payload.case_.params;
             Nodes ntypes = unwrap_multiple_yield_types(r->dst_arena, ninstruction->type);
-            assert(ntypes.count == oparams.count);
-            LARRAY(const Node*, new_params, oparams.count);
-            for (size_t i = 0; i < oparams.count; i++) {
-                new_params[i] = var(r->dst_arena, ntypes.nodes[i], oparams.nodes[i]->payload.var.name);
-                register_processed(r, oparams.nodes[i], new_params[i]);
-            }
+            assert(ntypes.count == ovars.count);
+            Nodes nvars = recreate_vars(a, ovars, ninstruction);
+            register_processed_list(r, ovars, nvars);
             if (info)
-                info->bound = new_params[0];
-            const Node* nbody = rewrite_node(r, otail->payload.case_.body);
-            const Node* tail = case_(r->dst_arena, nodes(r->dst_arena, oparams.count, new_params), nbody);
-            return let(a, ninstruction, tail);
+                info->bound = first(nvars);
+            // const Node* nbody = rewrite_node(r, otail->payload.case_.body);
+            // const Node* tail = case_(r->dst_arena, empty(a), nbody);
+            return let(a, ninstruction, nvars, rewrite_node(r, otail));
         }
         case PrimOp_TAG: {
             PrimOp payload = old->payload.prim_op;

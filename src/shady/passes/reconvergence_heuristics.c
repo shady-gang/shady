@@ -60,13 +60,6 @@ static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode
     }
 }
 
-static bool find_in_nodes(Nodes nodes, const Node* n) {
-    for (size_t i = 0; i < nodes.count; i++)
-        if (nodes.nodes[i] == n)
-            return true;
-    return false;
-}
-
 static void find_unbound_vars(const Node* loop_header, const Node* exiting_node, struct Dict* bound_set, struct Dict* free_set, struct List* leaking) {
     const Node* free_post;
     size_t i = 0;
@@ -132,8 +125,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
         size_t exiting_nodes_count = entries_count_list(exiting_nodes);
         if (exiting_nodes_count > 0) {
-            Nodes nparams = recreate_variables(rewriter, get_abstraction_params(node));
-            Nodes inner_yield_types = strip_qualifiers(arena, get_variables_types(arena, nparams));
+            Nodes nparams = recreate_params(rewriter, get_abstraction_params(node));
+            Nodes inner_yield_types = strip_qualifiers(arena, get_param_types(arena, nparams));
 
             CFNode* cf_pre = cfg_lookup(ctx->fwd_cfg, node);
             // assert(cf_pre->idom && "cfg entry nodes can't be loop headers anyhow");
@@ -145,7 +138,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             LARRAY(Nodes, exit_fwd_allocas, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
-                Nodes exit_param_types = rewrite_nodes(rewriter, get_variables_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
+                Nodes exit_param_types = rewrite_nodes(rewriter, get_param_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
                 LARRAY(const Node*, exit_param_allocas_tmp, exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++)
                     exit_param_allocas_tmp[j] = gen_primop_e(outer_bb, alloca_op, singleton(get_unqualified_type(exit_param_types.nodes[j])), empty(arena));
@@ -171,11 +164,11 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             Node* fn = (Node*) find_processed(rewriter, ctx->current_fn);
 
-            const Node* join_token_exit = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
+            const Node* join_token_exit = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
                     .yield_types = empty(arena)
             }), true), "jp_exit");
 
-            const Node* join_token_continue = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
+            const Node* join_token_continue = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
                     .yield_types = inner_yield_types
             }), true), "jp_continue");
 
@@ -186,7 +179,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
-                Nodes exit_wrapper_params = recreate_variables(&ctx->rewriter, get_abstraction_params(exiting_node->node));
+                Nodes exit_wrapper_params = recreate_params(&ctx->rewriter, get_abstraction_params(exiting_node->node));
 
                 switch (exiting_node->node->tag) {
                     case BasicBlock_TAG: {
@@ -203,7 +196,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 }
             }
 
-            Nodes continue_wrapper_params = recreate_variables(rewriter, get_abstraction_params(node));
+            Nodes continue_wrapper_params = recreate_params(rewriter, get_abstraction_params(node));
             const Node* continue_wrapper_body = join(arena, (Join) {
                 .join_point = join_token_continue,
                 .args = continue_wrapper_params
@@ -245,7 +238,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             struct Dict* old_map = rewriter->map;
             rewriter->map = clone_dict(rewriter->map);
-            Nodes inner_loop_params = recreate_variables(rewriter, get_abstraction_params(node));
+            Nodes inner_loop_params = recreate_params(rewriter, get_abstraction_params(node));
             register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
             const Node* loop_body = recreate_node_identity(rewriter, get_abstraction_body(node));
 
@@ -336,8 +329,11 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                         .args = nodes(arena, exit_param_allocas[i].count, recovered_args),
                     }));
                 } else {
-                    assert(recreated_exit->tag == Case_TAG);
-                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_param_allocas[i].count, recovered_args)), recreated_exit));
+                    // TODO: rewrite
+                    assert(get_abstraction_params(recreated_exit).count == 0);
+                    error("")
+                    // assert(recreated_exit->tag == Case_TAG);
+                    // exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_param_allocas[i].count, recovered_args)), recreated_exit));
                 }
                 exit_jumps[i] = jump_helper(arena, exit_bb, empty(arena));
                 destroy_list(leaking[i]);
@@ -474,39 +470,34 @@ static const Node* process_node(Context* ctx, const Node* node) {
             //Regular if/then/else case. Control flow joins at the immediate post dominator.
             Nodes yield_types;
             Nodes exit_args;
-            Nodes lambda_args;
 
             Nodes old_params = get_abstraction_params(idom);
 
             if (old_params.count == 0) {
                 yield_types = empty(arena);
                 exit_args = empty(arena);
-                lambda_args = empty(arena);
             } else {
                 LARRAY(const Node*, types,old_params.count);
                 LARRAY(const Node*, inner_args,old_params.count);
-                LARRAY(const Node*, outer_args,old_params.count);
 
                 for (size_t j = 0; j < old_params.count; j++) {
                     //TODO: Is this correct?
-                    assert(old_params.nodes[j]->tag == Variable_TAG);
-                    const Node* qualified_type = rewrite_node(rewriter, old_params.nodes[j]->payload.var.type);
+                    assert(old_params.nodes[j]->tag == Param_TAG);
+                    const Node* qualified_type = rewrite_node(rewriter, old_params.nodes[j]->payload.param.type);
                     //const Node* qualified_type = rewrite_node(rewriter, old_params.nodes[j]->type);
 
                     //This should always contain a qualified type?
                     //if (contains_qualified_type(types[j]))
                     types[j] = get_unqualified_type(qualified_type);
 
-                    inner_args[j] = var(arena, qualified_type, old_params.nodes[j]->payload.var.name);
-                    outer_args[j] = var(arena, qualified_type, old_params.nodes[j]->payload.var.name);
+                    inner_args[j] = param(arena, qualified_type, old_params.nodes[j]->payload.param.name);
                 }
 
                 yield_types = nodes(arena, old_params.count, types);
                 exit_args = nodes(arena, old_params.count, inner_args);
-                lambda_args = nodes(arena, old_params.count, outer_args);
             }
 
-            const Node* join_token = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
+            const Node* join_token = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
@@ -532,7 +523,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 register_processed(rewriter, idom, cached);
 
             const Node* control_inner = case_(arena, singleton(join_token), inner_terminator);
-            const Node* new_target = control(arena, (Control) {
+            const Node* control_instruction = control(arena, (Control) {
                 .inside = control_inner,
                 .yield_types = yield_types
             });
@@ -541,18 +532,16 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             switch (idom->tag) {
                 case BasicBlock_TAG: {
-                    const Node* outer_terminator = jump(arena, (Jump) {
+                    BodyBuilder* bb = begin_body(arena);
+                    Nodes results = bind_instruction(bb, control_instruction);
+                    return finish_body(bb, jump(arena, (Jump) {
                         .target = recreated_join,
-                        .args = lambda_args
-                    });
-
-                    const Node* c = case_(arena, lambda_args, outer_terminator);
-                    const Node* empty_let = let(arena, new_target, c);
-
-                    return empty_let;
+                        .args = results
+                    }));
                 }
                 case Case_TAG:
-                    return let(arena, new_target, recreated_join);
+                    error("todo");
+                    // return let(arena, control_instruction, recreated_join);
                 default:
                     assert(false);
             }

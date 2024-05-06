@@ -85,6 +85,10 @@
       "name": "value"
     },
     {
+      "name": "param",
+      "generate-enum": false
+    },
+    {
       "name": "variable",
       "generate-enum": false
     },
@@ -241,15 +245,25 @@
       ]
     },
     {
-      "name": "Variable",
-      "snake_name": "var",
-      "class": ["value", "variable"],
+      "name": "Param",
+      "class": ["value", "param"],
       "constructor": "custom",
       "ops": [
         { "name": "type", "class": "type" },
         { "name": "name", "class": "string" },
         { "name": "abs", "type": "const Node*", "ignore": true },
         { "name": "pindex", "type": "unsigned", "ignore": true }
+      ]
+    },
+    {
+      "name": "Variablez",
+      "snake_name": "varz",
+      "class": ["value", "variable"],
+      "constructor": "custom",
+      "ops": [
+        { "name": "name", "class": "string" },
+        { "name": "instruction", "class": "instruction" },
+        { "name": "iindex", "type": "unsigned" }
       ]
     },
     {
@@ -438,6 +452,7 @@
       "constructor": "custom",
       "ops": [
         { "name": "instruction", "class": "instruction" },
+        { "name": "variables", "class": "variable", "list": true },
         { "name": "tail", "class": "case" }
       ]
     },
@@ -448,7 +463,8 @@
       "front-end-only": true,
       "ops": [
         { "name": "instruction", "class": "instruction" },
-        { "name": "variables", "class": "variable", "list": true }
+        { "name": "variables", "class": "param", "list": true },
+        { "name": "types", "class": "type", "list": true }
       ]
     },
     {
@@ -548,7 +564,7 @@
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
-        { "name": "params", "class": "variable", "list": true },
+        { "name": "params", "class": "param", "list": true },
         { "name": "body", "class": "terminator" },
         { "name": "return_types", "class": "type", "list": true }
       ]
@@ -633,7 +649,7 @@
       "description": "A named abstraction that lives inside a function and can be jumped to",
       "class": "basic_block",
       "ops": [
-        { "name": "params", "class": "variable", "list": true },
+        { "name": "params", "class": "param", "list": true },
         { "name": "body", "class": "terminator" },
         { "name": "fn", "class": "declaration" },
         { "name": "name", "class": "string" }
@@ -645,11 +661,10 @@
       "constructor": "custom",
       "class": "case",
       "description": [
-        "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs",
-        "Most notably, the tails of standard `let` nodes"
+        "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs"
       ],
       "ops": [
-        { "name": "params", "class": "variable", "list": true },
+        { "name": "params", "class": "param", "list": true },
         { "name": "body", "class": "terminator" },
         { "name": "structured_construct", "type": "const Node*", "ignored": true }
       ]

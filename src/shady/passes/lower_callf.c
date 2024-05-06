@@ -35,7 +35,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         BodyBuilder* bb = begin_body(a);
         if (!ctx2.disable_lowering) {
             Nodes oparams = get_abstraction_params(old);
-            Nodes nparams = recreate_variables(&ctx->rewriter, oparams);
+            Nodes nparams = recreate_params(&ctx->rewriter, oparams);
             register_processed_list(&ctx->rewriter, oparams, nparams);
 
             // Supplement an additional parameter for the join point
@@ -46,7 +46,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             if (lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
                 ctx2.return_jp = gen_primop_e(bb, default_join_point_op, empty(a), empty(a));
             } else {
-                const Node* jp_variable = var(a, qualified_type_helper(jp_type, false), "return_jp");
+                const Node* jp_variable = param(a, qualified_type_helper(jp_type, false), "return_jp");
                 nparams = append_nodes(a, nparams, jp_variable);
                 ctx2.return_jp = jp_variable;
             }
@@ -120,7 +120,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     .type = join_point_type(a, (JoinPointType) { .yield_types = strip_qualifiers(a, returned_types) }),
                     .is_uniform = false
             });
-            const Node* jp = var(a, jp_type, "fn_return_point");
+            const Node* jp = param(a, jp_type, "fn_return_point");
 
             // Add that join point as the last argument to the newly made function
             nargs = append_nodes(a, nargs, jp);

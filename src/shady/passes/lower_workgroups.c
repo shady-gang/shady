@@ -52,13 +52,13 @@ static const Node* process(Context* ctx, const Node* node) {
                 assert(node->payload.fun.return_types.count == 0 && "entry points do not return at this stage");
 
                 Nodes wannotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-                Nodes wparams = recreate_variables(&ctx->rewriter, node->payload.fun.params);
+                Nodes wparams = recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* wrapper = function(m, wparams, get_abstraction_name(node), wannotations, empty(a));
                 register_processed(&ctx->rewriter, node, wrapper);
 
                 // recreate the old entry point, but this time it's not the entry point anymore
                 Nodes nannotations = filter_out_annotation(a, wannotations, "EntryPoint");
-                Nodes nparams = recreate_variables(&ctx->rewriter, node->payload.fun.params);
+                Nodes nparams = recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* inner = function(m, nparams, format_string_arena(a->arena, "%s_wrapped", get_abstraction_name(node)), nannotations, empty(a));
                 register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
                 inner->payload.fun.body = recreate_node_identity(&ctx->rewriter, node->payload.fun.body);
@@ -72,7 +72,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Node* workgroup_id[3];
                 const Node* num_workgroups[3];
                 for (int dim = 0; dim < 3; dim++) {
-                    workgroup_id[dim] = var(a, qualified_type_helper(uint32_type(a), false), names[dim]);
+                    workgroup_id[dim] = param(a, qualified_type_helper(uint32_type(a), false), names[dim]);
                     num_workgroups[dim] = gen_extract(bb, workgroup_num_vec3, singleton(uint32_literal(a, dim)));
                 }
 
@@ -87,7 +87,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 num_subgroups[2] = a->config.specializations.workgroup_size[2];
                 String names2[] = { "sgx", "sgy", "sgz" };
                 for (int dim = 0; dim < 3; dim++) {
-                    subgroup_id[dim] = var(a, qualified_type_helper(uint32_type(a), false), names2[dim]);
+                    subgroup_id[dim] = param(a, qualified_type_helper(uint32_type(a), false), names2[dim]);
                     num_subgroups_literals[dim] = uint32_literal(a, num_subgroups[dim]);
                 }
 

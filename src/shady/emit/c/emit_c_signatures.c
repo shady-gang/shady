@@ -65,7 +65,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
         }
         for (size_t i = 0; i < dom.count; i++) {
             String param_name;
-            String variable_name = get_value_name(fn->payload.fun.params.nodes[i]);
+            String variable_name = get_value_name_unsafe(fn->payload.fun.params.nodes[i]);
             param_name = format_string_interned(emitter->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), fn->payload.fun.params.nodes[i]->id);
             print(paramp, emit_type(emitter, params.nodes[i]->type, param_name));
             if (i + 1 < dom.count) {

@@ -22,14 +22,8 @@ typedef struct Context_ {
 
 static const Node* process_node(Context* ctx, const Node* node);
 
-static const Node* process_let(Context* ctx, const Node* node) {
-    assert(node->tag == Let_TAG);
+static const Node* process_instruction(Context* ctx, const Node* old_instruction) {
     IrArena* a = ctx->rewriter.dst_arena;
-
-    const Node* old_instruction = node->payload.let.instruction;
-    const Node* new_instruction = NULL;
-    const Node* old_tail = node->payload.let.tail;
-    const Node* new_tail = NULL;
 
     switch (old_instruction->tag) {
         case If_TAG: {
@@ -40,9 +34,9 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
                 .is_uniform = false,
             });
-            const Node* join_point = var(a, jp_type, "if_join");
+            const Node* jp = param(a, jp_type, "if_join");
             Context join_context = *ctx;
-            Nodes jps = singleton(join_point);
+            Nodes jps = singleton(jp);
             insert_dict(const Node*, Nodes, ctx->structured_join_tokens, old_instruction, jps);
 
             Node* true_block = basic_block(a, ctx->current_fn, nodes(a, 0, NULL), unique_name(a, "if_true"));
@@ -55,7 +49,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_false->payload.case_.body);
             } else {
                 assert(yield_types.count == 0);
-                flse_block->payload.basic_block.body = join(a, (Join) { .join_point = join_point, .args = nodes(a, 0, NULL) });
+                flse_block->payload.basic_block.body = join(a, (Join) { .join_point = jp, .args = nodes(a, 0, NULL) });
             }
 
             const Node* control_body = branch(a, (Branch) {
@@ -64,9 +58,8 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 .false_jump = jump_helper(a, flse_block, empty(a)),
             });
 
-            const Node* control_lam = case_(a, nodes(a, 1, (const Node* []) {join_point}), control_body);
-            new_instruction = control(a, (Control) { .yield_types = yield_types, .inside = control_lam });
-            break;
+            const Node* control_lam = case_(a, nodes(a, 1, (const Node* []) {jp}), control_body);
+            return control(a, (Control) { .yield_types = yield_types, .inside = control_lam });
         }
         // TODO: match
         case Loop_TAG: {
@@ -74,7 +67,7 @@ static const Node* process_let(Context* ctx, const Node* node) {
             assert(is_case(old_loop_body));
 
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_variables_types(a, old_loop_body->payload.case_.params));
+            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_param_types(a, old_loop_body->payload.case_.params));
             param_types = strip_qualifiers(a, param_types);
 
             const Type* break_jp_type = qualified_type(a, (QualifiedType) {
@@ -85,13 +78,13 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 .type = join_point_type(a, (JoinPointType) { .yield_types = param_types }),
                 .is_uniform = false,
             });
-            const Node* break_point = var(a, break_jp_type, "loop_break_point");
-            const Node* continue_point = var(a, continue_jp_type, "loop_continue_point");
+            const Node* break_point = param(a, break_jp_type, "loop_break_point");
+            const Node* continue_point = param(a, continue_jp_type, "loop_continue_point");
             Context join_context = *ctx;
             Nodes jps = mk_nodes(a, break_point, continue_point);
             insert_dict(const Node*, Nodes, ctx->structured_join_tokens, old_instruction, jps);
 
-            Nodes new_params = recreate_variables(&ctx->rewriter, old_loop_body->payload.case_.params);
+            Nodes new_params = recreate_params(&ctx->rewriter, old_loop_body->payload.case_.params);
             Node* loop_body = basic_block(a, ctx->current_fn, new_params, unique_name(a, "loop_body"));
             register_processed_list(&join_context.rewriter, old_loop_body->payload.case_.params, loop_body->payload.basic_block.params);
 
@@ -114,19 +107,13 @@ static const Node* process_let(Context* ctx, const Node* node) {
                 .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.initial_args),
             });
             const Node* outer_body = case_(a, nodes(a, 1, (const Node* []) {break_point}), initial_jump);
-            new_instruction = control(a, (Control) { .yield_types = yield_types, .inside = outer_body });
-            break;
+            return control(a, (Control) { .yield_types = yield_types, .inside = outer_body });
         }
         default:
-            new_instruction = rewrite_node(&ctx->rewriter, old_instruction);
             break;
     }
 
-    if (!new_tail)
-        new_tail = rewrite_node(&ctx->rewriter, old_tail);
-
-    assert(new_instruction && new_tail);
-    return let(a, new_instruction, new_tail);
+    return recreate_node_identity(&ctx->rewriter, old_instruction);
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -162,8 +149,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
         return recreate_node_identity(&ctx->rewriter, node);
 
     CFNode* cfnode = ctx->cfg ? cfg_lookup(ctx->cfg, ctx->abs) : NULL;
+    if (is_instruction(node))
+        return process_instruction(ctx, node);
     switch (node->tag) {
-        case Let_TAG: return process_let(ctx, node);
         case Yield_TAG: {
             if (!cfnode)
                 break;

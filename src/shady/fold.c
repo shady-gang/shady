@@ -27,92 +27,6 @@ static bool is_one(const Node* node) {
     return false;
 }
 
-static const Node* fold_let(IrArena* arena, const Node* node) {
-    assert(node->tag == Let_TAG);
-    const Node* instruction = node->payload.let.instruction;
-    const Node* tail = node->payload.let.tail;
-    switch (instruction->tag) {
-        // eliminates blocks by "lifting" their contents out and replacing yield with the tail of the outer let
-        // In other words, we turn these patterns:
-        //
-        // let block {
-        //   let I in case(x) =>
-        //   let J in case(y) =>
-        //   let K in case(z) =>
-        //      ...
-        //   yield (x, y, z) }
-        // in case(a, b, c) => R
-        //
-        // into these:
-        //
-        // let I in case(x) =>
-        // let J in case(y) =>
-        // let K in case(z) =>
-        // ...
-        // R[a->x, b->y, c->z]
-        case Block_TAG: {
-            // follow the terminator of the block until we hit a yield()
-            const Node* lam = instruction->payload.block.inside;
-            const Node* terminator = get_abstraction_body(lam);
-            size_t depth = 0;
-            bool dry_run = true;
-            const Node** lets = NULL;
-            while (true) {
-                assert(is_case(lam));
-                switch (is_terminator(terminator)) {
-                    case NotATerminator: assert(false);
-                    case Terminator_Let_TAG: {
-                        if (lets)
-                            lets[depth] = terminator;
-                        lam = get_let_tail(terminator);
-                        terminator = get_abstraction_body(lam);
-                        depth++;
-                        continue;
-                    }
-                    case Terminator_Yield_TAG: {
-                        if (dry_run) {
-                            lets = calloc(sizeof(const Node*), depth);
-                            dry_run = false;
-                            depth = 0;
-                            // Start over !
-                            lam = instruction->payload.block.inside;
-                            terminator = get_abstraction_body(lam);
-                            continue;
-                        } else {
-                            // wrap the original tail with the args of join()
-                            assert(is_case(tail));
-                            const Node* acc = let(arena, quote_helper(arena, terminator->payload.yield.args), tail);
-                            // rebuild the let chain that we traversed
-                            for (size_t i = 0; i < depth; i++) {
-                                const Node* olet = lets[depth - 1 - i];
-                                const Node* olam = get_let_tail(olet);
-                                assert(olam->tag == Case_TAG);
-                                Nodes params = get_abstraction_params(olam);
-                                for (size_t j = 0; j < params.count; j++) {
-                                    // recycle the params by setting their abs value to NULL
-                                    *((Node**) &(params.nodes[j]->payload.var.abs)) = NULL;
-                                }
-                                const Node* nlam = case_(arena, params, acc);
-                                acc = let(arena, get_let_instruction(olet), nlam);
-                            }
-                            free(lets);
-                            return acc;
-                        }
-                    }
-                    // if we see anything else, give up
-                    default: {
-                        assert(dry_run);
-                        return node;
-                    }
-                }
-            }
-        }
-        default: break;
-    }
-
-    return node;
-}
-
 static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     PrimOp payload = node->payload.prim_op;
 
@@ -283,7 +197,6 @@ static bool is_unreachable_case(const Node* c) {
 const Node* fold_node(IrArena* arena, const Node* node) {
     const Node* folded = node;
     switch (node->tag) {
-        case Let_TAG: folded = fold_let(arena, node); break;
         case PrimOp_TAG: folded = fold_prim_op(arena, node); break;
         case Block_TAG: {
             const Node* lam = node->payload.block.inside;

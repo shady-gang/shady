@@ -74,11 +74,14 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
 
 #include "constructors_generated.c"
 
-const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
+const Node* let(IrArena* arena, const Node* instruction, Nodes vars, const Node* tail) {
     Let payload = {
         .instruction = instruction,
+        .variables = vars,
         .tail = tail,
     };
+
+    assert(is_case(tail) && get_abstraction_params(tail).count == 0);
 
     Node node;
     memset((void*) &node, 0, sizeof(Node));
@@ -91,8 +94,26 @@ const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
     return create_node_helper(arena, node, NULL);
 }
 
-Node* var(IrArena* arena, const Type* type, const char* name) {
-    Variable variable = {
+const Node* var(IrArena* arena, const char* name, const Node* instruction, size_t i) {
+    Variablez variable = {
+        .name = string(arena, name),
+        .instruction = instruction,
+        .iindex = i,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_varz(arena, variable) : NULL,
+        .tag = Variablez_TAG,
+        .payload.varz = variable
+    };
+    return create_node_helper(arena, node, NULL);
+}
+
+Node* param(IrArena* arena, const Type* type, const char* name) {
+    Param param = {
         .type = type,
         .name = string(arena, name),
     };
@@ -101,17 +122,18 @@ Node* var(IrArena* arena, const Type* type, const char* name) {
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_var(arena, variable) : NULL,
-        .tag = Variable_TAG,
-        .payload.var = variable
+        .type = arena->config.check_types ? check_type_param(arena, param) : NULL,
+        .tag = Param_TAG,
+        .payload.param = param
     };
     return create_node_helper(arena, node, NULL);
 }
 
-const Node* let_mut(IrArena* arena, const Node* instruction, Nodes variables) {
+const Node* let_mut(IrArena* arena, const Node* instruction, Nodes variables, Nodes types) {
     LetMut payload = {
         .instruction = instruction,
         .variables = variables,
+        .types = types,
     };
 
     Node node;
@@ -177,10 +199,10 @@ Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, N
 
     for (size_t i = 0; i < params.count; i++) {
         Node* param = (Node*) params.nodes[i];
-        assert(param->tag == Variable_TAG);
-        assert(!param->payload.var.abs);
-        param->payload.var.abs = fn;
-        param->payload.var.pindex = i;
+        assert(param->tag == Param_TAG);
+        assert(!param->payload.param.abs);
+        param->payload.param.abs = fn;
+        param->payload.param.pindex = i;
     }
 
     return fn;
@@ -208,10 +230,10 @@ Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
 
     for (size_t i = 0; i < params.count; i++) {
         Node* param = (Node*) params.nodes[i];
-        assert(param->tag == Variable_TAG);
-        assert(!param->payload.var.abs);
-        param->payload.var.abs = bb;
-        param->payload.var.pindex = i;
+        assert(param->tag == Param_TAG);
+        assert(!param->payload.param.abs);
+        param->payload.param.abs = bb;
+        param->payload.param.pindex = i;
     }
 
     return bb;
@@ -238,10 +260,10 @@ const Node* case_(IrArena* a, Nodes params, const Node* body) {
     if (fresh || true) {
         for (size_t i = 0; i < params.count; i++) {
             Node* param = (Node*) params.nodes[i];
-            assert(param->tag == Variable_TAG);
-            assert(!param->payload.var.abs);
-            param->payload.var.abs = lam;
-            param->payload.var.pindex = i;
+            assert(param->tag == Param_TAG);
+            assert(!param->payload.param.abs);
+            param->payload.param.abs = lam;
+            param->payload.param.pindex = i;
         }
     }
 

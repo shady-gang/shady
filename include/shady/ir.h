@@ -37,6 +37,7 @@ Nodes append_nodes(IrArena*, Nodes, const Node*);
 Nodes prepend_nodes(IrArena*, Nodes, const Node*);
 Nodes concat_nodes(IrArena*, Nodes, Nodes);
 Nodes change_node_at_index(IrArena*, Nodes, size_t, const Node*);
+bool find_in_nodes(Nodes nodes, const Node* n);
 
 String string_sized(IrArena*, size_t size, const char* start);
 String string(IrArena*, const char*);
@@ -120,8 +121,8 @@ const Node* get_node_by_id(const IrArena*, NodeId);
 //////////////////////////////// Getters ////////////////////////////////
 
 /// Get the name out of a global variable, function or constant
-String get_value_name(const Node*);
 String get_value_name_safe(const Node*);
+String get_value_name_unsafe(const Node*);
 void set_variable_name(Node* var, String);
 
 const Node* get_quoted_value(const Node* instruction);
@@ -166,7 +167,7 @@ NodeResolveConfig default_node_resolve_config();
 const Node* resolve_ptr_to_value(const Node* node, NodeResolveConfig config);
 
 /// Resolves a variable to the instruction that produces its value (if any)
-const Node* get_var_def(Variable var);
+const Node* get_var_def(Variablez var);
 const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config);
 
 //////////////////////////////// Constructors ////////////////////////////////
@@ -209,7 +210,7 @@ const Node* fp_literal_helper(IrArena*, FloatSizes, double);
 const Node* type_decl_ref_helper(IrArena*, const Node* decl);
 
 // values
-Node* var(IrArena*, const Type* type, const char* name);
+Node* param(IrArena*, const Type* type, const char* name);
 
 const Node* tuple_helper(IrArena*, Nodes contents);
 const Node* composite_helper(IrArena*, const Type*, Nodes contents);
@@ -225,8 +226,9 @@ const Node* quote_helper(IrArena*, Nodes values);
 const Node* prim_op_helper(IrArena*, Op, Nodes, Nodes);
 
 // terminators
-const Node* let(IrArena*, const Node* instruction, const Node* tail);
-const Node* let_mut(IrArena*, const Node* instruction, Nodes variables);
+const Node* var(IrArena* arena, const char* name, const Node* instruction, size_t i);
+const Node* let(IrArena*, const Node* instruction, Nodes vars, const Node* tail);
+const Node* let_mut(IrArena*, const Node* instruction, Nodes variables, Nodes types);
 const Node* jump_helper(IrArena* a, const Node* dst, Nodes args);
 
 // decl ctors

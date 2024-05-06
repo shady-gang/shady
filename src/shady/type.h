@@ -41,7 +41,7 @@ void enter_composite(const Type** datatype, bool* u, Nodes indices, bool allow_e
 /// Collects the annotated types in the list of variables
 /// NB: this is different from get_values_types, that function uses node.type, whereas this one uses node.payload.var.type
 /// This means this function works in untyped modules where node.type is NULL.
-Nodes get_variables_types(IrArena*, Nodes);
+Nodes get_param_types(IrArena* arena, Nodes variables);
 
 Nodes get_values_types(IrArena*, Nodes);
 

@@ -368,7 +368,7 @@ static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_value
             const char* id = accept_identifier(ctx);
             expect(id);
 
-            const Node* node = var(arena, qtype, id);
+            const Node* node = param(arena, qtype, id);
             append_list(Node*, params, node);
 
             if (default_values) {
@@ -617,11 +617,11 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect(accept_token(ctx, lpar_tok));
             String str = accept_identifier(ctx);
             expect(str);
-            const Node* param = var(arena, join_point_type(arena, (JoinPointType) {
+            const Node* jp = param(arena, join_point_type(arena, (JoinPointType) {
                 .yield_types = yield_types,
             }), str);
             expect(accept_token(ctx, rpar_tok));
-            const Node* body = case_(arena, singleton(param), expect_body(ctx, fn, NULL));
+            const Node* body = case_(arena, singleton(jp), expect_body(ctx, fn, NULL));
             return control(arena, (Control) {
                 .inside = body,
                 .yield_types = yield_types
@@ -726,6 +726,15 @@ static const Node* expect_jump(ctxparams) {
     });
 }
 
+/// for convenience, parse variables as parameters
+static Nodes params2vars(IrArena* arena, const Node* instruction, Nodes params) {
+    LARRAY(const Node*, vars, params.count);
+    for (size_t i = 0; i < params.count; i++) {
+        vars[i] = var(arena, params.nodes[i]->payload.param.name, instruction, i);
+    }
+    return nodes(arena, params.count, vars);
+}
+
 static const Node* accept_terminator(ctxparams, Node* fn) {
     TokenTag tag = curr_token(tokenizer).tag;
     switch (tag) {
@@ -738,7 +747,7 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
                 case let_tok: {
                     const Node* lam = accept_case(ctx, fn);
                     expect(lam);
-                    return let(arena, instruction, lam);
+                    return let(arena, instruction, params2vars(arena, instruction, get_abstraction_params(lam)), get_abstraction_body(lam));
                 }
                 default: SHADY_UNREACHABLE;
             }

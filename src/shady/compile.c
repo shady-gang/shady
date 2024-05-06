@@ -67,7 +67,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(specialize_execution_model)
 
-    RUN_PASS(opt_stack)
+    //RUN_PASS(opt_stack)
 
     RUN_PASS(lower_tailcalls)
     RUN_PASS(lower_switch_btree)

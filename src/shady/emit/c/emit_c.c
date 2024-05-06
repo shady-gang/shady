@@ -210,7 +210,8 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case NotAValue: assert(false);
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG: error("lower me");
-        case Value_Variable_TAG: error("variables need to be emitted beforehand");
+        case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
+        case Variablez_TAG: error("tried to emit a variable: all variables should be register by their binding let !");
         case Value_IntLiteral_TAG: {
             if (value->payload.int_literal.is_signed)
                 emitted = format_string_arena(emitter->arena->arena, "%" PRIi64, value->payload.int_literal.value);
@@ -433,18 +434,18 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             const Node* tail = get_let_tail(terminator);
             assert(tail->tag == Case_TAG);
 
-            const Nodes tail_params = tail->payload.case_.params;
-            assert(tail_params.count == yield_types.count);
+            Nodes vars = terminator->payload.let.variables;
+            assert(vars.count == yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
                 bool has_result = results[i].value || results[i].var;
                 switch (bindings[i]) {
                     case NoBinding: {
                         assert(has_result && "unbound results can't be empty");
-                        register_emitted(emitter, tail_params.nodes[i], results[i]);
+                        register_emitted(emitter, vars.nodes[i], results[i]);
                         break;
                     }
                     case LetBinding: {
-                        String variable_name = get_value_name(tail_params.nodes[i]);
+                        String variable_name = get_value_name_unsafe(vars.nodes[i]);
 
                         if (!variable_name)
                             variable_name = "";
@@ -458,7 +459,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                         else
                             emit_variable_declaration(emitter, block_printer, t, bind_to, false, NULL);
 
-                        register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
+                        register_emitted(emitter, vars.nodes[i], term_from_cvalue(bind_to));
                         break;
                     }
                     default: assert(false);
@@ -612,7 +613,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             if (body) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
-                    String variable_name = get_value_name(decl->payload.fun.params.nodes[i]);
+                    String variable_name = get_value_name_unsafe(decl->payload.fun.params.nodes[i]);
                     param_name = format_string_interned(emitter->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
                     register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }

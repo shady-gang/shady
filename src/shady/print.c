@@ -61,7 +61,7 @@ static void print_param_list(PrinterCtx* ctx, Nodes params, const Nodes* default
     for (size_t i = 0; i < params.count; i++) {
         const Node* param = params.nodes[i];
         if (ctx->config.print_ptrs) printf("%zu::", (size_t)(void*) param);
-        print_node(param->payload.var.type);
+        print_node(param->payload.param.type);
         printf(" ");
         print_node(param);
         printf(RESET);
@@ -407,7 +407,8 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.constrained.value);
             break;
         }
-        case Variable_TAG:
+        case Value_Variablez_TAG:
+        case Value_Param_TAG:
             if (ctx->uses) {
                 // if ((*find_value_dict(const Node*, Uses*, ctx->uses->map, node))->escapes_defining_block)
                 //     printf(MANGENTA);
@@ -415,7 +416,7 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
                     printf(YELLOW);
             } else
                 printf(YELLOW);
-            String name = get_value_name(node);
+            String name = get_value_name_unsafe(node);
             if (name && strlen(name) > 0)
                 printf("%s_", name);
             printf("%%%d", node->id);
@@ -521,13 +522,13 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
         }
         case Value_RefDecl_TAG: {
             printf(BYELLOW);
-            printf((char*) get_declaration_name(node->payload.ref_decl.decl));
+            printf("%s", (char*) get_declaration_name(node->payload.ref_decl.decl));
             printf(RESET);
             break;
         }
         case FnAddr_TAG:
             printf(BYELLOW);
-            printf((char*) get_declaration_name(node->payload.fn_addr.fn));
+            printf("%s", (char*) get_declaration_name(node->payload.fn_addr.fn));
             printf(RESET);
             break;
         default:
@@ -668,25 +669,26 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             const Node* tail = get_let_tail(node);
             if (!ctx->config.reparseable) {
                 // if the let tail is a case, we apply some syntactic sugar
-                if (mut || tail->payload.case_.params.count > 0) {
+                Nodes variables = node->payload.let.variables;
+                if (mut || variables.count > 0) {
                     printf(GREEN);
                     if (mut)
                         printf("var");
                     else
                         printf("val");
                     printf(RESET);
-                    Nodes params = tail->payload.case_.params;
                     if (mut) {
-                        params = instruction->payload.let_mut.variables;
+                        variables = instruction->payload.let_mut.variables;
                         instruction = instruction->payload.let_mut.instruction;
                     }
-                    for (size_t i = 0; i < params.count; i++) {
-                        if (mut || !ctx->config.reparseable) {
+                    for (size_t i = 0; i < variables.count; i++) {
+                        // TODO: fix let mut
+                        if (node->arena->config.check_types && (mut || !ctx->config.reparseable)) {
                             printf(" ");
-                            print_node(params.nodes[i]->payload.var.type);
+                            print_node(variables.nodes[i]->type);
                         }
                         printf(" ");
-                        print_node(params.nodes[i]);
+                        print_node(variables.nodes[i]);
                         printf(RESET);
                     }
                     printf(" = ");
@@ -1127,6 +1129,10 @@ void print_node_operand_bool(Printer* p, const Node* n, String name, bool b, Pri
         print(p, "true");
     else
         print(p, "false");
+}
+
+void print_node_operand_unsigned(Printer* p, const Node* n, String name, unsigned u, PrintConfig config) {
+    print(p, " '%s': %u", name, u);
 }
 
 #include "print_generated.c"

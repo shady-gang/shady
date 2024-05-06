@@ -45,13 +45,12 @@ const Node* process(Context* ctx, const Node* old) {
             if (payload.instruction->tag == PrimOp_TAG)
                 side_effects = has_primop_got_side_effects(payload.instruction->payload.prim_op.op);
             bool consumed = false;
-            const Node* tail_case = payload.tail;
-            Nodes tail_params = get_abstraction_params(tail_case);
-            for (size_t i = 0; i < tail_params.count; i++) {
-                const Use* use = get_first_use(ctx->map, tail_params.nodes[i]);
+            Nodes vars = payload.variables;
+            for (size_t i = 0; i < vars.count; i++) {
+                const Use* use = get_first_use(ctx->map, vars.nodes[i]);
                 assert(use);
                 for (;use; use = use->next_use) {
-                    if (use->user == tail_case)
+                    if (use->user == old)
                         continue;
                     consumed = true;
                     break;
@@ -60,18 +59,18 @@ const Node* process(Context* ctx, const Node* old) {
                     break;
             }
             if (!consumed && !side_effects && ctx->rewriter.dst_arena) {
-                debug_print("Cleanup: found an unused instruction: ");
-                log_node(DEBUG, payload.instruction);
-                debug_print("\n");
+                debugvv_print("Cleanup: found an unused instruction: ");
+                log_node(DEBUGVV, payload.instruction);
+                debugvv_print("\n");
                 ctx->todo = true;
-                return rewrite_node(&ctx->rewriter, get_abstraction_body(tail_case));
+                return rewrite_node(&ctx->rewriter, get_abstraction_body(payload.tail));
             }
             break;
         }
         case BasicBlock_TAG: {
             size_t uses = count_calls(ctx->map, old);
             if (uses <= 1) {
-                log_string(DEBUGV, "Eliminating basic block '%s' since it's used only %d times.\n", get_abstraction_name(old), uses);
+                log_string(DEBUGVV, "Eliminating basic block '%s' since it's used only %d times.\n", get_abstraction_name(old), uses);
                 return NULL;
             }
             break;
@@ -90,7 +89,7 @@ const Node* process(Context* ctx, const Node* old) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, old);;
+    return recreate_node_identity(&ctx->rewriter, old);
 }
 
 OptPass simplify;

@@ -265,10 +265,10 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     IrArena* a = ctx->rewriter.dst_arena;
 
     const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
-    const Node* address_param = var(a, qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || uniform_address, .type = emulated_ptr_type }), "ptr");
+    const Node* address_param = param(a, qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || uniform_address, .type = emulated_ptr_type }), "ptr");
 
     const Type* input_value_t = qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || (uniform_address && is_addr_space_uniform(a, as) && false), .type = element_type });
-    const Node* value_param = ser ? var(a, input_value_t, "value") : NULL;
+    const Node* value_param = ser ? param(a, input_value_t, "value") : NULL;
     Nodes params = ser ? mk_nodes(a, address_param, value_param) : singleton(address_param);
 
     const Type* return_value_t = qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || (uniform_address && is_addr_space_uniform(a, as)), .type = element_type });

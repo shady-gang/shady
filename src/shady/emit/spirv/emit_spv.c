@@ -23,7 +23,7 @@ extern SpvBuiltIn spv_builtins[];
 
 void register_result(Emitter* emitter, const Node* node, SpvId id) {
     if (is_value(node)) {
-        String name = get_value_name(node);
+        String name = get_value_name_unsafe(node);
         if (name)
             spvb_name(emitter->file_builder, id, name);
     }
@@ -38,7 +38,8 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
     SpvId new;
     switch (is_value(node)) {
         case NotAValue: error("");
-        case Variable_TAG: error("tried to emit a variable: but all variables should be emitted by enclosing scope or preceding instructions !");
+        case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
+        case Variablez_TAG: error("tried to emit a variable: all variables should be register by their binding let !");
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG:
         case Value_FnAddr_TAG: error("Should be lowered away earlier!");
@@ -191,13 +192,13 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         }
         case Let_TAG: {
             const Node* tail = get_let_tail(terminator);
-            Nodes params = tail->payload.case_.params;
-            LARRAY(SpvId, results, params.count);
-            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, get_let_instruction(terminator), params.count, results);
+            Nodes vars = terminator->payload.let.variables;
+            LARRAY(SpvId, results, vars.count);
+            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, get_let_instruction(terminator), vars.count, results);
             assert(tail->tag == Case_TAG);
 
-            for (size_t i = 0; i < params.count; i++)
-                register_result(emitter, params.nodes[i], results[i]);
+            for (size_t i = 0; i < vars.count; i++)
+                register_result(emitter, vars.nodes[i], results[i]);
             emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, tail->payload.case_.body);
             return;
         }
@@ -290,7 +291,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
 
     Nodes params = node->payload.fun.params;
     for (size_t i = 0; i < params.count; i++) {
-        const Type* param_type = params.nodes[i]->payload.var.type;
+        const Type* param_type = params.nodes[i]->payload.param.type;
         SpvId param_id = spvb_parameter(fn_builder, emit_type(emitter, param_type));
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
         deconstruct_qualified_type(&param_type);
