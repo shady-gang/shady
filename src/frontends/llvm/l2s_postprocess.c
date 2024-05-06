@@ -194,7 +194,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                 log_node(WARN, dst);
                 warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
             } else if (lexical_scope_is_nested(*src_lexical_scope, *dst_lexical_scope)) {
-                debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", get_abstraction_name(src), get_abstraction_name(dst));
+                debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", get_abstraction_name_safe(src), get_abstraction_name_safe(dst));
 
                 CFNode* src_cfnode = cfg_lookup(ctx->cfg, src);
                 assert(src_cfnode->node);
@@ -203,14 +203,14 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                 CFNode* dom = src_cfnode->idom;
                 while (dom) {
                     if (dom->node->tag == BasicBlock_TAG || dom->node->tag == Function_TAG) {
-                        debug_print("Considering %s as a location for control\n", get_abstraction_name(dom->node));
+                        debug_print("Considering %s as a location for control\n", get_abstraction_name_safe(dom->node));
                         Nodes* dom_lexical_scope = find_value_dict(const Node*, Nodes, ctx->p->scopes, dom->node);
                         if (!dom_lexical_scope) {
                             warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", get_abstraction_name(dom->node));
                         } else if (lexical_scope_is_nested(*dst_lexical_scope, *dom_lexical_scope)) {
-                            error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name(dom->node));
+                            error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name_safe(dom->node));
                         } else if (compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
-                            debug_print("We need to introduce a control() block at %s, pointing at %s\n.", get_abstraction_name(dom->node), get_abstraction_name(dst));
+                            debug_print("We need to introduce a control() block at %s, pointing at %s\n.", get_abstraction_name_safe(dom->node), get_abstraction_name_safe(dst));
                             Controls** found = find_value_dict(const Node, Controls*, ctx->controls, dom->node);
                             if (found) {
                                 Controls* controls = *found;
@@ -225,7 +225,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                                     const Type* jp_type = join_point_type(a, (JoinPointType) {
                                         .yield_types = get_param_types(a, get_abstraction_params(dst))
                                     });
-                                    join_token = param(a, qualified_type_helper(jp_type, false), get_abstraction_name(dst));
+                                    join_token = param(a, qualified_type_helper(jp_type, false), get_abstraction_name_unsafe(dst));
                                     controls->tokens = append_nodes(a, controls->tokens, join_token);
                                     controls->destinations = append_nodes(a, controls->destinations, dst);
                                 }
@@ -236,7 +236,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                                     fn = (Node*) fn->payload.basic_block.fn;
                                 assert(fn->tag == Function_TAG);
                                 fn = rewrite_node(r, fn);
-                                Node* wrapper = basic_block(a, fn, nparams, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name(dst)));
+                                Node* wrapper = basic_block(a, fn, nparams, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
                                 wrapper->payload.basic_block.body = join(a, (Join) {
                                     .args = nparams,
                                     .join_point = join_token

@@ -270,8 +270,9 @@ static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFG* 
     SpvId bb_id = get_block_builder_id(bb_builder);
     spvb_add_bb(fn_builder, bb_builder);
 
-    if (is_basic_block(bb_node))
-        spvb_name(emitter->file_builder, bb_id, bb_node->payload.basic_block.name);
+    String name = get_abstraction_name_unsafe(bb_node);
+    if (name)
+        spvb_name(emitter->file_builder, bb_id, name);
 
     MergeTargets merge_targets = {
         .continue_target = 0,

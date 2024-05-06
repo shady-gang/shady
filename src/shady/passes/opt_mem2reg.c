@@ -216,7 +216,7 @@ static const Node* find_or_request_known_ptr_value(Context* ctx, KnowledgeBase* 
         }
         debug_print("mem2reg: It'd sure be nice to know the value of ");
         log_node(DEBUG, optr);
-        debug_print(" at phi-like node %s.\n", get_abstraction_name(phi_kb->cfnode->node));
+        debug_print(" at phi-like node %s.\n", get_abstraction_name_safe(phi_kb->cfnode->node));
         // log_node(DEBUG, phi_location->node);
         insert_set_get_key(const Node*, phi_kb->potential_additional_params, optr);
     }
@@ -456,8 +456,7 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
             // rewrite_node(&ctx->rewriter, old_target);
             Nodes args = rewrite_nodes(&ctx->rewriter, old->payload.jump.args);
 
-            //String s = format_string_interned(a, "%s_", get_abstraction_name(old_target));
-            String s = get_abstraction_name(old_target);
+            String s = get_abstraction_name_unsafe(old_target);
             Node* wrapper = basic_block(a, (Node*) rewrite_node(r, old_target->payload.basic_block.fn), recreate_params(r, get_abstraction_params(old_target)), s);
             TodoJump todo = {
                 .old_jump = old,
@@ -498,7 +497,7 @@ static void handle_bb(Context* ctx, const Node* old) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
 
-    log_string(DEBUGV, "mem2reg: handling bb %s\n", get_abstraction_name(old));
+    log_string(DEBUGV, "mem2reg: handling bb %s\n", get_abstraction_name_safe(old));
 
     KnowledgeBase* kb = create_kb(ctx, old);
     Context fn_ctx = *ctx;
@@ -535,7 +534,7 @@ static void handle_bb(Context* ctx, const Node* old) {
                 log_node(DEBUG, ptr);
                 debug_print(" has a known value (");
                 log_node(DEBUG, kv);
-                debug_print(") in %s ...\n", get_abstraction_name(edge.src->node));
+                debug_print(") in %s ...\n", get_abstraction_name_safe(edge.src->node));
             } else
                 goto next_potential_param;
 
@@ -551,7 +550,7 @@ static void handle_bb(Context* ctx, const Node* old) {
             //deconstruct_qualified_type(&alloca_type_t);
             if (kv_type != source->type && !is_reinterpret_cast_legal(kv_type, alloca_type_t)) {
                 log_node(DEBUG, ptr);
-                debug_print(" has a known value in %s, but it's type ", get_abstraction_name(edge.src->node));
+                debug_print(" has a known value in %s, but it's type ", get_abstraction_name_safe(edge.src->node));
                 log_node(DEBUG, kv_type);
                 debug_print(" cannot be reinterpreted into the alloca type ");
                 log_node(DEBUG, source->type);
@@ -583,9 +582,7 @@ static void handle_bb(Context* ctx, const Node* old) {
     }
 
     Node* fn = (Node*) rewrite_node(&ctx->rewriter, ctx->cfg->entry->node);
-    String s = format_string_interned(a, "%s_", get_abstraction_name(old));
-    //String s = get_abstraction_name(old);
-    Node* new_bb = basic_block(a, fn, params, s);
+    Node* new_bb = basic_block(a, fn, params, get_abstraction_name_unsafe(old));
     register_processed(&ctx->rewriter, old, new_bb);
     new_bb->payload.basic_block.body = finish_body(bb, nbody);
 

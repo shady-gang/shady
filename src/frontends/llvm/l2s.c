@@ -91,8 +91,8 @@ static TodoBB prepare_bb(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
     after_phis:
     {
         String name = LLVMGetBasicBlockName(bb);
-        if (!name || strlen(name) == 0)
-            name = unique_name(a, "bb");
+        if (strlen(name) == 0)
+            name = NULL;
         Node* nbb = basic_block(a, fn_ctx->fn, params, name);
         insert_dict(LLVMValueRef, const Node*, p->map, bb, nbb);
         insert_dict(const Node*, struct List*, fn_ctx->phis, nbb, phis);
