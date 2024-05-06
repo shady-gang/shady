@@ -140,7 +140,8 @@ static void destroy_kb(KnowledgeBase* kb) {
 static KnowledgeBase* get_kb(Context* ctx, const Node* abs) {
     assert(ctx->cfg);
     KnowledgeBase** found = find_value_dict(const Node*, KnowledgeBase*, ctx->abs_to_kb, abs);
-    assert(found);
+    if (!found)
+        return NULL;
     return *found;
 }
 
@@ -165,6 +166,7 @@ static KnowledgeBase* create_kb(Context* ctx, const Node* old) {
         if (edge.type == LetTailEdge || edge.type == JumpEdge) {
             CFNode* dominator = edge.src;
             const KnowledgeBase* parent_kb = get_kb(ctx, dominator->node);
+            assert(parent_kb);
             assert(parent_kb->map);
             kb->dominator_kb = parent_kb;
         }
@@ -524,6 +526,9 @@ static void handle_bb(Context* ctx, const Node* old) {
             if (edge.type == StructuredPseudoExitEdge)
                 continue; // these are not real edges...
             KnowledgeBase* kb_at_src = get_kb(ctx, edge.src->node);
+            if (!kb_at_src) {
+                goto next_potential_param;
+            }
 
             const Node* kv = get_known_value(kb_at_src, get_last_valid_ptr_knowledge(kb_at_src, ptr));
             if (kv) {
