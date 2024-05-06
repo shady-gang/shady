@@ -184,8 +184,14 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             if (!ctx->config->hacks.recover_structure)
                 break;
             Nodes* src_lexical_scope = find_value_dict(const Node*, Nodes, ctx->p->scopes, src);
+            bool src_is_wrapper = find_value_dict(const Node*, const Node*, ctx->p->wrappers_map, src);
+            const Node** found_dst_wrapper = find_value_dict(const Node*, const Node*, ctx->p->wrappers_map, dst);
+            if (found_dst_wrapper)
+                dst = *found_dst_wrapper;
             Nodes* dst_lexical_scope = find_value_dict(const Node*, Nodes, ctx->p->scopes, dst);
-            if (!src_lexical_scope) {
+            if (src_is_wrapper) {
+                // silent
+            } else if (!src_lexical_scope) {
                 warn_print("Failed to find jump source node ");
                 log_node(WARN, src);
                 warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
@@ -206,7 +212,9 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                         debug_print("Considering %s as a location for control\n", get_abstraction_name_safe(dom->node));
                         Nodes* dom_lexical_scope = find_value_dict(const Node*, Nodes, ctx->p->scopes, dom->node);
                         if (!dom_lexical_scope) {
-                            warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", get_abstraction_name(dom->node));
+                            warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", get_abstraction_name_safe(dom->node));
+                            dom = dom->idom;
+                            continue;
                         } else if (lexical_scope_is_nested(*dst_lexical_scope, *dom_lexical_scope)) {
                             error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name_safe(dom->node));
                         } else if (compare_nodes(dom_lexical_scope, dst_lexical_scope)) {

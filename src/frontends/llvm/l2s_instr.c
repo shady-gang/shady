@@ -64,7 +64,8 @@ static const Node* convert_jump_lazy(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_
         .dst = dst,
     };
     append_list(JumpTodo, fn_ctx->jumps_todo, todo);
-    convert_basic_block(p, fn_ctx, dst);
+    const Node* dst2 = convert_basic_block(p, fn_ctx, dst);
+    insert_dict(const Node*, const Node*, p->wrappers_map, wrapper_bb, dst2);
     return jump_helper(a, wrapper_bb, empty(a));
 }
 
@@ -131,6 +132,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 insert_dict(const Node*, Nodes, p->scopes, fn_or_bb, str);
                 debugv_print("Found a debug location for ");
                 log_node(DEBUGV, fn_or_bb);
+                debugv_print(" ");
                 for (size_t i = 0; i < str.count; i++) {
                     log_node(DEBUGV, str.nodes[i]);
                     debugv_print(" -> ");

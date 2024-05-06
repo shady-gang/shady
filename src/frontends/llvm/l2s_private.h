@@ -16,6 +16,7 @@ typedef struct {
     struct Dict* map;
     struct Dict* annotations;
     struct Dict* scopes;
+    struct Dict* wrappers_map;
     Arena* annotations_arena;
     LLVMModuleRef src;
     Module* dst;
