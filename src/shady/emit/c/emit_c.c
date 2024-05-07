@@ -574,7 +574,8 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             if (decl->payload.global_variable.init)
                 init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
             AddressSpace ass = decl->payload.global_variable.address_space;
-            if (ass == AsInput || ass == AsOutput)
+            // Address spaces for which initializers are illegal
+            if (ass == AsInput || ass == AsOutput || ass == AsUniform || ass == AsShaderStorageBufferObject || ass == AsImage)
                 init = NULL;
 
             const GlobalVariable* gvar = &decl->payload.global_variable;
