@@ -116,7 +116,7 @@ static bool has_forward_declarations(CDialect dialect) {
     }
 }
 
-static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init) {
+static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init, const Nodes* annotations) {
     String prefix = NULL;
 
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
@@ -188,10 +188,34 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
             decl_center = format_string_arena(emitter->arena->arena, "varying %s", decl_center);
     }
 
+    String qualifiers = "";
+
+    if (emitter->config.dialect == CDialect_GLSL) {
+        // Binding and location qualifiers are allowed together on opaque uniform constants, but it's not very useful.
+        // For uniform constants, explicit locations require version 430 or ARB_explicit_uniform_location.
+        if (as == AsUniformConstant || as == AsInput || as == AsUInput || as == AsOutput) {
+            const Node* a_location = lookup_annotation_list(*annotations, "Location");
+            if (a_location) {
+                assert(is_annotation(a_location));
+                if (a_location->tag == AnnotationValue_TAG) {
+                    const Node* value = a_location->payload.annotation_value.value;
+                    if (value->tag == IntLiteral_TAG) {
+                        uint64_t location = value->payload.int_literal.value;
+                        qualifiers = format_string_arena(emitter->arena->arena, "layout(location = %" PRIu64 ") ", location);
+                    } else {
+                        warn_print("warning: location must be an integer literal\n");
+                    }
+                } else {
+                    warn_print("warning: location annotations must contain exactly one integer value\n");
+                }
+            }
+        }
+    }
+
     if (init)
-        print(emitter->fn_decls, "\n%s%s = %s;", prefix, emit_type(emitter, type, decl_center), init);
+        print(emitter->fn_decls, "\n%s%s%s = %s;", qualifiers, prefix, emit_type(emitter, type, decl_center), init);
     else
-        print(emitter->fn_decls, "\n%s%s;", prefix, emit_type(emitter, type, decl_center));
+        print(emitter->fn_decls, "\n%s%s%s;", qualifiers, prefix, emit_type(emitter, type, decl_center));
 
     //if (!has_forward_declarations(emitter->config.dialect) || !init)
     //    return;
@@ -254,7 +278,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             if (emitter->config.dialect == CDialect_GLSL)
                 return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
             String name = unique_name(emitter->arena, "undef");
-            emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);
+            emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL, NULL);
             emitted = name;
             break;
         }
@@ -602,8 +626,9 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             }
             register_emitted(emitter, decl, emit_as);
 
+            const Nodes* annotations = &decl->payload.global_variable.annotations;
             AddressSpace as = decl->payload.global_variable.address_space;
-            emit_global_variable_definition(emitter, as, decl_center, decl_type, false, init);
+            emit_global_variable_definition(emitter, as, decl_center, decl_type, false, init, annotations);
             return;
         }
         case Function_TAG: {
@@ -649,7 +674,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
             assert(init_value && "TODO: support some measure of constant expressions");
             String init = to_cvalue(emitter, emit_value(emitter, NULL, init_value));
-            emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init);
+            emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init, NULL);
             return;
         }
         case NominalType_TAG: {
