@@ -27,7 +27,10 @@ static bool is_one(const Node* node) {
     return false;
 }
 
-static const Node* fold_prim_op(IrArena* arena, const Node* node) {
+#define APPLY_FOLD(F) { const Node* applied_fold = F(node); if (applied_fold) return applied_fold; }
+
+static inline const Node* fold_constant_math(const Node* node) {
+    IrArena* arena = node->arena;
     PrimOp payload = node->payload.prim_op;
 
     LARRAY(const FloatLiteral*, float_literals, payload.operands.count);
@@ -117,6 +120,12 @@ break;
         }
     }
 
+    return NULL;
+}
+
+static inline const Node* fold_simplify_math(const Node* node) {
+    IrArena* arena = node->arena;
+    PrimOp payload = node->payload.prim_op;
     switch (payload.op) {
         case add_op: {
             // If either operand is zero, destroy the add
@@ -131,7 +140,7 @@ break;
                 return quote_single(arena, payload.operands.nodes[0]);
             // if first operand is zero, invert the second one
             if (is_zero(payload.operands.nodes[0]))
-                return prim_op(arena, (PrimOp) { .op = neg_op, .operands = singleton(payload.operands.nodes[1]), .type_arguments = empty(arena) });
+                return prim_op(arena, (PrimOp) {.op = neg_op, .operands = singleton(payload.operands.nodes[1]), .type_arguments = empty(arena)});
             break;
         }
         case mul_op: {
@@ -151,6 +160,18 @@ break;
                 return quote_single(arena, payload.operands.nodes[0]);
             break;
         }
+        default: break;
+    }
+
+    return NULL;
+}
+
+static const Node* fold_prim_op(IrArena* arena, const Node* node) {
+    APPLY_FOLD(fold_constant_math)
+    APPLY_FOLD(fold_simplify_math)
+
+    PrimOp payload = node->payload.prim_op;
+    switch (payload.op) {
         case subgroup_broadcast_first_op: {
             const Node* value = first(payload.operands);
             if (is_qualified_type_uniform(value->type))
