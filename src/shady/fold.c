@@ -6,6 +6,8 @@
 #include "portability.h"
 #include "rewrite.h"
 
+#include "shady/transform/ir_gen_helpers.h"
+
 #include <assert.h>
 #include <math.h>
 
@@ -166,12 +168,95 @@ static inline const Node* fold_simplify_math(const Node* node) {
     return NULL;
 }
 
+static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
+    const Node* original_ptr = ptr;
+    IrArena* a = ptr->arena;
+    const Type* t = ptr->type;
+    bool u = deconstruct_qualified_type(&t);
+    assert(t->tag == PtrType_TAG);
+    const Type* desired_pointee_type = t->payload.ptr_type.pointed_type;
+    // const Node* last_known_good = node;
+
+    int distance = 0;
+    bool specialize_generic = false;
+    while (ptr->tag == Variablez_TAG) {
+        const Node* def = get_var_def(ptr->payload.varz);
+        if (def->tag != PrimOp_TAG)
+            break;
+        PrimOp instruction = def->payload.prim_op;
+        switch (instruction.op) {
+            case reinterpret_op: {
+                distance++;
+                ptr = first(instruction.operands);
+                continue;
+            }
+            case convert_op: {
+                // only conversions to generic pointers are acceptable
+                if (first(instruction.type_arguments)->tag != PtrType_TAG)
+                    break;
+                assert(!specialize_generic && "something should not be converted to generic twice!");
+                specialize_generic = true;
+                ptr = first(instruction.operands);
+                continue;
+            }
+            default: break;
+        }
+        break;
+    }
+
+    // if there was more than one of those pointless casts...
+    if (distance > 1 || specialize_generic) {
+        const Type* new_src_ptr_type = ptr->type;
+        deconstruct_qualified_type(&new_src_ptr_type);
+        if (new_src_ptr_type->payload.ptr_type.pointed_type != desired_pointee_type) {
+            PtrType payload = new_src_ptr_type->payload.ptr_type;
+            payload.pointed_type = desired_pointee_type;
+            ptr = gen_reinterpret_cast(bb, ptr_type(a, payload), ptr);
+        }
+        return ptr;
+    }
+    return original_ptr;
+}
+
+static void inline simplify_ptr_operand(IrArena* a, BodyBuilder* bb, PrimOp* payload, bool* success, int i) {
+    const Node* old_op = payload->operands.nodes[i];
+    const Node* new_op = resolve_ptr_source(bb, old_op);
+    if (old_op != new_op) {
+        payload->operands = change_node_at_index(a, payload->operands, i, new_op);
+        *success = true;
+    }
+}
+
+static inline const Node* fold_simplify_ptr_operand(const Node* node) {
+    IrArena* arena = node->arena;
+    PrimOp payload = node->payload.prim_op;
+    BodyBuilder* bb = begin_body(arena);
+    bool rebuild = false;
+    switch (payload.op) {
+        case store_op:
+        case load_op: {
+            simplify_ptr_operand(arena, bb, &payload, &rebuild, 0);
+            break;
+        }
+        default: break;
+    }
+
+    if (rebuild) {
+        return bind_last_instruction_and_wrap_in_block(bb, prim_op(arena, payload));
+    }
+
+    cancel_body(bb);
+    return NULL;
+}
+
 static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     APPLY_FOLD(fold_constant_math)
     APPLY_FOLD(fold_simplify_math)
+    APPLY_FOLD(fold_simplify_ptr_operand)
 
     PrimOp payload = node->payload.prim_op;
     switch (payload.op) {
+        case subgroup_assume_uniform_op:
         case subgroup_broadcast_first_op: {
             const Node* value = first(payload.operands);
             if (is_qualified_type_uniform(value->type))
