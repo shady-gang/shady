@@ -60,26 +60,20 @@ static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode
     }
 }
 
-static void find_unbound_vars(const Node* loop_header, const Node* exiting_node, struct Dict* bound_set, struct Dict* free_set, struct List* leaking) {
-    const Node* free_post;
+static void find_unbound_vars(const Node* exiting_node, struct Dict* bound_set, struct Dict* free_set, struct List* leaking) {
+    const Node* v;
     size_t i = 0;
-    Nodes ignore = get_abstraction_params(loop_header);
-    while (dict_iter(free_set, &i, &free_post, NULL)) {
-        const Node* bound_pre;
-        size_t j = 0;
-        while (dict_iter(bound_set, &j, &bound_pre, NULL)) {
-            if (bound_pre == free_post && !find_in_nodes(ignore, bound_pre)) {
-                goto next;
-            }
-        }
+    while (dict_iter(free_set, &i, &v, NULL)) {
+        if (find_key_dict(const Node*, bound_set, v))
+            continue;
 
         log_string(DEBUGVV, "Found variable used outside it's control scope: ");
-        log_node(DEBUGVV, free_post);
-        log_string(DEBUGVV, " (original:");
+        log_node(DEBUGVV, v);
+        log_string(DEBUGVV, " (exiting_node:");
         log_node(DEBUGVV, exiting_node);
         log_string(DEBUGVV, " )\n");
 
-        append_list(const Node*, leaking, free_post);
+        append_list(const Node*, leaking, v);
 
         next:;
     }
@@ -149,7 +143,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 CFNode* cf_post = cfg_lookup(ctx->fwd_cfg, exiting_node->node);
                 CFNodeVariables* post = *find_value_dict(CFNode*, CFNodeVariables*, ctx->live_vars, cf_post);
                 leaking[i] = new_list(const Type*);
-                find_unbound_vars(node, exiting_node->node, pre->bound_set, post->free_set, leaking[i]);
+                find_unbound_vars(exiting_node->node, pre->bound_by_dominators_set, post->free_set, leaking[i]);
 
                 size_t leaking_count = entries_count_list(leaking[i]);
                 LARRAY(const Node*, exit_fwd_allocas_tmp, leaking_count);
@@ -391,7 +385,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             ctx->fwd_cfg = build_cfg(ctx->current_fn, ctx->current_fn, NULL, false);
             ctx->rev_cfg = build_cfg(ctx->current_fn, ctx->current_fn, NULL, true);
             ctx->current_looptree = build_loop_tree(ctx->fwd_cfg);
-            ctx->live_vars = compute_cfg_variables_map(ctx->fwd_cfg);
+            ctx->live_vars = compute_cfg_variables_map(ctx->fwd_cfg, CfgVariablesAnalysisFlagDomBoundSet | CfgVariablesAnalysisFlagLiveSet | CfgVariablesAnalysisFlagFreeSet);
 
             const Node* new = process_abstraction(ctx, node);;
 

@@ -46,7 +46,7 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
     struct List* cfgs = build_cfgs(mod);
     for (size_t i = 0; i < entries_count_list(cfgs); i++) {
         CFG* cfg = read_list(CFG*, cfgs)[i];
-        struct Dict* map = compute_cfg_variables_map(cfg);
+        struct Dict* map = compute_cfg_variables_map(cfg, CfgVariablesAnalysisFlagFreeSet);
         CFNodeVariables* entry_vars = *find_value_dict(CFNode*, CFNodeVariables*, map, cfg->entry);
         size_t j = 0;
         const Node* leaking;

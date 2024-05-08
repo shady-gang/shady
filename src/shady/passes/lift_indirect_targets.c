@@ -93,7 +93,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, Nodes ovariable
     // Compute the live stuff we'll need
     CFG* cfg_rooted_in_liftee = build_cfg(ctx->cfg->entry->node, liftee, NULL, false);
     CFNode* cf_node = cfg_lookup(cfg_rooted_in_liftee, liftee);
-    struct Dict* live_vars = compute_cfg_variables_map(cfg_rooted_in_liftee);
+    struct Dict* live_vars = compute_cfg_variables_map(cfg_rooted_in_liftee, CfgVariablesAnalysisFlagFreeSet);
     CFNodeVariables* node_vars = *find_value_dict(CFNode*, CFNodeVariables*, live_vars, cf_node);
     struct List* recover_context = new_list(const Node*);
 

@@ -75,3 +75,27 @@ fn exitingloop_values varying i32(varying i32 n) {
         return (k);
     }
 }
+
+@Restructure
+fn exitingloop_values_from_loop varying i32(varying i32 n) {
+    var i32 r = n + 0;
+    var i32 k = 0;
+
+    jump entry();
+
+    cont entry() {
+        val r1 = r + 1;
+        val loop_cond = (r > 0);
+        branch(loop_cond, loop_body(), loop_exit());
+
+        cont loop_exit() {
+            return (r1);
+        }
+    }
+
+    cont loop_body() {
+        k = k + r;
+        r = r - 1;
+        jump entry();
+    }
+}
