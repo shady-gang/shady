@@ -118,12 +118,10 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
     return got;
 }
 
-static const Node* desugar_let_mut(Context* ctx, const Node* node) {
+static const Node* desugar_let_mut(Context* ctx, BodyBuilder* bb, const Node* node) {
     assert(node->tag == LetMut_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.let_mut.instruction);
-
-    BodyBuilder* bb = begin_body(a);
 
     Nodes old_params = node->payload.let_mut.variables;
     Nodes initial_values = bind_instruction_outputs_count(bb, ninstruction, old_params.count, NULL);
@@ -150,7 +148,7 @@ static const Node* desugar_let_mut(Context* ctx, const Node* node) {
     }
 
     Nodes e = empty(a);
-    return yield_values_and_wrap_in_block_explicit_return_types(bb, empty(a), &e);
+    return prim_op_helper(a, quote_op, empty(a), empty(a));
 }
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {
@@ -278,12 +276,19 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             return new_bb;
         }
         case Let_TAG: {
-            const Node* ninstr = rewrite_node(r, get_let_instruction(node));
+            const Node* oinstruction = get_let_instruction(node);
+            const Node* ninstr;
+            BodyBuilder* bb = begin_body(a);
+            if (oinstruction->tag == LetMut_TAG) {
+                ninstr = desugar_let_mut(ctx, bb, oinstruction);
+            } else {
+                ninstr = rewrite_node(r, oinstruction);
+            }
             Nodes ovars = node->payload.let.variables;
             Nodes nvars = recreate_vars(a, ovars, ninstr);
             for (size_t i = 0; i < nvars.count; i++)
                 add_binding(ctx, false, nvars.nodes[i]->payload.varz.name, nvars.nodes[i]);
-            return let(a, ninstr, nvars, rewrite_node(r, get_let_tail(node)));
+            return finish_body(bb, let(a, ninstr, nvars, rewrite_node(r, get_let_tail(node))));
         }
         case Case_TAG: {
             Nodes old_params = node->payload.case_.params;
@@ -294,7 +299,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             const Node* new_body = rewrite_node(&ctx->rewriter, node->payload.case_.body);
             return case_(a, new_params, new_body);
         }
-        case LetMut_TAG: return desugar_let_mut(ctx, node);
+        case LetMut_TAG: assert(false);
         case Return_TAG: {
             assert(ctx->current_function);
             return fn_ret(a, (Return) {
