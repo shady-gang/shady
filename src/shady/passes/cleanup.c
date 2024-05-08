@@ -5,11 +5,12 @@
 
 #include "../rewrite.h"
 #include "../analysis/uses.h"
+#include "../ir_private.h"
 
 typedef struct {
     Rewriter rewriter;
     const UsesMap* map;
-    bool todo;
+    bool* todo;
 } Context;
 
 static size_t count_calls(const UsesMap* map, const Node* bb) {
@@ -28,7 +29,53 @@ static size_t count_calls(const UsesMap* map, const Node* bb) {
     return count;
 }
 
+void bind_variables2(BodyBuilder* bb, Nodes vars, const Node* instr);
+
+// eliminates blocks by "lifting" their contents out and replacing yield with the tail of the outer let
+// In other words, we turn these patterns:
+//
+// let block {
+//   let I in case(x) =>
+//   let J in case(y) =>
+//   let K in case(z) =>
+//      ...
+//   yield (x, y, z) }
+// in case(a, b, c) => R
+//
+// into these:
+//
+// let I in case(x) =>
+// let J in case(y) =>
+// let K in case(z) =>
+// ...
+// R[a->x, b->y, c->z]
+Nodes flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* bb) {
+    assert(instruction->tag == Block_TAG);
+    // follow the terminator of the block until we hit a yield()
+    const Node* const lam = instruction->payload.block.inside;
+    assert(is_case(lam));
+    const Node* terminator = get_abstraction_body(lam);
+    while (true) {
+        switch (is_terminator(terminator)) {
+            case NotATerminator: assert(false);
+            case Terminator_Let_TAG: {
+                bind_variables2(bb, terminator->payload.let.variables, terminator->payload.let.instruction);
+                terminator = get_abstraction_body(terminator->payload.let.tail);
+                continue;
+            }
+            case Terminator_Yield_TAG: {
+                return terminator->payload.yield.args;
+            }
+                // if we see anything else, give up
+            default: {
+                assert(false && "invalid block");
+            }
+        }
+    }
+}
+
 const Node* process(Context* ctx, const Node* old) {
+    IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
     if (old->tag == Function_TAG || old->tag == Constant_TAG) {
         Context c = *ctx;
@@ -62,10 +109,29 @@ const Node* process(Context* ctx, const Node* old) {
                 debugvv_print("Cleanup: found an unused instruction: ");
                 log_node(DEBUGVV, payload.instruction);
                 debugvv_print("\n");
-                ctx->todo = true;
+                *ctx->todo = true;
                 return rewrite_node(&ctx->rewriter, get_abstraction_body(payload.tail));
             }
-            break;
+
+            BodyBuilder* bb = begin_body(a);
+            const Node* instruction = rewrite_node(r, old->payload.let.instruction);
+            // optimization: fold blocks
+            if (instruction->tag == Block_TAG) {
+                *ctx->todo = true;
+                instruction = quote_helper(a, flatten_block(a, instruction, bb));
+            }
+            Nodes ovars = old->payload.let.variables;
+            // optimization: eliminate unecessary quotes by rewriting variables into their values directly
+            if (instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
+                *ctx->todo = true;
+                register_processed_list(r, ovars, instruction->payload.prim_op.operands);
+                return finish_body(bb, get_abstraction_body(rewrite_node(r, old->payload.let.tail)));
+            }
+            // rewrite variables now
+            Nodes nvars = recreate_vars(a, ovars, instruction);
+            register_processed_list(r, ovars, nvars);
+            const Node* nlet = let(a, instruction, nvars, rewrite_node(r, old->payload.let.tail));
+            return finish_body(bb, nlet);
         }
         case BasicBlock_TAG: {
             size_t uses = count_calls(ctx->map, old);
@@ -99,11 +165,12 @@ bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
 
     IrArena* a = get_module_arena(src);
     *m = new_module(a, get_module_name(*m));
-    Context ctx = { .todo = false };
+    bool todo = false;
+    Context ctx = { .todo = &todo };
     ctx.rewriter = create_rewriter(src, *m, (RewriteNodeFn) process),
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    return ctx.todo;
+    return todo;
 }
 
 Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* const src) {
