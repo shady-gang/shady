@@ -84,45 +84,48 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
+            if (!node->payload.fun.body)
+                return fun;
+
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
-            ctx2.prepared_offsets = new_dict(const Node*, StackSlot, (HashFn) hash_node, (CmpFn) compare_node);
+            if (ctx2.disable_lowering) {
+                fun->payload.fun.body = rewrite_node(&ctx2.rewriter, node->payload.fun.body);
+                return fun;
+            }
 
             BodyBuilder* bb = begin_body(a);
-            if (!ctx2.disable_lowering) {
-                ctx2.entry_stack_offset = NULL;
-                ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
+            ctx2.prepared_offsets = new_dict(const Node*, StackSlot, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
+            String tmp_name = "stack_ptr_before_alloca";
+            ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_size_op } ), (String []) { tmp_name }));
 
-                Node* nom_t = nominal_type(m, empty(a), format_string_arena(a->arena, "%s_stack_frame", get_abstraction_name(node)));
-                VContext vctx = {
-                    .visitor = {
-                        .visit_node_fn = (VisitNodeFn) search_operand_for_alloca,
-                    },
-                    .context = &ctx2,
-                    .bb = bb,
-                    .nom_t = nom_t,
-                    .num_slots = 0,
-                    .members = new_list(const Node*),
-                    .prepared_offsets = ctx2.prepared_offsets,
-                };
-                if (node->payload.fun.body) {
-                    search_operand_for_alloca(&vctx, node->payload.fun.body);
-                    visit_function_rpo(&vctx.visitor, node);
-                }
-                vctx.nom_t->payload.nom_type.body = record_type(a, (RecordType) {
-                    .members = nodes(a, vctx.num_slots, read_list(const Node*, vctx.members)),
-                    .names = strings(a, 0, NULL),
-                    .special = 0
-                });
-                destroy_list(vctx.members);
-                ctx2.num_slots = vctx.num_slots;
-                ctx2.frame_size = gen_primop_e(bb, size_of_op, singleton(type_decl_ref_helper(a, vctx.nom_t)), empty(a));
-                ctx2.frame_size = convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
-            }
-            if (node->payload.fun.body)
-                fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
-            else
-                cancel_body(bb);
+            Node* nom_t = nominal_type(m, empty(a), format_string_arena(a->arena, "%s_stack_frame", get_abstraction_name(node)));
+            VContext vctx = {
+                .visitor = {
+                    .visit_node_fn = (VisitNodeFn) search_operand_for_alloca,
+                },
+                .context = &ctx2,
+                .bb = bb,
+                .nom_t = nom_t,
+                .num_slots = 0,
+                .members = new_list(const Node*),
+                .prepared_offsets = ctx2.prepared_offsets,
+            };
+            search_operand_for_alloca(&vctx, node->payload.fun.body);
+            visit_function_rpo(&vctx.visitor, node);
+
+            vctx.nom_t->payload.nom_type.body = record_type(a, (RecordType) {
+                .members = nodes(a, vctx.num_slots, read_list(const Node*, vctx.members)),
+                .names = strings(a, 0, NULL),
+                .special = 0
+            });
+            destroy_list(vctx.members);
+            ctx2.num_slots = vctx.num_slots;
+            ctx2.frame_size = gen_primop_e(bb, size_of_op, singleton(type_decl_ref_helper(a, vctx.nom_t)), empty(a));
+            ctx2.frame_size = convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
+
+            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
 
             destroy_dict(ctx2.prepared_offsets);
             return fun;
@@ -141,8 +144,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 BodyBuilder* bb = begin_body(a);
                 if (!ctx->entry_stack_offset) {
                     //String tmp_name = format_string_arena(a->arena, "stack_ptr_before_alloca_%s", get_abstraction_name(fun));
-                    String tmp_name = "stack_ptr_before_alloca";
-                    ctx->entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_size_op } ), (String []) { tmp_name }));
+                    assert(false);
                 }
 
                 //const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands)), found_slot->offset));
