@@ -198,6 +198,8 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
                     prefix = "const ";
                     break;
                 }
+                case AsUniform:
+                case AsShaderStorageBufferObject: prefix = ""; break;
                 default: {
                     prefix = format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
                     warn_print("warning: address space %s not supported in GLSL for global variables\n", get_address_space_name(as));
@@ -222,21 +224,34 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
     print(emitter->fn_decls, "\n");
 
     if (qualifiers.count > 0) {
-    if (emitter->config.dialect == CDialect_GLSL) {
+        if (emitter->config.dialect == CDialect_GLSL) {
             print(emitter->fn_decls, "layout(");
 
             for (size_t i = 0; i < qualifiers.count; i++) {
               print(emitter->fn_decls, "%s%s", qualifiers.strings[i], (i == qualifiers.count - 1) ? "" : ", ");
-                    }
+            }
           
             print(emitter->fn_decls, ") ");
-                }
-            }
+        }
+    }
+
+    // Emit first part of block (uniform or storage buffer)
+    bool is_glsl_block = emitter->config.dialect == CDialect_GLSL && (as == AsShaderStorageBufferObject || as == AsUniform);
+    if (is_glsl_block) {
+        String interface_qualifier = as == AsUniform ? "uniform" : "buffer";
+        String block_name = as == AsUniform ? "ubo" : "ssbo";
+        print(emitter->fn_decls, "%s %s_%s {\n    ", interface_qualifier, unique_name(emitter->arena, ""), block_name);
+    }
 
     if (init)
         print(emitter->fn_decls, "%s%s = %s;", prefix, emit_type(emitter, type, decl_center), init);
     else
         print(emitter->fn_decls, "%s%s;", prefix, emit_type(emitter, type, decl_center));
+
+    // Emit second half of block
+    if (is_glsl_block) {
+        print(emitter->fn_decls, "\n};");
+    }
 
     //if (!has_forward_declarations(emitter->config.dialect) || !init)
     //    return;
@@ -659,6 +674,11 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 }
 
                 if (glsl_as_can_have_binding(ass)) {
+                    if (ass == AsShaderStorageBufferObject)
+                        growy_append_bytes(g, sizeof(String), (const char*)&(String){"std430"});
+                    if (ass == AsUniform)
+                        growy_append_bytes(g, sizeof(String), (const char*)&(String){"std140"});
+
                     String binding_qualifier = glsl_try_make_single_int_qualifier(emitter, decl, annotations, "DescriptorBinding", "binding");
                     if (binding_qualifier)
                         growy_append_bytes(g, sizeof(String), (const char*)&binding_qualifier);
