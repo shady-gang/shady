@@ -70,6 +70,36 @@ String legalize_c_identifier(Emitter* e, String src) {
     return string(e->arena, dst);
 }
 
+// For uniform constants, explicit locations require version 430 or ARB_explicit_uniform_location.
+static bool glsl_as_can_have_location(AddressSpace as) {
+    return as == AsUniformConstant || as == AsInput || as == AsUInput || as == AsOutput;
+}
+
+// Samplers and images (uniform constants)
+// Version 420 required.
+static bool glsl_as_can_have_binding(AddressSpace as) {
+    return as == AsUniformConstant || as == AsShaderStorageBufferObject || as == AsUniform;
+}
+
+static String glsl_try_make_single_int_qualifier(Emitter* emitter, const Node* decl, Nodes annotations, String annotation_name, String glsl_qualifier_name) {
+    const Node* a_node = lookup_annotation_list(annotations, annotation_name);
+    if (a_node) {
+        assert(is_annotation(a_node));
+        if (a_node->tag == AnnotationValue_TAG) {
+            const Node* value = a_node->payload.annotation_value.value;
+            if (value->tag == IntLiteral_TAG) {
+                uint64_t location = value->payload.int_literal.value;
+                return format_string_arena(emitter->arena->arena, "%s = %" PRIu64, glsl_qualifier_name, location);
+            }
+            warn_print("warning: %s must be an integer literal\n", annotation_name);
+        } else {
+            warn_print("warning: %s annotations must contain exactly one integer value\n", annotation_name);
+        }
+    }
+
+    return NULL;
+}
+
 #include <ctype.h>
 
 static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* block_printer, Printer* p, Growy* g, const Node* t, Nodes c) {
@@ -116,7 +146,7 @@ static bool has_forward_declarations(CDialect dialect) {
     }
 }
 
-static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init, const Nodes* annotations) {
+static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init, Strings qualifiers) {
     String prefix = NULL;
 
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
@@ -188,34 +218,25 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
             decl_center = format_string_arena(emitter->arena->arena, "varying %s", decl_center);
     }
 
-    String qualifiers = "";
 
+    print(emitter->fn_decls, "\n");
+
+    if (qualifiers.count > 0) {
     if (emitter->config.dialect == CDialect_GLSL) {
-        // Binding and location qualifiers are allowed together on opaque uniform constants, but it's not very useful.
-        // For uniform constants, explicit locations require version 430 or ARB_explicit_uniform_location.
-        if (as == AsUniformConstant || as == AsInput || as == AsUInput || as == AsOutput) {
-            const Node* a_location = lookup_annotation_list(*annotations, "Location");
-            if (a_location) {
-                assert(is_annotation(a_location));
-                if (a_location->tag == AnnotationValue_TAG) {
-                    const Node* value = a_location->payload.annotation_value.value;
-                    if (value->tag == IntLiteral_TAG) {
-                        uint64_t location = value->payload.int_literal.value;
-                        qualifiers = format_string_arena(emitter->arena->arena, "layout(location = %" PRIu64 ") ", location);
-                    } else {
-                        warn_print("warning: location must be an integer literal\n");
+            print(emitter->fn_decls, "layout(");
+
+            for (size_t i = 0; i < qualifiers.count; i++) {
+              print(emitter->fn_decls, "%s%s", qualifiers.strings[i], (i == qualifiers.count - 1) ? "" : ", ");
                     }
-                } else {
-                    warn_print("warning: location annotations must contain exactly one integer value\n");
+          
+            print(emitter->fn_decls, ") ");
                 }
             }
-        }
-    }
 
     if (init)
-        print(emitter->fn_decls, "\n%s%s%s = %s;", qualifiers, prefix, emit_type(emitter, type, decl_center), init);
+        print(emitter->fn_decls, "%s%s = %s;", prefix, emit_type(emitter, type, decl_center), init);
     else
-        print(emitter->fn_decls, "\n%s%s%s;", qualifiers, prefix, emit_type(emitter, type, decl_center));
+        print(emitter->fn_decls, "%s%s;", prefix, emit_type(emitter, type, decl_center));
 
     //if (!has_forward_declarations(emitter->config.dialect) || !init)
     //    return;
@@ -278,7 +299,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             if (emitter->config.dialect == CDialect_GLSL)
                 return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
             String name = unique_name(emitter->arena, "undef");
-            emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL, NULL);
+            emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL, (Strings){.count = 0});
             emitted = name;
             break;
         }
@@ -626,9 +647,27 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             }
             register_emitted(emitter, decl, emit_as);
 
-            const Nodes* annotations = &decl->payload.global_variable.annotations;
-            AddressSpace as = decl->payload.global_variable.address_space;
-            emit_global_variable_definition(emitter, as, decl_center, decl_type, false, init, annotations);
+            // Generate list of qualifiers
+            Growy* g = new_growy();
+            Nodes annotations = decl->payload.global_variable.annotations;
+
+            if (emitter->config.dialect == CDialect_GLSL) {
+                if (glsl_as_can_have_location(ass)) {
+                    String location_qualifier = glsl_try_make_single_int_qualifier(emitter, decl, annotations, "Location", "location");
+                    if (location_qualifier)
+                        growy_append_bytes(g, sizeof(String), (const char*)&location_qualifier);
+                }
+
+                if (glsl_as_can_have_binding(ass)) {
+                    String binding_qualifier = glsl_try_make_single_int_qualifier(emitter, decl, annotations, "DescriptorBinding", "binding");
+                    if (binding_qualifier)
+                        growy_append_bytes(g, sizeof(String), (const char*)&binding_qualifier);
+                }
+            }
+
+            Strings qualifier_strings = strings(emitter->arena, growy_size(g) / sizeof(String), (const char**)growy_data(g));
+            emit_global_variable_definition(emitter, ass, decl_center, decl_type, false, init, qualifier_strings);
+            destroy_growy(g);
             return;
         }
         case Function_TAG: {
@@ -674,7 +713,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
             assert(init_value && "TODO: support some measure of constant expressions");
             String init = to_cvalue(emitter, emit_value(emitter, NULL, init_value));
-            emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init, NULL);
+            emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init, (Strings) { .count = 0 });
             return;
         }
         case NominalType_TAG: {
