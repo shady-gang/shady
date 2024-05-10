@@ -158,6 +158,10 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                 }
                 break;
             }
+            case AnnotationValue_TAG: {
+                node = node->payload.annotation_value.value;
+                break;
+            }
             default: break;
         }
         break;

@@ -85,16 +85,14 @@ static String glsl_try_make_single_int_qualifier(Emitter* emitter, const Node* d
     const Node* a_node = lookup_annotation_list(annotations, annotation_name);
     if (a_node) {
         assert(is_annotation(a_node));
-        if (a_node->tag == AnnotationValue_TAG) {
-            const Node* value = a_node->payload.annotation_value.value;
-            if (value->tag == IntLiteral_TAG) {
-                uint64_t location = value->payload.int_literal.value;
-                return format_string_arena(emitter->arena->arena, "%s = %" PRIu64, glsl_qualifier_name, location);
-            }
-            warn_print("warning: %s must be an integer literal\n", annotation_name);
-        } else {
-            warn_print("warning: %s annotations must contain exactly one integer value\n", annotation_name);
+        const IntLiteral* int_literal = resolve_to_int_literal(a_node);
+        
+        if (int_literal) {
+            int64_t location = get_int_literal_value(*int_literal, false);
+            return format_string_arena(emitter->arena->arena, "%s = %" PRIi64, glsl_qualifier_name, location);
         }
+
+        warn_print("warning: %s must be an integer literal\n", annotation_name);
     }
 
     return NULL;
