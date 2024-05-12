@@ -98,6 +98,17 @@ static String glsl_try_make_single_int_qualifier(Emitter* emitter, const Node* d
     return NULL;
 }
 
+// HACK: replace __ (double underscore) in source with _0 (underscore followed by 0), as the former is reserved in GLSL
+static void glsl_legalize_source(char* source, size_t length) {
+    bool prev_is_underscore = false;
+    for (size_t i = 0; i < length; i++) {
+        bool is_underscore = source[i] == '_';
+        if (is_underscore && prev_is_underscore)
+            source[i] = '0';
+        prev_is_underscore = is_underscore;
+    }
+}
+
 #include <ctype.h>
 
 static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* block_printer, Printer* p, Growy* g, const Node* t, Nodes c) {
@@ -920,6 +931,8 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
 
     *output_size = growy_size(final) - 1;
     *output = growy_deconstruct(final);
+    if (emitter.config.dialect == CDialect_GLSL)
+        glsl_legalize_source(*output, *output_size);
     destroy_printer(finalp);
 
     if (new_mod)
