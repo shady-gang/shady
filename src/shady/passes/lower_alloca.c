@@ -46,9 +46,11 @@ typedef struct {
 } StackSlot;
 
 static void search_operand_for_alloca(VContext* vctx, const Node* node) {
+    if (node->tag == Variablez_TAG)
+        return;
+
     IrArena* a = vctx->context->rewriter.dst_arena;
     AddressSpace as;
-
     if (node->tag == PrimOp_TAG) {
         switch (node->payload.prim_op.op) {
             case alloca_op: as = AsPrivate; break;
