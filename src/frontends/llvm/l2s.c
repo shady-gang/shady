@@ -36,6 +36,14 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
+#ifdef LLVM_VERSION_MAJOR
+int vcc_get_linked_major_llvm_version() {
+    return LLVM_VERSION_MAJOR;
+}
+#else
+#error "wat"
+#endif
+
 static const Node* write_bb_tail(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
     BodyBuilder* b = begin_body(fn_or_bb->arena);
     LLVMValueRef instr;

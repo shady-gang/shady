@@ -47,6 +47,8 @@ static void cli_parse_vcc_args(VccOptions* options, int* pargc, char** argv) {
 
 uint32_t hash_murmur(const void* data, size_t size);
 
+int vcc_get_linked_major_llvm_version();
+
 int main(int argc, char** argv) {
     platform_specific_terminal_init_extras();
 
@@ -71,14 +73,15 @@ int main(int argc, char** argv) {
     ArenaConfig aconfig = default_arena_config(&args.config.target);
     IrArena* arena = new_ir_arena(aconfig);
 
-    int clang_retval = system("clang --version");
+    String clangname = format_string_interned(arena, "clang-%d", vcc_get_linked_major_llvm_version());
+    int clang_retval = system(format_string_interned(arena, "%s --version", clangname));
     if (clang_retval != 0)
-    error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
+    error("%s not present in path or otherwise broken (retval=%d)", clangname, clang_retval);
 
     size_t num_source_files = entries_count_list(args.input_filenames);
 
     Growy* g = new_growy();
-    growy_append_string(g, "clang");
+    growy_append_string(g, clangname);
     char* self_path = get_executable_location();
     char* working_dir = strip_path(self_path);
     if (!vcc_options.include_path) {
