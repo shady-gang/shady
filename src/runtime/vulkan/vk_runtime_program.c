@@ -396,6 +396,12 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
         free((void*) file_name);
     }
 
+    String override_file = getenv("SHADY_OVERRIDE_SPV");
+    if (override_file) {
+        read_file(override_file, &spec->spirv_size, &spec->spirv_bytes);
+        return true;
+    }
+
     return true;
 }
 
