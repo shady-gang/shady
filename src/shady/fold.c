@@ -179,6 +179,7 @@ static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
 
     int distance = 0;
     bool specialize_generic = false;
+    AddressSpace src_as = t->payload.ptr_type.address_space;
     while (ptr->tag == Variablez_TAG) {
         const Node* def = get_var_def(ptr->payload.varz);
         if (def->tag != PrimOp_TAG)
@@ -197,6 +198,7 @@ static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
                 assert(!specialize_generic && "something should not be converted to generic twice!");
                 specialize_generic = true;
                 ptr = first(instruction.operands);
+                src_as = get_unqualified_type(ptr->type)->payload.ptr_type.address_space;
                 continue;
             }
             default: break;
@@ -208,9 +210,9 @@ static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
     if (distance > 1 || specialize_generic) {
         const Type* new_src_ptr_type = ptr->type;
         deconstruct_qualified_type(&new_src_ptr_type);
-        if (new_src_ptr_type->payload.ptr_type.pointed_type != desired_pointee_type) {
-            PtrType payload = new_src_ptr_type->payload.ptr_type;
-            payload.pointed_type = desired_pointee_type;
+        if (new_src_ptr_type->tag != PtrType_TAG || new_src_ptr_type->payload.ptr_type.pointed_type != desired_pointee_type) {
+            PtrType payload = t->payload.ptr_type;
+            payload.address_space = src_as;
             ptr = gen_reinterpret_cast(bb, ptr_type(a, payload), ptr);
         }
         return ptr;
