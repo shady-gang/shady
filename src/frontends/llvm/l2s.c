@@ -72,7 +72,7 @@ static TodoBB prepare_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
     IrArena* a = get_module_arena(p->dst);
     debug_print("l2s: converting BB %s %d\n", LLVMGetBasicBlockName(bb), bb);
     if (get_log_level() <= DEBUG)
-        LLVMDumpValue(bb);
+        LLVMDumpValue((LLVMValueRef)bb);
 
     struct List* phis = new_list(LLVMValueRef);
     Nodes params = empty(a);

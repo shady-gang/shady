@@ -19,9 +19,12 @@ target_link_libraries(slim PRIVATE driver)
 install(TARGETS slim EXPORT shady_export_set)
 
 if (TARGET shady_fe_llvm)
+    add_library(vcc_lib SHARED vcc_lib.c)
+    target_link_libraries(vcc_lib PUBLIC driver api)
+
     add_executable(vcc vcc.c)
-    target_link_libraries(vcc PRIVATE driver api)
-    install(TARGETS vcc EXPORT shady_export_set)
+    target_link_libraries(vcc PRIVATE api vcc_lib)
+    install(TARGETS vcc_lib vcc EXPORT shady_export_set)
 
     if (WIN32)
         add_custom_command(TARGET vcc POST_BUILD
