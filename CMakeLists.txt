@@ -87,6 +87,8 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
 cmake_policy(SET CMP0118 NEW)
 add_subdirectory(src)
 
+add_subdirectory(zhady)
+
 include(CTest)
 if (BUILD_TESTING)
   add_subdirectory(test)
