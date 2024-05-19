@@ -1,3 +1,4 @@
+%include "common.i"
 %include <stdint.i>
 //%apply int { _Bool };
 
