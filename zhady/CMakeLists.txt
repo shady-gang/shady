@@ -16,5 +16,7 @@ if (SWIG_FOUND AND JNI_FOUND AND Java_FOUND)
     include(UseJava)
     get_property(zhady_jar_sources TARGET zhady_shared_lib PROPERTY SWIG_SUPPORT_FILES)
     set(CMAKE_JAVA_COMPILE_FLAGS ${CMAKE_CURRENT_BINARY_DIR}/java_sources/de/unisaarland/zhady/*.java)
-    add_jar(zhady_jar SOURCES ${zhady_jar_sources} )
+    add_jar(zhady_jar SOURCES ${zhady_jar_sources})
+
+    install(TARGETS zhady_shared_lib EXPORT shady_export_set)
 endif ()
