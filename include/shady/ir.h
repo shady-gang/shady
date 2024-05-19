@@ -64,6 +64,13 @@ const Node* get_declaration(const Module*, String);
 
 //////////////////////////////// IR Arena ////////////////////////////////
 
+typedef enum {
+    /// Uses the MaskType
+    SubgroupMaskAbstract,
+    /// Uses a 64-bit integer
+    SubgroupMaskInt64
+} SubgroupMaskRepresentation;
+
 typedef struct {
     bool name_bound;
     bool check_op_classes;
@@ -78,12 +85,7 @@ typedef struct {
 
     struct {
         /// Selects which type the subgroup intrinsic primops use to manipulate masks
-        enum {
-            /// Uses the MaskType
-            SubgroupMaskAbstract,
-            /// Uses a 64-bit integer
-            SubgroupMaskInt64
-        } subgroup_mask_representation;
+        SubgroupMaskRepresentation subgroup_mask_representation;
 
         uint32_t workgroup_size[3];
     } specializations;
@@ -347,7 +349,5 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig emitter_config, Modul
 
 void dump_cfg(FILE* file, Module*);
 void dump_loop_trees(FILE* output, Module* mod);
-
-void free_output(char* output);
 
 #endif
