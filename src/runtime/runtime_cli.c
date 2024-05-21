@@ -8,6 +8,8 @@ RuntimeConfig default_runtime_config() {
 #ifndef NDEBUG
         .dump_spv = true,
         .use_validation = true,
+#else
+        0
 #endif
     };
 }
