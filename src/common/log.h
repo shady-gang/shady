@@ -54,6 +54,7 @@ void log_module(LogLevel level, const CompilerConfig*, Module*);
   error_die();                                              \
 }
 
-void error_die() __attribute__ ((noreturn));
+#include <stdnoreturn.h>
+noreturn void error_die();
 
 #endif
