@@ -54,7 +54,7 @@ Module* lower_nullptr(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
     rewrite_module(&ctx.rewriter);

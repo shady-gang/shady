@@ -242,7 +242,7 @@ bool compare_node(const Node**, const Node**);
 
 void opt_simplify_cf(const CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .graph = NULL,
         .fun = NULL,

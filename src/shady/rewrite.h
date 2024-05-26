@@ -44,7 +44,9 @@ struct Rewriter_ {
     struct Dict* decls_map;
 };
 
-Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
+Rewriter create_rewriter_base(Module* src, Module* dst);
+Rewriter create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
+Rewriter create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn);
 Rewriter create_importer(Module* src, Module* dst);
 Module* rebuild_module(Module*);
 Rewriter create_substituter(Module* arena);

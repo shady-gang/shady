@@ -262,7 +262,7 @@ Module* lower_cf_instrs(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .structured_join_tokens = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
     };
     ctx.rewriter.config.fold_quote = false;

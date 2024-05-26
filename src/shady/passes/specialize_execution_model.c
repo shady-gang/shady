@@ -55,7 +55,7 @@ Module* specialize_execution_model(const CompilerConfig* config, Module* src) {
     assert(subgroup_size);
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
 

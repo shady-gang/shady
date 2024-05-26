@@ -551,7 +551,7 @@ Module* reconvergence_heuristics(const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
         .current_fn = NULL,
         .fwd_cfg = NULL,

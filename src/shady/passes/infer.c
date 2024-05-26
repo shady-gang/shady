@@ -785,7 +785,7 @@ Module* infer_program(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };
     ctx.rewriter.config.search_map = false;
     ctx.rewriter.config.write_map = false;

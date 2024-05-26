@@ -711,7 +711,7 @@ Module* opt_mem2reg(const CompilerConfig* config, Module* src) {
         dst = new_module(a, get_module_name(src));
 
         Context ctx = {
-            .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+            .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
             .bb_new_args = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
             .a = new_arena(),
 

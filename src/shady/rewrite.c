@@ -12,13 +12,12 @@
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
+Rewriter create_rewriter_base(Module* src, Module* dst) {
     return (Rewriter) {
         .src_arena = src->arena,
         .dst_arena = dst->arena,
         .src_module = src,
         .dst_module = dst,
-        .rewrite_fn = fn,
         .config = {
             .search_map = true,
             //.write_map = true,
@@ -26,8 +25,21 @@ Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
             .fold_quote = true,
         },
         .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
-        .decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
+}
+
+Rewriter create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
+    Rewriter r = create_rewriter_base(src, dst);
+    r.rewrite_fn = fn;
+    r.decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    return r;
+}
+
+Rewriter create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn) {
+    Rewriter r = create_rewriter_base(src, dst);
+    r.rewrite_op_fn = fn;
+    r.decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    return r;
 }
 
 void destroy_rewriter(Rewriter* r) {
@@ -38,7 +50,7 @@ void destroy_rewriter(Rewriter* r) {
 }
 
 Rewriter create_importer(Module* src, Module* dst) {
-    return create_rewriter(src, dst, recreate_node_identity);
+    return create_node_rewriter(src, dst, recreate_node_identity);
 }
 
 Module* rebuild_module(Module* src) {

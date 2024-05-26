@@ -75,7 +75,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
     return nodes(a, old.count, nvars);
 }
 
-static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, const Node* node) {
+static const Node* process_node(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
@@ -289,7 +289,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
         default: break;
     }
 
-    if (op_class == NcTerminator && node->tag != Let_TAG) {
+    if (is_terminator(node) && node->tag != Let_TAG) {
         Controls** found = find_value_dict(const Node, Controls*, ctx->controls, ctx->old_fn_or_bb);
         assert(found);
         Controls* controls = *found;
@@ -299,20 +299,15 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
     return recreate_node_identity(&ctx->rewriter, node);
 }
 
-static const Node* process_node(Context* ctx, const Node* old) {
-    return process_op(ctx, 0, NULL, old);
-}
-
 void postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = p->config,
         .p = p,
         .controls = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
-    ctx.rewriter.rewrite_op_fn = (RewriteOpFn) process_op;
     ctx.rewriter.config.process_params = true;
     ctx.rewriter.config.search_map = true;
     // ctx.rewriter.config.write_map = false;

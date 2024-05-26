@@ -145,13 +145,12 @@ Module* normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) NULL),
+        .rewriter = create_op_rewriter(src, dst, (RewriteOpFn) process_op),
         .bb = NULL,
     };
 
     ctx.rewriter.config.search_map = false;
     ctx.rewriter.config.write_map = false;
-    ctx.rewriter.rewrite_op_fn = (RewriteOpFn) process_op;
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);

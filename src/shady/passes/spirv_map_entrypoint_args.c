@@ -67,7 +67,7 @@ Module* spirv_map_entrypoint_args(SHADY_UNUSED const CompilerConfig* config, Mod
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config
     };
     ctx.rewriter.config.rebind_let = true;

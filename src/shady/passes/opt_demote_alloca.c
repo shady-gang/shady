@@ -283,7 +283,7 @@ bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     IrArena* a = get_module_arena(src);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .arena = new_arena(),
         .alloca_info = new_dict(const Node*, AllocaInfo*, (HashFn) hash_node, (CmpFn) compare_node),

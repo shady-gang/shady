@@ -338,7 +338,7 @@ Module* bind_program(SHADY_UNUSED const CompilerConfig* compiler_config, Module*
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) bind_node),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) bind_node),
         .local_variables = NULL,
         .current_function = NULL,
     };

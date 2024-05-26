@@ -78,10 +78,9 @@ Module* lower_subgroup_vars(const CompilerConfig* config, Module* src) {
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, NULL),
+        .rewriter = create_op_rewriter(src, dst, (RewriteOpFn) process),
         .config = config
     };
-    ctx.rewriter.rewrite_op_fn = (RewriteOpFn) process;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     return dst;

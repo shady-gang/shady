@@ -167,7 +167,7 @@ bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     *m = new_module(a, get_module_name(*m));
     bool todo = false;
     Context ctx = { .todo = &todo };
-    ctx.rewriter = create_rewriter(src, *m, (RewriteNodeFn) process),
+    ctx.rewriter = create_node_rewriter(src, *m, (RewriteNodeFn) process),
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     return todo;

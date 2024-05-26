@@ -241,7 +241,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
         dst = new_module(a, get_module_name(src));
         bool todo = false;
         Context ctx = {
-            .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
+            .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
             .lifted = new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
             .config = config,
 
@@ -274,6 +274,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
     dst = new_module(a2, get_module_name(src));
     Rewriter r = create_importer(src, dst);
     rewrite_module(&r);
+    destroy_rewriter(&r);
     destroy_ir_arena(a);
     return dst;
 }

@@ -170,7 +170,7 @@ Module* mark_leaf_functions(SHADY_UNUSED const CompilerConfig* config, Module* s
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .fns = new_dict(const Node*, FnInfo, (HashFn) hash_node, (CmpFn) compare_node),
         .graph = new_callgraph(src)
     };
