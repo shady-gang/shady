@@ -32,7 +32,7 @@ static uint32_t find_suitable_memory_type(VkrDevice* device, uint32_t memory_typ
             }
         }
     }
-    assert(false && "Unable to find a suitable memory type");
+    error("Unable to find a suitable memory type")
 }
 
 static Buffer make_base_buffer(VkrDevice*);

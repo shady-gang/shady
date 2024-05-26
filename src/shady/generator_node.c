@@ -11,7 +11,8 @@ static void generate_node_names_string_array(Growy* g, json_object* nodes) {
         String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
         void* alloc = NULL;
         if (!snake_name) {
-            alloc = snake_name = to_snake_case(name);
+            snake_name = to_snake_case(name);
+            alloc = (void*) snake_name;
         }
         assert(name);
         growy_append_formatted(g, "\t\"%s\",\n", snake_name);
@@ -43,7 +44,8 @@ static void generate_node_payload_hash_fn(Growy* g, json_object* src, json_objec
         String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
         void* alloc = NULL;
         if (!snake_name) {
-            alloc = snake_name = to_snake_case(name);
+            snake_name = to_snake_case(name);
+            alloc = (void*) snake_name;
         }
         json_object* ops = json_object_object_get(node, "ops");
         if (ops) {
@@ -81,7 +83,8 @@ static void generate_node_payload_cmp_fn(Growy* g, json_object* src, json_object
         String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
         void* alloc = NULL;
         if (!snake_name) {
-            alloc = snake_name = to_snake_case(name);
+            snake_name = to_snake_case(name);
+            alloc = (void*) snake_name;
         }
         json_object* ops = json_object_object_get(node, "ops");
         if (ops) {
@@ -203,6 +206,6 @@ void generate(Growy* g, json_object* src) {
         json_object* generate_enum = json_object_object_get(node_class, "generate-enum");
         String capitalized = capitalize(name);
         generate_isa_for_class(g, nodes, name, capitalized, !generate_enum || json_object_get_boolean(generate_enum));
-        free(capitalized);
+        free((void*) capitalized);
     }
 }

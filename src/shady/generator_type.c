@@ -13,7 +13,8 @@ void generate(Growy* g, json_object* src) {
         String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
         void* alloc = NULL;
         if (!snake_name) {
-            alloc = snake_name = to_snake_case(name);
+            snake_name = to_snake_case(name);
+            alloc = (void*) snake_name;
         }
 
         json_object* t = json_object_object_get(node, "type");

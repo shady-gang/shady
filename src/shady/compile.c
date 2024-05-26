@@ -20,7 +20,7 @@ void add_scheduler_source(const CompilerConfig* config, Module* dst) {
     destroy_ir_arena(get_module_arena(builtin_scheduler_mod));
 }
 
-void run_pass_impl(CompilerConfig* config, Module** pmod, IrArena* initial_arena, RewritePass pass, String pass_name) {
+void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial_arena, RewritePass pass, String pass_name) {
     Module* old_mod = NULL;
     old_mod = *pmod;
     *pmod = pass(config, *pmod);

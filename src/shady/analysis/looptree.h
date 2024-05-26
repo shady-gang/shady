@@ -41,7 +41,6 @@ struct LoopTree_ {
  */
 LTNode* looptree_lookup(LoopTree*, const Node* block);
 
-static void destroy_lt_node(LTNode* n);
 void destroy_loop_tree(LoopTree* lt);
 
 LoopTree* build_loop_tree(CFG* s);

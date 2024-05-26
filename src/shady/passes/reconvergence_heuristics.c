@@ -74,8 +74,6 @@ static void find_unbound_vars(const Node* exiting_node, struct Dict* bound_set, 
         log_string(DEBUGVV, " )\n");
 
         append_list(const Node*, leaking, v);
-
-        next:;
     }
 }
 

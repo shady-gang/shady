@@ -77,7 +77,7 @@ Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc);
 
 void postprocess(Parser*, Module* src, Module* dst);
 
-static String is_llvm_intrinsic(LLVMValueRef fn) {
+inline static String is_llvm_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);
     if (string_starts_with(name, "llvm."))
@@ -85,7 +85,7 @@ static String is_llvm_intrinsic(LLVMValueRef fn) {
     return NULL;
 }
 
-static String is_shady_intrinsic(LLVMValueRef fn) {
+inline static String is_shady_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);
     if (string_starts_with(name, "shady::"))

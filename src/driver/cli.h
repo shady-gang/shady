@@ -12,4 +12,4 @@ if (strcmp(argv[i], "--no-"#name) == 0) { \
 
 void cli_pack_remaining_args(int* pargc, char** argv);
 
-#endif CLI_H
+#endif

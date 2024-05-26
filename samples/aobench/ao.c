@@ -220,7 +220,7 @@ EXTERNAL_FN void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamp
             Scalar px = (x + (u / (Scalar)nsubsamples) - (w / 2.0f)) / (w / 2.0f);
             Scalar py = -(y + (v / (Scalar)nsubsamples) - (h / 2.0f)) / (h / 2.0f);
 
-            Ray ray = {};
+            Ray ray = { 0 };
 
             ray.org.x = 0.0f;
             ray.org.y = 0.0f;
@@ -231,7 +231,7 @@ EXTERNAL_FN void render_pixel(Ctx* ctx, int x, int y, int w, int h, int nsubsamp
             ray.dir.z = -1.0f;
             vnormalize(&(ray.dir));
 
-            Isect isect = {};
+            Isect isect = { 0 };
             isect.t   = 1.0e+17f;
             isect.hit = 0;
 

@@ -65,7 +65,7 @@ static const Node* write_bb_tail(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
             insert_dict(LLVMValueRef, const Node*, p->map, instr, result);
         }
     }
-    assert(false);
+    SHADY_UNREACHABLE;
 }
 
 typedef struct {
@@ -116,10 +116,8 @@ static TodoBB prepare_bb(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
 }
 
 const Node* convert_basic_block(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
-    IrArena* a = get_module_arena(p->dst);
     const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, bb);
     if (found) return *found;
-    // assert(false);
 
     TodoBB todo = prepare_bb(p, fn_ctx, bb);
     todo.nbb->payload.basic_block.body = write_bb_tail(p, fn_ctx, todo.nbb, todo.bb, todo.instr);

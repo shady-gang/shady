@@ -510,7 +510,7 @@ void destroy_specialized_program(VkrSpecProgram* spec) {
         vkDestroyDescriptorSetLayout(spec->device->device, spec->set_layouts[set], NULL);
     vkDestroyPipelineLayout(spec->device->device, spec->layout, NULL);
     vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
-    free(spec->parameters.arg_offset);
+    free( (void*) spec->parameters.arg_offset);
     free(spec->spirv_bytes);
     if (get_module_arena(spec->specialized_module) != get_module_arena(spec->key.base->module))
         destroy_ir_arena(get_module_arena(spec->specialized_module));

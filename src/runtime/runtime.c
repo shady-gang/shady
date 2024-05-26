@@ -85,10 +85,10 @@ bool can_import_host_memory(Device* device) { return device->can_import_host_mem
 Buffer* allocate_buffer_device(Device* device, size_t bytes) { return device->allocate_buffer(device, bytes); }
 Buffer* import_buffer_host(Device* device, void* ptr, size_t bytes) { return device->import_host_memory_as_buffer(device, ptr, bytes); }
 
-void destroy_buffer(Buffer* buf) { buf->destroy(buf); };
+void destroy_buffer(Buffer* buf) { buf->destroy(buf); }
 
 void* get_buffer_host_pointer(Buffer* buf) { return buf->get_host_ptr(buf); }
-uint64_t get_buffer_device_pointer(Buffer* buf) { return buf->get_device_ptr(buf); };
+uint64_t get_buffer_device_pointer(Buffer* buf) { return buf->get_device_ptr(buf); }
 
 bool copy_to_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size) {
     return dst->copy_into(dst, buffer_offset, src, size);

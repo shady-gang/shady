@@ -30,7 +30,8 @@ static void generate_rewriter_default_fns(Growy* g, json_object* nodes) {
         String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
         void* alloc = NULL;
         if (!snake_name) {
-            alloc = snake_name = to_snake_case(name);
+            snake_name = to_snake_case(name);
+            alloc = (void*) snake_name;
         }
         growy_append_formatted(g, "\t\tcase %s_TAG: {\n", name);
         json_object* ops = json_object_object_get(node, "ops");
@@ -64,7 +65,7 @@ static void generate_rewriter_default_fns(Growy* g, json_object* nodes) {
                     growy_append_formatted(g, "\t\t\tpayload.%s = rewrite_ops_helper(rewriter, Nc%s, \"%s\", old_payload.%s);\n", op_name, class_cap, op_name, op_name);
                 else
                     growy_append_formatted(g, "\t\t\tpayload.%s = rewrite_op_helper(rewriter, Nc%s, \"%s\", old_payload.%s);\n", op_name, class_cap, op_name, op_name);
-                free(class_cap);
+                free((void*) class_cap);
             }
             growy_append_formatted(g, "\t\t\treturn %s(rewriter->dst_arena, payload);\n", snake_name);
         } else

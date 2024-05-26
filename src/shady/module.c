@@ -36,11 +36,11 @@ void register_decl_module(Module* m, Node* node) {
     append_list(Node*, m->decls, node);
 }
 
-const Node* get_declaration(const Module* m, String name) {
+Node* get_declaration(const Module* m, String name) {
     Nodes existing_decls = get_module_declarations(m);
     for (size_t i = 0; i < existing_decls.count; i++) {
         if (strcmp(get_declaration_name(existing_decls.nodes[i]), name) == 0)
-            return existing_decls.nodes[i];
+            return (Node*) existing_decls.nodes[i];
     }
     return NULL;
 }

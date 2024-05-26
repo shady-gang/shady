@@ -32,6 +32,7 @@ size_t apply_escape_codes(const char* src, size_t size, char* dst) {
     } \
 
         ESCAPE_SEQS(ESCAPE_CASE)
+#undef ESCAPE_CASE
 
         dst[j++] = c;
     }
@@ -51,6 +52,7 @@ size_t unapply_escape_codes(const char* src, size_t size, char* dst) {
     } \
 
         ESCAPE_SEQS(ESCAPE_CASE)
+#undef ESCAPE_CASE
 
         dst[j++] = c;
     }

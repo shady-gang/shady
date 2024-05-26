@@ -211,7 +211,7 @@ struct ProgramResourceInfo_ {
     size_t size;
     VkrBuffer* buffer;
 
-    char* default_data;
+    unsigned char* default_data;
 };
 
 typedef struct {

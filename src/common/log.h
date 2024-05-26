@@ -52,9 +52,8 @@ void log_module(LogLevel level, const CompilerConfig*, Module*);
   fprintf (stderr, __VA_ARGS__);                            \
   fprintf (stderr, "\n");                                   \
   error_die();                                              \
-  SHADY_UNREACHABLE;                                        \
 }
 
-void error_die();
+void error_die() __attribute__ ((noreturn));
 
 #endif

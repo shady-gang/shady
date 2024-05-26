@@ -86,6 +86,8 @@ static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
 
 static void specialize_arena_config(const CompilerConfig* config, Module* src, ArenaConfig* target) {
     const Node* old_entry_point_decl = find_entry_point(src, config);
+    if (!old_entry_point_decl)
+        error("Entry point not found")
     if (old_entry_point_decl->tag != Function_TAG)
         error("%s is not a function", config->specialization.entry_point);
     const Node* ep = lookup_annotation(old_entry_point_decl, "EntryPoint");
@@ -100,7 +102,7 @@ static void specialize_arena_config(const CompilerConfig* config, Module* src, A
             target->specializations.workgroup_size[0] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[0]), false);
             target->specializations.workgroup_size[1] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[1]), false);
             target->specializations.workgroup_size[2] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[2]), false);
-            assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2]);
+            assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2] > 0);
             break;
         }
         default: break;

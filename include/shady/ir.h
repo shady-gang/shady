@@ -55,7 +55,7 @@ Module* new_module(IrArena*, String name);
 IrArena* get_module_arena(const Module*);
 String get_module_name(const Module*);
 Nodes get_module_declarations(const Module*);
-const Node* get_declaration(const Module*, String);
+Node* get_declaration(const Module*, String);
 
 //////////////////////////////// Grammar ////////////////////////////////
 
