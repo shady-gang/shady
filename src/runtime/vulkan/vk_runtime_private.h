@@ -172,6 +172,7 @@ typedef struct VkrBuffer_ {
 VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size);
 VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size);
 bool vkr_can_import_host_memory(VkrDevice* device);
+void vkr_destroy_buffer(VkrBuffer* buffer);
 
 typedef struct VkrCommand_ VkrCommand;
 

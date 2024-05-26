@@ -120,7 +120,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
             for (size_t j = 0; j < struct_t->payload.record_type.members.count; j++) {
                 const Type* member_t = struct_t->payload.record_type.members.nodes[j];
                 assert(member_t->tag == PtrType_TAG);
-                member_t = get_pointee_type(program->arena, member_t);
+                member_t = get_pointee_type(member_t->arena, member_t);
                 TypeMemLayout layout = get_mem_layout(program->specialized_module->arena, member_t);
 
                 ProgramResourceInfo* constant_res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
@@ -434,7 +434,7 @@ static void flush_staged_data(VkrSpecProgram* program) {
     for (size_t i = 0; i < program->resources.num_resources; i++) {
         ProgramResourceInfo* resource = program->resources.resources[i];
         if (resource->staging) {
-            copy_to_buffer(resource->buffer, 0, resource->buffer, resource->size);
+            copy_to_buffer((Buffer*) resource->buffer, 0, resource->buffer, resource->size);
             free(resource->staging);
         }
     }
@@ -447,16 +447,16 @@ static bool prepare_resources(VkrSpecProgram* program) {
         if (resource->host_backed_allocation) {
             assert(vkr_can_import_host_memory(program->device));
             resource->host_ptr = alloc_aligned(resource->size, program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment);
-            resource->buffer = import_buffer_host(program->device, resource->host_ptr, resource->size);
+            resource->buffer = vkr_import_buffer_host(program->device, resource->host_ptr, resource->size);
         } else {
-            resource->buffer = allocate_buffer_device(program->device, resource->size);
+            resource->buffer = vkr_allocate_buffer_device(program->device, resource->size);
         }
 
         if (resource->default_data) {
-            copy_to_buffer(resource->buffer, 0, resource->default_data, resource->size);
+            copy_to_buffer((Buffer*) resource->buffer, 0, resource->default_data, resource->size);
         } else {
             char* zeroes = calloc(1, resource->size);
-            copy_to_buffer(resource->buffer, 0, zeroes, resource->size);
+            copy_to_buffer((Buffer*) resource->buffer, 0, zeroes, resource->size);
             free(zeroes);
         }
 
@@ -466,7 +466,7 @@ static bool prepare_resources(VkrSpecProgram* program) {
                 dst = resource->parent->staging;
             }
             assert(dst);
-            *((uint64_t*) (dst + resource->offset)) = get_buffer_device_pointer(resource->buffer);
+            *((uint64_t*) (dst + resource->offset)) = get_buffer_device_pointer((Buffer*) resource->buffer);
         }
     }
 
@@ -517,7 +517,7 @@ void destroy_specialized_program(VkrSpecProgram* spec) {
     for (size_t i = 0; i < spec->resources.num_resources; i++) {
         ProgramResourceInfo* resource = spec->resources.resources[i];
         if (resource->buffer)
-            destroy_buffer(resource->buffer);
+            vkr_destroy_buffer(resource->buffer);
         if (resource->host_ptr && resource->host_backed_allocation)
             free_aligned(resource->host_ptr);
     }
