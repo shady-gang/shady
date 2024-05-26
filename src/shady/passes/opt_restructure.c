@@ -37,9 +37,29 @@ struct DFSStackEntry_ {
     bool in_loop;
 };
 
+typedef void (*TmpAllocCleanupFn)(void*);
+typedef struct {
+    TmpAllocCleanupFn fn;
+    void* payload;
+} TmpAllocCleanupClosure;
+
+static TmpAllocCleanupClosure create_delete_dict_closure(struct Dict* d) {
+    return (TmpAllocCleanupClosure) {
+        .fn = (TmpAllocCleanupFn) destroy_dict,
+        .payload = d,
+    };
+}
+
+static TmpAllocCleanupClosure create_cancel_body_closure(BodyBuilder* bb) {
+    return (TmpAllocCleanupClosure) {
+        .fn = (TmpAllocCleanupFn) cancel_body,
+        .payload = bb,
+    };
+}
+
 typedef struct {
     Rewriter rewriter;
-    struct List* tmp_alloc_stack;
+    struct List* cleanup_stack;
 
     jmp_buf bail;
 
@@ -64,7 +84,7 @@ static DFSStackEntry* encountered_before(Context* ctx, const Node* bb, size_t* p
 
 static const Node* structure(Context* ctx, const Node* abs, const Node* exit_ladder);
 
-static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node* caller, const Node* j, const Node* exit_ladder) {
+static const Node* handle_bb_callsite(Context* ctx, const Node* caller, const Node* j, const Node* exit_ladder) {
     assert(j->tag == Jump_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* dst = j->payload.jump.target;
@@ -87,9 +107,9 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
             entry2 = entry2->parent;
         }
         prior_encounter->loop_header = true;
-        return finish_body(bb, merge_continue(a, (MergeContinue) {
+        return merge_continue(a, (MergeContinue) {
             .args = rewrite_nodes(&ctx->rewriter, oargs)
-        }));
+        });
     } else {
         Nodes oparams = get_abstraction_params(dst);
         assert(oparams.count == oargs.count);
@@ -99,9 +119,13 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         // Record each step of the depth-first search on a stack so we can identify loops
         DFSStackEntry dfs_entry = { .parent = ctx->dfs_stack, .old = dst, .containing_control = ctx->control_stack };
         ctx2.dfs_stack = &dfs_entry;
-        
+
+        BodyBuilder* bb = begin_body(a);
+        TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
+        append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
         struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);
-        append_list(struct Dict*, ctx->tmp_alloc_stack, tmp_processed);
+        TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
+        append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
         ctx2.rewriter.map = tmp_processed;
         for (size_t i = 0; i < oargs.count; i++) {
             nparams[i] = param(a, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
@@ -119,7 +143,8 @@ static const Node* handle_bb_callsite(Context* ctx, BodyBuilder* bb, const Node*
         assert(is_terminator(structured));
         // forget we rewrote all that
         destroy_dict(tmp_processed);
-        pop_list_impl(ctx->tmp_alloc_stack);
+        pop_list_impl(ctx->cleanup_stack);
+        pop_list_impl(ctx->cleanup_stack);
 
         if (dfs_entry.loop_header) {
             const Node* body = case_(a, nodes(a, oargs.count, nparams), structured);
@@ -261,8 +286,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
             return rebuild_let(ctx, body, recreate_node_identity(&ctx->rewriter, old_instr), exit_ladder);
         }
         case Jump_TAG: {
-            BodyBuilder* bb = begin_body(a);
-            return handle_bb_callsite(ctx, bb, abs, body, exit_ladder);
+            return handle_bb_callsite(ctx, abs, body, exit_ladder);
         }
         // br(cond, true_bb, false_bb, args)
         // becomes
@@ -270,12 +294,10 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         case Branch_TAG: {
             const Node* condition = rewrite_node(&ctx->rewriter, body->payload.branch.branch_condition);
 
-            BodyBuilder* if_true_bb = begin_body(a);
-            const Node* true_body = handle_bb_callsite(ctx, if_true_bb, abs, body->payload.branch.true_jump, yield(a, (Yield) { .args = empty(a) }));
+            const Node* true_body = handle_bb_callsite(ctx, abs, body->payload.branch.true_jump, yield(a, (Yield) { .args = empty(a) }));
             const Node* if_true_lam = case_(a, empty(a), true_body);
 
-            BodyBuilder* if_false_bb = begin_body(a);
-            const Node* false_body = handle_bb_callsite(ctx, if_false_bb, abs, body->payload.branch.false_jump, yield(a, (Yield) { .args = empty(a) }));
+            const Node* false_body = handle_bb_callsite(ctx, abs, body->payload.branch.false_jump, yield(a, (Yield) { .args = empty(a) }));
             const Node* if_false_lam = case_(a, empty(a), false_body);
 
             const Node* instr = if_instr(a, (If) {
@@ -290,14 +312,12 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         case Switch_TAG: {
             const Node* switch_value = rewrite_node(&ctx->rewriter, body->payload.br_switch.switch_value);
 
-            BodyBuilder* default_bb = begin_body(a);
-            const Node* default_body = handle_bb_callsite(ctx, default_bb, abs, body->payload.br_switch.default_jump, yield(a, (Yield) { .args = empty(a) }));
+            const Node* default_body = handle_bb_callsite(ctx, abs, body->payload.br_switch.default_jump, yield(a, (Yield) { .args = empty(a) }));
             const Node* default_case = case_(a, empty(a), default_body);
 
             LARRAY(const Node*, cases, body->payload.br_switch.case_jumps.count);
             for (size_t i = 0; i < body->payload.br_switch.case_jumps.count; i++) {
-                BodyBuilder* bb = begin_body(a);
-                cases[i] = case_(a, empty(a), handle_bb_callsite(ctx, bb, abs, body->payload.br_switch.case_jumps.nodes[i], yield(a, (Yield) {.args = empty(a)})));
+                cases[i] = case_(a, empty(a), handle_bb_callsite(ctx, abs, body->payload.br_switch.case_jumps.nodes[i], yield(a, (Yield) {.args = empty(a)})));
             }
 
             const Node* instr = match_instr(a, (Match) {
@@ -357,7 +377,7 @@ static const Node* process(Context* ctx, const Node* node) {
     if (node->tag == Function_TAG) {
         Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
 
-        size_t alloc_stack_size_now = entries_count_list(ctx->tmp_alloc_stack);
+        size_t alloc_stack_size_now = entries_count_list(ctx->cleanup_stack);
 
         Context ctx2 = *ctx;
         ctx2.dfs_stack = NULL;
@@ -374,24 +394,31 @@ static const Node* process(Context* ctx, const Node* node) {
         } else {
             ctx2.lower = true;
             BodyBuilder* bb = begin_body(a);
+            TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
+            append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
             const Node* ptr = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(int32_type(a)) }), (String []) {"cf_depth" }));
             bind_instruction(bb, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, ptr, int32_literal(a, 0)) }));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
             struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);
-            append_list(struct Dict*, ctx->tmp_alloc_stack, tmp_processed);
+            TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
+            append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
             ctx2.rewriter.map = tmp_processed;
             new->payload.fun.body = finish_body(bb, structure(&ctx2, node, unreachable(a)));
             is_leaf = true;
+            // We made it! Pop off the pending cleanup stuff and do it ourselves.
+            pop_list_impl(ctx->cleanup_stack);
+            pop_list_impl(ctx->cleanup_stack);
+            destroy_dict(tmp_processed);
         }
 
         //if (is_leaf)
         //    new->payload.fun.annotations = append_nodes(arena, new->payload.fun.annotations, annotation(arena, (Annotation) { .name = "Leaf" }));
 
         // if we did a longjmp, we might have orphaned a few of those
-        while (alloc_stack_size_now < entries_count_list(ctx->tmp_alloc_stack)) {
-            struct Dict* orphan = pop_last_list(struct Dict*, ctx->tmp_alloc_stack);
-            destroy_dict(orphan);
+        while (alloc_stack_size_now < entries_count_list(ctx->cleanup_stack)) {
+            TmpAllocCleanupClosure cj = pop_last_list(TmpAllocCleanupClosure, ctx->cleanup_stack);
+            cj.fn(cj.payload);
         }
 
         new->payload.fun.annotations = filter_out_annotation(a, new->payload.fun.annotations, "MaybeLeaf");
@@ -417,10 +444,10 @@ Module* opt_restructurize(SHADY_UNUSED const CompilerConfig* config, Module* src
 
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .tmp_alloc_stack = new_list(struct Dict*),
+        .cleanup_stack = new_list(TmpAllocCleanupClosure),
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    destroy_list(ctx.tmp_alloc_stack);
+    destroy_list(ctx.cleanup_stack);
     return dst;
 }
