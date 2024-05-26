@@ -75,7 +75,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
     return nodes(a, old.count, nvars);
 }
 
-static const Node* process_node(Context* ctx, const Node* node) {
+static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
@@ -289,7 +289,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
         default: break;
     }
 
-    if (is_terminator(node) && node->tag != Let_TAG) {
+    // This is required so we don't wrap jumps that are part of branches!
+    if (op_class == NcTerminator && node->tag != Let_TAG) {
         Controls** found = find_value_dict(const Node, Controls*, ctx->controls, ctx->old_fn_or_bb);
         assert(found);
         Controls* controls = *found;
@@ -298,6 +299,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     return recreate_node_identity(&ctx->rewriter, node);
 }
+
+static const Node* process_node(Context* ctx, const Node* old) {
+    return process_op(ctx, 0, NULL, old);
+}
+
 
 void postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
@@ -310,6 +316,7 @@ void postprocess(Parser* p, Module* src, Module* dst) {
 
     ctx.rewriter.config.process_params = true;
     ctx.rewriter.config.search_map = true;
+    ctx.rewriter.rewrite_op_fn = (RewriteOpFn) process_op;
     // ctx.rewriter.config.write_map = false;
 
     rewrite_module(&ctx.rewriter);
