@@ -41,16 +41,19 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
     cli_pack_remaining_args(pargc, argv);
 }
 
-void vcc_check_clang() {
+void vcc_check_clang(void) {
     int clang_retval = system("clang --version");
     if (clang_retval != 0)
         error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
 }
 
-VccConfig vcc_init_config() {
+VccConfig vcc_init_config(CompilerConfig* compiler_config) {
     VccConfig vcc_config = {
         .only_run_clang = false,
     };
+
+    // magic!
+    compiler_config->hacks.recover_structure = true;
 
     String self_path = get_executable_location();
     String working_dir = strip_path(self_path);

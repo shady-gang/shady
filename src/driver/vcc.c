@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
     platform_specific_terminal_init_extras();
 
     DriverConfig args = default_driver_config();
-    VccConfig vcc_options = vcc_init_config();
+    VccConfig vcc_options = vcc_init_config(&args.config);
     cli_parse_driver_arguments(&args, &argc, argv);
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&args.config, &argc, argv);
