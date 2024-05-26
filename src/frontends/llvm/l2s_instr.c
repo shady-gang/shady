@@ -173,13 +173,13 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
         }
         case LLVMSwitch: {
             const Node* inspectee = convert_value(p, LLVMGetOperand(instr, 0));
-            const Node* default_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, LLVMGetOperand(instr, 1));
+            const Node* default_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, 1));
             int n_targets = LLVMGetNumOperands(instr) / 2 - 1;
             LARRAY(const Node*, targets, n_targets);
             LARRAY(const Node*, literals, n_targets);
             for (size_t i = 0; i < n_targets; i++) {
                 literals[i] = convert_value(p, LLVMGetOperand(instr, i * 2 + 2));
-                targets[i] = convert_jump_lazy(p, fn_ctx, fn_or_bb, LLVMGetOperand(instr, i * 2 + 3));
+                targets[i] = convert_jump_lazy(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, i * 2 + 3));
             }
             return (EmittedInstr) {
                 .terminator = br_switch(a, (Switch) {
