@@ -1,6 +1,6 @@
 add_library(slim_parser STATIC parser.c token.c)
 target_link_libraries(slim_parser PUBLIC common api)
-if (shady STREQUAL STATIC_LIBRARY)
+if (shady STREQUAL STATIC_LIBRARY OR MINGW)
     target_link_libraries(slim_parser PRIVATE shady)
 endif ()
 target_include_directories(slim_parser PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
