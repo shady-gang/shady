@@ -28,6 +28,23 @@ void platform_specific_terminal_init_extras() {
 #endif
 }
 
+#include <stdint.h>
+#if defined(__MINGW64__) | defined(__MINGW32__)
+#include <pthread.h>
+uint64_t get_time_nano() {
+    struct timespec t;
+    clock_gettime(CLOCK_REALTIME, &t);
+    return t.tv_sec * 1000000000 + t.tv_nsec;
+}
+#else
+#include <time.h>
+uint64_t get_time_nano() {
+    struct timespec t;
+    timespec_get(&t, TIME_UTC);
+    return t.tv_sec * 1000000000 + t.tv_nsec;
+}
+#endif
+
 #ifdef WIN32
 #include <windows.h>
 #elif __APPLE__
