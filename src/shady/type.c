@@ -26,6 +26,8 @@ bool is_subtype(const Type* supertype, const Type* type) {
     assert(supertype && type);
     if (supertype->tag != type->tag)
         return false;
+    if (type == supertype)
+        return true;
     switch (is_type(supertype)) {
         case NotAType: error("supplied not a type to is_subtype");
         case QualifiedType_TAG: {
@@ -41,7 +43,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
                 if (!is_subtype(supermembers->nodes[i], members->nodes[i]))
                     return false;
             }
-            return true;
+            return supertype->payload.record_type.special == type->payload.record_type.special;
         }
         case JoinPointType_TAG: {
             const Nodes* superparams = &supertype->payload.join_point_type.yield_types;
@@ -134,15 +136,10 @@ bool is_subtype(const Type* supertype, const Type* type) {
         }
         case Type_SampledImageType_TAG:
             return is_subtype(supertype->payload.sampled_image_type.image_type, type->payload.sampled_image_type.image_type);
-        case SamplerType_TAG:
-        case NoRet_TAG:
-        case Bool_TAG:
-        case MaskType_TAG:
-            return true;
-        case Float_TAG:
-            return supertype->payload.float_type.width == type->payload.float_type.width;
+        default: break;
     }
-    SHADY_UNREACHABLE;
+    // Two types are always equal (and therefore subtypes of each other) if their payload matches
+    return memcmp(&supertype->payload, &type->payload, sizeof(type->payload)) == 0;
 }
 
 void check_subtype(const Type* supertype, const Type* type) {
