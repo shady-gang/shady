@@ -200,17 +200,7 @@ String name_type_safe(IrArena* arena, const Type* t) {
         case Type_Float_TAG:
             return format_string_arena(arena->arena, "f%s", ((String[]) {"16", "32", "64" })[t->payload.float_type.width]);
         case Type_Bool_TAG: return "bool";
-        case Type_RecordType_TAG:
-        case Type_FnType_TAG:
-        case Type_BBType_TAG:
-        case Type_LamType_TAG:
-        case Type_PtrType_TAG:
-        case Type_QualifiedType_TAG:
-        case Type_ArrType_TAG:
-        case Type_PackType_TAG:
-        case Type_ImageType_TAG:
-        case Type_SamplerType_TAG:
-        case Type_SampledImageType_TAG:
+        default:
             break;
         case Type_TypeDeclRef_TAG: return t->payload.type_decl_ref.decl->payload.nom_type.name;
     }
