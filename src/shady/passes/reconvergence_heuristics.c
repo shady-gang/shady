@@ -1,19 +1,18 @@
-#include "shady/ir.h"
-
-#include "list.h"
-#include "dict.h"
-#include "log.h"
-#include "portability.h"
-#include "util.h"
+#include "pass.h"
 
 #include "../type.h"
-#include "../rewrite.h"
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include "../analysis/cfg.h"
 #include "../analysis/looptree.h"
 #include "../analysis/free_variables.h"
+
+#include "list.h"
+#include "dict.h"
+#include "log.h"
+#include "portability.h"
+#include "util.h"
 
 #include <assert.h>
 
@@ -544,8 +543,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
 }
 
 Module* reconvergence_heuristics(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

@@ -1,9 +1,7 @@
-#include "passes.h"
+#include "pass.h"
 
-#include "portability.h"
-#include "dict.h"
-#include "arena.h"
-#include "log.h"
+#include "../visit.h"
+#include "../type.h"
 
 #include "../analysis/cfg.h"
 #include "../analysis/uses.h"
@@ -12,9 +10,10 @@
 
 #include "../transform/ir_gen_helpers.h"
 
-#include "../rewrite.h"
-#include "../visit.h"
-#include "../type.h"
+#include "portability.h"
+#include "dict.h"
+#include "arena.h"
+#include "log.h"
 
 typedef struct {
     AddressSpace as;
@@ -701,10 +700,12 @@ static const Node* process(Context* ctx, const Node* old) {
     return recreate_node_identity(&ctx->rewriter, old);
 }
 
+RewritePass cleanup;
+
 Module* opt_mem2reg(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     IrArena* initial_arena = get_module_arena(src);
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = src;
 
     for (size_t round = 0; round < 5; round++) {

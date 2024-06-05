@@ -1,7 +1,6 @@
-#include "passes.h"
+#include "pass.h"
 
 #include "../type.h"
-#include "../rewrite.h"
 
 #include "portability.h"
 #include "log.h"
@@ -88,9 +87,9 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* simt2d(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     aconfig.is_simt = false;
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

@@ -1,15 +1,15 @@
+#include "shady/builtins.h"
+#include "../../ir_private.h"
+#include "../../analysis/cfg.h"
+#include "../../type.h"
+#include "../../compile.h"
+
 #include "list.h"
 #include "dict.h"
 #include "log.h"
 #include "portability.h"
 #include "growy.h"
 #include "util.h"
-
-#include "shady/builtins.h"
-#include "../../ir_private.h"
-#include "../../analysis/cfg.h"
-#include "../../type.h"
-#include "../../compile.h"
 
 #include "emit_spv.h"
 
@@ -536,7 +536,7 @@ static Module* run_backend_specific_passes(CompilerConfig* config, Module* initi
     return *pmod;
 }
 
-void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
+void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
     IrArena* initial_arena = get_module_arena(mod);
     mod = run_backend_specific_passes(config, mod);
     IrArena* arena = get_module_arena(mod);

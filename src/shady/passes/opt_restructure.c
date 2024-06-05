@@ -1,15 +1,14 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../type.h"
+
+#include <setjmp.h>
+#include <string.h>
 
 #include "dict.h"
 #include "list.h"
 #include "portability.h"
 #include "log.h"
-
-#include "../rewrite.h"
-#include "../type.h"
-
-#include <setjmp.h>
-#include <string.h>
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -438,8 +437,8 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* opt_restructurize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

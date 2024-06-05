@@ -1,18 +1,17 @@
-#include "passes.h"
+#include "pass.h"
 
-#include "log.h"
-#include "portability.h"
-#include "list.h"
-#include "dict.h"
-#include "util.h"
-
-#include "../rewrite.h"
 #include "../visit.h"
 #include "../type.h"
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"
+
+#include "log.h"
+#include "portability.h"
+#include "list.h"
+#include "dict.h"
+#include "util.h"
 
 #include <assert.h>
 
@@ -226,7 +225,7 @@ static const Node* process(Context* ctx, const Node* old) {
                             ctx->todo |= true;
                             return quote_helper(a, singleton(undef(a, (Undef) {.type = get_unqualified_type(rewrite_node(r, old->type))})));
                         }
-                        if (!k->non_logical_use && get_arena_config(a).optimisations.weaken_non_leaking_allocas) {
+                        if (!k->non_logical_use && get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
                             ctx->todo |= true;
                             return prim_op_helper(a, alloca_logical_op, rewrite_nodes(&ctx->rewriter, payload.type_arguments), rewrite_nodes(r, payload.operands));
                         }

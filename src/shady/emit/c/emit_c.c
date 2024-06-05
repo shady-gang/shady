@@ -1,5 +1,11 @@
 #include "emit_c.h"
 
+#include "../../type.h"
+#include "../../ir_private.h"
+#include "../../compile.h"
+
+#include "../../transform/ir_gen_helpers.h"
+
 #include "shady_cuda_prelude_src.h"
 #include "shady_cuda_builtins_src.h"
 
@@ -7,12 +13,6 @@
 #include "dict.h"
 #include "log.h"
 #include "util.h"
-
-#include "../../type.h"
-#include "../../ir_private.h"
-#include "../../compile.h"
-
-#include "../../transform/ir_gen_helpers.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -732,9 +732,9 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
     return printer_growy_unwrap(p);
 }
 
-void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
+void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
     IrArena* initial_arena = get_module_arena(mod);
-    mod = run_backend_specific_passes(&compiler_config, &config, mod);
+    mod = run_backend_specific_passes(compiler_config, &config, mod);
     IrArena* arena = get_module_arena(mod);
 
     Growy* type_decls_g = new_growy();

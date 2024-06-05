@@ -2,6 +2,7 @@
 #define SHADY_CLI
 
 #include "shady/ir.h"
+#include "shady/config.h"
 
 #include "shady/be/c.h"
 #include "shady/be/spirv.h"
@@ -69,5 +70,11 @@ void cli_parse_driver_arguments(DriverConfig* args, int* pargc, char** argv);
 
 ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod);
 ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod);
+
+typedef enum CompilationResult_ {
+    CompilationNoError
+} CompilationResult;
+
+CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
 
 #endif

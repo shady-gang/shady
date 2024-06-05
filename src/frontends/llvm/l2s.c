@@ -258,7 +258,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     aconfig.check_types = false;
     aconfig.allow_fold = false;
 
-    IrArena* arena = new_ir_arena(aconfig);
+    IrArena* arena = new_ir_arena(&aconfig);
     Module* dirty = new_module(arena, "dirty");
     Parser p = {
         .ctx = context,
@@ -291,7 +291,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
 
     aconfig.check_types = true;
     aconfig.allow_fold = true;
-    IrArena* arena2 = new_ir_arena(aconfig);
+    IrArena* arena2 = new_ir_arena(&aconfig);
     *dst = new_module(arena2, name);
     postprocess(&p, dirty, *dst);
     log_module(DEBUG, config, *dst);

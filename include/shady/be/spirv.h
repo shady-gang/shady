@@ -3,7 +3,8 @@
 
 #include "shady/ir.h"
 
-void emit_spirv(CompilerConfig* config, Module*, size_t* output_size, char** output, Module** new_mod);
+typedef struct CompilerConfig_ CompilerConfig;
+void emit_spirv(const CompilerConfig* config, Module*, size_t* output_size, char** output, Module** new_mod);
 
 #endif
 

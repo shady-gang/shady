@@ -1,16 +1,15 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../type.h"
+#include "../ir_private.h"
+
+#include "../transform/ir_gen_helpers.h"
 
 #include "log.h"
 #include "portability.h"
 #include "list.h"
 #include "dict.h"
 #include "util.h"
-
-#include "../rewrite.h"
-#include "../type.h"
-#include "../ir_private.h"
-
-#include "../transform/ir_gen_helpers.h"
 
 #include <assert.h>
 #include <string.h>
@@ -167,8 +166,8 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

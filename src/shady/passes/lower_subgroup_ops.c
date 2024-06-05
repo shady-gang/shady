@@ -1,13 +1,12 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../type.h"
+#include "../transform/ir_gen_helpers.h"
+#include "../transform/memory_layout.h"
 
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
-
-#include "../rewrite.h"
-#include "../type.h"
-#include "../transform/ir_gen_helpers.h"
-#include "../transform/memory_layout.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -149,8 +148,8 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     assert(!config->lower.emulate_subgroup_ops && "TODO");
     Context ctx = {

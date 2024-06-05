@@ -1,11 +1,10 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../analysis/uses.h"
+#include "../ir_private.h"
 
 #include "portability.h"
 #include "log.h"
-
-#include "../rewrite.h"
-#include "../analysis/uses.h"
-#include "../ir_private.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -173,8 +172,11 @@ bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     return todo;
 }
 
+OptPass opt_demote_alloca;
+RewritePass import;
+
 Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* const src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     if (!aconfig.check_types)
         return src;
     bool todo;

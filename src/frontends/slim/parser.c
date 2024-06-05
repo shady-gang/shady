@@ -14,6 +14,12 @@
 #include <assert.h>
 #include <string.h>
 
+typedef enum DivergenceQualifier_ {
+    Unknown,
+    Uniform,
+    Varying
+} DivergenceQualifier;
+
 static int max_precedence() {
     return 10;
 }
@@ -1123,7 +1129,7 @@ Module* parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, co
     aconfig.check_types = false;
     aconfig.validate_builtin_types = false;
     aconfig.allow_fold = false;
-    IrArena* initial_arena = new_ir_arena(aconfig);
+    IrArena* initial_arena = new_ir_arena(&aconfig);
     Module* m = new_module(initial_arena, name);
     parse_shady_ir(pconfig, contents, m);
     Module** pmod = &m;

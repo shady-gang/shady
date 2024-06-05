@@ -1,12 +1,11 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../ir_private.h"
+#include "../type.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include "log.h"
 #include "portability.h"
-
-#include "../ir_private.h"
-#include "../rewrite.h"
-#include "../type.h"
-#include "../transform/ir_gen_helpers.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -105,9 +104,9 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* normalize_builtins(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     aconfig.validate_builtin_types = true;
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),

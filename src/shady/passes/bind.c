@@ -1,11 +1,10 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../ir_private.h"
 
 #include "list.h"
 #include "log.h"
 #include "portability.h"
-
-#include "../ir_private.h"
-#include "../rewrite.h"
 
 #include <assert.h>
 #include <string.h>
@@ -331,10 +330,10 @@ static const Node* bind_node(Context* ctx, const Node* node) {
 }
 
 Module* bind_program(SHADY_UNUSED const CompilerConfig* compiler_config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     assert(!src->arena->config.name_bound);
     aconfig.name_bound = true;
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

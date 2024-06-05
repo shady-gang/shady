@@ -1,4 +1,5 @@
 #include "shady/ir.h"
+#include "shady/config.h"
 
 #define KiB * 1024
 #define MiB * 1024 KiB

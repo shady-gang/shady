@@ -1,11 +1,11 @@
-#include "passes.h"
+#include "pass.h"
 
-#include "../rewrite.h"
 #include "../type.h"
-#include "log.h"
-#include "portability.h"
 
 #include "../transform/ir_gen_helpers.h"
+
+#include "log.h"
+#include "portability.h"
 
 #include <assert.h>
 
@@ -139,8 +139,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 }
 
 Module* lower_callf(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) lower_callf_process),

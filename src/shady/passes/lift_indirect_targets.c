@@ -1,13 +1,6 @@
-#include "shady/ir.h"
-
-#include "log.h"
-#include "portability.h"
-#include "list.h"
-#include "dict.h"
-#include "util.h"
+#include "pass.h"
 
 #include "../type.h"
-#include "../rewrite.h"
 #include "../ir_private.h"
 
 #include "../transform/ir_gen_helpers.h"
@@ -16,6 +9,12 @@
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"
 #include "../analysis/verify.h"
+
+#include "log.h"
+#include "portability.h"
+#include "list.h"
+#include "dict.h"
+#include "util.h"
 
 #include <assert.h>
 #include <string.h>
@@ -229,7 +228,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 }
 
 Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     IrArena* a = NULL;
     Module* dst;
 
@@ -237,7 +236,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
     while (true) {
         debugv_print("lift_indirect_target: round %d\n", round++);
         IrArena* oa = a;
-        a = new_ir_arena(aconfig);
+        a = new_ir_arena(&aconfig);
         dst = new_module(a, get_module_name(src));
         bool todo = false;
         Context ctx = {
@@ -270,7 +269,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
 
     // this will be safe now since we won't lift any more code after this pass
     aconfig.optimisations.weaken_non_leaking_allocas = true;
-    IrArena* a2 = new_ir_arena(aconfig);
+    IrArena* a2 = new_ir_arena(&aconfig);
     dst = new_module(a2, get_module_name(src));
     Rewriter r = create_importer(src, dst);
     rewrite_module(&r);

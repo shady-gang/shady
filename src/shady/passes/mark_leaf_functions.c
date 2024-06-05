@@ -1,15 +1,13 @@
-#include "passes.h"
-
-#include "dict.h"
-#include "portability.h"
-#include "log.h"
-
-#include "../rewrite.h"
+#include "pass.h"
 
 #include "../analysis/callgraph.h"
 #include "../analysis/cfg.h"
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"
+
+#include "dict.h"
+#include "portability.h"
+#include "log.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -166,8 +164,8 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 Module* mark_leaf_functions(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),

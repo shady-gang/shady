@@ -1,16 +1,14 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../ir_private.h"
+#include "../type.h"
 
 #include "../transform/ir_gen_helpers.h"
 #include "../transform/memory_layout.h"
 
-#include "../ir_private.h"
-#include "../rewrite.h"
-#include "../type.h"
-
 #include "log.h"
 #include "portability.h"
 #include "util.h"
-
 #include "list.h"
 #include "dict.h"
 
@@ -488,12 +486,12 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
 }
 
 Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     aconfig.address_spaces[AsPrivate].physical = false;
     aconfig.address_spaces[AsShared].physical = false;
     aconfig.address_spaces[AsSubgroup].physical = false;
 
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

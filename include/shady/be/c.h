@@ -17,7 +17,8 @@ typedef struct {
     bool decay_unsized_arrays;
 } CEmitterConfig;
 
-void emit_c(CompilerConfig compiler_config, CEmitterConfig emitter_config, Module*, size_t* output_size, char** output, Module** new_mod);
+typedef struct CompilerConfig_ CompilerConfig;
+void emit_c(const CompilerConfig* compiler_config, CEmitterConfig emitter_config, Module*, size_t* output_size, char** output, Module** new_mod);
 
 #endif
 

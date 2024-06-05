@@ -1,11 +1,10 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../type.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include "portability.h"
 #include "log.h"
-
-#include "../rewrite.h"
-#include "../type.h"
-#include "../transform/ir_gen_helpers.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -74,8 +73,8 @@ static const Node* process(Context* ctx, NodeClass class, String op_name, const 
 }
 
 Module* lower_subgroup_vars(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_op_rewriter(src, dst, (RewriteOpFn) process),

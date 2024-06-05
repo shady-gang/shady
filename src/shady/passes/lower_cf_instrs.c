@@ -1,12 +1,11 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../type.h"
+#include "../analysis/cfg.h"
 
 #include "log.h"
 #include "portability.h"
 #include "dict.h"
-
-#include "../type.h"
-#include "../rewrite.h"
-#include "../analysis/cfg.h"
 
 #include <assert.h>
 
@@ -258,8 +257,8 @@ KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
 Module* lower_cf_instrs(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),

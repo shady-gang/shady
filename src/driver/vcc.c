@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
     }
 
     ArenaConfig aconfig = default_arena_config(&args.config.target);
-    IrArena* arena = new_ir_arena(aconfig);
+    IrArena* arena = new_ir_arena(&aconfig);
 
     vcc_check_clang();
 

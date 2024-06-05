@@ -1,16 +1,15 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../visit.h"
+#include "../type.h"
+#include "../ir_private.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include "log.h"
 #include "portability.h"
 #include "list.h"
 #include "dict.h"
 #include "util.h"
-
-#include "../rewrite.h"
-#include "../visit.h"
-#include "../type.h"
-#include "../ir_private.h"
-#include "../transform/ir_gen_helpers.h"
 
 #include <assert.h>
 
@@ -171,8 +170,8 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lower_alloca(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),

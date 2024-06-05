@@ -57,65 +57,101 @@ String get_module_name(const Module*);
 Nodes get_module_declarations(const Module*);
 Node* get_declaration(const Module*, String);
 
+void link_module(Module* dst, Module* src);
+
 //////////////////////////////// Grammar ////////////////////////////////
 
-// The language grammar is big enough that it deserve its own files
+// The bulk of the language grammar is defined through json files.
+// We define some support enums here.
 
-#include "grammar.h"
+typedef enum {
+    IntTy8,
+    IntTy16,
+    IntTy32,
+    IntTy64,
+} IntSizes;
+
+enum {
+    IntSizeMin = IntTy8,
+    IntSizeMax = IntTy64,
+};
+
+static inline int int_size_in_bytes(IntSizes s) {
+    switch (s) {
+        case IntTy8: return 1;
+        case IntTy16: return 2;
+        case IntTy32: return 4;
+        case IntTy64: return 8;
+    }
+}
+
+typedef enum {
+    FloatTy16,
+    FloatTy32,
+    FloatTy64
+} FloatSizes;
+
+static inline int float_size_in_bytes(FloatSizes s) {
+    switch (s) {
+        case FloatTy16: return 2;
+        case FloatTy32: return 4;
+        case FloatTy64: return 8;
+    }
+}
+
+#define EXECUTION_MODELS(EM) \
+EM(Compute,  1) \
+EM(Fragment, 0) \
+EM(Vertex,   0) \
+
+typedef enum {
+    EmNone,
+#define EM(name, _) Em##name,
+EXECUTION_MODELS(EM)
+#undef EM
+} ExecutionModel;
+
+ExecutionModel execution_model_from_string(const char*);
+
+typedef enum {
+    NotSpecial,
+    /// for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else
+    MultipleReturn,
+    /// Gets the 'Block' SPIR-V annotation, needed for UBO/SSBO variables
+    DecorateBlock
+} RecordSpecialFlag;
+
+// see primops.json
+#include "primops_generated.h"
+
+String get_primop_name(Op op);
+bool has_primop_got_side_effects(Op op);
+
+// see grammar.json
+#include "grammar_generated.h"
+
+extern const char* node_tags[];
+extern const bool node_type_has_payload[];
+
+//////////////////////////////// Node categories ////////////////////////////////
+
+inline static bool is_nominal(const Node* node) {
+    NodeTag tag = node->tag;
+    if (node->tag == PrimOp_TAG && has_primop_got_side_effects(node->payload.prim_op.op))
+        return true;
+    return tag == Function_TAG || tag == BasicBlock_TAG || tag == Constant_TAG || tag == Param_TAG || tag == Variablez_TAG || tag == GlobalVariable_TAG || tag == NominalType_TAG || tag == Case_TAG;
+}
+
+inline static bool is_function(const Node* node) { return node->tag == Function_TAG; }
 
 //////////////////////////////// IR Arena ////////////////////////////////
 
-typedef struct {
-    IntSizes ptr_size;
-    /// The base type for emulated memory
-    IntSizes word_size;
-} PointerModel;
+/// See config.h for definition of ArenaConfig
+typedef struct ArenaConfig_ ArenaConfig;
 
-typedef struct {
-    PointerModel memory;
-} TargetConfig;
-
-TargetConfig default_target_config();
-
-typedef struct {
-    bool name_bound;
-    bool check_op_classes;
-    bool check_types;
-    bool allow_fold;
-    bool validate_builtin_types; // do @Builtins variables need to match their type in builtins.h ?
-    bool is_simt;
-
-    struct {
-        bool physical;
-        bool allowed;
-    } address_spaces[NumAddressSpaces];
-
-    struct {
-        /// Selects which type the subgroup intrinsic primops use to manipulate masks
-        enum {
-            /// Uses the MaskType
-            SubgroupMaskAbstract,
-            /// Uses a 64-bit integer
-            SubgroupMaskInt64
-        } subgroup_mask_representation;
-
-        uint32_t workgroup_size[3];
-    } specializations;
-
-    PointerModel memory;
-
-    /// 'folding' optimisations - happen in the constructors directly
-    struct {
-        bool delete_unreachable_structured_cases;
-        bool weaken_non_leaking_allocas;
-    } optimisations;
-} ArenaConfig;
-
-ArenaConfig default_arena_config(const TargetConfig* target);
-
-IrArena* new_ir_arena(ArenaConfig);
+IrArena* new_ir_arena(const ArenaConfig*);
 void destroy_ir_arena(IrArena*);
-ArenaConfig get_arena_config(const IrArena*);
+const ArenaConfig* get_arena_config(const IrArena*);
 const Node* get_node_by_id(const IrArena*, NodeId);
 
 //////////////////////////////// Getters ////////////////////////////////
@@ -265,81 +301,6 @@ const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder*, N
 const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
 const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder*, const Node*, const Nodes*);
 const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder*, const Node*);
-
-//////////////////////////////// Compilation ////////////////////////////////
-
-typedef struct CompilerConfig_ {
-    bool dynamic_scheduling;
-    uint32_t per_thread_stack_size;
-
-    struct {
-        uint8_t major;
-        uint8_t minor;
-    } target_spirv_version;
-
-    struct {
-        bool emulate_generic_ptrs;
-        bool emulate_physical_memory;
-
-        bool emulate_subgroup_ops;
-        bool emulate_subgroup_ops_extended_types;
-        bool simt_to_explicit_simd;
-        bool int64;
-        bool decay_ptrs;
-    } lower;
-
-    struct {
-        bool spv_shuffle_instead_of_broadcast_first;
-        bool force_join_point_lifting;
-        bool restructure_everything;
-        bool recover_structure;
-    } hacks;
-
-    struct {
-        struct {
-            bool after_every_pass;
-            bool delete_unused_instructions;
-        } cleanup;
-        bool inline_everything;
-    } optimisations;
-
-    struct {
-        bool memory_accesses;
-        bool stack_accesses;
-        bool god_function;
-        bool stack_size;
-        bool subgroup_ops;
-    } printf_trace;
-
-    struct {
-        int max_top_iterations;
-    } shader_diagnostics;
-
-    struct {
-        bool print_generated, print_builtin, print_internal;
-    } logging;
-
-    struct {
-        String entry_point;
-        ExecutionModel execution_model;
-        uint32_t subgroup_size;
-    } specialization;
-
-    TargetConfig target;
-
-    struct {
-        struct { void* uptr; void (*fn)(void*, String, Module*); } after_pass;
-    } hooks;
-} CompilerConfig;
-
-CompilerConfig default_compiler_config();
-
-typedef enum CompilationResult_ {
-    CompilationNoError
-} CompilationResult;
-
-CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
-void link_module(Module* dst, Module* src);
 
 //////////////////////////////// Emission ////////////////////////////////
 

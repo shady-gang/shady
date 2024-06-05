@@ -22,11 +22,11 @@ bool compare_string(const char** a, const char** b);
 KeyHash hash_node(const Node**);
 bool compare_node(const Node** a, const Node** b);
 
-IrArena* new_ir_arena(ArenaConfig config) {
+IrArena* new_ir_arena(const ArenaConfig* config) {
     IrArena* arena = malloc(sizeof(IrArena));
     *arena = (IrArena) {
         .arena = new_arena(),
-        .config = config,
+        .config = *config,
 
         .modules = new_list(Module*),
 
@@ -60,8 +60,8 @@ void destroy_ir_arena(IrArena* arena) {
     free(arena);
 }
 
-ArenaConfig get_arena_config(const IrArena* a) {
-    return a->config;
+const ArenaConfig* get_arena_config(const IrArena* a) {
+    return &a->config;
 }
 
 NodeId allocate_node_id(IrArena* arena, const Node* n) {

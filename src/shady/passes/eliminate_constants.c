@@ -1,6 +1,5 @@
-#include "passes.h"
+#include "pass.h"
 
-#include "../rewrite.h"
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
@@ -61,8 +60,8 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 static Module* eliminate_constants_(SHADY_UNUSED const CompilerConfig* config, Module* src, bool all) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),

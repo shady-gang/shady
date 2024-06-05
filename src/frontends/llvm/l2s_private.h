@@ -2,6 +2,9 @@
 #define SHADY_L2S_PRIVATE_H
 
 #include "l2s.h"
+
+#include "shady/config.h"
+
 #include "arena.h"
 #include "util.h"
 

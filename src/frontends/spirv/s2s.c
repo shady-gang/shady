@@ -1357,7 +1357,8 @@ bool compare_spvid(SpvId* pa, SpvId* pb) {
 }
 
 S2SError parse_spirv_into_shady(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
-    IrArena* a = new_ir_arena(default_arena_config(&config->target));
+    ArenaConfig aconfig = default_arena_config(&config->target);
+    IrArena* a = new_ir_arena(&aconfig);
     *dst = new_module(a, name);
 
     SpvParser parser = {

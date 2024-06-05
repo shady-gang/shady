@@ -1,11 +1,10 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../ir_private.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include "portability.h"
 #include "log.h"
-
-#include "../ir_private.h"
-#include "../rewrite.h"
-#include "../transform/ir_gen_helpers.h"
 
 #include <string.h>
 
@@ -110,9 +109,9 @@ static void specialize_arena_config(const CompilerConfig* config, Module* src, A
 }
 
 Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     specialize_arena_config(config, src, &aconfig);
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

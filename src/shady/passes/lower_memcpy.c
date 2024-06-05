@@ -1,8 +1,7 @@
-#include "passes.h"
+#include "pass.h"
 
 #include "../transform/ir_gen_helpers.h"
 #include "../transform/memory_layout.h"
-#include "../rewrite.h"
 #include "../type.h"
 #include "../ir_private.h"
 
@@ -126,8 +125,8 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 Module* lower_memcpy(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

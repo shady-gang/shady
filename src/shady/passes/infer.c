@@ -1,11 +1,10 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../type.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include "log.h"
 #include "portability.h"
-
-#include "../type.h"
-#include "../rewrite.h"
-#include "../transform/ir_gen_helpers.h"
 
 #include <assert.h>
 #include <string.h>
@@ -777,11 +776,11 @@ static const Node* process(Context* src_ctx, const Node* node) {
 }
 
 Module* infer_program(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     assert(!aconfig.check_types);
     aconfig.check_types = true;
     aconfig.allow_fold = true; // TODO was moved here because a refactor, does this cause issues ?
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
