@@ -8,6 +8,7 @@
 typedef struct {
     Rewriter rewriter;
     BodyBuilder* bb;
+    bool all;
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -26,6 +27,8 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Constant_TAG:
             if (!node->payload.constant.instruction)
+                break;
+            if (!ctx->all && !lookup_annotation(node, "Inline"))
                 break;
             return NULL;
         case RefDecl_TAG: {
@@ -57,15 +60,24 @@ static const Node* process(Context* ctx, const Node* node) {
     return new;
 }
 
-Module* eliminate_constants(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+static Module* eliminate_constants_(SHADY_UNUSED const CompilerConfig* config, Module* src, bool all) {
     ArenaConfig aconfig = get_arena_config(get_module_arena(src));
     IrArena* a = new_ir_arena(aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process)
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .all = all,
     };
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     return dst;
+}
+
+Module* eliminate_constants(const CompilerConfig* config, Module* src) {
+    return eliminate_constants_(config, src, true);
+}
+
+Module* eliminate_inlineable_constants(const CompilerConfig* config, Module* src) {
+    return eliminate_constants_(config, src, false);
 }

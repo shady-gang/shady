@@ -107,6 +107,8 @@ RewritePass lower_nullptr;
 
 /// Eliminates all Constant decls
 RewritePass eliminate_constants;
+/// Ditto but for @Inline ones only
+RewritePass eliminate_inlineable_constants;
 /// Tags all functions that don't need special handling
 RewritePass mark_leaf_functions;
 /// In addition, also inlines function calls according to heuristics

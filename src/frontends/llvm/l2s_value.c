@@ -78,8 +78,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             String name = LLVMGetValueName(v);
             if (!name || strlen(name) == 0)
                 name = unique_name(a, "constant_expr");
-            Nodes annotations = singleton(annotation(a, (Annotation) { .name = "SkipOnInfer" }));
-            annotations = empty(a);
+            Nodes annotations = singleton(annotation(a, (Annotation) { .name = "Inline" }));
             assert(t);
             Node* decl = constant(p->dst, annotations, t, name);
             r = ref_decl_helper(a, decl);

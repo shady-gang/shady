@@ -51,6 +51,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
         add_scheduler_source(config, *pmod);
 	}
 
+    RUN_PASS(eliminate_inlineable_constants)	
     RUN_PASS(reconvergence_heuristics)
 
     RUN_PASS(lower_cf_instrs)
