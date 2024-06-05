@@ -201,6 +201,18 @@ static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
                 src_as = get_unqualified_type(ptr->type)->payload.ptr_type.address_space;
                 continue;
             }
+            case lea_op: {
+                Nodes ops = instruction.operands;
+                for (size_t i = 1; i < ops.count; i++) {
+                    if (!is_zero(ops.nodes[i]))
+                        goto outer_break;
+                }
+                distance++;
+                ptr = first(ops);
+                continue;
+                outer_break:
+                break;
+            }
             default: break;
         }
         break;
