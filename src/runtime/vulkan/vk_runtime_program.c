@@ -1,5 +1,7 @@
 #include "vk_runtime_private.h"
 
+#include "shady/driver.h"
+
 #include "log.h"
 #include "portability.h"
 #include "dict.h"
@@ -165,7 +167,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
     }
 
     for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++) {
-        layouts[set] = NULL;
+        layouts[set] = 0;
         layout_create_infos[set].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layout_create_infos[set].flags = 0;
         layout_create_infos[set].pNext = NULL;

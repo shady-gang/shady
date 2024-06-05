@@ -1,5 +1,7 @@
 #include "cuda_runtime_private.h"
 
+#include "shady/driver.h"
+
 #include "log.h"
 #include "portability.h"
 #include "dict.h"
