@@ -57,7 +57,7 @@ LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
 
 static const Node* convert_jump_lazy(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef dst) {
     IrArena* a = fn_or_bb->arena;
-    const Node* wrapper_bb = basic_block(a, fn_ctx->fn, empty(a), NULL);
+    Node* wrapper_bb = basic_block(a, fn_ctx->fn, empty(a), NULL);
     JumpTodo todo = {
         .wrapper = wrapper_bb,
         .src = fn_or_bb,
@@ -65,7 +65,7 @@ static const Node* convert_jump_lazy(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_
     };
     append_list(JumpTodo, fn_ctx->jumps_todo, todo);
     const Node* dst2 = convert_basic_block(p, fn_ctx, dst);
-    insert_dict(const Node*, const Node*, p->wrappers_map, wrapper_bb, dst2);
+    insert_dict(Node*, const Node*, p->wrappers_map, wrapper_bb, dst2);
     return jump_helper(a, wrapper_bb, empty(a));
 }
 

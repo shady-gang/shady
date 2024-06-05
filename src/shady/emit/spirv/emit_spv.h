@@ -13,7 +13,7 @@ typedef SpvbBasicBlockBuilder* BBBuilder;
 typedef struct Emitter_ {
     Module* module;
     IrArena* arena;
-    CompilerConfig* configuration;
+    const CompilerConfig* configuration;
     FileBuilder file_builder;
     SpvId void_t;
     struct Dict* node_ids;

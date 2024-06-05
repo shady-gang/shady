@@ -156,7 +156,7 @@ void generate(Growy* g, json_object* src) {
             String capitalized = capitalize(name);
             generate_node_tags_for_class(g, nodes, name, capitalized);
             growy_append_formatted(g, "%sTag is_%s(const Node*);\n", capitalized, name);
-            free(capitalized);
+            free((void*) capitalized);
         } else {
             growy_append_formatted(g, "bool is_%s(const Node*);\n", name);
         }

@@ -100,7 +100,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             });
         }
         case Constant_TAG: {
-            Node* new = recreate_node_identity(r, node);
+            Node* new = (Node*) recreate_node_identity(r, node);
             BodyBuilder* bb = begin_body(a);
             const Node* value = first(bind_instruction(bb, new->payload.constant.instruction));
             value = first(bind_instruction(bb, prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(value))));
@@ -239,11 +239,11 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                                 }
                                 Nodes nparams = remake_params(ctx, get_abstraction_params(dst));
                                 //register_processed_list(&ctx->rewriter, get_abstraction_params(dst), nparams);
-                                Node* fn = src;
+                                Node* fn = (Node*) src;
                                 if (fn->tag == BasicBlock_TAG)
                                     fn = (Node*) fn->payload.basic_block.fn;
                                 assert(fn->tag == Function_TAG);
-                                fn = rewrite_node(r, fn);
+                                fn = (Node*) rewrite_node(r, fn);
                                 Node* wrapper = basic_block(a, fn, nparams, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
                                 wrapper->payload.basic_block.body = join(a, (Join) {
                                     .args = nparams,

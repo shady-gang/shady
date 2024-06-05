@@ -687,7 +687,7 @@ CType* lookup_existing_type(Emitter* emitter, const Type* node) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-static Module* run_backend_specific_passes(CompilerConfig* config, CEmitterConfig* econfig, Module* initial_mod) {
+static Module* run_backend_specific_passes(const CompilerConfig* config, CEmitterConfig* econfig, Module* initial_mod) {
     IrArena* initial_arena = initial_mod->arena;
     Module** pmod = &initial_mod;
 

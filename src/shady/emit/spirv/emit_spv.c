@@ -523,7 +523,7 @@ bool compare_node(Node**, Node**);
 KeyHash hash_string(const char** string);
 bool compare_string(const char** a, const char** b);
 
-static Module* run_backend_specific_passes(CompilerConfig* config, Module* initial_mod) {
+static Module* run_backend_specific_passes(const CompilerConfig* config, Module* initial_mod) {
     IrArena* initial_arena = initial_mod->arena;
     Module** pmod = &initial_mod;
 
