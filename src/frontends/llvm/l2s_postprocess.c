@@ -290,7 +290,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
     }
 
     // This is required so we don't wrap jumps that are part of branches!
-    if (op_class == NcTerminator && node->tag != Let_TAG) {
+    if (ctx->old_fn_or_bb && op_class == NcTerminator && node->tag != Let_TAG) {
         Controls** found = find_value_dict(const Node, Controls*, ctx->controls, ctx->old_fn_or_bb);
         assert(found);
         Controls* controls = *found;
