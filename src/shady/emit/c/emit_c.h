@@ -3,6 +3,8 @@
 
 #include "shady/ir.h"
 #include "shady/builtins.h"
+#include "shady/be/c.h"
+
 #include "growy.h"
 #include "arena.h"
 #include "printer.h"

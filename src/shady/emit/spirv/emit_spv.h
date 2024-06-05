@@ -2,6 +2,8 @@
 #define SHADY_EMIT_SPIRV_H
 
 #include "shady/ir.h"
+#include "shady/be/spirv.h"
+
 #include "spirv_builder.h"
 
 typedef SpvbFileBuilder* FileBuilder;

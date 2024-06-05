@@ -3,6 +3,9 @@
 
 #include "shady/ir.h"
 
+#include "shady/be/c.h"
+#include "shady/be/spirv.h"
+
 struct List;
 
 typedef enum {

@@ -343,27 +343,6 @@ void link_module(Module* dst, Module* src);
 
 //////////////////////////////// Emission ////////////////////////////////
 
-void emit_spirv(CompilerConfig* config, Module*, size_t* output_size, char** output, Module** new_mod);
-
-typedef enum {
-    CDialect_C11,
-    CDialect_GLSL,
-    CDialect_ISPC,
-    CDialect_CUDA,
-} CDialect;
-
-typedef struct {
-    CDialect dialect;
-    bool explicitly_sized_types;
-    bool allow_compound_literals;
-    bool decay_unsized_arrays;
-} CEmitterConfig;
-
-void emit_c(CompilerConfig compiler_config, CEmitterConfig emitter_config, Module*, size_t* output_size, char** output, Module** new_mod);
-
-void dump_cfgs(FILE* output, Module* mod);
-void dump_loop_trees(FILE* output, Module* mod);
-
 void free_output(char* output);
 
 #endif
