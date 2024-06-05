@@ -79,6 +79,58 @@ const Node* get_quoted_value(const Node* instruction) {
     return NULL;
 }
 
+static bool is_zero(const Node* node) {
+    const IntLiteral* lit = resolve_to_int_literal(node);
+    if (lit && get_int_literal_value(*lit, false) == 0)
+        return true;
+    return false;
+}
+
+const Node* chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
+    while (true) {
+        ptr = resolve_node_to_definition(ptr, config);
+        switch (ptr->tag) {
+            case PrimOp_TAG: {
+                switch (ptr->payload.prim_op.op) {
+                    case convert_op: {
+                        // chase generic pointers to their source
+                        if (first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
+                            ptr = first(ptr->payload.prim_op.operands);
+                            continue;
+                        }
+                        break;
+                    }
+                    case reinterpret_op: {
+                        // chase ptr casts to their source
+                        // TODO: figure out round-trips through integer casts?
+                        if (first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
+                            ptr = first(ptr->payload.prim_op.operands);
+                            continue;
+                        }
+                        break;
+                    }
+                    case lea_op: {
+                        Nodes ops = ptr->payload.prim_op.operands;
+                        for (size_t i = 1; i < ops.count; i++) {
+                            if (!is_zero(ops.nodes[i]))
+                                goto outer_break;
+                        }
+                        ptr = first(ops);
+                        continue;
+                        outer_break:
+                        break;
+                    }
+                    default: break;
+                }
+                break;
+            }
+            default: break;
+        }
+        break;
+    }
+    return ptr;
+}
+
 const Node* resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config) {
     while (ptr) {
         ptr = resolve_node_to_definition(ptr, config);
@@ -130,6 +182,15 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                     break;
                 node = def;
                 continue;
+            }
+            case Block_TAG: {
+                const Node* terminator = node->payload.block.inside->payload.case_.body;
+                while (terminator->tag == Let_TAG) {
+                    terminator = terminator->payload.let.tail->payload.case_.body;
+                }
+                assert(terminator->tag == Yield_TAG);
+                assert(terminator->payload.yield.args.count == 1);
+                return resolve_node_to_definition(first(terminator->payload.yield.args), config);
             }
             case PrimOp_TAG: {
                 switch (node->payload.prim_op.op) {
@@ -183,16 +244,16 @@ const FloatLiteral* resolve_to_float_literal(const Node* node) {
     return NULL;
 }
 
-static bool is_zero(const Node* node) {
-    const IntLiteral* lit = resolve_to_int_literal(node);
-    if (lit && get_int_literal_value(*lit, false) == 0)
-        return true;
-    return false;
-}
-
 const char* get_string_literal(IrArena* arena, const Node* node) {
     if (!node)
         return NULL;
+    if (node->type && get_unqualified_type(node->type)->tag == PtrType_TAG) {
+        NodeResolveConfig nrc = default_node_resolve_config();
+        const Node* ptr = chase_ptr_to_source(node, nrc);
+        const Node* value = resolve_ptr_to_value(ptr, nrc);
+        if (value)
+            return get_string_literal(arena, value);
+    }
     switch (node->tag) {
         case Declaration_GlobalVariable_TAG: {
             const Node* init = node->payload.global_variable.init;

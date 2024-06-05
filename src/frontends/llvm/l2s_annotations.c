@@ -72,7 +72,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
         // both of those assumptions are hacky but this front-end is a hacky deal anyways.
         resolve_config.assume_globals_immutability = true;
         resolve_config.allow_incompatible_types = true;
-        const char* ostr = get_string_literal(a, resolve_node_to_definition(annotation_payload, resolve_config));
+        const char* ostr = get_string_literal(a, chase_ptr_to_source(annotation_payload, resolve_config));
         char* str = calloc(strlen(ostr) + 1, 1);
         memcpy(str, ostr, strlen(ostr) + 1);
         if (strcmp(strtok(str, "::"), "shady") == 0) {

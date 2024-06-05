@@ -164,6 +164,7 @@ typedef struct {
     bool assume_globals_immutability;
 } NodeResolveConfig;
 NodeResolveConfig default_node_resolve_config();
+const Node* chase_ptr_to_source(const Node*, NodeResolveConfig config);
 const Node* resolve_ptr_to_value(const Node* node, NodeResolveConfig config);
 
 /// Resolves a variable to the instruction that produces its value (if any)
