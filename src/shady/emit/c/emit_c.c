@@ -587,6 +587,13 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 return;
             }
 
+            if (ass == AsOutput && emitter->compiler_config->specialization.execution_model == EmFragment) {
+                int location = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "Location"))), false);
+                CTerm t = term_from_cvar(format_string_interned(emitter->arena, "gl_FragData[%d]", location));
+                register_emitted(emitter, decl, t);
+                return;
+            }
+
             decl_type = decl->payload.global_variable.type;
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
