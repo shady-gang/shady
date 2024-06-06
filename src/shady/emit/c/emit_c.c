@@ -8,6 +8,7 @@
 
 #include "shady_cuda_prelude_src.h"
 #include "shady_cuda_builtins_src.h"
+#include "shady_glsl_120_polyfills_src.h"
 
 #include "portability.h"
 #include "dict.h"
@@ -820,6 +821,8 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
             print(finalp, "#define ubyte uint\n");
             print(finalp, "#define uchar uint\n");
             print(finalp, "#define ulong uint\n");
+            if (emitter.config.glsl_version <= 120)
+                print(finalp, shady_glsl_120_polyfills_src);
             break;
     }
 

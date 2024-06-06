@@ -70,6 +70,8 @@ typedef struct {
     String f_ops[3];
 } ISelTableEntry;
 
+static const ISelTableEntry isel_dummy = { IsNone };
+
 static const ISelTableEntry isel_table[PRIMOPS_COUNT] = {
     [add_op] = { IsMono, OsInfix,  "+" },
     [sub_op] = { IsMono, OsInfix,  "-" },
@@ -118,6 +120,15 @@ static const ISelTableEntry isel_table_glsl[PRIMOPS_COUNT] = {
     [sqrt_op] = { IsMono, OsCall, "sqrt" },
     [exp_op] = { IsMono, OsCall, "exp" },
     [pow_op] = { IsMono, OsCall, "pow" },
+};
+
+static const ISelTableEntry isel_table_glsl_120[PRIMOPS_COUNT] = {
+    [mod_op] = { IsMono, OsCall,  "mod" },
+
+    [and_op] = { IsMono, OsCall,  "and" },
+    [ or_op] = { IsMono, OsCall,   "or" },
+    [xor_op] = { IsMono, OsCall,  "xor" },
+    [not_op] = { IsMono, OsCall,  "not" },
 };
 
 static const ISelTableEntry isel_table_ispc[PRIMOPS_COUNT] = {
@@ -195,13 +206,18 @@ static bool emit_using_entry(CTerm* out, Emitter* emitter, Printer* p, const ISe
 }
 
 static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
-    const ISelTableEntry* isel_entry = NULL;
+    const ISelTableEntry* isel_entry = &isel_dummy;
+
     switch (emitter->config.dialect) {
         case CDialect_CUDA: /* TODO: do better than that */
         case CDialect_C11: isel_entry = &isel_table_c[op]; break;
         case CDialect_GLSL: isel_entry = &isel_table_glsl[op]; break;
         case CDialect_ISPC: isel_entry = &isel_table_ispc[op]; break;
     }
+
+    if (emitter->config.dialect == CDialect_GLSL && emitter->config.glsl_version <= 120)
+        isel_entry = &isel_table_glsl_120[op];
+
     if (isel_entry->isel_mechanism == IsNone)
         isel_entry = &isel_table[op];
     return isel_entry;
