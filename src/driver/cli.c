@@ -211,6 +211,7 @@ DriverConfig default_driver_config() {
         .output_filename = NULL,
         .cfg_output_filename = NULL,
         .shd_output_filename = NULL,
+        .c_emitter_config = default_c_emitter_config(),
     };
 }
 
@@ -255,6 +256,10 @@ void cli_parse_driver_arguments(DriverConfig* args, int* pargc, char** argv) {
                 exit(MissingDumpIrArg);
             }
             args->shd_output_filename = argv[i];
+        } else if (strcmp(argv[i], "--glsl-version") == 0) {
+            argv[i] = NULL;
+            i++;
+            args->c_emitter_config.glsl_version = strtol(argv[i], NULL, 10);
         } else if (strcmp(argv[i], "--target") == 0) {
             argv[i] = NULL;
             i++;
