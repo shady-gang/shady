@@ -37,7 +37,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     assert(dst_addr_type->tag == PtrType_TAG);
                     dst_addr_type = ptr_type(a, (PtrType) {
                         .address_space = dst_addr_type->payload.ptr_type.address_space,
-                        .pointed_type = arr_type(a, (ArrType) { .element_type = word_type, .size = NULL }),
+                        .pointed_type = word_type,
                     });
                     dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
@@ -46,8 +46,8 @@ static const Node* process(Context* ctx, const Node* old) {
                     deconstruct_qualified_type(&src_addr_type);
                     assert(src_addr_type->tag == PtrType_TAG);
                     src_addr_type = ptr_type(a, (PtrType) {
-                            .address_space = src_addr_type->payload.ptr_type.address_space,
-                            .pointed_type = arr_type(a, (ArrType) { .element_type = word_type, .size = NULL }),
+                        .address_space = src_addr_type->payload.ptr_type.address_space,
+                        .pointed_type = word_type,
                     });
                     src_addr = gen_reinterpret_cast(bb, src_addr_type, src_addr);
 
@@ -56,8 +56,8 @@ static const Node* process(Context* ctx, const Node* old) {
 
                     const Node* index = param(a, qualified_type_helper(uint32_type(a), false), "memcpy_i");
                     BodyBuilder* loop_bb = begin_body(a);
-                    const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, singleton(uint32_literal(a, 0))));
-                    gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, singleton(uint32_literal(a, 0))), loaded_word);
+                    const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, empty(a)));
+                    gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, empty(a)), loaded_word);
                     const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
                     bind_instruction(loop_bb, if_instr(a, (If) {
                         .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)),
@@ -89,7 +89,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     assert(dst_addr_type->tag == PtrType_TAG);
                     dst_addr_type = ptr_type(a, (PtrType) {
                         .address_space = dst_addr_type->payload.ptr_type.address_space,
-                        .pointed_type = arr_type(a, (ArrType) { .element_type = word_type, .size = NULL }),
+                        .pointed_type = word_type,
                     });
                     dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
@@ -98,7 +98,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
                     const Node* index = param(a, qualified_type_helper(uint32_type(a), false), "memset_i");
                     BodyBuilder* loop_bb = begin_body(a);
-                    gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, singleton(uint32_literal(a, 0))), src_value);
+                    gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, empty(a)), src_value);
                     const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
                     bind_instruction(loop_bb, if_instr(a, (If) {
                         .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)),
