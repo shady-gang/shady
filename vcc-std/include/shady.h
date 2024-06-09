@@ -29,6 +29,7 @@ namespace vcc {
 #define private                __attribute__((address_space(5)))
 
 #include "shady_vec.h"
+#include "shady_mat.h"
 
 typedef __attribute__((address_space(0x1000))) struct __shady_builtin_sampler2D* sampler2D;
 
