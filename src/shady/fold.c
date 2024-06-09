@@ -248,7 +248,8 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     bool rebuild = false;
     switch (payload.op) {
         case store_op:
-        case load_op: {
+        case load_op:
+        case lea_op: {
             simplify_ptr_operand(arena, bb, &payload, &rebuild, 0);
             break;
         }
@@ -256,7 +257,12 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     }
 
     if (rebuild) {
-        return bind_last_instruction_and_wrap_in_block(bb, prim_op(arena, payload));
+        const Node* r = prim_op(arena, payload);
+        if (r->type != node->type) {
+            r = gen_conversion(bb, get_unqualified_type(node->type), first(bind_instruction(bb, r)));
+            return yield_values_and_wrap_in_block(bb, singleton(r));
+        }
+        return bind_last_instruction_and_wrap_in_block(bb, r);
     }
 
     cancel_body(bb);
