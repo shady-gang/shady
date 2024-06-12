@@ -73,6 +73,7 @@ RewritePass lower_memcpy;
 /// Eliminates pointers to unsized arrays from the IR. Needs lower_lea to have ran first!
 RewritePass lower_decay_ptrs;
 RewritePass lower_generic_globals;
+RewritePass lower_logical_pointers;
 
 /// @}
 

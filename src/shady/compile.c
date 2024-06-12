@@ -78,6 +78,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     if (config->specialization.entry_point)
         RUN_PASS(specialize_entry_point)
 
+    RUN_PASS(lower_logical_pointers)
+
     RUN_PASS(lower_mask)
     RUN_PASS(lower_memcpy)
     RUN_PASS(lower_subgroup_ops)

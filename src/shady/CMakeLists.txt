@@ -92,6 +92,7 @@ set(SHADY_SOURCES
     passes/simt2d.c
     passes/specialize_entry_point.c
     passes/specialize_execution_model.c
+    passes/lower_logical_pointers.c
 
     passes/lower_entrypoint_args.c
     passes/spirv_map_entrypoint_args.c
