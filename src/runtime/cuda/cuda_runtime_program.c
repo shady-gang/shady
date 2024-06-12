@@ -28,7 +28,7 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
         .decay_unsized_arrays = true,
     };
     Module* final_mod;
-    emit_c(config, emitter_config, dst_mod, &spec->cuda_code_size, &spec->cuda_code, &final_mod);
+    emit_c(&config, emitter_config, dst_mod, &spec->cuda_code_size, &spec->cuda_code, &final_mod);
     spec->final_module = final_mod;
 
     if (get_log_level() <= DEBUG)

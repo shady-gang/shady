@@ -1,4 +1,5 @@
 #include "cuda_runtime_private.h"
+#include "shady/config.h"
 
 #include "log.h"
 #include "portability.h"
@@ -50,7 +51,7 @@ CudaCommand* shd_cuda_launch_kernel(CudaDevice* device, Program* p, String entry
         cudaEventRecord(cmd->start, 0);
     }
 
-    ArenaConfig final_config = get_arena_config(get_module_arena(kernel->final_module));
+    ArenaConfig final_config = *get_arena_config(get_module_arena(kernel->final_module));
     unsigned int gx = final_config.specializations.workgroup_size[0];
     unsigned int gy = final_config.specializations.workgroup_size[1];
     unsigned int gz = final_config.specializations.workgroup_size[2];
