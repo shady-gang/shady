@@ -224,8 +224,8 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
 
     if (is_data_type(type)) {
         if (type->tag == PtrType_TAG && type->payload.ptr_type.address_space == AsGlobal) {
-            TypeMemLayout elem_mem_layout = get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);
-            spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) {elem_mem_layout.size_in_bytes});
+            //TypeMemLayout elem_mem_layout = get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);
+            //spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) {elem_mem_layout.size_in_bytes});
         }
     }
 
