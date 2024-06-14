@@ -409,6 +409,16 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                         });
                         break;
                     }
+                    case Type_PackType_TAG: {
+                        size_t static_index = get_int_literal_value(*resolve_to_int_literal(selector), false);
+                        String suffixes = "xyzw";
+                        acc = term_from_cvar(format_string_arena(emitter->arena->arena, "(%s.%c)", deref_term(emitter, acc), suffixes[static_index]));
+                        curr_ptr_type = ptr_type(arena, (PtrType) {
+                                .pointed_type = pointee_type->payload.pack_type.element_type,
+                                .address_space = curr_ptr_type->payload.ptr_type.address_space
+                        });
+                        break;
+                    }
                     default: error("lea can't work on this");
                 }
             }
