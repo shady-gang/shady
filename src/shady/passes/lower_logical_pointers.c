@@ -24,6 +24,9 @@ static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node
         if (expected_type == actual_type)
             break;
 
+        actual_type = get_maybe_nominal_type_body(actual_type);
+        assert(expected_type != actual_type && "todo: rework this function if we change how nominal types are handled");
+
         switch (actual_type->tag) {
             case RecordType_TAG:
             case ArrType_TAG:
