@@ -108,6 +108,7 @@ Module* lower_logical_pointers(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     aconfig.address_spaces[AsInput].physical = false;
     aconfig.address_spaces[AsOutput].physical = false;
+    aconfig.address_spaces[AsUniformConstant].physical = false;
     IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
