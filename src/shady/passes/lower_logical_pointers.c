@@ -88,6 +88,16 @@ static const Node* process(Context* ctx, const Node* old) {
             }
             break;
         }
+        case GlobalVariable_TAG: {
+            AddressSpace as = old->payload.global_variable.address_space;
+            if (get_arena_config(a)->address_spaces[as].physical)
+                break;
+            Nodes annotations = rewrite_nodes(r, old->payload.global_variable.annotations);
+            annotations = append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Logical" }));
+            Node* new = global_var(ctx->rewriter.dst_module, annotations, rewrite_node(r, old->payload.global_variable.type), old->payload.global_variable.name, as);
+            recreate_decl_body_identity(r, old, new);
+            return new;
+        }
         default: break;
     }
 
