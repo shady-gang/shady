@@ -234,6 +234,10 @@ static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
 
 static void inline simplify_ptr_operand(IrArena* a, BodyBuilder* bb, PrimOp* payload, bool* success, int i) {
     const Node* old_op = payload->operands.nodes[i];
+    const Type* ptr_t = old_op->type;
+    deconstruct_qualified_type(&ptr_t);
+    if (ptr_t->payload.ptr_type.is_reference)
+        return;
     const Node* new_op = resolve_ptr_source(bb, old_op);
     if (old_op != new_op) {
         payload->operands = change_node_at_index(a, payload->operands, i, new_op);
