@@ -15,6 +15,7 @@ static String glsl_builtins[BuiltinsCount] = {
     [BuiltinNumWorkgroups] = "gl_NumWorkGroups",
     [BuiltinWorkgroupSize] = "gl_WorkGroupSize",
     [BuiltinGlobalInvocationId] = "gl_GlobalInvocationID",
+    [BuiltinPosition] = "gl_Position",
 };
 
 CTerm emit_c_builtin(Emitter* emitter, Builtin b) {

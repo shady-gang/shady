@@ -120,6 +120,7 @@ static bool has_forward_declarations(CDialect dialect) {
 static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init) {
     String prefix = NULL;
 
+    bool is_fs = emitter->compiler_config->specialization.execution_model == EmFragment;
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
     switch (emitter->config.dialect) {
         case CDialect_C11: {
@@ -160,10 +161,10 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
             switch (as) {
                 case AsShared: prefix = "shared "; break;
                 case AsInput:
-                case AsUInput: prefix = emitter->config.glsl_version < 130 ? "varying " : "in "; break;
+                case AsUInput: prefix = emitter->config.glsl_version < 130 ? (is_fs ? "varying " : "attribute ") : "in "; break;
                 case AsOutput: prefix = emitter->config.glsl_version < 130 ? "varying " : "out "; break;
                 case AsPrivate: prefix = ""; break;
-                case AsUniformConstant: prefix = "uniform"; break;
+                case AsUniformConstant: prefix = "uniform "; break;
                 case AsGlobal: {
                     assert(constant && "Only constants are supported");
                     prefix = "const ";
