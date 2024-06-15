@@ -71,6 +71,45 @@ String legalize_c_identifier(Emitter* e, String src) {
     return string(e->arena, dst);
 }
 
+// For uniform constants, explicit locations require version 430 or ARB_explicit_uniform_location.
+static bool glsl_as_can_have_location(AddressSpace as) {
+    return as == AsUniformConstant || as == AsInput || as == AsUInput || as == AsOutput;
+}
+
+// Samplers and images (uniform constants)
+// Version 420 required.
+static bool glsl_as_can_have_binding(AddressSpace as) {
+    return as == AsUniformConstant || as == AsShaderStorageBufferObject || as == AsUniform;
+}
+
+static String glsl_try_make_single_int_qualifier(Emitter* emitter, const Node* decl, Nodes annotations, String annotation_name, String glsl_qualifier_name) {
+    const Node* a_node = lookup_annotation_list(annotations, annotation_name);
+    if (a_node) {
+        assert(is_annotation(a_node));
+        const IntLiteral* int_literal = resolve_to_int_literal(a_node);
+        
+        if (int_literal) {
+            int64_t location = get_int_literal_value(*int_literal, false);
+            return format_string_arena(emitter->arena->arena, "%s = %" PRIi64, glsl_qualifier_name, location);
+        }
+
+        warn_print("warning: %s must be an integer literal\n", annotation_name);
+    }
+
+    return NULL;
+}
+
+// HACK: replace __ (double underscore) in source with _0 (underscore followed by 0), as the former is reserved in GLSL
+static void glsl_legalize_source(char* source, size_t length) {
+    bool prev_is_underscore = false;
+    for (size_t i = 0; i < length; i++) {
+        bool is_underscore = source[i] == '_';
+        if (is_underscore && prev_is_underscore)
+            source[i] = '0';
+        prev_is_underscore = is_underscore;
+    }
+}
+
 #include <ctype.h>
 
 static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* block_printer, Printer* p, Growy* g, const Node* t, Nodes c) {
@@ -117,7 +156,7 @@ static bool has_forward_declarations(CDialect dialect) {
     }
 }
 
-static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init) {
+static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init, Strings qualifiers) {
     String prefix = NULL;
 
     bool is_fs = emitter->compiler_config->specialization.execution_model == EmFragment;
@@ -170,6 +209,8 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
                     prefix = "const ";
                     break;
                 }
+                case AsUniform:
+                case AsShaderStorageBufferObject: prefix = ""; break;
                 default: {
                     prefix = format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
                     warn_print("warning: address space %s not supported in GLSL for global variables\n", get_address_space_name(as));
@@ -190,10 +231,38 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
             decl_center = format_string_arena(emitter->arena->arena, "varying %s", decl_center);
     }
 
+
+    print(emitter->fn_decls, "\n");
+
+    if (qualifiers.count > 0) {
+        if (emitter->config.dialect == CDialect_GLSL) {
+            print(emitter->fn_decls, "layout(");
+
+            for (size_t i = 0; i < qualifiers.count; i++) {
+              print(emitter->fn_decls, "%s%s", qualifiers.strings[i], (i == qualifiers.count - 1) ? "" : ", ");
+            }
+          
+            print(emitter->fn_decls, ") ");
+        }
+    }
+
+    // Emit first part of block (uniform or storage buffer)
+    bool is_glsl_block = emitter->config.dialect == CDialect_GLSL && (as == AsShaderStorageBufferObject || as == AsUniform);
+    if (is_glsl_block) {
+        String interface_qualifier = as == AsUniform ? "uniform" : "buffer";
+        String block_name = as == AsUniform ? "ubo" : "ssbo";
+        print(emitter->fn_decls, "%s %s_%s {\n    ", interface_qualifier, unique_name(emitter->arena, ""), block_name);
+    }
+
     if (init)
-        print(emitter->fn_decls, "\n%s%s = %s;", prefix, emit_type(emitter, type, decl_center), init);
+        print(emitter->fn_decls, "%s%s = %s;", prefix, emit_type(emitter, type, decl_center), init);
     else
-        print(emitter->fn_decls, "\n%s%s;", prefix, emit_type(emitter, type, decl_center));
+        print(emitter->fn_decls, "%s%s;", prefix, emit_type(emitter, type, decl_center));
+
+    // Emit second half of block
+    if (is_glsl_block) {
+        print(emitter->fn_decls, "\n};");
+    }
 
     //if (!has_forward_declarations(emitter->config.dialect) || !init)
     //    return;
@@ -256,7 +325,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             if (emitter->config.dialect == CDialect_GLSL)
                 return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
             String name = unique_name(emitter->arena, "undef");
-            emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);
+            emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL, (Strings){.count = 0});
             emitted = name;
             break;
         }
@@ -577,7 +646,8 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             if (decl->payload.global_variable.init)
                 init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
             AddressSpace ass = decl->payload.global_variable.address_space;
-            if (ass == AsInput || ass == AsOutput)
+            // Address spaces for which initializers are illegal
+            if (ass == AsInput || ass == AsOutput || ass == AsUniform || ass == AsShaderStorageBufferObject || ass == AsImage)
                 init = NULL;
 
             const GlobalVariable* gvar = &decl->payload.global_variable;
@@ -611,8 +681,32 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             }
             register_emitted(emitter, decl, emit_as);
 
-            AddressSpace as = decl->payload.global_variable.address_space;
-            emit_global_variable_definition(emitter, as, decl_center, decl_type, false, init);
+            // Generate list of qualifiers
+            Growy* g = new_growy();
+            Nodes annotations = decl->payload.global_variable.annotations;
+
+            if (emitter->config.dialect == CDialect_GLSL) {
+                if (glsl_as_can_have_location(ass)) {
+                    String location_qualifier = glsl_try_make_single_int_qualifier(emitter, decl, annotations, "Location", "location");
+                    if (location_qualifier)
+                        growy_append_bytes(g, sizeof(String), (const char*)&location_qualifier);
+                }
+
+                if (glsl_as_can_have_binding(ass)) {
+                    if (ass == AsShaderStorageBufferObject)
+                        growy_append_bytes(g, sizeof(String), (const char*)&(String){"std430"});
+                    if (ass == AsUniform)
+                        growy_append_bytes(g, sizeof(String), (const char*)&(String){"std140"});
+
+                    String binding_qualifier = glsl_try_make_single_int_qualifier(emitter, decl, annotations, "DescriptorBinding", "binding");
+                    if (binding_qualifier)
+                        growy_append_bytes(g, sizeof(String), (const char*)&binding_qualifier);
+                }
+            }
+
+            Strings qualifier_strings = strings(emitter->arena, growy_size(g) / sizeof(String), (const char**)growy_data(g));
+            emit_global_variable_definition(emitter, ass, decl_center, decl_type, false, init, qualifier_strings);
+            destroy_growy(g);
             return;
         }
         case Function_TAG: {
@@ -658,7 +752,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
             assert(init_value && "TODO: support some measure of constant expressions");
             String init = to_cvalue(emitter, emit_value(emitter, NULL, init_value));
-            emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init);
+            emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init, (Strings) { .count = 0 });
             return;
         }
         case NominalType_TAG: {
@@ -857,6 +951,8 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
 
     *output_size = growy_size(final) - 1;
     *output = growy_deconstruct(final);
+    if (emitter.config.dialect == CDialect_GLSL)
+        glsl_legalize_source(*output, *output_size);
     destroy_printer(finalp);
 
     if (new_mod)
