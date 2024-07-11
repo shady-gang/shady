@@ -7,7 +7,7 @@
 
 #include "print.h"
 
-#include "../frontends/slim/parser.h"
+#include "../frontend/slim/parser.h"
 
 #include "list.h"
 #include "util.h"
@@ -18,11 +18,11 @@
 #include <string.h>
 
 #ifdef LLVM_PARSER_PRESENT
-#include "../frontends/llvm/l2s.h"
+#include "../frontend/llvm/l2s.h"
 #endif
 
 #ifdef SPV_PARSER_PRESENT
-#include "../frontends/spirv/s2s.h"
+#include "../frontend/spirv/s2s.h"
 #endif
 
 #pragma GCC diagnostic error "-Wswitch"

@@ -1,7 +1,7 @@
 #include "shady/driver.h"
 #include "compile.h"
 
-#include "../frontends/slim/parser.h"
+#include "../frontend/slim/parser.h"
 #include "shady_scheduler_src.h"
 #include "transform/internal_constants.h"
 #include "ir_private.h"
