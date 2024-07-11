@@ -1,7 +1,7 @@
 #include "runtime_private.h"
-#include "driver/cli.h"
+#include "../driver/cli.h"
 
-#include "common/log.h"
+#include "log.h"
 
 RuntimeConfig default_runtime_config() {
     return (RuntimeConfig) {

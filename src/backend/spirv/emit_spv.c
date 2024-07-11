@@ -1,8 +1,9 @@
 #include "shady/builtins.h"
-#include "../../ir_private.h"
-#include "../../analysis/cfg.h"
-#include "../../type.h"
-#include "../../compile.h"
+
+#include "../shady/ir_private.h"
+#include "../shady/analysis/cfg.h"
+#include "../shady/type.h"
+#include "../shady/compile.h"
 
 #include "list.h"
 #include "dict.h"

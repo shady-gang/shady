@@ -1,10 +1,9 @@
 #include "emit_c.h"
 
-#include "../../type.h"
-#include "../../ir_private.h"
-#include "../../compile.h"
-
-#include "../../transform/ir_gen_helpers.h"
+#include "../shady/type.h"
+#include "../shady/ir_private.h"
+#include "../shady/compile.h"
+#include "../shady/transform/ir_gen_helpers.h"
 
 #include "shady_cuda_prelude_src.h"
 #include "shady_cuda_builtins_src.h"

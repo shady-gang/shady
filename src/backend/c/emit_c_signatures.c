@@ -4,8 +4,8 @@
 #include "log.h"
 #include "util.h"
 
-#include "../../type.h"
-#include "../../ir_private.h"
+#include "../shady/type.h"
+#include "../shady/ir_private.h"
 
 #include <stdlib.h>
 #include <assert.h>

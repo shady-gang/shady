@@ -3,9 +3,9 @@
 #include "log.h"
 #include "portability.h"
 
-#include "../../type.h"
-#include "../../transform/memory_layout.h"
-#include "../../transform/ir_gen_helpers.h"
+#include "../shady/type.h"
+#include "../shady/transform/memory_layout.h"
+#include "../shady/transform/ir_gen_helpers.h"
 
 #include <assert.h>
 

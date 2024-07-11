@@ -4,9 +4,10 @@
 #include "shady/be/c.h"
 #include "shady/be/spirv.h"
 #include "shady/be/dump.h"
-#include "shady/print.h"
 
-#include "frontends/slim/parser.h"
+#include "print.h"
+
+#include "../frontends/slim/parser.h"
 
 #include "list.h"
 #include "util.h"

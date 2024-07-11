@@ -111,10 +111,9 @@ if (WIN32)
 endif()
 
 add_subdirectory(internal)
-add_subdirectory(emit)
 
 target_link_libraries(shady PRIVATE "api")
-target_link_libraries(shady INTERFACE "common")
+target_link_libraries(shady PRIVATE "common")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
 

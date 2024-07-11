@@ -3,11 +3,10 @@
 
 #include "portability.h"
 #include "log.h"
-
-#include "../../rewrite.h"
-#include "../../transform/memory_layout.h"
-
 #include "dict.h"
+
+#include "../shady/rewrite.h"
+#include "../shady/transform/memory_layout.h"
 
 #include "assert.h"
 

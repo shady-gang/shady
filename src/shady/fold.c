@@ -6,7 +6,7 @@
 #include "portability.h"
 #include "rewrite.h"
 
-#include "shady/transform/ir_gen_helpers.h"
+#include "transform/ir_gen_helpers.h"
 
 #include <assert.h>
 #include <math.h>

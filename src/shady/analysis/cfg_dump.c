@@ -1,7 +1,7 @@
 #include "cfg.h"
 
-#include "shady/ir_private.h"
-#include "shady/print.h"
+#include "ir_private.h"
+#include "print.h"
 
 #include "list.h"
 #include "dict.h"
