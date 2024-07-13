@@ -34,7 +34,6 @@ typedef unsigned native_uvec2 __attribute__((vector_size(8)));
 #endif
 
 #ifdef SHADY_ENABLE_WRAPPER_CLASSES
-
 template<typename T, unsigned len>
 struct vec_native_type {};
 
@@ -173,7 +172,7 @@ struct vec_impl {
 
 #define CONCAT_4_(a, b, c, d) a##b##c##d
 #define CONCAT_4(a, b, c, d) CONCAT_4_(a, b, c, d)
-#define SWIZZLER_4(a, b, c, d) Swizzler<4, { a, b, c, d }> CONCAT_4(COMPONENT_##a, COMPONENT_##b, COMPONENT_##c, COMPONENT_##d);
+#define SWIZZLER_4(a, b, c, d) Swizzler<4, Mapping<4> { a, b, c, d }> CONCAT_4(COMPONENT_##a, COMPONENT_##b, COMPONENT_##c, COMPONENT_##d);
 #define GEN_SWIZZLERS_4_D(D, C, B, A) SWIZZLER_4(A, B, C, D)
 #define GEN_SWIZZLERS_4_C(C, B, A) GEN_SWIZZLERS_4_D(0, C, B, A) GEN_SWIZZLERS_4_D(1, C, B, A) GEN_SWIZZLERS_4_D(2, C, B, A) GEN_SWIZZLERS_4_D(3, C, B, A)
 #define GEN_SWIZZLERS_4_B(B, A) GEN_SWIZZLERS_4_C(0, B, A) GEN_SWIZZLERS_4_C(1, B, A) GEN_SWIZZLERS_4_C(2, B, A) GEN_SWIZZLERS_4_C(3, B, A)
@@ -182,7 +181,7 @@ struct vec_impl {
 
 #define CONCAT_3_(a, b, c) a##b##c
 #define CONCAT_3(a, b, c) CONCAT_3_(a, b, c)
-#define SWIZZLER_3(a, b, c) Swizzler<3, { a, b, c }> CONCAT_3(COMPONENT_##a, COMPONENT_##b, COMPONENT_##c);
+#define SWIZZLER_3(a, b, c) Swizzler<3, Mapping<3> { a, b, c }> CONCAT_3(COMPONENT_##a, COMPONENT_##b, COMPONENT_##c);
 #define GEN_SWIZZLERS_3_C(C, B, A) SWIZZLER_3(A, B, C)
 #define GEN_SWIZZLERS_3_B(B, A) GEN_SWIZZLERS_3_C(0, B, A) GEN_SWIZZLERS_3_C(1, B, A) GEN_SWIZZLERS_3_C(2, B, A) GEN_SWIZZLERS_3_C(3, B, A)
 #define GEN_SWIZZLERS_3_A(A) GEN_SWIZZLERS_3_B(0, A) GEN_SWIZZLERS_3_B(1, A) GEN_SWIZZLERS_3_B(2, A) GEN_SWIZZLERS_3_B(3, A)
@@ -190,12 +189,12 @@ struct vec_impl {
 
 #define CONCAT_2_(a, b) a##b
 #define CONCAT_2(a, b) CONCAT_2_(a, b)
-#define SWIZZLER_2(a, b) Swizzler<2, { a, b }> CONCAT_2(COMPONENT_##a, COMPONENT_##b);
+#define SWIZZLER_2(a, b) Swizzler<2, Mapping<2> { a, b }> CONCAT_2(COMPONENT_##a, COMPONENT_##b);
 #define GEN_SWIZZLERS_2_B(B, A) SWIZZLER_2(A, B)
 #define GEN_SWIZZLERS_2_A(A) GEN_SWIZZLERS_2_B(0, A) GEN_SWIZZLERS_2_B(1, A) GEN_SWIZZLERS_2_B(2, A) GEN_SWIZZLERS_2_B(3, A)
 #define GEN_SWIZZLERS_2() GEN_SWIZZLERS_2_A(0) GEN_SWIZZLERS_2_A(1) GEN_SWIZZLERS_2_A(2) GEN_SWIZZLERS_2_A(3)
 
-#define SWIZZLER_1(a) Swizzler<1, { a }> COMPONENT_##a;
+#define SWIZZLER_1(a) Swizzler<1, Mapping<1> { a }> COMPONENT_##a;
 #define GEN_SWIZZLERS_1_A(A) SWIZZLER_1(A)
 #define GEN_SWIZZLERS_1() GEN_SWIZZLERS_1_A(0) GEN_SWIZZLERS_1_A(1) GEN_SWIZZLERS_1_A(2) GEN_SWIZZLERS_1_A(3)
 
