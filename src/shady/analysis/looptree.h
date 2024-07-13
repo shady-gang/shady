@@ -1,7 +1,7 @@
 #ifndef SHADY_LOOPTREE_H
 #define SHADY_LOOPTREE_H
 
-#include "scope.h"
+#include "cfg.h"
 
 // Loop tree implementation based on Thorin, translated to C and somewhat simplified
 // https://github.com/AnyDSL/thorin
@@ -41,10 +41,9 @@ struct LoopTree_ {
  */
 LTNode* looptree_lookup(LoopTree*, const Node* block);
 
-static void destroy_lt_node(LTNode* n);
 void destroy_loop_tree(LoopTree* lt);
 
-LoopTree* build_loop_tree(Scope* s);
+LoopTree* build_loop_tree(CFG* s);
 void dump_loop_trees(FILE* output, Module* mod);
 
 #endif // SHADY_LOOPTREE_H

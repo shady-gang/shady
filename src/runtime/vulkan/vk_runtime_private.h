@@ -172,6 +172,7 @@ typedef struct VkrBuffer_ {
 VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size);
 VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size);
 bool vkr_can_import_host_memory(VkrDevice* device);
+void vkr_destroy_buffer(VkrBuffer* buffer);
 
 typedef struct VkrCommand_ VkrCommand;
 
@@ -181,6 +182,9 @@ struct VkrCommand_ {
     VkCommandBuffer cmd_buf;
     VkFence done_fence;
     bool submitted;
+
+    uint64_t* profiled_gpu_time;
+    VkQueryPool query_pool;
 };
 
 VkrCommand* vkr_begin_command(VkrDevice* device);
@@ -188,7 +192,7 @@ bool vkr_submit_command(VkrCommand* commands);
 void vkr_destroy_command(VkrCommand* commands);
 bool vkr_wait_completion(VkrCommand* cmd);
 
-VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args);
+VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions*);
 
 typedef struct ProgramResourceInfo_ ProgramResourceInfo;
 struct ProgramResourceInfo_ {
@@ -207,7 +211,7 @@ struct ProgramResourceInfo_ {
     size_t size;
     VkrBuffer* buffer;
 
-    char* default_data;
+    unsigned char* default_data;
 };
 
 typedef struct {

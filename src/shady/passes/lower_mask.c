@@ -1,12 +1,11 @@
-#include "passes.h"
-
-#include "log.h"
-#include "portability.h"
+#include "pass.h"
 
 #include "../ir_private.h"
 #include "../type.h"
-#include "../rewrite.h"
 #include "../transform/ir_gen_helpers.h"
+
+#include "log.h"
+#include "portability.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -55,16 +54,16 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lower_mask(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     aconfig.specializations.subgroup_mask_representation = SubgroupMaskInt64;
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     const Type* mask_type = get_actual_mask_type(a);
     assert(mask_type->tag == Int_TAG);
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .zero = int_literal(a, (IntLiteral) { .width = mask_type->payload.int_type.width, .value = 0 }),
         .one = int_literal(a, (IntLiteral) { .width = mask_type->payload.int_type.width, .value = 1 }),
     };

@@ -1,4 +1,3 @@
-#include "shady/ir.h"
 #include "vcc/driver.h"
 
 #include "log.h"
@@ -14,7 +13,7 @@ int main(int argc, char** argv) {
     platform_specific_terminal_init_extras();
 
     DriverConfig args = default_driver_config();
-    VccConfig vcc_options = vcc_init_config();
+    VccConfig vcc_options = vcc_init_config(&args.config);
     cli_parse_driver_arguments(&args, &argc, argv);
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&args.config, &argc, argv);
@@ -26,9 +25,8 @@ int main(int argc, char** argv) {
         exit(MissingInputArg);
     }
 
-    ArenaConfig aconfig = default_arena_config();
-    IrArena* arena = new_ir_arena(aconfig);
-    Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
+    ArenaConfig aconfig = default_arena_config(&args.config.target);
+    IrArena* arena = new_ir_arena(&aconfig);
 
     vcc_check_clang();
 
@@ -37,8 +35,9 @@ int main(int argc, char** argv) {
     vcc_run_clang(&vcc_options, entries_count_list(args.input_filenames), read_list(String, args.input_filenames));
 
     if (!vcc_options.only_run_clang) {
-        vcc_parse_back_into_module(&vcc_options, mod);
+        Module* mod = vcc_parse_back_into_module(&args.config, &vcc_options, "my_module");
         driver_compile(&args, mod);
+        destroy_ir_arena(get_module_arena(mod));
     }
 
     info_print("Done\n");

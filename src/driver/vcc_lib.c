@@ -27,7 +27,9 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
             i++;
             if (i == argc)
                 error("Missing subgroup size name");
-            options->include_path = argv[i];
+            if (options->include_path)
+                free((void*) options->include_path);
+            options->include_path = format_string_new("%s", argv[i]);
             continue;
         } else if (strcmp(argv[i], "--only-run-clang") == 0) {
             argv[i] = NULL;
@@ -39,45 +41,45 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
     cli_pack_remaining_args(pargc, argv);
 }
 
-void vcc_check_clang() {
+void vcc_check_clang(void) {
     int clang_retval = system("clang --version");
     if (clang_retval != 0)
         error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
 }
 
-VccConfig vcc_init_config() {
+VccConfig vcc_init_config(CompilerConfig* compiler_config) {
     VccConfig vcc_config = {
         .only_run_clang = false,
     };
-    set_log_level(DEBUGVV);
 
-    char* self_path = get_executable_location();
-    char* working_dir = strip_path(self_path);
+    // magic!
+    compiler_config->hacks.recover_structure = true;
+
+    String self_path = get_executable_location();
+    String working_dir = strip_path(self_path);
     if (!vcc_config.include_path) {
         vcc_config.include_path = format_string_new("%s/../share/vcc/include/", working_dir);
     }
-    free(working_dir);
-    free(self_path);
+    free((void*) working_dir);
+    free((void*) self_path);
     return vcc_config;
 }
 
 void destroy_vcc_options(VccConfig vcc_options) {
     if (vcc_options.include_path)
-        free(vcc_options.include_path);
+        free((void*) vcc_options.include_path);
     if (vcc_options.tmp_filename)
-        free(vcc_options.tmp_filename);
+        free((void*) vcc_options.tmp_filename);
 }
 
 void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* input_filenames) {
-    printf("cacaboudin %d\n", num_source_files);
-    printf("cacaboudin %d %d\n", input_filenames, input_filenames[0]);
     Growy* g = new_growy();
     growy_append_string(g, "clang");
-    char* self_path = get_executable_location();
-    char* working_dir = strip_path(self_path);
+    String self_path = get_executable_location();
+    String working_dir = strip_path(self_path);
     growy_append_formatted(g, " -c -emit-llvm -S -g -O0 -ffreestanding -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown -isystem\"%s\" -D__SHADY__=1", vcc_options->include_path);
-    free(working_dir);
-    free(self_path);
+    free((void*) working_dir);
+    free((void*) self_path);
 
     if (!vcc_options->tmp_filename) {
         if (vcc_options->only_run_clang) {
@@ -132,14 +134,17 @@ void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* inpu
         exit(ClangInvocationFailed);
 }
 
-void vcc_parse_back_into_module(VccConfig* vcc_options, Module* mod) {
+Module* vcc_parse_back_into_module(CompilerConfig* config, VccConfig* vcc_options, String module_name) {
     size_t len;
     char* llvm_ir;
     if (!read_file(vcc_options->tmp_filename, &len, &llvm_ir))
         exit(InputFileIOError);
-    driver_load_source_file(SrcLLVM, len, llvm_ir, mod);
+    Module* mod;
+    driver_load_source_file(config, SrcLLVM, len, llvm_ir, module_name, &mod);
     free(llvm_ir);
 
     if (vcc_options->delete_tmp_file)
         remove(vcc_options->tmp_filename);
+
+    return mod;
 }

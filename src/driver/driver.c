@@ -1,6 +1,9 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
 
+#include "shady/be/c.h"
+#include "shady/be/spirv.h"
+#include "shady/be/dump.h"
 #include "shady/print.h"
 
 #include "frontends/slim/parser.h"
@@ -37,11 +40,12 @@ SourceLanguage guess_source_language(const char* filename) {
     return SrcSlim;
 }
 
-ShadyErrorCodes driver_load_source_file(SourceLanguage lang, size_t len, const char* file_contents, Module* mod) {
+ShadyErrorCodes driver_load_source_file(const CompilerConfig* config, SourceLanguage lang, size_t len, const char* file_contents, String name, Module** mod) {
     switch (lang) {
         case SrcLLVM: {
 #ifdef LLVM_PARSER_PRESENT
-            parse_llvm_into_shady(mod, len, file_contents);
+            bool ok = parse_llvm_into_shady(config, len, file_contents, name, mod);
+            assert(ok);
 #else
             assert(false && "LLVM front-end missing in this version");
 #endif
@@ -49,7 +53,7 @@ ShadyErrorCodes driver_load_source_file(SourceLanguage lang, size_t len, const c
         }
         case SrcSPIRV: {
 #ifdef SPV_PARSER_PRESENT
-            parse_spirv_into_shady(mod, len, file_contents);
+            parse_spirv_into_shady(config, len, file_contents, name, mod);
 #else
             assert(false && "SPIR-V front-end missing in this version");
 #endif
@@ -58,16 +62,16 @@ ShadyErrorCodes driver_load_source_file(SourceLanguage lang, size_t len, const c
         case SrcShadyIR:
         case SrcSlim: {
             ParserConfig pconfig = {
-                    .front_end = lang == SrcSlim,
+                .front_end = lang == SrcSlim,
             };
             debugv_print("Parsing: \n%s\n", file_contents);
-            parse_shady_ir(pconfig, (const char*) file_contents, mod);
+            *mod = parse_slim_module(config, pconfig, (const char*) file_contents, name);
         }
     }
     return NoError;
 }
 
-ShadyErrorCodes driver_load_source_file_from_filename(const char* filename, Module* mod) {
+ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* config, const char* filename, String name, Module** mod) {
     ShadyErrorCodes err;
     SourceLanguage lang = guess_source_language(filename);
     size_t len;
@@ -84,9 +88,9 @@ ShadyErrorCodes driver_load_source_file_from_filename(const char* filename, Modu
         err = InputFileDoesNotExist;
         goto exit;
     }
-    err = driver_load_source_file(lang, len, contents, mod);
-    exit:
+    err = driver_load_source_file(config, lang, len, contents, name, mod);
     free((void*) contents);
+    exit:
     return err;
 }
 
@@ -98,9 +102,12 @@ ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
 
     size_t num_source_files = entries_count_list(args->input_filenames);
     for (size_t i = 0; i < num_source_files; i++) {
-        int err = driver_load_source_file_from_filename(read_list(const char*, args->input_filenames)[i], mod);
+        Module* m;
+        int err = driver_load_source_file_from_filename(&args->config, read_list(const char*, args->input_filenames)[i], read_list(const char*, args->input_filenames)[i], &m);
         if (err)
             return err;
+        link_module(mod, m);
+        destroy_ir_arena(get_module_arena(m));
     }
 
     return NoError;
@@ -121,7 +128,7 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
     if (args->cfg_output_filename) {
         FILE* f = fopen(args->cfg_output_filename, "wb");
         assert(f);
-        dump_cfg(f, mod);
+        dump_cfgs(f, mod);
         fclose(f);
         debug_print("CFG dumped\n");
     }
@@ -157,15 +164,15 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
             case TgtSPV: emit_spirv(&args->config, mod, &output_size, &output_buffer, NULL); break;
             case TgtC:
                 args->c_emitter_config.dialect = CDialect_C11;
-                emit_c(args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
+                emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
             case TgtGLSL:
                 args->c_emitter_config.dialect = CDialect_GLSL;
-                emit_c(args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
+                emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
             case TgtISPC:
                 args->c_emitter_config.dialect = CDialect_ISPC;
-                emit_c(args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
+                emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
         }
         debug_print("Wrote result to %s\n", args->output_filename);

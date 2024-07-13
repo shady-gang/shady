@@ -1,12 +1,5 @@
-#include "passes.h"
+#include "pass.h"
 
-#include "log.h"
-#include "portability.h"
-#include "list.h"
-#include "dict.h"
-#include "util.h"
-
-#include "../rewrite.h"
 #include "../visit.h"
 #include "../type.h"
 #include "../ir_private.h"
@@ -14,13 +7,19 @@
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"
 
+#include "log.h"
+#include "portability.h"
+#include "list.h"
+#include "dict.h"
+#include "util.h"
+
 #include <assert.h>
 
 typedef struct Context_ {
     Rewriter rewriter;
     bool disable_lowering;
 
-    const UsesMap* scope_uses;
+    const UsesMap* uses;
     const CompilerConfig* config;
     Arena* arena;
     struct Dict* alloca_info;
@@ -46,16 +45,24 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
 
     const Use* use = get_first_use(map, ptr_value);
     for (;use; use = use->next_use) {
-        if (is_abstraction(use->user) && use->operand_class == NcVariable)
+        if (is_abstraction(use->user) && use->operand_class == NcParam)
             continue;
+        if (use->operand_class == NcVariable)
+            continue;
+        if (use->user->tag == Variablez_TAG) {
+            debugv_print("demote_alloca leak analysis: following let-bound variable: ");
+            log_node(DEBUGV, use->user);
+            debugv_print(".\n");
+            visit_ptr_uses(use->user, slice_type, k, map);
+        }
         else if (use->user->tag == Let_TAG && use->operand_class == NcInstruction) {
-            Nodes vars = get_abstraction_params(get_let_tail(use->user));
+            /*Nodes vars = use->user->payload.let.variables;
             for (size_t i = 0; i < vars.count; i++) {
                 debugv_print("demote_alloca leak analysis: following let-bound variable: ");
                 log_node(DEBUGV, vars.nodes[i]);
                 debugv_print(".\n");
                 visit_ptr_uses(vars.nodes[i], slice_type, k, map);
-            }
+            }*/
         } else if (use->user->tag == PrimOp_TAG) {
             PrimOp payload = use->user->payload.prim_op;
             switch (payload.op) {
@@ -129,9 +136,9 @@ PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
     PtrSourceKnowledge k = { 0 };
     while (ptr) {
         assert(is_value(ptr));
-        if (ptr->tag == Variable_TAG && ctx->scope_uses) {
-            const Node* instr = get_var_instruction(ctx->scope_uses, ptr);
-            if (instr) {
+        if (ptr->tag == Variablez_TAG && ctx->uses) {
+            const Node* instr = get_var_def(ptr->payload.varz);
+            if (instr->tag == PrimOp_TAG) {
                 PrimOp payload = instr->payload.prim_op;
                 switch (payload.op) {
                     case alloca_logical_op:
@@ -166,42 +173,39 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
             Context fun_ctx = *ctx;
-            fun_ctx.scope_uses = create_uses_map(old, (NcDeclaration | NcType));
+            fun_ctx.uses = create_uses_map(old, (NcDeclaration | NcType));
             fun_ctx.disable_lowering = lookup_annotation_with_string_payload(old, "DisableOpt", "demote_alloca");
             if (old->payload.fun.body)
                 fun->payload.fun.body = rewrite_node(&fun_ctx.rewriter, old->payload.fun.body);
-            destroy_uses_map(fun_ctx.scope_uses);
+            destroy_uses_map(fun_ctx.uses);
             return fun;
         }
         case Constant_TAG: {
             Context fun_ctx = *ctx;
-            fun_ctx.scope_uses = NULL;
+            fun_ctx.uses = NULL;
             return recreate_node_identity(&fun_ctx.rewriter, old);
         }
         case Let_TAG: {
             const Node* oinstruction = get_let_instruction(old);
+            Nodes ovars = old->payload.let.variables;
             const Node* otail = get_let_tail(old);
             const Node* ninstruction = rewrite_node(r, oinstruction);
             AllocaInfo** found_info = find_value_dict(const Node*, AllocaInfo*, ctx->alloca_info, oinstruction);
             AllocaInfo* info = NULL;
             if (found_info) {
-                const Node* ovar = first(get_abstraction_params(otail));
+                const Node* ovar = first(ovars);
                 info = *found_info;
                 insert_dict(const Node*, AllocaInfo*, ctx->alloca_info, ovar, info);
             }
-            Nodes oparams = otail->payload.case_.params;
             Nodes ntypes = unwrap_multiple_yield_types(r->dst_arena, ninstruction->type);
-            assert(ntypes.count == oparams.count);
-            LARRAY(const Node*, new_params, oparams.count);
-            for (size_t i = 0; i < oparams.count; i++) {
-                new_params[i] = var(r->dst_arena, ntypes.nodes[i], oparams.nodes[i]->payload.var.name);
-                register_processed(r, oparams.nodes[i], new_params[i]);
-            }
+            assert(ntypes.count == ovars.count);
+            Nodes nvars = recreate_vars(a, ovars, ninstruction);
+            register_processed_list(r, ovars, nvars);
             if (info)
-                info->bound = new_params[0];
-            const Node* nbody = rewrite_node(r, otail->payload.case_.body);
-            const Node* tail = case_(r->dst_arena, nodes(r->dst_arena, oparams.count, new_params), nbody);
-            return let(a, ninstruction, tail);
+                info->bound = first(nvars);
+            // const Node* nbody = rewrite_node(r, otail->payload.case_.body);
+            // const Node* tail = case_(r->dst_arena, empty(a), nbody);
+            return let(a, ninstruction, nvars, rewrite_node(r, otail));
         }
         case PrimOp_TAG: {
             PrimOp payload = old->payload.prim_op;
@@ -210,8 +214,8 @@ static const Node* process(Context* ctx, const Node* old) {
                 case alloca_logical_op: {
                     AllocaInfo* k = arena_alloc(ctx->arena, sizeof(AllocaInfo));
                     *k = (AllocaInfo) { .type = rewrite_node(r, first(payload.type_arguments)) };
-                    assert(ctx->scope_uses);
-                    visit_ptr_uses(old, first(payload.type_arguments), k, ctx->scope_uses);
+                    assert(ctx->uses);
+                    visit_ptr_uses(old, first(payload.type_arguments), k, ctx->uses);
                     insert_dict(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
                     debugv_print("demote_alloca: uses analysis results for ");
                     log_node(DEBUGV, old);
@@ -221,7 +225,7 @@ static const Node* process(Context* ctx, const Node* old) {
                             ctx->todo |= true;
                             return quote_helper(a, singleton(undef(a, (Undef) {.type = get_unqualified_type(rewrite_node(r, old->type))})));
                         }
-                        if (!k->non_logical_use && get_arena_config(a).optimisations.weaken_non_leaking_allocas) {
+                        if (!k->non_logical_use && get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
                             ctx->todo |= true;
                             return prim_op_helper(a, alloca_logical_op, rewrite_nodes(&ctx->rewriter, payload.type_arguments), rewrite_nodes(r, payload.operands));
                         }
@@ -278,7 +282,7 @@ bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     IrArena* a = get_module_arena(src);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .arena = new_arena(),
         .alloca_info = new_dict(const Node*, AllocaInfo*, (HashFn) hash_node, (CmpFn) compare_node),

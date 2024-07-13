@@ -8,25 +8,27 @@
 #include <string.h>
 #include <assert.h>
 
-String get_value_name(const Node* v) {
+String get_value_name_unsafe(const Node* v) {
     assert(v && is_value(v));
-    if (v->tag == Variable_TAG)
-        return v->payload.var.name;
+    if (v->tag == Param_TAG)
+        return v->payload.param.name;
+    if (v->tag == Variablez_TAG)
+        return v->payload.varz.name;
     return NULL;
 }
 
 String get_value_name_safe(const Node* v) {
-    String name = get_value_name(v);
-    if (name)
+    String name = get_value_name_unsafe(v);
+    if (name && strlen(name) > 0)
         return name;
-    if (v->tag == Variable_TAG)
-        return format_string_interned(v->arena, "v%d", v->id);
-    return node_tags[v->tag];
+    //if (v->tag == Variable_TAG)
+    return format_string_interned(v->arena, "%%%d", v->id);
+    //return node_tags[v->tag];
 }
 
 void set_variable_name(Node* var, String name) {
-    assert(var->tag == Variable_TAG);
-    var->payload.var.name = string(var->arena, name);
+    assert(var->tag == Variablez_TAG);
+    var->payload.varz.name = string(var->arena, name);
 }
 
 int64_t get_int_literal_value(IntLiteral literal, bool sign_extend) {
@@ -77,6 +79,58 @@ const Node* get_quoted_value(const Node* instruction) {
     return NULL;
 }
 
+static bool is_zero(const Node* node) {
+    const IntLiteral* lit = resolve_to_int_literal(node);
+    if (lit && get_int_literal_value(*lit, false) == 0)
+        return true;
+    return false;
+}
+
+const Node* chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
+    while (true) {
+        ptr = resolve_node_to_definition(ptr, config);
+        switch (ptr->tag) {
+            case PrimOp_TAG: {
+                switch (ptr->payload.prim_op.op) {
+                    case convert_op: {
+                        // chase generic pointers to their source
+                        if (first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
+                            ptr = first(ptr->payload.prim_op.operands);
+                            continue;
+                        }
+                        break;
+                    }
+                    case reinterpret_op: {
+                        // chase ptr casts to their source
+                        // TODO: figure out round-trips through integer casts?
+                        if (first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
+                            ptr = first(ptr->payload.prim_op.operands);
+                            continue;
+                        }
+                        break;
+                    }
+                    case lea_op: {
+                        Nodes ops = ptr->payload.prim_op.operands;
+                        for (size_t i = 1; i < ops.count; i++) {
+                            if (!is_zero(ops.nodes[i]))
+                                goto outer_break;
+                        }
+                        ptr = first(ops);
+                        continue;
+                        outer_break:
+                        break;
+                    }
+                    default: break;
+                }
+                break;
+            }
+            default: break;
+        }
+        break;
+    }
+    return ptr;
+}
+
 const Node* resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config) {
     while (ptr) {
         ptr = resolve_node_to_definition(ptr, config);
@@ -109,16 +163,8 @@ NodeResolveConfig default_node_resolve_config() {
     };
 }
 
-const Node* get_var_def(Variable var) {
-    if (var.pindex != 0)
-        return NULL;
-    const Node* abs = var.abs;
-    if (!abs || abs->tag != Case_TAG)
-        return NULL;
-    const Node* user = abs->payload.case_.structured_construct;
-    if (user->tag != Let_TAG)
-        return NULL;
-    return user->payload.let.instruction;
+const Node* get_var_def(Variablez var) {
+    return var.instruction;
 }
 
 const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config) {
@@ -130,17 +176,26 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
             case RefDecl_TAG:
                 node = node->payload.ref_decl.decl;
                 continue;
-            case Variable_TAG: {
-                const Node* def = get_var_def(node->payload.var);
+            case Variablez_TAG: {
+                const Node* def = get_var_def(node->payload.varz);
                 if (!def)
                     break;
                 node = def;
                 continue;
             }
+            case Block_TAG: {
+                const Node* terminator = node->payload.block.inside->payload.case_.body;
+                while (terminator->tag == Let_TAG) {
+                    terminator = terminator->payload.let.tail->payload.case_.body;
+                }
+                assert(terminator->tag == Yield_TAG);
+                assert(terminator->payload.yield.args.count == 1);
+                return resolve_node_to_definition(first(terminator->payload.yield.args), config);
+            }
             case PrimOp_TAG: {
                 switch (node->payload.prim_op.op) {
                     case quote_op: {
-                        node = first(node->payload.prim_op.operands);;
+                        node = first(node->payload.prim_op.operands);
                         continue;
                     }
                     case load_op: {
@@ -153,6 +208,7 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                             continue;
                         }
                     }
+                    case convert_op:
                     case reinterpret_op: {
                         if (config.allow_incompatible_types) {
                             node = first(node->payload.prim_op.operands);
@@ -188,30 +244,30 @@ const FloatLiteral* resolve_to_float_literal(const Node* node) {
     return NULL;
 }
 
-static bool is_zero(const Node* node) {
-    const IntLiteral* lit = resolve_to_int_literal(node);
-    if (lit && get_int_literal_value(*lit, false) == 0)
-        return true;
-    return false;
-}
-
 const char* get_string_literal(IrArena* arena, const Node* node) {
     if (!node)
         return NULL;
+    if (node->type && get_unqualified_type(node->type)->tag == PtrType_TAG) {
+        NodeResolveConfig nrc = default_node_resolve_config();
+        const Node* ptr = chase_ptr_to_source(node, nrc);
+        const Node* value = resolve_ptr_to_value(ptr, nrc);
+        if (value)
+            return get_string_literal(arena, value);
+    }
     switch (node->tag) {
+        case Declaration_GlobalVariable_TAG: {
+            const Node* init = node->payload.global_variable.init;
+            if (init) {
+                return get_string_literal(arena, init);
+            }
+            break;
+        }
+        case Declaration_Constant_TAG: {
+            return get_string_literal(arena, node->payload.constant.instruction);
+        }
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
-            switch (is_declaration(decl)) {
-                case Declaration_GlobalVariable_TAG: {
-                    const Node* init = decl->payload.global_variable.init;
-                    if (init)
-                        return get_string_literal(arena, init);
-                    break;
-                }
-                default:
-                    break;
-            }
-            return NULL;
+            return get_string_literal(arena, decl);
         }
         case PrimOp_TAG: {
             switch (node->payload.prim_op.op) {
@@ -261,6 +317,23 @@ String get_abstraction_name(const Node* abs) {
         case Case_TAG: return "case";
         default: assert(false);
     }
+}
+
+String get_abstraction_name_unsafe(const Node* abs) {
+    assert(is_abstraction(abs));
+    switch (abs->tag) {
+        case Function_TAG: return abs->payload.fun.name;
+        case BasicBlock_TAG: return abs->payload.basic_block.name;
+        case Case_TAG: return NULL;
+        default: assert(false);
+    }
+}
+
+String get_abstraction_name_safe(const Node* abs) {
+    String name = get_abstraction_name_unsafe(abs);
+    if (name)
+        return name;
+    return format_string_interned(abs->arena, "%%%d", abs->id);
 }
 
 const Node* get_abstraction_body(const Node* abs) {

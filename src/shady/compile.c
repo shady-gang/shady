@@ -10,84 +10,48 @@
 
 #include <stdbool.h>
 
-#define KiB * 1024
-#define MiB * 1024 KiB
-
-CompilerConfig default_compiler_config() {
-    return (CompilerConfig) {
-        .dynamic_scheduling = true,
-        .per_thread_stack_size = 4 KiB,
-
-        .target_spirv_version = {
-            .major = 1,
-            .minor = 4
-        },
-
-        .lower = {
-            .emulate_physical_memory = true,
-            .emulate_generic_ptrs = true,
-        },
-
-        .logging = {
-            // most of the time, we are not interested in seeing generated & internal code in the debug output
-            .print_internal = true,
-            .print_generated = true,
-        },
-
-        .optimisations = {
-            .cleanup = {
-                .after_every_pass = true,
-                .delete_unused_instructions = true,
-            }
-        },
-
-        .specialization = {
-            .subgroup_size = 8,
-            .entry_point = NULL
-        }
+void add_scheduler_source(const CompilerConfig* config, Module* dst) {
+    ParserConfig pconfig = {
+        .front_end = true,
     };
+    Module* builtin_scheduler_mod = parse_slim_module(config, pconfig, shady_scheduler_src, "builtin_scheduler");
+    debug_print("Adding builtin scheduler code");
+    link_module(dst, builtin_scheduler_mod);
+    destroy_ir_arena(get_module_arena(builtin_scheduler_mod));
 }
 
-ArenaConfig default_arena_config() {
-    return (ArenaConfig) {
-        .is_simt = true,
-        .validate_builtin_types = false,
-        .allow_subgroup_memory = true,
-        .allow_shared_memory = true,
-
-        .memory = {
-            .word_size = IntTy8,
-            .ptr_size = IntTy64,
-        },
-
-        .optimisations = {
-            .delete_unreachable_structured_cases = true,
-        },
-    };
+void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial_arena, RewritePass pass, String pass_name) {
+    Module* old_mod = NULL;
+    old_mod = *pmod;
+    *pmod = pass(config, *pmod);
+    (*pmod)->sealed = true;
+    if (SHADY_RUN_VERIFY)
+        verify_module(config, *pmod);
+    if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena)
+        destroy_ir_arena(get_module_arena(old_mod));
+    old_mod = *pmod;
+    if (config->optimisations.cleanup.after_every_pass)
+        *pmod = cleanup(config, *pmod);
+    debugvv_print("After pass %s: \n", pass_name);
+    log_module(DEBUGVV, config, *pmod);
+    if (SHADY_RUN_VERIFY)
+        verify_module(config, *pmod);
+    if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena)
+        destroy_ir_arena(get_module_arena(old_mod));
+    if (config->hooks.after_pass.fn)
+        config->hooks.after_pass.fn(config->hooks.after_pass.uptr, pass_name, *pmod);
 }
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
-    if (config->dynamic_scheduling) {
-        debugv_print("Parsing builtin scheduler code");
-        ParserConfig pconfig = {
-            .front_end = true,
-        };
-        parse_shady_ir(pconfig, shady_scheduler_src, *pmod);
-    }
-
     IrArena* initial_arena = (*pmod)->arena;
-    Module* old_mod = NULL;
+	
+    if (config->dynamic_scheduling) {
+		*pmod = import(config, *pmod); // we don't want to mess with the original module
+	
+        add_scheduler_source(config, *pmod);
+	}
 
-    generate_dummy_constants(config, *pmod);
-
-    if (!get_module_arena(*pmod)->config.name_bound)
-        RUN_PASS(bind_program)
-    RUN_PASS(normalize)
-
-    RUN_PASS(normalize_builtins)
-    RUN_PASS(infer_program)
-
-    RUN_PASS(lcssa)
+    RUN_PASS(eliminate_inlineable_constants)	
     RUN_PASS(reconvergence_heuristics)
 
     RUN_PASS(lower_cf_instrs)
@@ -102,10 +66,9 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lift_indirect_targets)
     RUN_PASS(opt_mem2reg) // run because we can now weaken non-leaking allocas
 
-    if (config->specialization.execution_model != EmNone)
-        RUN_PASS(specialize_execution_model)
+    RUN_PASS(specialize_execution_model)
 
-    RUN_PASS(opt_stack)
+    //RUN_PASS(opt_stack)
 
     RUN_PASS(lower_tailcalls)
     RUN_PASS(lower_switch_btree)
@@ -114,6 +77,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     if (config->specialization.entry_point)
         RUN_PASS(specialize_entry_point)
+
+    RUN_PASS(lower_logical_pointers)
 
     RUN_PASS(lower_mask)
     RUN_PASS(lower_memcpy)
@@ -141,6 +106,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     if (config->lower.simt_to_explicit_simd)
         RUN_PASS(simt2d)
     RUN_PASS(lower_fill)
+    RUN_PASS(lower_nullptr)
     RUN_PASS(normalize_builtins)
 
     return CompilationNoError;

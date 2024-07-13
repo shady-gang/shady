@@ -4,6 +4,7 @@
 #include "shady/ir.h"
 #include <stdbool.h>
 
-bool parse_llvm_into_shady(Module* dst, size_t len, const char* data);
+typedef struct CompilerConfig_ CompilerConfig;
+bool parse_llvm_into_shady(const CompilerConfig*, size_t len, const char* data, String name, Module** dst);
 
 #endif

@@ -2,7 +2,7 @@
 #define SHADY_USAGES
 
 #include "shady/ir.h"
-#include "scope.h"
+#include "cfg.h"
 #include "list.h"
 #include "dict.h"
 #include "arena.h"

@@ -1,4 +1,5 @@
 #include "emit_spv.h"
+#include "type.h"
 
 #include "portability.h"
 #include "log.h"
@@ -17,11 +18,10 @@ bool compare_node(Node**, Node**);
 
 SpvStorageClass emit_addr_space(Emitter* emitter, AddressSpace address_space) {
     switch(address_space) {
-        case AsGlobalLogical:                return SpvStorageClassStorageBuffer;
-        case AsSharedLogical:                return SpvStorageClassWorkgroup;
-        case AsPrivateLogical:               return SpvStorageClassPrivate;
-        case AsFunctionLogical:              return SpvStorageClassFunction;
-        case AsGlobalPhysical:
+        case AsShared:                       return SpvStorageClassWorkgroup;
+        case AsPrivate:                      return SpvStorageClassPrivate;
+        case AsFunction:                     return SpvStorageClassFunction;
+        case AsGlobal:
             spvb_set_addressing_model(emitter->file_builder, SpvAddressingModelPhysicalStorageBuffer64);
             spvb_extension(emitter->file_builder, "SPV_KHR_physical_storage_buffer");
             spvb_capability(emitter->file_builder, SpvCapabilityPhysicalStorageBufferAddresses);
@@ -59,7 +59,7 @@ static const Node* rewrite_normalize(Rewriter* rewriter, const Node* node) {
 }
 
 const Type* normalize_type(Emitter* emitter, const Type* type) {
-    Rewriter rewriter = create_rewriter(emitter->module, emitter->module, rewrite_normalize);
+    Rewriter rewriter = create_node_rewriter(emitter->module, emitter->module, rewrite_normalize);
     const Node* rewritten = rewrite_node(&rewriter, type);
     destroy_rewriter(&rewriter);
     return rewritten;
@@ -144,9 +144,19 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             new = spvb_float_type(emitter->file_builder, width);
             break;
         } case PtrType_TAG: {
-            SpvId pointee = emit_type(emitter, type->payload.ptr_type.pointed_type);
             SpvStorageClass sc = emit_addr_space(emitter, type->payload.ptr_type.address_space);
+            const Type* pointed_type = type->payload.ptr_type.pointed_type;
+            if (get_maybe_nominal_type_decl(pointed_type) && sc == SpvStorageClassPhysicalStorageBuffer) {
+                new = spvb_forward_ptr_type(emitter->file_builder, sc);
+                insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
+                SpvId pointee = emit_type(emitter, pointed_type);
+                spvb_ptr_type_define(emitter->file_builder, new, sc, pointee);
+                return new;
+            }
+
+            SpvId pointee = emit_type(emitter, pointed_type);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
+
             //if (is_physical_as(type->payload.ptr_type.address_space) && type->payload.ptr_type.pointed_type->tag == ArrType_TAG) {
             //    TypeMemLayout elem_mem_layout = get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);
             //    spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) {elem_mem_layout.size_in_bytes});
@@ -193,8 +203,9 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
                 break;
             }
             new = spvb_fresh_id(emitter->file_builder);
+            insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
             emit_nominal_type_body(emitter, type, new);
-            break;
+            return new;
         }
         case Type_TypeDeclRef_TAG: {
             new = emit_decl(emitter, type->payload.type_decl_ref.decl);
@@ -209,6 +220,13 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         }
         case Type_MaskType_TAG:
         case Type_JoinPointType_TAG: error("These must be lowered beforehand")
+    }
+
+    if (is_data_type(type)) {
+        if (type->tag == PtrType_TAG && type->payload.ptr_type.address_space == AsGlobal) {
+            //TypeMemLayout elem_mem_layout = get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);
+            //spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) {elem_mem_layout.size_in_bytes});
+        }
     }
 
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);

@@ -55,17 +55,31 @@ LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
     return v;
 }
 
-static const Node* convert_jump(Parser* p, Node* fn, Node* fn_or_bb, LLVMBasicBlockRef dst) {
-    IrArena* a = fn->arena;
-    const Node* dst_bb = convert_basic_block(p, fn, dst);
-    BBPhis* phis = find_value_dict(const Node*, BBPhis, p->phis, dst_bb);
+static const Node* convert_jump_lazy(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef dst) {
+    IrArena* a = fn_or_bb->arena;
+    Node* wrapper_bb = basic_block(a, fn_ctx->fn, empty(a), NULL);
+    JumpTodo todo = {
+        .wrapper = wrapper_bb,
+        .src = fn_or_bb,
+        .dst = dst,
+    };
+    append_list(JumpTodo, fn_ctx->jumps_todo, todo);
+    const Node* dst2 = convert_basic_block(p, fn_ctx, dst);
+    insert_dict(Node*, const Node*, p->wrappers_map, wrapper_bb, dst2);
+    return jump_helper(a, wrapper_bb, empty(a));
+}
+
+void convert_jump_finish(Parser* p, FnParseCtx* fn_ctx, JumpTodo todo) {
+    IrArena* a = fn_ctx->fn->arena;
+    const Node* dst_bb = convert_basic_block(p, fn_ctx, todo.dst);
+    BBPhis* phis = find_value_dict(const Node*, BBPhis, fn_ctx->phis, dst_bb);
     assert(phis);
     size_t params_count = entries_count_list(phis->list);
     LARRAY(const Node*, params, params_count);
     for (size_t i = 0; i < params_count; i++) {
         LLVMValueRef phi = read_list(LLVMValueRef, phis->list)[i];
         for (size_t j = 0; j < LLVMCountIncoming(phi); j++) {
-            if (convert_basic_block(p, fn, LLVMGetIncomingBlock(phi, j)) == fn_or_bb) {
+            if (convert_basic_block(p, fn_ctx, LLVMGetIncomingBlock(phi, j)) == todo.src) {
                 params[i] = convert_value(p, LLVMGetIncomingValue(phi, j));
                 goto next;
             }
@@ -73,17 +87,21 @@ static const Node* convert_jump(Parser* p, Node* fn, Node* fn_or_bb, LLVMBasicBl
         assert(false && "failed to find the appropriate source");
         next: continue;
     }
-    return jump_helper(a, dst_bb, nodes(a, params_count, params));
+    todo.wrapper->payload.basic_block.body = jump_helper(a, dst_bb, nodes(a, params_count, params));
+}
+
+static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* element_type) {
+    IrArena* a = untyped_ptr_t->arena;
+    assert(element_type);
+    assert(untyped_ptr_t->tag == PtrType_TAG);
+    assert(!untyped_ptr_t->payload.ptr_type.is_reference);
+    const Type* typed_ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = untyped_ptr_t->payload.ptr_type.address_space });
+    return typed_ptr_t;
 }
 
 /// instr may be an instruction or a constantexpr
-EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
-    Node* fn = fn_or_bb;
-    if (fn) {
-        if (fn_or_bb->tag == BasicBlock_TAG)
-            fn = (Node*) fn_or_bb->payload.basic_block.fn;
-        assert(fn->tag == Function_TAG);
-    }
+EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
+    Node* fn = fn_ctx ? fn_ctx->fn : NULL;
 
     IrArena* a = get_module_arena(p->dst);
     int num_ops = LLVMGetNumOperands(instr);
@@ -112,13 +130,14 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             if (!found) {
                 Nodes str = scope_to_string(p, dbgloc);
                 insert_dict(const Node*, Nodes, p->scopes, fn_or_bb, str);
-                debug_print("Found a debug location for ");
-                log_node(DEBUG, fn_or_bb);
+                debugv_print("Found a debug location for ");
+                log_node(DEBUGV, fn_or_bb);
+                debugv_print(" ");
                 for (size_t i = 0; i < str.count; i++) {
-                    log_node(DEBUG, str.nodes[i]);
-                    debug_print(" -> ");
+                    log_node(DEBUGV, str.nodes[i]);
+                    debugv_print(" -> ");
                 }
-                debug_print(" (depth= %zu)\n", str.count);
+                debugv_print(" (depth= %zu)\n", str.count);
             }
         }
     }
@@ -131,29 +150,46 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 })
             };
         case LLVMBr: {
-            unsigned n_successors = LLVMGetNumSuccessors(instr);
-            LARRAY(LLVMBasicBlockRef , targets, n_successors);
-            for (size_t i = 0; i < n_successors; i++)
+            unsigned n_targets = LLVMGetNumSuccessors(instr);
+            LARRAY(LLVMBasicBlockRef, targets, n_targets);
+            for (size_t i = 0; i < n_targets; i++)
                 targets[i] = LLVMGetSuccessor(instr, i);
             if (LLVMIsConditional(instr)) {
-                assert(n_successors == 2);
+                assert(n_targets == 2);
                 const Node* condition = convert_value(p, LLVMGetCondition(instr));
                 return (EmittedInstr) {
                     .terminator = branch(a, (Branch) {
                         .branch_condition = condition,
-                        .true_jump = convert_jump(p, fn, fn_or_bb, targets[0]),
-                        .false_jump = convert_jump(p, fn, fn_or_bb, targets[1]),
+                        .true_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0]),
+                        .false_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[1]),
                     })
                 };
             } else {
-                assert(n_successors == 1);
+                assert(n_targets == 1);
                 return (EmittedInstr) {
-                    .terminator = convert_jump(p, fn, fn_or_bb, targets[0])
+                    .terminator = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0])
                 };
             }
         }
-        case LLVMSwitch:
-            goto unimplemented;
+        case LLVMSwitch: {
+            const Node* inspectee = convert_value(p, LLVMGetOperand(instr, 0));
+            const Node* default_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, 1));
+            int n_targets = LLVMGetNumOperands(instr) / 2 - 1;
+            LARRAY(const Node*, targets, n_targets);
+            LARRAY(const Node*, literals, n_targets);
+            for (size_t i = 0; i < n_targets; i++) {
+                literals[i] = convert_value(p, LLVMGetOperand(instr, i * 2 + 2));
+                targets[i] = convert_jump_lazy(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, i * 2 + 3));
+            }
+            return (EmittedInstr) {
+                .terminator = br_switch(a, (Switch) {
+                        .switch_value = inspectee,
+                        .default_jump = default_jump,
+                        .case_values = nodes(a, n_targets, literals),
+                        .case_jumps = nodes(a, n_targets, targets)
+                })
+            };
+        }
         case LLVMIndirectBr:
             goto unimplemented;
         case LLVMInvoke:
@@ -219,11 +255,11 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
         case LLVMAlloca: {
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = convert_type(p, LLVMGetAllocatedType(instr));
-            const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivatePhysical });
+            const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivate });
             r = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, alloca_op, singleton(allocated_t), empty(a)), singleton(allocated_ptr_t), NULL));
             if (UNTYPED_POINTERS) {
-                const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivatePhysical });
-                r = first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, singleton(untyped_ptr_t), singleton(r)), 1, NULL));
+                const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivate });
+                r = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(untyped_ptr_t), singleton(r)), singleton(untyped_ptr_t), NULL));
             }
             r = prim_op_helper(a, convert_op, singleton(t), singleton(r));
             break;
@@ -232,19 +268,49 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             Nodes ops = convert_operands(p, num_ops, instr);
             assert(ops.count == 1);
             const Node* ptr = first(ops);
-            r = prim_op_helper(a, load_op, singleton(t), singleton(ptr));
+            if (UNTYPED_POINTERS) {
+                const Type* element_t = t;
+                const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
+                ptr = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(typed_ptr), singleton(ptr)), singleton(typed_ptr), NULL));
+            }
+            r = prim_op_helper(a, load_op, empty(a), singleton(ptr));
             break;
         }
         case LLVMStore: {
             num_results = 0;
             Nodes ops = convert_operands(p, num_ops, instr);
             assert(ops.count == 2);
-            r = prim_op_helper(a, store_op, UNTYPED_POINTERS ? singleton(convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)))) : empty(a), mk_nodes(a, ops.nodes[1], ops.nodes[0]));
+            const Node* ptr = ops.nodes[1];
+            if (UNTYPED_POINTERS) {
+                const Type* element_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 1)));
+                const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
+                ptr = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(typed_ptr), singleton(ptr)), singleton(typed_ptr), NULL));
+            }
+            r = prim_op_helper(a, store_op, empty(a), mk_nodes(a, ptr, ops.nodes[0]));
             break;
         }
         case LLVMGetElementPtr: {
             Nodes ops = convert_operands(p, num_ops, instr);
-            r = prim_op_helper(a, lea_op, UNTYPED_POINTERS ? singleton(convert_type(p, LLVMGetGEPSourceElementType(instr))) : empty(a), ops);
+            const Node* ptr = first(ops);
+            if (UNTYPED_POINTERS) {
+                const Type* element_t = convert_type(p, LLVMGetGEPSourceElementType(instr));
+                const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
+                ptr = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(typed_ptr), singleton(ptr)), singleton(typed_ptr), NULL));
+            }
+            ops = change_node_at_index(a, ops, 0, ptr);
+            r = prim_op_helper(a, lea_op, empty(a), ops);
+            if (UNTYPED_POINTERS) {
+                const Type* element_t = convert_type(p, LLVMGetGEPSourceElementType(instr));
+                const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                bool idk;
+                //element_t = qualified_type_helper(element_t, false);
+                enter_composite(&element_t, &idk, nodes(a, ops.count - 2, &ops.nodes[2]), true);
+                const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
+                r = prim_op_helper(a, reinterpret_op, singleton(untyped_ptr_t), BIND_PREV_R(typed_ptr));
+            }
             break;
         }
         case LLVMTrunc:
@@ -308,24 +374,13 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             if (src_t->tag == PtrType_TAG && t->tag == PtrType_TAG) {
                 if ((t->payload.ptr_type.address_space == AsGeneric)) {
                     switch (src_t->payload.ptr_type.address_space) {
-                        case AsPrivatePhysical:
-                        case AsSubgroupPhysical:
-                        case AsSharedPhysical:
-                        case AsGlobalPhysical:
-                            op = convert_op;
-                            break;
                         case AsGeneric: // generic-to-generic isn't a conversion.
                             break;
                         default: {
-                            warn_print("Cannot cast address space %s to Generic! Ignoring.\n", get_address_space_name(src_t->payload.ptr_type.address_space));
-                            r = quote_helper(a, singleton(src));
-                            goto shortcut;
+                            op = convert_op;
+                            break;
                         }
                     }
-                } else if (!is_physical_as(t->payload.ptr_type.address_space)) {
-                    warn_print("Cannot cast address space %s since it's non-physical. Ignoring.\n", get_address_space_name(src_t->payload.ptr_type.address_space));
-                    r = quote_helper(a, singleton(src));
-                    goto shortcut;
                 }
             } else {
                 assert(opcode != LLVMAddrSpaceCast);
@@ -424,14 +479,19 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             LLVMValueRef callee = LLVMGetCalledValue(instr);
             callee = remove_ptr_bitcasts(p, callee);
             assert(num_args + 1 == num_ops);
-            String intrinsic = is_llvm_intrinsic(callee);
-            if (!intrinsic)
-                intrinsic = is_shady_intrinsic(callee);
+            String intrinsic = NULL;
+            if (LLVMIsAFunction(callee) || LLVMIsAConstant(callee)) {
+                intrinsic = is_llvm_intrinsic(callee);
+                if (!intrinsic)
+                    intrinsic = is_shady_intrinsic(callee);
+            }
             if (intrinsic) {
                 assert(LLVMIsAFunction(callee));
                 if (strcmp(intrinsic, "llvm.dbg.declare") == 0) {
                     const Node* target = convert_value(p, LLVMGetOperand(instr, 0));
-                    assert(target->tag == Variable_TAG);
+                    if (target->tag != Variablez_TAG)
+                        return (EmittedInstr) { 0 };
+                    assert(target->tag == Variablez_TAG);
                     const Node* meta = convert_value(p, LLVMGetOperand(instr, 1));
                     assert(meta->tag == RefDecl_TAG);
                     meta = meta->payload.ref_decl.decl;
@@ -469,8 +529,9 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                 } else if (string_starts_with(intrinsic, "llvm.fmuladd")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     num_results = 1;
-                    r = prim_op_helper(a, mul_op, empty(a), nodes(a, 2, ops.nodes));
-                    r = prim_op_helper(a, add_op, empty(a), mk_nodes(a, first(BIND_PREV_R(convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0))))), ops.nodes[2]));
+                    r = prim_op_helper(a, fma_op, empty(a), nodes(a, 3, ops.nodes));
+                    // r = prim_op_helper(a, mul_op, empty(a), nodes(a, 2, ops.nodes));
+                    // r = prim_op_helper(a, add_op, empty(a), mk_nodes(a, first(BIND_PREV_R(convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0))))), ops.nodes[2]));
                     break;
                 } else if (string_starts_with(intrinsic, "llvm.fabs")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
@@ -504,6 +565,7 @@ EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
                         LLVMAttributeRef attr = attrs[i];
                         size_t k = LLVMGetEnumAttributeKind(attr);
                         size_t e = LLVMGetEnumAttributeKindForName("byval", 5);
+                        uint64_t value = LLVMGetEnumAttributeValue(attr);
                         // printf("p = %zu, i = %zu, k = %zu, e = %zu\n", param_index, i, k, e);
                         if (k == e)
                             decoded[param_index].is_byval = true;

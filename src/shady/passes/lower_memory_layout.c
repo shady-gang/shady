@@ -1,11 +1,11 @@
-#include "passes.h"
+#include "pass.h"
 
 #include "../transform/memory_layout.h"
-#include "../rewrite.h"
 #include "../type.h"
 
 #include "log.h"
 #include "portability.h"
+
 #include <assert.h>
 
 typedef struct {
@@ -52,12 +52,12 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 Module* lower_memory_layout(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process)
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process)
     };
     ctx.rewriter.config.rebind_let = true;
     rewrite_module(&ctx.rewriter);

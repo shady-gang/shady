@@ -1,16 +1,15 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../type.h"
+#include "../ir_private.h"
+
+#include "../analysis/callgraph.h"
 
 #include "dict.h"
 #include "list.h"
 #include "portability.h"
 #include "util.h"
 #include "log.h"
-
-#include "../rewrite.h"
-#include "../type.h"
-#include "../ir_private.h"
-
-#include "../analysis/callgraph.h"
 
 typedef struct {
     const Node* host_fn;
@@ -152,7 +151,7 @@ static const Node* process(Context* ctx, const Node* node) {
             }
 
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-            Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            Node* new = function(ctx->rewriter.dst_module, recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             register_processed(r, node, new);
 
             Context fn_ctx = *ctx;
@@ -182,7 +181,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     // Prepare a join point to replace the old function return
                     Nodes nyield_types = strip_qualifiers(a, rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
                     const Type* jp_type = join_point_type(a, (JoinPointType) { .yield_types = nyield_types });
-                    const Node* join_point = var(a, qualified_type_helper(jp_type, true), format_string_arena(a->arena, "inlined_return_%s", get_abstraction_name(ocallee)));
+                    const Node* join_point = param(a, qualified_type_helper(jp_type, true), format_string_arena(a->arena, "inlined_return_%s", get_abstraction_name(ocallee)));
 
                     const Node* nbody = inline_call(ctx, ocallee, nargs, join_point);
 
@@ -201,7 +200,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 nfn = ctx->inlined_call->host_fn;
             else
                 nfn = rewrite_node(r, ofn);
-            Nodes nparams = recreate_variables(r, get_abstraction_params(node));
+            Nodes nparams = recreate_params(r, get_abstraction_params(node));
             register_processed_list(r, get_abstraction_params(node), nparams);
             Node* bb = basic_block(a, (Node*) nfn, nparams, get_abstraction_name(node));
             register_processed(r, node, bb);
@@ -242,7 +241,7 @@ bool compare_node(const Node**, const Node**);
 
 void opt_simplify_cf(const CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .graph = NULL,
         .fun = NULL,
@@ -258,8 +257,8 @@ void opt_simplify_cf(const CompilerConfig* config, Module* src, Module* dst) {
 }
 
 Module* opt_inline(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     opt_simplify_cf(config, src, dst);
     return dst;

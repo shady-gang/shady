@@ -35,16 +35,23 @@ struct Rewriter_ {
         bool write_map;
         bool rebind_let;
         bool fold_quote;
-        bool process_variables;
+        bool process_params;
     } config;
+
+    Rewriter* parent;
+
     struct Dict* map;
     struct Dict* decls_map;
 };
 
-Rewriter create_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
+Rewriter create_rewriter_base(Module* src, Module* dst);
+Rewriter create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
+Rewriter create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn);
 Rewriter create_importer(Module* src, Module* dst);
 Module* rebuild_module(Module*);
 Rewriter create_substituter(Module* arena);
+
+Rewriter create_children_rewriter(Rewriter* parent);
 void destroy_rewriter(Rewriter*);
 
 void rewrite_module(Rewriter*);
@@ -57,10 +64,11 @@ Node* recreate_decl_header_identity(Rewriter*, const Node*);
 void  recreate_decl_body_identity(Rewriter*, const Node*, Node*);
 
 /// Rewrites a variable under a new identity
-const Node* recreate_variable(Rewriter* rewriter, const Node* old);
-Nodes recreate_variables(Rewriter* rewriter, Nodes old);
+const Node* recreate_param(Rewriter* rewriter, const Node* old);
+Nodes recreate_params(Rewriter* rewriter, Nodes oparams);
+Nodes recreate_vars(IrArena* arena, Nodes ovars, const Node* instruction);
 Node* clone_bb_head(Rewriter*, const Node* bb);
-const Node* rebind_let(Rewriter*, const Node* ninstruction, const Node* ocase);
+//const Node* rebind_let(Rewriter*, const Node* ninstruction, const Node* ocase);
 
 /// Looks up if the node was already processed
 const Node* search_processed(const Rewriter*, const Node*);

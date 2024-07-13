@@ -1,15 +1,14 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../type.h"
+#include "../ir_private.h"
+#include "../transform/ir_gen_helpers.h"
+#include "../transform/memory_layout.h"
 
 #include "log.h"
 #include "portability.h"
 #include "util.h"
 #include "dict.h"
-
-#include "../rewrite.h"
-#include "../type.h"
-#include "../ir_private.h"
-#include "../transform/ir_gen_helpers.h"
-#include "../transform/memory_layout.h"
 
 #include <assert.h>
 
@@ -20,7 +19,7 @@ typedef struct {
     const CompilerConfig* config;
 } Context;
 
-static AddressSpace generic_ptr_tags[4] = { AsGlobalPhysical, AsSharedPhysical, AsSubgroupPhysical, AsPrivatePhysical };
+static AddressSpace generic_ptr_tags[4] = { AsGlobal, AsShared, AsSubgroup, AsPrivate };
 
 static size_t generic_ptr_tag_bitwidth = 2;
 
@@ -36,7 +35,7 @@ static uint64_t get_tag_for_addr_space(AddressSpace as) {
         if (generic_ptr_tags[i] == as)
             return (uint64_t) i;
     }
-    error("this address space can't be converted to generic");
+    error("address space '%s' can't be converted to generic", get_address_space_name(as));
 }
 
 static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t tag, const Node* nptr, const Type* element_type) {
@@ -62,11 +61,8 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
 }
 
 static bool allowed(Context* ctx, AddressSpace as) {
-    if (as == AsGlobalPhysical && ctx->config->hacks.assume_no_physical_global_ptrs)
-        return false;
-    if (as == AsSharedPhysical && !ctx->rewriter.dst_arena->config.allow_shared_memory)
-        return false;
-    if (as == AsSubgroupPhysical && !ctx->rewriter.dst_arena->config.allow_subgroup_memory)
+    // if an address space is logical-only, or isn't allowed at all in the module, we can skip emitting a case for it.
+    if (!ctx->rewriter.dst_arena->config.address_spaces[as].physical || !ctx->rewriter.dst_arena->config.address_spaces[as].allowed)
         return false;
     return true;
 }
@@ -84,7 +80,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     if (found)
         return *found;
 
-    const Node* ptr_param = var(a, qualified_type_helper(ctx->generic_ptr_type, uniform_ptr), "ptr");
+    const Node* ptr_param = param(a, qualified_type_helper(ctx->generic_ptr_type, uniform_ptr), "ptr");
     const Node* value_param;
     Nodes params = singleton(ptr_param);
     Nodes return_ts = empty(a);
@@ -93,7 +89,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             return_ts = singleton(qualified_type_helper(t, uniform_ptr));
             break;
         case StoreFn:
-            value_param = var(a, qualified_type_helper(t, false), "value");
+            value_param = param(a, qualified_type_helper(t, false), "value");
             params = append_nodes(a, params, value_param);
             break;
     }
@@ -255,11 +251,11 @@ KeyHash hash_string(const char** string);
 bool compare_string(const char** a, const char** b);
 
 Module* lower_generic_ptrs(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .fns = new_dict(String, const Node*, (HashFn) hash_string, (CmpFn) compare_string),
         .generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false}),
         .config = config,

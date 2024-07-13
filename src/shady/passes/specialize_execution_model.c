@@ -1,12 +1,11 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../ir_private.h"
+#include "../type.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include "portability.h"
 #include "log.h"
-
-#include "../ir_private.h"
-#include "../rewrite.h"
-#include "../type.h"
-#include "../transform/ir_gen_helpers.h"
 
 #include <string.h>
 
@@ -22,6 +21,13 @@ static const Node* process(Context* ctx, const Node* node) {
 
     IrArena* a = ctx->rewriter.dst_arena;
     switch (node->tag) {
+        case Constant_TAG: {
+            Node* ncnst = (Node*) recreate_node_identity(&ctx->rewriter, node);
+            if (strcmp(get_declaration_name(ncnst), "SUBGROUP_SIZE") == 0) {
+                ncnst->payload.constant.instruction = quote_helper(a, singleton(uint32_literal(a, ctx->config->specialization.subgroup_size)));
+            }
+            return ncnst;
+        }
         default: break;
     }
     return recreate_node_identity(&ctx->rewriter, node);
@@ -31,21 +37,24 @@ static void specialize_arena_config(const CompilerConfig* config, Module* m, Are
     switch (config->specialization.execution_model) {
         case EmVertex:
         case EmFragment: {
-            target->allow_subgroup_memory = false;
-            target->allow_shared_memory = false;
+            target->address_spaces[AsShared].allowed = false;
+            target->address_spaces[AsSubgroup].allowed = false;
         }
         default: break;
     }
 }
 
 Module* specialize_execution_model(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     specialize_arena_config(config, src, &aconfig);
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
+    size_t subgroup_size = config->specialization.subgroup_size;
+    assert(subgroup_size);
+
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
 

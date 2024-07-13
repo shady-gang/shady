@@ -100,6 +100,11 @@ static bool fill_device_properties(VkrDeviceCaps* caps) {
         append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.external_memory_host);
     }
 
+    if (caps->supported_extensions[ShadySupportsKHR_driver_properties]) {
+        caps->properties.driver_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+        append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.driver_properties);
+    }
+
     vkGetPhysicalDeviceProperties2(caps->physical_device, &caps->properties.base);
 
     if (caps->supported_extensions[ShadySupportsEXT_subgroup_size_control] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
@@ -110,11 +115,6 @@ static bool fill_device_properties(VkrDeviceCaps* caps) {
         caps->subgroup_size.min = caps->properties.subgroup.subgroupSize;
     }
     debug_print("Subgroup size range for device '%s' is [%d; %d]\n", caps->properties.base.properties.deviceName, caps->subgroup_size.min, caps->subgroup_size.max);
-
-    if (caps->supported_extensions[ShadySupportsKHR_driver_properties]) {
-        caps->properties.driver_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
-        append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.driver_properties);
-    }
     return true;
 }
 
@@ -208,12 +208,16 @@ static bool get_physical_device_caps(SHADY_UNUSED VkrBackend* runtime, VkPhysica
     return false;
 }
 
+KeyHash hash_string(const char** string);
+bool compare_string(const char** a, const char** b);
+
 static KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
-    return hash_murmur(ptr, sizeof(SpecProgramKey));
+    return hash_murmur(ptr->base, sizeof(Program*)) ^ hash_string(&ptr->entry_point);
 }
 
 static bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
-    return memcmp(a, b, sizeof(SpecProgramKey)) == 0;
+	assert(!!a & !!b);
+    return a->base == b->base && strcmp(a->entry_point, b->entry_point) == 0;
 }
 
 static void obtain_device_pointers(VkrDevice* device) {
@@ -319,7 +323,7 @@ bool probe_vkr_devices(VkrBackend* runtime) {
                 .get_name = (String(*)(Device*)) get_vkr_device_name,
                 .allocate_buffer = (Buffer*(*)(Device*, size_t)) vkr_allocate_buffer_device,
                 .import_host_memory_as_buffer = (Buffer*(*)(Device*, void*, size_t)) vkr_import_buffer_host,
-                .launch_kernel = (Command*(*)(Device*, Program*, String, int, int, int, int, void**)) vkr_launch_kernel,
+                .launch_kernel = (Command*(*)(Device*, Program*, String, int, int, int, int, void**, ExtraKernelOptions*)) vkr_launch_kernel,
                 .can_import_host_memory = (bool(*)(Device*)) vkr_can_import_host_memory,
             };
             append_list(Device*, runtime->base.runtime->devices, device);

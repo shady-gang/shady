@@ -70,6 +70,8 @@ typedef struct {
     String f_ops[3];
 } ISelTableEntry;
 
+static const ISelTableEntry isel_dummy = { IsNone };
+
 static const ISelTableEntry isel_table[PRIMOPS_COUNT] = {
     [add_op] = { IsMono, OsInfix,  "+" },
     [sub_op] = { IsMono, OsInfix,  "-" },
@@ -118,6 +120,15 @@ static const ISelTableEntry isel_table_glsl[PRIMOPS_COUNT] = {
     [sqrt_op] = { IsMono, OsCall, "sqrt" },
     [exp_op] = { IsMono, OsCall, "exp" },
     [pow_op] = { IsMono, OsCall, "pow" },
+};
+
+static const ISelTableEntry isel_table_glsl_120[PRIMOPS_COUNT] = {
+    [mod_op] = { IsMono, OsCall,  "mod" },
+
+    [and_op] = { IsMono, OsCall,  "and" },
+    [ or_op] = { IsMono, OsCall,   "or" },
+    [xor_op] = { IsMono, OsCall,  "xor" },
+    [not_op] = { IsMono, OsCall,  "not" },
 };
 
 static const ISelTableEntry isel_table_ispc[PRIMOPS_COUNT] = {
@@ -195,13 +206,18 @@ static bool emit_using_entry(CTerm* out, Emitter* emitter, Printer* p, const ISe
 }
 
 static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
-    const ISelTableEntry* isel_entry = NULL;
+    const ISelTableEntry* isel_entry = &isel_dummy;
+
     switch (emitter->config.dialect) {
         case CDialect_CUDA: /* TODO: do better than that */
         case CDialect_C11: isel_entry = &isel_table_c[op]; break;
         case CDialect_GLSL: isel_entry = &isel_table_glsl[op]; break;
         case CDialect_ISPC: isel_entry = &isel_table_ispc[op]; break;
     }
+
+    if (emitter->config.dialect == CDialect_GLSL && emitter->config.glsl_version <= 120)
+        isel_entry = &isel_table_glsl_120[op];
+
     if (isel_entry->isel_mechanism == IsNone)
         isel_entry = &isel_table[op];
     return isel_entry;
@@ -270,6 +286,23 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             term = term_from_cvalue(format_string_arena(arena->arena, "(%s > 0 ? 1 : -1)", src));
             break;
         }
+        case fma_op: {
+            CValue a = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[0]));
+            CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+            CValue c = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[2]));
+            switch (emitter->config.dialect) {
+                case CDialect_C11:
+                case CDialect_CUDA: {
+                    term = term_from_cvalue(format_string_arena(arena->arena, "fmaf(%s, %s, %s)", a, b, c));
+                    break;
+                }
+                default: {
+                    term = term_from_cvalue(format_string_arena(arena->arena, "(%s * %s) + %s", a, b, c));
+                    break;
+                }
+            }
+            break;
+        }
         case lshift_op:
         case rshift_arithm_op:
         case rshift_logical_op: {
@@ -332,7 +365,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                 // this means such code is never going to be legal in GLSL
                 // also the cast is to account for our arrays-in-structs hack
                 const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
-                acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &%s)", emit_type(emitter, curr_ptr_type, NULL), index_into_array(emitter, pointee_type, acc, offset)));
+                acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &(%s)[%s])", emit_type(emitter, curr_ptr_type, NULL), to_cvalue(emitter, acc), to_cvalue(emitter, offset)));
                 uniform &= is_qualified_type_uniform(prim_op->operands.nodes[1]->type);
             }
 
@@ -372,6 +405,16 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                         acc = term_from_cvar(format_string_arena(arena->arena, "(%s.%s)", deref_term(emitter, acc), field_name));
                         curr_ptr_type = ptr_type(arena, (PtrType) {
                                 .pointed_type = pointee_type->payload.record_type.members.nodes[static_index],
+                                .address_space = curr_ptr_type->payload.ptr_type.address_space
+                        });
+                        break;
+                    }
+                    case Type_PackType_TAG: {
+                        size_t static_index = get_int_literal_value(*resolve_to_int_literal(selector), false);
+                        String suffixes = "xyzw";
+                        acc = term_from_cvar(format_string_arena(emitter->arena->arena, "(%s.%c)", deref_term(emitter, acc), suffixes[static_index]));
+                        curr_ptr_type = ptr_type(arena, (PtrType) {
+                                .pointed_type = pointee_type->payload.pack_type.element_type,
                                 .address_space = curr_ptr_type->payload.ptr_type.address_space
                         });
                         break;
@@ -601,13 +644,13 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case get_stack_base_op:
         case push_stack_op:
         case pop_stack_op:
-        case get_stack_pointer_op:
-        case set_stack_pointer_op: error("Stack operations need to be lowered.");
+        case get_stack_size_op:
+        case set_stack_size_op: error("Stack operations need to be lowered.");
         case default_join_point_op:
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
         case subgroup_elect_first_op: {
             switch (emitter->config.dialect) {
-                case CDialect_CUDA: error("TODO")
+                case CDialect_CUDA: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "__shady_elect_first()")); break;
                 case CDialect_ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))")); break;
                 case CDialect_C11:
                 case CDialect_GLSL: error("TODO")
@@ -624,7 +667,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case subgroup_broadcast_first_op: {
             CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
             switch (emitter->config.dialect) {
-                case CDialect_CUDA: error("TODO")
+                case CDialect_CUDA: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value)); break;
                 case CDialect_ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
                 case CDialect_C11:
                 case CDialect_GLSL: error("TODO")
@@ -800,12 +843,12 @@ static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, Inst
     Nodes variables = params;
     LARRAY(String, arr, variables.count);
     for (size_t i = 0; i < variables.count; i++) {
-        arr[i] = get_value_name(variables.nodes[i]);
+        arr[i] = get_value_name_unsafe(variables.nodes[i]);
         if (!arr[i])
             arr[i] = unique_name(emitter->arena, "phi");
     }
     Strings param_names = strings(emitter->arena, variables.count, arr);
-    Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, get_variables_types(emitter->arena, params), true, &loop_instr->payload.loop_instr.initial_args);
+    Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, get_param_types(emitter->arena, params), true, &loop_instr->payload.loop_instr.initial_args);
     for (size_t i = 0; i < params.count; i++)
         register_emitted(&sub_emiter, params.nodes[i], term_from_cvalue(eparams.strings[i]));
 

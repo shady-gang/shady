@@ -1,6 +1,5 @@
-#include "passes.h"
+#include "pass.h"
 
-#include "../rewrite.h"
 #include "portability.h"
 #include "log.h"
 
@@ -101,7 +100,10 @@ static const Node* process(Context* ctx, const Node* node) {
                 ninstruction = recreate_node_identity(&ctx->rewriter, old_instruction);
             }
             assert(ninstruction);
-            return let(a, ninstruction, ntail);
+            Nodes ovars = node->payload.let.variables;
+            Nodes nvars = recreate_vars(a, ovars, ninstruction);
+            register_processed_list(&ctx->rewriter, ovars, nvars);
+            return let(a, ninstruction, nvars, ntail);
         }
         // Unreachable is assumed to never happen, so it doesn't observe the stack state
         case NotATerminator: break;
@@ -125,12 +127,12 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* opt_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .state = NULL,
     };
 

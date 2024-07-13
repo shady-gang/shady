@@ -1,13 +1,16 @@
 #include "l2s_private.h"
-#include "shady/ir_private.h"
+
+#include "ir_private.h"
+#include "type.h"
+#include "analysis/verify.h"
 
 #include "log.h"
 #include "dict.h"
 #include "list.h"
 #include "util.h"
+#include "portability.h"
 
 #include "llvm-c/IRReader.h"
-#include "portability.h"
 
 #include <assert.h>
 #include <string.h>
@@ -33,7 +36,16 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-static const Node* write_bb_tail(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
+#ifdef LLVM_VERSION_MAJOR
+int vcc_get_linked_major_llvm_version() {
+    return LLVM_VERSION_MAJOR;
+}
+#else
+#error "wat"
+#endif
+
+static const Node* write_bb_tail(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
+    BodyBuilder* b = begin_body(fn_or_bb->arena);
     LLVMValueRef instr;
     for (instr = first_instr; instr; instr = LLVMGetNextInstruction(instr)) {
         bool last = instr == LLVMGetLastInstruction(bb);
@@ -41,7 +53,7 @@ static const Node* write_bb_tail(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             assert(LLVMGetBasicBlockTerminator(bb) == instr);
         // LLVMDumpValue(instr);
         // printf("\n");
-        EmittedInstr emitted = convert_instruction(p, fn_or_bb, b, instr);
+        EmittedInstr emitted = convert_instruction(p, fn_ctx, fn_or_bb, b, instr);
         if (emitted.terminator)
             return finish_body(b, emitted.terminator);
         if (!emitted.instruction)
@@ -53,7 +65,7 @@ static const Node* write_bb_tail(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVM
             insert_dict(LLVMValueRef, const Node*, p->map, instr, result);
         }
     }
-    assert(false);
+    SHADY_UNREACHABLE;
 }
 
 typedef struct {
@@ -62,15 +74,9 @@ typedef struct {
     Node* nbb;
 } TodoBB;
 
-const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
-    const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, bb);
-    if (found) return *found;
-    assert(false);
-}
-
-static TodoBB prepare_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
+static TodoBB prepare_bb(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
     IrArena* a = get_module_arena(p->dst);
-    debug_print("l2s: converting BB %s %d\n", LLVMGetBasicBlockName(bb), bb);
+    debug_print("l2s: preparing BB %s %d\n", LLVMGetBasicBlockName(bb), bb);
     if (get_log_level() <= DEBUG)
         LLVMDumpValue((LLVMValueRef)bb);
 
@@ -80,7 +86,7 @@ static TodoBB prepare_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
     while (instr) {
         switch (LLVMGetInstructionOpcode(instr)) {
             case LLVMPHI: {
-                const Node* nparam = var(a, convert_type(p, LLVMTypeOf(instr)), "phi");
+                const Node* nparam = param(a, qualified_type_helper(convert_type(p, LLVMTypeOf(instr)), false), "phi");
                 insert_dict(LLVMValueRef, const Node*, p->map, instr, nparam);
                 append_list(LLVMValueRef, phis, instr);
                 params = append_nodes(a, params, nparam);
@@ -93,11 +99,11 @@ static TodoBB prepare_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
     after_phis:
     {
         String name = LLVMGetBasicBlockName(bb);
-        if (!name || strlen(name) == 0)
-            name = unique_name(a, "bb");
-        Node* nbb = basic_block(a, fn, params, name);
+        if (strlen(name) == 0)
+            name = NULL;
+        Node* nbb = basic_block(a, fn_ctx->fn, params, name);
         insert_dict(LLVMValueRef, const Node*, p->map, bb, nbb);
-        insert_dict(const Node*, struct List*, p->phis, nbb, phis);
+        insert_dict(const Node*, struct List*, fn_ctx->phis, nbb, phis);
         TodoBB todo = {
             .bb = bb,
             .instr = instr,
@@ -107,6 +113,15 @@ static TodoBB prepare_bb(Parser* p, Node* fn, LLVMBasicBlockRef bb) {
         //return nbb;
         return todo;
     }
+}
+
+const Node* convert_basic_block(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
+    const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, bb);
+    if (found) return *found;
+
+    TodoBB todo = prepare_bb(p, fn_ctx, bb);
+    todo.nbb->payload.basic_block.body = write_bb_tail(p, fn_ctx, todo.nbb, todo.bb, todo.instr);
+    return todo.nbb;
 }
 
 const Node* convert_function(Parser* p, LLVMValueRef fn) {
@@ -128,9 +143,9 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam; oparam = LLVMGetNextParam(oparam)) {
         LLVMTypeRef ot = LLVMTypeOf(oparam);
         const Type* t = convert_type(p, ot);
-        const Node* param = var(a, t, LLVMGetValueName(oparam));
-        insert_dict(LLVMValueRef, const Node*, p->map, oparam, param);
-        params = append_nodes(a, params, param);
+        const Node* nparam = param(a, qualified_type_helper(t, false), LLVMGetValueName(oparam));
+        insert_dict(LLVMValueRef, const Node*, p->map, oparam, nparam);
+        params = append_nodes(a, params, nparam);
         if (oparam == LLVMGetLastParam(fn))
             break;
     }
@@ -148,43 +163,33 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
             break;
     }
     Node* f = function(p->dst, params, LLVMGetValueName(fn), annotations, fn_type->payload.fn_type.return_types);
+    FnParseCtx fn_parse_ctx = {
+        .fn = f,
+        .phis = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node),
+        .jumps_todo = new_list(JumpTodo),
+    };
     const Node* r = fn_addr_helper(a, f);
     insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
 
-    /*if (LLVMCountBasicBlocks(fn) > 0) {
-        LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
-        BodyBuilder* b = begin_body(a);
-        insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
-        f->payload.fun.body = write_bb_tail(p, f, b, first_bb, LLVMGetFirstInstruction(first_bb));
-    }*/
-
     if (LLVMCountBasicBlocks(fn) > 0) {
-        struct List* todo_bbs = new_list(TodoBB);
-
-        for (LLVMBasicBlockRef bb = LLVMGetEntryBasicBlock(fn); bb; bb = LLVMGetNextBasicBlock(bb)) {
-            if (bb == LLVMGetEntryBasicBlock(fn)) {
-                LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
-                insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
-            } else {
-                TodoBB todo = prepare_bb(p, f, bb);
-                append_list(TodoBB, todo_bbs, todo);
-            }
-            if (bb == LLVMGetLastBasicBlock(fn))
-                break;
-        }
-
         LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
-        BodyBuilder* entry_bb = begin_body(a);
-        f->payload.fun.body = write_bb_tail(p, f, entry_bb, first_bb, LLVMGetFirstInstruction(first_bb));
-
-        for (size_t i = 0; i < entries_count_list(todo_bbs); i++) {
-            TodoBB todo = read_list(TodoBB, todo_bbs)[i];
-            BodyBuilder* bb = begin_body(a);
-            todo.nbb->payload.basic_block.body = write_bb_tail(p, todo.nbb, bb, todo.bb, todo.instr);
-        }
-
-        destroy_list(todo_bbs);
+        insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
+        f->payload.fun.body = write_bb_tail(p, &fn_parse_ctx, f, first_bb, LLVMGetFirstInstruction(first_bb));
     }
+
+    while (entries_count_list(fn_parse_ctx.jumps_todo) > 0) {
+        JumpTodo todo = pop_last_list(JumpTodo, fn_parse_ctx.jumps_todo);
+        convert_jump_finish(p, &fn_parse_ctx, todo);
+    }
+    {
+        size_t i = 0;
+        struct List* phis_list;
+        while (dict_iter(fn_parse_ctx.phis, &i, NULL, &phis_list)) {
+            destroy_list(phis_list);
+        }
+    }
+    destroy_dict(fn_parse_ctx.phis);
+    destroy_list(fn_parse_ctx.jumps_todo);
 
     return r;
 }
@@ -217,6 +222,13 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
         decl = global_var(p->dst, empty(a), type, name, as);
         if (value && as != AsUniformConstant)
             decl->payload.global_variable.init = convert_value(p, value);
+
+        if (UNTYPED_POINTERS) {
+            Node* untyped_wrapper = constant(p->dst, singleton(annotation(a, (Annotation) { .name = "Inline" })), ptr_t, format_string_interned(a, "%s_untyped", name));
+            untyped_wrapper->payload.constant.instruction = quote_helper(a, singleton(ref_decl_helper(a, decl)));
+            untyped_wrapper->payload.constant.instruction = prim_op_helper(a, reinterpret_op, singleton(ptr_t), singleton(ref_decl_helper(a, decl)));
+            decl = untyped_wrapper;
+        }
     } else {
         const Type* type = convert_type(p, LLVMTypeOf(global));
         decl = constant(p->dst, empty(a), type, name);
@@ -230,7 +242,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     return r;
 }
 
-bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
+bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
     LLVMContextRef context = LLVMContextCreate();
     LLVMModuleRef src;
     LLVMMemoryBufferRef mem = LLVMCreateMemoryBufferWithMemoryRange(data, len, "my_great_buffer", false);
@@ -241,17 +253,20 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
         error_die();
     }
     info_print("LLVM IR parsed successfully\n");
-#if UNTYPED_POINTERS
-    get_module_arena(dst)->config.untyped_ptrs = true; // tolerate untyped ptrs...
-#endif
 
-    Module* dirty = new_module(get_module_arena(dst), "dirty");
+    ArenaConfig aconfig = default_arena_config(&config->target);
+    aconfig.check_types = false;
+    aconfig.allow_fold = false;
+
+    IrArena* arena = new_ir_arena(&aconfig);
+    Module* dirty = new_module(arena, "dirty");
     Parser p = {
         .ctx = context,
+        .config = config,
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations = new_dict(LLVMValueRef, ParsedAnnotation, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .scopes = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
-        .phis = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node),
+        .wrappers_map = new_dict(const Node*, const Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .annotations_arena = new_arena(),
         .src = src,
         .dst = dirty,
@@ -272,20 +287,21 @@ bool parse_llvm_into_shady(Module* dst, size_t len, const char* data) {
             break;
         global = LLVMGetNextGlobal(global);
     }
+    log_module(DEBUG, config, dirty);
 
-    postprocess(&p, dirty, dst);
+    aconfig.check_types = true;
+    aconfig.allow_fold = true;
+    IrArena* arena2 = new_ir_arena(&aconfig);
+    *dst = new_module(arena2, name);
+    postprocess(&p, dirty, *dst);
+    log_module(DEBUG, config, *dst);
+    verify_module(config, *dst);
+    destroy_ir_arena(arena);
 
     destroy_dict(p.map);
     destroy_dict(p.annotations);
     destroy_dict(p.scopes);
-    {
-        size_t i = 0;
-        struct List* phis_list;
-        while (dict_iter(p.phis, &i, NULL, &phis_list)) {
-            destroy_list(phis_list);
-        }
-    }
-    destroy_dict(p.phis);
+    destroy_dict(p.wrappers_map);
     destroy_arena(p.annotations_arena);
 
     LLVMContextDispose(context);

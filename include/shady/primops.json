@@ -67,6 +67,10 @@
       "class": "arithmetic"
     },
     {
+      "name": "fma",
+      "class": "arithmetic"
+    },
+    {
       "name": "mod",
       "class": "arithmetic"
     },
@@ -193,7 +197,7 @@
       "side-effects": true
     },
     {
-      "name": "get_stack_pointer",
+      "name": "get_stack_size",
       "class": "stack"
     },
     {
@@ -201,7 +205,7 @@
       "class": "stack"
     },
     {
-      "name": "set_stack_pointer",
+      "name": "set_stack_size",
       "class": "stack",
       "side-effects": true
     },

@@ -1,4 +1,5 @@
-#ifndef SHADY_SCOPE_H
+#ifndef SHADY_CFG_H
+#define SHADY_CFG_H
 
 #include "shady/ir.h"
 
@@ -52,7 +53,7 @@ struct CFNode_ {
 };
 
 typedef struct Arena_ Arena;
-typedef struct Scope_ {
+typedef struct CFG_ {
     Arena* arena;
     size_t size;
     bool flipped;
@@ -70,48 +71,36 @@ typedef struct Scope_ {
     CFNode* entry;
     // set by compute_rpo
     CFNode** rpo;
-} Scope;
+} CFG;
 
 /**
- * @returns @ref List of @ref Scope*
+ * @returns @ref List of @ref CFG*
  */
-struct List* build_scopes(Module*);
+struct List* build_cfgs(Module*);
 
 typedef struct LoopTree_ LoopTree;
 
-/** Construct the scope stating in Node.
+/** Construct the CFG starting in node.
  */
-Scope* new_scope_impl(const Node* entry, LoopTree* lt, bool flipped);
+CFG* build_cfg(const Node* fn, const Node* entry, LoopTree* lt, bool flipped);
 
-#define new_scope_lt(node, lt) new_scope_impl(node, lt, false);
-#define new_scope_lt_flipped(node, lt) new_scope_impl(node, lt, true);
-
-Scope* new_scope_lt_impl(const Node* entry, LoopTree* lt, bool flipped);
-
-/** Construct the scope starting in Node.
+/** Construct the CFG starting in node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  */
-#define new_scope(node) new_scope_impl(node, NULL, false);
+#define build_fn_cfg(node) build_cfg(node, node, NULL, false);
 
-/** Construct the scope stating in Node.
+/** Construct the CFG stating in Node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
- * This scope will contain post dominance information instead of regular dominance!
+ * This CFG will contain post dominance information instead of regular dominance!
  */
-#define new_scope_flipped(node) new_scope_impl(node, NULL, true);
+#define build_fn_cfg_flipped(node) build_cfg(node, node, NULL, true);
 
-CFNode* scope_lookup(Scope*, const Node* block);
-void compute_rpo(Scope*);
-void compute_domtree(Scope*);
+CFNode* cfg_lookup(CFG* cfg, const Node* abs);
+void compute_rpo(CFG*);
+void compute_domtree(CFG*);
 
 CFNode* least_common_ancestor(CFNode* i, CFNode* j);
 
-void destroy_scope(Scope*);
-
-/**
- * @returns @ref List of @ref CFNode*
- */
-struct List* scope_get_dom_frontier(Scope*, const CFNode* node);
-
-#define SHADY_SCOPE_H
+void destroy_cfg(CFG* cfg);
 
 #endif

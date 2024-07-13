@@ -1,12 +1,11 @@
-#include "passes.h"
-
-#include "log.h"
-#include "portability.h"
+#include "pass.h"
 
 #include "../ir_private.h"
 #include "../type.h"
-#include "../rewrite.h"
 #include "../transform/ir_gen_helpers.h"
+
+#include "log.h"
+#include "portability.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -17,7 +16,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case GlobalVariable_TAG: {
             if (node->payload.global_variable.address_space == AsGeneric) {
-                AddressSpace dst_as = AsGlobalPhysical;
+                AddressSpace dst_as = AsGlobal;
                 const Type* t = rewrite_node(&ctx->rewriter, node->payload.global_variable.type);
                 Node* new_global = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations), t, node->payload.global_variable.name, dst_as);
 
@@ -39,11 +38,11 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lower_generic_globals(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);

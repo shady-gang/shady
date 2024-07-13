@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stdalign.h>
 
+#include "portability.h"
+
 typedef uint32_t KeyHash;
 typedef KeyHash (*HashFn)(void*);
 typedef bool (*CmpFn)(void*, void*);
@@ -45,5 +47,8 @@ void* insert_dict_and_get_key_impl(struct Dict*, void* key, void* value);
 bool insert_dict_and_get_result_impl(struct Dict*, void* key, void* value);
 
 KeyHash hash_murmur(const void* data, size_t size);
+
+KeyHash hash_ptr(void**);
+bool compare_ptrs(void**, void**);
 
 #endif

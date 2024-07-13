@@ -3,6 +3,7 @@
 
 #include "shady/ir.h"
 
-void verify_module(Module*);
+typedef struct CompilerConfig_ CompilerConfig;
+void verify_module(const CompilerConfig*, Module*);
 
 #endif

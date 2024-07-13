@@ -1,12 +1,11 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../ir_private.h"
+#include "../type.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include "log.h"
 #include "portability.h"
-
-#include "../ir_private.h"
-#include "../rewrite.h"
-#include "../type.h"
-#include "../transform/ir_gen_helpers.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -37,15 +36,8 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
             break;
         }
         case RefDecl_TAG: return get_req_cast(ctx, src->payload.ref_decl.decl);
-        case Variable_TAG: {
-            const Node* abs = src->payload.var.abs;
-            if (abs) {
-                const Node* construct = abs->payload.case_.structured_construct;
-                if (construct && construct->tag == Let_TAG) {
-                    return get_req_cast(ctx, construct->payload.let.instruction);
-                }
-            }
-            break;
+        case Variablez_TAG: {
+            return get_req_cast(ctx, get_var_def(src->payload.varz));
         }
         case PrimOp_TAG: {
             PrimOp prim_op = src->payload.prim_op;
@@ -112,12 +104,12 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* normalize_builtins(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     aconfig.validate_builtin_types = true;
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .builtins = calloc(sizeof(Node*), BuiltinsCount)
     };
     rewrite_module(&ctx.rewriter);

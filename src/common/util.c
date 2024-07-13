@@ -32,6 +32,27 @@ size_t apply_escape_codes(const char* src, size_t size, char* dst) {
     } \
 
         ESCAPE_SEQS(ESCAPE_CASE)
+#undef ESCAPE_CASE
+
+        dst[j++] = c;
+    }
+    return j;
+}
+
+size_t unapply_escape_codes(const char* src, size_t size, char* dst) {
+    char c = '\0';
+    size_t j = 0;
+    for (size_t i = 0; i < size; i++) {
+        c = src[i];
+
+#define ESCAPE_CASE(m, s) if (c == s) { \
+        dst[j++] = '\\'; \
+        dst[j++] = m; \
+        continue; \
+    } \
+
+        ESCAPE_SEQS(ESCAPE_CASE)
+#undef ESCAPE_CASE
 
         dst[j++] = c;
     }

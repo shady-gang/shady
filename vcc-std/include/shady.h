@@ -21,18 +21,17 @@ namespace vcc {
 #define input                  __attribute__((address_space(389)))
 #define output                 __attribute__((address_space(390)))
 // maybe deprecate it ?
-#define uniform                __attribute__((annotate("shady::uniform")))
 #define uniform_constant       __attribute__((address_space(398)))
 #define uniform_block          __attribute__((address_space(395)))
 #define push_constant          __attribute__((address_space(392)))
 #define global                 __attribute__((address_space(1)))
 #define shared                 __attribute__((address_space(3)))
 #define private                __attribute__((address_space(5)))
-#define private_logical        __attribute__((address_space(385)))
 
 #include "shady_vec.h"
+#include "shady_mat.h"
 
-typedef struct __shady_builtin_sampler2D {} sampler2D;
+typedef __attribute__((address_space(0x1000))) struct __shady_builtin_sampler2D* sampler2D;
 
 vec4 texture2D(const sampler2D, native_vec2) __asm__("shady::prim_op::sample_texture");
 

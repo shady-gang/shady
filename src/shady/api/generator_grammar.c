@@ -10,18 +10,6 @@ static void generate_address_spaces(Growy* g, json_object* address_spaces) {
     }
     growy_append_formatted(g, "\tNumAddressSpaces,\n");
     growy_append_formatted(g, "} AddressSpace;\n\n");
-
-    growy_append_formatted(g, "static inline bool is_physical_as(AddressSpace as) {\n");
-    growy_append_formatted(g, "\tswitch(as) {\n");
-    for (size_t i = 0; i < json_object_array_length(address_spaces); i++) {
-        json_object* as = json_object_array_get_idx(address_spaces, i);
-        String name = json_object_get_string(json_object_object_get(as, "name"));
-        if (json_object_get_boolean(json_object_object_get(as, "physical")))
-            growy_append_formatted(g, "\t\tcase As%s: return true;\n", name);
-    }
-    growy_append_formatted(g, "\t\tdefault: return false;\n");
-    growy_append_formatted(g, "\t}\n");
-    growy_append_formatted(g, "}\n\n");
 }
 
 static void generate_node_tags(Growy* g, json_object* nodes) {
@@ -168,7 +156,7 @@ void generate(Growy* g, json_object* src) {
             String capitalized = capitalize(name);
             generate_node_tags_for_class(g, nodes, name, capitalized);
             growy_append_formatted(g, "%sTag is_%s(const Node*);\n", capitalized, name);
-            free(capitalized);
+            free((void*) capitalized);
         } else {
             growy_append_formatted(g, "bool is_%s(const Node*);\n", name);
         }

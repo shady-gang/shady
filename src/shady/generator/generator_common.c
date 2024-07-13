@@ -19,7 +19,7 @@ void generate_node_ctor(Growy* g, json_object* nodes, bool definition) {
             growy_append_formatted(g, "\n");
 
         String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
-        void* alloc = NULL;
+        const void* alloc = NULL;
         if (!snake_name) {
             alloc = snake_name = to_snake_case(name);
         }
@@ -58,7 +58,7 @@ void generate_node_ctor(Growy* g, json_object* nodes, bool definition) {
         }
 
         if (alloc)
-            free(alloc);
+            free((void*) alloc);
     }
     growy_append_formatted(g, "\n");
 }
@@ -125,11 +125,9 @@ void generate_bit_enum(Growy* g, String enum_type_name, String enum_case_prefix,
         json_object* node_class = json_object_array_get_idx(cases, i);
         String name = json_object_get_string(json_object_object_get(node_class, "name"));
         String capitalized = capitalize(name);
-        growy_append_formatted(g, "\t%s%s = 0b1", enum_case_prefix, capitalized);
-        for (int c = 0; c < i; c++)
-            growy_append_string_literal(g, "0");
+        growy_append_formatted(g, "\t%s%s = 0x%x", enum_case_prefix, capitalized, (1 << i));
         growy_append_formatted(g, ",\n");
-        free(capitalized);
+        free((void*) capitalized);
     }
     growy_append_formatted(g, "} %s;\n\n", enum_type_name);
 }
@@ -150,7 +148,7 @@ void generate_bit_enum_classifier(Growy* g, String fn_name, String enum_type_nam
             case json_type_string: {
                 String cap = capitalize(json_object_get_string(class));
                 growy_append_formatted(g, "\t\t\treturn %s%s;\n", enum_case_prefix, cap);
-                free(cap);
+                free((void*) cap);
                 break;
             }
             case json_type_array: {
@@ -160,7 +158,7 @@ void generate_bit_enum_classifier(Growy* g, String fn_name, String enum_type_nam
                         growy_append_formatted(g, " | ");
                     String cap = capitalize(json_object_get_string(json_object_array_get_idx(class, j)));
                     growy_append_formatted(g, "%s%s", enum_case_prefix, cap);
-                    free(cap);
+                    free((void*) cap);
                 }
                 growy_append_formatted(g, ";\n");
                 break;

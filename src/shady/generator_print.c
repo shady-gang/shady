@@ -11,7 +11,8 @@ void generate_node_print_fns(Growy* g, json_object* src) {
         String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
         void* alloc = NULL;
         if (!snake_name) {
-            alloc = snake_name = to_snake_case(name);
+            snake_name = to_snake_case(name);
+            alloc = (void*) snake_name;
         }
         growy_append_formatted(g, "\tcase %s_TAG: {\n", name);
         growy_append_formatted(g, "\t\tprint(printer, \"%s \");\n", name);
@@ -42,7 +43,7 @@ void generate_node_print_fns(Growy* g, json_object* src) {
                         growy_append_formatted(g, "\t\t\tprint_node_operand(printer, node, \"%s\", Nc%s, node->payload.%s.%s, config);\n", op_name, cap_class, snake_name, op_name);
                         growy_append_formatted(g, "\t\t}\n");
                     }
-                    free(cap_class);
+                    free((void*) cap_class);
                 } else {
                     String op_type = json_object_get_string(json_object_object_get(op, "type"));
                     if (!op_type) {

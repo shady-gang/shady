@@ -2,9 +2,9 @@
 #define SHADY_IR_PRIVATE_H
 
 #include "shady/ir.h"
+#include "shady/config.h"
 
 #include "arena.h"
-
 #include "growy.h"
 
 #include "stdlib.h"

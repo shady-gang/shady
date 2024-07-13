@@ -2,6 +2,9 @@
 #define SHADY_L2S_PRIVATE_H
 
 #include "l2s.h"
+
+#include "shady/config.h"
+
 #include "arena.h"
 #include "util.h"
 
@@ -11,15 +14,22 @@
 #include <string.h>
 
 typedef struct {
+    const CompilerConfig* config;
     LLVMContextRef ctx;
     struct Dict* map;
     struct Dict* annotations;
     struct Dict* scopes;
-    struct Dict* phis;
+    struct Dict* wrappers_map;
     Arena* annotations_arena;
     LLVMModuleRef src;
     Module* dst;
 } Parser;
+
+typedef struct {
+    Node* fn;
+    struct Dict* phis;
+    struct List* jumps_todo;
+} FnParseCtx;
 
 #ifndef LLVM_VERSION_MAJOR
 #error "Missing LLVM_VERSION_MAJOR"
@@ -45,7 +55,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t);
 const Node* convert_metadata(Parser* p, LLVMMetadataRef meta);
 const Node* convert_global(Parser* p, LLVMValueRef global);
 const Node* convert_function(Parser* p, LLVMValueRef fn);
-const Node* convert_basic_block(Parser* p, Node* fn, LLVMBasicBlockRef bb);
+const Node* convert_basic_block(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
 
 typedef struct {
     const Node* terminator;
@@ -57,13 +67,20 @@ typedef struct {
     struct List* list;
 } BBPhis;
 
-EmittedInstr convert_instruction(Parser* p, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
+typedef struct {
+    Node* wrapper;
+    Node* src;
+    LLVMBasicBlockRef dst;
+} JumpTodo;
+
+void convert_jump_finish(Parser* p, FnParseCtx*, JumpTodo todo);
+EmittedInstr convert_instruction(Parser* p, FnParseCtx*, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
 
 Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc);
 
 void postprocess(Parser*, Module* src, Module* dst);
 
-static String is_llvm_intrinsic(LLVMValueRef fn) {
+inline static String is_llvm_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);
     if (string_starts_with(name, "llvm."))
@@ -71,7 +88,7 @@ static String is_llvm_intrinsic(LLVMValueRef fn) {
     return NULL;
 }
 
-static String is_shady_intrinsic(LLVMValueRef fn) {
+inline static String is_shady_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);
     if (string_starts_with(name, "shady::"))

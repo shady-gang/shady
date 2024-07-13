@@ -188,9 +188,9 @@ json_object* import_operand(json_object* operand, json_object* instruction_filte
 
     json_object* field = json_object_new_object();
 
-    char* field_name = sanitize_field_name(name);
+    const char* field_name = sanitize_field_name(name);
     json_object_object_add(field, "name", json_object_new_string(field_name));
-    free(field_name);
+    free((void*) field_name);
 
     json_object* insert = json_object_object_get(filter, "overlay");
     if (insert) {
@@ -237,7 +237,7 @@ json_object* import_filtered_instruction(json_object* instruction, json_object* 
     else
         json_object_put(ops);
 
-    free(node_name);
+    free((void*) node_name);
     return node;
 }
 

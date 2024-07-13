@@ -1,18 +1,19 @@
 #include "emit_c.h"
 
-#include "shady_cuda_prelude_src.h"
-#include "shady_cuda_builtins_src.h"
-
-#include "portability.h"
-#include "dict.h"
-#include "log.h"
-#include "util.h"
-
 #include "../../type.h"
 #include "../../ir_private.h"
 #include "../../compile.h"
 
 #include "../../transform/ir_gen_helpers.h"
+
+#include "shady_cuda_prelude_src.h"
+#include "shady_cuda_builtins_src.h"
+#include "shady_glsl_120_polyfills_src.h"
+
+#include "portability.h"
+#include "dict.h"
+#include "log.h"
+#include "util.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -119,6 +120,7 @@ static bool has_forward_declarations(CDialect dialect) {
 static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init) {
     String prefix = NULL;
 
+    bool is_fs = emitter->compiler_config->specialization.execution_model == EmFragment;
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
     switch (emitter->config.dialect) {
         case CDialect_C11: {
@@ -134,17 +136,14 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
             break;
         case CDialect_CUDA:
             switch (as) {
-                case AsPrivateLogical:
-                case AsPrivatePhysical:
+                case AsPrivate:
                     assert(false);
                     // Note: this requires many hacks.
                     prefix = "__device__ ";
                     decl_center = format_string_arena(emitter->arena->arena, "__shady_private_globals.%s", decl_center);
                     break;
-                case AsSharedPhysical:
-                case AsSharedLogical: prefix = "__shared__ "; break;
-                case AsGlobalLogical:
-                case AsGlobalPhysical: {
+                case AsShared: prefix = "__shared__ "; break;
+                case AsGlobal: {
                     if (constant)
                         prefix = "__constant__ ";
                     else
@@ -160,13 +159,13 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
             break;
         case CDialect_GLSL:
             switch (as) {
-                case AsSharedLogical: prefix = "shared "; break;
+                case AsShared: prefix = "shared "; break;
                 case AsInput:
-                case AsUInput: prefix = "in "; break;
-                case AsOutput: prefix = "out "; break;
-                case AsPrivateLogical: prefix = ""; break;
-                case AsUniformConstant: prefix = "uniform"; break;
-                case AsGlobalLogical: {
+                case AsUInput: prefix = emitter->config.glsl_version < 130 ? (is_fs ? "varying " : "attribute ") : "in "; break;
+                case AsOutput: prefix = emitter->config.glsl_version < 130 ? "varying " : "out "; break;
+                case AsPrivate: prefix = ""; break;
+                case AsUniformConstant: prefix = "uniform "; break;
+                case AsGlobal: {
                     assert(constant && "Only constants are supported");
                     prefix = "const ";
                     break;
@@ -213,7 +212,8 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case NotAValue: assert(false);
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG: error("lower me");
-        case Value_Variable_TAG: error("variables need to be emitted beforehand");
+        case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
+        case Variablez_TAG: error("tried to emit a variable: all variables should be register by their binding let !");
         case Value_IntLiteral_TAG: {
             if (value->payload.int_literal.is_signed)
                 emitted = format_string_arena(emitter->arena->arena, "%" PRIi64, value->payload.int_literal.value);
@@ -222,7 +222,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
 
             bool is_long = value->payload.int_literal.width == IntTy64;
             bool is_signed = value->payload.int_literal.is_signed;
-            if (emitter->config.dialect == CDialect_GLSL) {
+            if (emitter->config.dialect == CDialect_GLSL && emitter->config.glsl_version >= 130) {
                 if (!is_signed)
                     emitted = format_string_arena(emitter->arena->arena, "%sU", emitted);
                 if (is_long)
@@ -240,7 +240,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                     float f;
                     memcpy(&f, &v, sizeof(uint32_t));
                     double d = (double) f;
-                    emitted = format_string_arena(emitter->arena->arena, "%.9g", d); break;
+                    emitted = format_string_arena(emitter->arena->arena, "%#.9gf", d); break;
                 }
                 case FloatTy64: {
                     double d;
@@ -256,7 +256,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             if (emitter->config.dialect == CDialect_GLSL)
                 return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
             String name = unique_name(emitter->arena, "undef");
-            emit_global_variable_definition(emitter, AsGlobalLogical, name, value->payload.undef.type, true, NULL);
+            emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);
             emitted = name;
             break;
         }
@@ -396,11 +396,11 @@ void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const T
             break;
         case CDialect_C11:
         case CDialect_CUDA:
-            prefix = "register ";
             center = format_string_arena(emitter->arena->arena, "const %s", center);
             break;
         case CDialect_GLSL:
-            prefix = "const ";
+            if (emitter->config.glsl_version >= 130)
+                prefix = "const ";
             break;
     }
 
@@ -437,18 +437,18 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             const Node* tail = get_let_tail(terminator);
             assert(tail->tag == Case_TAG);
 
-            const Nodes tail_params = tail->payload.case_.params;
-            assert(tail_params.count == yield_types.count);
+            Nodes vars = terminator->payload.let.variables;
+            assert(vars.count == yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
                 bool has_result = results[i].value || results[i].var;
                 switch (bindings[i]) {
                     case NoBinding: {
                         assert(has_result && "unbound results can't be empty");
-                        register_emitted(emitter, tail_params.nodes[i], results[i]);
+                        register_emitted(emitter, vars.nodes[i], results[i]);
                         break;
                     }
                     case LetBinding: {
-                        String variable_name = get_value_name(tail_params.nodes[i]);
+                        String variable_name = get_value_name_unsafe(vars.nodes[i]);
 
                         if (!variable_name)
                             variable_name = "";
@@ -462,7 +462,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                         else
                             emit_variable_declaration(emitter, block_printer, t, bind_to, false, NULL);
 
-                        register_emitted(emitter, tail_params.nodes[i], term_from_cvalue(bind_to));
+                        register_emitted(emitter, vars.nodes[i], term_from_cvalue(bind_to));
                         break;
                     }
                     default: assert(false);
@@ -588,10 +588,17 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 return;
             }
 
+            if (ass == AsOutput && emitter->compiler_config->specialization.execution_model == EmFragment) {
+                int location = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "Location"))), false);
+                CTerm t = term_from_cvar(format_string_interned(emitter->arena, "gl_FragData[%d]", location));
+                register_emitted(emitter, decl, t);
+                return;
+            }
+
             decl_type = decl->payload.global_variable.type;
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
-            if ((decl->payload.global_variable.address_space == AsPrivatePhysical || decl->payload.global_variable.address_space == AsPrivateLogical) && emitter->config.dialect == CDialect_CUDA) {
+            if ((decl->payload.global_variable.address_space == AsPrivate) && emitter->config.dialect == CDialect_CUDA) {
                 if (emitter->use_private_globals) {
                     register_emitted(emitter, decl, term_from_cvar(format_string_arena(emitter->arena->arena, "__shady_private_globals->%s", name)));
                     // HACK
@@ -616,7 +623,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             if (body) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
-                    String variable_name = get_value_name(decl->payload.fun.params.nodes[i]);
+                    String variable_name = get_value_name_unsafe(decl->payload.fun.params.nodes[i]);
                     param_name = format_string_interned(emitter->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
                     register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
@@ -651,7 +658,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
             assert(init_value && "TODO: support some measure of constant expressions");
             String init = to_cvalue(emitter, emit_value(emitter, NULL, init_value));
-            emit_global_variable_definition(emitter, AsGlobalLogical, decl_center, decl->type, true, init);
+            emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init);
             return;
         }
         case NominalType_TAG: {
@@ -690,9 +697,8 @@ CType* lookup_existing_type(Emitter* emitter, const Type* node) {
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-static Module* run_backend_specific_passes(CompilerConfig* config, CEmitterConfig* econfig, Module* initial_mod) {
+static Module* run_backend_specific_passes(const CompilerConfig* config, CEmitterConfig* econfig, Module* initial_mod) {
     IrArena* initial_arena = initial_mod->arena;
-    Module* old_mod = NULL;
     Module** pmod = &initial_mod;
 
     // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
@@ -721,7 +727,7 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
         if (decl->tag != GlobalVariable_TAG)
             continue;
         AddressSpace as = decl->payload.global_variable.address_space;
-        if (as != AsPrivatePhysical && as != AsPrivateLogical)
+        if (as != AsPrivate)
             continue;
         print(p, "%s;\n", c_emit_type(emitter, decl->payload.global_variable.type, decl->payload.global_variable.name));
         count++;
@@ -736,9 +742,15 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
     return printer_growy_unwrap(p);
 }
 
-void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
+CEmitterConfig default_c_emitter_config(void) {
+    return (CEmitterConfig) {
+        .glsl_version = 420,
+    };
+}
+
+void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
     IrArena* initial_arena = get_module_arena(mod);
-    mod = run_backend_specific_passes(&compiler_config, &config, mod);
+    mod = run_backend_specific_passes(compiler_config, &config, mod);
     IrArena* arena = get_module_arena(mod);
 
     Growy* type_decls_g = new_growy();
@@ -746,6 +758,7 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
     Growy* fn_defs_g = new_growy();
 
     Emitter emitter = {
+        .compiler_config = compiler_config,
         .config = config,
         .arena = arena,
         .type_decls = open_growy_as_printer(type_decls_g),
@@ -786,7 +799,7 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
     Printer* finalp = open_growy_as_printer(final);
 
     if (emitter.config.dialect == CDialect_GLSL) {
-        print(finalp, "#version 420\n");
+        print(finalp, "#version %d\n", emitter.config.glsl_version);
     }
 
     print(finalp, "/* file generated by shady */\n");
@@ -811,10 +824,13 @@ void emit_c(CompilerConfig compiler_config, CEmitterConfig config, Module* mod, 
             print(finalp, "\n#include <math.h>");
             break;
         case CDialect_GLSL:
-            print(finalp, "#extension GL_ARB_gpu_shader_int64: require\n");
+            if (emitter.need_64b_ext)
+                print(finalp, "#extension GL_ARB_gpu_shader_int64: require\n");
             print(finalp, "#define ubyte uint\n");
             print(finalp, "#define uchar uint\n");
             print(finalp, "#define ulong uint\n");
+            if (emitter.config.glsl_version <= 120)
+                print(finalp, shady_glsl_120_polyfills_src);
             break;
     }
 

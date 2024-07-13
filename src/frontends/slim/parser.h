@@ -36,6 +36,7 @@ INFIX_OPERATORS()
     InfixOperatorsCount
 } InfixOperators;
 
-void parse_shady_ir(ParserConfig config, const char* contents, Module* mod);
+typedef struct CompilerConfig_ CompilerConfig;
+Module* parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, const char* contents, String name);
 
 #endif

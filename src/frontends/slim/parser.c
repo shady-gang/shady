@@ -14,6 +14,12 @@
 #include <assert.h>
 #include <string.h>
 
+typedef enum DivergenceQualifier_ {
+    Unknown,
+    Uniform,
+    Varying
+} DivergenceQualifier;
+
 static int max_precedence() {
     return 10;
 }
@@ -215,16 +221,20 @@ static const Node* accept_value(ctxparams) {
     }
 }
 
-static AddressSpace expect_ptr_address_space(ctxparams) {
+static AddressSpace accept_address_space(ctxparams) {
     switch (curr_token(tokenizer).tag) {
-        case global_tok:  next_token(tokenizer); return AsGlobalPhysical;
-        case private_tok: next_token(tokenizer); return AsPrivatePhysical;
-        case shared_tok:  next_token(tokenizer); return AsSharedPhysical;
-        case subgroup_tok:  next_token(tokenizer); return AsSubgroupPhysical;
+        case global_tok:   next_token(tokenizer); return AsGlobal;
+        case private_tok:  next_token(tokenizer); return AsPrivate;
+        case shared_tok:   next_token(tokenizer); return AsShared;
+        case subgroup_tok: next_token(tokenizer); return AsSubgroup;
         case generic_tok:  next_token(tokenizer); return AsGeneric;
-        default: error("expected address space qualifier");
+        case input_tok:    next_token(tokenizer); return AsInput;
+        case output_tok:   next_token(tokenizer); return AsOutput;
+        case extern_tok:   next_token(tokenizer); return AsExternal;
+        default:
+            break;
     }
-    SHADY_UNREACHABLE;
+    return NumAddressSpaces;
 }
 
 static const Type* accept_unqualified_type(ctxparams) {
@@ -235,12 +245,27 @@ static const Type* accept_unqualified_type(ctxparams) {
     } else if (accept_token(ctx, mask_t_tok)) {
         return mask_type(arena);
     } else if (accept_token(ctx, ptr_tok)) {
-        AddressSpace as = expect_ptr_address_space(ctx);
+        AddressSpace as = accept_address_space(ctx);
+        if (as == NumAddressSpaces) {
+            error("expected address space qualifier");
+        }
         const Type* elem_type = accept_unqualified_type(ctx);
         expect(elem_type);
         return ptr_type(arena, (PtrType) {
            .address_space = as,
            .pointed_type = elem_type,
+        });
+    } else if (accept_token(ctx, ref_tok)) {
+        AddressSpace as = accept_address_space(ctx);
+        if (as == NumAddressSpaces) {
+            error("expected address space qualifier");
+        }
+        const Type* elem_type = accept_unqualified_type(ctx);
+        expect(elem_type);
+        return ptr_type(arena, (PtrType) {
+           .address_space = as,
+           .pointed_type = elem_type,
+           .is_reference = true,
         });
     } else if (config.front_end && accept_token(ctx, lsbracket_tok)) {
         const Type* elem_type = accept_unqualified_type(ctx);
@@ -349,7 +374,7 @@ static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_value
             const char* id = accept_identifier(ctx);
             expect(id);
 
-            const Node* node = var(arena, qtype, id);
+            const Node* node = param(arena, qtype, id);
             append_list(Node*, params, node);
 
             if (default_values) {
@@ -598,11 +623,11 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect(accept_token(ctx, lpar_tok));
             String str = accept_identifier(ctx);
             expect(str);
-            const Node* param = var(arena, join_point_type(arena, (JoinPointType) {
+            const Node* jp = param(arena, join_point_type(arena, (JoinPointType) {
                 .yield_types = yield_types,
             }), str);
             expect(accept_token(ctx, rpar_tok));
-            const Node* body = case_(arena, singleton(param), expect_body(ctx, fn, NULL));
+            const Node* body = case_(arena, singleton(jp), expect_body(ctx, fn, NULL));
             return control(arena, (Control) {
                 .inside = body,
                 .yield_types = yield_types
@@ -707,6 +732,15 @@ static const Node* expect_jump(ctxparams) {
     });
 }
 
+/// for convenience, parse variables as parameters
+static Nodes params2vars(IrArena* arena, const Node* instruction, Nodes params) {
+    LARRAY(const Node*, vars, params.count);
+    for (size_t i = 0; i < params.count; i++) {
+        vars[i] = var(arena, params.nodes[i]->payload.param.name, instruction, i);
+    }
+    return nodes(arena, params.count, vars);
+}
+
 static const Node* accept_terminator(ctxparams, Node* fn) {
     TokenTag tag = curr_token(tokenizer).tag;
     switch (tag) {
@@ -719,7 +753,7 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
                 case let_tok: {
                     const Node* lam = accept_case(ctx, fn);
                     expect(lam);
-                    return let(arena, instruction, lam);
+                    return let(arena, instruction, params2vars(arena, instruction, get_abstraction_params(lam)), get_abstraction_body(lam));
                 }
                 default: SHADY_UNREACHABLE;
             }
@@ -977,30 +1011,48 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
 }
 
 static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
-    AddressSpace as;
-    if (accept_token(ctx, private_tok))
-        as = AsPrivateLogical;
-    else if (accept_token(ctx, shared_tok))
-        as = AsSharedLogical;
-    else if (accept_token(ctx, subgroup_tok))
-        as = AsSubgroupLogical;
-    else if (accept_token(ctx, global_tok))
-        as = AsGlobalLogical;
-    else if (accept_token(ctx, extern_tok))
-        as = AsExternal;
-    else if (accept_token(ctx, input_tok))
-        as = AsInput;
-    else if (accept_token(ctx, output_tok))
-        as = AsOutput;
-    else if (accept_token(ctx, uniform_tok)) {
-        if (accept_token(ctx, input_tok)) {
-            as = AsUInput;
-        } else {
-            expect(false && "expected 'input'");
-            return NULL;
-        }
-    } else
+    if (!accept_token(ctx, var_tok))
         return NULL;
+
+    AddressSpace as = NumAddressSpaces;
+    bool uniform = false, logical = false;
+    while (true) {
+        AddressSpace nas = accept_address_space(ctx);
+        if (nas != NumAddressSpaces) {
+            if (as != NumAddressSpaces && as != nas) {
+                error("Conflicting address spaces for definition: %s and %s.\n", get_address_space_name(as), get_address_space_name(nas));
+            }
+            as = nas;
+            continue;
+        }
+        if (accept_token(ctx, logical_tok)) {
+            logical = true;
+            continue;
+        }
+        if (accept_token(ctx, uniform_tok)) {
+            uniform = true;
+            continue;
+        }
+        break;
+    }
+
+    if (as == NumAddressSpaces) {
+        error("Address space required for global variable declaration.\n");
+    }
+
+    if (uniform) {
+        if (as == AsInput)
+            as = AsUInput;
+        else {
+            error("'uniform' can only be used with 'input' currently.\n");
+        }
+    }
+
+    if (logical) {
+        annotations = append_nodes(arena, annotations, annotation(arena, (Annotation) {
+            .name = "Logical"
+        }));
+    }
 
     const Type* type = accept_unqualified_type(ctx);
     expect(type);
@@ -1037,7 +1089,7 @@ static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
     return nom;
 }
 
-void parse_shady_ir(ParserConfig config, const char* contents, Module* mod) {
+static void parse_shady_ir(ParserConfig config, const char* contents, Module* mod) {
     IrArena* arena = get_module_arena(mod);
     Tokenizer* tokenizer = new_tokenizer(contents);
 
@@ -1065,4 +1117,32 @@ void parse_shady_ir(ParserConfig config, const char* contents, Module* mod) {
     }
 
     destroy_tokenizer(tokenizer);
+}
+
+#include "compile.h"
+#include "transform/internal_constants.h"
+
+Module* parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, const char* contents, String name) {
+    ArenaConfig aconfig = default_arena_config(&config->target);
+    aconfig.name_bound = false;
+    aconfig.check_op_classes = false;
+    aconfig.check_types = false;
+    aconfig.validate_builtin_types = false;
+    aconfig.allow_fold = false;
+    IrArena* initial_arena = new_ir_arena(&aconfig);
+    Module* m = new_module(initial_arena, name);
+    parse_shady_ir(pconfig, contents, m);
+    Module** pmod = &m;
+    Module* old_mod = NULL;
+
+    generate_dummy_constants(config, *pmod);
+
+    RUN_PASS(bind_program)
+    RUN_PASS(normalize)
+
+    RUN_PASS(normalize_builtins)
+    RUN_PASS(infer_program)
+
+    destroy_ir_arena(initial_arena);
+    return *pmod;
 }

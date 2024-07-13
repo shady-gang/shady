@@ -10,13 +10,21 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+option(SHADY_USE_FETCHCONTENT "Use FetchContent to grab json-c" ON)
+option(SHADY_WIN32_FIX_PARTIAL_LLVM_INSTALL "If you install LLVM on windows, it doesn't come with header files. This fixes it" ON)
+
 if (MSVC)
   add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
+if (WIN32)
+  set(BUILD_SHARED_LIBS OFF)
+endif()
+
 add_subdirectory(SPIRV-Headers)
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24" AND ${SHADY_USE_FETCHCONTENT})
     FetchContent_Declare(
         json-c
         GIT_REPOSITORY https://github.com/json-c/json-c
@@ -33,7 +41,7 @@ else ()
 endif ()
 
 find_package(LLVM QUIET)
-if(NOT ${LLVM_FOUND} AND WIN32)
+if(NOT ${LLVM_FOUND} AND WIN32 AND ${SHADY_WIN32_FIX_PARTIAL_LLVM_INSTALL})
     find_program(clang_exe "clang.exe")
     if(${clang_exe} STREQUAL "clang_exe-NOTFOUND")
         message(STATUS "Win32: Installed LLVM not found")
@@ -74,11 +82,13 @@ else()
     message("LLVM ${LLVM_VERSION} found")
 endif()
 
+include(GNUInstallDirs)
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # required for MSVC
@@ -101,20 +111,11 @@ endif()
 
 include(CMakePackageConfigHelpers)
 
-install(TARGETS api EXPORT shady_export_set)
-install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
-
 if (TARGET vcc)
   add_subdirectory(vcc-std)
 endif ()
 
-if (TARGET runtime)
-  install(TARGETS runtime EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
-endif()
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/shady DESTINATION include)
 install(EXPORT shady_export_set DESTINATION share/cmake/shady/ NAMESPACE shady:: FILE shady-targets.cmake)
 
 configure_file(cmake/shady-config.cmake.in shady-config.cmake @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/shady-config.cmake" DESTINATION share/cmake/shady)
-#install(FILES "${CMAKE_CURRENT_BINARY_DIR}/shady-config.cmake" DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/shady)

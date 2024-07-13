@@ -24,7 +24,9 @@ Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
             if (type->payload.record_type.special == MultipleReturn)
                 return type->payload.record_type.members;
             // fallthrough
-        default: return nodes(arena, 1, (const Node* []) { type });
+        default:
+            assert(is_value_type(type));
+            return nodes(arena, 1, (const Node* []) { type });
     }
 }
 
@@ -56,11 +58,13 @@ const Type* get_pointee_type(IrArena* arena, const Type* type) {
 
 void step_composite(const Type** datatype, bool* uniform, const Node* selector, bool allow_entering_pack) {
     const Type* current_type = *datatype;
-    const Type* selector_type = selector->type;
-    bool selector_uniform = deconstruct_qualified_type(&selector_type);
 
-    assert(selector_type->tag == Int_TAG && "selectors must be integers");
-    *uniform &= selector_uniform;
+    if (selector->arena->config.check_types) {
+        const Type* selector_type = selector->type;
+        bool selector_uniform = deconstruct_qualified_type(&selector_type);
+        assert(selector_type->tag == Int_TAG && "selectors must be integers");
+        *uniform &= selector_uniform;
+    }
 
     try_again:
     switch (current_type->tag) {
@@ -108,11 +112,11 @@ void enter_composite(const Type** datatype, bool* uniform, Nodes indices, bool a
     }
 }
 
-Nodes get_variables_types(IrArena* arena, Nodes variables) {
+Nodes get_param_types(IrArena* arena, Nodes variables) {
     LARRAY(const Type*, arr, variables.count);
     for (size_t i = 0; i < variables.count; i++) {
-        assert(variables.nodes[i]->tag == Variable_TAG);
-        arr[i] = variables.nodes[i]->payload.var.type;
+        assert(variables.nodes[i]->tag == Param_TAG);
+        arr[i] = variables.nodes[i]->payload.param.type;
     }
     return nodes(arena, variables.count, arr);
 }

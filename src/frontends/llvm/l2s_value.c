@@ -78,14 +78,14 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             String name = LLVMGetValueName(v);
             if (!name || strlen(name) == 0)
                 name = unique_name(a, "constant_expr");
-            Nodes annotations = singleton(annotation(a, (Annotation) { .name = "SkipOnInfer" }));
-            annotations = empty(a);
-            Node* decl = constant(p->dst, annotations, NULL, name);
+            Nodes annotations = singleton(annotation(a, (Annotation) { .name = "Inline" }));
+            assert(t);
+            Node* decl = constant(p->dst, annotations, t, name);
             r = ref_decl_helper(a, decl);
             insert_dict(LLVMTypeRef, const Type*, p->map, v, r);
             BodyBuilder* bb = begin_body(a);
-            EmittedInstr emitted = convert_instruction(p, NULL, bb, v);
-            Nodes types = singleton(convert_type(p, LLVMTypeOf(v)));
+            EmittedInstr emitted = convert_instruction(p, NULL, NULL, bb, v);
+            Nodes types = singleton(t);
             decl->payload.constant.instruction = bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, emitted.instruction, &types);
             return r;
         }
@@ -130,11 +130,6 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             return get_default_zero_value(a, convert_type(p, LLVMTypeOf(v)));
         case LLVMConstantArrayValueKind: {
             assert(t->tag == ArrType_TAG);
-            if (LLVMIsConstantString(v)) {
-                size_t idc;
-                r = string_lit_helper(a, LLVMGetAsString(v, &idc));
-                break;
-            }
             size_t arr_size = get_int_literal_value(*resolve_to_int_literal(t->payload.arr_type.size), false);
             assert(arr_size >= 0 && arr_size < INT32_MAX && "sanity check");
             LARRAY(const Node*, elements, arr_size);

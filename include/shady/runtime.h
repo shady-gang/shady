@@ -11,6 +11,9 @@ typedef struct {
     bool allow_no_devices;
 } RuntimeConfig;
 
+RuntimeConfig default_runtime_config();
+void cli_parse_runtime_config(RuntimeConfig* config, int* pargc, char** argv);
+
 typedef struct Runtime_  Runtime;
 typedef struct Device_   Device;
 typedef struct Program_  Program;
@@ -29,10 +32,12 @@ typedef struct CompilerConfig_ CompilerConfig;
 typedef struct Module_ Module;
 
 Program* new_program_from_module(Runtime*, const CompilerConfig*, Module*);
-Program* load_program(Runtime*, const CompilerConfig*, const char* program_src);
-Program* load_program_from_disk(Runtime*, const CompilerConfig*, const char* path);
 
-Command* launch_kernel(Program*, Device*, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args);
+typedef struct {
+    uint64_t* profiled_gpu_time;
+} ExtraKernelOptions;
+
+Command* launch_kernel(Program*, Device*, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions*);
 bool wait_completion(Command*);
 
 Buffer* allocate_buffer_device(Device*, size_t);

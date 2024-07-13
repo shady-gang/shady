@@ -14,7 +14,7 @@ typedef struct {
 } State;
 
 typedef struct {
-    Scope* s;
+    CFG* s;
     State* states;
 
     /**
@@ -193,7 +193,7 @@ LTNode* looptree_lookup(LoopTree* lt, const Node* block) {
     assert(false);
 }
 
-LoopTree* build_loop_tree(Scope* s) {
+LoopTree* build_loop_tree(CFG* s) {
     LARRAY(State, states, s->size);
     for (size_t i = 0; i < s->size; i++) {
         states[i] = (State) {
@@ -284,14 +284,21 @@ void dump_loop_trees(FILE* output, Module* mod) {
         output = stderr;
 
     fprintf(output, "digraph G {\n");
-    struct List* scopes = build_scopes(mod);
-    for (size_t i = 0; i < entries_count_list(scopes); i++) {
-        Scope* scope = read_list(Scope*, scopes)[i];
-        LoopTree* lt = build_loop_tree(scope);
+    struct List* cfgs = build_cfgs(mod);
+    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
+        CFG* cfg = read_list(CFG*, cfgs)[i];
+        LoopTree* lt = build_loop_tree(cfg);
         dump_loop_tree(output, lt);
         destroy_loop_tree(lt);
-        destroy_scope(scope);
+        destroy_cfg(cfg);
     }
-    destroy_list(scopes);
+    destroy_list(cfgs);
     fprintf(output, "}\n");
+}
+
+
+void dump_loop_trees_auto(Module* mod) {
+    FILE* f = fopen("loop_trees.dot", "wb");
+    dump_loop_trees(f, mod);
+    fclose(f);
 }

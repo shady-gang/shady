@@ -1,12 +1,11 @@
-#include "passes.h"
+#include "pass.h"
 
-#include "portability.h"
-#include "log.h"
-
-#include "../rewrite.h"
 #include "../type.h"
 #include "../transform/ir_gen_helpers.h"
 #include "../transform/memory_layout.h"
+
+#include "portability.h"
+#include "log.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -28,7 +27,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case RefDecl_TAG: {
             const Node* odecl = node->payload.ref_decl.decl;
-            if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobalPhysical)
+            if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
                 break;
             assert(ctx->bb && "this RefDecl node isn't appearing in an abstraction - we cannot replace it with a load!");
             const Node* ptr_addr = gen_lea(ctx->bb, ref_decl_helper(a, ctx->lifted_globals_decl), int32_literal(a, 0), singleton(rewrite_node(&ctx->rewriter, odecl)));
@@ -36,7 +35,7 @@ static const Node* process(Context* ctx, const Node* node) {
             return ptr;
         }
         case GlobalVariable_TAG:
-            if (node->payload.global_variable.address_space != AsGlobalPhysical)
+            if (node->payload.global_variable.address_space != AsGlobal)
                 break;
             assert(false);
         default: break;
@@ -54,12 +53,12 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config
     };
 
@@ -77,7 +76,7 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
     size_t lifted_globals_count = 0;
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* odecl = old_decls.nodes[i];
-        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobalPhysical)
+        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
             continue;
 
         member_tys[lifted_globals_count] = rewrite_node(&ctx.rewriter, odecl->type);
@@ -101,10 +100,10 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
     lifted_globals_count = 0;
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* odecl = old_decls.nodes[i];
-        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobalPhysical)
+        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
             continue;
         if (odecl->payload.global_variable.init)
-            annotations = append_nodes(a, annotations, annotation_values(a, (AnnotationValues) {
+            ctx.lifted_globals_decl->payload.global_variable.annotations = append_nodes(a, ctx.lifted_globals_decl->payload.global_variable.annotations, annotation_values(a, (AnnotationValues) {
                     .name = "InitialValue",
                     .values = mk_nodes(a, int32_literal(a, lifted_globals_count), rewrite_node(&ctx.rewriter, odecl->payload.global_variable.init))
             }));

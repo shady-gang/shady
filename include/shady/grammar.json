@@ -2,53 +2,32 @@
   "address-spaces": [
     {
       "name": "Generic",
-      "llvm-id": 0,
-      "physical": true
+      "llvm-id": 0
     },
     {
-      "name": "GlobalPhysical",
+      "name": "Global",
       "description": "Global memory, all threads see the same data (not necessarily consistent!)",
-      "llvm-id": 1,
-      "physical": true
+      "llvm-id": 1
     },
     {
-      "name": "SharedPhysical",
+      "name": "Shared",
       "description": "Points into workgroup-private memory (aka shared memory)",
-      "llvm-id": 3,
-      "physical": true
+      "llvm-id": 3
     },
     {
-      "name": "SubgroupPhysical",
+      "name": "Subgroup",
       "description": [
         "Points into subgroup-private memory",
         "All threads in a subgroup see the same contents for the same address, but threads in different subgroups see different data.",
         "Needs to be lowered to something else since targets do not understand this" ],
-      "llvm-id": 9,
-      "physical": true
+      "llvm-id": 9
     },
     {
-      "name": "PrivatePhysical",
+      "name": "Private",
       "description": [
         "Points into thread-private memory (all threads see different contents for the same address)"
       ],
-      "llvm-id": 5,
-      "physical": true
-    },
-    {
-      "name": "GlobalLogical",
-      "llvm-id": 388
-    },
-    {
-      "name": "SharedLogical",
-      "llvm-id": 387
-    },
-    {
-      "name": "SubgroupLogical",
-      "llvm-id": 386
-    },
-    {
-      "name": "PrivateLogical",
-      "llvm-id": 385
+      "llvm-id": 5
     },
     {
       "name": "Input",
@@ -74,8 +53,8 @@
       "llvm-id": 392
     },
     {
-      "name": "FunctionLogical",
-      "description": "Weird SPIR-V nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)",
+      "name": "Function",
+      "description": "Weird SPIR-V nonsense: this is like Private, but with non-static lifetimes (ie function lifetime)",
       "llvm-id": 393
     },
     {
@@ -104,6 +83,10 @@
     },
     {
       "name": "value"
+    },
+    {
+      "name": "param",
+      "generate-enum": false
     },
     {
       "name": "variable",
@@ -225,7 +208,8 @@
       "class": "type",
       "ops": [
         { "name": "address_space", "type": "AddressSpace" },
-        { "name": "pointed_type", "class": "type" }
+        { "name": "pointed_type", "class": "type" },
+        { "name": "is_reference", "type": "bool" }
       ]
     },
     {
@@ -261,15 +245,25 @@
       ]
     },
     {
-      "name": "Variable",
-      "snake_name": "var",
-      "class": ["value", "variable"],
+      "name": "Param",
+      "class": ["value", "param"],
       "constructor": "custom",
       "ops": [
         { "name": "type", "class": "type" },
         { "name": "name", "class": "string" },
         { "name": "abs", "type": "const Node*", "ignore": true },
         { "name": "pindex", "type": "unsigned", "ignore": true }
+      ]
+    },
+    {
+      "name": "Variablez",
+      "snake_name": "varz",
+      "class": ["value", "variable"],
+      "constructor": "custom",
+      "ops": [
+        { "name": "name", "class": "string" },
+        { "name": "instruction", "class": "instruction" },
+        { "name": "iindex", "type": "unsigned" }
       ]
     },
     {
@@ -458,6 +452,7 @@
       "constructor": "custom",
       "ops": [
         { "name": "instruction", "class": "instruction" },
+        { "name": "variables", "class": "variable", "list": true },
         { "name": "tail", "class": "case" }
       ]
     },
@@ -468,7 +463,8 @@
       "front-end-only": true,
       "ops": [
         { "name": "instruction", "class": "instruction" },
-        { "name": "variables", "class": "variable", "list": true }
+        { "name": "variables", "class": "param", "list": true },
+        { "name": "types", "class": "type", "list": true }
       ]
     },
     {
@@ -568,7 +564,7 @@
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
-        { "name": "params", "class": "variable", "list": true },
+        { "name": "params", "class": "param", "list": true },
         { "name": "body", "class": "terminator" },
         { "name": "return_types", "class": "type", "list": true }
       ]
@@ -653,7 +649,7 @@
       "description": "A named abstraction that lives inside a function and can be jumped to",
       "class": "basic_block",
       "ops": [
-        { "name": "params", "class": "variable", "list": true },
+        { "name": "params", "class": "param", "list": true },
         { "name": "body", "class": "terminator" },
         { "name": "fn", "class": "declaration" },
         { "name": "name", "class": "string" }
@@ -665,11 +661,10 @@
       "constructor": "custom",
       "class": "case",
       "description": [
-        "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs",
-        "Most notably, the tails of standard `let` nodes"
+        "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs"
       ],
       "ops": [
-        { "name": "params", "class": "variable", "list": true },
+        { "name": "params", "class": "param", "list": true },
         { "name": "body", "class": "terminator" },
         { "name": "structured_construct", "type": "const Node*", "ignored": true }
       ]

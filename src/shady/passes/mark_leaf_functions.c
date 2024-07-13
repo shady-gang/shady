@@ -1,15 +1,13 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../analysis/callgraph.h"
+#include "../analysis/cfg.h"
+#include "../analysis/uses.h"
+#include "../analysis/leak.h"
 
 #include "dict.h"
 #include "portability.h"
 #include "log.h"
-
-#include "../rewrite.h"
-
-#include "../analysis/callgraph.h"
-#include "../analysis/scope.h"
-#include "../analysis/uses.h"
-#include "../analysis/leak.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -17,8 +15,8 @@ typedef struct {
     struct Dict* fns;
 
     bool is_leaf;
-    Scope* scope;
-    const UsesMap* scope_uses;
+    CFG* cfg;
+    const UsesMap* uses;
 } Context;
 
 typedef struct {
@@ -47,10 +45,28 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     info = find_value_dict(const Node*, FnInfo, ctx->fns, fn_node->fn);
     assert(info);
 
-    if (fn_node->is_address_captured || fn_node->is_recursive) {
+    if (fn_node->is_address_captured || fn_node->is_recursive || fn_node->calls_indirect) {
         info->is_leaf = false;
         info->done = true;
-        debugv_print("Function %s can't be a leaf function because %s.\n", get_abstraction_name(fn_node->fn), fn_node->is_address_captured ? "its address is captured" : "it is recursive" );
+        debugv_print("Function %s can't be a leaf function because", get_abstraction_name(fn_node->fn));
+        bool and = false;
+        if (fn_node->is_address_captured) {
+            debugv_print("its address is captured");
+            and = true;
+        }
+        if (fn_node->is_recursive) {
+            if (and)
+                debugv_print(" and ");
+            debugv_print("it is recursive");
+            and = true;
+        }
+        if (fn_node->calls_indirect) {
+            if (and)
+                debugv_print(" and ");
+            debugv_print("it makes indirect calls");
+            and = true;
+        }
+        debugv_print(".\n");
         return false;
     }
 
@@ -86,12 +102,12 @@ static const Node* process(Context* ctx, const Node* node) {
             Context fn_ctx = *ctx;
             CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
             fn_ctx.is_leaf = is_leaf_fn(ctx, fn_node);
-            fn_ctx.scope = new_scope(node);
-            fn_ctx.scope_uses = create_uses_map(node, (NcDeclaration | NcType));
+            fn_ctx.cfg = build_fn_cfg(node);
+            fn_ctx.uses = create_uses_map(node, (NcDeclaration | NcType));
             ctx = &fn_ctx;
 
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-            Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            Node* new = function(ctx->rewriter.dst_module, recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             for (size_t i = 0; i < new->payload.fun.params.count; i++)
                 register_processed(&ctx->rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
             register_processed(&ctx->rewriter, node, new);
@@ -104,13 +120,13 @@ static const Node* process(Context* ctx, const Node* node) {
                 }));
             }
 
-            destroy_uses_map(fn_ctx.scope_uses);
-            destroy_scope(fn_ctx.scope);
+            destroy_uses_map(fn_ctx.uses);
+            destroy_cfg(fn_ctx.cfg);
             return new;
         }
         case Control_TAG: {
-            if (!is_control_static(ctx->scope_uses, node)) {
-                debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->scope->entry->node));
+            if (!is_control_static(ctx->uses, node)) {
+                debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->cfg->entry->node));
                 log_node(DEBUGV, first(node->payload.control.inside->payload.case_.params));
                 debugv_print("escapes its control block, preventing restructuring.\n");
                 ctx->is_leaf = false;
@@ -120,8 +136,8 @@ static const Node* process(Context* ctx, const Node* node) {
         case Join_TAG: {
             const Node* old_jp = node->payload.join.join_point;
             // is it associated with a control node ?
-            if (old_jp->tag == Variable_TAG) {
-                const Node* abs = old_jp->payload.var.abs;
+            if (old_jp->tag == Param_TAG) {
+                const Node* abs = old_jp->payload.param.abs;
                 assert(abs);
                 if (abs->tag == Case_TAG) {
                     const Node* structured = abs->payload.case_.structured_construct;
@@ -131,7 +147,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         break;
                 }
             }
-            debugv_print("Function %s can't be a leaf function because it joins with ", get_abstraction_name(ctx->scope->entry->node));
+            debugv_print("Function %s can't be a leaf function because it joins with ", get_abstraction_name(ctx->cfg->entry->node));
             log_node(DEBUGV, old_jp);
             debugv_print("which is not bound by a control node within that function.\n");
             // we join with some random join point; we can't be a leaf :(
@@ -148,11 +164,11 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 Module* mark_leaf_functions(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .fns = new_dict(const Node*, FnInfo, (HashFn) hash_node, (CmpFn) compare_node),
         .graph = new_callgraph(src)
     };

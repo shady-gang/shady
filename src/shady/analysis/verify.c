@@ -1,6 +1,6 @@
 #include "verify.h"
 #include "free_variables.h"
-#include "scope.h"
+#include "cfg.h"
 #include "log.h"
 
 #include "../visit.h"
@@ -42,26 +42,32 @@ static void verify_same_arena(Module* mod) {
     destroy_dict(visitor.once);
 }
 
-static void verify_scoping(Module* mod) {
-    struct List* scopes = build_scopes(mod);
-    for (size_t i = 0; i < entries_count_list(scopes); i++) {
-        Scope* scope = read_list(Scope*, scopes)[i];
-        struct List* leaking = compute_free_variables(scope, scope->entry->node);
-        for (size_t j = 0; j < entries_count_list(leaking); j++) {
-            log_node(ERROR, read_list(const Node*, leaking)[j]);
+static void verify_scoping(const CompilerConfig* config, Module* mod) {
+    struct List* cfgs = build_cfgs(mod);
+    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
+        CFG* cfg = read_list(CFG*, cfgs)[i];
+        struct Dict* map = compute_cfg_variables_map(cfg, CfgVariablesAnalysisFlagFreeSet);
+        CFNodeVariables* entry_vars = *find_value_dict(CFNode*, CFNodeVariables*, map, cfg->entry);
+        size_t j = 0;
+        const Node* leaking;
+        while (dict_iter(entry_vars->free_set, &j, &leaking, NULL)) {
+            log_node(ERROR, leaking);
             error_print("\n");
         }
-        assert(entries_count_list(leaking) == 0);
-        destroy_list(leaking);
-        destroy_scope(scope);
+        if (entries_count_dict(entry_vars->free_set) > 0) {
+            log_module(ERROR, config, mod);
+            error_die();
+        }
+        destroy_cfg_variables_map(map);
+        destroy_cfg(cfg);
     }
-    destroy_list(scopes);
+    destroy_list(cfgs);
 }
 
 static void verify_nominal_node(const Node* fn, const Node* n) {
     switch (n->tag) {
         case Function_TAG: {
-            assert(!fn && "functions cannot be part of a scope, except as the entry");
+            assert(!fn && "functions cannot be part of a CFG, except as the entry");
             break;
         }
         case BasicBlock_TAG: {
@@ -73,10 +79,12 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
             break;
         }
         case Constant_TAG: {
-            const Type* t = n->payload.constant.instruction->type;
-            bool u = deconstruct_qualified_type(&t);
-            assert(u);
-            assert(is_subtype(n->payload.constant.type_hint, t));
+            if (n->payload.constant.instruction) {
+                const Type* t = n->payload.constant.instruction->type;
+                bool u = deconstruct_qualified_type(&t);
+                assert(u);
+                assert(is_subtype(n->payload.constant.type_hint, t));
+            }
             break;
         }
         case GlobalVariable_TAG: {
@@ -93,20 +101,20 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
 }
 
 static void verify_bodies(Module* mod) {
-    struct List* scopes = build_scopes(mod);
-    for (size_t i = 0; i < entries_count_list(scopes); i++) {
-        Scope* scope = read_list(Scope*, scopes)[i];
+    struct List* cfgs = build_cfgs(mod);
+    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
+        CFG* cfg = read_list(CFG*, cfgs)[i];
 
-        for (size_t j = 0; j < scope->size; j++) {
-            CFNode* n = scope->rpo[j];
+        for (size_t j = 0; j < cfg->size; j++) {
+            CFNode* n = cfg->rpo[j];
             if (n->node->tag == BasicBlock_TAG) {
-                verify_nominal_node(scope->entry->node, n->node);
+                verify_nominal_node(cfg->entry->node, n->node);
             }
         }
 
-        destroy_scope(scope);
+        destroy_cfg(cfg);
     }
-    destroy_list(scopes);
+    destroy_list(cfgs);
 
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
@@ -115,12 +123,12 @@ static void verify_bodies(Module* mod) {
     }
 }
 
-void verify_module(Module* mod) {
+void verify_module(const CompilerConfig* config, Module* mod) {
     verify_same_arena(mod);
     // before we normalize the IR, scopes are broken because decls appear where they should not
     // TODO add a normalized flag to the IR and check grammar is adhered to strictly
     if (get_module_arena(mod)->config.check_types) {
-        verify_scoping(mod);
+        verify_scoping(config, mod);
         verify_bodies(mod);
     }
 }

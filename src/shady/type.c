@@ -26,6 +26,8 @@ bool is_subtype(const Type* supertype, const Type* type) {
     assert(supertype && type);
     if (supertype->tag != type->tag)
         return false;
+    if (type == supertype)
+        return true;
     switch (is_type(supertype)) {
         case NotAType: error("supplied not a type to is_subtype");
         case QualifiedType_TAG: {
@@ -41,7 +43,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
                 if (!is_subtype(supermembers->nodes[i], members->nodes[i]))
                     return false;
             }
-            return true;
+            return supertype->payload.record_type.special == type->payload.record_type.special;
         }
         case JoinPointType_TAG: {
             const Nodes* superparams = &supertype->payload.join_point_type.yield_types;
@@ -92,9 +94,8 @@ bool is_subtype(const Type* supertype, const Type* type) {
         } case PtrType_TAG: {
             if (supertype->payload.ptr_type.address_space != type->payload.ptr_type.address_space)
                 return false;
-            // if either pointer type is untyped, both need to be
-            if (supertype->arena->config.untyped_ptrs && (!supertype->payload.ptr_type.pointed_type || !type->payload.ptr_type.pointed_type))
-                return !supertype->payload.ptr_type.pointed_type && !type->payload.ptr_type.pointed_type;
+            if (!supertype->payload.ptr_type.is_reference && type->payload.ptr_type.is_reference)
+                return false;
             return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
         }
         case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width && supertype->payload.int_type.is_signed == type->payload.int_type.is_signed;
@@ -135,15 +136,10 @@ bool is_subtype(const Type* supertype, const Type* type) {
         }
         case Type_SampledImageType_TAG:
             return is_subtype(supertype->payload.sampled_image_type.image_type, type->payload.sampled_image_type.image_type);
-        case SamplerType_TAG:
-        case NoRet_TAG:
-        case Bool_TAG:
-        case MaskType_TAG:
-            return true;
-        case Float_TAG:
-            return supertype->payload.float_type.width == type->payload.float_type.width;
+        default: break;
     }
-    SHADY_UNREACHABLE;
+    // Two types are always equal (and therefore subtypes of each other) if their payload matches
+    return memcmp(&supertype->payload, &type->payload, sizeof(type->payload)) == 0;
 }
 
 void check_subtype(const Type* supertype, const Type* type) {
@@ -161,7 +157,7 @@ size_t get_type_bitwidth(const Type* t) {
         case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;
         case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
         case PtrType_TAG: {
-            if (is_physical_as(t->payload.ptr_type.address_space))
+            if (t->arena->config.address_spaces[t->payload.ptr_type.address_space].physical)
                 return int_size_in_bytes(t->arena->config.memory.ptr_size) * 8;
             break;
         }
@@ -174,9 +170,8 @@ bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     switch (as) {
         case AsInput:
         case AsOutput:
-        case AsFunctionLogical:
-        case AsPrivateLogical:
-        case AsPrivatePhysical:
+        case AsFunction:
+        case AsPrivate:
             return !arena->config.is_simt;
         default:
             return true;
@@ -205,17 +200,7 @@ String name_type_safe(IrArena* arena, const Type* t) {
         case Type_Float_TAG:
             return format_string_arena(arena->arena, "f%s", ((String[]) {"16", "32", "64" })[t->payload.float_type.width]);
         case Type_Bool_TAG: return "bool";
-        case Type_RecordType_TAG:
-        case Type_FnType_TAG:
-        case Type_BBType_TAG:
-        case Type_LamType_TAG:
-        case Type_PtrType_TAG:
-        case Type_QualifiedType_TAG:
-        case Type_ArrType_TAG:
-        case Type_PackType_TAG:
-        case Type_ImageType_TAG:
-        case Type_SamplerType_TAG:
-        case Type_SampledImageType_TAG:
+        default:
             break;
         case Type_TypeDeclRef_TAG: return t->payload.type_decl_ref.decl->payload.nom_type.name;
     }
@@ -301,8 +286,9 @@ bool is_ordered_type(const Type* t) {
 bool is_physical_ptr_type(const Type* t) {
     if (t->tag != PtrType_TAG)
         return false;
-    AddressSpace as = t->payload.ptr_type.address_space;
-    return is_physical_as(as);
+    return !t->payload.ptr_type.is_reference;
+    // AddressSpace as = t->payload.ptr_type.address_space;
+    // return t->arena->config.address_spaces[as].physical;
 }
 
 bool is_generic_ptr_type(const Type* t) {
@@ -394,15 +380,11 @@ const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
 }
 
 const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
-    assert((arena->config.untyped_ptrs || ptr_type.pointed_type) && "Shady does not support untyped pointers, but can infer them, see infer.c");
-    if (!arena->config.allow_subgroup_memory) {
-        assert(ptr_type.address_space != AsSubgroupPhysical);
-        assert(ptr_type.address_space != AsSubgroupLogical);
+    if (!arena->config.address_spaces[ptr_type.address_space].allowed) {
+        error_print("Address space %s is not allowed in this arena\n", get_address_space_name(ptr_type.address_space));
+        error_die();
     }
-    if (!arena->config.allow_shared_memory) {
-        assert(ptr_type.address_space != AsSharedPhysical);
-        assert(ptr_type.address_space != AsSharedLogical);
-    }
+    assert(ptr_type.pointed_type && "Shady does not support untyped pointers, but can infer them, see infer.c");
     if (ptr_type.pointed_type) {
         if (ptr_type.pointed_type->tag == ArrType_TAG) {
             assert(is_data_type(ptr_type.pointed_type->payload.arr_type.element_type));
@@ -415,7 +397,7 @@ const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
         const Node* maybe_record_type = ptr_type.pointed_type;
         if (maybe_record_type->tag == TypeDeclRef_TAG)
             maybe_record_type = get_nominal_type_body(maybe_record_type);
-        if (maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == DecorateBlock) {
+        if (maybe_record_type && maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == DecorateBlock) {
             return NULL;
         }
         assert(is_data_type(ptr_type.pointed_type));
@@ -423,9 +405,15 @@ const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     return NULL;
 }
 
-const Type* check_type_var(IrArena* arena, Variable variable) {
+const Type* check_type_param(IrArena* arena, Param variable) {
     assert(is_value_type(variable.type));
     return variable.type;
+}
+
+const Type* check_type_varz(IrArena* arena, Variablez variable) {
+    Nodes types = unwrap_multiple_yield_types(arena, variable.instruction->type);
+    assert(variable.iindex < types.count);
+    return types.nodes[variable.iindex];
 }
 
 const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
@@ -703,6 +691,25 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             return qualified_type_helper(first_operand_type, result_uniform);
         }
+        case fma_op: {
+            assert(prim_op.type_arguments.count == 0);
+            assert(prim_op.operands.count == 3);
+            const Type* first_operand_type = get_unqualified_type(first(prim_op.operands)->type);
+
+            bool result_uniform = true;
+            for (size_t i = 0; i < prim_op.operands.count; i++) {
+                const Node* arg = prim_op.operands.nodes[i];
+                const Type* operand_type = arg->type;
+                bool operand_uniform = deconstruct_qualified_type(&operand_type);
+
+                assert(get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
+                assert(first_operand_type == operand_type &&  "operand type mismatch");
+
+                result_uniform &= operand_uniform;
+            }
+
+            return qualified_type_helper(first_operand_type, result_uniform);
+        }
         case abs_op:
         case sign_op:
         {
@@ -752,8 +759,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(is_subtype(val_expected_type, val->type));
             return empty_multiple_return_type(arena);
         }
-        case alloca_logical_op:  as = AsFunctionLogical; goto alloca_case;
-        case alloca_op:          as = AsPrivatePhysical; goto alloca_case;
+        case alloca_logical_op:  as = AsFunction; goto alloca_case;
+        case alloca_op:          as = AsPrivate; goto alloca_case;
         alloca_case: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 0);
@@ -764,6 +771,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = ptr_type(arena, (PtrType) {
                     .pointed_type = elem_type,
                     .address_space = as,
+                    .is_reference = as == AsFunction
                 })
             });
         }
@@ -775,7 +783,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool uniform = is_qualified_type_uniform(base->type);
 
             const Type* base_ptr_type = get_unqualified_type(base->type);
-            assert(base_ptr_type->tag == PtrType_TAG && "lea expects a pointer as a base");
+            assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
             const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
             const Node* offset = prim_op.operands.nodes[1];
@@ -786,7 +794,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             const IntLiteral* lit = resolve_to_int_literal(offset);
             bool offset_is_zero = lit && lit->value == 0;
-            assert(offset_is_zero || pointee_type->tag == ArrType_TAG && "if an offset is used, the base pointer must point to an array");
+            assert(offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference && "if an offset is used, the base cannot be a reference");
+            assert(offset_is_zero || is_data_type(pointee_type) && "if an offset is used, the base must point to a data type");
             uniform &= offset_uniform;
 
             Nodes indices = nodes(arena, prim_op.operands.count - 2, &prim_op.operands.nodes[2]);
@@ -794,7 +803,11 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = uniform,
-                .type = ptr_type(arena, (PtrType) { .pointed_type = pointee_type, .address_space = base_ptr_type->payload.ptr_type.address_space })
+                .type = ptr_type(arena, (PtrType) {
+                    .pointed_type = pointee_type,
+                    .address_space = base_ptr_type->payload.ptr_type.address_space,
+                    .is_reference = base_ptr_type->payload.ptr_type.is_reference
+                })
             });
         }
         case memcpy_op: {
@@ -1009,7 +1022,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = empty(arena) }), .is_uniform = true });
         }
         // Stack stuff
-        case get_stack_pointer_op: {
+        case get_stack_size_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = uint32_type(arena) });
@@ -1017,10 +1030,10 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case get_stack_base_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 0);
-            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = arr_type(arena, (ArrType) { .element_type = uint8_type(arena), .size = NULL }), .address_space = prim_op.op == get_stack_base_op ? AsPrivatePhysical : AsSubgroupPhysical});
+            const Node* ptr = ptr_type(arena, (PtrType) { .pointed_type = uint8_type(arena), .address_space = AsPrivate});
             return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = ptr });
         }
-        case set_stack_pointer_op: {
+        case set_stack_size_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
             assert(get_unqualified_type(prim_op.operands.nodes[0]->type) == uint32_type(arena));
@@ -1191,12 +1204,10 @@ const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {
-    assert(is_instruction(let.instruction));
-    assert(is_case(let.tail));
     Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
-    Nodes param_types = get_variables_types(arena, let.tail->payload.case_.params);
-
-    check_arguments_types_against_parameters_helper(param_types, produced_types);
+    Nodes param_types = get_param_types(arena, let.tail->payload.case_.params);
+    assert(param_types.count == 0);
+    // check_arguments_types_against_parameters_helper(param_types, produced_types);
     return noret_type(arena);
 }
 
@@ -1289,15 +1300,15 @@ const Type* check_type_fun(IrArena* arena, Function fn) {
     for (size_t i = 0; i < fn.return_types.count; i++) {
         assert(is_value_type(fn.return_types.nodes[i]));
     }
-    return fn_type(arena, (FnType) { .param_types = get_variables_types(arena, (&fn)->params), .return_types = (&fn)->return_types });
+    return fn_type(arena, (FnType) { .param_types = get_param_types(arena, (&fn)->params), .return_types = (&fn)->return_types });
 }
 
 const Type* check_type_basic_block(IrArena* arena, BasicBlock bb) {
-    return bb_type(arena, (BBType) { .param_types = get_variables_types(arena, (&bb)->params) });
+    return bb_type(arena, (BBType) { .param_types = get_param_types(arena, (&bb)->params) });
 }
 
 const Type* check_type_case_(IrArena* arena, Case lam) {
-    return lam_type(arena, (LamType) { .param_types = get_variables_types(arena, (&lam)->params) });
+    return lam_type(arena, (LamType) { .param_types = get_param_types(arena, (&lam)->params) });
 }
 
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
@@ -1322,7 +1333,8 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
 
     return ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
-        .address_space = global_variable.address_space
+        .address_space = global_variable.address_space,
+        .is_reference = lookup_annotation_list(global_variable.annotations, "Logical"),
     });
 }
 

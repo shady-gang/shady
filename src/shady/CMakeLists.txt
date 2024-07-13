@@ -37,8 +37,10 @@ set(SHADY_SOURCES
     compile.c
     annotation.c
     module.c
+    config.c
 
-    analysis/scope.c
+    analysis/cfg.c
+    analysis/cfg_dump.c
     analysis/free_variables.c
     analysis/verify.c
     analysis/callgraph.c
@@ -57,7 +59,6 @@ set(SHADY_SOURCES
     passes/infer.c
     passes/lower_cf_instrs.c
     passes/lift_indirect_targets.c
-    passes/lcssa.c
     passes/lower_callf.c
     passes/lower_alloca.c
     passes/lower_stack.c
@@ -70,6 +71,7 @@ set(SHADY_SOURCES
     passes/lower_tailcalls.c
     passes/lower_mask.c
     passes/lower_fill.c
+    passes/lower_nullptr.c
     passes/lower_switch_btree.c
     passes/setup_stack_frames.c
     passes/eliminate_constants.c
@@ -90,6 +92,7 @@ set(SHADY_SOURCES
     passes/simt2d.c
     passes/specialize_entry_point.c
     passes/specialize_execution_model.c
+    passes/lower_logical_pointers.c
 
     passes/lower_entrypoint_args.c
     passes/spirv_map_entrypoint_args.c
@@ -111,6 +114,9 @@ add_subdirectory(internal)
 add_subdirectory(emit)
 
 target_link_libraries(shady PRIVATE "api")
-target_link_libraries(shady INTERFACE "$<BUILD_INTERFACE:common>")
-target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
+target_link_libraries(shady INTERFACE "common")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
+target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/shady DESTINATION include)
+install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})

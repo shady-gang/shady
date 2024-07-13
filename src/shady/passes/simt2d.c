@@ -1,7 +1,6 @@
-#include "passes.h"
+#include "pass.h"
 
 #include "../type.h"
-#include "../rewrite.h"
 
 #include "portability.h"
 #include "log.h"
@@ -52,7 +51,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         }), (String[]) {"allocated"}));
                     }
                     //return yield_values_and_wrap_in_control(bb, singleton(widen(ctx, allocated)));
-                    const Node* result_type = maybe_packed_type_helper(ptr_type(a, (PtrType) { .address_space = AsFunctionLogical, .pointed_type = type }), ctx->width);
+                    const Node* result_type = maybe_packed_type_helper(ptr_type(a, (PtrType) { .address_space = AsFunction, .pointed_type = type }), ctx->width);
                     const Node* packed = composite_helper(a, result_type, nodes(a, ctx->width, allocated));
                     return yield_values_and_wrap_in_block(bb, singleton(packed));
                 }
@@ -88,13 +87,13 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* simt2d(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     aconfig.is_simt = false;
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .width = config->specialization.subgroup_size,
         .mask = NULL,
     };

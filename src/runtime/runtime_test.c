@@ -32,13 +32,11 @@ int main(int argc, char* argv[]) {
     set_log_level(INFO);
     Args args = {
         .driver_config = default_driver_config(),
-    };
-    args.runtime_config = (RuntimeConfig) {
-        .use_validation = true,
-        .dump_spv = true,
+        .runtime_config = default_runtime_config(),
     };
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
     cli_parse_common_args(&argc, argv);
+    cli_parse_runtime_config(&args.runtime_config, &argc, argv);
     cli_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
     cli_parse_input_files(args.driver_config.input_filenames, &argc, argv);
 
@@ -50,12 +48,14 @@ int main(int argc, char* argv[]) {
 
     Program* program;
     IrArena* arena = NULL;
+    ArenaConfig aconfig = default_arena_config(&args.driver_config.config.target);
+    arena = new_ir_arena(&aconfig);
     if (entries_count_list(args.driver_config.input_filenames) == 0) {
-        program = load_program(runtime, &args.driver_config.config, default_shader);
+        Module* module;
+        driver_load_source_file(&args.driver_config.config, SrcSlim, strlen(default_shader), default_shader, "runtime_test", &module);
+        program = new_program_from_module(runtime, &args.driver_config.config, module);
     } else {
-        arena = new_ir_arena(default_arena_config());
         Module* module = new_module(arena, "my_module");
-
         int err = driver_load_source_files(&args.driver_config, module);
         if (err)
             return err;
@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
 
     int32_t a0 = 42;
     uint64_t a1 = get_buffer_device_pointer(buffer);
-    wait_completion(launch_kernel(program, device, "my_kernel", 1, 1, 1, 2, (void*[]) { &a0, &a1 }));
+    wait_completion(launch_kernel(program, device, args.driver_config.config.specialization.entry_point ? args.driver_config.config.specialization.entry_point : "my_kernel", 1, 1, 1, 2, (void*[]) { &a0, &a1 }, NULL));
 
     destroy_buffer(buffer);
 

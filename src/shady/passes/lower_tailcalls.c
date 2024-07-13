@@ -1,18 +1,16 @@
-#include "passes.h"
+#include "pass.h"
 
-#include "log.h"
-#include "portability.h"
-#include "util.h"
-
-#include "../rewrite.h"
 #include "../type.h"
 #include "../ir_private.h"
 
-#include "../analysis/scope.h"
+#include "../analysis/cfg.h"
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"
 #include "../transform/ir_gen_helpers.h"
 
+#include "log.h"
+#include "portability.h"
+#include "util.h"
 #include "list.h"
 #include "dict.h"
 
@@ -28,8 +26,8 @@ typedef struct Context_ {
     struct Dict* assigned_fn_ptrs;
     FnPtr* next_fn_ptr;
 
-    Scope* scope;
-    const UsesMap* scope_uses;
+    CFG* cfg;
+    const UsesMap* uses;
 
     Node** top_dispatcher_fn;
     Node* init_fn;
@@ -61,7 +59,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     Context ctx2 = *ctx;
     IrArena* a = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
-    Nodes rewritten_params = recreate_variables(&ctx2.rewriter, old->payload.fun.params);
+    Nodes rewritten_params = recreate_params(&ctx2.rewriter, old->payload.fun.params);
     Node* new_entry_pt = function(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), nodes(a, 0, NULL));
 
     BodyBuilder* bb = begin_body(a);
@@ -103,8 +101,8 @@ static const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case Function_TAG: {
             Context ctx2 = *ctx;
-            ctx2.scope = new_scope(old);
-            ctx2.scope_uses = create_uses_map(old, (NcDeclaration | NcType));
+            ctx2.cfg = build_fn_cfg(old);
+            ctx2.uses = create_uses_map(old, (NcDeclaration | NcType));
             ctx = &ctx2;
 
             const Node* entry_point_annotation = lookup_annotation_list(old->payload.fun.annotations, "EntryPoint");
@@ -117,13 +115,13 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Node* nbody = rewrite_node(&ctx2.rewriter, old->payload.fun.body);
                     if (entry_point_annotation) {
                         const Node* lam = case_(a, empty(a), nbody);
-                        nbody = let(a, call(a, (Call) { .callee = fn_addr_helper(a, ctx2.init_fn), .args = empty(a)}), lam);
+                        nbody = let(a, call(a, (Call) { .callee = fn_addr_helper(a, ctx2.init_fn), .args = empty(a)}), empty(a), lam);
                     }
                     fun->payload.fun.body = nbody;
                 }
 
-                destroy_uses_map(ctx2.scope_uses);
-                destroy_scope(ctx2.scope);
+                destroy_uses_map(ctx2.uses);
+                destroy_cfg(ctx2.cfg);
                 return fun;
             }
 
@@ -146,15 +144,15 @@ static const Node* process(Context* ctx, const Node* old) {
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
                 const Type* new_param_type = rewrite_node(&ctx->rewriter, get_unqualified_type(old_param->type));
-                const Node* popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = pop_stack_op, .type_arguments = singleton(new_param_type), .operands = empty(a) }), &old_param->payload.var.name));
+                const Node* popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = pop_stack_op, .type_arguments = singleton(new_param_type), .operands = empty(a) }), &old_param->payload.param.name));
                 // TODO use the uniform stack instead ? or no ?
                 if (is_qualified_type_uniform(old_param->type))
-                    popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .type_arguments = empty(a), .operands =singleton(popped) }), &old_param->payload.var.name));
+                    popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .type_arguments = empty(a), .operands =singleton(popped) }), &old_param->payload.param.name));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
             fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
-            destroy_uses_map(ctx2.scope_uses);
-            destroy_scope(ctx2.scope);
+            destroy_uses_map(ctx2.uses);
+            destroy_cfg(ctx2.cfg);
             return fun;
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
@@ -243,17 +241,17 @@ static const Node* process(Context* ctx, const Node* old) {
             break;
         }
         case Control_TAG: {
-            if (is_control_static(ctx->scope_uses, old)) {
+            if (is_control_static(ctx->uses, old)) {
                 const Node* old_inside = old->payload.control.inside;
                 const Node* old_jp = first(get_abstraction_params(old_inside));
-                assert(old_jp->tag == Variable_TAG);
+                assert(old_jp->tag == Param_TAG);
                 const Node* old_jp_type = old_jp->type;
                 deconstruct_qualified_type(&old_jp_type);
                 assert(old_jp_type->tag == JoinPointType_TAG);
                 const Node* new_jp_type = join_point_type(a, (JoinPointType) {
                     .yield_types = rewrite_nodes(&ctx->rewriter, old_jp_type->payload.join_point_type.yield_types),
                 });
-                const Node* new_jp = var(a, qualified_type_helper(new_jp_type, true), old_jp->payload.var.name);
+                const Node* new_jp = param(a, qualified_type_helper(new_jp_type, true), old_jp->payload.param.name);
                 register_processed(&ctx->rewriter, old_jp, new_jp);
                 const Node* new_body = case_(a, singleton(new_jp), rewrite_node(&ctx->rewriter, get_abstraction_body(old_inside)));
                 return control(a, (Control) {
@@ -286,7 +284,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     bool count_iterations = ctx->config->shader_diagnostics.max_top_iterations > 0;
     const Node* iterations_count_param = NULL;
     if (count_iterations)
-        iterations_count_param = var(a, qualified_type(a, (QualifiedType) { .type = int32_type(a), .is_uniform = true }), "iterations");
+        iterations_count_param = param(a, qualified_type(a, (QualifiedType) { .type = int32_type(a), .is_uniform = true }), "iterations");
 
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
@@ -357,7 +355,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
             BodyBuilder* if_builder = begin_body(a);
             if (ctx->config->printf_trace.god_function) {
                 const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
-                bind_instruction(if_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: thread %d:%d will run fn %d with mask = %lx\n" }), sid, local_id, fn_lit, next_mask) }));
+                bind_instruction(if_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: thread %d:%d will run fn %ul with mask = %lx\n" }), sid, local_id, fn_lit, next_mask) }));
             }
             bind_instruction(if_builder, call(a, (Call) {
                 .callee = fn_addr_helper(a, find_processed(&ctx->rewriter, decl)),
@@ -416,8 +414,8 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
@@ -430,7 +428,7 @@ Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     Node* top_dispatcher_fn = NULL;
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .disable_lowering = false,
         .assigned_fn_ptrs = ptrs,

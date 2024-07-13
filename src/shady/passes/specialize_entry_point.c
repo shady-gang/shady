@@ -1,18 +1,16 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../ir_private.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include "portability.h"
 #include "log.h"
-
-#include "../ir_private.h"
-#include "../rewrite.h"
-#include "../transform/ir_gen_helpers.h"
 
 #include <string.h>
 
 typedef struct {
     Rewriter rewriter;
     const Node* old_entry_point_decl;
-    const Node* old_wg_size_annotation;
     const CompilerConfig* config;
 } Context;
 
@@ -51,21 +49,17 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case Constant_TAG: {
             Node* ncnst = (Node*) recreate_node_identity(&ctx->rewriter, node);
-            if (strcmp(get_declaration_name(ncnst), "SUBGROUP_SIZE") == 0) {
-                ncnst->payload.constant.instruction = quote_helper(a, singleton(uint32_literal(a, ctx->config->specialization.subgroup_size)));
-            } else if (strcmp(get_declaration_name(ncnst), "SUBGROUPS_PER_WG") == 0) {
-                if (ctx->old_wg_size_annotation) {
-                    // SUBGROUPS_PER_WG = (NUMBER OF INVOCATIONS IN SUBGROUP / SUBGROUP SIZE)
-                    // Note: this computations assumes only full subgroups are launched, if subgroups can launch partially filled then this relationship does not hold.
-                    uint32_t wg_size[3];
-                    wg_size[0] = a->config.specializations.workgroup_size[0];
-                    wg_size[1] = a->config.specializations.workgroup_size[1];
-                    wg_size[2] = a->config.specializations.workgroup_size[2];
-                    uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / ctx->config->specialization.subgroup_size;
-                    if (subgroups_per_wg == 0)
-                        subgroups_per_wg = 1; // uh-oh
-                    ncnst->payload.constant.instruction = quote_helper(a, singleton(uint32_literal(a, subgroups_per_wg)));
-                }
+            if (strcmp(get_declaration_name(ncnst), "SUBGROUPS_PER_WG") == 0) {
+                // SUBGROUPS_PER_WG = (NUMBER OF INVOCATIONS IN SUBGROUP / SUBGROUP SIZE)
+                // Note: this computations assumes only full subgroups are launched, if subgroups can launch partially filled then this relationship does not hold.
+                uint32_t wg_size[3];
+                wg_size[0] = a->config.specializations.workgroup_size[0];
+                wg_size[1] = a->config.specializations.workgroup_size[1];
+                wg_size[2] = a->config.specializations.workgroup_size[2];
+                uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / ctx->config->specialization.subgroup_size;
+                if (subgroups_per_wg == 0)
+                    subgroups_per_wg = 1; // uh-oh
+                ncnst->payload.constant.instruction = quote_helper(a, singleton(uint32_literal(a, subgroups_per_wg)));
             }
             return ncnst;
         }
@@ -90,10 +84,9 @@ static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
 }
 
 static void specialize_arena_config(const CompilerConfig* config, Module* src, ArenaConfig* target) {
-    size_t subgroup_size = config->specialization.subgroup_size;
-    assert(subgroup_size);
-
     const Node* old_entry_point_decl = find_entry_point(src, config);
+    if (!old_entry_point_decl)
+        error("Entry point not found")
     if (old_entry_point_decl->tag != Function_TAG)
         error("%s is not a function", config->specialization.entry_point);
     const Node* ep = lookup_annotation(old_entry_point_decl, "EntryPoint");
@@ -108,7 +101,7 @@ static void specialize_arena_config(const CompilerConfig* config, Module* src, A
             target->specializations.workgroup_size[0] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[0]), false);
             target->specializations.workgroup_size[1] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[1]), false);
             target->specializations.workgroup_size[2] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[2]), false);
-            assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2]);
+            assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2] > 0);
             break;
         }
         default: break;
@@ -116,13 +109,13 @@ static void specialize_arena_config(const CompilerConfig* config, Module* src, A
 }
 
 Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     specialize_arena_config(config, src, &aconfig);
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
 

@@ -2,6 +2,10 @@
 #define SHADY_CLI
 
 #include "shady/ir.h"
+#include "shady/config.h"
+
+#include "shady/be/c.h"
+#include "shady/be/spirv.h"
 
 struct List;
 
@@ -26,8 +30,8 @@ typedef enum {
 } SourceLanguage;
 
 SourceLanguage guess_source_language(const char* filename);
-ShadyErrorCodes driver_load_source_file(SourceLanguage lang, size_t, const char* file_contents, Module* mod);
-ShadyErrorCodes driver_load_source_file_from_filename(const char* filename, Module* mod);
+ShadyErrorCodes driver_load_source_file(const CompilerConfig* config, SourceLanguage lang, size_t, const char* file_contents, String, Module** mod);
+ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* config, const char* filename, String, Module** mod);
 
 typedef enum {
     TgtAuto,
@@ -66,5 +70,11 @@ void cli_parse_driver_arguments(DriverConfig* args, int* pargc, char** argv);
 
 ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod);
 ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod);
+
+typedef enum CompilationResult_ {
+    CompilationNoError
+} CompilationResult;
+
+CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
 
 #endif

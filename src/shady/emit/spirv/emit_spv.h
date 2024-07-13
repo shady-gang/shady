@@ -2,6 +2,8 @@
 #define SHADY_EMIT_SPIRV_H
 
 #include "shady/ir.h"
+#include "shady/be/spirv.h"
+
 #include "spirv_builder.h"
 
 typedef SpvbFileBuilder* FileBuilder;
@@ -11,7 +13,7 @@ typedef SpvbBasicBlockBuilder* BBBuilder;
 typedef struct Emitter_ {
     Module* module;
     IrArena* arena;
-    CompilerConfig* configuration;
+    const CompilerConfig* configuration;
     FileBuilder file_builder;
     SpvId void_t;
     struct Dict* node_ids;

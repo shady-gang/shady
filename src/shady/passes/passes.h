@@ -1,9 +1,7 @@
 #ifndef SHADY_PASSES_H
 
 #include "shady/ir.h"
-
-typedef Module* (RewritePass)(const CompilerConfig* config, Module* src);
-typedef bool (OptPass)(const CompilerConfig* config, Module** m);
+#include "pass.h"
 
 /// @name Boring, regular compiler stuff
 /// @{
@@ -75,6 +73,7 @@ RewritePass lower_memcpy;
 /// Eliminates pointers to unsized arrays from the IR. Needs lower_lea to have ran first!
 RewritePass lower_decay_ptrs;
 RewritePass lower_generic_globals;
+RewritePass lower_logical_pointers;
 
 /// @}
 
@@ -98,6 +97,7 @@ RewritePass lower_int;
 RewritePass lower_vec_arr;
 RewritePass lower_workgroups;
 RewritePass lower_fill;
+RewritePass lower_nullptr;
 
 /// @}
 
@@ -106,12 +106,13 @@ RewritePass lower_fill;
 
 /// Eliminates all Constant decls
 RewritePass eliminate_constants;
+/// Ditto but for @Inline ones only
+RewritePass eliminate_inlineable_constants;
 /// Tags all functions that don't need special handling
 RewritePass mark_leaf_functions;
 /// In addition, also inlines function calls according to heuristics
 RewritePass opt_inline;
 RewritePass opt_mem2reg;
-OptPass opt_demote_alloca;
 
 /// Try to identify reconvergence points throughout the program for unstructured control flow programs
 RewritePass reconvergence_heuristics;

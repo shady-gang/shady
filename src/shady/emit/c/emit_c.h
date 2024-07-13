@@ -3,6 +3,8 @@
 
 #include "shady/ir.h"
 #include "shady/builtins.h"
+#include "shady/be/c.h"
+
 #include "growy.h"
 #include "arena.h"
 #include "printer.h"
@@ -33,7 +35,10 @@ typedef struct {
 
 typedef Strings Phis;
 
+typedef struct CompilerConfig_ CompilerConfig;
+
 typedef struct {
+    const CompilerConfig* compiler_config;
     CEmitterConfig config;
     IrArena* arena;
     Printer *type_decls, *fn_decls, *fn_defs;
@@ -47,6 +52,8 @@ typedef struct {
     int total_workgroup_size;
     bool use_private_globals;
     Printer* entrypoint_prelude;
+
+    bool need_64b_ext;
 } Emitter;
 
 void register_emitted(Emitter*, const Node*, CTerm);

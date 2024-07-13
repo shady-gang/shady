@@ -1,6 +1,5 @@
-#include "passes.h"
+#include "pass.h"
 
-#include "../rewrite.h"
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
@@ -8,6 +7,7 @@
 typedef struct {
     Rewriter rewriter;
     BodyBuilder* bb;
+    bool all;
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -24,10 +24,15 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 
     switch (node->tag) {
-        case Constant_TAG: return NULL;
+        case Constant_TAG:
+            if (!node->payload.constant.instruction)
+                break;
+            if (!ctx->all && !lookup_annotation(node, "Inline"))
+                break;
+            return NULL;
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
-            if (decl->tag == Constant_TAG) {
+            if (decl->tag == Constant_TAG && decl->payload.constant.instruction) {
                 const Node* value = get_quoted_value(decl->payload.constant.instruction);
                 if (value)
                     return rewrite_node(&ctx->rewriter, value);
@@ -54,15 +59,24 @@ static const Node* process(Context* ctx, const Node* node) {
     return new;
 }
 
-Module* eliminate_constants(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+static Module* eliminate_constants_(SHADY_UNUSED const CompilerConfig* config, Module* src, bool all) {
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process)
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .all = all,
     };
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     return dst;
+}
+
+Module* eliminate_constants(const CompilerConfig* config, Module* src) {
+    return eliminate_constants_(config, src, true);
+}
+
+Module* eliminate_inlineable_constants(const CompilerConfig* config, Module* src) {
+    return eliminate_constants_(config, src, false);
 }

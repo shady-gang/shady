@@ -1,13 +1,12 @@
-#include "passes.h"
+#include "pass.h"
+
+#include "../type.h"
+#include "../transform/ir_gen_helpers.h"
+#include "../transform/memory_layout.h"
 
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
-
-#include "../rewrite.h"
-#include "../type.h"
-#include "../transform/ir_gen_helpers.h"
-#include "../transform/memory_layout.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -41,9 +40,8 @@ static bool is_supported_natively(Context* ctx, const Type* element_type) {
 
 static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* src);
 
-static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Type* t) {
+static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* t, const Node* param) {
     IrArena* a = ctx->rewriter.dst_arena;
-    BodyBuilder* bb = begin_body(a);
     const Type* original_t = t;
     t = get_maybe_nominal_type_body(t);
     switch (is_type(t)) {
@@ -56,11 +54,7 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Type*
                 const Node* e = gen_extract(bb, param, singleton(uint32_literal(a, i)));
                 elements[i] = build_subgroup_first(ctx, bb, e);
             }
-            fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
-                    .fn = fn,
-                    .args = singleton(composite_helper(a, original_t, nodes(a, element_types.count, elements)))
-            }));
-            return;
+            return composite_helper(a, original_t, nodes(a, element_types.count, elements));
         }
         case Type_Int_TAG: {
             if (t->payload.int_type.width == IntTy64) {
@@ -73,16 +67,29 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Type*
                 hi = convert_int_zero_extend(bb, it, hi);
                 lo = convert_int_zero_extend(bb, it, lo);
                 hi = gen_primop_e(bb, lshift_op, empty(a), mk_nodes(a, hi, int32_literal(a, 32)));
-                const Node* result = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, lo, hi));
-                fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
-                        .fn = fn,
-                        .args = singleton(result)
-                }));
-                return;
+                return gen_primop_e(bb, or_op, empty(a), mk_nodes(a, lo, hi));
             }
             break;
         }
+        case Type_PtrType_TAG: {
+            param = gen_reinterpret_cast(bb, uint64_type(a), param);
+            return gen_reinterpret_cast(bb, t, generate(ctx, bb, uint64_type(a), param));
+        }
         default: break;
+    }
+    return NULL;
+}
+
+static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Type* t) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    BodyBuilder* bb = begin_body(a);
+    const Node* result = generate(ctx, bb, t, param);
+    if (result) {
+        fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
+            .fn = fn,
+            .args = singleton(result)
+        }));
+        return;
     }
 
     log_string(ERROR, "subgroup_first emulation is not supported for ");
@@ -103,11 +110,11 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
     if (found)
         fn = *found;
     else {
-        const Node* param = var(a, qualified_type_helper(t, false), "src");
-        fn = function(m, singleton(param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
+        const Node* src_param = param(a, qualified_type_helper(t, false), "src");
+        fn = function(m, singleton(src_param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
                       singleton(annotation(a, (Annotation) { .name = "Generated"})), singleton(qualified_type_helper(t, true)));
         insert_dict(const Node*, Node*, ctx->fns, t, fn);
-        build_fn_body(ctx, fn, param, t);
+        build_fn_body(ctx, fn, src_param, t);
     }
 
     return first(gen_call(bb, fn_addr_helper(a, fn), singleton(src)));
@@ -141,12 +148,12 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     assert(!config->lower.emulate_subgroup_ops && "TODO");
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .fns =  new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };

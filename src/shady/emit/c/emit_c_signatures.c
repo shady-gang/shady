@@ -65,7 +65,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
         }
         for (size_t i = 0; i < dom.count; i++) {
             String param_name;
-            String variable_name = get_value_name(fn->payload.fun.params.nodes[i]);
+            String variable_name = get_value_name_unsafe(fn->payload.fun.params.nodes[i]);
             param_name = format_string_interned(emitter->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), fn->payload.fun.params.nodes[i]->id);
             print(paramp, emit_type(emitter, params.nodes[i]->type, param_name));
             if (i + 1 < dom.count) {
@@ -143,6 +143,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
         case NoRet_TAG:
         case Bool_TAG: emitted = "bool"; break;
         case Int_TAG: {
+            bool sign = type->payload.int_type.is_signed;
             switch (emitter->config.dialect) {
                 case CDialect_ISPC: {
                     const char* ispc_int_types[4][2] = {
@@ -151,7 +152,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                         { "uint32", "int32" },
                         { "uint64", "int64" },
                     };
-                    emitted = ispc_int_types[type->payload.int_type.width][type->payload.int_type.is_signed];
+                    emitted = ispc_int_types[type->payload.int_type.width][sign];
                     break;
                 }
                 case CDialect_CUDA:
@@ -160,7 +161,7 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                             { "unsigned char" , "char"  },
                             { "unsigned short", "short" },
                             { "unsigned int"  , "int" },
-                            { "unsigned long" , "long" },
+                            { "unsigned long long" , "long long" },
                     };
                     const char* c_explicit_int_sizes[4][2] = {
                             { "uint8_t" , "int8_t"  },
@@ -168,20 +169,26 @@ String emit_type(Emitter* emitter, const Type* type, const char* center) {
                             { "uint32_t", "int32_t" },
                             { "uint64_t", "int64_t" },
                     };
-                    emitted = (emitter->config.explicitly_sized_types ? c_explicit_int_sizes : c_classic_int_types)[type->payload.int_type.width][type->payload.int_type.is_signed];
+                    emitted = (emitter->config.explicitly_sized_types ? c_explicit_int_sizes : c_classic_int_types)[type->payload.int_type.width][sign];
                     break;
                 }
                 case CDialect_GLSL:
+                    if (emitter->config.glsl_version <= 120) {
+                        emitted = "int";
+                        break;
+                    }
                     switch (type->payload.int_type.width) {
                         case IntTy8:  warn_print("vanilla GLSL does not support 8-bit integers\n");
-                            emitted = "ubyte";
+                            emitted = sign ? "byte" : "ubyte";
                             break;
                         case IntTy16: warn_print("vanilla GLSL does not support 16-bit integers\n");
-                            emitted = "ushort";
+                            emitted = sign ? "short" : "ushort";
                             break;
-                        case IntTy32: emitted = "uint";   break;
-                        case IntTy64: warn_print("vanilla GLSL does not support 64-bit integers\n");
-                            emitted = "uint64_t";
+                        case IntTy32: emitted = sign ? "int" : "uint"; break;
+                        case IntTy64:
+                            emitter->need_64b_ext = true;
+                            warn_print("vanilla GLSL does not support 64-bit integers\n");
+                            emitted = sign ? "int64_t" : "uint64_t";
                             break;
                     }
                     break;

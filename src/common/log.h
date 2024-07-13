@@ -20,7 +20,7 @@ void set_log_level(LogLevel);
 void log_string(LogLevel level, const char* format, ...);
 void log_node(LogLevel level, const Node* node);
 typedef struct CompilerConfig_ CompilerConfig;
-void log_module(LogLevel level, CompilerConfig*, Module*);
+void log_module(LogLevel level, const CompilerConfig*, Module*);
 
 #define debugvv_print(...) log_string(DEBUGVV, __VA_ARGS__)
 #define debugv_print(...) log_string(DEBUGV, __VA_ARGS__)
@@ -52,9 +52,9 @@ void log_module(LogLevel level, CompilerConfig*, Module*);
   fprintf (stderr, __VA_ARGS__);                            \
   fprintf (stderr, "\n");                                   \
   error_die();                                              \
-  SHADY_UNREACHABLE;                                        \
 }
 
-void error_die();
+#include <stdnoreturn.h>
+noreturn void error_die();
 
 #endif

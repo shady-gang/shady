@@ -6,6 +6,8 @@
 #include "portability.h"
 #include "rewrite.h"
 
+#include "shady/transform/ir_gen_helpers.h"
+
 #include <assert.h>
 #include <math.h>
 
@@ -27,93 +29,10 @@ static bool is_one(const Node* node) {
     return false;
 }
 
-static const Node* fold_let(IrArena* arena, const Node* node) {
-    assert(node->tag == Let_TAG);
-    const Node* instruction = node->payload.let.instruction;
-    const Node* tail = node->payload.let.tail;
-    switch (instruction->tag) {
-        // eliminates blocks by "lifting" their contents out and replacing yield with the tail of the outer let
-        // In other words, we turn these patterns:
-        //
-        // let block {
-        //   let I in case(x) =>
-        //   let J in case(y) =>
-        //   let K in case(z) =>
-        //      ...
-        //   yield (x, y, z) }
-        // in case(a, b, c) => R
-        //
-        // into these:
-        //
-        // let I in case(x) =>
-        // let J in case(y) =>
-        // let K in case(z) =>
-        // ...
-        // R[a->x, b->y, c->z]
-        case Block_TAG: {
-            // follow the terminator of the block until we hit a yield()
-            const Node* lam = instruction->payload.block.inside;
-            const Node* terminator = get_abstraction_body(lam);
-            size_t depth = 0;
-            bool dry_run = true;
-            const Node** lets = NULL;
-            while (true) {
-                assert(is_case(lam));
-                switch (is_terminator(terminator)) {
-                    case NotATerminator: assert(false);
-                    case Terminator_Let_TAG: {
-                        if (lets)
-                            lets[depth] = terminator;
-                        lam = get_let_tail(terminator);
-                        terminator = get_abstraction_body(lam);
-                        depth++;
-                        continue;
-                    }
-                    case Terminator_Yield_TAG: {
-                        if (dry_run) {
-                            lets = calloc(sizeof(const Node*), depth);
-                            dry_run = false;
-                            depth = 0;
-                            // Start over !
-                            lam = instruction->payload.block.inside;
-                            terminator = get_abstraction_body(lam);
-                            continue;
-                        } else {
-                            // wrap the original tail with the args of join()
-                            assert(is_case(tail));
-                            const Node* acc = let(arena, quote_helper(arena, terminator->payload.yield.args), tail);
-                            // rebuild the let chain that we traversed
-                            for (size_t i = 0; i < depth; i++) {
-                                const Node* olet = lets[depth - 1 - i];
-                                const Node* olam = get_let_tail(olet);
-                                assert(olam->tag == Case_TAG);
-                                Nodes params = get_abstraction_params(olam);
-                                for (size_t j = 0; j < params.count; j++) {
-                                    // recycle the params by setting their abs value to NULL
-                                    *((Node**) &(params.nodes[j]->payload.var.abs)) = NULL;
-                                }
-                                const Node* nlam = case_(arena, params, acc);
-                                acc = let(arena, get_let_instruction(olet), nlam);
-                            }
-                            free(lets);
-                            return acc;
-                        }
-                    }
-                    // if we see anything else, give up
-                    default: {
-                        assert(dry_run);
-                        return node;
-                    }
-                }
-            }
-        }
-        default: break;
-    }
+#define APPLY_FOLD(F) { const Node* applied_fold = F(node); if (applied_fold) return applied_fold; }
 
-    return node;
-}
-
-static const Node* fold_prim_op(IrArena* arena, const Node* node) {
+static inline const Node* fold_constant_math(const Node* node) {
+    IrArena* arena = node->arena;
     PrimOp payload = node->payload.prim_op;
 
     LARRAY(const FloatLiteral*, float_literals, payload.operands.count);
@@ -203,6 +122,12 @@ break;
         }
     }
 
+    return NULL;
+}
+
+static inline const Node* fold_simplify_math(const Node* node) {
+    IrArena* arena = node->arena;
+    PrimOp payload = node->payload.prim_op;
     switch (payload.op) {
         case add_op: {
             // If either operand is zero, destroy the add
@@ -217,7 +142,7 @@ break;
                 return quote_single(arena, payload.operands.nodes[0]);
             // if first operand is zero, invert the second one
             if (is_zero(payload.operands.nodes[0]))
-                return prim_op(arena, (PrimOp) { .op = neg_op, .operands = singleton(payload.operands.nodes[1]), .type_arguments = empty(arena) });
+                return prim_op(arena, (PrimOp) {.op = neg_op, .operands = singleton(payload.operands.nodes[1]), .type_arguments = empty(arena)});
             break;
         }
         case mul_op: {
@@ -237,6 +162,125 @@ break;
                 return quote_single(arena, payload.operands.nodes[0]);
             break;
         }
+        default: break;
+    }
+
+    return NULL;
+}
+
+static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
+    const Node* original_ptr = ptr;
+    IrArena* a = ptr->arena;
+    const Type* t = ptr->type;
+    bool u = deconstruct_qualified_type(&t);
+    assert(t->tag == PtrType_TAG);
+    const Type* desired_pointee_type = t->payload.ptr_type.pointed_type;
+    // const Node* last_known_good = node;
+
+    int distance = 0;
+    bool specialize_generic = false;
+    AddressSpace src_as = t->payload.ptr_type.address_space;
+    while (ptr->tag == Variablez_TAG) {
+        const Node* def = get_var_def(ptr->payload.varz);
+        if (def->tag != PrimOp_TAG)
+            break;
+        PrimOp instruction = def->payload.prim_op;
+        switch (instruction.op) {
+            case reinterpret_op: {
+                distance++;
+                ptr = first(instruction.operands);
+                continue;
+            }
+            case convert_op: {
+                // only conversions to generic pointers are acceptable
+                if (first(instruction.type_arguments)->tag != PtrType_TAG)
+                    break;
+                assert(!specialize_generic && "something should not be converted to generic twice!");
+                specialize_generic = true;
+                ptr = first(instruction.operands);
+                src_as = get_unqualified_type(ptr->type)->payload.ptr_type.address_space;
+                continue;
+            }
+            case lea_op: {
+                Nodes ops = instruction.operands;
+                for (size_t i = 1; i < ops.count; i++) {
+                    if (!is_zero(ops.nodes[i]))
+                        goto outer_break;
+                }
+                distance++;
+                ptr = first(ops);
+                continue;
+                outer_break:
+                break;
+            }
+            default: break;
+        }
+        break;
+    }
+
+    // if there was more than one of those pointless casts...
+    if (distance > 1 || specialize_generic) {
+        const Type* new_src_ptr_type = ptr->type;
+        deconstruct_qualified_type(&new_src_ptr_type);
+        if (new_src_ptr_type->tag != PtrType_TAG || new_src_ptr_type->payload.ptr_type.pointed_type != desired_pointee_type) {
+            PtrType payload = t->payload.ptr_type;
+            payload.address_space = src_as;
+            ptr = gen_reinterpret_cast(bb, ptr_type(a, payload), ptr);
+        }
+        return ptr;
+    }
+    return original_ptr;
+}
+
+static void inline simplify_ptr_operand(IrArena* a, BodyBuilder* bb, PrimOp* payload, bool* success, int i) {
+    const Node* old_op = payload->operands.nodes[i];
+    const Type* ptr_t = old_op->type;
+    deconstruct_qualified_type(&ptr_t);
+    if (ptr_t->payload.ptr_type.is_reference)
+        return;
+    const Node* new_op = resolve_ptr_source(bb, old_op);
+    if (old_op != new_op) {
+        payload->operands = change_node_at_index(a, payload->operands, i, new_op);
+        *success = true;
+    }
+}
+
+static inline const Node* fold_simplify_ptr_operand(const Node* node) {
+    IrArena* arena = node->arena;
+    PrimOp payload = node->payload.prim_op;
+    BodyBuilder* bb = begin_body(arena);
+    bool rebuild = false;
+    switch (payload.op) {
+        case store_op:
+        case load_op:
+        case lea_op: {
+            simplify_ptr_operand(arena, bb, &payload, &rebuild, 0);
+            break;
+        }
+        default: break;
+    }
+
+    if (rebuild) {
+        const Node* r = prim_op(arena, payload);
+        if (r->type != node->type) {
+            r = gen_conversion(bb, get_unqualified_type(node->type), first(bind_instruction(bb, r)));
+            return yield_values_and_wrap_in_block(bb, singleton(r));
+        }
+        return bind_last_instruction_and_wrap_in_block(bb, r);
+    }
+
+    cancel_body(bb);
+    return NULL;
+}
+
+static const Node* fold_prim_op(IrArena* arena, const Node* node) {
+    APPLY_FOLD(fold_constant_math)
+    APPLY_FOLD(fold_simplify_math)
+    APPLY_FOLD(fold_simplify_ptr_operand)
+
+    PrimOp payload = node->payload.prim_op;
+    switch (payload.op) {
+        case subgroup_assume_uniform_op:
         case subgroup_broadcast_first_op: {
             const Node* value = first(payload.operands);
             if (is_qualified_type_uniform(value->type))
@@ -283,7 +327,6 @@ static bool is_unreachable_case(const Node* c) {
 const Node* fold_node(IrArena* arena, const Node* node) {
     const Node* folded = node;
     switch (node->tag) {
-        case Let_TAG: folded = fold_let(arena, node); break;
         case PrimOp_TAG: folded = fold_prim_op(arena, node); break;
         case Block_TAG: {
             const Node* lam = node->payload.block.inside;

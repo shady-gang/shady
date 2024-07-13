@@ -1,15 +1,15 @@
+#include "shady/builtins.h"
+#include "../../ir_private.h"
+#include "../../analysis/cfg.h"
+#include "../../type.h"
+#include "../../compile.h"
+
 #include "list.h"
 #include "dict.h"
 #include "log.h"
 #include "portability.h"
 #include "growy.h"
 #include "util.h"
-
-#include "shady/builtins.h"
-#include "../../ir_private.h"
-#include "../../analysis/scope.h"
-#include "../../type.h"
-#include "../../compile.h"
 
 #include "emit_spv.h"
 
@@ -23,7 +23,7 @@ extern SpvBuiltIn spv_builtins[];
 
 void register_result(Emitter* emitter, const Node* node, SpvId id) {
     if (is_value(node)) {
-        String name = get_value_name(node);
+        String name = get_value_name_unsafe(node);
         if (name)
             spvb_name(emitter->file_builder, id, name);
     }
@@ -38,7 +38,8 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
     SpvId new;
     switch (is_value(node)) {
         case NotAValue: error("");
-        case Variable_TAG: error("tried to emit a variable: but all variables should be emitted by enclosing scope or preceding instructions !");
+        case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
+        case Variablez_TAG: error("tried to emit a variable: all variables should be register by their binding let !");
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG:
         case Value_FnAddr_TAG: error("Should be lowered away earlier!");
@@ -191,25 +192,27 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         }
         case Let_TAG: {
             const Node* tail = get_let_tail(terminator);
-            Nodes params = tail->payload.case_.params;
-            LARRAY(SpvId, results, params.count);
-            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, get_let_instruction(terminator), params.count, results);
+            Nodes vars = terminator->payload.let.variables;
+            LARRAY(SpvId, results, vars.count);
+            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, get_let_instruction(terminator), vars.count, results);
             assert(tail->tag == Case_TAG);
 
-            for (size_t i = 0; i < params.count; i++)
-                register_result(emitter, params.nodes[i], results[i]);
+            for (size_t i = 0; i < vars.count; i++)
+                register_result(emitter, vars.nodes[i], results[i]);
             emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, tail->payload.case_.body);
             return;
         }
         case Jump_TAG: {
             add_branch_phis(emitter, fn_builder, basic_block_builder, terminator);
             spvb_branch(basic_block_builder, find_reserved_id(emitter, terminator->payload.jump.target));
+            return;
         }
         case Branch_TAG: {
             SpvId condition = emit_value(emitter, basic_block_builder, terminator->payload.branch.branch_condition);
             add_branch_phis(emitter, fn_builder, basic_block_builder, terminator->payload.branch.true_jump);
             add_branch_phis(emitter, fn_builder, basic_block_builder, terminator->payload.branch.false_jump);
             spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_jump->payload.jump.target), find_reserved_id(emitter, terminator->payload.branch.false_jump->payload.jump.target));
+            return;
         }
         case Switch_TAG: {
             SpvId inspectee = emit_value(emitter, basic_block_builder, terminator->payload.br_switch.switch_value);
@@ -222,6 +225,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             SpvId default_tgt = find_reserved_id(emitter, terminator->payload.br_switch.default_jump->payload.jump.target);
 
             spvb_switch(basic_block_builder, inspectee, default_tgt, terminator->payload.br_switch.case_jumps.count, targets);
+            return;
         }
         case TailCall_TAG:
         case Join_TAG: error("Lower me");
@@ -255,9 +259,9 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
     SHADY_UNREACHABLE;
 }
 
-static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const Scope* scope, const CFNode* cf_node) {
+static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFG* cfg, const CFNode* cf_node) {
     const Node* bb_node = cf_node->node;
-    assert(is_basic_block(bb_node) || cf_node == scope->entry);
+    assert(is_basic_block(bb_node) || cf_node == cfg->entry);
 
     const Node* body = get_abstraction_body(bb_node);
 
@@ -266,8 +270,9 @@ static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const Scope
     SpvId bb_id = get_block_builder_id(bb_builder);
     spvb_add_bb(fn_builder, bb_builder);
 
-    if (is_basic_block(bb_node))
-        spvb_name(emitter->file_builder, bb_id, bb_node->payload.basic_block.name);
+    String name = get_abstraction_name_unsafe(bb_node);
+    if (name)
+        spvb_name(emitter->file_builder, bb_id, name);
 
     MergeTargets merge_targets = {
         .continue_target = 0,
@@ -287,20 +292,20 @@ static void emit_function(Emitter* emitter, const Node* node) {
 
     Nodes params = node->payload.fun.params;
     for (size_t i = 0; i < params.count; i++) {
-        const Type* param_type = params.nodes[i]->payload.var.type;
+        const Type* param_type = params.nodes[i]->payload.param.type;
         SpvId param_id = spvb_parameter(fn_builder, emit_type(emitter, param_type));
         insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
         deconstruct_qualified_type(&param_type);
-        if (param_type->tag == PtrType_TAG && param_type->payload.ptr_type.address_space == AsGlobalPhysical) {
+        if (param_type->tag == PtrType_TAG && param_type->payload.ptr_type.address_space == AsGlobal) {
             spvb_decorate(emitter->file_builder, param_id, SpvDecorationAliased, 0, NULL);
         }
     }
 
     if (node->payload.fun.body) {
-        Scope* scope = new_scope(node);
-        // reserve a bunch of identifiers for the basic blocks in the scope
-        for (size_t i = 0; i < scope->size; i++) {
-            CFNode* cfnode = read_list(CFNode*, scope->contents)[i];
+        CFG* cfg = build_fn_cfg(node);
+        // reserve a bunch of identifiers for the basic blocks in the CFG
+        for (size_t i = 0; i < cfg->size; i++) {
+            CFNode* cfnode = read_list(CFNode*, cfg->contents)[i];
             assert(cfnode);
             const Node* bb = cfnode->node;
             if (is_case(bb))
@@ -322,17 +327,17 @@ static void emit_function(Emitter* emitter, const Node* node) {
             }
         }
         // emit the blocks using the dominator tree
-        //emit_basic_block(emitter, fn_builder, &scope, scope.entry);
-        for (size_t i = 0; i < scope->size; i++) {
-            CFNode* cfnode = scope->rpo[i];
+        //emit_basic_block(emitter, fn_builder, &cfg, cfg.entry);
+        for (size_t i = 0; i < cfg->size; i++) {
+            CFNode* cfnode = cfg->rpo[i];
             if (i == 0)
-                assert(cfnode == scope->entry);
+                assert(cfnode == cfg->entry);
             if (is_case(cfnode->node))
                 continue;
-            emit_basic_block(emitter, fn_builder, scope, cfnode);
+            emit_basic_block(emitter, fn_builder, cfg, cfnode);
         }
 
-        destroy_scope(scope);
+        destroy_cfg(cfg);
 
         spvb_define_function(emitter->file_builder, fn_builder);
     } else {
@@ -359,7 +364,6 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
             SpvId init = 0;
             if (gvar->init)
                 init = emit_value(emitter, NULL, gvar->init);
-            assert(!is_physical_as(gvar->address_space));
             SpvStorageClass storage_class = emit_addr_space(emitter, gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), storage_class, false, init);
 
@@ -519,9 +523,8 @@ bool compare_node(Node**, Node**);
 KeyHash hash_string(const char** string);
 bool compare_string(const char** a, const char** b);
 
-static Module* run_backend_specific_passes(CompilerConfig* config, Module* initial_mod) {
+static Module* run_backend_specific_passes(const CompilerConfig* config, Module* initial_mod) {
     IrArena* initial_arena = initial_mod->arena;
-    Module* old_mod = NULL;
     Module** pmod = &initial_mod;
 
     RUN_PASS(lower_entrypoint_args)
@@ -533,7 +536,7 @@ static Module* run_backend_specific_passes(CompilerConfig* config, Module* initi
     return *pmod;
 }
 
-void emit_spirv(CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
+void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
     IrArena* initial_arena = get_module_arena(mod);
     mod = run_backend_specific_passes(config, mod);
     IrArena* arena = get_module_arena(mod);

@@ -62,12 +62,12 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
     switch (type->tag) {
         case FnType_TAG:  error("Functions have an opaque memory representation");
         case PtrType_TAG: switch (type->payload.ptr_type.address_space) {
-            case AsPrivatePhysical:
-            case AsSubgroupPhysical:
-            case AsSharedPhysical:
-            case AsGlobalPhysical:
-            case AsGeneric: return get_mem_layout(a, int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false }));
-            default: error_print("as: %d", type->payload.ptr_type.address_space); error("unhandled address space")
+            case AsPrivate:
+            case AsSubgroup:
+            case AsShared:
+            case AsGlobal:
+            case AsGeneric: return get_mem_layout(a, int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false })); // TODO: use per-as layout
+            default: error("Pointers in address space '%s' does not have a defined memory layout", get_address_space_name(type->payload.ptr_type.address_space));
         }
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,

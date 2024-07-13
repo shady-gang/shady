@@ -18,4 +18,7 @@ embed_file(string shady_cuda_builtins_src cuda_builtins.cu)
 target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:shady_cuda_prelude_src>")
 target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:shady_cuda_builtins_src>")
 
+embed_file(string shady_glsl_120_polyfills_src glsl_120_polyfills.glsl)
+target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:shady_glsl_120_polyfills_src>")
+
 target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:shady_c>")

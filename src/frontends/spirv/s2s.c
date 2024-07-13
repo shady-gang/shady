@@ -203,33 +203,36 @@ AddressSpace convert_storage_class(SpvStorageClass class) {
     switch (class) {
         case SpvStorageClassInput:                 return AsInput;
         case SpvStorageClassOutput:                return AsOutput;
-        case SpvStorageClassWorkgroup:             return AsSharedPhysical;
-        case SpvStorageClassCrossWorkgroup:        return AsGlobalPhysical;
-        case SpvStorageClassPhysicalStorageBuffer: return AsGlobalPhysical;
-        case SpvStorageClassPrivate:               return AsPrivatePhysical;
-        case SpvStorageClassFunction:              return AsPrivatePhysical;
+        case SpvStorageClassWorkgroup:             return AsShared;
+        case SpvStorageClassCrossWorkgroup:        return AsGlobal;
+        case SpvStorageClassPhysicalStorageBuffer: return AsGlobal;
+        case SpvStorageClassPrivate:               return AsPrivate;
+        case SpvStorageClassFunction:              return AsPrivate;
         case SpvStorageClassGeneric:               return AsGeneric;
         case SpvStorageClassPushConstant:          return AsPushConstant;
         case SpvStorageClassAtomicCounter:
-        error("TODO");
+            break;
         case SpvStorageClassImage:                 return AsImage;
-            error("TODO");
-        case SpvStorageClassStorageBuffer:         return AsGlobalLogical;
+            break;
+        case SpvStorageClassStorageBuffer:         return AsShaderStorageBufferObject;
         case SpvStorageClassUniformConstant:
-        case SpvStorageClassUniform:               return AsGlobalPhysical; // TODO: should probably depend on CL/VK flavours!
+        case SpvStorageClassUniform:               return AsGlobal; // TODO: should probably depend on CL/VK flavours!
         case SpvStorageClassCallableDataKHR:
         case SpvStorageClassIncomingCallableDataKHR:
         case SpvStorageClassRayPayloadKHR:
         case SpvStorageClassHitAttributeKHR:
         case SpvStorageClassIncomingRayPayloadKHR:
         case SpvStorageClassShaderRecordBufferKHR:
-            error("Unsupported");
+            break;
         case SpvStorageClassCodeSectionINTEL:
         case SpvStorageClassDeviceOnlyINTEL:
         case SpvStorageClassHostOnlyINTEL:
         case SpvStorageClassMax:
-            error("Unsupported");
+            break;
+        default:
+            break;
     }
+    error("s2s: Unsupported storage class: %d\n", class);
 }
 
 typedef struct {
@@ -861,7 +864,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].type = Value;
             String param_name = get_name(parser, result);
             param_name = param_name ? param_name : format_string_arena(parser->arena->arena, "param%d", parser->fun_arg_i);
-            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), parser->is_entry_pt), param_name);
+            parser->defs[result].node = param(parser->arena, qualified_type_helper(get_def_type(parser, result_t), parser->is_entry_pt), param_name);
             break;
         }
         case SpvOpLabel: {
@@ -887,7 +890,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 assert(s > 0);
                 if (is_param) {
                     const Node* param = get_definition_by_id(parser, get_result_defined_at(parser, instruction_offset))->node;
-                    assert(param && param->tag == Variable_TAG);
+                    assert(param && param->tag == Param_TAG);
                     params = concat_nodes(parser->arena, params, singleton(param));
                 }
                 size += s;
@@ -920,7 +923,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].type = Value;
             String phi_name = get_name(parser, result);
             phi_name = phi_name ? phi_name : unique_name(parser->arena, "phi");
-            parser->defs[result].node = var(parser->arena, qualified_type_helper(get_def_type(parser, result_t), false), phi_name);
+            parser->defs[result].node = param(parser->arena, qualified_type_helper(get_def_type(parser, result_t), false), phi_name);
             assert(size % 2 == 1);
             int num_callsites = (size - 3) / 2;
             for (size_t i = 0; i < num_callsites; i++) {
@@ -1353,13 +1356,17 @@ bool compare_spvid(SpvId* pa, SpvId* pb) {
     return *pa == *pb;
 }
 
-S2SError parse_spirv_into_shady(Module* dst, size_t len, const char* data) {
+S2SError parse_spirv_into_shady(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
+    ArenaConfig aconfig = default_arena_config(&config->target);
+    IrArena* a = new_ir_arena(&aconfig);
+    *dst = new_module(a, name);
+
     SpvParser parser = {
         .cursor = 0,
         .len = len / sizeof(uint32_t),
         .words = (uint32_t*) data,
-        .mod = dst,
-        .arena = get_module_arena(dst),
+        .mod = *dst,
+        .arena = get_module_arena(*dst),
 
         .decorations_arena = new_arena(),
         .phi_arguments = new_dict(SpvId, SpvPhiArgs*, (HashFn) hash_spvid, (CmpFn) compare_spvid),

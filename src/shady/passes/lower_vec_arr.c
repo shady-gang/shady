@@ -1,6 +1,5 @@
-#include "passes.h"
+#include "pass.h"
 
-#include "../rewrite.h"
 #include "../type.h"
 #include "../transform/ir_gen_helpers.h"
 
@@ -55,12 +54,12 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lower_vec_arr(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     aconfig.validate_builtin_types = false; // TODO: hacky
-    IrArena* a = new_ir_arena(aconfig);
+    IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
     rewrite_module(&ctx.rewriter);
