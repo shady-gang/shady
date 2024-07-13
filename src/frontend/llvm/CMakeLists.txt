@@ -19,3 +19,6 @@ message(FATAL_ERROR "Failed to find LLVM-C target, but found LLVM module earlier
 endif()
 
 target_link_libraries(shady_fe_llvm PRIVATE api common shady)
+
+target_compile_definitions(driver PUBLIC LLVM_PARSER_PRESENT)
+target_link_libraries(driver PUBLIC "$<BUILD_INTERFACE:shady_fe_llvm>")
