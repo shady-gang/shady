@@ -64,7 +64,7 @@ static consteval bool fits(unsigned len, Mapping<dst_len> mapping) {
 template<typename T, unsigned len>
 struct vec_impl {
     using This = vec_impl<T, len>;
-    using Native = vec_native_type<T, len>::Native;
+    using Native = typename vec_native_type<T, len>::Native;
 
     vec_impl() = default;
     vec_impl(T s) {}
