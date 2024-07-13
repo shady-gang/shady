@@ -99,7 +99,7 @@ set(SHADY_SOURCES
     passes/spirv_lift_globals_ssbo.c
 )
 
-add_library(shady ${SHADY_SOURCES})
+add_library(shady STATIC ${SHADY_SOURCES})
 target_include_directories(shady PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 
 if (WIN32)
@@ -118,4 +118,4 @@ target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/shady DESTINATION include)
-install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+#install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})

@@ -1,5 +1,5 @@
-add_library(slim_parser parser.c token.c)
+add_library(slim_parser STATIC parser.c token.c)
 target_link_libraries(slim_parser PUBLIC common api)
 target_link_libraries(slim_parser PRIVATE shady)
 target_include_directories(slim_parser PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
-target_link_libraries(shady PUBLIC "$<BUILD_INTERFACE:slim_parser>")
+target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:slim_parser>")
