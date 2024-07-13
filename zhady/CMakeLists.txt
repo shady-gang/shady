@@ -23,12 +23,18 @@ if (SWIG_FOUND AND JNI_FOUND AND Java_FOUND)
 
     include(UseJava)
     get_property(zhady_jar_sources TARGET zhady_shared_lib PROPERTY SWIG_SUPPORT_FILES)
-    set(CMAKE_JAVA_COMPILE_FLAGS ${CMAKE_CURRENT_BINARY_DIR}/java_sources/de/unisaarland/zhady/*.java)
+    get_property(zhady_jar_sources_dir TARGET zhady_shared_lib PROPERTY SWIG_SUPPORT_FILES_DIRECTORY)
+    #set(CMAKE_JAVA_COMPILE_FLAGS ${CMAKE_CURRENT_BINARY_DIR}/java_sources/de/unisaarland/zhady/*.java)
+    #set(CMAKE_JAVA_COMPILE_FLAGS "-sourcepath" "${CMAKE_CURRENT_BINARY_DIR}/java_sources/")
 
     if (TARGET vcc_lib)
         get_property(vcc_java_sources TARGET vcc_swig_c PROPERTY SWIG_SUPPORT_FILES)
         list(APPEND zhady_jar_sources ${vcc_java_sources})
     endif ()
+
+    # message("Zhady sources: ${zhady_jar_sources}")
+    # message("Zhady sources dir: ${zhady_jar_sources_dir}")
+    set(CMAKE_JAVA_INCLUDE_PATH ${CMAKE_CURRENT_BINARY_DIR}/java_sources/)
     add_jar(zhady_jar SOURCES ${zhady_jar_sources})
 
     install(TARGETS zhady_shared_lib EXPORT shady_export_set)
