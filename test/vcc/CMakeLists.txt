@@ -20,3 +20,5 @@ spv_outputting_test(NAME test/vcc/empty.comp.c COMPILER vcc EXTRA_ARGS ${VCC_TES
 spv_outputting_test(NAME test/vcc/simple.frag.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment)
 spv_outputting_test(NAME test/vcc/checkerboard.frag.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment)
 spv_outputting_test(NAME test/vcc/textured.frag.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment)
+
+add_subdirectory(cpp)

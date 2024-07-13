@@ -28,8 +28,16 @@ namespace vcc {
 #define shared                 __attribute__((address_space(3)))
 #define private                __attribute__((address_space(5)))
 
+#if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
+}
+#endif
+
 #include "shady_vec.h"
 #include "shady_mat.h"
+
+#if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
+namespace vcc {
+#endif
 
 typedef __attribute__((address_space(0x1000))) struct __shady_builtin_sampler2D* sampler2D;
 

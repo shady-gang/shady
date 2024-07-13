@@ -1,8 +1,14 @@
-#define Mat4f mat4
-#define Vec4f vec4
-#define Vec3f vec3
+#if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
+namespace vcc {
+#endif
 
-typedef union {
+typedef union mat4_ mat4;
+
+mat4 transpose_mat4(mat4 src);
+mat4 mul_mat4(mat4 l, mat4 r);
+vec4 mul_mat4_vec4f(mat4 l, vec4 r);
+
+union mat4_ {
     struct {
         // we use row-major ordering
         float m00, m01, m02, m03,
@@ -10,19 +16,30 @@ typedef union {
               m20, m21, m22, m23,
               m30, m31, m32, m33;
     };
-    //Vec4f rows[4];
+    //vec4 rows[4];
     float arr[16];
-} Mat4f;
 
-static const Mat4f identity_mat4f = {
+
+#if defined(__cplusplus)
+    mat4 operator*(const mat4& other) {
+        return mul_mat4(*this, other);
+    }
+
+    vec4 operator*(const vec4& other) {
+        return mul_mat4_vec4f(*this, other);
+    }
+#endif
+};
+
+static const mat4 identity_mat4 = {
     1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
     0, 0, 0, 1,
 };
 
-Mat4f transpose_mat4f(Mat4f src) {
-    return (Mat4f) {
+mat4 transpose_mat4(mat4 src) {
+    return (mat4) {
         src.m00, src.m10, src.m20, src.m30,
         src.m01, src.m11, src.m21, src.m31,
         src.m02, src.m12, src.m22, src.m32,
@@ -30,7 +47,7 @@ Mat4f transpose_mat4f(Mat4f src) {
     };
 }
 
-Mat4f invert_mat4(Mat4f m) {
+mat4 invert_mat4(mat4 m) {
     float a = m.m00 * m.m11 - m.m01 * m.m10;
     float b = m.m00 * m.m12 - m.m02 * m.m10;
     float c = m.m00 * m.m13 - m.m03 * m.m10;
@@ -45,7 +62,7 @@ Mat4f invert_mat4(Mat4f m) {
     float l = m.m22 * m.m33 - m.m23 * m.m32;
     float det = a * l - b * k + c * j + d * i - e * h + f * g;
     det = 1.0f / det;
-    Mat4f r;
+    mat4 r;
     r.m00 = ( m.m11 * l - m.m12 * k + m.m13 * j) * det;
     r.m01 = (-m.m01 * l + m.m02 * k - m.m03 * j) * det;
     r.m02 = ( m.m31 * f - m.m32 * e + m.m33 * d) * det;
@@ -65,10 +82,10 @@ Mat4f invert_mat4(Mat4f m) {
     return r;
 }
 
-/*Mat4f perspective_mat4f(float a, float fov, float n, float f) {
+/*mat4 perspective_mat4(float a, float fov, float n, float f) {
     float pi = M_PI;
     float s = 1.0f / tanf(fov * 0.5f * (pi / 180.0f));
-    return (Mat4f) {
+    return (mat4) {
         s / a, 0, 0, 0,
         0, s, 0, 0,
         0, 0, -f / (f - n), -1.f,
@@ -76,16 +93,16 @@ Mat4f invert_mat4(Mat4f m) {
     };
 }*/
 
-Mat4f translate_mat4f(Vec3f offset) {
-    Mat4f m = identity_mat4f;
+mat4 translate_mat4(vec3 offset) {
+    mat4 m = identity_mat4;
     m.m30 = offset.x;
     m.m31 = offset.y;
     m.m32 = offset.z;
     return m;
 }
 
-/*Mat4f rotate_axis_mat4f(unsigned int axis, float f) {
-    Mat4f m = { 0 };
+/*mat4 rotate_axis_mat4(unsigned int axis, float f) {
+    mat4 m = { 0 };
     m.m33 = 1;
 
     unsigned int t = (axis + 2) % 3;
@@ -102,8 +119,8 @@ Mat4f translate_mat4f(Vec3f offset) {
     return m;
 }*/
 
-Mat4f mul_mat4f(Mat4f l, Mat4f r) {
-    Mat4f dst = { 0 };
+mat4 mul_mat4(mat4 l, mat4 r) {
+    mat4 dst = { 0 };
 #define a(i, j) m##i##j
 #define t(bc, br, i) l.a(i, br) * r.a(bc, i)
 #define e(bc, br) dst.a(bc, br) = t(bc, br, 0) + t(bc, br, 1) + t(bc, br, 2) + t(bc, br, 3);
@@ -118,7 +135,7 @@ Mat4f mul_mat4f(Mat4f l, Mat4f r) {
 #undef genmul
 }
 
-Vec4f mul_mat4f_vec4f(Mat4f l, Vec4f r) {
+vec4 mul_mat4_vec4f(mat4 l, vec4 r) {
     float src[4] = { r.x, r.y, r.z, r.w };
     float dst[4];
 #define a(i, j) m##i##j
@@ -127,8 +144,52 @@ Vec4f mul_mat4f_vec4f(Mat4f l, Vec4f r) {
 #define row(c) e(c, 0) e(c, 1) e(c, 2) e(c, 3)
 #define genmul() row(0)
     genmul()
-    return (Vec4f) { dst[0], dst[1], dst[2], dst[3] };
+    return (vec4) { dst[0], dst[1], dst[2], dst[3] };
 }
 
-#if defined(__cplusplus)
+typedef union {
+    struct {
+        // we use row-major ordering
+        float m00, m01, m02,
+              m10, m11, m12,
+              m20, m21, m22;
+    };
+    //vec4 rows[4];
+    float arr[9];
+} Mat3f;
+
+static const Mat3f identity_mat3f = {
+    1, 0, 0,
+    0, 1, 0,
+    0, 0, 1,
+};
+
+Mat3f transpose_mat3f(Mat3f src) {
+    return (Mat3f) {
+        src.m00, src.m10, src.m20,
+        src.m01, src.m11, src.m21,
+        src.m02, src.m12, src.m22,
+    };
+}
+
+Mat3f mul_mat3f(Mat3f l, Mat3f r) {
+    Mat3f dst = { 0 };
+#define a(i, j) m##i##j
+#define t(bc, br, i) l.a(i, br) * r.a(bc, i)
+#define e(bc, br) dst.a(bc, br) = t(bc, br, 0) + t(bc, br, 1) + t(bc, br, 2);
+#define row(c) e(c, 0) e(c, 1) e(c, 2)
+#define genmul() row(0) row(1) row(2)
+    genmul()
+    return dst;
+#undef a
+#undef t
+#undef e
+#undef row
+#undef genmul
+}
+
+typedef Mat3f mat3;
+
+#if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
+}
 #endif
