@@ -46,6 +46,9 @@ template<> struct vec_native_type<unsigned, 3> { using Native = native_uvec3; };
 template<> struct vec_native_type   <float, 2> { using Native =  native_vec2; };
 template<> struct vec_native_type     <int, 2> { using Native = native_ivec2; };
 template<> struct vec_native_type<unsigned, 2> { using Native = native_uvec2; };
+template<> struct vec_native_type   <float, 1> { using Native = float; };
+template<> struct vec_native_type     <int, 1> { using Native = int; };
+template<> struct vec_native_type<unsigned, 1> { using Native = unsigned; };
 
 template<int len>
 struct Mapping {
@@ -67,7 +70,10 @@ struct vec_impl {
     using Native = typename vec_native_type<T, len>::Native;
 
     vec_impl() = default;
-    vec_impl(T s) {}
+    vec_impl(T s) {
+        for (unsigned i = 0; i < len; i++)
+            arr[i] = s;
+    }
 
     vec_impl(T x, T y, T z, T w) requires (len >= 4) {
         this->arr[0] = x;
@@ -76,11 +82,22 @@ struct vec_impl {
         this->arr[3] = w;
     }
 
+    vec_impl(vec_impl<T, 2> xy, T z, T w) requires (len >= 4) : vec_impl(xy.x, xy.y, z, w) {}
+    vec_impl(T x, vec_impl<T, 2> yz, T w) requires (len >= 4) : vec_impl(x, yz.x, yz.y, w) {}
+    vec_impl(T x, T y, vec_impl<T, 2> zw) requires (len >= 4) : vec_impl(x, y, zw.x, zw.y) {}
+    vec_impl(vec_impl<T, 2> xy, vec_impl<T, 2> zw) requires (len >= 4) : vec_impl(xy.x, xy.y, zw.x, zw.y) {}
+
+    vec_impl(vec_impl<T, 3> xyz, T w) requires (len >= 4) : vec_impl(xyz.x, xyz.y, xyz.z, w) {}
+    vec_impl(T x, vec_impl<T, 3> yzw) requires (len >= 4) : vec_impl(x, yzw.x, yzw.y, yzw.z) {}
+
     vec_impl(T x, T y, T z) requires (len >= 3) {
         this->arr[0] = x;
         this->arr[1] = y;
         this->arr[2] = x;
     }
+
+    vec_impl(vec_impl<T, 2> xy, T z) requires (len >= 3) : vec_impl(xy.x, xy.y, z) {}
+    vec_impl(T x, vec_impl<T, 2> yz) requires (len >= 3) : vec_impl(x, yz.x, yz.y) {}
 
     vec_impl(T x, T y) {
         this->arr[0] = x;
@@ -102,6 +119,7 @@ struct vec_impl {
     template <int dst_len, Mapping<dst_len> mapping> // requires(fits<dst_len>(len, mapping))
     struct Swizzler {
         using That = vec_impl<T, dst_len>;
+        using ThatNative = vec_native_type<T, dst_len>::Native;
 
         operator That() const requires(dst_len > 1 && fits<dst_len>(len, mapping)) {
             auto src = reinterpret_cast<const This*>(this);
@@ -109,6 +127,11 @@ struct vec_impl {
             for (int i = 0; i < dst_len; i++)
                 dst.arr[i] = src->arr[mapping.data[i]];
             return dst;
+        }
+
+        operator ThatNative() const requires(dst_len > 1 && fits<dst_len>(len, mapping)) {
+            That that = *this;
+            return that;
         }
 
         operator T() const requires(dst_len == 1 && fits<dst_len>(len, mapping)) {
