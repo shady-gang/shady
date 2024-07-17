@@ -18,15 +18,15 @@ namespace vcc {
 #define descriptor_binding(i)  __attribute__((annotate("shady::descriptor_binding::"#i)))
 #define local_size(x, y, z)    __attribute__((annotate("shady::workgroup_size::"#x"::"#y"::"#z)))
 
-#define input                  __attribute__((address_space(389)))
-#define output                 __attribute__((address_space(390)))
+#define input                  __attribute__((annotate("shady::extern::389")))
+#define output                 __attribute__((annotate("shady::extern::390")))
 // maybe deprecate it ?
-#define uniform_constant       __attribute__((address_space(398)))
-#define uniform_block          __attribute__((address_space(395)))
-#define push_constant          __attribute__((address_space(392)))
-#define global                 __attribute__((address_space(1)))
-#define shared                 __attribute__((address_space(3)))
-#define private                __attribute__((address_space(5)))
+#define uniform_constant       __attribute__((annotate("shady::extern::398")))
+#define uniform_block          __attribute__((annotate("shady::extern::395")))
+#define push_constant          __attribute__((annotate("shady::extern::392")))
+#define global                 __attribute__((annotate("shady::extern::1")))
+#define shared                 __attribute__((annotate("shady::extern::3")))
+#define private                __attribute__((annotate("shady::extern::5")))
 
 #if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
 }

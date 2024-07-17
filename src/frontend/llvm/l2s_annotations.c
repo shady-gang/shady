@@ -128,11 +128,13 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                         .value = int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
                     })
                 });
-            } else if (strcmp(keyword, "uniform") == 0) {
+            } else if (strcmp(keyword, "extern") == 0) {
                 assert(target->tag == GlobalVariable_TAG);
+                ((Node*) target)->payload.global_variable.init = NULL;
                 add_annotation(p, target, (ParsedAnnotation) {
-                    .payload = annotation(a, (Annotation) {
-                        .name = "UniformConstant"
+                    .payload = annotation_value(a, (AnnotationValue) {
+                        .name = "AddressSpace",
+                        .value = int32_literal(a, convert_llvm_address_space(strtol(strtok(NULL, "::"), NULL, 10)))
                     })
                 });
             } else {

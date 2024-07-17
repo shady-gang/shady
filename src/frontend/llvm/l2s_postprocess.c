@@ -272,19 +272,31 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             Nodes annotations = rewrite_nodes(r, node->payload.global_variable.annotations);
             const Type* type = rewrite_node(r, node->payload.global_variable.type);
             ParsedAnnotation* an = find_annotation(ctx->p, node);
+            AddressSpace old_as = as;
             while (an) {
                 annotations = append_nodes(a, annotations, rewrite_node(r, an->payload));
                 if (strcmp(get_annotation_name(an->payload), "Builtin") == 0)
                     old_init = NULL;
-                if (strcmp(get_annotation_name(an->payload), "UniformConstant") == 0)
-                    as = AsUniformConstant;
+                if (strcmp(get_annotation_name(an->payload), "AddressSpace") == 0)
+                    as = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(an->payload)), false);
                 an = an->next;
             }
             Node* decl = global_var(ctx->rewriter.dst_module, annotations, type, get_declaration_name(node), as);
-            register_processed(r, node, decl);
+            Node* result = decl;
+            if (old_as != as) {
+                const Type* pt = ptr_type(a, (PtrType) { .address_space = old_as, .pointed_type = type });
+                Node* c = constant(ctx->rewriter.dst_module, singleton(annotation(a, (Annotation) {
+                    .name = "Inline"
+                })), pt, format_string_interned(a, "%s_proxy", get_declaration_name(decl)));
+                c->payload.constant.instruction = prim_op_helper(a, convert_op, singleton(pt), singleton(
+                        ref_decl_helper(a, decl)));
+                result = c;
+            }
+
+            register_processed(r, node, result);
             if (old_init)
                 decl->payload.global_variable.init = rewrite_node(r, old_init);
-            return decl;
+            return result;
         }
         default: break;
     }
