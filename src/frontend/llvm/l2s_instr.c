@@ -516,6 +516,10 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                     // don't care
                     return (EmittedInstr) { 0 };
                 }
+                if (string_starts_with(intrinsic, "llvm.experimental.noalias.scope.decl")) {
+                    // don't care
+                    return (EmittedInstr) { 0 };
+                }
                 if (string_starts_with(intrinsic, "llvm.memcpy")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     num_results = 0;

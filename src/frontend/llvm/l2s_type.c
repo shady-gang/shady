@@ -66,7 +66,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             }
 
             const Node* product = record_type(a, (RecordType) {
-                    .members = nodes(a, size, celements)
+                .members = nodes(a, size, celements)
             });
             if (decl)
                 decl->payload.nom_type.body = product;

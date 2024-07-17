@@ -276,7 +276,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     if (global_annotations)
         process_llvm_annotations(&p, global_annotations);
 
-    for (LLVMValueRef fn = LLVMGetFirstFunction(src); fn && fn <= LLVMGetNextFunction(fn); fn = LLVMGetLastFunction(src)) {
+    for (LLVMValueRef fn = LLVMGetFirstFunction(src); fn; fn = LLVMGetNextFunction(fn)) {
         convert_function(&p, fn);
     }
 
