@@ -154,37 +154,37 @@ struct vec_impl {
     This operator +(This other) {
         This result;
         for (unsigned i = 0; i < len; i++)
-            result[i] = this->arr[i] + other.arr[i];
+            result.arr[i] = this->arr[i] + other.arr[i];
         return result;
     }
     This operator -(This other) {
         This result;
         for (unsigned i = 0; i < len; i++)
-            result[i] = this->arr[i] - other.arr[i];
+            result.arr[i] = this->arr[i] - other.arr[i];
         return result;
     }
     This operator *(This other) {
         This result;
         for (unsigned i = 0; i < len; i++)
-            result[i] = this->arr[i] * other.arr[i];
+            result.arr[i] = this->arr[i] * other.arr[i];
         return result;
     }
     This operator /(This other) {
         This result;
         for (unsigned i = 0; i < len; i++)
-            result[i] = this->arr[i] / other.arr[i];
+            result.arr[i] = this->arr[i] / other.arr[i];
         return result;
     }
     This operator *(T s) {
         This result;
         for (unsigned i = 0; i < len; i++)
-            result[i] = this->arr[i] * s;
+            result.arr[i] = this->arr[i] * s;
         return result;
     }
     This operator /(T s) {
         This result;
         for (unsigned i = 0; i < len; i++)
-            result[i] = this->arr[i] / s;
+            result.arr[i] = this->arr[i] / s;
         return result;
     }
 
@@ -243,6 +243,25 @@ typedef vec_impl<int, 3> ivec3;
 typedef vec_impl<float, 2> vec2;
 typedef vec_impl<unsigned, 2> uvec2;
 typedef vec_impl<int, 2> ivec2;
+
+template<unsigned len>
+float lengthSquared(vec_impl<float, len> vec) {
+    float acc = 0.0f;
+    for (unsigned i = 0; i < len; i++)
+        acc += vec.arr[i] * vec.arr[i];
+    return acc;
+}
+
+template<unsigned len>
+float length(vec_impl<float, len> vec) {
+    return __builtin_sqrtf(lengthSquared(vec));
+}
+
+template<unsigned len>
+vec_impl<float, len> normalize(vec_impl<float, len> vec) {
+    return vec / length(vec);
+}
+
 #else
 typedef native_vec4 vec4;
 typedef native_vec3 vec3;

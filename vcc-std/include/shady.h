@@ -44,10 +44,17 @@ typedef __attribute__((address_space(0x1001))) struct __shady_builtin_sampler2D*
 typedef __attribute__((address_space(0x1002))) struct __shady_builtin_sampler3D* sampler3D;
 typedef __attribute__((address_space(0x1003))) struct __shady_builtin_sampler3D* samplerCube;
 
-vec4 texture1D(const sampler1D, float) __asm__("shady::prim_op::sample_texture");
-vec4 texture2D(const sampler2D, native_vec2) __asm__("shady::prim_op::sample_texture");
-vec4 texture3D(const sampler3D, native_vec3) __asm__("shady::prim_op::sample_texture");
-vec4 textureCube(const samplerCube, native_vec3) __asm__("shady::prim_op::sample_texture");
+native_vec4 texture1D(const sampler1D, float) __asm__("shady::prim_op::sample_texture");
+native_vec4 texture2D(const sampler2D, native_vec2) __asm__("shady::prim_op::sample_texture");
+native_vec4 texture3D(const sampler3D, native_vec3) __asm__("shady::prim_op::sample_texture");
+native_vec4 textureCube(const samplerCube, native_vec3) __asm__("shady::prim_op::sample_texture");
+
+#if defined(__cplusplus)
+native_vec4 texture(const sampler1D, float)         __asm__("shady::prim_op::sample_texture");
+native_vec4 texture(const sampler2D, native_vec2)   __asm__("shady::prim_op::sample_texture");
+native_vec4 texture(const sampler3D, native_vec3)   __asm__("shady::prim_op::sample_texture");
+native_vec4 texture(const samplerCube, native_vec3) __asm__("shady::prim_op::sample_texture");
+#endif
 
 // builtins
 __attribute__((annotate("shady::builtin::FragCoord")))

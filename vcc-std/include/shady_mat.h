@@ -4,9 +4,9 @@ namespace vcc {
 
 typedef union mat4_ mat4;
 
-mat4 transpose_mat4(mat4 src);
-mat4 mul_mat4(mat4 l, mat4 r);
-vec4 mul_mat4_vec4f(mat4 l, vec4 r);
+static inline mat4 transpose_mat4(mat4 src);
+static inline mat4 mul_mat4(mat4 l, mat4 r);
+static inline vec4 mul_mat4_vec4f(mat4 l, vec4 r);
 
 union mat4_ {
     struct {
@@ -38,7 +38,7 @@ static const mat4 identity_mat4 = {
     0, 0, 0, 1,
 };
 
-mat4 transpose_mat4(mat4 src) {
+static inline mat4 transpose_mat4(mat4 src) {
     return (mat4) {
         src.m00, src.m10, src.m20, src.m30,
         src.m01, src.m11, src.m21, src.m31,
@@ -47,7 +47,7 @@ mat4 transpose_mat4(mat4 src) {
     };
 }
 
-mat4 invert_mat4(mat4 m) {
+static inline mat4 invert_mat4(mat4 m) {
     float a = m.m00 * m.m11 - m.m01 * m.m10;
     float b = m.m00 * m.m12 - m.m02 * m.m10;
     float c = m.m00 * m.m13 - m.m03 * m.m10;
@@ -93,7 +93,7 @@ mat4 invert_mat4(mat4 m) {
     };
 }*/
 
-mat4 translate_mat4(vec3 offset) {
+static inline mat4 translate_mat4(vec3 offset) {
     mat4 m = identity_mat4;
     m.m30 = offset.x;
     m.m31 = offset.y;
@@ -119,7 +119,7 @@ mat4 translate_mat4(vec3 offset) {
     return m;
 }*/
 
-mat4 mul_mat4(mat4 l, mat4 r) {
+static inline mat4 mul_mat4(mat4 l, mat4 r) {
     mat4 dst = { 0 };
 #define a(i, j) m##i##j
 #define t(bc, br, i) l.a(i, br) * r.a(bc, i)
@@ -135,7 +135,7 @@ mat4 mul_mat4(mat4 l, mat4 r) {
 #undef genmul
 }
 
-vec4 mul_mat4_vec4f(mat4 l, vec4 r) {
+static inline vec4 mul_mat4_vec4f(mat4 l, vec4 r) {
     float src[4] = { r.x, r.y, r.z, r.w };
     float dst[4];
 #define a(i, j) m##i##j
