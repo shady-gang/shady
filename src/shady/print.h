@@ -2,6 +2,7 @@
 #define SHADY_PRINT
 
 #include "shady/ir.h"
+#include "shady/be/dump.h"
 #include "printer.h"
 #include <stdbool.h>
 
@@ -21,11 +22,5 @@ void print_node_operand(Printer* printer, const Node* node, String op_name, Node
 void print_node_operand_list(Printer* printer, const Node* node, String op_name, NodeClass op_class, Nodes ops, PrintConfig config);
 
 void print_node_generated(Printer* printer, const Node* node, PrintConfig config);
-
-void print_module_into_str(Module* mod, char** str_ptr, size_t* size);
-void print_node_into_str(const Node* node, char** str_ptr, size_t* size);
-
-void dump_module(Module*);
-void dump_node(const Node* node);
 
 #endif
