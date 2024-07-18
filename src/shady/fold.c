@@ -262,7 +262,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
 
     if (rebuild) {
         const Node* r = prim_op(arena, payload);
-        if (r->type != node->type) {
+        if (!is_subtype(node->type, r->type)) {
             r = gen_conversion(bb, get_unqualified_type(node->type), first(bind_instruction(bb, r)));
             return yield_values_and_wrap_in_block(bb, singleton(r));
         }
