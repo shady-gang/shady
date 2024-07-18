@@ -168,6 +168,7 @@ size_t get_type_bitwidth(const Type* t) {
 
 bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     switch (as) {
+        case AsGeneric:
         case AsInput:
         case AsOutput:
         case AsFunction:
