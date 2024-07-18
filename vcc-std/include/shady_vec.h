@@ -65,6 +65,16 @@ static consteval bool fits(unsigned len, Mapping<dst_len> mapping) {
     return true;
 }
 
+template <auto B, auto E, typename F>
+constexpr void for_range(F f)
+{
+    if constexpr (B < E)
+    {
+        f.template operator()<B>();
+        for_range<B + 1, E, F>((f));
+    }
+}
+
 template<typename T, unsigned len>
 struct vec_impl {
     using This = vec_impl<T, len>;
@@ -72,8 +82,9 @@ struct vec_impl {
 
     vec_impl() = default;
     vec_impl(T s) {
-        for (unsigned i = 0; i < len; i++)
+        for_range<0, len>([&]<auto i>(){
             arr[i] = s;
+        });
     }
 
     vec_impl(T x, T y, T z, T w) requires (len >= 4) {
@@ -106,14 +117,16 @@ struct vec_impl {
     }
 
     vec_impl(Native n) {
-        for (unsigned i = 0; i < len; i++)
+        for_range<0, len>([&]<auto i>(){
             arr[i] = n[i];
+        });
     }
 
     operator Native() const {
         Native n;
-        for (unsigned i = 0; i < len; i++)
+        for_range<0, len>([&]<auto i>(){
             n[i] = arr[i];
+        });
         return n;
     }
 
@@ -125,8 +138,9 @@ struct vec_impl {
         operator That() const requires(dst_len > 1 && fits<dst_len>(len, mapping)) {
             auto src = reinterpret_cast<const This*>(this);
             That dst;
-            for (int i = 0; i < dst_len; i++)
+            for_range<0, len>([&]<auto i>(){
                 dst.arr[i] = src->arr[mapping.data[i]];
+            });
             return dst;
         }
 
@@ -147,45 +161,52 @@ struct vec_impl {
 
         void operator=(const That& src) requires(dst_len > 1 && fits<dst_len>(len, mapping)) {
             auto dst = reinterpret_cast<This*>(this);
-            for (int i = 0; i < dst_len; i++)
+            for_range<0, len>([&]<auto i>(){
                 dst->arr[mapping.data[i]] = src.arr[i];
+            });
         }
     };
 
     This operator +(This other) {
         This result;
-        for (unsigned i = 0; i < len; i++)
+        for_range<0, len>([&]<auto i>(){
             result.arr[i] = this->arr[i] + other.arr[i];
+        });
         return result;
     }
     This operator -(This other) {
         This result;
-        for (unsigned i = 0; i < len; i++)
+        for_range<0, len>([&]<auto i>(){
             result.arr[i] = this->arr[i] - other.arr[i];
+        });
         return result;
     }
     This operator *(This other) {
         This result;
-        for (unsigned i = 0; i < len; i++)
+        for_range<0, len>([&]<auto i>(){
             result.arr[i] = this->arr[i] * other.arr[i];
+        });
         return result;
     }
     This operator /(This other) {
         This result;
-        for (unsigned i = 0; i < len; i++)
+        for_range<0, len>([&]<auto i>(){
             result.arr[i] = this->arr[i] / other.arr[i];
+        });
         return result;
     }
     This operator *(T s) {
         This result;
-        for (unsigned i = 0; i < len; i++)
+        for_range<0, len>([&]<auto i>(){
             result.arr[i] = this->arr[i] * s;
+        });
         return result;
     }
     This operator /(T s) {
         This result;
-        for (unsigned i = 0; i < len; i++)
+        for_range<0, len>([&]<auto i>(){
             result.arr[i] = this->arr[i] / s;
+        });
         return result;
     }
 
@@ -248,8 +269,9 @@ typedef vec_impl<int, 2> ivec2;
 template<unsigned len>
 float lengthSquared(vec_impl<float, len> vec) {
     float acc = 0.0f;
-    for (unsigned i = 0; i < len; i++)
+    for_range<0, len>([&]<auto i>(){
         acc += vec.arr[i] * vec.arr[i];
+    });
     return acc;
 }
 
