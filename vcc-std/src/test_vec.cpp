@@ -53,9 +53,13 @@ void check_swizzle_mut(vec4& v) {
     v.xy = vec2(0.5f, 0.9f);
 }
 
+#include <cassert>
 int main(int argc, char** argv) {
-    {
-        vec4 x;
-    }
+    vec4 v(1.0f, 0.5f, 0.0f, -1.0f);
+    float f;
+    f = v.x; printf("f = %f;\n", f); assert(f == 1.0f);
+    f = v.y; printf("f = %f;\n", f); assert(f == 0.5f);
+    f = v.z; printf("f = %f;\n", f); assert(f == 0.0f);
+    f = v.w; printf("f = %f;\n", f); assert(f == -1.0f);
     std::unique_ptr<vec4> uptr;
 }
