@@ -90,7 +90,7 @@ struct vec_impl {
     vec_impl(T x, T y, T z, T w) requires (len >= 4) {
         this->arr[0] = x;
         this->arr[1] = y;
-        this->arr[2] = x;
+        this->arr[2] = z;
         this->arr[3] = w;
     }
 
@@ -105,7 +105,7 @@ struct vec_impl {
     vec_impl(T x, T y, T z) requires (len >= 3) {
         this->arr[0] = x;
         this->arr[1] = y;
-        this->arr[2] = x;
+        this->arr[2] = z;
     }
 
     vec_impl(vec_impl<T, 2> xy, T z) requires (len >= 3) : vec_impl(xy.x, xy.y, z) {}
@@ -138,7 +138,7 @@ struct vec_impl {
         operator That() const requires(dst_len > 1 && fits<dst_len>(len, mapping)) {
             auto src = reinterpret_cast<const This*>(this);
             That dst;
-            for_range<0, len>([&]<auto i>(){
+            for_range<0, dst_len>([&]<auto i>(){
                 dst.arr[i] = src->arr[mapping.data[i]];
             });
             return dst;
@@ -150,18 +150,18 @@ struct vec_impl {
         }
 
         operator T() const requires(dst_len == 1 && fits<dst_len>(len, mapping)) {
-            auto src = reinterpret_cast<const T*>(this);
-            return *src;
+            auto src = reinterpret_cast<const This*>(this);
+            return src->arr[mapping.data[0]];
         }
 
         void operator=(const T& t) requires(dst_len == 1 && fits<dst_len>(len, mapping)) {
-            auto src = reinterpret_cast<T*>(this);
-            *src = t;
+            auto src = reinterpret_cast<This*>(this);
+            src->arr[mapping.data[0]] = t;
         }
 
         void operator=(const That& src) requires(dst_len > 1 && fits<dst_len>(len, mapping)) {
             auto dst = reinterpret_cast<This*>(this);
-            for_range<0, len>([&]<auto i>(){
+            for_range<0, dst_len>([&]<auto i>(){
                 dst->arr[mapping.data[i]] = src.arr[i];
             });
         }
@@ -277,7 +277,7 @@ float lengthSquared(vec_impl<float, len> vec) {
 
 template<unsigned len>
 float length(vec_impl<float, len> vec) {
-    return __builtin_sqrtf(lengthSquared(vec));
+    return sqrtf(lengthSquared(vec));
 }
 
 template<unsigned len>

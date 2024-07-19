@@ -28,6 +28,8 @@ namespace vcc {
 #define shared                 __attribute__((annotate("shady::extern::3")))
 #define private                __attribute__((annotate("shady::extern::5")))
 
+float sqrtf(float f) __asm__("shady::prim_op::sqrt");
+
 #if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
 }
 #endif
