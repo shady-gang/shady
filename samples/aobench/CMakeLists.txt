@@ -1,4 +1,8 @@
-if (TARGET vcc)
+if (NOT TARGET vcc)
+    message("Vcc unavailable. Skipping aobench sample.")
+elseif(NOT TARGET runtime)
+    message("Runtime component unavailable. Skipping aobench sample.")
+else()
     add_executable(aobench_host ao_host.c ao_main.c)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ao.comp.c.ll COMMAND vcc ARGS ${CMAKE_CURRENT_SOURCE_DIR}/ao.comp.cpp --only-run-clang -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/ao.comp.c.ll COMMENT ao.comp.c.ll DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ao.comp.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ao.c)
 
@@ -19,6 +23,4 @@ if (TARGET vcc)
     endif()
 
     target_link_libraries(aobench_host PRIVATE m shady runtime common)
-else()
-    message("Vcc not enabled. Skipping aobench.")
 endif()

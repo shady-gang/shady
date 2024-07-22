@@ -1,4 +1,10 @@
-if (TARGET shady_fe_llvm)
+if (NOT TARGET shady_fe_llvm)
+    message("LLVM front-end unavailable. Skipping Vcc.")
+else()
+    option(SHADY_ENABLE_VCC "Allows compiling C and C++ code with Shady." ON)
+endif()
+
+if (SHADY_ENABLE_VCC)
     add_library(vcc_lib STATIC vcc_lib.c)
     target_link_libraries(vcc_lib PUBLIC driver api)
 
@@ -12,7 +18,5 @@ if (TARGET shady_fe_llvm)
                 COMMAND_EXPAND_LISTS
         )
     endif ()
-    message("Vcc will be built together with shady")
-else()
-    message("LLVM front-end unavailable. Disabling Vcc")
+    #message("Vcc will be built together with shady")
 endif ()

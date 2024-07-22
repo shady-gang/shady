@@ -2,7 +2,17 @@ find_package(SWIG)
 find_package(JNI)
 find_package(Java)
 
-if (SWIG_FOUND AND JNI_FOUND AND Java_FOUND)
+if (NOT SWIG_FOUND)
+    message("SWIG not found. Skipping Java bindings.")
+elseif (NOT SWIG_FOUND)
+    message("JNI not found. Skipping Java bindings.")
+elseif (NOT SWIG_FOUND)
+    message("Java not found. Skipping Java bindings.")
+else()
+    option(SHADY_ENABLE_JAVA_BINDINGS "Allows using shady (and if enabled, Vcc) in JVM applications" ON)
+endif()
+
+if (SHADY_ENABLE_JAVA_BINDINGS)
     message("Enabling Java bindings")
 
     add_custom_target(zhady_dir COMMAND cmake -E <command> ${CMAKE_CURRENT_BINARY_DIR}/java_sources/de/unisaarland/zhady)

@@ -1,11 +1,15 @@
-add_library(runtime runtime.c runtime_program.c runtime_cli.c)
-target_link_libraries(runtime PUBLIC driver)
-set_target_properties(runtime PROPERTIES OUTPUT_NAME "shady_runtime")
+option(SHADY_ENABLE_RUNTIME "Offers helpful utilities for building applications with shady. Some samples and tests depend on it." ON)
 
-add_subdirectory(vulkan)
-add_subdirectory(cuda)
+if (SHADY_ENABLE_RUNTIME)
+    add_library(runtime runtime.c runtime_program.c runtime_cli.c)
+    target_link_libraries(runtime PUBLIC driver)
+    set_target_properties(runtime PROPERTIES OUTPUT_NAME "shady_runtime")
 
-add_executable(runtime_test runtime_test.c)
-target_link_libraries(runtime_test runtime)
+    add_subdirectory(vulkan)
+    add_subdirectory(cuda)
 
-install(TARGETS runtime EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+    add_executable(runtime_test runtime_test.c)
+    target_link_libraries(runtime_test runtime)
+
+    install(TARGETS runtime EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+endif()
