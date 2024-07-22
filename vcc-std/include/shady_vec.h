@@ -133,7 +133,7 @@ struct vec_impl {
     template <int dst_len, Mapping<dst_len> mapping> // requires(fits<dst_len>(len, mapping))
     struct Swizzler {
         using That = vec_impl<T, dst_len>;
-        using ThatNative = vec_native_type<T, dst_len>::Native;
+        using ThatNative = typename vec_native_type<T, dst_len>::Native;
 
         operator That() const requires(dst_len > 1 && fits<dst_len>(len, mapping)) {
             auto src = reinterpret_cast<const This*>(this);
