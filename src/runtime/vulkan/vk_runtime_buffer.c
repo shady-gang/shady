@@ -176,7 +176,7 @@ VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
         .sType = VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT,
         .pNext = NULL
     };
-    CHECK_VK(device->extensions.EXT_external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, ptr, &host_ptr_properties), goto err_post_buffer_create);
+    CHECK_VK(device->extensions.EXT_external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, (void*) aligned_addr, &host_ptr_properties), goto err_post_buffer_create);
     uint32_t memory_type_index = find_suitable_memory_type(device, host_ptr_properties.memoryTypeBits, AllocHostVisible);
     VkPhysicalDeviceMemoryProperties device_memory_properties;
     vkGetPhysicalDeviceMemoryProperties(device->caps.physical_device, &device_memory_properties);
