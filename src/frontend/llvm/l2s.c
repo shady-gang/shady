@@ -287,14 +287,16 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
             break;
         global = LLVMGetNextGlobal(global);
     }
-    log_module(DEBUG, config, dirty);
+    log_string(DEBUGVV, "Shady module parsed from LLVM:");
+    log_module(DEBUGVV, config, dirty);
 
     aconfig.check_types = true;
     aconfig.allow_fold = true;
     IrArena* arena2 = new_ir_arena(&aconfig);
     *dst = new_module(arena2, name);
     postprocess(&p, dirty, *dst);
-    log_module(DEBUG, config, *dst);
+    log_string(DEBUGVV, "Shady module parsed from LLVM, after cleanup:");
+    log_module(DEBUGVV, config, *dst);
     verify_module(config, *dst);
     destroy_ir_arena(arena);
 

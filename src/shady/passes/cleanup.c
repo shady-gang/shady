@@ -183,7 +183,7 @@ Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* const src) {
     size_t r = 0;
     Module* m = src;
     do {
-        debug_print("Cleanup round %d\n", r);
+        debugv_print("Cleanup round %d\n", r);
         todo = false;
         todo |= opt_demote_alloca(config, &m);
         todo |= simplify(config, &m);

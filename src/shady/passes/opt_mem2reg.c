@@ -185,7 +185,7 @@ static void wipe_all_leaked_pointers(KnowledgeBase* kb) {
             k->ptr_value = NULL;
             debugvv_print("mem2reg: wiping the know ptr value for ");
             log_node(DEBUGVV, ptr);
-            debug_print(".\n");
+            debugvv_print(".\n");
         }
     }
 }
@@ -213,10 +213,10 @@ static const Node* find_or_request_known_ptr_value(Context* ctx, KnowledgeBase* 
         while (phi_kb->dominator_kb) {
             phi_kb = phi_kb->dominator_kb;
         }
-        debug_print("mem2reg: It'd sure be nice to know the value of ");
-        log_node(DEBUG, optr);
-        debug_print(" at phi-like node %s.\n", get_abstraction_name_safe(phi_kb->cfnode->node));
-        // log_node(DEBUG, phi_location->node);
+        log_string(DEBUGVV, "mem2reg: It'd sure be nice to know the value of ");
+        log_node(DEBUGVV, optr);
+        log_string(DEBUGVV, " at phi-like node %s.\n", get_abstraction_name_safe(phi_kb->cfnode->node));
+        // log_node(DEBUGVV, phi_location->node);
         insert_set_get_key(const Node*, phi_kb->potential_additional_params, optr);
     }
     return NULL;
@@ -271,7 +271,7 @@ static void mark_value_as_escaping(Context* ctx, KnowledgeBase* kb, const Node* 
     if (k) {
         debugvv_print("mem2reg: marking ");
         log_node(DEBUGVV, value);
-        debug_print(" as leaking.\n");
+        log_string(DEBUGVV, " as leaking.\n");
         k->ptr_has_leaked = true;
         if (k->alias_old_address)
             mark_value_as_escaping(ctx, kb, k->alias_old_address);
@@ -372,11 +372,11 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                     // if we have knowledge on a particular ptr, the same knowledge propagates if we bitcast it!
                     PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, first(payload.operands));
                     if (k) {
-                        debug_print("mem2reg: the reinterpreted ptr ");
-                        log_node(DEBUG, oinstruction);
-                        debug_print(" is the same as ");
-                        log_node(DEBUG, first(payload.operands));
-                        debug_print(".\n");
+                        log_string(DEBUGVV, "mem2reg: the reinterpreted ptr ");
+                        log_node(DEBUGVV, oinstruction);
+                        log_string(DEBUGVV, " is the same as ");
+                        log_node(DEBUGVV, first(payload.operands));
+                        log_string(DEBUGVV, ".\n");
                         k = update_ptr_knowledge(kb, oinstruction, k);
                         k->state = PSKnownAlias;
                         k->alias_old_address = first(payload.operands);
@@ -389,11 +389,11 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                     if (first(payload.type_arguments)->tag == PtrType_TAG) {
                         PtrKnowledge* k = get_last_valid_ptr_knowledge(kb, first(payload.operands));
                         if (k) {
-                            debug_print("mem2reg: the converted ptr ");
-                            log_node(DEBUG, oinstruction);
-                            debug_print(" is the same as ");
-                            log_node(DEBUG, first(payload.operands));
-                            debug_print(".\n");
+                            log_string(DEBUGVV, "mem2reg: the converted ptr ");
+                            log_node(DEBUGVV, oinstruction);
+                            log_string(DEBUGVV, " is the same as ");
+                            log_node(DEBUGVV, first(payload.operands));
+                            log_string(DEBUGVV, ".\n");
                             k = update_ptr_knowledge(kb, oinstruction, k);
                             k->state = PSKnownAlias;
                             k->alias_old_address = first(payload.operands);
@@ -530,10 +530,10 @@ static void handle_bb(Context* ctx, const Node* old) {
 
             const Node* kv = get_known_value(kb_at_src, get_last_valid_ptr_knowledge(kb_at_src, ptr));
             if (kv) {
-                log_node(DEBUG, ptr);
-                debug_print(" has a known value (");
-                log_node(DEBUG, kv);
-                debug_print(") in %s ...\n", get_abstraction_name_safe(edge.src->node));
+                log_node(DEBUGVV, ptr);
+                log_string(DEBUGVV, " has a known value (");
+                log_node(DEBUGVV, kv);
+                log_string(DEBUGVV, ") in %s ...\n", get_abstraction_name_safe(edge.src->node));
             } else
                 goto next_potential_param;
 
@@ -548,20 +548,20 @@ static void handle_bb(Context* ctx, const Node* old) {
             const Type* alloca_type_t = source->type;
             //deconstruct_qualified_type(&alloca_type_t);
             if (kv_type != source->type && !is_reinterpret_cast_legal(kv_type, alloca_type_t)) {
-                log_node(DEBUG, ptr);
-                debug_print(" has a known value in %s, but it's type ", get_abstraction_name_safe(edge.src->node));
-                log_node(DEBUG, kv_type);
-                debug_print(" cannot be reinterpreted into the alloca type ");
-                log_node(DEBUG, source->type);
-                debug_print("\n.");
+                log_node(DEBUGVV, ptr);
+                log_string(DEBUGVV, " has a known value in %s, but it's type ", get_abstraction_name_safe(edge.src->node));
+                log_node(DEBUGVV, kv_type);
+                log_string(DEBUGVV, " cannot be reinterpreted into the alloca type ");
+                log_node(DEBUGVV, source->type);
+                log_string(DEBUGVV, "\n.");
                 goto next_potential_param;
             }
 
             uk.ptr_has_leaked |= k->ptr_has_leaked;
         }
 
-        log_node(DEBUG, ptr);
-        debug_print(" has a known value in all predecessors! Turning it into a new parameter.\n");
+        log_node(DEBUGVV, ptr);
+        log_string(DEBUGVV, " has a known value in all predecessors! Turning it into a new parameter.\n");
 
         // assert(!is_qualified_type_uniform(source->type));
         const Node* nparam = param(a, qualified_type_helper(source->type, false), unique_name(a, "ssa_phi"));
