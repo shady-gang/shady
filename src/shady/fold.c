@@ -162,6 +162,16 @@ static inline const Node* fold_simplify_math(const Node* node) {
                 return quote_single(arena, payload.operands.nodes[0]);
             break;
         }
+        case eq_op: {
+            if (payload.operands.nodes[0] == payload.operands.nodes[1])
+                return quote_single(arena, true_lit(arena));
+            break;
+        }
+        case neq_op: {
+            if (payload.operands.nodes[0] == payload.operands.nodes[1])
+                return quote_single(arena, false_lit(arena));
+            break;
+        }
         default: break;
     }
 
@@ -364,6 +374,13 @@ const Node* fold_node(IrArena* arena, const Node* node) {
             const Node* false_case = payload.if_false;
             if (arena->config.optimisations.delete_unreachable_structured_cases && false_case && is_unreachable_case(false_case))
                 return block(arena, (Block) { .inside = payload.if_true, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+            if (arena->config.optimisations.fold_static_control_flow) {
+                if (payload.condition == true_lit(arena)) {
+                    return block(arena, (Block) { .inside = payload.if_true, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+                } else if (payload.condition == false_lit(arena) && false_case) {
+                    return block(arena, (Block) { .inside = false_case, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+                }
+            }
             break;
         }
         case Match_TAG: {

@@ -48,7 +48,7 @@ void bind_variables2(BodyBuilder* bb, Nodes vars, const Node* instr);
 // let K in case(z) =>
 // ...
 // R[a->x, b->y, c->z]
-Nodes flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* bb) {
+const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* bb) {
     assert(instruction->tag == Block_TAG);
     // follow the terminator of the block until we hit a yield()
     const Node* const lam = instruction->payload.block.inside;
@@ -63,9 +63,13 @@ Nodes flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* bb) {
                 continue;
             }
             case Terminator_Yield_TAG: {
-                return terminator->payload.yield.args;
+                return quote_helper(arena, terminator->payload.yield.args);
             }
-                // if we see anything else, give up
+            case Terminator_Return_TAG:
+            case Terminator_TailCall_TAG: {
+                return terminator;
+            }
+            // if we see anything else, give up
             default: {
                 assert(false && "invalid block");
             }
@@ -117,7 +121,9 @@ const Node* process(Context* ctx, const Node* old) {
             // optimization: fold blocks
             if (instruction->tag == Block_TAG) {
                 *ctx->todo = true;
-                instruction = quote_helper(a, flatten_block(a, instruction, bb));
+                instruction = flatten_block(a, instruction, bb);
+                if (is_terminator(instruction))
+                    return finish_body(bb, instruction);
             }
             Nodes ovars = old->payload.let.variables;
             // optimization: eliminate unecessary quotes by rewriting variables into their values directly
