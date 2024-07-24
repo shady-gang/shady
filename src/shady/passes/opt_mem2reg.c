@@ -182,7 +182,10 @@ static void wipe_all_leaked_pointers(KnowledgeBase* kb) {
     PtrKnowledge* k;
     while (dict_iter(kb->map, &i, &ptr, &k)) {
         if (k->ptr_has_leaked) {
-            k->ptr_value = NULL;
+            if (k->state == PSKnownValue || k->state == PSKnownSubElement) {
+                k->ptr_value = NULL;
+                k->state = PSUnknown;
+            }
             debugvv_print("mem2reg: wiping the know ptr value for ");
             log_node(DEBUGVV, ptr);
             debugvv_print(".\n");
@@ -323,6 +326,7 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
     switch (is_instruction(oinstruction)) {
         case NotAnInstruction: assert(is_instruction(oinstruction));
         case Instruction_Call_TAG:
+            mark_values_as_escaping(ctx, kb, oinstruction->payload.call.args);
             wipe_all_leaked_pointers(kb);
             break;
         case Instruction_PrimOp_TAG: {
