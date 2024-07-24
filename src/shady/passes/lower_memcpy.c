@@ -51,8 +51,8 @@ static const Node* process(Context* ctx, const Node* old) {
                     });
                     src_addr = gen_reinterpret_cast(bb, src_addr_type, src_addr);
 
-                    const Node* num = rewrite_node(&ctx->rewriter, old_ops.nodes[2]);
-                    const Node* num_in_bytes = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num));
+                    const Node* num_in_bytes = convert_int_extend_according_to_dst_t(bb, size_t_type(a), rewrite_node(&ctx->rewriter, old_ops.nodes[2]));
+                    const Node* num_in_words = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num_in_bytes));
 
                     const Node* index = param(a, qualified_type_helper(uint32_type(a), false), "memcpy_i");
                     BodyBuilder* loop_bb = begin_body(a);
@@ -60,7 +60,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, empty(a)), loaded_word);
                     const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
                     bind_instruction(loop_bb, if_instr(a, (If) {
-                        .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)),
+                        .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_words)),
                         .yield_types = empty(a),
                         .if_true = case_(a, empty(a), merge_continue(a, (MergeContinue) {.args = singleton(next_index)})),
                         .if_false = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)}))

@@ -111,6 +111,10 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
     }
 }
 
+const Node* size_t_type(IrArena* a) {
+    return int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
+}
+
 const Node* size_t_literal(IrArena* a, uint64_t value) {
     return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value = value });
 }
