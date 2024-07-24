@@ -276,7 +276,9 @@ static void mark_value_as_escaping(Context* ctx, KnowledgeBase* kb, const Node* 
         log_node(DEBUGVV, value);
         log_string(DEBUGVV, " as leaking.\n");
         k->ptr_has_leaked = true;
-        if (k->alias_old_address)
+        // if (k->state == PSKnownValue)
+        //     mark_value_as_escaping(ctx, kb, k->ptr_value);
+        if (k->state == PSKnownAlias)
             mark_value_as_escaping(ctx, kb, k->alias_old_address);
     }
     switch (is_value(value)) {
@@ -342,9 +344,10 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                     //k->source->type = qualified_type_helper(t, u);
                     k->source->type = rewrite_node(r, first(payload.type_arguments));
 
+                    k->state = PSUnknown;
                     // TODO: we can only enable this safely once we properly deal with control-flow
-                    k->state = PSKnownValue;
-                    k->ptr_value = undef(a, (Undef) { .type = rewrite_node(r, first(payload.type_arguments)) });
+                    // k->state = PSKnownValue;
+                    // k->ptr_value = undef(a, (Undef) { .type = rewrite_node(r, first(payload.type_arguments)) });
                     return recreate_node_identity(r, oinstruction);
                 }
                 case load_op: {
@@ -368,6 +371,8 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                         k->state = PSKnownValue;
                         k->ptr_value = rewrite_node(r, payload.operands.nodes[1]);
                     }
+                    mark_value_as_escaping(ctx, kb, payload.operands.nodes[1]);
+                    wipe_all_leaked_pointers(kb);
                     // let's take care of dead stores another time
                     return recreate_node_identity(r, oinstruction);
                 }
