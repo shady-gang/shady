@@ -428,10 +428,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             outputs.binding[0] = NoBinding;
             return;
         }
-        case memcpy_op: {
-            print(p, "\nmemcpy(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[0])), to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[1])), to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[2])));
-            return;
-        }
         case size_of_op:
             term = term_from_cvalue(format_string_arena(emitter->arena->arena, "sizeof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL)));
             break;
@@ -872,6 +868,7 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
 
     switch (is_instruction(instruction)) {
         case NotAnInstruction: assert(false);
+        case Instruction_LetMut_TAG:       error("front-end only!");
         case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
         case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;
         case Instruction_If_TAG:           emit_if    (emitter, p, instruction, outputs); break;
@@ -880,6 +877,21 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_Control_TAG:      error("TODO")
         case Instruction_Block_TAG:        error("Should be eliminated by the compiler")
         case Instruction_Comment_TAG:      print(p, "/* %s */", instruction->payload.comment.string); break;
-        default:                           error("TODO");
+        case Instruction_Load_TAG:
+            break;
+        case Instruction_Store_TAG:
+            break;
+        case Instruction_Lea_TAG:
+            break;
+        case Instruction_CopyBytes_TAG: {
+            CopyBytes payload = instruction->payload.copy_bytes;
+            print(p, "\nmemcpy(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, p, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, p, payload.src)), to_cvalue(emitter, c_emit_value(emitter, p, payload.count)));
+            return;
+        }
+        case Instruction_FillBytes_TAG:{
+            FillBytes payload = instruction->payload.fill_bytes;
+            print(p, "\nmemset(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, p, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, p, payload.src)), to_cvalue(emitter, c_emit_value(emitter, p, payload.count)));
+            return;
+        }
     }
 }

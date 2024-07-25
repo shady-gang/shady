@@ -811,34 +811,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 })
             });
         }
-        case memcpy_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 3);
-            const Type* dst_t = prim_op.operands.nodes[0]->type;
-            deconstruct_qualified_type(&dst_t);
-            assert(dst_t->tag == PtrType_TAG);
-            const Type* src_t = prim_op.operands.nodes[1]->type;
-            deconstruct_qualified_type(&src_t);
-            assert(src_t->tag == PtrType_TAG);
-            const Type* cnt_t = prim_op.operands.nodes[2]->type;
-            deconstruct_qualified_type(&cnt_t);
-            assert(cnt_t->tag == Int_TAG);
-            return empty_multiple_return_type(arena);
-        }
-        case memset_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 3);
-            const Type* dst_t = prim_op.operands.nodes[0]->type;
-            deconstruct_qualified_type(&dst_t);
-            assert(dst_t->tag == PtrType_TAG);
-            const Type* src_t = prim_op.operands.nodes[1]->type;
-            deconstruct_qualified_type(&src_t);
-            assert(src_t);
-            const Type* cnt_t = prim_op.operands.nodes[2]->type;
-            deconstruct_qualified_type(&cnt_t);
-            assert(cnt_t->tag == Int_TAG);
-            return empty_multiple_return_type(arena);
-        }
         case align_of_op:
         case size_of_op: {
             assert(prim_op.type_arguments.count == 1);
@@ -1281,7 +1253,7 @@ const Type* check_type_fill_bytes(IrArena* a, FillBytes fill_bytes) {
     const Type* dst_t = fill_bytes.dst->type;
     deconstruct_qualified_type(&dst_t);
     assert(dst_t->tag == PtrType_TAG);
-    const Type* src_t = fill_bytes.count;
+    const Type* src_t = fill_bytes.src->type;
     deconstruct_qualified_type(&src_t);
     assert(src_t);
     const Type* cnt_t = fill_bytes.count->type;

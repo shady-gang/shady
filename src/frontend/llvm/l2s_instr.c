@@ -523,12 +523,12 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 if (string_starts_with(intrinsic, "llvm.memcpy")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     num_results = 0;
-                    r = prim_op_helper(a, memcpy_op, empty(a), nodes(a, 3, ops.nodes));
+                    r = copy_bytes(a, (CopyBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2] });
                     break;
                 } else if (string_starts_with(intrinsic, "llvm.memset")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     num_results = 0;
-                    r = prim_op_helper(a, memset_op, empty(a), nodes(a, 3, ops.nodes));
+                    r = fill_bytes(a, (FillBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2] });
                     break;
                 } else if (string_starts_with(intrinsic, "llvm.fmuladd")) {
                     Nodes ops = convert_operands(p, num_ops, instr);

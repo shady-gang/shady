@@ -234,16 +234,6 @@
       "class": "memory"
     },
     {
-      "name": "memcpy",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
-      "name": "memset",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
       "name": "size_of",
       "class": "memory_layout"
     },

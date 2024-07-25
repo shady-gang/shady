@@ -20,14 +20,14 @@ static void search_for_memstuff(Visitor* v, const Node* n) {
             case alloca_op:
             case alloca_logical_op:
             case load_op:
-            case store_op:
-            case memcpy_op: {
+            case store_op: {
                 found_memstuff = true;
                 break;
             }
             default: break;
         }
-    }
+    } else if (n->tag == CopyBytes_TAG || n->tag == FillBytes_TAG)
+        found_memstuff = true;
 
     visit_node_operands(v, NcDeclaration, n);
 }

@@ -1111,10 +1111,10 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             } else {
                 cnt = get_def_ssa_value(parser, instruction[3]);
             }
-            bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                .op = memcpy_op,
-                .type_arguments = empty(parser->arena),
-                .operands = mk_nodes(parser->arena, dst, src, cnt)
+            bind_instruction_outputs_count(parser->current_block.builder, copy_bytes(parser->arena, (CopyBytes) {
+                .src = src,
+                .dst = dst,
+                .count = cnt,
             }), 0, NULL);
             break;
         }
