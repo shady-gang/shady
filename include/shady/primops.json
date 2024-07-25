@@ -349,5 +349,49 @@
       "name": "mask_is_thread_active",
       "class": "mask"
     }
+  ],
+  "nodes": [
+    {
+      "name": "Load",
+      "class": "instruction",
+      "ops": [
+        { "name": "ptr", "class": "value" }
+      ]
+    },
+    {
+      "name": "Store",
+      "class": "instruction",
+      "ops": [
+        { "name": "ptr", "class": "value" },
+        { "name": "value", "class": "value" }
+      ]
+    },
+    {
+      "name": "Lea",
+      "class": "instruction",
+      "ops": [
+        { "name": "ptr", "class": "value" },
+        { "name": "offset", "class": "value" },
+        { "name": "indices", "class": "value", "list": true }
+      ]
+    },
+    {
+      "name": "CopyBytes",
+      "class": "instruction",
+      "ops": [
+        { "name": "dst", "class": "value" },
+        { "name": "src", "class": "value" },
+        { "name": "count", "class": "value" }
+      ]
+    },
+    {
+      "name": "FillBytes",
+      "class": "instruction",
+      "ops": [
+        { "name": "dst", "class": "value" },
+        { "name": "src", "class": "value" },
+        { "name": "count", "class": "value" }
+      ]
+    }
   ]
 }

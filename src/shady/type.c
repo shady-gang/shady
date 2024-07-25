@@ -1204,6 +1204,92 @@ const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
     return empty_multiple_return_type(arena);
 }
 
+const Type* check_type_load(IrArena* a, Load load) {
+    const Node* ptr_type = load.ptr->type;
+    bool ptr_uniform = deconstruct_qualified_type(&ptr_type);
+    size_t width = deconstruct_maybe_packed_type(&ptr_type);
+
+    assert(ptr_type->tag == PtrType_TAG);
+    const PtrType* node_ptr_type_ = &ptr_type->payload.ptr_type;
+    const Type* elem_type = node_ptr_type_->pointed_type;
+    elem_type = maybe_packed_type_helper(elem_type, width);
+    return qualified_type_helper(elem_type, ptr_uniform && is_addr_space_uniform(a, ptr_type->payload.ptr_type.address_space));
+}
+
+const Type* check_type_store(IrArena* a, Store store) {
+    const Node* ptr_type = store.ptr->type;
+    bool ptr_uniform = deconstruct_qualified_type(&ptr_type);
+    size_t width = deconstruct_maybe_packed_type(&ptr_type);
+    assert(ptr_type->tag == PtrType_TAG);
+    const PtrType* ptr_type_payload = &ptr_type->payload.ptr_type;
+    const Type* elem_type = ptr_type_payload->pointed_type;
+    assert(elem_type);
+    elem_type = maybe_packed_type_helper(elem_type, width);
+    // we don't enforce uniform stores - but we care about storing the right thing :)
+    const Type* val_expected_type = qualified_type(a, (QualifiedType) {
+        .is_uniform = !a->config.is_simt,
+        .type = elem_type
+    });
+
+    assert(is_subtype(val_expected_type, store.value->type));
+    return empty_multiple_return_type(a);
+}
+
+const Type* check_type_lea(IrArena* a, Lea lea) {
+    const Type* base_ptr_type = lea.ptr->type;
+    bool uniform = deconstruct_qualified_type(&base_ptr_type);
+    assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
+    const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
+
+    assert(lea.offset);
+    const Type* offset_type = lea.offset->type;
+    bool offset_uniform = deconstruct_qualified_type(&offset_type);
+    assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
+
+    const IntLiteral* lit = resolve_to_int_literal(lea.offset);
+    bool offset_is_zero = lit && lit->value == 0;
+    assert(offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference && "if an offset is used, the base cannot be a reference");
+    assert(offset_is_zero || is_data_type(pointee_type) && "if an offset is used, the base must point to a data type");
+    uniform &= offset_uniform;
+
+    enter_composite(&pointee_type, &uniform, lea.indices, true);
+
+    return qualified_type(a, (QualifiedType) {
+        .is_uniform = uniform,
+        .type = ptr_type(a, (PtrType) {
+            .pointed_type = pointee_type,
+            .address_space = base_ptr_type->payload.ptr_type.address_space,
+            .is_reference = base_ptr_type->payload.ptr_type.is_reference
+        })
+    });
+}
+
+const Type* check_type_copy_bytes(IrArena* a, CopyBytes copy_bytes) {
+    const Type* dst_t = copy_bytes.dst->type;
+    deconstruct_qualified_type(&dst_t);
+    assert(dst_t->tag == PtrType_TAG);
+    const Type* src_t = copy_bytes.src->type;
+    deconstruct_qualified_type(&src_t);
+    assert(src_t);
+    const Type* cnt_t = copy_bytes.count->type;
+    deconstruct_qualified_type(&cnt_t);
+    assert(cnt_t->tag == Int_TAG);
+    return empty_multiple_return_type(a);
+}
+
+const Type* check_type_fill_bytes(IrArena* a, FillBytes fill_bytes) {
+    const Type* dst_t = fill_bytes.dst->type;
+    deconstruct_qualified_type(&dst_t);
+    assert(dst_t->tag == PtrType_TAG);
+    const Type* src_t = fill_bytes.count;
+    deconstruct_qualified_type(&src_t);
+    assert(src_t);
+    const Type* cnt_t = fill_bytes.count->type;
+    deconstruct_qualified_type(&cnt_t);
+    assert(cnt_t->tag == Int_TAG);
+    return empty_multiple_return_type(a);
+}
+
 const Type* check_type_let(IrArena* arena, Let let) {
     Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
     Nodes param_types = get_param_types(arena, let.tail->payload.case_.params);
