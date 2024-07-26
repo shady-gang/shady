@@ -230,10 +230,6 @@
       "side-effects": true
     },
     {
-      "name": "lea",
-      "class": "memory"
-    },
-    {
       "name": "size_of",
       "class": "memory_layout"
     },

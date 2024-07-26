@@ -414,32 +414,6 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* exp
 
             goto rebuild;
         }
-        case lea_op: {
-            assert(old_operands.count >= 2);
-            assert(type_args.count <= 1);
-            new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
-            new_operands[1] = infer(ctx, old_operands.nodes[1], NULL);
-            for (size_t i = 2; i < old_operands.count; i++) {
-                new_operands[i] = infer(ctx, old_operands.nodes[i], NULL);
-            }
-
-            const Type* src_ptr = remove_uniformity_qualifier(new_operands[0]->type);
-            const Type* base_datatype = src_ptr;
-            assert(base_datatype->tag == PtrType_TAG);
-            assert(type_args.count == 0);
-
-            Nodes new_ops = nodes(a, old_operands.count, new_operands);
-
-            const Node* offset = new_operands[1];
-
-            const Node* result = first(bind_instruction(bb, prim_op(a, (PrimOp) {
-                .op = lea_op,
-                .type_arguments = empty(a),
-                .operands = new_ops
-            })));
-
-            return yield_values_and_wrap_in_block(bb, singleton(result));
-        }
         case empty_mask_op:
         case subgroup_active_mask_op:
         case subgroup_elect_first_op:
@@ -623,6 +597,18 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes
         case Control_TAG:      return infer_control(ctx, node, expected_types);
         case Block_TAG:        return infer_block  (ctx, node, expected_types);
         case Instruction_Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
+        case Instruction_Lea_TAG: {
+            Lea payload = node->payload.lea;
+            const Node* ptr = infer(ctx, payload.ptr, NULL);
+            const Node* offset = infer(ctx, payload.offset, NULL);
+            Nodes indices = infer_nodes(ctx, payload.indices);
+
+            const Type* src_ptr = remove_uniformity_qualifier(ptr->type);
+            const Type* base_datatype = src_ptr;
+            assert(base_datatype->tag == PtrType_TAG);
+
+            return lea(ctx->rewriter.dst_arena, (Lea) { ptr, offset, indices });
+        }
         default:               error("TODO")
         case NotAnInstruction: error("not an instruction");
     }

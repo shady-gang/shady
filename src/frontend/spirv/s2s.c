@@ -419,6 +419,7 @@ Nodes get_args_from_phi(SpvParser* parser, SpvId block, SpvId predecessor) {
 }
 
 size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
+    IrArena* a = parser->arena;
     uint32_t* instruction = parser->words + instruction_offset;
     SpvOp op = instruction[0] & 0xFFFF;
     int size = (int) ((instruction[0] >> 16u) & 0xFFFFu);
@@ -997,19 +998,20 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             bool has_element = op == SpvOpInBoundsPtrAccessChain || op == SpvOpPtrAccessChain;
             int indices_start = has_element ? 5 : 4;
             int num_indices = size - indices_start;
-            LARRAY(const Node*, ops, 2 + num_indices);
-            ops[0] = get_def_ssa_value(parser, instruction[3]);
+            LARRAY(const Node*, indices, num_indices);
+            const Node* ptr = get_def_ssa_value(parser, instruction[3]);
+            const Node* offset = NULL;
             if (has_element)
-                ops[1] = get_def_ssa_value(parser, instruction[4]);
+                offset = get_def_ssa_value(parser, instruction[4]);
             else
-                ops[1] = int32_literal(parser->arena, 0);
+                offset = int32_literal(parser->arena, 0);
             for (size_t i = 0; i < num_indices; i++)
-                ops[2 + i] = get_def_ssa_value(parser, instruction[indices_start + i]);
+                indices[i] = get_def_ssa_value(parser, instruction[indices_start + i]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                    .op = lea_op,
-                    .type_arguments = empty(parser->arena),
-                    .operands = nodes(parser->arena, 2 + num_indices, ops)
+            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, lea(a, (Lea) {
+                .ptr = ptr,
+                .offset = offset,
+                .indices = nodes(a, num_indices, indices),
             }), 1, NULL));
             break;
         }

@@ -776,41 +776,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 })
             });
         }
-        case lea_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count >= 2);
-
-            const Node* base = prim_op.operands.nodes[0];
-            bool uniform = is_qualified_type_uniform(base->type);
-
-            const Type* base_ptr_type = get_unqualified_type(base->type);
-            assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
-            const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
-
-            const Node* offset = prim_op.operands.nodes[1];
-            assert(offset);
-            const Type* offset_type = offset->type;
-            bool offset_uniform = deconstruct_qualified_type(&offset_type);
-            assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
-
-            const IntLiteral* lit = resolve_to_int_literal(offset);
-            bool offset_is_zero = lit && lit->value == 0;
-            assert(offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference && "if an offset is used, the base cannot be a reference");
-            assert(offset_is_zero || is_data_type(pointee_type) && "if an offset is used, the base must point to a data type");
-            uniform &= offset_uniform;
-
-            Nodes indices = nodes(arena, prim_op.operands.count - 2, &prim_op.operands.nodes[2]);
-            enter_composite(&pointee_type, &uniform, indices, true);
-
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = uniform,
-                .type = ptr_type(arena, (PtrType) {
-                    .pointed_type = pointee_type,
-                    .address_space = base_ptr_type->payload.ptr_type.address_space,
-                    .is_reference = base_ptr_type->payload.ptr_type.is_reference
-                })
-            });
-        }
         case align_of_op:
         case size_of_op: {
             assert(prim_op.type_arguments.count == 1);

@@ -192,33 +192,39 @@ static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
     AddressSpace src_as = t->payload.ptr_type.address_space;
     while (ptr->tag == Variablez_TAG) {
         const Node* def = get_var_def(ptr->payload.varz);
-        if (def->tag != PrimOp_TAG)
-            break;
-        PrimOp instruction = def->payload.prim_op;
-        switch (instruction.op) {
-            case reinterpret_op: {
-                distance++;
-                ptr = first(instruction.operands);
-                continue;
+        switch (def->tag) {
+            case PrimOp_TAG: {
+                PrimOp instruction = def->payload.prim_op;
+                switch (instruction.op) {
+                    case reinterpret_op: {
+                        distance++;
+                        ptr = first(instruction.operands);
+                        continue;
+                    }
+                    case convert_op: {
+                        // only conversions to generic pointers are acceptable
+                        if (first(instruction.type_arguments)->tag != PtrType_TAG)
+                            break;
+                        assert(!specialize_generic && "something should not be converted to generic twice!");
+                        specialize_generic = true;
+                        ptr = first(instruction.operands);
+                        src_as = get_unqualified_type(ptr->type)->payload.ptr_type.address_space;
+                        continue;
+                    }
+                    default: break;
+                }
+                break;
             }
-            case convert_op: {
-                // only conversions to generic pointers are acceptable
-                if (first(instruction.type_arguments)->tag != PtrType_TAG)
-                    break;
-                assert(!specialize_generic && "something should not be converted to generic twice!");
-                specialize_generic = true;
-                ptr = first(instruction.operands);
-                src_as = get_unqualified_type(ptr->type)->payload.ptr_type.address_space;
-                continue;
-            }
-            case lea_op: {
-                Nodes ops = instruction.operands;
-                for (size_t i = 1; i < ops.count; i++) {
-                    if (!is_zero(ops.nodes[i]))
+            case Lea_TAG: {
+                Lea payload = def->payload.lea;
+                if (!is_zero(payload.offset))
+                    goto outer_break;
+                for (size_t i = 0; i < payload.indices.count; i++) {
+                    if (!is_zero(payload.indices.nodes[i]))
                         goto outer_break;
                 }
                 distance++;
-                ptr = first(ops);
+                ptr = payload.ptr;
                 continue;
                 outer_break:
                 break;
@@ -262,8 +268,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     bool rebuild = false;
     switch (payload.op) {
         case store_op:
-        case load_op:
-        case lea_op: {
+        case load_op: {
             simplify_ptr_operand(arena, bb, &payload, &rebuild, 0);
             break;
         }
@@ -297,32 +302,49 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
                 return quote_single(arena, value);
             break;
         }
-        case store_op: {
-            if (first(payload.operands)->tag == Undef_TAG) {
-                return quote_helper(arena, empty(arena));
-            }
-            break;
-        }
-        case load_op: {
-            if (first(payload.operands)->tag == Undef_TAG) {
-                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
-            }
-            break;
-        }
-        case reinterpret_op:
         case convert_op:
-            if (first(payload.operands)->tag == Undef_TAG) {
-                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
-            }
+        case reinterpret_op: {
             // get rid of identity casts
             if (payload.type_arguments.nodes[0] == get_unqualified_type(payload.operands.nodes[0]->type))
                 return quote_single(arena, payload.operands.nodes[0]);
             break;
-        case lea_op:
-            if (first(payload.operands)->tag == Undef_TAG) {
-                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+        }
+        default: break;
+    }
+    return node;
+}
+
+static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
+    switch (node->tag) {
+        case PrimOp_TAG: {
+            PrimOp payload = node->payload.prim_op;
+            switch (payload.op) {
+                case store_op: {
+                    if (first(payload.operands)->tag == Undef_TAG)
+                        return quote_helper(arena, empty(arena));
+                    break;
+                }
+                case load_op: {
+                    if (first(payload.operands)->tag == Undef_TAG)
+                        return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+                    break;
+                }
+                case reinterpret_op:
+                case convert_op: {
+                    if (first(payload.operands)->tag == Undef_TAG)
+                        return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+                    break;
+                }
+                default: break;
             }
             break;
+        }
+        case Lea_TAG: {
+            Lea payload = node->payload.lea;
+            if (payload.ptr->tag == Undef_TAG)
+                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+            break;
+        }
         default: break;
     }
     return node;
@@ -335,9 +357,10 @@ static bool is_unreachable_case(const Node* c) {
 }
 
 const Node* fold_node(IrArena* arena, const Node* node) {
-    const Node* folded = node;
+    const Node* const original_node = node;
+    node = fold_memory_poison(arena, node);
     switch (node->tag) {
-        case PrimOp_TAG: folded = fold_prim_op(arena, node); break;
+        case PrimOp_TAG: node = fold_prim_op(arena, node); break;
         case Block_TAG: {
             const Node* lam = node->payload.block.inside;
             const Node* body = lam->payload.case_.body;
@@ -357,11 +380,11 @@ const Node* fold_node(IrArena* arena, const Node* node) {
                             only_forwards &= yield_args.nodes[i] == let_case_params.nodes[i];
                         }
                         if (only_forwards) {
-                            debugv_print("Fold: simplify ");
-                            log_node(DEBUGV, node);
-                            debugv_print(" into just ");
-                            log_node(DEBUGV, instr);
-                            debugv_print(".\n");
+                            log_string(DEBUGVV, "Fold: simplify ");
+                            log_node(DEBUGVV, node);
+                            log_string(DEBUGVV, " into just ");
+                            log_node(DEBUGVV, instr);
+                            log_string(DEBUGVV, ".\n");
                             return instr;
                         }
                     }
@@ -420,12 +443,12 @@ const Node* fold_node(IrArena* arena, const Node* node) {
     }
 
     // catch bad folding rules that mess things up
-    if (is_value(node)) assert(is_value(folded));
-    if (is_instruction(node)) assert(is_instruction(folded));
-    if (is_terminator(node)) assert(is_terminator(folded));
+    if (is_value(original_node)) assert(is_value(node));
+    if (is_instruction(original_node)) assert(is_instruction(node));
+    if (is_terminator(original_node)) assert(is_terminator(node));
 
     if (node->type)
-        assert(is_subtype(node->type, folded->type));
+        assert(is_subtype(original_node->type, node->type));
 
-    return folded;
+    return node;
 }

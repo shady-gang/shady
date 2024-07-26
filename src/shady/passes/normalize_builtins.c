@@ -39,16 +39,14 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
         case Variablez_TAG: {
             return get_req_cast(ctx, get_var_def(src->payload.varz));
         }
-        case PrimOp_TAG: {
-            PrimOp prim_op = src->payload.prim_op;
-            if (prim_op.op == lea_op) {
-                const Type* src_req_cast = get_req_cast(ctx, first(prim_op.operands));
-                if (src_req_cast) {
-                    bool u = deconstruct_qualified_type(&src_req_cast);
-                    enter_composite(&src_req_cast, &u, nodes(a, prim_op.operands.count - 2, &prim_op.operands.nodes[2]), false);
-                    return src_req_cast;
-                }
+        case Lea_TAG: {
+            const Type* src_req_cast = get_req_cast(ctx, src->payload.lea.ptr);
+            if (src_req_cast) {
+                bool u = deconstruct_qualified_type(&src_req_cast);
+                enter_composite(&src_req_cast, &u, src->payload.lea.indices, false);
+                return src_req_cast;
             }
+            break;
         }
         default: break;
     }

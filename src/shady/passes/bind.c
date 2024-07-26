@@ -97,10 +97,7 @@ static const Node* get_node_address_safe(Context* ctx, const Node* node) {
                 if (src_ptr == NULL)
                     return NULL;
                 const Node* index = rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]);
-                return prim_op(a, (PrimOp) {
-                    .op = lea_op,
-                    .operands = nodes(a, 3, (const Node* []) {src_ptr, int32_literal(a, 0), index })
-                });
+                return lea(a, (Lea) { .ptr = src_ptr, .offset = int32_literal(a, 0), singleton(index) });
             } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == deref_op) {
                 return rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands));
             }

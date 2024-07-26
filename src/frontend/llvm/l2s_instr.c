@@ -301,7 +301,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 ptr = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(typed_ptr), singleton(ptr)), singleton(typed_ptr), NULL));
             }
             ops = change_node_at_index(a, ops, 0, ptr);
-            r = prim_op_helper(a, lea_op, empty(a), ops);
+            r = lea(a, (Lea) { ops.nodes[0], ops.nodes[1], nodes(a, ops.count - 2, &ops.nodes[2])});
             if (UNTYPED_POINTERS) {
                 const Type* element_t = convert_type(p, LLVMGetGEPSourceElementType(instr));
                 const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));

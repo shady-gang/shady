@@ -383,27 +383,6 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             results[0] = result;
             return;
         }
-        case lea_op: {
-            SpvId base = emit_value(emitter, bb_builder, first(args));
-
-            LARRAY(SpvId, indices, args.count - 2);
-            for (size_t i = 2; i < args.count; i++)
-                indices[i - 2] = args.nodes[i] ? emit_value(emitter, bb_builder, args.nodes[i]) : 0;
-
-            const IntLiteral* known_offset = resolve_to_int_literal(args.nodes[1]);
-            if (known_offset && known_offset->value == 0) {
-                const Type* target_type = instr->type;
-                SpvId result = spvb_access_chain(bb_builder, emit_type(emitter, target_type), base, args.count - 2, indices);
-                assert(results_count == 1);
-                results[0] = result;
-            } else {
-                const Type* target_type = instr->type;
-                SpvId result = spvb_ptr_access_chain(bb_builder, emit_type(emitter, target_type), base, emit_value(emitter, bb_builder, args.nodes[1]), args.count - 2, indices);
-                assert(results_count == 1);
-                results[0] = result;
-            }
-            return;
-        }
         case select_op: {
             SpvId cond = emit_value(emitter, bb_builder, first(args));
             SpvId truv = emit_value(emitter, bb_builder, args.nodes[1]);
@@ -649,6 +628,28 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Match_TAG:                emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
         case Loop_TAG:                  emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
         case Comment_TAG: break;
+        case Lea_TAG: {
+            Lea payload = instruction->payload.lea;
+            SpvId base = emit_value(emitter, *bb_builder, payload.ptr);
+
+            LARRAY(SpvId, indices, payload.indices.count);
+            for (size_t i = 0; i < payload.indices.count; i++)
+                indices[i] = payload.indices.nodes[i] ? emit_value(emitter, *bb_builder, payload.indices.nodes[i]) : 0;
+
+            const IntLiteral* known_offset = resolve_to_int_literal(payload.offset);
+            if (known_offset && known_offset->value == 0) {
+                const Type* target_type = instruction->type;
+                SpvId result = spvb_access_chain(*bb_builder, emit_type(emitter, target_type), base, payload.indices.count, indices);
+                assert(results_count == 1);
+                results[0] = result;
+            } else {
+                const Type* target_type = instruction->type;
+                SpvId result = spvb_ptr_access_chain(*bb_builder, emit_type(emitter, target_type), base, emit_value(emitter, *bb_builder, payload.offset), payload.indices.count, indices);
+                assert(results_count == 1);
+                results[0] = result;
+            }
+            return;
+        }
         default: error("TODO: unhandled instruction");
     }
 }

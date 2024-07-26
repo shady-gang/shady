@@ -26,7 +26,7 @@ static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
     }
 }
 
-static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset, size_t n_indices, const Node** indices) {
+static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset, Nodes indices) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
     assert(pointer_type->tag == PtrType_TAG);
@@ -48,7 +48,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
         ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset});
     }
 
-    for (size_t i = 0; i < n_indices; i++) {
+    for (size_t i = 0; i < indices.count; i++) {
         assert(pointer_type->tag == PtrType_TAG);
         const Type* pointed_type = pointer_type->payload.ptr_type.pointed_type;
         switch (pointed_type->tag) {
@@ -57,7 +57,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
 
                 const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
 
-                const Node* new_index = convert_int_extend_according_to_src_t(bb, emulated_ptr_t, indices[i]);
+                const Node* new_index = convert_int_extend_according_to_src_t(bb, emulated_ptr_t, indices.nodes[i]);
                 const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) {new_index, element_t_size});
 
                 ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset });
@@ -77,7 +77,7 @@ static const Node* lower_ptr_arithm(Context* ctx, BodyBuilder* bb, const Type* p
             case RecordType_TAG: {
                 Nodes member_types = pointed_type->payload.record_type.members;
 
-                const IntLiteral* selector_value = resolve_to_int_literal(indices[i]);
+                const IntLiteral* selector_value = resolve_to_int_literal(indices.nodes[i]);
                 assert(selector_value && "selector value must be known for LEA into a record");
                 size_t n = selector_value->value;
                 assert(n < member_types.count);
@@ -102,39 +102,34 @@ static const Node* process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
 
     switch (old->tag) {
-        case PrimOp_TAG: {
-            switch (old->payload.prim_op.op) {
-                case lea_op: {
-                    Nodes old_ops = old->payload.prim_op.operands;
-                    const Node* old_base = first(old_ops);
-                    const Type* old_base_ptr_t = old_base->type;
-                    deconstruct_qualified_type(&old_base_ptr_t);
-                    assert(old_base_ptr_t->tag == PtrType_TAG);
-                    const Node* old_result_t = old->type;
-                    deconstruct_qualified_type(&old_result_t);
-                    bool must_lower = false;
-                    // we have to lower generic pointers if we emulate them using ints
-                    must_lower |= ctx->config->lower.emulate_generic_ptrs && old_base_ptr_t->payload.ptr_type.address_space == AsGeneric;
-                    must_lower |= ctx->config->lower.emulate_physical_memory && !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
-                    if (!must_lower)
-                        break;
-                    BodyBuilder* bb = begin_body(a);
-                    Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
-                    const Node* cast_base = gen_reinterpret_cast(bb, emulated_ptr_t, first(new_ops));
-                    const Type* new_base_t = rewrite_node(&ctx->rewriter, old_base_ptr_t);
-                    const Node* result = lower_ptr_arithm(ctx, bb, new_base_t, cast_base, new_ops.nodes[1], new_ops.count - 2, &new_ops.nodes[2]);
-                    const Type* new_ptr_t = rewrite_node(&ctx->rewriter, old_result_t);
-                    const Node* cast_result = gen_reinterpret_cast(bb, new_ptr_t, result);
-                    return yield_values_and_wrap_in_block(bb, singleton(cast_result));
-                }
-                default: break;
-            }
-            break;
+        case Lea_TAG: {
+            Lea lea = old->payload.lea;
+            const Node* old_base = lea.ptr;
+            const Type* old_base_ptr_t = old_base->type;
+            deconstruct_qualified_type(&old_base_ptr_t);
+            assert(old_base_ptr_t->tag == PtrType_TAG);
+            const Node* old_result_t = old->type;
+            deconstruct_qualified_type(&old_result_t);
+            bool must_lower = false;
+            // we have to lower generic pointers if we emulate them using ints
+            must_lower |= ctx->config->lower.emulate_generic_ptrs && old_base_ptr_t->payload.ptr_type.address_space == AsGeneric;
+            must_lower |= ctx->config->lower.emulate_physical_memory && !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
+            if (!must_lower)
+                break;
+            BodyBuilder* bb = begin_body(a);
+            // Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
+            const Node* cast_base = gen_reinterpret_cast(bb, emulated_ptr_t, rewrite_node(r, lea.ptr));
+            const Type* new_base_t = rewrite_node(&ctx->rewriter, old_base_ptr_t);
+            const Node* result = lower_ptr_arithm(ctx, bb, new_base_t, cast_base, rewrite_node(r, lea.offset), rewrite_nodes(r, lea.indices));
+            const Type* new_ptr_t = rewrite_node(&ctx->rewriter, old_result_t);
+            const Node* cast_result = gen_reinterpret_cast(bb, new_ptr_t, result);
+            return yield_values_and_wrap_in_block(bb, singleton(cast_result));
         }
         default: break;
     }

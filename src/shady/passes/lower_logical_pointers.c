@@ -56,6 +56,19 @@ static const Node* process(Context* ctx, const Node* old) {
             payload.pointed_type = rewrite_node(r, payload.pointed_type);
             return ptr_type(a, payload);
         }
+        case Lea_TAG: {
+            Lea payload = old->payload.lea;
+            const Type* optr_t = payload.ptr->type;
+            deconstruct_qualified_type(&optr_t);
+            assert(optr_t->tag == PtrType_TAG);
+            const Type* expected_type = rewrite_node(r, optr_t);
+            const Node* ptr = rewrite_node(r, payload.ptr);
+            const Type* actual_type = get_unqualified_type(ptr->type);
+            BodyBuilder* bb = begin_body(a);
+            if (expected_type != actual_type)
+                ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
+            return bind_last_instruction_and_wrap_in_block(bb, lea(a, (Lea) { ptr, rewrite_node(r, payload.offset), rewrite_nodes(r, payload.indices)}));
+        }
         case PrimOp_TAG: {
             PrimOp payload = old->payload.prim_op;
             switch (payload.op) {
@@ -68,8 +81,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     break;
                 }
                 case load_op:
-                case store_op:
-                case lea_op: {
+                case store_op: {
                     const Node* optr = first(payload.operands);
                     const Type* optr_t = optr->type;
                     deconstruct_qualified_type(&optr_t);

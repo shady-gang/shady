@@ -91,12 +91,7 @@ void gen_store(BodyBuilder* instructions, const Node* ptr, const Node* value) {
 }
 
 const Node* gen_lea(BodyBuilder* bb, const Node* base, const Node* offset, Nodes selectors) {
-    LARRAY(const Node*, ops, 2 + selectors.count);
-    ops[0] = base;
-    ops[1] = offset;
-    for (size_t i = 0; i < selectors.count; i++)
-        ops[2 + i] = selectors.nodes[i];
-    return gen_primop_ce(bb, lea_op, 2 + selectors.count, ops);
+    return first(bind_instruction(bb, lea(bb->arena, (Lea) { base, offset, selectors })));
 }
 
 const Node* gen_extract(BodyBuilder* bb, const Node* base, Nodes selectors) {

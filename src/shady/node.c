@@ -90,6 +90,19 @@ const Node* chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
     while (true) {
         ptr = resolve_node_to_definition(ptr, config);
         switch (ptr->tag) {
+            case Lea_TAG: {
+                Lea lea = ptr->payload.lea;
+                if (!is_zero(lea.offset))
+                    goto outer_break;
+                for (size_t i = 0; i < lea.indices.count; i++) {
+                    if (!is_zero(lea.indices.nodes[i]))
+                        goto outer_break;
+                }
+                ptr = lea.ptr;
+                continue;
+                outer_break:
+                break;
+            }
             case PrimOp_TAG: {
                 switch (ptr->payload.prim_op.op) {
                     case convert_op: {
@@ -107,17 +120,6 @@ const Node* chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
                             ptr = first(ptr->payload.prim_op.operands);
                             continue;
                         }
-                        break;
-                    }
-                    case lea_op: {
-                        Nodes ops = ptr->payload.prim_op.operands;
-                        for (size_t i = 1; i < ops.count; i++) {
-                            if (!is_zero(ops.nodes[i]))
-                                goto outer_break;
-                        }
-                        ptr = first(ops);
-                        continue;
-                        outer_break:
                         break;
                     }
                     default: break;
@@ -269,22 +271,16 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
             const Node* decl = node->payload.ref_decl.decl;
             return get_string_literal(arena, decl);
         }
-        case PrimOp_TAG: {
-            switch (node->payload.prim_op.op) {
-                case lea_op: {
-                    Nodes ops = node->payload.prim_op.operands;
-                    if (ops.count == 3 && is_zero(ops.nodes[1]) && is_zero(ops.nodes[2])) {
-                        const Node* ref = first(ops);
-                        if (ref->tag != RefDecl_TAG)
-                            return NULL;
-                        const Node* decl = ref->payload.ref_decl.decl;
-                        if (decl->tag != GlobalVariable_TAG || !decl->payload.global_variable.init)
-                            return NULL;
-                        return get_string_literal(arena, decl->payload.global_variable.init);
-                    }
-                    break;
-                }
-                default: break;
+        case Lea_TAG: {
+            Lea lea = node->payload.lea;
+            if (lea.indices.count == 3 && is_zero(lea.offset) && is_zero(first(lea.indices))) {
+                const Node* ref = lea.ptr;
+                if (ref->tag != RefDecl_TAG)
+                    return NULL;
+                const Node* decl = ref->payload.ref_decl.decl;
+                if (decl->tag != GlobalVariable_TAG || !decl->payload.global_variable.init)
+                    return NULL;
+                return get_string_literal(arena, decl->payload.global_variable.init);
             }
             return NULL;
         }
