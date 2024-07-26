@@ -124,12 +124,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         assert(false);
                     for (int dim = 0; dim < 3; dim++) {
                         BodyBuilder* body_bb = begin_body(a);
-                        bind_instruction(body_bb, if_instr(a, (If) {
-                                .yield_types = empty(a),
-                                .condition = gen_primop_e(body_bb, gte_op, empty(a), mk_nodes(a, params[dim], maxes[dim])),
-                                .if_true = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)})),
-                                .if_false = NULL
-                        }));
+                        gen_if(body_bb, gen_primop_e(body_bb, gte_op, empty(a), mk_nodes(a, params[dim], maxes[dim])), empty(a), case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)})), NULL);
                         bind_instruction(body_bb, instr);
                         const Node* loop = loop_instr(a, (Loop) {
                                 .yield_types = empty(a),

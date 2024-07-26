@@ -57,12 +57,9 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, empty(a)));
             gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, empty(a)), loaded_word);
             const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
-            bind_instruction(loop_bb, if_instr(a, (If) {
-                    .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_words)),
-                    .yield_types = empty(a),
-                    .if_true = case_(a, empty(a), merge_continue(a, (MergeContinue) {.args = singleton(next_index)})),
-                    .if_false = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)}))
-            }));
+            const Node* true_case = case_(a, empty(a), merge_continue(a, (MergeContinue) {.args = singleton(next_index)}));
+            const Node* false_case = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)}));
+            gen_if(loop_bb, gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_words)), empty(a), true_case, false_case);
 
             bind_instruction(bb, loop_instr(a, (Loop) {
                     .yield_types = empty(a),
@@ -98,12 +95,9 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* loop_bb = begin_body(a);
             gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, empty(a)), src_value);
             const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
-            bind_instruction(loop_bb, if_instr(a, (If) {
-                    .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)),
-                    .yield_types = empty(a),
-                    .if_true = case_(a, empty(a), merge_continue(a, (MergeContinue) {.args = singleton(next_index)})),
-                    .if_false = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)}))
-            }));
+            const Node* true_case = case_(a, empty(a), merge_continue(a, (MergeContinue) {.args = singleton(next_index)}));
+            const Node* false_case = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)}));
+            gen_if(loop_bb, gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)), empty(a), true_case, false_case);
 
             bind_instruction(bb, loop_instr(a, (Loop) {
                     .yield_types = empty(a),

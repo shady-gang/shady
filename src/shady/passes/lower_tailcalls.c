@@ -306,13 +306,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
         const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, empty(a), mk_nodes(a, iterations_count_param, int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
         const Node* bail_true_lam = case_(a, empty(a), break_terminator);
-        const Node* bail_if = if_instr(a, (If) {
-            .condition = bail_condition,
-            .if_true = bail_true_lam,
-            .if_false = NULL,
-            .yield_types = empty(a)
-        });
-        bind_instruction(loop_body_builder, bail_if);
+        gen_if(loop_body_builder, bail_condition, empty(a), bail_true_lam, NULL);
     }
 
     struct List* literals = new_list(const Node*);
@@ -326,13 +320,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         bind_instruction(zero_if_case_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: kill thread %d:%d\n" }), sid, local_id) }));
     }
     const Node* zero_if_true_lam = case_(a, empty(a), finish_body(zero_if_case_builder, break_terminator));
-    const Node* zero_if_instruction = if_instr(a, (If) {
-        .condition = should_run,
-        .if_true = zero_if_true_lam,
-        .if_false = NULL,
-        .yield_types = empty(a),
-    });
-    bind_instruction(zero_case_builder, zero_if_instruction);
+    gen_if(zero_case_builder, should_run, empty(a), zero_if_true_lam, NULL);
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         bind_instruction(zero_case_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: thread %d:%d escaped death!\n" }), sid, local_id) }));
@@ -362,15 +350,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .args = nodes(a, 0, NULL)
             }));
             const Node* if_true_lam = case_(a, empty(a), finish_body(if_builder, yield(a, (Yield) {.args = nodes(a, 0, NULL)})));
-            const Node* if_instruction = if_instr(a, (If) {
-                .condition = should_run,
-                .if_true = if_true_lam,
-                .if_false = NULL,
-                .yield_types = empty(a),
-            });
-
             BodyBuilder* case_builder = begin_body(a);
-            bind_instruction(case_builder, if_instruction);
+            gen_if(case_builder, should_run, empty(a), if_true_lam, NULL);
             const Node* case_lam = case_(a, nodes(a, 0, NULL), finish_body(case_builder, continue_terminator));
 
             append_list(const Node*, literals, fn_lit);

@@ -269,12 +269,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     const Node* guard = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
                     const Node* true_body = structure(ctx, old_tail, yield(a, (Yield) { .args = empty(a) }));
                     const Node* if_true_lam = case_(a, empty(a), true_body);
-                    bind_instruction(bb2, if_instr(a, (If) {
-                        .condition = guard,
-                        .yield_types = empty(a),
-                        .if_true = if_true_lam,
-                        .if_false = NULL
-                    }));
+                    gen_if(bb2, guard, empty(a), if_true_lam, NULL);
 
                     const Node* tail_lambda = case_(a, empty(a), finish_body(bb2, exit_ladder));
                     return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, quote_helper(a, empty(a)), empty(a), tail_lambda)));
@@ -300,14 +295,9 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
             const Node* false_body = handle_bb_callsite(ctx, abs, body->payload.branch.false_jump, yield(a, (Yield) { .args = empty(a) }));
             const Node* if_false_lam = case_(a, empty(a), false_body);
 
-            const Node* instr = if_instr(a, (If) {
-                .condition = condition,
-                .yield_types = empty(a),
-                .if_true = if_true_lam,
-                .if_false = if_false_lam,
-            });
-            const Node* post_merge_lam = case_(a, empty(a), exit_ladder);
-            return let(a, instr, empty(a), post_merge_lam);
+            BodyBuilder* bb = begin_body(a);
+            gen_if(bb, condition, empty(a), if_true_lam, if_false_lam);
+            return finish_body(bb, exit_ladder);
         }
         case Switch_TAG: {
             const Node* switch_value = rewrite_node(&ctx->rewriter, body->payload.br_switch.switch_value);

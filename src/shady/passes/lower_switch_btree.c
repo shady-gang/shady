@@ -109,25 +109,15 @@ static const Node* generate_decision_tree(Context* ctx, TreeNode* n, uint64_t mi
 
     if (min < n->key) {
         BodyBuilder* bb = begin_body(a);
-        const Node* instr = if_instr(a, (If) {
-            .yield_types = ctx->yield_types,
-            .condition = gen_primop_e(bb, lt_op, empty(a), mk_nodes(a, ctx->inspectee, pivot)),
-            .if_true = n->children[0] ? generate_decision_tree(ctx, n->children[0], min, n->key - 1) : generate_default_fallback_case(ctx),
-            .if_false = body,
-        });
-        Nodes values = bind_instruction(bb, instr);
+        const Node* true_branch = n->children[0] ? generate_decision_tree(ctx, n->children[0], min, n->key - 1) : generate_default_fallback_case(ctx);
+        Nodes values = gen_if(bb, gen_primop_e(bb, lt_op, empty(a), mk_nodes(a, ctx->inspectee, pivot)), ctx->yield_types, true_branch, body);
         body = case_(a, empty(a), finish_body(bb, yield(a, (Yield) {.args = values})));
     }
 
     if (max > n->key) {
         BodyBuilder* bb = begin_body(a);
-        const Node* instr = if_instr(a, (If) {
-            .yield_types = ctx->yield_types,
-            .condition = gen_primop_e(bb, gt_op, empty(a), mk_nodes(a, ctx->inspectee, pivot)),
-            .if_true = n->children[1] ? generate_decision_tree(ctx, n->children[1], n->key + 1, max) : generate_default_fallback_case(ctx),
-            .if_false = body,
-        });
-        Nodes values = bind_instruction(bb, instr);
+        const Node* true_branch = n->children[1] ? generate_decision_tree(ctx, n->children[1], n->key + 1, max) : generate_default_fallback_case(ctx);
+        Nodes values = gen_if(bb, gen_primop_e(bb, gt_op, empty(a), mk_nodes(a, ctx->inspectee, pivot)), ctx->yield_types, true_branch, body);
         body = case_(a, empty(a), finish_body(bb, yield(a, (Yield) {.args = values})));
     }
 
@@ -167,14 +157,9 @@ static const Node* process(Context* ctx, const Node* node) {
             Nodes matched_results = bind_instruction(bb, block(a, (Block) { .yield_types = add_qualifiers(a, ctx2.yield_types, false), .inside = generate_decision_tree(&ctx2, root, 0, UINT64_MAX) }));
 
             // Check if we need to run the default case
-            Nodes final_results = bind_instruction(bb, if_instr(a, (If) {
-                .yield_types = ctx2.yield_types,
-                .condition = gen_load(bb, run_default_case),
-                .if_true = rewrite_node(&ctx->rewriter, node->payload.match_instr.default_case),
-                .if_false = case_(a, empty(a), yield(a, (Yield) {
-                        .args = matched_results,
-                }))
-            }));
+            Nodes final_results = gen_if(bb, gen_load(bb, run_default_case), ctx2.yield_types, rewrite_node(&ctx->rewriter, node->payload.match_instr.default_case), case_(a, empty(a), yield(a, (Yield) {
+                .args = matched_results,
+            })));
 
             destroy_arena(arena);
             return yield_values_and_wrap_in_block(bb, final_results);
