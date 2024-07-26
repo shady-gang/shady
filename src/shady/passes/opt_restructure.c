@@ -265,7 +265,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     const Node* guard = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
                     const Node* true_body = structure(ctx, old_tail, yield(a, (Yield) { .args = empty(a) }));
                     const Node* if_true_lam = case_(a, empty(a), true_body);
-                    gen_if(bb2, guard, empty(a), if_true_lam, NULL);
+                    gen_if(bb2, empty(a), guard, if_true_lam, NULL);
 
                     const Node* tail_lambda = case_(a, empty(a), finish_body(bb2, exit_ladder));
                     return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, quote_helper(a, empty(a)), empty(a), tail_lambda)));
@@ -292,7 +292,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
             const Node* if_false_lam = case_(a, empty(a), false_body);
 
             BodyBuilder* bb = begin_body(a);
-            gen_if(bb, condition, empty(a), if_true_lam, if_false_lam);
+            gen_if(bb, empty(a), condition, if_true_lam, if_false_lam);
             return finish_body(bb, exit_ladder);
         }
         case Switch_TAG: {

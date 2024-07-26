@@ -242,7 +242,7 @@ const Node* convert_int_sign_extend(BodyBuilder* bb, const Type* dst_type,  cons
     return val;
 }
 
-Nodes gen_if(BodyBuilder* bb, const Node* condition, Nodes yield_types, const Node* true_case, const Node* false_case) {
+Nodes gen_if(BodyBuilder* bb, Nodes yield_types, const Node* condition, const Node* true_case, const Node* false_case) {
     return bind_instruction(bb, if_instr(bb->arena, (If) { .condition = condition, .yield_types = yield_types, .if_true = true_case, .if_false = false_case }));
 }
 
