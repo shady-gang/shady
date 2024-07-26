@@ -360,28 +360,16 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     }
 
     const Node* default_case_lam = case_(a, nodes(a, 0, NULL), unreachable(a));
-
-    bind_instruction(loop_body_builder, match_instr(a, (Match) {
-        .yield_types = nodes(a, 0, NULL),
-        .inspect = next_function,
-        .literals = nodes(a, entries_count_list(literals), read_list(const Node*, literals)),
-        .cases = nodes(a, entries_count_list(cases), read_list(const Node*, cases)),
-        .default_case = default_case_lam,
-    }));
+    gen_match(loop_body_builder, empty(a), next_function, nodes(a, entries_count_list(literals), read_list(const Node*, literals)), nodes(a, entries_count_list(cases), read_list(const Node*, cases)), default_case_lam);
 
     destroy_list(literals);
     destroy_list(cases);
 
     const Node* loop_inside_lam = case_(a, count_iterations ? singleton(iterations_count_param) : nodes(a, 0, NULL), finish_body(loop_body_builder, unreachable(a)));
 
-    const Node* the_loop = loop_instr(a, (Loop) {
-        .yield_types = nodes(a, 0, NULL),
-        .initial_args = count_iterations ? singleton(int32_literal(a, 0)) : nodes(a, 0, NULL),
-        .body = loop_inside_lam
-    });
-
     BodyBuilder* dispatcher_body_builder = begin_body(a);
-    bind_instruction(dispatcher_body_builder, the_loop);
+    gen_loop(dispatcher_body_builder, empty(a), count_iterations ? singleton(int32_literal(a, 0)) : nodes(a, 0, NULL), loop_inside_lam);
+
     if (ctx->config->printf_trace.god_function)
         bind_instruction(dispatcher_body_builder, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "trace: end of top\n" })) }));
 

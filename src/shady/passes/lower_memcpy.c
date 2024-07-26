@@ -60,12 +60,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* true_case = case_(a, empty(a), merge_continue(a, (MergeContinue) {.args = singleton(next_index)}));
             const Node* false_case = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)}));
             gen_if(loop_bb, gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_words)), empty(a), true_case, false_case);
-
-            bind_instruction(bb, loop_instr(a, (Loop) {
-                    .yield_types = empty(a),
-                    .body = case_(a, singleton(index), finish_body(loop_bb, unreachable(a))),
-                    .initial_args = singleton(uint32_literal(a, 0))
-            }));
+            gen_loop(bb, empty(a),  singleton(uint32_literal(a, 0)), case_(a, singleton(index), finish_body(loop_bb, unreachable(a))));
             return yield_values_and_wrap_in_block(bb, empty(a));
         }
         case FillBytes_TAG: {
@@ -98,12 +93,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* true_case = case_(a, empty(a), merge_continue(a, (MergeContinue) {.args = singleton(next_index)}));
             const Node* false_case = case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)}));
             gen_if(loop_bb, gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)), empty(a), true_case, false_case);
-
-            bind_instruction(bb, loop_instr(a, (Loop) {
-                    .yield_types = empty(a),
-                    .body = case_(a, singleton(index), finish_body(loop_bb, unreachable(a))),
-                    .initial_args = singleton(uint32_literal(a, 0))
-            }));
+            gen_loop(bb, empty(a),  singleton(uint32_literal(a, 0)), case_(a, singleton(index), finish_body(loop_bb, unreachable(a))));
             return yield_values_and_wrap_in_block(bb, empty(a));
         }
         default: break;

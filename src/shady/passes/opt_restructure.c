@@ -148,11 +148,7 @@ static const Node* handle_bb_callsite(Context* ctx, const Node* caller, const No
 
         if (dfs_entry.loop_header) {
             const Node* body = case_(a, nodes(a, oargs.count, nparams), structured);
-            bind_instruction(bb, loop_instr(a, (Loop) {
-                .body = body,
-                .initial_args = rewrite_nodes(&ctx->rewriter, oargs),
-                .yield_types = nodes(a, 0, NULL),
-            }));
+            gen_loop(bb, empty(a), rewrite_nodes(&ctx->rewriter, oargs), body);
             // we decide 'late' what the exit ladder should be
             inner_exit_ladder_bb->payload.basic_block.body = merge_break(a, (MergeBreak) { .args = empty(a) });
             return finish_body(bb, exit_ladder);
@@ -310,14 +306,9 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 cases[i] = case_(a, empty(a), handle_bb_callsite(ctx, abs, body->payload.br_switch.case_jumps.nodes[i], yield(a, (Yield) {.args = empty(a)})));
             }
 
-            const Node* instr = match_instr(a, (Match) {
-                .inspect = switch_value,
-                .yield_types = empty(a),
-                .default_case = default_case,
-                .cases = nodes(a, body->payload.br_switch.case_jumps.count, cases),
-                .literals = rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values),
-            });
-            return let(a, instr, empty(a), case_(a, empty(a), exit_ladder));
+            BodyBuilder* bb = begin_body(a);
+            gen_match(bb, empty(a), switch_value, rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values), nodes(a, body->payload.br_switch.case_jumps.count, cases), default_case);
+            finish_body(bb, exit_ladder);
         }
         case Join_TAG: {
             ControlEntry* control = search_containing_control(ctx, body->payload.join.join_point);

@@ -246,6 +246,14 @@ Nodes gen_if(BodyBuilder* bb, const Node* condition, Nodes yield_types, const No
     return bind_instruction(bb, if_instr(bb->arena, (If) { .condition = condition, .yield_types = yield_types, .if_true = true_case, .if_false = false_case }));
 }
 
+Nodes gen_match(BodyBuilder* bb, Nodes yield_types, const Node* inspectee, Nodes literals, Nodes cases, const Node* default_case) {
+    return bind_instruction(bb, match_instr(bb->arena, (Match) { .yield_types = yield_types, .inspect = inspectee, .literals = literals, .cases = cases, .default_case = default_case }));
+}
+
+Nodes gen_loop(BodyBuilder* bb, Nodes yield_types, Nodes initial_args, const Node* body) {
+    return bind_instruction(bb, loop_instr(bb->arena, (Loop) { .yield_types = yield_types, .initial_args = initial_args, .body = body }));
+}
+
 const Node* get_default_zero_value(IrArena* a, const Type* t) {
     switch (is_type(t)) {
         case NotAType: error("")
