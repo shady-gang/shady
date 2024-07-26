@@ -68,7 +68,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     if (push)
         gen_store(bb, addr, value_param);
     else
-        popped_value = gen_primop_ce(bb, load_op, 1, (const Node* []) { addr });
+        popped_value = gen_load(bb, addr);
 
     if (push) // for push, we increase the stack size after the store
         stack_size = gen_primop_ce(bb, add_op, 2, (const Node* []) { stack_size, element_size});

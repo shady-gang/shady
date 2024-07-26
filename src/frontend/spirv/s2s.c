@@ -752,11 +752,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 parser->defs[result].node = ptr;
 
                 if (size == 5)
-                    bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                        .op = store_op,
-                        .type_arguments = empty(parser->arena),
-                        .operands = mk_nodes(parser->arena, ptr, get_def_ssa_value(parser, instruction[4]))
-                    }), 1, NULL);
+                    bind_instruction_outputs_count(parser->current_block.builder, store(parser->arena, (Store) { ptr, get_def_ssa_value(parser, instruction[4]) }), 1, NULL);
             } else {
                 Nodes annotations = empty(parser->arena);
                 SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
@@ -1079,21 +1075,13 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpLoad: {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                    .op = load_op,
-                    .type_arguments = empty(parser->arena),
-                    .operands = singleton(src)
-            }), 1, NULL));
+            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, load(a, (Load) { src }), 1, NULL));
             break;
         }
         case SpvOpStore: {
             const Type* ptr = get_def_ssa_value(parser, instruction[1]);
             const Type* value = get_def_ssa_value(parser, instruction[2]);
-            bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                    .op = store_op,
-                    .type_arguments = empty(parser->arena),
-                    .operands = mk_nodes(parser->arena, ptr, value)
-            }), 0, NULL);
+            bind_instruction_outputs_count(parser->current_block.builder, store(a, (Store) { ptr, value }), 0, NULL);
             break;
         }
         case SpvOpCopyMemory:

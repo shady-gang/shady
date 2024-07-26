@@ -250,7 +250,8 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             if (emitter->configuration->hacks.spv_shuffle_instead_of_broadcast_first) {
                 SpvId local_id;
                 const Node* b = ref_decl_helper(emitter->arena, get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
-                emit_primop(emitter, fn_builder, bb_builder, prim_op(emitter->arena, (PrimOp) { .op = load_op, .operands = singleton(b) }), 1, &local_id);
+                // TODO: very hacky indeed
+                emit_instruction(emitter, fn_builder, &bb_builder, NULL, load(emitter->arena, (Load) { b }), 1, &local_id);
                 result = spvb_group_shuffle(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), scope_subgroup, emit_value(emitter, bb_builder, first(args)), local_id);
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
             } else {
@@ -327,50 +328,6 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             }
             assert(results_count == 1);
             results[0] = spvb_vecshuffle(bb_builder, emit_type(emitter, result_t), a, b, args.count - 2, indices);
-            return;
-        }
-        case load_op: {
-            const Type* ptr_type = first(args)->type;
-            deconstruct_qualified_type(&ptr_type);
-            assert(ptr_type->tag == PtrType_TAG);
-            const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
-
-            size_t operands_count = 0;
-            uint32_t operands[2];
-            if (ptr_type->payload.ptr_type.address_space == AsGlobal) {
-                // TODO only do this in VK mode ?
-                TypeMemLayout layout = get_mem_layout(emitter->arena, elem_type);
-                operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
-                operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
-                operands_count += 2;
-            }
-
-            SpvId eptr = emit_value(emitter, bb_builder, first(args));
-            SpvId result = spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, operands_count, operands);
-            assert(results_count == 1);
-            results[0] = result;
-            return;
-        }
-        case store_op: {
-            const Type* ptr_type = first(args)->type;
-            deconstruct_qualified_type(&ptr_type);
-            assert(ptr_type->tag == PtrType_TAG);
-            const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
-
-            size_t operands_count = 0;
-            uint32_t operands[2];
-            if (ptr_type->payload.ptr_type.address_space == AsGlobal) {
-                // TODO only do this in VK mode ?
-                TypeMemLayout layout = get_mem_layout(emitter->arena, elem_type);
-                operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
-                operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
-                operands_count += 2;
-            }
-
-            SpvId eptr = emit_value(emitter, bb_builder, first(args));
-            SpvId eval = emit_value(emitter, bb_builder, args.nodes[1]);
-            spvb_store(bb_builder, eval, eptr, operands_count, operands);
-            assert(results_count == 0);
             return;
         }
         case alloca_logical_op: {
@@ -620,6 +577,9 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
 
     switch (is_instruction(instruction)) {
         case NotAnInstruction: error("");
+        case Instruction_CopyBytes_TAG:
+        case Instruction_FillBytes_TAG:
+        case Instruction_LetMut_TAG:
         case Instruction_Control_TAG:
         case Instruction_Block_TAG: error("Should be lowered elsewhere")
         case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.call, results_count, results);                 break;
@@ -628,6 +588,52 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Match_TAG:                emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
         case Loop_TAG:                  emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
         case Comment_TAG: break;
+        case Instruction_Load_TAG: {
+            Load payload = instruction->payload.load;
+            const Type* ptr_type = payload.ptr->type;
+            deconstruct_qualified_type(&ptr_type);
+            assert(ptr_type->tag == PtrType_TAG);
+            const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
+
+            size_t operands_count = 0;
+            uint32_t operands[2];
+            if (ptr_type->payload.ptr_type.address_space == AsGlobal) {
+                // TODO only do this in VK mode ?
+                TypeMemLayout layout = get_mem_layout(emitter->arena, elem_type);
+                operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
+                operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
+                operands_count += 2;
+            }
+
+            SpvId eptr = emit_value(emitter, *bb_builder, payload.ptr);
+            SpvId result = spvb_load(*bb_builder, emit_type(emitter, elem_type), eptr, operands_count, operands);
+            assert(results_count == 1);
+            results[0] = result;
+            return;
+        }
+        case Instruction_Store_TAG: {
+            Store payload = instruction->payload.store;
+            const Type* ptr_type = payload.ptr->type;
+            deconstruct_qualified_type(&ptr_type);
+            assert(ptr_type->tag == PtrType_TAG);
+            const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
+
+            size_t operands_count = 0;
+            uint32_t operands[2];
+            if (ptr_type->payload.ptr_type.address_space == AsGlobal) {
+                // TODO only do this in VK mode ?
+                TypeMemLayout layout = get_mem_layout(emitter->arena, elem_type);
+                operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
+                operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
+                operands_count += 2;
+            }
+
+            SpvId eptr = emit_value(emitter, *bb_builder, payload.ptr);
+            SpvId eval = emit_value(emitter, *bb_builder, payload.value);
+            spvb_store(*bb_builder, eval, eptr, operands_count, operands);
+            assert(results_count == 0);
+            return;
+        }
         case Lea_TAG: {
             Lea payload = instruction->payload.lea;
             SpvId base = emit_value(emitter, *bb_builder, payload.ptr);
@@ -650,6 +656,5 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
             }
             return;
         }
-        default: error("TODO: unhandled instruction");
     }
 }

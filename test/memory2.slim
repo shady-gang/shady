@@ -1,7 +1,7 @@
 @Exported
 fn alloca_load_store i32() {
   val a = alloca[i32]();
-  store(a, 9);
-  val i = load(a);
+  *a = 9;
+  val i = *a;
   return(i);
 }

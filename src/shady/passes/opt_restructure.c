@@ -1,6 +1,7 @@
 #include "pass.h"
 
 #include "../type.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include <setjmp.h>
 #include <string.h>
@@ -253,18 +254,18 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     control_ctx.control_stack = &control_entry;
 
                     // Set the depth for threads entering the control body
-                    bind_instruction(bb_outer, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, ctx->level_ptr, int32_literal(a, control_entry.depth)) }));
+                    gen_store(bb_outer, ctx->level_ptr, int32_literal(a, control_entry.depth));
 
                     // Start building out the tail, first it needs to dereference the phi variables to recover the arguments given to join()
                     BodyBuilder* bb2 = begin_body(a);
                     LARRAY(const Node*, phi_values, yield_types.count);
                     for (size_t i = 0; i < yield_types.count; i++) {
-                        phi_values[i] = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(phis[i]) })));
+                        phi_values[i] = gen_load(bb2, phis[i]);
                         register_processed(&ctx->rewriter, ovars.nodes[i], phi_values[i]);
                     }
 
                     // Wrap the tail in a guarded if, to handle 'far' joins
-                    const Node* level_value = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = load_op, .operands = singleton(ctx->level_ptr) })));
+                    const Node* level_value = gen_load(bb2, ctx->level_ptr);
                     const Node* guard = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
                     const Node* true_body = structure(ctx, old_tail, yield(a, (Yield) { .args = empty(a) }));
                     const Node* if_true_lam = case_(a, empty(a), true_body);
@@ -334,11 +335,11 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                 longjmp(ctx->bail, 1);
 
             BodyBuilder* bb = begin_body(a);
-            bind_instruction(bb, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, ctx->level_ptr, int32_literal(a, control->depth - 1)) }));
+            gen_store(bb, ctx->level_ptr, int32_literal(a, control->depth - 1));
 
             Nodes args = rewrite_nodes(&ctx->rewriter, body->payload.join.args);
             for (size_t i = 0; i < args.count; i++) {
-                bind_instruction(bb, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, control->phis[i], args.nodes[i]) }));
+                gen_store(bb, control->phis[i], args.nodes[i]);
             }
 
             return finish_body(bb, exit_ladder);
@@ -396,7 +397,7 @@ static const Node* process(Context* ctx, const Node* node) {
             TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
             append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
             const Node* ptr = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(int32_type(a)) }), (String []) {"cf_depth" }));
-            bind_instruction(bb, prim_op(a, (PrimOp) { .op = store_op, .operands = mk_nodes(a, ptr, int32_literal(a, 0)) }));
+            gen_store(bb, ptr, int32_literal(a, 0));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
             struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);

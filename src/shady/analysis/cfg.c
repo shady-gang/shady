@@ -135,12 +135,20 @@ static void add_jump_edge(CfgBuildContext* ctx, const Node* src, const Node* j) 
     add_edge(ctx, src, target, JumpEdge);
 }
 
+#pragma GCC diagnostic error "-Wswitch"
+
 static void process_instruction(CfgBuildContext* ctx, CFNode* parent, const Node* instruction, const Node* let_tail) {
     switch (is_instruction(instruction)) {
         case NotAnInstruction: error("Grammar problem");
         case Instruction_Call_TAG:
         case Instruction_PrimOp_TAG:
         case Instruction_Comment_TAG:
+        case Instruction_LetMut_TAG:
+        case Instruction_Load_TAG:
+        case Instruction_Store_TAG:
+        case Instruction_Lea_TAG:
+        case Instruction_CopyBytes_TAG:
+        case Instruction_FillBytes_TAG:
             add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
             return;
         case Instruction_Block_TAG:

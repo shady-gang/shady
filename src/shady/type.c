@@ -722,44 +722,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(src_type->tag == Float_TAG || src_type->tag == Int_TAG && src_type->payload.int_type.is_signed);
             return qualified_type_helper(maybe_packed_type_helper(src_type, width), uniform);
         }
-        case load_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 1);
-
-            const Node* ptr = first(prim_op.operands);
-            const Node* ptr_type = ptr->type;
-            bool ptr_uniform = deconstruct_qualified_type(&ptr_type);
-            size_t width = deconstruct_maybe_packed_type(&ptr_type);
-
-            assert(ptr_type->tag == PtrType_TAG);
-            const PtrType* node_ptr_type_ = &ptr_type->payload.ptr_type;
-            const Type* elem_type = node_ptr_type_->pointed_type;
-            elem_type = maybe_packed_type_helper(elem_type, width);
-            return qualified_type_helper(elem_type, ptr_uniform && is_addr_space_uniform(arena, ptr_type->payload.ptr_type.address_space));
-        }
-        case store_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 2);
-
-            const Node* ptr = first(prim_op.operands);
-            const Node* ptr_type = ptr->type;
-            bool ptr_uniform = deconstruct_qualified_type(&ptr_type);
-            size_t width = deconstruct_maybe_packed_type(&ptr_type);
-            assert(ptr_type->tag == PtrType_TAG);
-            const PtrType* ptr_type_payload = &ptr_type->payload.ptr_type;
-            const Type* elem_type = ptr_type_payload->pointed_type;
-            assert(elem_type);
-            elem_type = maybe_packed_type_helper(elem_type, width);
-            // we don't enforce uniform stores - but we care about storing the right thing :)
-            const Type* val_expected_type = qualified_type(arena, (QualifiedType) {
-                .is_uniform = !arena->config.is_simt,
-                .type = elem_type
-            });
-
-            const Node* val = prim_op.operands.nodes[1];
-            assert(is_subtype(val_expected_type, val->type));
-            return empty_multiple_return_type(arena);
-        }
         case alloca_logical_op:  as = AsFunction; goto alloca_case;
         case alloca_op:          as = AsPrivate; goto alloca_case;
         alloca_case: {

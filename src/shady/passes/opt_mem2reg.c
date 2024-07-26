@@ -331,6 +331,29 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
             mark_values_as_escaping(ctx, kb, oinstruction->payload.call.args);
             wipe_all_leaked_pointers(kb);
             break;
+        case Load_TAG: {
+            const Node* optr = oinstruction->payload.load.ptr;
+            const Node* known_value = find_or_request_known_ptr_value(ctx, kb, optr);
+            if (known_value)
+                return known_value;
+            // const Node* other_ptr = get_known_address(&ctx->rewriter, ok);
+            // if (other_ptr && optr != other_ptr) {
+            //     return prim_op_helper(a, load_op, empty(a), singleton(other_ptr));
+            // }
+            return load(a, (Load) { rewrite_node(r, optr) });
+        }
+        case Store_TAG: {
+            Store payload = oinstruction->payload.store;
+            PtrKnowledge* k = find_or_create_ptr_knowledge_for_updating(ctx, kb, payload.ptr, true);
+            if (k) {
+                k->state = PSKnownValue;
+                k->ptr_value = rewrite_node(r, payload.value);
+            }
+            mark_value_as_escaping(ctx, kb, payload.value);
+            wipe_all_leaked_pointers(kb);
+            // let's take care of dead stores another time
+            return recreate_node_identity(r, oinstruction);
+        }
         case Instruction_PrimOp_TAG: {
             PrimOp payload = oinstruction->payload.prim_op;
             switch (payload.op) {
@@ -350,32 +373,9 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                     // k->ptr_value = undef(a, (Undef) { .type = rewrite_node(r, first(payload.type_arguments)) });
                     return recreate_node_identity(r, oinstruction);
                 }
-                case load_op: {
-                    const Node* optr = first(payload.operands);
-                    const Node* known_value = find_or_request_known_ptr_value(ctx, kb, optr);
-                    if (known_value)
-                        return known_value;
-                    // const Node* other_ptr = get_known_address(&ctx->rewriter, ok);
-                    // if (other_ptr && optr != other_ptr) {
-                    //     return prim_op_helper(a, load_op, empty(a), singleton(other_ptr));
-                    // }
-                    return prim_op_helper(a, load_op, empty(a), singleton(rewrite_node(r, optr)));
-                }
                 // case memcpy_op: {
                 //     const Node* optr = first(payload.operands);
                 // }
-                case store_op: {
-                    const Node* optr = first(payload.operands);
-                    PtrKnowledge* k = find_or_create_ptr_knowledge_for_updating(ctx, kb, optr, true);
-                    if (k) {
-                        k->state = PSKnownValue;
-                        k->ptr_value = rewrite_node(r, payload.operands.nodes[1]);
-                    }
-                    mark_value_as_escaping(ctx, kb, payload.operands.nodes[1]);
-                    wipe_all_leaked_pointers(kb);
-                    // let's take care of dead stores another time
-                    return recreate_node_identity(r, oinstruction);
-                }
                 case reinterpret_op: {
                     const Node* rewritten = recreate_node_identity(r, oinstruction);
                     // if we have knowledge on a particular ptr, the same knowledge propagates if we bitcast it!
@@ -418,6 +418,20 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
                 wipe_all_leaked_pointers(kb);
 
             return recreate_node_identity(r, oinstruction);
+        }
+        case Instruction_Lea_TAG: {
+            mark_value_as_escaping(ctx, kb, oinstruction->payload.lea.ptr);
+            break;
+        }
+        case Instruction_CopyBytes_TAG: {
+            mark_value_as_escaping(ctx, kb, oinstruction->payload.copy_bytes.src);
+            mark_value_as_escaping(ctx, kb, oinstruction->payload.copy_bytes.dst);
+            break;
+        }
+        case Instruction_FillBytes_TAG: {
+            mark_value_as_escaping(ctx, kb, oinstruction->payload.fill_bytes.src);
+            mark_value_as_escaping(ctx, kb, oinstruction->payload.fill_bytes.dst);
+            break;
         }
         case Instruction_Control_TAG:
             break;

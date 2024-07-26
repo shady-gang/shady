@@ -80,25 +80,35 @@ static const Node* process(Context* ctx, const Node* old) {
                         return prim_op_helper(a, quote_op, empty(a), singleton(rewrite_node(r, osrc)));
                     break;
                 }
-                case load_op:
-                case store_op: {
-                    const Node* optr = first(payload.operands);
-                    const Type* optr_t = optr->type;
-                    deconstruct_qualified_type(&optr_t);
-                    assert(optr_t->tag == PtrType_TAG);
-                    const Type* expected_type = rewrite_node(r, optr_t);
-                    payload.operands = rewrite_nodes(r, payload.operands);
-                    payload.type_arguments = rewrite_nodes(r, payload.type_arguments);
-                    const Node* ptr = first(payload.operands);
-                    const Type* actual_type = get_unqualified_type(ptr->type);
-                    BodyBuilder* bb = begin_body(a);
-                    if (expected_type != actual_type)
-                        payload.operands = change_node_at_index(a, payload.operands, 0, guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type)));
-                    return bind_last_instruction_and_wrap_in_block(bb, prim_op(a, payload));
-                }
                 default: break;
             }
             break;
+        }
+        case Load_TAG: {
+            Load payload = old->payload.load;
+            const Type* optr_t = payload.ptr->type;
+            deconstruct_qualified_type(&optr_t);
+            assert(optr_t->tag == PtrType_TAG);
+            const Type* expected_type = rewrite_node(r, optr_t);
+            const Node* ptr = rewrite_node(r, payload.ptr);
+            const Type* actual_type = get_unqualified_type(ptr->type);
+            BodyBuilder* bb = begin_body(a);
+            if (expected_type != actual_type)
+                ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
+            return bind_last_instruction_and_wrap_in_block(bb, load(a, (Load) { ptr }));
+        }
+        case Store_TAG: {
+            Store payload = old->payload.store;
+            const Type* optr_t = payload.ptr->type;
+            deconstruct_qualified_type(&optr_t);
+            assert(optr_t->tag == PtrType_TAG);
+            const Type* expected_type = rewrite_node(r, optr_t);
+            const Node* ptr = rewrite_node(r, payload.ptr);
+            const Type* actual_type = get_unqualified_type(ptr->type);
+            BodyBuilder* bb = begin_body(a);
+            if (expected_type != actual_type)
+                ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
+            return bind_last_instruction_and_wrap_in_block(bb, store(a, (Store) { ptr, rewrite_node(r, payload.value) }));
         }
         case GlobalVariable_TAG: {
             AddressSpace as = old->payload.global_variable.address_space;

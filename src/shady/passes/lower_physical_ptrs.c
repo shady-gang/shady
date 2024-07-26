@@ -297,34 +297,41 @@ static const Node* process_node(Context* ctx, const Node* old) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (old->tag) {
+        case Load_TAG: {
+            Load payload = old->payload.load;
+            const Type* ptr_type = payload.ptr->type;
+            bool uniform_ptr = deconstruct_qualified_type(&ptr_type);
+            assert(ptr_type->tag == PtrType_TAG);
+            if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
+                break;
+            BodyBuilder* bb = begin_body(a);
+            const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
+            const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, payload.ptr);
+            const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, false, ptr_type->payload.ptr_type.address_space);
+            Nodes r = bind_instruction(bb, call(a, (Call) {.callee = fn_addr_helper(a, fn), .args = singleton(pointer_as_offset)}));
+            return yield_values_and_wrap_in_block(bb, r);
+        }
+        case Store_TAG: {
+            Store payload = old->payload.store;
+            const Type* ptr_type = payload.ptr->type;
+            bool uniform_ptr = deconstruct_qualified_type(&ptr_type);
+            assert(ptr_type->tag == PtrType_TAG);
+            if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
+                break;
+            BodyBuilder* bb = begin_body(a);
+
+            const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
+            const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, payload.ptr);
+            const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, true, ptr_type->payload.ptr_type.address_space);
+
+            const Node* value = rewrite_node(&ctx->rewriter, payload.value);
+            bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = mk_nodes(a, pointer_as_offset, value) }));
+            return yield_values_and_wrap_in_block(bb, empty(a));
+        }
         case PrimOp_TAG: {
             const PrimOp* oprim_op = &old->payload.prim_op;
             switch (oprim_op->op) {
                 case alloca_op: error("This needs to be lowered (see setup_stack_frames.c)")
-                    // lowering for either kind of memory accesses is similar
-                case load_op:
-                case store_op: {
-                    const Node* old_ptr = oprim_op->operands.nodes[0];
-                    const Type* ptr_type = old_ptr->type;
-                    bool uniform_ptr = deconstruct_qualified_type(&ptr_type);
-                    assert(ptr_type->tag == PtrType_TAG);
-                    if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
-                        break;
-                    BodyBuilder* bb = begin_body(a);
-
-                    const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
-                    const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, old_ptr);
-                    const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, oprim_op->op == store_op, ptr_type->payload.ptr_type.address_space);
-
-                    if (oprim_op->op == load_op) {
-                        Nodes r = bind_instruction(bb, call(a, (Call) {.callee = fn_addr_helper(a, fn), .args = singleton(pointer_as_offset)}));
-                        return yield_values_and_wrap_in_block(bb, r);
-                    } else {
-                        const Node* value = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[1]);
-                        bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = mk_nodes(a, pointer_as_offset, value) }));
-                        return yield_values_and_wrap_in_block(bb, empty(a));
-                    }
-                }
                 default: break;
             }
             break;
@@ -433,13 +440,12 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
 
 static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, BodyBuilder* bb) {
     IrArena* oa = ctx->rewriter.src_arena;
-    IrArena* a = ctx->rewriter.dst_arena;
     for (size_t i = 0; i < collected.count; i++) {
         const Node* old_decl = collected.nodes[i];
         assert(old_decl->tag == GlobalVariable_TAG);
         const Node* old_init = old_decl->payload.global_variable.init;
         if (old_init) {
-            const Node* old_store = prim_op_helper(oa, store_op, empty(oa), mk_nodes(oa, ref_decl_helper(oa, old_decl), old_init));
+            const Node* old_store = store(oa, (Store) { ref_decl_helper(oa, old_decl), old_init });
             bind_instruction(bb, rewrite_node(&ctx->rewriter, old_store));
         }
     }

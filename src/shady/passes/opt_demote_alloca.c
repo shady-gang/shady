@@ -63,23 +63,21 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
                 debugv_print(".\n");
                 visit_ptr_uses(vars.nodes[i], slice_type, k, map);
             }*/
+        } else if (use->user->tag == Load_TAG) {
+            //if (get_pointer_type_element(ptr_type) != slice_type)
+            //    k->reinterpreted = true;
+            k->read_from = true;
+            continue; // loads don't leak the address.
+        } else if (use->user->tag == Store_TAG) {
+            //if (get_pointer_type_element(ptr_type) != slice_type)
+            //    k->reinterpreted = true;
+            // stores leak the value if it's stored
+            if (ptr_value == use->user->payload.store.value)
+                k->leaks = true;
+            continue;
         } else if (use->user->tag == PrimOp_TAG) {
             PrimOp payload = use->user->payload.prim_op;
             switch (payload.op) {
-                case load_op: {
-                    //if (get_pointer_type_element(ptr_type) != slice_type)
-                    //    k->reinterpreted = true;
-                    k->read_from = true;
-                    continue; // loads don't leak the address.
-                }
-                case store_op: {
-                    //if (get_pointer_type_element(ptr_type) != slice_type)
-                    //    k->reinterpreted = true;
-                    // stores leak the value if it's stored
-                    if (ptr_value == payload.operands.nodes[1])
-                        k->leaks = true;
-                    continue;
-                }
                 case reinterpret_op: {
                     k->non_logical_use = true;
                     continue;
@@ -207,6 +205,40 @@ static const Node* process(Context* ctx, const Node* old) {
             // const Node* tail = case_(r->dst_arena, empty(a), nbody);
             return let(a, ninstruction, nvars, rewrite_node(r, otail));
         }
+        case Load_TAG: {
+            Load payload = old->payload.load;
+            PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
+            if (k.src_alloca) {
+                const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.ptr->type)));
+                if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
+                    if (k.src_alloca->bound == rewrite_node(r, payload.ptr))
+                        break;
+                    ctx->todo |= true;
+                    BodyBuilder* bb = begin_body(a);
+                    const Node* data = gen_load(bb, k.src_alloca->bound);
+                    data = gen_reinterpret_cast(bb, access_type, data);
+                    return yield_values_and_wrap_in_block(bb, singleton(data));
+                }
+            }
+            break;
+        }
+        case Store_TAG: {
+            Store payload = old->payload.store;
+            PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
+            if (k.src_alloca) {
+                const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.ptr->type)));
+                if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
+                    if (k.src_alloca->bound == rewrite_node(r, payload.ptr))
+                        break;
+                    ctx->todo |= true;
+                    BodyBuilder* bb = begin_body(a);
+                    const Node* data = gen_reinterpret_cast(bb, access_type, rewrite_node(r, payload.value));
+                    gen_store(bb, k.src_alloca->bound, data);
+                    return yield_values_and_wrap_in_block(bb, empty(a));
+                }
+            }
+            break;
+        }
         case PrimOp_TAG: {
             PrimOp payload = old->payload.prim_op;
             switch (payload.op) {
@@ -228,38 +260,6 @@ static const Node* process(Context* ctx, const Node* old) {
                         if (!k->non_logical_use && get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
                             ctx->todo |= true;
                             return prim_op_helper(a, alloca_logical_op, rewrite_nodes(&ctx->rewriter, payload.type_arguments), rewrite_nodes(r, payload.operands));
-                        }
-                    }
-                    break;
-                }
-                case load_op: {
-                    PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, first(payload.operands));
-                    if (k.src_alloca) {
-                        const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.operands.nodes[0]->type)));
-                        if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
-                            if (k.src_alloca->bound == rewrite_node(r, first(payload.operands)))
-                                break;
-                            ctx->todo |= true;
-                            BodyBuilder* bb = begin_body(a);
-                            const Node* data = gen_load(bb, k.src_alloca->bound);
-                            data = gen_reinterpret_cast(bb, access_type, data);
-                            return yield_values_and_wrap_in_block(bb, singleton(data));
-                        }
-                    }
-                    break;
-                }
-                case store_op: {
-                    PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, first(payload.operands));
-                    if (k.src_alloca) {
-                        const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.operands.nodes[0]->type)));
-                        if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
-                            if (k.src_alloca->bound == rewrite_node(r, first(payload.operands)))
-                                break;
-                            ctx->todo |= true;
-                            BodyBuilder* bb = begin_body(a);
-                            const Node* data = gen_reinterpret_cast(bb, access_type, rewrite_node(r, payload.operands.nodes[1]));
-                            gen_store(bb, k.src_alloca->bound, data);
-                            return yield_values_and_wrap_in_block(bb, empty(a));
                         }
                     }
                     break;

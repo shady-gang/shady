@@ -77,21 +77,16 @@ static const Node* process(Context* ctx, const Node* node) {
                 ctx->builtins[b] = ndecl;
                 return ndecl;
             }
+            break;
         }
-        case PrimOp_TAG: {
-            Op op = node->payload.prim_op.op;
-            switch (op) {
-                case load_op: {
-                    const Type* req_cast = get_req_cast(ctx, first(node->payload.prim_op.operands));
-                    if (req_cast) {
-                        assert(is_data_type(req_cast));
-                        BodyBuilder* bb = begin_body(a);
-                        const Node* r = first(bind_instruction(bb, recreate_node_identity(&ctx->rewriter, node)));
-                        const Node* r2 = first(gen_primop(bb, reinterpret_op, singleton(req_cast), singleton(r)));
-                        return yield_values_and_wrap_in_block(bb, singleton(r2));
-                    }
-                }
-                default: break;
+        case Load_TAG: {
+            const Type* req_cast = get_req_cast(ctx, node->payload.load.ptr);
+            if (req_cast) {
+                assert(is_data_type(req_cast));
+                BodyBuilder* bb = begin_body(a);
+                const Node* r = first(bind_instruction(bb, recreate_node_identity(&ctx->rewriter, node)));
+                const Node* r2 = first(gen_primop(bb, reinterpret_op, singleton(req_cast), singleton(r)));
+                return yield_values_and_wrap_in_block(bb, singleton(r2));
             }
             break;
         }

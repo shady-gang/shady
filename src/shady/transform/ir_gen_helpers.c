@@ -83,11 +83,11 @@ const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
 }
 
 const Node* gen_load(BodyBuilder* bb, const Node* ptr) {
-    return gen_primop_ce(bb, load_op, 1, (const Node* []) {ptr });
+    return first(bind_instruction(bb, load(bb->arena, (Load) { ptr })));
 }
 
-void gen_store(BodyBuilder* instructions, const Node* ptr, const Node* value) {
-    gen_primop_c(instructions, store_op, 2, (const Node* []) { ptr, value });
+void gen_store(BodyBuilder* bb, const Node* ptr, const Node* value) {
+    bind_instruction(bb, store(bb->arena, (Store) {ptr, value }));
 }
 
 const Node* gen_lea(BodyBuilder* bb, const Node* base, const Node* offset, Nodes selectors) {
@@ -141,8 +141,8 @@ const Node* gen_builtin_load(Module* m, BodyBuilder* bb, Builtin b) {
 
 bool is_builtin_load_op(const Node* n, Builtin* out) {
     assert(is_instruction(n));
-    if (n->tag == PrimOp_TAG && n->payload.prim_op.op == load_op) {
-        const Node* src = first(n->payload.prim_op.operands);
+    if (n->tag == Load_TAG) {
+        const Node* src = n->payload.load.ptr;
         if (src->tag == RefDecl_TAG)
             src = src->payload.ref_decl.decl;
         if (src->tag == GlobalVariable_TAG) {

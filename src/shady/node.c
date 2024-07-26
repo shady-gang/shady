@@ -194,21 +194,21 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                 assert(terminator->payload.yield.args.count == 1);
                 return resolve_node_to_definition(first(terminator->payload.yield.args), config);
             }
+            case Load_TAG: {
+                if (config.enter_loads) {
+                    const Node* source = node->payload.load.ptr;
+                    const Node* result = resolve_ptr_to_value(source, config);
+                    if (!result)
+                        break;
+                    node = result;
+                    continue;
+                }
+            }
             case PrimOp_TAG: {
                 switch (node->payload.prim_op.op) {
                     case quote_op: {
                         node = first(node->payload.prim_op.operands);
                         continue;
-                    }
-                    case load_op: {
-                        if (config.enter_loads) {
-                            const Node* source = first(node->payload.prim_op.operands);
-                            const Node* result = resolve_ptr_to_value(source, config);
-                            if (!result)
-                                break;
-                            node = result;
-                            continue;
-                        }
                     }
                     case convert_op:
                     case reinterpret_op: {

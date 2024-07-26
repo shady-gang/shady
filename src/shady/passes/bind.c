@@ -131,11 +131,7 @@ static const Node* desugar_let_mut(Context* ctx, BodyBuilder* bb, const Node* no
             .operands = nodes(a, 0, NULL)
         });
         const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1, &oparam->payload.varz.name).nodes[0];
-        const Node* store = prim_op(a, (PrimOp) {
-            .op = store_op,
-            .operands = nodes(a, 2, (const Node* []) {ptr, initial_values.nodes[0] })
-        });
-        bind_instruction_outputs_count(bb, store, 0, NULL);
+        bind_instruction_outputs_count(bb, store(a, (Store) { ptr, initial_values.nodes[0] }), 0, NULL);
 
         add_binding(ctx, true, oparam->payload.varz.name, ptr);
         log_string(DEBUGV, "Lowered mutable variable ");
@@ -204,10 +200,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     // in case the node is an l-value, we load it
     const Node* lhs = get_node_address_safe(ctx, node);
     if (lhs) {
-        return prim_op(a, (PrimOp) {
-                .op = load_op,
-                .operands = singleton(lhs)
-        });
+        return load(a, (Load) { lhs });
     }
 
     switch (node->tag) {
@@ -308,10 +301,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 const Node* target_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);
                 assert(target_ptr);
                 const Node* value = rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]);
-                return prim_op(a, (PrimOp) {
-                    .op = store_op,
-                    .operands = nodes(a, 2, (const Node* []) {target_ptr, value })
-                });
+                return store(a, (Store) { target_ptr, value });
             } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == subscript_op) {
                 return prim_op(a, (PrimOp) {
                     .op = extract_op,

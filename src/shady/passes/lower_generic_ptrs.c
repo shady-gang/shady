@@ -170,7 +170,8 @@ static const Node* process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     Module* m = ctx->rewriter.dst_module;
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
 
@@ -184,6 +185,31 @@ static const Node* process(Context* ctx, const Node* old) {
         case NullPtr_TAG: {
             if (old->payload.null_ptr.ptr_type->payload.ptr_type.address_space == AsGeneric)
                 return size_t_literal(a, 0);
+            break;
+        }
+        case Load_TAG: {
+            const Node* old_ptr = old->payload.load.ptr;
+            const Type* old_ptr_t = old_ptr->type;
+            bool u = deconstruct_qualified_type(&old_ptr_t);
+            u &= is_addr_space_uniform(a, old_ptr_t->payload.ptr_type.address_space);
+            if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
+                return call(a, (Call) {
+                    .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, u, rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
+                    .args = singleton(rewrite_node(&ctx->rewriter, old_ptr)),
+                });
+            }
+            break;
+        }
+        case Store_TAG: {
+            Store payload = old->payload.store;
+            const Type* old_ptr_t = payload.ptr->type;
+            deconstruct_qualified_type(&old_ptr_t);
+            if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
+                return call(a, (Call) {
+                    .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, StoreFn, false, rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
+                    .args = mk_nodes(a, rewrite_node(r, payload.ptr), rewrite_node(r, payload.value)),
+                });
+            }
             break;
         }
         case PrimOp_TAG: {
@@ -212,29 +238,6 @@ static const Node* process(Context* ctx, const Node* old) {
                     } else if (old_src_t->tag == PtrType_TAG && old_src_t->payload.ptr_type.address_space == AsGeneric) {
                         // cast _from_ generic
                         error("TODO");
-                    }
-                    break;
-                }
-                case load_op: {
-                    const Type* old_ptr_t = first(old->payload.prim_op.operands)->type;
-                    bool u = deconstruct_qualified_type(&old_ptr_t);
-                    u &= is_addr_space_uniform(a, old_ptr_t->payload.ptr_type.address_space);
-                    if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
-                        return call(a, (Call) {
-                            .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, u, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type))),
-                            .args = singleton(rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands))),
-                        });
-                    }
-                    break;
-                }
-                case store_op: {
-                    const Type* old_ptr_t = first(old->payload.prim_op.operands)->type;
-                    deconstruct_qualified_type(&old_ptr_t);
-                    if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
-                        return call(a, (Call) {
-                            .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, StoreFn, false, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type))),
-                            .args = rewrite_nodes(&ctx->rewriter, old->payload.prim_op.operands),
-                        });
                     }
                     break;
                 }

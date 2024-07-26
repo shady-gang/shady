@@ -248,50 +248,65 @@ static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
     return original_ptr;
 }
 
-static void inline simplify_ptr_operand(IrArena* a, BodyBuilder* bb, PrimOp* payload, bool* success, int i) {
-    const Node* old_op = payload->operands.nodes[i];
+static inline const Node* simplify_ptr_operand(IrArena* a, BodyBuilder* bb, const Node* old_op) {
     const Type* ptr_t = old_op->type;
     deconstruct_qualified_type(&ptr_t);
     if (ptr_t->payload.ptr_type.is_reference)
-        return;
+        return NULL;
     const Node* new_op = resolve_ptr_source(bb, old_op);
-    if (old_op != new_op) {
-        payload->operands = change_node_at_index(a, payload->operands, i, new_op);
-        *success = true;
-    }
+    return old_op != new_op ? new_op : NULL;
 }
 
 static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     IrArena* arena = node->arena;
-    PrimOp payload = node->payload.prim_op;
     BodyBuilder* bb = begin_body(arena);
-    bool rebuild = false;
-    switch (payload.op) {
-        case store_op:
-        case load_op: {
-            simplify_ptr_operand(arena, bb, &payload, &rebuild, 0);
+    const Node* r = NULL;
+    switch (node->tag) {
+        case Load_TAG: {
+            Load payload = node->payload.load;
+            const Node* nptr = simplify_ptr_operand(arena, bb, payload.ptr);
+            if (!nptr) break;
+            payload.ptr = nptr;
+            r = load(arena, payload);
             break;
         }
-        default: break;
-    }
-
-    if (rebuild) {
-        const Node* r = prim_op(arena, payload);
-        if (!is_subtype(node->type, r->type)) {
-            r = gen_conversion(bb, get_unqualified_type(node->type), first(bind_instruction(bb, r)));
-            return yield_values_and_wrap_in_block(bb, singleton(r));
+        case Store_TAG: {
+            Store payload = node->payload.store;
+            const Node* nptr = simplify_ptr_operand(arena, bb, payload.ptr);
+            if (!nptr) break;
+            payload.ptr = nptr;
+            r = store(arena, payload);
+            break;
         }
-        return bind_last_instruction_and_wrap_in_block(bb, r);
+        case Lea_TAG: {
+            Lea payload = node->payload.lea;
+            const Node* nptr = simplify_ptr_operand(arena, bb, payload.ptr);
+            if (!nptr) break;
+            payload.ptr = nptr;
+            r = lea(arena, payload);
+            break;
+        }
+        default: {
+            cancel_body(bb);
+            return node;
+        }
     }
 
-    cancel_body(bb);
-    return NULL;
+    if (!r) {
+        cancel_body(bb);
+        return node;
+    }
+
+    if (!is_subtype(node->type, r->type)) {
+        r = gen_conversion(bb, get_unqualified_type(node->type), first(bind_instruction(bb, r)));
+        return yield_values_and_wrap_in_block(bb, singleton(r));
+    }
+    return bind_last_instruction_and_wrap_in_block(bb, r);
 }
 
 static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     APPLY_FOLD(fold_constant_math)
     APPLY_FOLD(fold_simplify_math)
-    APPLY_FOLD(fold_simplify_ptr_operand)
 
     PrimOp payload = node->payload.prim_op;
     switch (payload.op) {
@@ -316,19 +331,25 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
 
 static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
     switch (node->tag) {
+        case Load_TAG: {
+            if (node->payload.load.ptr->tag == Undef_TAG)
+                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+            break;
+        }
+        case Store_TAG: {
+            if (node->payload.store.ptr->tag == Undef_TAG)
+                return quote_helper(arena, empty(arena));
+            break;
+        }
+        case Lea_TAG: {
+            Lea payload = node->payload.lea;
+            if (payload.ptr->tag == Undef_TAG)
+                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+            break;
+        }
         case PrimOp_TAG: {
             PrimOp payload = node->payload.prim_op;
             switch (payload.op) {
-                case store_op: {
-                    if (first(payload.operands)->tag == Undef_TAG)
-                        return quote_helper(arena, empty(arena));
-                    break;
-                }
-                case load_op: {
-                    if (first(payload.operands)->tag == Undef_TAG)
-                        return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
-                    break;
-                }
                 case reinterpret_op:
                 case convert_op: {
                     if (first(payload.operands)->tag == Undef_TAG)
@@ -337,12 +358,6 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
                 }
                 default: break;
             }
-            break;
-        }
-        case Lea_TAG: {
-            Lea payload = node->payload.lea;
-            if (payload.ptr->tag == Undef_TAG)
-                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
             break;
         }
         default: break;
@@ -359,6 +374,7 @@ static bool is_unreachable_case(const Node* c) {
 const Node* fold_node(IrArena* arena, const Node* node) {
     const Node* const original_node = node;
     node = fold_memory_poison(arena, node);
+    node = fold_simplify_ptr_operand(node);
     switch (node->tag) {
         case PrimOp_TAG: node = fold_prim_op(arena, node); break;
         case Block_TAG: {

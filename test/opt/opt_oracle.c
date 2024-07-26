@@ -14,20 +14,27 @@ static bool expect_memstuff = false;
 static bool found_memstuff = false;
 
 static void search_for_memstuff(Visitor* v, const Node* n) {
-    if (n->tag == PrimOp_TAG) {
-        PrimOp payload = n->payload.prim_op;
-        switch (payload.op) {
-            case alloca_op:
-            case alloca_logical_op:
-            case load_op:
-            case store_op: {
-                found_memstuff = true;
-                break;
-            }
-            default: break;
+    switch (n->tag) {
+        case Load_TAG:
+        case Store_TAG:
+        case CopyBytes_TAG:
+        case FillBytes_TAG: {
+            found_memstuff = true;
+            break;
         }
-    } else if (n->tag == CopyBytes_TAG || n->tag == FillBytes_TAG)
-        found_memstuff = true;
+        case PrimOp_TAG: {
+            PrimOp payload = n->payload.prim_op;
+            switch (payload.op) {
+                case alloca_op:
+                case alloca_logical_op: {
+                    found_memstuff = true;
+                    break;
+                }
+                default: break;
+            }
+        }
+        default: break;
+    }
 
     visit_node_operands(v, NcDeclaration, n);
 }

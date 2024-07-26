@@ -274,7 +274,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
                 ptr = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(typed_ptr), singleton(ptr)), singleton(typed_ptr), NULL));
             }
-            r = prim_op_helper(a, load_op, empty(a), singleton(ptr));
+            r = load(a, (Load) { ptr });
             break;
         }
         case LLVMStore: {
@@ -288,7 +288,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
                 ptr = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(typed_ptr), singleton(ptr)), singleton(typed_ptr), NULL));
             }
-            r = prim_op_helper(a, store_op, empty(a), mk_nodes(a, ptr, ops.nodes[0]));
+            r = store(a, (Store) { ptr, ops.nodes[0] });
             break;
         }
         case LLVMGetElementPtr: {
@@ -598,7 +598,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                         LARRAY(const Node*, processed_ops, ops.count);
                         for (i = 0; i < num_args; i++) {
                             if (decoded[i].is_byval)
-                                processed_ops[i] = first(bind_instruction_outputs_count(b, prim_op_helper(a, load_op, empty(a), singleton(ops.nodes[i])), 1, NULL));
+                                processed_ops[i] = first(bind_instruction_outputs_count(b, load(a, (Load) { ops.nodes[i] }), 1, NULL));
                             else
                                 processed_ops[i] = ops.nodes[i];
                         }

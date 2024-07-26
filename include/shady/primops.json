@@ -220,16 +220,6 @@
       "side-effects": true
     },
     {
-      "name": "load",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
-      "name": "store",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
       "name": "size_of",
       "class": "memory_layout"
     },

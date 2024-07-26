@@ -375,25 +375,6 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* exp
             assert(is_data_type(element_type));
             goto rebuild;
         }
-        case load_op: {
-            assert(old_operands.count == 1);
-            assert(type_args.count <= 1);
-            new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
-            assert(type_args.count == 0);
-            goto rebuild;
-        }
-        case store_op: {
-            assert(old_operands.count == 2);
-            assert(type_args.count <= 1);
-            new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
-            assert(type_args.count == 0);
-            const Type* ptr_type = get_unqualified_type(new_operands[0]->type);
-            assert(ptr_type->tag == PtrType_TAG);
-            const Type* element_t = ptr_type->payload.ptr_type.pointed_type;
-            assert(element_t);
-            new_operands[1] = infer(ctx, old_operands.nodes[1], qualified_type_helper(element_t, false));
-            goto rebuild;
-        }
         case alloca_op: {
             assert(type_args.count == 1);
             assert(old_operands.count == 0);
@@ -588,6 +569,7 @@ static const Node* infer_block(Context* ctx, const Node* node, const Nodes* expe
 }
 
 static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes* expected_types) {
+    IrArena* a = ctx->rewriter.dst_arena;
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return infer_primop(ctx, node, expected_types);
         case Call_TAG:         return infer_indirect_call(ctx, node, expected_types);
@@ -607,7 +589,20 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes
             const Type* base_datatype = src_ptr;
             assert(base_datatype->tag == PtrType_TAG);
 
-            return lea(ctx->rewriter.dst_arena, (Lea) { ptr, offset, indices });
+            return lea(a, (Lea) { ptr, offset, indices });
+        }
+        case Instruction_Load_TAG: {
+            return load(a, (Load) { infer(ctx, node->payload.load.ptr, NULL) });
+        }
+        case Instruction_Store_TAG: {
+            Store payload = node->payload.store;
+            const Node* ptr = infer(ctx, payload.ptr, NULL);
+            const Type* ptr_type = get_unqualified_type(ptr->type);
+            assert(ptr_type->tag == PtrType_TAG);
+            const Type* element_t = ptr_type->payload.ptr_type.pointed_type;
+            assert(element_t);
+            const Node* value = infer(ctx, payload.value, qualified_type_helper(element_t, false));
+            return store(a, (Store) { ptr, value });
         }
         default:               error("TODO")
         case NotAnInstruction: error("not an instruction");

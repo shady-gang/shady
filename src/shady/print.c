@@ -1049,7 +1049,9 @@ void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod)
 }
 
 void print_node_operand(Printer* p, const Node* n, String name, NodeClass op_class, const Node* op, PrintConfig config) {
-    print(p, " '%s': %%%zu", name, (size_t) op);
+    //print(p, " '%s': %%%d", name, op->id);
+    print(p, " '%s': ", name);
+    print_node(p, op, config);
 }
 
 void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass op_class, Nodes ops, PrintConfig config) {
@@ -1063,7 +1065,7 @@ void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass o
 }
 
 void print_node_operand_const_Node_(Printer* p, const Node* n, String name, const Node* op, PrintConfig config) {
-    print(p, " '%s': %%%zu", name, (size_t) op);
+    print(p, " '%s': %%%d", name, op->id);
 }
 
 void print_node_operand_AddressSpace(Printer* p, const Node* n, String name, AddressSpace as, PrintConfig config) {
