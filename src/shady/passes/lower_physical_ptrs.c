@@ -328,14 +328,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = mk_nodes(a, pointer_as_offset, value) }));
             return yield_values_and_wrap_in_block(bb, empty(a));
         }
-        case PrimOp_TAG: {
-            const PrimOp* oprim_op = &old->payload.prim_op;
-            switch (oprim_op->op) {
-                case alloca_op: error("This needs to be lowered (see setup_stack_frames.c)")
-                default: break;
-            }
-            break;
-        }
+        case StackAlloc_TAG: error("This needs to be lowered (see setup_stack_frames.c)")
         case PtrType_TAG: {
             if (!old->payload.ptr_type.is_reference && is_as_emulated(ctx, old->payload.ptr_type.address_space))
                 return int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });

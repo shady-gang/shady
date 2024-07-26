@@ -316,19 +316,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             term = term_from_cvalue(format_string_arena(arena->arena, "(%s %s %s)", src, prim_op->op == lshift_op ? "<<" : ">>", c_offset));
             break;
         }
-        case alloca_op:
-        case alloca_logical_op: {
-            assert(outputs.count == 1);
-            String variable_name = unique_name(emitter->arena, "alloca");
-            CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
-            emit_variable_declaration(emitter, p, first(prim_op->type_arguments), variable_name, true, NULL);
-            outputs.results[0] = variable;
-            if (emitter->config.dialect == CDialect_ISPC) {
-                outputs.results[0] = ispc_varying_ptr_helper(emitter, p, get_unqualified_type(node->type), variable);
-            }
-            outputs.binding[0] = NoBinding;
-            return;
-        }
         case size_of_op:
             term = term_from_cvalue(format_string_arena(emitter->arena->arena, "sizeof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL)));
             break;
@@ -844,6 +831,18 @@ static void emit_lea(Emitter* emitter, Printer* p, Lea lea, InstructionOutputs o
     return;
 }
 
+static void emit_alloca(Emitter* emitter, Printer* p, const Type* type, InstructionOutputs outputs) {
+    assert(outputs.count == 1);
+    String variable_name = unique_name(emitter->arena, "alloca");
+    CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
+    emit_variable_declaration(emitter, p, type, variable_name, true, NULL);
+    outputs.results[0] = variable;
+    if (emitter->config.dialect == CDialect_ISPC) {
+        outputs.results[0] = ispc_varying_ptr_helper(emitter, p, type, variable);
+    }
+    outputs.binding[0] = NoBinding;
+}
+
 void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, InstructionOutputs outputs) {
     assert(is_instruction(instruction));
     IrArena* a = emitter->arena;
@@ -859,6 +858,8 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_Control_TAG:      error("TODO")
         case Instruction_Block_TAG:        error("Should be eliminated by the compiler")
         case Instruction_Comment_TAG:      print(p, "/* %s */", instruction->payload.comment.string); break;
+        case Instruction_StackAlloc_TAG: return emit_alloca(emitter, p, instruction->payload.stack_alloc.type, outputs);
+        case Instruction_LocalAlloc_TAG: return emit_alloca(emitter, p, instruction->payload.local_alloc.type, outputs);
         case Instruction_Load_TAG: {
             Load payload = instruction->payload.load;
             CAddr dereferenced = deref_term(emitter, emit_value(emitter, p, payload.ptr));

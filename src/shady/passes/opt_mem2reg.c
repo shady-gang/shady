@@ -322,6 +322,25 @@ static void mark_values_as_escaping(Context* ctx, KnowledgeBase* kb, Nodes value
         mark_value_as_escaping(ctx, kb, values.nodes[i]);
 }
 
+static const Node* handle_allocation(Context* ctx, KnowledgeBase* kb, const Node* instr, const Type* type) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+
+    PtrKnowledge* k = create_root_ptr_knowledge(kb, instr);
+    const Type* t = instr->type;
+    deconstruct_qualified_type(&t);
+    assert(t->tag == PtrType_TAG);
+    k->source->as = t->payload.ptr_type.address_space;
+    //k->source->type = qualified_type_helper(t, u);
+    k->source->type = rewrite_node(r, type);
+
+    k->state = PSUnknown;
+    // TODO: we can only enable this safely once we properly deal with control-flow
+    // k->state = PSKnownValue;
+    // k->ptr_value = undef(a, (Undef) { .type = rewrite_node(r, first(payload.type_arguments)) });
+    return recreate_node_identity(r, instr);
+}
+
 static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const Node* oinstruction) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
@@ -354,25 +373,11 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
             // let's take care of dead stores another time
             return recreate_node_identity(r, oinstruction);
         }
+        case Instruction_LocalAlloc_TAG: return handle_allocation(ctx, kb, oinstruction, oinstruction->payload.local_alloc.type);
+        case Instruction_StackAlloc_TAG: return handle_allocation(ctx, kb, oinstruction, oinstruction->payload.stack_alloc.type);
         case Instruction_PrimOp_TAG: {
             PrimOp payload = oinstruction->payload.prim_op;
             switch (payload.op) {
-                case alloca_logical_op:
-                case alloca_op: {
-                    PtrKnowledge* k = create_root_ptr_knowledge(kb, oinstruction);
-                    const Type* t = oinstruction->type;
-                    deconstruct_qualified_type(&t);
-                    assert(t->tag == PtrType_TAG);
-                    k->source->as = t->payload.ptr_type.address_space;
-                    //k->source->type = qualified_type_helper(t, u);
-                    k->source->type = rewrite_node(r, first(payload.type_arguments));
-
-                    k->state = PSUnknown;
-                    // TODO: we can only enable this safely once we properly deal with control-flow
-                    // k->state = PSKnownValue;
-                    // k->ptr_value = undef(a, (Undef) { .type = rewrite_node(r, first(payload.type_arguments)) });
-                    return recreate_node_identity(r, oinstruction);
-                }
                 // case memcpy_op: {
                 //     const Node* optr = first(payload.operands);
                 // }

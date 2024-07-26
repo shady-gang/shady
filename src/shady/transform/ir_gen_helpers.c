@@ -82,6 +82,14 @@ const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
     return gen_primop_ce(bb, or_op, 2, (const Node* []) { lo, hi });
 }
 
+const Node* gen_stack_alloc(BodyBuilder* bb, const Type* type) {
+    return first(bind_instruction(bb, stack_alloc(bb->arena, (StackAlloc) { type })));
+}
+
+const Node* gen_local_alloc(BodyBuilder* bb, const Type* type) {
+    return first(bind_instruction(bb, local_alloc(bb->arena, (LocalAlloc) { type })));
+}
+
 const Node* gen_load(BodyBuilder* bb, const Node* ptr) {
     return first(bind_instruction(bb, load(bb->arena, (Load) { ptr })));
 }

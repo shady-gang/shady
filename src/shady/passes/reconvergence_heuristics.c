@@ -132,7 +132,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 Nodes exit_param_types = rewrite_nodes(rewriter, get_param_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
                 LARRAY(const Node*, exit_param_allocas_tmp, exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++)
-                    exit_param_allocas_tmp[j] = gen_primop_e(outer_bb, alloca_op, singleton(get_unqualified_type(exit_param_types.nodes[j])), empty(arena));
+                    exit_param_allocas_tmp[j] = gen_stack_alloc(outer_bb, get_unqualified_type(exit_param_types.nodes[j]));
                 exit_param_allocas[i] = nodes(arena, exit_param_types.count, exit_param_allocas_tmp);
 
                 // Search for what's required after the exit but not in scope at the loop header
@@ -145,13 +145,13 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 size_t leaking_count = entries_count_list(leaking[i]);
                 LARRAY(const Node*, exit_fwd_allocas_tmp, leaking_count);
                 for (size_t j = 0; j < leaking_count; j++)
-                    exit_fwd_allocas_tmp[j] = gen_primop_e(outer_bb, alloca_op, singleton(rewrite_node(rewriter, get_unqualified_type(read_list(const Node*, leaking[i])[j]->type))), empty(arena));
+                    exit_fwd_allocas_tmp[j] = gen_stack_alloc(outer_bb, rewrite_node(rewriter, get_unqualified_type(read_list(const Node*, leaking[i])[j]->type)));
                 exit_fwd_allocas[i] = nodes(arena, leaking_count, exit_fwd_allocas_tmp);
             }
 
             const Node* exit_destination_alloca = NULL;
             if (exiting_nodes_count > 1)
-                exit_destination_alloca = gen_primop_e(outer_bb, alloca_op, singleton(int32_type(arena)), empty(arena));
+                exit_destination_alloca = gen_stack_alloc(outer_bb, int32_type(arena));
 
             Node* fn = (Node*) find_processed(rewriter, ctx->current_fn);
 

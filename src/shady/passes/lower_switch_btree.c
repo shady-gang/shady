@@ -157,7 +157,7 @@ static const Node* process(Context* ctx, const Node* node) {
             }
 
             BodyBuilder* bb = begin_body(a);
-            const Node* run_default_case = gen_primop_e(bb, alloca_logical_op, singleton(bool_type(a)), empty(a));
+            const Node* run_default_case = gen_stack_alloc(bb, bool_type(a));
             gen_store(bb, run_default_case, false_lit(a));
 
             Context ctx2 = *ctx;

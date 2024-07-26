@@ -330,16 +330,6 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             results[0] = spvb_vecshuffle(bb_builder, emit_type(emitter, result_t), a, b, args.count - 2, indices);
             return;
         }
-        case alloca_logical_op: {
-            const Type* elem_type = first(type_arguments);
-            SpvId result = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
-                .address_space = AsFunction,
-                .pointed_type = elem_type
-            })), SpvStorageClassFunction);
-            assert(results_count == 1);
-            results[0] = result;
-            return;
-        }
         case select_op: {
             SpvId cond = emit_value(emitter, bb_builder, first(args));
             SpvId truv = emit_value(emitter, bb_builder, args.nodes[1]);
@@ -581,6 +571,7 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Instruction_FillBytes_TAG:
         case Instruction_LetMut_TAG:
         case Instruction_Control_TAG:
+        case Instruction_StackAlloc_TAG:
         case Instruction_Block_TAG: error("Should be lowered elsewhere")
         case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.call, results_count, results);                 break;
         case PrimOp_TAG:              emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
@@ -588,6 +579,15 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Match_TAG:                emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
         case Loop_TAG:                  emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
         case Comment_TAG: break;
+        case Instruction_LocalAlloc_TAG: {
+            SpvId result = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
+                .address_space = AsFunction,
+                .pointed_type = instruction->payload.local_alloc.type
+            })), SpvStorageClassFunction);
+            assert(results_count == 1);
+            results[0] = result;
+            return;
+        }
         case Instruction_Load_TAG: {
             Load payload = instruction->payload.load;
             const Type* ptr_type = payload.ptr->type;

@@ -742,11 +742,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             assert(is_data_type(contents_t));
 
             if (parser->fun) {
-                const Node* ptr = first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                    .op = alloca_op,
-                    .type_arguments = singleton(contents_t),
-                    .operands = empty(parser->arena)
-                }), 1, NULL));
+                const Node* ptr = first(bind_instruction_outputs_count(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { contents_t }), 1, NULL));
 
                 parser->defs[result].type = Value;
                 parser->defs[result].node = ptr;

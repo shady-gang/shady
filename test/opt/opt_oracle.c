@@ -18,20 +18,11 @@ static void search_for_memstuff(Visitor* v, const Node* n) {
         case Load_TAG:
         case Store_TAG:
         case CopyBytes_TAG:
-        case FillBytes_TAG: {
+        case FillBytes_TAG:
+        case StackAlloc_TAG:
+        case LocalAlloc_TAG: {
             found_memstuff = true;
             break;
-        }
-        case PrimOp_TAG: {
-            PrimOp payload = n->payload.prim_op;
-            switch (payload.op) {
-                case alloca_op:
-                case alloca_logical_op: {
-                    found_memstuff = true;
-                    break;
-                }
-                default: break;
-            }
         }
         default: break;
     }

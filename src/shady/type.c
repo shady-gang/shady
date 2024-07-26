@@ -722,22 +722,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(src_type->tag == Float_TAG || src_type->tag == Int_TAG && src_type->payload.int_type.is_signed);
             return qualified_type_helper(maybe_packed_type_helper(src_type, width), uniform);
         }
-        case alloca_logical_op:  as = AsFunction; goto alloca_case;
-        case alloca_op:          as = AsPrivate; goto alloca_case;
-        alloca_case: {
-            assert(prim_op.type_arguments.count == 1);
-            assert(prim_op.operands.count == 0);
-            const Type* elem_type = prim_op.type_arguments.nodes[0];
-            assert(is_type(elem_type));
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = is_addr_space_uniform(arena, as),
-                .type = ptr_type(arena, (PtrType) {
-                    .pointed_type = elem_type,
-                    .address_space = as,
-                    .is_reference = as == AsFunction
-                })
-            });
-        }
         case align_of_op:
         case size_of_op: {
             assert(prim_op.type_arguments.count == 1);
@@ -1101,6 +1085,30 @@ const Type* check_type_block(IrArena* arena, Block payload) {
 
 const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
     return empty_multiple_return_type(arena);
+}
+
+const Type* check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
+    assert(is_type(alloc.type));
+    return qualified_type(a, (QualifiedType) {
+        .is_uniform = is_addr_space_uniform(a, AsPrivate),
+        .type = ptr_type(a, (PtrType) {
+            .pointed_type = alloc.type,
+            .address_space = AsPrivate,
+            .is_reference = false
+        })
+    });
+}
+
+const Type* check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
+    assert(is_type(alloc.type));
+    return qualified_type(a, (QualifiedType) {
+        .is_uniform = is_addr_space_uniform(a, AsFunction),
+        .type = ptr_type(a, (PtrType) {
+            .pointed_type = alloc.type,
+            .address_space = AsFunction,
+            .is_reference = true
+        })
+    });
 }
 
 const Type* check_type_load(IrArena* a, Load load) {

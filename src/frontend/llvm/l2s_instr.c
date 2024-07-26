@@ -6,6 +6,7 @@
 #include "list.h"
 
 #include "../shady/type.h"
+#include "../shady/transform/ir_gen_helpers.h"
 
 #include "llvm-c/DebugInfo.h"
 
@@ -256,7 +257,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = convert_type(p, LLVMGetAllocatedType(instr));
             const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivate });
-            r = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, alloca_op, singleton(allocated_t), empty(a)), singleton(allocated_ptr_t), NULL));
+            r = first(bind_instruction_explicit_result_types(b, stack_alloc(a, (StackAlloc) { allocated_t }), singleton(allocated_ptr_t), NULL));
             if (UNTYPED_POINTERS) {
                 const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivate });
                 r = first(bind_instruction_explicit_result_types(b, prim_op_helper(a, reinterpret_op, singleton(untyped_ptr_t), singleton(r)), singleton(untyped_ptr_t), NULL));

@@ -210,16 +210,6 @@
       "side-effects": true
     },
     {
-      "name": "alloca",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
-      "name": "alloca_logical",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
       "name": "size_of",
       "class": "memory_layout"
     },
@@ -327,6 +317,20 @@
     }
   ],
   "nodes": [
+    {
+      "name": "StackAlloc",
+      "class": "instruction",
+      "ops": [
+        { "name": "type", "class": "type" }
+      ]
+    },
+    {
+      "name": "LocalAlloc",
+      "class": "instruction",
+      "ops": [
+        { "name": "type", "class": "type" }
+      ]
+    },
     {
       "name": "Load",
       "class": "instruction",

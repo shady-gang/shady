@@ -125,11 +125,7 @@ static const Node* desugar_let_mut(Context* ctx, BodyBuilder* bb, const Node* no
         const Node* oparam = old_params.nodes[i];
         const Type* type_annotation = node->payload.let_mut.types.nodes[i];
         assert(type_annotation);
-        const Node* alloca = prim_op(a, (PrimOp) {
-            .op = alloca_op,
-            .type_arguments = nodes(a, 1, (const Node* []){rewrite_node(&ctx->rewriter, type_annotation) }),
-            .operands = nodes(a, 0, NULL)
-        });
+        const Node* alloca = stack_alloc(a, (StackAlloc) { rewrite_node(&ctx->rewriter, type_annotation) });
         const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1, &oparam->payload.varz.name).nodes[0];
         bind_instruction_outputs_count(bb, store(a, (Store) { ptr, initial_values.nodes[0] }), 0, NULL);
 

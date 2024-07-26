@@ -49,24 +49,21 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
         return;
 
     IrArena* a = vctx->context->rewriter.dst_arena;
-    AddressSpace as;
-    if (node->tag == PrimOp_TAG) {
-        switch (node->payload.prim_op.op) {
-            case alloca_op: as = AsPrivate; break;
-            default: goto not_alloca;
+    switch (node->tag) {
+        case StackAlloc_TAG: {
+            const Type* element_type = rewrite_node(&vctx->context->rewriter, node->payload.stack_alloc.type);
+            assert(is_data_type(element_type));
+            const Node* slot_offset = gen_primop_e(vctx->bb, offset_of_op, singleton(type_decl_ref_helper(a, vctx->nom_t)), singleton(int32_literal(a, entries_count_list(vctx->members))));
+            append_list(const Type*, vctx->members, element_type);
+
+            StackSlot slot = { vctx->num_slots, slot_offset, element_type, AsPrivate };
+            insert_dict(const Node*, StackSlot, vctx->prepared_offsets, node, slot);
+
+            vctx->num_slots++;
+
+            return;
         }
-
-        const Type* element_type = rewrite_node(&vctx->context->rewriter, node->payload.prim_op.type_arguments.nodes[0]);
-        assert(is_data_type(element_type));
-        const Node* slot_offset = gen_primop_e(vctx->bb, offset_of_op, singleton(type_decl_ref_helper(a, vctx->nom_t)), singleton(int32_literal(a, entries_count_list(vctx->members))));
-        append_list(const Type*, vctx->members, element_type);
-
-        StackSlot slot = { vctx->num_slots, slot_offset, element_type, as };
-        insert_dict(const Node*, StackSlot, vctx->prepared_offsets, node, slot);
-
-        vctx->num_slots++;
-
-        return;
+        default: break;
     }
 
     not_alloca:
@@ -131,8 +128,8 @@ static const Node* process(Context* ctx, const Node* node) {
             destroy_dict(ctx2.prepared_offsets);
             return fun;
         }
-        case PrimOp_TAG: {
-            if (!ctx->disable_lowering && node->payload.prim_op.op == alloca_op) {
+        case StackAlloc_TAG: {
+            if (!ctx->disable_lowering) {
                 StackSlot* found_slot = find_value_dict(const Node*, StackSlot, ctx->prepared_offsets, node);
                 if (!found_slot) {
                     error_print("lower_alloca: failed to find a stack offset for ");

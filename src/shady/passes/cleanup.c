@@ -77,6 +77,13 @@ const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* 
     }
 }
 
+static bool has_side_effects(const Node* instr) {
+    bool side_effects = true;
+    if (instr->tag == PrimOp_TAG)
+        side_effects = has_primop_got_side_effects(instr->payload.prim_op.op);
+    return side_effects;
+}
+
 const Node* process(Context* ctx, const Node* old) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
@@ -91,9 +98,6 @@ const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case Let_TAG: {
             Let payload = old->payload.let;
-            bool side_effects = true;
-            if (payload.instruction->tag == PrimOp_TAG)
-                side_effects = has_primop_got_side_effects(payload.instruction->payload.prim_op.op);
             bool consumed = false;
             Nodes vars = payload.variables;
             for (size_t i = 0; i < vars.count; i++) {
@@ -108,7 +112,7 @@ const Node* process(Context* ctx, const Node* old) {
                 if (consumed)
                     break;
             }
-            if (!consumed && !side_effects && ctx->rewriter.dst_arena) {
+            if (!consumed && !has_side_effects(payload.instruction) && ctx->rewriter.dst_arena) {
                 debugvv_print("Cleanup: found an unused instruction: ");
                 log_node(DEBUGVV, payload.instruction);
                 debugvv_print("\n");

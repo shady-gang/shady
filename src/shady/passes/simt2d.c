@@ -34,27 +34,22 @@ static const Node* process(Context* ctx, const Node* node) {
             });
             goto rewrite;
         }
+        case LocalAlloc_TAG: {
+            BodyBuilder* bb = begin_body(a);
+            const Node* type = rewrite_node(&ctx->rewriter, node->payload.local_alloc.type);
+            LARRAY(const Node*, allocated, ctx->width);
+            for (size_t i = 0; i < ctx->width; i++) {
+                allocated[i] = first(bind_instruction_named(bb, local_alloc(a, (LocalAlloc) { type }), (String[]) {"allocated"}));
+            }
+            //return yield_values_and_wrap_in_control(bb, singleton(widen(ctx, allocated)));
+            const Node* result_type = maybe_packed_type_helper(ptr_type(a, (PtrType) { .address_space = AsFunction, .pointed_type = type }), ctx->width);
+            const Node* packed = composite_helper(a, result_type, nodes(a, ctx->width, allocated));
+            return yield_values_and_wrap_in_block(bb, singleton(packed));
+        }
         case PrimOp_TAG: {
             Op op = node->payload.prim_op.op;
             switch (op) {
                 case quote_op: goto rewrite;
-                case alloca_logical_op: {
-                    BodyBuilder* bb = begin_body(a);
-                    const Node* type = rewrite_node(&ctx->rewriter, first(node->payload.prim_op.type_arguments));
-                    LARRAY(const Node*, allocated, ctx->width);
-                    for (size_t i = 0; i < ctx->width; i++) {
-                        allocated[i] = first(bind_instruction_named(bb, prim_op(a, (PrimOp) {
-                                .op = op,
-                                .type_arguments = singleton(type),
-                                //.type_arguments = singleton(maybe_packed_type_helper(type, ctx->width)),
-                                .operands = empty(a)
-                        }), (String[]) {"allocated"}));
-                    }
-                    //return yield_values_and_wrap_in_control(bb, singleton(widen(ctx, allocated)));
-                    const Node* result_type = maybe_packed_type_helper(ptr_type(a, (PtrType) { .address_space = AsFunction, .pointed_type = type }), ctx->width);
-                    const Node* packed = composite_helper(a, result_type, nodes(a, ctx->width, allocated));
-                    return yield_values_and_wrap_in_block(bb, singleton(packed));
-                }
                 default: break;
             }
 

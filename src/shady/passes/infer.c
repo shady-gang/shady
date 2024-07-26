@@ -375,14 +375,6 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* exp
             assert(is_data_type(element_type));
             goto rebuild;
         }
-        case alloca_op: {
-            assert(type_args.count == 1);
-            assert(old_operands.count == 0);
-            const Type* element_type = type_args.nodes[0];
-            assert(is_type(element_type));
-            assert(is_data_type(element_type));
-            goto rebuild;
-        }
         case reinterpret_op:
         case convert_op: {
             new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
@@ -603,6 +595,12 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes
             assert(element_t);
             const Node* value = infer(ctx, payload.value, qualified_type_helper(element_t, false));
             return store(a, (Store) { ptr, value });
+        }
+        case Instruction_StackAlloc_TAG: {
+            const Type* element_type = node->payload.stack_alloc.type;
+            assert(is_type(element_type));
+            assert(is_data_type(element_type));
+            return stack_alloc(a, (StackAlloc) { .type = infer_type(ctx, element_type) });
         }
         default:               error("TODO")
         case NotAnInstruction: error("not an instruction");

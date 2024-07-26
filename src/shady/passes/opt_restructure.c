@@ -239,7 +239,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     for (size_t i = 0; i < yield_types.count; i++) {
                         const Type* type = yield_types.nodes[i];
                         assert(is_data_type(type));
-                        phis[i] = first(bind_instruction_named(bb_outer, prim_op(a, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(type) }), (String []) {"ctrl_phi" }));
+                        phis[i] = gen_local_alloc(bb_outer, type);
                     }
 
                     // Create a new context to rewrite the body with
@@ -396,7 +396,8 @@ static const Node* process(Context* ctx, const Node* node) {
             BodyBuilder* bb = begin_body(a);
             TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
             append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
-            const Node* ptr = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = alloca_logical_op, .type_arguments = singleton(int32_type(a)) }), (String []) {"cf_depth" }));
+            const Node* ptr = gen_local_alloc(bb, int32_type(a));
+            set_variable_name(ptr, "cf_depth");
             gen_store(bb, ptr, int32_literal(a, 0));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;

@@ -136,29 +136,57 @@ PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
         assert(is_value(ptr));
         if (ptr->tag == Variablez_TAG && ctx->uses) {
             const Node* instr = get_var_def(ptr->payload.varz);
-            if (instr->tag == PrimOp_TAG) {
-                PrimOp payload = instr->payload.prim_op;
-                switch (payload.op) {
-                    case alloca_logical_op:
-                    case alloca_op: {
-                        k.src_alloca = *find_value_dict(const Node*, AllocaInfo*, ctx->alloca_info, instr);
-                        return k;
-                    }
-                    case convert_op:
-                    case reinterpret_op: {
-                        ptr = first(payload.operands);
-                        continue;
-                    }
-                        // TODO: lea and co
-                    default:
-                        break;
+            switch (instr->tag) {
+                case StackAlloc_TAG:
+                case LocalAlloc_TAG: {
+                    k.src_alloca = *find_value_dict(const Node*, AllocaInfo*, ctx->alloca_info, instr);
+                    return k;
                 }
+                case PrimOp_TAG: {
+                    PrimOp payload = instr->payload.prim_op;
+                    switch (payload.op) {
+                        case convert_op:
+                        case reinterpret_op: {
+                            ptr = first(payload.operands);
+                            continue;
+                        }
+                            // TODO: lea and co
+                        default:
+                            break;
+                    }
+                }
+                default: break;
             }
         }
 
         ptr = NULL;
     }
     return k;
+}
+
+static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_type) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+
+    AllocaInfo* k = arena_alloc(ctx->arena, sizeof(AllocaInfo));
+    *k = (AllocaInfo) { .type = rewrite_node(r, old_type) };
+    assert(ctx->uses);
+    visit_ptr_uses(old, old_type, k, ctx->uses);
+    insert_dict(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
+    debugv_print("demote_alloca: uses analysis results for ");
+    log_node(DEBUGV, old);
+    debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
+    if (!k->leaks) {
+        if (!k->read_from && !k->non_logical_use/* this should include killing dead stores! */) {
+            ctx->todo |= true;
+            return quote_helper(a, singleton(undef(a, (Undef) {.type = get_unqualified_type(rewrite_node(r, old->type))})));
+        }
+        if (!k->non_logical_use && get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
+            ctx->todo |= true;
+            return local_alloc(a, (LocalAlloc) {rewrite_node(r, old_type )});
+        }
+    }
+    return recreate_node_identity(r, old);
 }
 
 static const Node* process(Context* ctx, const Node* old) {
@@ -242,33 +270,14 @@ static const Node* process(Context* ctx, const Node* old) {
         case PrimOp_TAG: {
             PrimOp payload = old->payload.prim_op;
             switch (payload.op) {
-                case alloca_op:
-                case alloca_logical_op: {
-                    AllocaInfo* k = arena_alloc(ctx->arena, sizeof(AllocaInfo));
-                    *k = (AllocaInfo) { .type = rewrite_node(r, first(payload.type_arguments)) };
-                    assert(ctx->uses);
-                    visit_ptr_uses(old, first(payload.type_arguments), k, ctx->uses);
-                    insert_dict(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
-                    debugv_print("demote_alloca: uses analysis results for ");
-                    log_node(DEBUGV, old);
-                    debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
-                    if (!k->leaks) {
-                        if (!k->read_from && !k->non_logical_use/* this should include killing dead stores! */) {
-                            ctx->todo |= true;
-                            return quote_helper(a, singleton(undef(a, (Undef) {.type = get_unqualified_type(rewrite_node(r, old->type))})));
-                        }
-                        if (!k->non_logical_use && get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
-                            ctx->todo |= true;
-                            return prim_op_helper(a, alloca_logical_op, rewrite_nodes(&ctx->rewriter, payload.type_arguments), rewrite_nodes(r, payload.operands));
-                        }
-                    }
-                    break;
-                }
+
                 default:
                     break;
             }
             break;
         }
+        case LocalAlloc_TAG: return handle_alloc(ctx, old, old->payload.local_alloc.type);
+        case StackAlloc_TAG: return handle_alloc(ctx, old, old->payload.stack_alloc.type);
         default: break;
     }
     return recreate_node_identity(&ctx->rewriter, old);
