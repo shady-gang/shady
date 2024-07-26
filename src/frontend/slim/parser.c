@@ -479,28 +479,36 @@ static const Node* accept_primary_expr(ctxparams) {
         switch (curr_token(tokenizer).tag) {
             case lpar_tok: {
                 Op op = PRIMOPS_COUNT;
+                String callee_name = NULL;
                 if (expr->tag == Unbound_TAG) {
-                    String s = expr->payload.unbound.name;
+                    callee_name = expr->payload.unbound.name;
                     for (size_t i = 0; i < PRIMOPS_COUNT; i++) {
-                        if (strcmp(s, get_primop_name(i)) == 0) {
+                        if (strcmp(callee_name, get_primop_name(i)) == 0) {
                             op = i;
                             break;
                         }
                     }
                 }
+                Nodes ops = expect_operands(ctx);
+
                 if (op != PRIMOPS_COUNT) {
                     return prim_op(arena, (PrimOp) {
                         .op = op,
                         .type_arguments = ty_args,
-                        .operands = expect_operands(ctx)
+                        .operands = ops
+                    });
+                }
+
+                if (strcmp(callee_name, "alloca") == 0) {
+                    return stack_alloc(arena, (StackAlloc) {
+                        .type = first(ty_args)
                     });
                 }
 
                 assert(ty_args.count == 0 && "Function calls do not support type arguments");
-                Nodes args = expect_operands(ctx);
                 expr = call(arena, (Call) {
                     .callee = expr,
-                    .args = args
+                    .args = ops
                 });
                 continue;
             }
