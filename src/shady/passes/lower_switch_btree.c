@@ -117,7 +117,7 @@ static const Node* generate_decision_tree(Context* ctx, TreeNode* n, bool in_if,
         BodyBuilder* bb = begin_body(a);
         const Node* true_branch = n->children[1] ? generate_decision_tree(ctx, n->children[1], true, n->key + 1, max) : generate_default_fallback_case(ctx, true);
         Nodes values = gen_if(bb, ctx->yield_types, gen_primop_e(bb, gt_op, empty(a), mk_nodes(a, ctx->inspectee, pivot)), true_branch, body);
-        body = case_(a, empty(a), gen_yield(ctx, in_if, values));
+        body = case_(a, empty(a), finish_body(bb, gen_yield(ctx, in_if, values)));
     }
 
     return body;

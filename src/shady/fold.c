@@ -428,6 +428,7 @@ const Node* fold_node(IrArena* arena, const Node* node) {
                 else if (is_unreachable_destination(payload.false_jump))
                     return payload.true_jump;
             }
+            break;
         }
         case Match_TAG: {
             if (!arena->config.optimisations.delete_unreachable_structured_cases)

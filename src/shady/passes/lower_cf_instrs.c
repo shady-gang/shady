@@ -25,41 +25,6 @@ static const Node* process_instruction(Context* ctx, const Node* old_instruction
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (old_instruction->tag) {
-        case If_TAG: {
-            bool has_false_branch = old_instruction->payload.if_instr.if_false;
-            Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.if_instr.yield_types);
-
-            const Type* jp_type = qualified_type(a, (QualifiedType) {
-                .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
-                .is_uniform = false,
-            });
-            const Node* jp = param(a, jp_type, "if_join");
-            Context join_context = *ctx;
-            Nodes jps = singleton(jp);
-            insert_dict(const Node*, Nodes, ctx->structured_join_tokens, old_instruction, jps);
-
-            Node* true_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_true"));
-            join_context.abs = old_instruction->payload.if_instr.if_true;
-            true_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_true->payload.case_.body);
-
-            Node* flse_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_false"));
-            if (has_false_branch) {
-                join_context.abs = old_instruction->payload.if_instr.if_false;
-                flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_false->payload.case_.body);
-            } else {
-                assert(yield_types.count == 0);
-                flse_block->payload.basic_block.body = join(a, (Join) { .join_point = jp, .args = nodes(a, 0, NULL) });
-            }
-
-            const Node* control_body = branch(a, (Branch) {
-                .condition = rewrite_node(&ctx->rewriter, old_instruction->payload.if_instr.condition),
-                .true_jump = jump_helper(a, true_block, empty(a)),
-                .false_jump = jump_helper(a, flse_block, empty(a)),
-            });
-
-            BodyBuilder* bb = begin_body(a);
-            return yield_values_and_wrap_in_block(bb, gen_control(bb, yield_types, case_(a, singleton(jp), control_body)));
-        }
         // TODO: match
         case Loop_TAG: {
             const Node* old_loop_body = old_instruction->payload.loop_instr.body;
@@ -116,7 +81,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (already_done)
         return already_done;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     Context sub_ctx = *ctx;
     if (node->tag == Function_TAG) {
@@ -147,6 +113,49 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (is_instruction(node))
         return process_instruction(ctx, node);
     switch (node->tag) {
+        case If_TAG: {
+            bool has_false_branch = node->payload.if_instr.if_false;
+            Nodes yield_types = rewrite_nodes(&ctx->rewriter, node->payload.if_instr.yield_types);
+
+            const Type* jp_type = qualified_type(a, (QualifiedType) {
+                .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
+                .is_uniform = false,
+            });
+            const Node* jp = param(a, jp_type, "if_join");
+            Context join_context = *ctx;
+            Nodes jps = singleton(jp);
+            insert_dict(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
+
+            Node* true_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_true"));
+            join_context.abs = node->payload.if_instr.if_true;
+            true_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, node->payload.if_instr.if_true->payload.case_.body);
+
+            Node* flse_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_false"));
+            if (has_false_branch) {
+                join_context.abs = node->payload.if_instr.if_false;
+                flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, node->payload.if_instr.if_false->payload.case_.body);
+            } else {
+                assert(yield_types.count == 0);
+                flse_block->payload.basic_block.body = join(a, (Join) { .join_point = jp, .args = nodes(a, 0, NULL) });
+            }
+
+            const Node* control_body = branch(a, (Branch) {
+                .condition = rewrite_node(r, node->payload.if_instr.condition),
+                .true_jump = jump_helper(a, true_block, empty(a)),
+                .false_jump = jump_helper(a, flse_block, empty(a)),
+            });
+
+            BodyBuilder* bb = begin_body(a);
+            Nodes results = gen_control(bb, yield_types, case_(a, singleton(jp), control_body));
+
+            const Node* otail = node->payload.if_instr.tail;
+            Node* join = basic_block(a, recreate_params(r, get_abstraction_params(otail)), NULL);
+            register_processed_list(r, get_abstraction_params(otail), get_abstraction_params(join));
+            set_abstraction_body(join, rewrite_node(r, get_abstraction_body(otail)));
+            return finish_body(bb, jump_helper(a, join, results));
+            // return control(a)
+            //return yield_values_and_wrap_in_block(bb, );
+        }
         case MergeSelection_TAG: {
             if (!cfnode)
                 break;
@@ -160,6 +169,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                         selection_instr = instr;
                         break;
                     }
+                } else if(body->tag == If_TAG) {
+                    selection_instr = body;
+                    break;
                 }
                 dom = dom->idom;
             }
