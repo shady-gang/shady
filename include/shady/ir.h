@@ -287,6 +287,11 @@ BodyBuilder* begin_body(IrArena*);
 Nodes bind_instruction(BodyBuilder*, const Node* instruction);
 Nodes bind_instruction_named(BodyBuilder*, const Node* instruction, String const output_names[]);
 
+Nodes gen_if(BodyBuilder*, Nodes, const Node*, const Node*, const Node*);
+Nodes gen_match(BodyBuilder*, Nodes, const Node*, Nodes, Nodes, const Node*);
+Nodes gen_loop(BodyBuilder*, Nodes, Nodes, const Node*);
+Nodes gen_control(BodyBuilder*, Nodes, const Node*);
+
 /// Like append instruction, but you explicitly give it information about any yielded values
 /// ! In untyped arenas, you need to call this because we can't guess how many things are returned without typing info !
 Nodes bind_instruction_explicit_result_types(BodyBuilder*, const Node* initial_value, Nodes provided_types, String const output_names[]);

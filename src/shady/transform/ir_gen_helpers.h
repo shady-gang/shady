@@ -30,13 +30,6 @@ const Node* get_builtin(Module* m, Builtin b);
 const Node* get_or_create_builtin(Module* m, Builtin b, String n);
 const Node* gen_builtin_load(Module*, BodyBuilder*, Builtin);
 
-Nodes gen_if(BodyBuilder*, Nodes, const Node*, const Node*, const Node*);
-
-Nodes gen_match(BodyBuilder*, Nodes, const Node*, Nodes, Nodes, const Node*);
-Nodes gen_loop(BodyBuilder*, Nodes, Nodes, const Node*);
-
-Nodes gen_control(BodyBuilder*, Nodes, const Node*);
-
 typedef struct Rewriter_ Rewriter;
 
 const Node* find_or_process_decl(Rewriter*, const char* name);
