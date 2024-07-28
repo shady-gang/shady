@@ -371,6 +371,12 @@ static bool is_unreachable_case(const Node* c) {
     return b->tag == Unreachable_TAG;
 }
 
+static bool is_unreachable_destination(const Node* j) {
+    assert(j && j->tag == Jump_TAG);
+    const Node* b = get_abstraction_body(j->payload.jump.target);
+    return b->tag == Unreachable_TAG;
+}
+
 const Node* fold_node(IrArena* arena, const Node* node) {
     const Node* const original_node = node;
     node = fold_memory_poison(arena, node);
@@ -408,20 +414,21 @@ const Node* fold_node(IrArena* arena, const Node* node) {
             }
             break;
         }
-        /*case If_TAG: {
-            If payload = node->payload.if_instr;
-            const Node* false_case = payload.if_false;
-            if (arena->config.optimisations.delete_unreachable_structured_cases && false_case && is_unreachable_case(false_case))
-                return block(arena, (Block) { .inside = payload.if_true, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+        case Branch_TAG: {
+            Branch payload = node->payload.branch;
             if (arena->config.optimisations.fold_static_control_flow) {
                 if (payload.condition == true_lit(arena)) {
-                    return block(arena, (Block) { .inside = payload.if_true, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
-                } else if (payload.condition == false_lit(arena) && false_case) {
-                    return block(arena, (Block) { .inside = false_case, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+                    return payload.true_jump;
+                } else if (payload.condition == false_lit(arena)) {
+                    return payload.false_jump;
                 }
+            } else if (arena->config.optimisations.delete_unreachable_structured_cases) {
+                if (is_unreachable_destination(payload.true_jump))
+                    return payload.false_jump;
+                else if (is_unreachable_destination(payload.false_jump))
+                    return payload.true_jump;
             }
-            break;
-        }*/
+        }
         case Match_TAG: {
             if (!arena->config.optimisations.delete_unreachable_structured_cases)
                 break;
