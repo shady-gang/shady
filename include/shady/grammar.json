@@ -554,7 +554,6 @@
       "snake_name": "fn_ret",
       "class": "terminator",
       "ops": [
-        { "name": "fn", "class": "declaration" },
         { "name": "args", "class": "value", "list": true }
       ]
     },

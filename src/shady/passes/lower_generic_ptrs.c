@@ -121,7 +121,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             const Node* loaded_value = first(gen_match(bb, singleton(t), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), case_(a, empty(a), unreachable(a))));
-            new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value), .fn = new_fn }));
+            new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value) }));
             break;
         }
         case StoreFn: {
@@ -147,7 +147,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             gen_match(bb, empty(a), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), case_(a, empty(a), unreachable(a)));
-            new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .fn = new_fn }));
+            new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a) }));
             break;
         }
     }

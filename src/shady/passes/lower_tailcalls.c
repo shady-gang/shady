@@ -88,7 +88,6 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     }));
 
     new_entry_pt->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
-        .fn = NULL,
         .args = nodes(a, 0, NULL)
     }));
 }
@@ -206,7 +205,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 .args = nodes(a, 1, (const Node*[]) { target })
             });
             bind_instruction(bb, fork_call);
-            return finish_body(bb, fn_ret(a, (Return) { .fn = NULL, .args = nodes(a, 0, NULL) }));
+            return finish_body(bb, fn_ret(a, (Return) { .args = nodes(a, 0, NULL) }));
         }
         case Join_TAG: {
             //if (ctx->disable_lowering)
@@ -230,7 +229,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 .args = mk_nodes(a, dst, tree_node)
             });
             bind_instruction(bb, join_call);
-            return finish_body(bb, fn_ret(a, (Return) { .fn = NULL, .args = nodes(a, 0, NULL) }));
+            return finish_body(bb, fn_ret(a, (Return) { .args = nodes(a, 0, NULL) }));
         }
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
@@ -375,7 +374,6 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     (*ctx->top_dispatcher_fn)->payload.fun.body = finish_body(dispatcher_body_builder, fn_ret(a, (Return) {
         .args = nodes(a, 0, NULL),
-        .fn = *ctx->top_dispatcher_fn,
     }));
 }
 
@@ -390,7 +388,7 @@ Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
 
     Node* init_fn = function(dst, nodes(a, 0, NULL), "generated_init", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" }), annotation(a, (Annotation) { .name = "Structured" })), nodes(a, 0, NULL));
-    init_fn->payload.fun.body = fn_ret(a, (Return) { .fn = init_fn, .args = empty(a) });
+    init_fn->payload.fun.body = fn_ret(a, (Return) { .args = empty(a) });
 
     FnPtr next_fn_ptr = 1;
 

@@ -281,11 +281,11 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     const Node* base = *get_emulated_as_word_array(ctx, as);
     if (ser) {
         gen_serialisation(ctx, bb, element_type, base, address, value_param);
-        fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .fn = fun, .args = empty(a) }));
+        fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a) }));
     } else {
         const Node* loaded_value = gen_deserialisation(ctx, bb, element_type, base, address);
         assert(loaded_value);
-        fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .fn = fun, .args = singleton(loaded_value) }));
+        fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value) }));
     }
     return fun;
 }

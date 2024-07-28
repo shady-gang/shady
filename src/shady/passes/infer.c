@@ -28,6 +28,7 @@ static Nodes annotate_all_types(IrArena* a, Nodes types, bool uniform_by_default
 typedef struct {
     Rewriter rewriter;
 
+    const Node* current_fn;
     const Type* expected_type;
 
     const Nodes* merge_types;
@@ -111,6 +112,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             Nodes nret_types = annotate_all_types(a, infer_nodes(ctx, node->payload.fun.return_types), false);
             Node* fun = function(ctx->rewriter.dst_module, nodes(a, node->payload.fun.params.count, nparams), string(a, node->payload.fun.name), infer_nodes(ctx, node->payload.fun.annotations), nret_types);
             register_processed(&ctx->rewriter, node, fun);
+            body_context.current_fn = fun;
             fun->payload.fun.body = infer(&body_context, node->payload.fun.body, NULL);
             return fun;
         }
@@ -628,7 +630,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             return let(a, inferred_instruction, nvars, infer_case(ctx, node->payload.let.tail, empty(a)));
         }
         case Return_TAG: {
-            const Node* imported_fn = infer(ctx, node->payload.fn_ret.fn, NULL);
+            const Node* imported_fn = ctx->current_fn;
             Nodes return_types = imported_fn->payload.fun.return_types;
 
             const Nodes* old_values = &node->payload.fn_ret.args;
@@ -637,7 +639,6 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                 nvalues[i] = infer(ctx, old_values->nodes[i], return_types.nodes[i]);
             return fn_ret(a, (Return) {
                 .args = nodes(a, old_values->count, nvalues),
-                .fn = NULL
             });
         }
         case Jump_TAG: {

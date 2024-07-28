@@ -135,7 +135,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 }
 
                 bind_instruction(bb, instr);
-                wrapper->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .fn = wrapper, .args = empty(a) }));
+                wrapper->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a) }));
                 return wrapper;
             }
             return recreate_node_identity(&ctx2.rewriter, node);

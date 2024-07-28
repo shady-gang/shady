@@ -146,7 +146,6 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
     switch (opcode) {
         case LLVMRet: return (EmittedInstr) {
                 .terminator = fn_ret(a, (Return) {
-                    .fn = NULL,
                     .args = num_ops == 0 ? empty(a) : convert_operands(p, num_ops, instr)
                 })
             };

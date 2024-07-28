@@ -81,10 +81,10 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     }
 
     if (push) {
-        fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .fn = fun, .args = empty(a) }));
+        fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a) }));
     } else {
         assert(popped_value);
-        fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .fn = fun, .args = singleton(popped_value) }));
+        fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = singleton(popped_value) }));
     }
     return fun;
 }

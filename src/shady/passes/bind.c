@@ -288,7 +288,6 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case Return_TAG: {
             assert(ctx->current_function);
             return fn_ret(a, (Return) {
-                .fn = ctx->current_function,
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.args)
             });
         }

@@ -86,7 +86,6 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Type*
     const Node* result = generate(ctx, bb, t, param);
     if (result) {
         fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
-            .fn = fn,
             .args = singleton(result)
         }));
         return;

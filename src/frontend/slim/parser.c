@@ -826,7 +826,6 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
             next_token(tokenizer);
             Nodes args = expect_operands(ctx);
             return fn_ret(arena, (Return) {
-                .fn = NULL,
                 .args = args
             });
         }

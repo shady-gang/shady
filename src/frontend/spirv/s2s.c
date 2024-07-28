@@ -1306,7 +1306,6 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 args = singleton(get_def_ssa_value(parser, instruction[1]));
             BodyBuilder* bb = parser->current_block.builder;
             parser->current_block.finished = finish_body(bb, fn_ret(parser->arena, (Return) {
-                .fn = parser->fun,
                 .args = args,
             }));
             parser->current_block.builder = NULL;
