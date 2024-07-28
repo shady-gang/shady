@@ -160,7 +160,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 const Node* condition = convert_value(p, LLVMGetCondition(instr));
                 return (EmittedInstr) {
                     .terminator = branch(a, (Branch) {
-                        .branch_condition = condition,
+                        .condition = condition,
                         .true_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0]),
                         .false_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[1]),
                     })

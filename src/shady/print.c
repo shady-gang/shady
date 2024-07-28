@@ -739,7 +739,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf("branch ");
             printf(RESET);
             printf("(");
-            print_node(node->payload.branch.branch_condition);
+            print_node(node->payload.branch.condition);
             printf(", ");
             print_jump(ctx, node->payload.branch.true_jump);
             printf(", ");

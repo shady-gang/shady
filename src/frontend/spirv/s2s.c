@@ -1292,7 +1292,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->current_block.finished = finish_body(bb, branch(parser->arena, (Branch) {
                     .true_jump = jump_helper(parser->arena, get_def_block(parser, destinations[0]), get_args_from_phi(parser, destinations[0], parser->current_block.id)),
                     .false_jump = jump_helper(parser->arena, get_def_block(parser, destinations[1]), get_args_from_phi(parser, destinations[1], parser->current_block.id)),
-                    .branch_condition = get_def_ssa_value(parser, instruction[1]),
+                    .condition = get_def_ssa_value(parser, instruction[1]),
             }));
             parser->current_block.builder = NULL;
             break;

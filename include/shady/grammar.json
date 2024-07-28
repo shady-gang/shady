@@ -491,7 +491,7 @@
         "Branch alternatives are made out of Jump terminators"
       ],
       "ops": [
-        { "name": "branch_condition", "class": "value" },
+        { "name": "condition", "class": "value" },
         { "name": "true_jump", "class": "jump" },
         { "name": "false_jump", "class": "jump" }
       ]

@@ -209,7 +209,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             return;
         }
         case Branch_TAG: {
-            SpvId condition = emit_value(emitter, basic_block_builder, terminator->payload.branch.branch_condition);
+            SpvId condition = emit_value(emitter, basic_block_builder, terminator->payload.branch.condition);
             add_branch_phis(emitter, fn_builder, basic_block_builder, terminator->payload.branch.true_jump);
             add_branch_phis(emitter, fn_builder, basic_block_builder, terminator->payload.branch.false_jump);
             spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_jump->payload.jump.target), find_reserved_id(emitter, terminator->payload.branch.false_jump->payload.jump.target));

@@ -52,7 +52,7 @@ static const Node* process_instruction(Context* ctx, const Node* old_instruction
             }
 
             const Node* control_body = branch(a, (Branch) {
-                .branch_condition = rewrite_node(&ctx->rewriter, old_instruction->payload.if_instr.condition),
+                .condition = rewrite_node(&ctx->rewriter, old_instruction->payload.if_instr.condition),
                 .true_jump = jump_helper(a, true_block, empty(a)),
                 .false_jump = jump_helper(a, flse_block, empty(a)),
             });

@@ -283,7 +283,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         // becomes
         // let(if(cond, _ => handle_bb_callsite[true_bb, args], _ => handle_bb_callsite[false_bb, args]), _ => unreachable)
         case Branch_TAG: {
-            const Node* condition = rewrite_node(&ctx->rewriter, body->payload.branch.branch_condition);
+            const Node* condition = rewrite_node(&ctx->rewriter, body->payload.branch.condition);
 
             const Node* true_body = handle_bb_callsite(ctx, abs, body->payload.branch.true_jump, merge_selection(a, (MergeSelection) { .args = empty(a) }));
             const Node* if_true_lam = case_(a, empty(a), true_body);

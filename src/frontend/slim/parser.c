@@ -784,7 +784,7 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
 
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx) : nodes(arena, 0, NULL);
             return branch(arena, (Branch) {
-                .branch_condition = condition,
+                .condition = condition,
                 .true_jump = true_target,
                 .false_jump = false_target,
             });
