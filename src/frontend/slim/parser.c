@@ -720,16 +720,6 @@ static bool accept_statement(ctxparams, BodyBuilder* bb) {
     return true;
 }
 
-static const Node* accept_case(ctxparams) {
-    if (!accept_token(ctx, lambda_tok))
-        return NULL;
-
-    Nodes params;
-    expect_parameters(ctx, &params, NULL);
-    const Node* body = expect_body(ctx, NULL);
-    return case_(arena, params, body);
-}
-
 static const Node* expect_jump(ctxparams) {
     String target = accept_identifier(ctx);
     expect(target);
@@ -738,15 +728,6 @@ static const Node* expect_jump(ctxparams) {
             .target = unbound(arena, (Unbound) { .name = target }),
             .args = args
     });
-}
-
-/// for convenience, parse variables as parameters
-static Nodes params2vars(IrArena* arena, const Node* instruction, Nodes params) {
-    LARRAY(const Node*, vars, params.count);
-    for (size_t i = 0; i < params.count; i++) {
-        vars[i] = var(arena, params.nodes[i]->payload.param.name, instruction, i);
-    }
-    return nodes(arena, params.count, vars);
 }
 
 static const Node* accept_terminator(ctxparams) {
