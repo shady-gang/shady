@@ -157,11 +157,6 @@ static void process_instruction(CfgBuildContext* ctx, CFNode* parent, const Node
             add_structural_dominance_edge(ctx, parent, instruction->payload.block.inside, StructuredEnterBodyEdge);
             add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
             return;
-        case Instruction_If_TAG:
-            add_structural_dominance_edge(ctx, parent, instruction->payload.if_instr.if_true, StructuredEnterBodyEdge);
-            if(instruction->payload.if_instr.if_false)
-                add_structural_dominance_edge(ctx, parent, instruction->payload.if_instr.if_false, StructuredEnterBodyEdge);
-            break;
         case Instruction_Match_TAG:
             for (size_t i = 0; i < instruction->payload.match_instr.cases.count; i++)
                 add_structural_dominance_edge(ctx, parent, instruction->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
@@ -214,6 +209,12 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                 add_edge(ctx, node->node, (*dst)->node, StructuredLeaveBodyEdge);
             break;
         }
+        case If_TAG:
+            add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_true, StructuredEnterBodyEdge);
+            if(terminator->payload.if_instr.if_false)
+                add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_false, StructuredEnterBodyEdge);
+            add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.tail, StructuredPseudoExitEdge);
+            break;
         case MergeSelection_TAG:
         case MergeContinue_TAG:
         case MergeBreak_TAG: {

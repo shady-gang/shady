@@ -444,8 +444,6 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
             break;
         case Instruction_Comment_TAG:
             break;
-        case Instruction_If_TAG:
-            break;
         case Instruction_Match_TAG:
             break;
         case Instruction_Loop_TAG:

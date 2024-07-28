@@ -9,8 +9,17 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#pragma GCC diagnostic error "-Wswitch"
+
+typedef struct {
+    //struct List* stack;
+    Structured_constructTag tag;
+    union NodesUnion payload;
+} BlockEntry;
+
 typedef struct {
     const Node* instr;
+    BlockEntry structured;
     Nodes vars;
 } StackEntry;
 
@@ -19,6 +28,7 @@ BodyBuilder* begin_body(IrArena* a) {
     *bb = (BodyBuilder) {
         .arena = a,
         .stack = new_list(StackEntry),
+        //.stack_stack = new_list(BlockEntry),
     };
     return bb;
 }
@@ -117,13 +127,26 @@ void bind_variables2(BodyBuilder* bb, Nodes vars, const Node* instr) {
     append_list(StackEntry, bb->stack, entry);
 }
 
-const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
+static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
+    IrArena* a = bb->arena;
     size_t stack_size = entries_count_list(bb->stack);
     for (size_t i = stack_size - 1; i < stack_size; i--) {
         StackEntry entry = read_list(StackEntry, bb->stack)[i];
-        terminator = let(bb->arena, entry.instr, entry.vars, case_(bb->arena, empty(bb->arena), terminator));
+        switch (entry.structured.tag) {
+            case NotAStructured_construct:
+                terminator = let(a, entry.instr, entry.vars, case_(bb->arena, empty(bb->arena), terminator));
+                break;
+            case Structured_construct_If_TAG:
+                entry.structured.payload.if_instr.tail = case_(bb->arena, entry.vars, terminator);
+                terminator = if_instr(a, entry.structured.payload.if_instr);
+                break;
+        }
     }
+    return terminator;
+}
 
+const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
+    terminator = build_body(bb, terminator);
     destroy_list(bb->stack);
     free(bb);
     return terminator;
@@ -159,7 +182,31 @@ const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node*
 }
 
 Nodes gen_if(BodyBuilder* bb, Nodes yield_types, const Node* condition, const Node* true_case, const Node* false_case) {
-    return bind_instruction_outputs_count(bb, if_instr(bb->arena, (If) { .condition = condition, .yield_types = yield_types, .if_true = true_case, .if_false = false_case }), yield_types.count, NULL);
+    IrArena* a = bb->arena;
+    LARRAY(const Node*, tail_params, yield_types.count);
+    for (size_t i = 0; i < yield_types.count; i++)
+        tail_params[i] = param(a, yield_types.nodes[i], NULL);
+
+    StackEntry entry = {
+        .structured = {
+            //.stack = bb->stack,
+            .tag = Structured_construct_If_TAG,
+            .payload.if_instr = {
+                .condition = condition,
+                .if_true = true_case,
+                .if_false = false_case,
+                .yield_types = yield_types,
+            },
+        },
+        .vars = nodes(a, yield_types.count, tail_params),
+    };
+    //bb->stack = new_list(StackEntry);
+    append_list(StackEntry , bb->stack, entry);
+
+    return entry.vars;
+    // const Node* tail = case_(a, nodes(a, yield_types.count, tail_params), block_yield(a, (BlockYield) { nodes(a, yield_types.count, tail_params) }));
+    // const Node* instr = if_instr(a, (If) { .condition = condition, .yield_types = yield_types, .if_true = true_case, .if_false = false_case, .tail = tail });
+    // return bind_instruction_outputs_count(bb, block(a, (Block) { .yield_types = add_qualifiers(a, yield_types, false), .inside = case_(a, empty(a), instr) }),yield_types.count, NULL);
 }
 
 Nodes gen_match(BodyBuilder* bb, Nodes yield_types, const Node* inspectee, Nodes literals, Nodes cases, const Node* default_case) {
@@ -175,6 +222,12 @@ Nodes gen_control(BodyBuilder* bb, Nodes yield_types, const Node* body) {
 }
 
 void cancel_body(BodyBuilder* bb) {
+    for (size_t i = 0; i < entries_count_list(bb->stack); i++) {
+        StackEntry entry = read_list(StackEntry, bb->stack)[i];
+        // if (entry.structured.tag != NotAStructured_construct)
+        //     destroy_list(entry.structured.stack);
+    }
     destroy_list(bb->stack);
+    //destroy_list(bb->stack_stack);
     free(bb);
 }

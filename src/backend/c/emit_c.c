@@ -410,6 +410,50 @@ void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const T
         print(block_printer, "\n%s%s;", prefix, decl);
 }
 
+static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String given_name, Strings* given_names, Nodes types, bool mut, const Nodes* init_values) {
+    if (given_names)
+        assert(given_names->count == types.count);
+    if (init_values)
+        assert(init_values->count == types.count);
+    LARRAY(String, names, types.count);
+    for (size_t i = 0; i < types.count; i++) {
+        String name = given_names ? given_names->strings[i] : given_name;
+        assert(name);
+        names[i] = unique_name(emitter->arena, name);
+        if (init_values) {
+            CTerm initializer = emit_value(emitter, p, init_values->nodes[i]);
+            emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, &initializer);
+        } else
+            emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, NULL);
+    }
+    return strings(emitter->arena, types.count, names);
+}
+
+static void emit_if(Emitter* emitter, Printer* p, If if_) {
+    Emitter sub_emiter = *emitter;
+    Strings ephis = emit_variable_declarations(emitter, p, "if_phi", NULL, if_.yield_types, true, NULL);
+    sub_emiter.phis.selection = ephis;
+
+    assert(get_abstraction_params(if_.if_true).count == 0);
+    String true_body = emit_lambda_body(&sub_emiter, get_abstraction_body(if_.if_true), NULL);
+    CValue condition = to_cvalue(emitter, emit_value(emitter, p, if_.condition));
+    print(p, "\nif (%s) { %s}", condition, true_body);
+    free_tmp_str(true_body);
+    if (if_.if_false) {
+        assert(get_abstraction_params(if_.if_false).count == 0);
+        String false_body = emit_lambda_body(&sub_emiter, get_abstraction_body(if_.if_false), NULL);
+        print(p, " else {%s}", false_body);
+        free_tmp_str(false_body);
+    }
+
+    Nodes results = get_abstraction_params(if_.tail);
+    for (size_t i = 0; i < ephis.count; i++) {
+        register_emitted(emitter, results.nodes[i], term_from_cvalue(ephis.strings[i]));
+    }
+
+    emit_terminator(emitter, p, get_abstraction_body(if_.tail));
+}
+
 static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator) {
     switch (is_terminator(terminator)) {
         case NotATerminator: assert(false);
@@ -472,6 +516,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
 
             break;
         }
+        case If_TAG: return emit_if(emitter, block_printer, terminator->payload.if_instr);
         case Terminator_Return_TAG: {
             Nodes args = terminator->payload.fn_ret.args;
             if (args.count == 0) {

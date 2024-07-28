@@ -174,6 +174,51 @@ static void add_branch_phis(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb
     }
 }
 
+static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* pbb_builder, MergeTargets* merge_targets, If if_instr) {
+    Nodes yield_types = if_instr.yield_types;
+    Nodes results = get_abstraction_params(if_instr.tail);
+    SpvId join_bb_id = spvb_fresh_id(emitter->file_builder);
+
+    SpvId true_id = spvb_fresh_id(emitter->file_builder);
+    SpvId false_id = if_instr.if_false ? spvb_fresh_id(emitter->file_builder) : join_bb_id;
+
+    spvb_selection_merge(*pbb_builder, join_bb_id, 0);
+    SpvId condition = emit_value(emitter, *pbb_builder, if_instr.condition);
+    spvb_branch_conditional(*pbb_builder, condition, true_id, false_id);
+
+    // When 'join' is codegen'd, these will be filled with the values given to it
+    BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
+    LARRAY(SpvbPhi*, join_phis, yield_types.count);
+    for (size_t i = 0; i < yield_types.count; i++) {
+        assert(if_instr.if_false && "Ifs with yield types need false branches !");
+        SpvId phi_id = spvb_fresh_id(emitter->file_builder);
+        SpvId type = emit_type(emitter, yield_types.nodes[i]);
+        SpvbPhi* phi = spvb_add_phi(join_bb, type, phi_id);
+        join_phis[i] = phi;
+        register_result(emitter, results.nodes[i], phi_id);
+    }
+
+    MergeTargets merge_targets_branches = *merge_targets;
+    merge_targets_branches.join_target = join_bb_id;
+    merge_targets_branches.join_phis = join_phis;
+
+    BBBuilder true_bb = spvb_begin_bb(fn_builder, true_id);
+    spvb_add_bb(fn_builder, true_bb);
+    assert(is_case(if_instr.if_true));
+    emit_terminator(emitter, fn_builder, true_bb, merge_targets_branches, if_instr.if_true->payload.case_.body);
+    if (if_instr.if_false) {
+        BBBuilder false_bb = spvb_begin_bb(fn_builder, false_id);
+        spvb_add_bb(fn_builder, false_bb);
+        assert(is_case(if_instr.if_false));
+        emit_terminator(emitter, fn_builder, false_bb, merge_targets_branches, if_instr.if_false->payload.case_.body);
+    }
+
+    spvb_add_bb(fn_builder, join_bb);
+    *pbb_builder = join_bb;
+
+    emit_terminator(emitter, fn_builder, *pbb_builder, *merge_targets, get_abstraction_body(if_instr.tail));
+}
+
 void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* terminator) {
     switch (is_terminator(terminator)) {
         case Return_TAG: {
@@ -215,6 +260,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             spvb_branch_conditional(basic_block_builder, condition, find_reserved_id(emitter, terminator->payload.branch.true_jump->payload.jump.target), find_reserved_id(emitter, terminator->payload.branch.false_jump->payload.jump.target));
             return;
         }
+        case If_TAG: return emit_if(emitter, fn_builder, &basic_block_builder, &merge_targets, terminator->payload.if_instr);
         case Switch_TAG: {
             SpvId inspectee = emit_value(emitter, basic_block_builder, terminator->payload.br_switch.switch_value);
             LARRAY(SpvId, targets, terminator->payload.br_switch.case_jumps.count * 2);

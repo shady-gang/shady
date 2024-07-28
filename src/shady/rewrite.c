@@ -328,23 +328,6 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
     }
 }
 
-/*const Node* rebind_let(Rewriter* rewriter, const Node* ninstruction, const Node* olam) {
-    assert(olam->tag == Case_TAG);
-    Nodes oparams = olam->payload.case_.params;
-    Nodes ntypes = unwrap_multiple_yield_types(rewriter->dst_arena, ninstruction->type);
-    assert(ntypes.count == oparams.count);
-    LARRAY(const Node*, new_params, oparams.count);
-    for (size_t i = 0; i < oparams.count; i++) {
-        new_params[i] = var(rewriter->dst_arena, ntypes.nodes[i], oparams.nodes[i]->payload.var.name);
-        register_processed(rewriter, oparams.nodes[i], new_params[i]);
-    }
-    const Node* nbody = rewrite_node(rewriter, olam->payload.case_.body);
-    const Node* tail = case_(rewriter->dst_arena, nodes(rewriter->dst_arena, oparams.count, new_params), nbody);
-    return tail;
-}*/
-
-void bind_variables2(BodyBuilder* bb, Nodes vars, const Node* instr);
-
 const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     if (node == NULL)
         return NULL;

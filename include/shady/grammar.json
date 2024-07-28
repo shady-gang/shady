@@ -120,6 +120,12 @@
     {
       "name": "jump",
       "generate-enum": false
+    },
+    {
+      "name": "structured_construct",
+      "ops": [
+        { "name": "tail", "class": "case" }
+      ]
     }
   ],
   "nodes": [
@@ -392,12 +398,13 @@
     {
       "name": "If",
       "snake_name": "if_instr",
-      "class": "instruction",
+      "class": ["terminator", "structured_construct"],
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "condition", "class": "value" },
         { "name": "if_true", "class": "case" },
-        { "name": "if_false", "class": "case" }
+        { "name": "if_false", "class": "case" },
+        { "name": "tail", "class": "case" }
       ]
     },
     {

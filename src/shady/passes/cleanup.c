@@ -55,6 +55,11 @@ const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* 
     assert(is_case(lam));
     const Node* terminator = get_abstraction_body(lam);
     while (true) {
+        /*if (is_structured_construct(terminator)) {
+            //bind_variables2(bb, terminator->payload.let.variables, terminator->payload.let.instruction);
+            terminator = get_abstraction_body(get_structured_construct_tail(terminator));
+            continue;
+        }*/
         switch (is_terminator(terminator)) {
             case NotATerminator: assert(false);
             case Terminator_Let_TAG: {

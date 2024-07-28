@@ -377,49 +377,6 @@ static void emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, 
     }
 }
 
-static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, If if_instr, size_t results_count, SpvId results[]) {
-    Nodes yield_types = if_instr.yield_types;
-    assert(yield_types.count == results_count);
-    SpvId join_bb_id = spvb_fresh_id(emitter->file_builder);
-
-    SpvId true_id = spvb_fresh_id(emitter->file_builder);
-    SpvId false_id = if_instr.if_false ? spvb_fresh_id(emitter->file_builder) : join_bb_id;
-
-    spvb_selection_merge(*bb_builder, join_bb_id, 0);
-    SpvId condition = emit_value(emitter, *bb_builder, if_instr.condition);
-    spvb_branch_conditional(*bb_builder, condition, true_id, false_id);
-
-    // When 'join' is codegen'd, these will be filled with the values given to it
-    BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
-    LARRAY(SpvbPhi*, join_phis, yield_types.count);
-    for (size_t i = 0; i < yield_types.count; i++) {
-        assert(if_instr.if_false && "Ifs with yield types need false branches !");
-        SpvId phi_id = spvb_fresh_id(emitter->file_builder);
-        SpvId type = emit_type(emitter, yield_types.nodes[i]);
-        SpvbPhi* phi = spvb_add_phi(join_bb, type, phi_id);
-        join_phis[i] = phi;
-        results[i] = phi_id;
-    }
-
-    MergeTargets merge_targets_branches = *merge_targets;
-    merge_targets_branches.join_target = join_bb_id;
-    merge_targets_branches.join_phis = join_phis;
-
-    BBBuilder true_bb = spvb_begin_bb(fn_builder, true_id);
-    spvb_add_bb(fn_builder, true_bb);
-    assert(is_case(if_instr.if_true));
-    emit_terminator(emitter, fn_builder, true_bb, merge_targets_branches, if_instr.if_true->payload.case_.body);
-    if (if_instr.if_false) {
-        BBBuilder false_bb = spvb_begin_bb(fn_builder, false_id);
-        spvb_add_bb(fn_builder, false_bb);
-        assert(is_case(if_instr.if_false));
-        emit_terminator(emitter, fn_builder, false_bb, merge_targets_branches, if_instr.if_false->payload.case_.body);
-    }
-
-    spvb_add_bb(fn_builder, join_bb);
-    *bb_builder = join_bb;
-}
-
 static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match, size_t results_count, SHADY_UNUSED SpvId results[]) {
     Nodes yield_types = match.yield_types;
     assert(yield_types.count == results_count);
@@ -575,7 +532,6 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Instruction_Block_TAG: error("Should be lowered elsewhere")
         case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.call, results_count, results);                 break;
         case PrimOp_TAG:              emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
-        case If_TAG:                      emit_if(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.if_instr, results_count, results);    break;
         case Match_TAG:                emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
         case Loop_TAG:                  emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
         case Comment_TAG: break;

@@ -463,7 +463,7 @@ static const Node* infer_indirect_call(Context* ctx, const Node* node, const Nod
     });
 }
 
-static const Node* infer_if(Context* ctx, const Node* node, const Nodes* expected_types) {
+static const Node* infer_if(Context* ctx, const Node* node) {
     assert(node->tag == If_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* condition = infer(ctx, node->payload.if_instr.condition, qualified_type_helper(bool_type(a), false));
@@ -484,6 +484,7 @@ static const Node* infer_if(Context* ctx, const Node* node, const Nodes* expecte
         .condition = condition,
         .if_true = true_body,
         .if_false = false_body,
+        .tail = infer_case(ctx, node->payload.if_instr.tail, expected_join_types)
     });
 }
 
@@ -566,7 +567,6 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return infer_primop(ctx, node, expected_types);
         case Call_TAG:         return infer_indirect_call(ctx, node, expected_types);
-        case If_TAG:           return infer_if    (ctx, node, expected_types);
         case Loop_TAG:         return infer_loop  (ctx, node, expected_types);
         case Match_TAG:        error("TODO")
         case Control_TAG:      return infer_control(ctx, node, expected_types);
@@ -613,6 +613,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_terminator(node)) {
         case NotATerminator: assert(false);
+        case If_TAG:           return infer_if    (ctx, node);
         case Let_TAG: {
             // const Node* otail = node->payload.let.ttail;
             // Nodes annotated_types = get_param_types(a, otail->payload.case_.params);

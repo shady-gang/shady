@@ -648,32 +648,6 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
     free_tmp_str(params);
 }
 
-static void emit_if(Emitter* emitter, Printer* p, const Node* if_instr, InstructionOutputs outputs) {
-    assert(if_instr->tag == If_TAG);
-    const If* if_ = &if_instr->payload.if_instr;
-    Emitter sub_emiter = *emitter;
-    Strings ephis = emit_variable_declarations(emitter, p, "if_phi", NULL, if_->yield_types, true, NULL);
-    sub_emiter.phis.selection = ephis;
-
-    assert(get_abstraction_params(if_->if_true).count == 0);
-    String true_body = emit_lambda_body(&sub_emiter, get_abstraction_body(if_->if_true), NULL);
-    CValue condition = to_cvalue(emitter, emit_value(emitter, p, if_->condition));
-    print(p, "\nif (%s) { %s}", condition, true_body);
-    free_tmp_str(true_body);
-    if (if_->if_false) {
-        assert(get_abstraction_params(if_->if_false).count == 0);
-        String false_body = emit_lambda_body(&sub_emiter, get_abstraction_body(if_->if_false), NULL);
-        print(p, " else {%s}", false_body);
-        free_tmp_str(false_body);
-    }
-
-    assert(outputs.count == ephis.count);
-    for (size_t i = 0; i < outputs.count; i++) {
-        outputs.results[i] = term_from_cvalue(ephis.strings[i]);
-        outputs.binding[i] = NoBinding;
-    }
-}
-
 static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, InstructionOutputs outputs) {
     assert(match_instr->tag == Match_TAG);
     const Match* match = &match_instr->payload.match_instr;
@@ -852,7 +826,6 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_LetMut_TAG:       error("front-end only!");
         case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
         case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;
-        case Instruction_If_TAG:           emit_if    (emitter, p, instruction, outputs); break;
         case Instruction_Match_TAG:        emit_match (emitter, p, instruction, outputs); break;
         case Instruction_Loop_TAG:         emit_loop  (emitter, p, instruction, outputs); break;
         case Instruction_Control_TAG:      error("TODO")

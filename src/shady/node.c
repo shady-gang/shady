@@ -187,12 +187,19 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
             }
             case Block_TAG: {
                 const Node* terminator = node->payload.block.inside->payload.case_.body;
-                while (terminator->tag == Let_TAG) {
-                    terminator = terminator->payload.let.tail->payload.case_.body;
+                while (true) {
+                    if (terminator->tag == Let_TAG)
+                        terminator = terminator->payload.let.tail->payload.case_.body;
+                    else if (is_structured_construct(terminator))
+                        terminator = get_abstraction_body(get_structured_construct_tail(terminator));
+                    else
+                        break;
                 }
-                assert(terminator->tag == BlockYield_TAG);
-                assert(terminator->payload.block_yield.args.count == 1);
-                return resolve_node_to_definition(first(terminator->payload.block_yield.args), config);
+                if (terminator->tag == BlockYield_TAG) {
+                    assert(terminator->payload.block_yield.args.count == 1);
+                    return resolve_node_to_definition(first(terminator->payload.block_yield.args), config);
+                }
+                return NULL;
             }
             case Load_TAG: {
                 if (config.enter_loads) {

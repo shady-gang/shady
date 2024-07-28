@@ -562,24 +562,6 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(")");
             print_args_list(ctx, node->payload.call.args);
             break;
-        } case If_TAG: {
-            printf(GREEN);
-            printf("if");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.if_instr.yield_types);
-            printf("(");
-            print_node(node->payload.if_instr.condition);
-            printf(") ");
-            if (ctx->config.in_cfg)
-                break;
-            print_case_body(ctx, node->payload.if_instr.if_true);
-            if (node->payload.if_instr.if_false) {
-                printf(GREEN);
-                printf(" else ");
-                printf(RESET);
-                print_case_body(ctx, node->payload.if_instr.if_false);
-            }
-            break;
         } case Loop_TAG: {
             printf(GREEN);
             printf("loop");
@@ -656,6 +638,26 @@ static void print_jump(PrinterCtx* ctx, const Node* node) {
     print_args_list(ctx, node->payload.jump.args);
 }
 
+static void print_structured_construct_results(PrinterCtx* ctx, const Node* tail_case) {
+    Nodes params = get_abstraction_params(tail_case);
+    if (params.count > 0) {
+        printf(GREEN);
+        printf("val");
+        printf(RESET);
+        for (size_t i = 0; i < params.count; i++) {
+            // TODO: fix let mut
+            if (tail_case->arena->config.check_types) {
+                printf(" ");
+                print_node(params.nodes[i]->type);
+            }
+            printf(" ");
+            print_node(params.nodes[i]);
+            printf(RESET);
+        }
+        printf(" = ");
+    }
+}
+
 static void print_terminator(PrinterCtx* ctx, const Node* node) {
     TerminatorTag tag = is_terminator(node);
     switch (tag) {
@@ -709,6 +711,28 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 print_node(tail);
                 printf(";");
             }
+            break;
+        }
+        case If_TAG: {
+            print_structured_construct_results(ctx, node->payload.if_instr.tail);
+            printf(GREEN);
+            printf("if");
+            printf(RESET);
+            print_yield_types(ctx, node->payload.if_instr.yield_types);
+            printf("(");
+            print_node(node->payload.if_instr.condition);
+            printf(") ");
+            if (ctx->config.in_cfg)
+                break;
+            print_case_body(ctx, node->payload.if_instr.if_true);
+            if (node->payload.if_instr.if_false) {
+                printf(GREEN);
+                printf(" else ");
+                printf(RESET);
+                print_case_body(ctx, node->payload.if_instr.if_false);
+            }
+            printf("\n");
+            print_abs_body(ctx, node->payload.if_instr.tail);
             break;
         } case Return_TAG:
             printf(BGREEN);

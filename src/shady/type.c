@@ -1013,6 +1013,7 @@ static void ensure_types_are_value_types(const Nodes* yield_types) {
 }
 
 const Type* check_type_if_instr(IrArena* arena, If if_instr) {
+    assert(if_instr.tail && is_abstraction(if_instr.tail));
     ensure_types_are_data_types(&if_instr.yield_types);
     if (get_unqualified_type(if_instr.condition->type) != bool_type(arena))
         error("condition of an if should be bool");
@@ -1020,7 +1021,9 @@ const Type* check_type_if_instr(IrArena* arena, If if_instr) {
     if (if_instr.yield_types.count > 0)
         assert(if_instr.if_false);
 
-    return wrap_multiple_yield_types(arena, add_qualifiers(arena, if_instr.yield_types, false));
+    check_arguments_types_against_parameters_helper(get_param_types(arena, get_abstraction_params(if_instr.tail)), add_qualifiers(arena, if_instr.yield_types, false));
+    //return wrap_multiple_yield_types(arena, add_qualifiers(arena, if_instr.yield_types, false));
+    return noret_type(arena);
 }
 
 const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
