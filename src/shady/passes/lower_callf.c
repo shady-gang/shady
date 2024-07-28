@@ -131,7 +131,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .args = nargs,
             });
             const Node* control_lam = case_(a, singleton(jp), control_body);
-            return control(a, (Control) { .yield_types = strip_qualifiers(a, returned_types), .inside = control_lam });
+            BodyBuilder* bb = begin_body(a);
+            return yield_values_and_wrap_in_block(bb, gen_control(bb, strip_qualifiers(a, returned_types), control_lam));
         }
         default: break;
     }

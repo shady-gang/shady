@@ -216,7 +216,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                         } else if (lexical_scope_is_nested(*dst_lexical_scope, *dom_lexical_scope)) {
                             error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name_safe(dom->node));
                         } else if (compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
-                            debug_print("We need to introduce a control() block at %s, pointing at %s\n.", get_abstraction_name_safe(dom->node), get_abstraction_name_safe(dst));
+                            debug_print("We need to introduce a control block at %s, pointing at %s\n.", get_abstraction_name_safe(dom->node), get_abstraction_name_safe(dst));
                             Controls** found = find_value_dict(const Node, Controls*, ctx->controls, dom->node);
                             if (found) {
                                 Controls* controls = *found;

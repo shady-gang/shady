@@ -185,10 +185,8 @@ static const Node* process(Context* ctx, const Node* node) {
 
                     const Node* nbody = inline_call(ctx, ocallee, nargs, join_point);
 
-                    return control(a, (Control) {
-                        .yield_types = nyield_types,
-                        .inside = case_(a, singleton(join_point), nbody)
-                    });
+                    BodyBuilder* bb = begin_body(a);
+                    return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, case_(a, singleton(join_point), nbody)));
                 }
             }
             break;

@@ -253,10 +253,9 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Node* new_jp = param(a, qualified_type_helper(new_jp_type, true), old_jp->payload.param.name);
                 register_processed(&ctx->rewriter, old_jp, new_jp);
                 const Node* new_body = case_(a, singleton(new_jp), rewrite_node(&ctx->rewriter, get_abstraction_body(old_inside)));
-                return control(a, (Control) {
-                    .yield_types = rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types),
-                    .inside = new_body,
-                });
+                BodyBuilder* bb = begin_body(a);
+                Nodes nyield_types = rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types);
+                return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, new_body));
             }
             break;
         }
