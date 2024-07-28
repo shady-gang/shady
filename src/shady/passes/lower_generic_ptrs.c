@@ -110,7 +110,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 BodyBuilder* case_bb = begin_body(a);
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
-                cases[tag] = case_(a, empty(a), finish_body(case_bb, yield(a, (Yield) {
+                cases[tag] = case_(a, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
                         .args = singleton(loaded_value),
                 })));
             }
@@ -136,7 +136,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 BodyBuilder* case_bb = begin_body(a);
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 gen_store(case_bb, reinterpreted_ptr, value_param);
-                cases[tag] = case_(a, empty(a), finish_body(case_bb, yield(a, (Yield) {
+                cases[tag] = case_(a, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
                         .args = empty(a),
                 })));
             }

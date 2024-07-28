@@ -214,10 +214,13 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                 add_edge(ctx, node->node, (*dst)->node, StructuredLeaveBodyEdge);
             break;
         }
-        case Yield_TAG:
+        case MergeSelection_TAG:
         case MergeContinue_TAG:
         case MergeBreak_TAG: {
             break; // TODO i guess
+        }
+        case Terminator_BlockYield_TAG: {
+            break;
         }
         case TailCall_TAG: {
 

@@ -784,11 +784,18 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             break;
         case MergeContinue_TAG:
         case MergeBreak_TAG:
-        case Terminator_Yield_TAG:
+        case Terminator_MergeSelection_TAG:
             printf(BGREEN);
             printf("%s", node_tags[node->tag]);
             printf(RESET);
-            print_args_list(ctx, node->payload.yield.args);
+            print_args_list(ctx, node->payload.merge_selection.args);
+            printf(";");
+            break;
+        case Terminator_BlockYield_TAG:
+            printf(BGREEN);
+            printf("%s", node_tags[node->tag]);
+            printf(RESET);
+            print_args_list(ctx, node->payload.block_yield.args);
             printf(";");
             break;
     }

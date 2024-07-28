@@ -151,7 +151,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     if (is_instruction(node))
         return process_instruction(ctx, node);
     switch (node->tag) {
-        case Yield_TAG: {
+        case MergeSelection_TAG: {
             if (!cfnode)
                 break;
             CFNode* dom = cfnode->idom;
@@ -181,7 +181,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             assert(jp);
             return join(a, (Join) {
                 .join_point = jp,
-                .args = rewrite_nodes(&ctx->rewriter, node->payload.yield.args),
+                .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_selection.args),
             });
         }
         case MergeContinue_TAG: {

@@ -417,6 +417,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
         case Jump_TAG:
         case Branch_TAG:
         case Switch_TAG:
+        case Terminator_BlockYield_TAG:
         case TailCall_TAG: error("TODO");
         case Let_TAG: {
             const Node* instruction = get_let_instruction(terminator);
@@ -487,8 +488,8 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             }
             break;
         }
-        case Yield_TAG: {
-            Nodes args = terminator->payload.yield.args;
+        case MergeSelection_TAG: {
+            Nodes args = terminator->payload.merge_selection.args;
             Phis phis = emitter->phis.selection;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)

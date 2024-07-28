@@ -263,7 +263,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     // Wrap the tail in a guarded if, to handle 'far' joins
                     const Node* level_value = gen_load(bb2, ctx->level_ptr);
                     const Node* guard = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
-                    const Node* true_body = structure(ctx, old_tail, yield(a, (Yield) { .args = empty(a) }));
+                    const Node* true_body = structure(ctx, old_tail, merge_selection(a, (MergeSelection) { .args = empty(a) }));
                     const Node* if_true_lam = case_(a, empty(a), true_body);
                     gen_if(bb2, empty(a), guard, if_true_lam, NULL);
 
@@ -285,10 +285,10 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         case Branch_TAG: {
             const Node* condition = rewrite_node(&ctx->rewriter, body->payload.branch.branch_condition);
 
-            const Node* true_body = handle_bb_callsite(ctx, abs, body->payload.branch.true_jump, yield(a, (Yield) { .args = empty(a) }));
+            const Node* true_body = handle_bb_callsite(ctx, abs, body->payload.branch.true_jump, merge_selection(a, (MergeSelection) { .args = empty(a) }));
             const Node* if_true_lam = case_(a, empty(a), true_body);
 
-            const Node* false_body = handle_bb_callsite(ctx, abs, body->payload.branch.false_jump, yield(a, (Yield) { .args = empty(a) }));
+            const Node* false_body = handle_bb_callsite(ctx, abs, body->payload.branch.false_jump, merge_selection(a, (MergeSelection) { .args = empty(a) }));
             const Node* if_false_lam = case_(a, empty(a), false_body);
 
             BodyBuilder* bb = begin_body(a);
@@ -298,12 +298,12 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         case Switch_TAG: {
             const Node* switch_value = rewrite_node(&ctx->rewriter, body->payload.br_switch.switch_value);
 
-            const Node* default_body = handle_bb_callsite(ctx, abs, body->payload.br_switch.default_jump, yield(a, (Yield) { .args = empty(a) }));
+            const Node* default_body = handle_bb_callsite(ctx, abs, body->payload.br_switch.default_jump, merge_selection(a, (MergeSelection) { .args = empty(a) }));
             const Node* default_case = case_(a, empty(a), default_body);
 
             LARRAY(const Node*, cases, body->payload.br_switch.case_jumps.count);
             for (size_t i = 0; i < body->payload.br_switch.case_jumps.count; i++) {
-                cases[i] = case_(a, empty(a), handle_bb_callsite(ctx, abs, body->payload.br_switch.case_jumps.nodes[i], yield(a, (Yield) {.args = empty(a)})));
+                cases[i] = case_(a, empty(a), handle_bb_callsite(ctx, abs, body->payload.br_switch.case_jumps.nodes[i], merge_selection(a, (MergeSelection) {.args = empty(a)})));
             }
 
             BodyBuilder* bb = begin_body(a);
@@ -331,9 +331,10 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
 
         case TailCall_TAG: longjmp(ctx->bail, 1);
 
+        case Terminator_BlockYield_TAG:
         case Terminator_MergeBreak_TAG:
         case Terminator_MergeContinue_TAG:
-        case Yield_TAG: error("Only control nodes are tolerated here.")
+        case Terminator_MergeSelection_TAG: error("Only control nodes are tolerated here.")
     }
 }
 

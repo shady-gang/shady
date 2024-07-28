@@ -90,8 +90,8 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             while (term->tag == Let_TAG) {
                 term = get_abstraction_body(get_let_tail(term));
             }
-            assert(term->tag == Yield_TAG);
-            yield_types = get_values_types(a, term->payload.yield.args);
+            assert(term->tag == BlockYield_TAG);
+            yield_types = get_values_types(a, term->payload.block_yield.args);
             return block(a, (Block) {
                 .yield_types = yield_types,
                 .inside = ninside,

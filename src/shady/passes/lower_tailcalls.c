@@ -349,7 +349,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .callee = fn_addr_helper(a, find_processed(&ctx->rewriter, decl)),
                 .args = nodes(a, 0, NULL)
             }));
-            const Node* if_true_lam = case_(a, empty(a), finish_body(if_builder, yield(a, (Yield) {.args = nodes(a, 0, NULL)})));
+            const Node* if_true_lam = case_(a, empty(a), finish_body(if_builder, merge_selection(a, (MergeSelection) {.args = nodes(a, 0, NULL)})));
             BodyBuilder* case_builder = begin_body(a);
             gen_if(case_builder, empty(a), should_run, if_true_lam, NULL);
             const Node* case_lam = case_(a, nodes(a, 0, NULL), finish_body(case_builder, continue_terminator));

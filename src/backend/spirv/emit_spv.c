@@ -228,10 +228,11 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             spvb_switch(basic_block_builder, inspectee, default_tgt, terminator->payload.br_switch.case_jumps.count, targets);
             return;
         }
+        case Terminator_BlockYield_TAG:
         case TailCall_TAG:
         case Join_TAG: error("Lower me");
-        case Terminator_Yield_TAG: {
-            Nodes args = terminator->payload.yield.args;
+        case MergeSelection_TAG: {
+            Nodes args = terminator->payload.merge_selection.args;
             for (size_t i = 0; i < args.count; i++)
                 spvb_add_phi_source(merge_targets.join_phis[i], get_block_builder_id(basic_block_builder), emit_value(emitter, basic_block_builder, args.nodes[i]));
             spvb_branch(basic_block_builder, merge_targets.join_target);

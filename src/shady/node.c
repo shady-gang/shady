@@ -190,9 +190,9 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                 while (terminator->tag == Let_TAG) {
                     terminator = terminator->payload.let.tail->payload.case_.body;
                 }
-                assert(terminator->tag == Yield_TAG);
-                assert(terminator->payload.yield.args.count == 1);
-                return resolve_node_to_definition(first(terminator->payload.yield.args), config);
+                assert(terminator->tag == BlockYield_TAG);
+                assert(terminator->payload.block_yield.args.count == 1);
+                return resolve_node_to_definition(first(terminator->payload.block_yield.args), config);
             }
             case Load_TAG: {
                 if (config.enter_loads) {

@@ -657,13 +657,14 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             });
         }
         case Branch_TAG:
+        case Terminator_BlockYield_TAG:
         case Terminator_Switch_TAG: break;
         case Terminator_TailCall_TAG: break;
-        case Terminator_Yield_TAG: {
+        case Terminator_MergeSelection_TAG: {
             // TODO: block nodes should set merge types
             assert(ctx->merge_types && "Merge terminator found but we're not within a suitable if instruction !");
             Nodes expected_types = *ctx->merge_types;
-            Nodes old_args = node->payload.yield.args;
+            Nodes old_args = node->payload.merge_selection.args;
             assert(expected_types.count == old_args.count);
             LARRAY(const Node*, new_args, old_args.count);
             for (size_t i = 0; i < old_args.count; i++) {
@@ -671,14 +672,14 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                 assert(is_value_type(e));
                 new_args[i] = infer(ctx, old_args.nodes[i], e);
             }
-            return yield(a, (Yield) {
+            return merge_selection(a, (MergeSelection) {
                 .args = nodes(a, old_args.count, new_args)
             });
         }
         case MergeContinue_TAG: {
             assert(ctx->continue_types && "Merge terminator found but we're not within a suitable loop instruction !");
             Nodes expected_types = *ctx->continue_types;
-            Nodes old_args = node->payload.yield.args;
+            Nodes old_args = node->payload.merge_continue.args;
             assert(expected_types.count == old_args.count);
             LARRAY(const Node*, new_args, old_args.count);
             for (size_t i = 0; i < old_args.count; i++) {
@@ -693,7 +694,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         case MergeBreak_TAG: {
             assert(ctx->break_types && "Merge terminator found but we're not within a suitable loop instruction !");
             Nodes expected_types = *ctx->break_types;
-            Nodes old_args = node->payload.yield.args;
+            Nodes old_args = node->payload.merge_break.args;
             assert(expected_types.count == old_args.count);
             LARRAY(const Node*, new_args, old_args.count);
             for (size_t i = 0; i < old_args.count; i++) {

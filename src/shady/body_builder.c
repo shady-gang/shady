@@ -132,7 +132,7 @@ const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
 const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, Nodes values, const Nodes* types) {
     IrArena* arena = bb->arena;
     assert(arena->config.check_types || types);
-    const Node* terminator = yield(arena, (Yield) { .args = values });
+    const Node* terminator = block_yield(arena, (BlockYield) { .args = values });
     const Node* lam = case_(arena, empty(arena), finish_body(bb, terminator));
     return block(arena, (Block) {
         .yield_types = arena->config.check_types ? get_values_types(arena, values) : *types,

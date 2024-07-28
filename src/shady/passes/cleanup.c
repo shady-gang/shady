@@ -62,8 +62,8 @@ const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* 
                 terminator = get_abstraction_body(terminator->payload.let.tail);
                 continue;
             }
-            case Terminator_Yield_TAG: {
-                return quote_helper(arena, terminator->payload.yield.args);
+            case Terminator_BlockYield_TAG: {
+                return quote_helper(arena, terminator->payload.block_yield.args);
             }
             case Terminator_Return_TAG:
             case Terminator_TailCall_TAG: {

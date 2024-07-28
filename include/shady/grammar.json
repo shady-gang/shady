@@ -536,7 +536,14 @@
       ]
     },
     {
-      "name": "Yield",
+      "name": "MergeSelection",
+      "class": "terminator",
+      "ops": [
+        { "name": "args", "class": "value", "list": true }
+      ]
+    },
+    {
+      "name": "BlockYield",
       "class": "terminator",
       "ops": [
         { "name": "args", "class": "value", "list": true }

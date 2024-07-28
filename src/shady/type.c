@@ -1279,7 +1279,12 @@ const Type* check_type_merge_break(IrArena* arena, MergeBreak mc) {
     return noret_type(arena);
 }
 
-const Type* check_type_yield(IrArena* arena, SHADY_UNUSED Yield payload) {
+const Type* check_type_merge_selection(IrArena* arena, SHADY_UNUSED MergeSelection payload) {
+    // TODO check it
+    return noret_type(arena);
+}
+
+const Type* check_type_block_yield(IrArena* arena, SHADY_UNUSED BlockYield payload) {
     // TODO check it
     return noret_type(arena);
 }

@@ -1,9 +1,9 @@
 @Exported
 fn extend varying i32(varying bool b) {
   val extended = if i32 (b) {
-    yield(1);
+    merge_selection(1);
   } else {
-    yield(0);
+    merge_selection(0);
   }
   return (extended);
 }

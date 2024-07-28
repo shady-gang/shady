@@ -509,7 +509,9 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
             break;
         case Terminator_MergeBreak_TAG:
             break;
-        case Terminator_Yield_TAG:
+        case Terminator_MergeSelection_TAG:
+            break;
+        case Terminator_BlockYield_TAG:
             break;
         case Terminator_Return_TAG:
             mark_values_as_escaping(ctx, kb, old->payload.fn_ret.args);
