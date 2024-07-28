@@ -80,7 +80,7 @@ static const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminator);
+static const Node* expect_body(ctxparams, const Node* default_terminator);
 static const Node* accept_value(ctxparams);
 static const Type* accept_unqualified_type(ctxparams);
 static const Node* accept_expr(ctxparams, int);
@@ -582,7 +582,7 @@ static Nodes expect_operands(ctxparams) {
     return final;
 }
 
-static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
+static const Node* accept_control_flow_instruction(ctxparams) {
     Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
         case if_tok: {
@@ -594,13 +594,13 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect(accept_token(ctx, rpar_tok));
             const Node* merge = config.front_end ? merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }) : NULL;
 
-            const Node* if_true = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
+            const Node* if_true = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, merge));
 
             // else defaults to an empty body
             bool has_else = accept_token(ctx, else_tok);
             const Node* if_false = NULL;
             if (has_else) {
-                if_false = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, fn, merge));
+                if_false = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, merge));
             }
             return if_instr(arena, (If) {
                 .yield_types = yield_types,
@@ -617,7 +617,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
             expect_parameters(ctx, &parameters, &default_values);
             // by default loops continue forever
             const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
-            const Node* body = case_(arena, parameters, expect_body(ctx, fn, default_loop_end_behaviour));
+            const Node* body = case_(arena, parameters, expect_body(ctx, default_loop_end_behaviour));
 
             return loop_instr(arena, (Loop) {
                 .initial_args = default_values,
@@ -635,7 +635,7 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
                 .yield_types = yield_types,
             }), str);
             expect(accept_token(ctx, rpar_tok));
-            const Node* body = case_(arena, singleton(jp), expect_body(ctx, fn, NULL));
+            const Node* body = case_(arena, singleton(jp), expect_body(ctx, NULL));
             return control(arena, (Control) {
                 .inside = body,
                 .yield_types = yield_types
@@ -646,13 +646,13 @@ static const Node* accept_control_flow_instruction(ctxparams, Node* fn) {
     return NULL;
 }
 
-static const Node* accept_instruction(ctxparams, Node* fn, bool in_list) {
+static const Node* accept_instruction(ctxparams, bool in_list) {
     const Node* instr = accept_expr(ctx, max_precedence());
 
     if (in_list && instr)
         expect(accept_token(ctx, semi_tok) && "Non-control flow instructions must be followed by a semicolon");
 
-    if (!instr) instr = accept_control_flow_instruction(ctx, fn);
+    if (!instr) instr = accept_control_flow_instruction(ctx);
     return instr;
 }
 
@@ -699,34 +699,34 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
     destroy_list(tlist);
 }
 
-static bool accept_non_terminator_instr(ctxparams, BodyBuilder* bb, Node* fn) {
+static bool accept_non_terminator_instr(ctxparams, BodyBuilder* bb) {
     Strings ids;
     if (accept_token(ctx, val_tok)) {
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok));
-        const Node* instruction = accept_instruction(ctx, fn, true);
+        const Node* instruction = accept_instruction(ctx, true);
         bind_instruction_outputs_count(bb, instruction, ids.count, ids.strings);
     } else if (accept_token(ctx, var_tok)) {
         Nodes types;
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok));
-        const Node* instruction = accept_instruction(ctx, fn, true);
+        const Node* instruction = accept_instruction(ctx, true);
         create_mutable_variables(bb, instruction, types, ids.strings);
     } else {
-        const Node* instr = accept_instruction(ctx, fn, true);
+        const Node* instr = accept_instruction(ctx, true);
         if (!instr) return false;
         bind_instruction_outputs_count(bb, instr, 0, NULL);
     }
     return true;
 }
 
-static const Node* accept_case(ctxparams, Node* fn) {
+static const Node* accept_case(ctxparams) {
     if (!accept_token(ctx, lambda_tok))
         return NULL;
 
     Nodes params;
     expect_parameters(ctx, &params, NULL);
-    const Node* body = expect_body(ctx, fn, NULL);
+    const Node* body = expect_body(ctx, NULL);
     return case_(arena, params, body);
 }
 
@@ -749,17 +749,17 @@ static Nodes params2vars(IrArena* arena, const Node* instruction, Nodes params) 
     return nodes(arena, params.count, vars);
 }
 
-static const Node* accept_terminator(ctxparams, Node* fn) {
+static const Node* accept_terminator(ctxparams) {
     TokenTag tag = curr_token(tokenizer).tag;
     switch (tag) {
         case let_tok: {
             next_token(tokenizer);
-            const Node* instruction = accept_instruction(ctx, fn, false);
+            const Node* instruction = accept_instruction(ctx, false);
             expect(instruction);
             expect(accept_token(ctx, in_tok));
             switch (tag) {
                 case let_tok: {
-                    const Node* lam = accept_case(ctx, fn);
+                    const Node* lam = accept_case(ctx);
                     expect(lam);
                     return let(arena, instruction, params2vars(arena, instruction, get_abstraction_params(lam)), get_abstraction_body(lam));
                 }
@@ -872,17 +872,16 @@ static const Node* accept_terminator(ctxparams, Node* fn) {
     return NULL;
 }
 
-static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminator) {
-    assert(fn->tag == Function_TAG);
+static const Node* expect_body(ctxparams, const Node* default_terminator) {
     expect(accept_token(ctx, lbracket_tok));
     BodyBuilder* bb = begin_body(arena);
 
     while (true) {
-        if (!accept_non_terminator_instr(ctx, bb, fn))
+        if (!accept_non_terminator_instr(ctx, bb))
             break;
     }
 
-    const Node* terminator = accept_terminator(ctx, fn);
+    const Node* terminator = accept_terminator(ctx);
 
     if (terminator)
         expect(accept_token(ctx, semi_tok));
@@ -899,13 +898,12 @@ static const Node* expect_body(ctxparams, Node* fn, const Node* default_terminat
         while (true) {
             if (!accept_token(ctx, cont_tok))
                 break;
-            assert(fn);
             const char* name = accept_identifier(ctx);
 
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL);
             Node* continuation = basic_block(arena, parameters, name);
-            continuation->payload.basic_block.body = expect_body(ctx, fn, NULL);
+            continuation->payload.basic_block.body = expect_body(ctx, NULL);
             append_list(Node*, conts, continuation);
         }
 
@@ -986,7 +984,7 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
     const char* id = accept_identifier(ctx);
     expect(id);
     expect(accept_token(ctx, equal_tok));
-    const Node* definition = accept_instruction(ctx, NULL, false);
+    const Node* definition = accept_instruction(ctx, false);
     expect(definition);
 
     expect(accept_token(ctx, semi_tok));
@@ -1009,7 +1007,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
 
     Node* fn = function(mod, parameters, name, annotations, types);
     if (!accept_token(ctx, semi_tok))
-        fn->payload.fun.body = expect_body(ctx, fn, types.count == 0 ? fn_ret(arena, (Return) { .args = types }) : NULL);
+        fn->payload.fun.body = expect_body(ctx, types.count == 0 ? fn_ret(arena, (Return) { .args = types }) : NULL);
 
     const Node* declaration = fn;
     expect(declaration);
