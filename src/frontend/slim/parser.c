@@ -582,7 +582,7 @@ static Nodes expect_operands(ctxparams) {
     return final;
 }
 
-static const Node* accept_control_flow_instruction(ctxparams) {
+static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
     Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
         case if_tok: {
@@ -646,13 +646,13 @@ static const Node* accept_control_flow_instruction(ctxparams) {
     return NULL;
 }
 
-static const Node* accept_instruction(ctxparams, bool in_list) {
+static const Node* accept_instruction(ctxparams, BodyBuilder* bb) {
     const Node* instr = accept_expr(ctx, max_precedence());
 
-    if (in_list && instr)
+    if (instr)
         expect(accept_token(ctx, semi_tok) && "Non-control flow instructions must be followed by a semicolon");
 
-    if (!instr) instr = accept_control_flow_instruction(ctx);
+    if (!instr) instr = accept_control_flow_instruction(ctx, bb);
     return instr;
 }
 
@@ -699,21 +699,21 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
     destroy_list(tlist);
 }
 
-static bool accept_non_terminator_instr(ctxparams, BodyBuilder* bb) {
+static bool accept_statement(ctxparams, BodyBuilder* bb) {
     Strings ids;
     if (accept_token(ctx, val_tok)) {
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok));
-        const Node* instruction = accept_instruction(ctx, true);
+        const Node* instruction = accept_instruction(ctx, bb);
         bind_instruction_outputs_count(bb, instruction, ids.count, ids.strings);
     } else if (accept_token(ctx, var_tok)) {
         Nodes types;
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok));
-        const Node* instruction = accept_instruction(ctx, true);
+        const Node* instruction = accept_instruction(ctx, bb);
         create_mutable_variables(bb, instruction, types, ids.strings);
     } else {
-        const Node* instr = accept_instruction(ctx, true);
+        const Node* instr = accept_instruction(ctx, bb);
         if (!instr) return false;
         bind_instruction_outputs_count(bb, instr, 0, NULL);
     }
@@ -752,20 +752,6 @@ static Nodes params2vars(IrArena* arena, const Node* instruction, Nodes params) 
 static const Node* accept_terminator(ctxparams) {
     TokenTag tag = curr_token(tokenizer).tag;
     switch (tag) {
-        case let_tok: {
-            next_token(tokenizer);
-            const Node* instruction = accept_instruction(ctx, false);
-            expect(instruction);
-            expect(accept_token(ctx, in_tok));
-            switch (tag) {
-                case let_tok: {
-                    const Node* lam = accept_case(ctx);
-                    expect(lam);
-                    return let(arena, instruction, params2vars(arena, instruction, get_abstraction_params(lam)), get_abstraction_body(lam));
-                }
-                default: SHADY_UNREACHABLE;
-            }
-        }
         case jump_tok: {
             next_token(tokenizer);
             return expect_jump(ctx);
@@ -877,7 +863,7 @@ static const Node* expect_body(ctxparams, const Node* default_terminator) {
     BodyBuilder* bb = begin_body(arena);
 
     while (true) {
-        if (!accept_non_terminator_instr(ctx, bb))
+        if (!accept_statement(ctx, bb))
             break;
     }
 
@@ -984,7 +970,7 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
     const char* id = accept_identifier(ctx);
     expect(id);
     expect(accept_token(ctx, equal_tok));
-    const Node* definition = accept_instruction(ctx, false);
+    const Node* definition = accept_expr(ctx, max_precedence());
     expect(definition);
 
     expect(accept_token(ctx, semi_tok));

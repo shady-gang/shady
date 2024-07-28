@@ -29,8 +29,6 @@ TEXT_TOKEN(generic) \
 TEXT_TOKEN(logical) \
 TEXT_TOKEN(var) \
 TEXT_TOKEN(val) \
-TEXT_TOKEN(let) \
-TEXT_TOKEN(in) \
 TEXT_TOKEN(ptr) \
 TEXT_TOKEN(ref) \
 TEXT_TOKEN(type) \
