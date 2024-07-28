@@ -194,15 +194,9 @@ static const Node* process(Context* ctx, const Node* node) {
             break;
         }
         case BasicBlock_TAG: {
-            const Node* ofn = node->payload.basic_block.fn;
-            const Node* nfn;
-            if (ctx->inlined_call)
-                nfn = ctx->inlined_call->host_fn;
-            else
-                nfn = rewrite_node(r, ofn);
             Nodes nparams = recreate_params(r, get_abstraction_params(node));
             register_processed_list(r, get_abstraction_params(node), nparams);
-            Node* bb = basic_block(a, (Node*) nfn, nparams, get_abstraction_name(node));
+            Node* bb = basic_block(a, nparams, get_abstraction_name(node));
             register_processed(r, node, bb);
             bb->payload.basic_block.body = rewrite_node(r, get_abstraction_body(node));
             return bb;

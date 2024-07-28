@@ -484,7 +484,7 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
             Nodes args = rewrite_nodes(&ctx->rewriter, old->payload.jump.args);
 
             String s = get_abstraction_name_unsafe(old_target);
-            Node* wrapper = basic_block(a, (Node*) rewrite_node(r, old_target->payload.basic_block.fn), recreate_params(r, get_abstraction_params(old_target)), s);
+            Node* wrapper = basic_block(a, recreate_params(r, get_abstraction_params(old_target)), s);
             TodoJump todo = {
                 .old_jump = old,
                 .wrapper_bb = wrapper,
@@ -610,8 +610,7 @@ static void handle_bb(Context* ctx, const Node* old) {
         next_potential_param: continue;
     }
 
-    Node* fn = (Node*) rewrite_node(&ctx->rewriter, ctx->cfg->entry->node);
-    Node* new_bb = basic_block(a, fn, params, get_abstraction_name_unsafe(old));
+    Node* new_bb = basic_block(a, params, get_abstraction_name_unsafe(old));
     register_processed(&ctx->rewriter, old, new_bb);
     new_bb->payload.basic_block.body = finish_body(bb, nbody);
 

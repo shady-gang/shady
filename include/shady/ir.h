@@ -275,7 +275,7 @@ Node* global_var  (Module*, Nodes annotations, const Type*, String, AddressSpace
 Type* nominal_type(Module*, Nodes annotations, String name);
 
 // basic blocks, lambdas and their helpers
-Node* basic_block(IrArena*, Node* function, Nodes params, const char* name);
+Node* basic_block(IrArena*, Nodes params, const char* name);
 const Node* case_(IrArena* a, Nodes params, const Node* body);
 
 /// Used to build a chain of let

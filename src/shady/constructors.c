@@ -208,12 +208,10 @@ Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, N
     return fn;
 }
 
-Node* basic_block(IrArena* arena, Node* fn, Nodes params, const char* name) {
-    assert(!fn->payload.fun.module->sealed);
+Node* basic_block(IrArena* arena, Nodes params, const char* name) {
     BasicBlock payload = {
         .params = params,
         .body = NULL,
-        .fn = fn,
         .name = name,
     };
 

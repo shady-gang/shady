@@ -237,12 +237,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                                 }
                                 Nodes nparams = remake_params(ctx, get_abstraction_params(dst));
                                 //register_processed_list(&ctx->rewriter, get_abstraction_params(dst), nparams);
-                                Node* fn = (Node*) src;
-                                if (fn->tag == BasicBlock_TAG)
-                                    fn = (Node*) fn->payload.basic_block.fn;
-                                assert(fn->tag == Function_TAG);
-                                fn = (Node*) rewrite_node(r, fn);
-                                Node* wrapper = basic_block(a, fn, nparams, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
+                                Node* wrapper = basic_block(a, nparams, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
                                 wrapper->payload.basic_block.body = join(a, (Join) {
                                     .args = nparams,
                                     .join_point = join_token

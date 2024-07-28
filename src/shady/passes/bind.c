@@ -223,7 +223,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 const Node* old_bb = unbound_blocks.nodes[i];
                 assert(is_basic_block(old_bb));
                 Nodes new_bb_params = recreate_params(&ctx->rewriter, old_bb->payload.basic_block.params);
-                Node* new_bb = basic_block(a, (Node*) ctx->current_function, new_bb_params, old_bb->payload.basic_block.name);
+                Node* new_bb = basic_block(a, new_bb_params, old_bb->payload.basic_block.name);
                 new_bbs[i] = new_bb;
                 add_binding(ctx, false, old_bb->payload.basic_block.name, new_bb);
                 register_processed(&ctx->rewriter, old_bb, new_bb);
@@ -251,7 +251,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case BasicBlock_TAG: {
             assert(is_basic_block(node));
             Nodes new_bb_params = recreate_params(&ctx->rewriter, node->payload.basic_block.params);
-            Node* new_bb = basic_block(a, (Node*) ctx->current_function, new_bb_params, node->payload.basic_block.name);
+            Node* new_bb = basic_block(a, new_bb_params, node->payload.basic_block.name);
             Context bb_ctx = *ctx;
             ctx = &bb_ctx;
             add_binding(ctx, false, node->payload.basic_block.name, new_bb);

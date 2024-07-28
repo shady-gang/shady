@@ -134,7 +134,7 @@ static const Node* handle_bb_callsite(Context* ctx, const Node* caller, const No
 
         // We use a basic block for the exit ladder because we don't know what the ladder needs to do ahead of time
         // opt_simplify_cf will later inline this
-        Node* inner_exit_ladder_bb = basic_block(a, ctx->fn, empty(a), unique_name(a, "exit_ladder_inline_me"));
+        Node* inner_exit_ladder_bb = basic_block(a, empty(a), unique_name(a, "exit_ladder_inline_me"));
 
         // Just jumps to the actual ladder
         const Node* exit_ladder_trampoline = case_(a, empty(a), jump(a, (Jump) {.target = inner_exit_ladder_bb, .args = empty(a)}));
@@ -153,7 +153,7 @@ static const Node* handle_bb_callsite(Context* ctx, const Node* caller, const No
             inner_exit_ladder_bb->payload.basic_block.body = merge_break(a, (MergeBreak) { .args = empty(a) });
             return finish_body(bb, exit_ladder);
         } else {
-            Node* bb2 = basic_block(a, ctx->fn, nodes(a, oargs.count, nparams), NULL);
+            Node* bb2 = basic_block(a, nodes(a, oargs.count, nparams), NULL);
             bb2->payload.basic_block.body = structured;
             //bind_variables(bb, nodes(a, oargs.count, nparams), rewrite_nodes(&ctx->rewriter, oargs));
             inner_exit_ladder_bb->payload.basic_block.body = exit_ladder;

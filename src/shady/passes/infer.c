@@ -335,8 +335,7 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
         register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
     }
 
-    Node* fn = (Node*) infer(ctx, node->payload.basic_block.fn, NULL);
-    Node* bb = basic_block(a, fn, nodes(a, node->payload.basic_block.params.count, nparams), node->payload.basic_block.name);
+    Node* bb = basic_block(a, nodes(a, node->payload.basic_block.params.count, nparams), node->payload.basic_block.name);
     assert(bb);
     register_processed(&ctx->rewriter, node, bb);
 

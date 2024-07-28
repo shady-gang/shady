@@ -111,7 +111,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case BasicBlock_TAG: {
-            Node* new = basic_block(a, (Node*) rewrite_node(&ctx->rewriter, node->payload.basic_block.fn), recreate_params(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
+            Node* new = basic_block(a, recreate_params(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
             register_processed(&ctx->rewriter, node, new);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new->payload.basic_block.params);
             BodyBuilder* bb = begin_body(a);

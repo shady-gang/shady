@@ -166,7 +166,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             LARRAY(const Node*, exit_wrappers, exiting_nodes_count);
             LARRAY(Node*, exit_helpers, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                exit_helpers[i] = basic_block(arena, fn, empty(arena), format_string_arena(arena->arena, "exit_helper_%d", i));
+                exit_helpers[i] = basic_block(arena, empty(arena), format_string_arena(arena->arena, "exit_helper_%d", i));
 
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
@@ -174,7 +174,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 switch (exiting_node->node->tag) {
                     case BasicBlock_TAG: {
-                        Node* pre_join_exit_bb = basic_block(arena, fn, exit_wrapper_params, format_string_arena(arena->arena, "exit_wrapper_%d", i));
+                        Node* pre_join_exit_bb = basic_block(arena, exit_wrapper_params, format_string_arena(arena->arena, "exit_wrapper_%d", i));
                         pre_join_exit_bb->payload.basic_block.body = jump_helper(arena, exit_helpers[i], empty(arena));
                         exit_wrappers[i] = pre_join_exit_bb;
                         break;
@@ -195,7 +195,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             const Node* continue_wrapper;
             switch (node->tag) {
                 case BasicBlock_TAG: {
-                    Node* pre_join_continue_bb = basic_block(arena, fn, continue_wrapper_params, "continue");
+                    Node* pre_join_continue_bb = basic_block(arena, continue_wrapper_params, "continue");
                     pre_join_continue_bb->payload.basic_block.body = continue_wrapper_body;
                     continue_wrapper = pre_join_continue_bb;
                     break;
@@ -274,7 +274,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             BodyBuilder* inner_bb = begin_body(arena);
             Nodes inner_control_results = gen_control(inner_bb, inner_yield_types, case_(arena, singleton(join_token_continue), loop_body));
 
-            Node* loop_outer = basic_block(arena, fn, inner_loop_params, "loop_outer");
+            Node* loop_outer = basic_block(arena, inner_loop_params, "loop_outer");
 
             loop_outer->payload.basic_block.body = finish_body(inner_bb, jump(arena, (Jump) {
                     .target = loop_outer,
@@ -304,7 +304,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     recovered_args[j] = gen_load(exit_recover_bb, exit_param_allocas[i].nodes[j]);
 
                 exit_numbers[i] = int32_literal(arena, i);
-                Node* exit_bb = basic_block(arena, fn, empty(arena), format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name_safe(exiting_node->node)));
+                Node* exit_bb = basic_block(arena, empty(arena), format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name_safe(exiting_node->node)));
                 if (recreated_exit->tag == BasicBlock_TAG) {
                     exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
                         .target = recreated_exit,
@@ -337,7 +337,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             const Node* loop_container;
             switch (node->tag) {
                 case BasicBlock_TAG: {
-                    Node* bb = basic_block(arena, fn, nparams, node->payload.basic_block.name);
+                    Node* bb = basic_block(arena, nparams, node->payload.basic_block.name);
                     bb->payload.basic_block.body = outer_body;
                     loop_container = bb;
                     break;
@@ -483,7 +483,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
-            Node* pre_join = basic_block(arena, fn, exit_args, format_string_arena(arena->arena, "merge_%s_%s", get_abstraction_name_safe(ctx->current_abstraction) , get_abstraction_name_safe(idom)));
+            Node* pre_join = basic_block(arena, exit_args, format_string_arena(arena->arena, "merge_%s_%s", get_abstraction_name_safe(ctx->current_abstraction) , get_abstraction_name_safe(idom)));
             pre_join->payload.basic_block.body = join(arena, (Join) {
                 .join_point = join_token,
                 .args = exit_args

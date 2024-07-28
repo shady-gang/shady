@@ -405,8 +405,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case BasicBlock_TAG: {
             Nodes params = recreate_params(rewriter, node->payload.basic_block.params);
             register_processed_list(rewriter, node->payload.basic_block.params, params);
-            const Node* fn = rewrite_op_helper(rewriter, NcDeclaration, "fn", node->payload.basic_block.fn);
-            Node* bb = basic_block(arena, (Node*) fn, params, node->payload.basic_block.name);
+            Node* bb = basic_block(arena, params, node->payload.basic_block.name);
             register_processed(rewriter, node, bb);
             const Node* nterminator = rewrite_op_helper(rewriter, NcTerminator, "body", node->payload.basic_block.body);
             bb->payload.basic_block.body = nterminator;

@@ -38,11 +38,11 @@ static const Node* process_instruction(Context* ctx, const Node* old_instruction
             Nodes jps = singleton(jp);
             insert_dict(const Node*, Nodes, ctx->structured_join_tokens, old_instruction, jps);
 
-            Node* true_block = basic_block(a, ctx->current_fn, nodes(a, 0, NULL), unique_name(a, "if_true"));
+            Node* true_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_true"));
             join_context.abs = old_instruction->payload.if_instr.if_true;
             true_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_true->payload.case_.body);
 
-            Node* flse_block = basic_block(a, ctx->current_fn, nodes(a, 0, NULL), unique_name(a, "if_false"));
+            Node* flse_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_false"));
             if (has_false_branch) {
                 join_context.abs = old_instruction->payload.if_instr.if_false;
                 flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, old_instruction->payload.if_instr.if_false->payload.case_.body);
@@ -84,7 +84,7 @@ static const Node* process_instruction(Context* ctx, const Node* old_instruction
             insert_dict(const Node*, Nodes, ctx->structured_join_tokens, old_instruction, jps);
 
             Nodes new_params = recreate_params(&ctx->rewriter, old_loop_body->payload.case_.params);
-            Node* loop_body = basic_block(a, ctx->current_fn, new_params, unique_name(a, "loop_body"));
+            Node* loop_body = basic_block(a, new_params, unique_name(a, "loop_body"));
             register_processed_list(&join_context.rewriter, old_loop_body->payload.case_.params, loop_body->payload.basic_block.params);
 
             join_context.abs = old_loop_body;
