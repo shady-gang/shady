@@ -271,6 +271,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             }
             Nodes ovars = node->payload.let.variables;
             Nodes nvars = recreate_vars(a, ovars, ninstr);
+            register_processed_list(r, ovars, nvars);
             for (size_t i = 0; i < nvars.count; i++)
                 add_binding(ctx, false, nvars.nodes[i]->payload.varz.name, nvars.nodes[i]);
             return finish_body(bb, let(a, ninstr, nvars, rewrite_node(r, get_let_tail(node))));

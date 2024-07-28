@@ -602,28 +602,18 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             if (has_else) {
                 if_false = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, merge));
             }
-            return if_instr(arena, (If) {
-                .yield_types = yield_types,
-                .condition = condition,
-                .if_true = if_true,
-                .if_false = if_false
-            });
+            return quote_helper(arena, gen_if(bb, yield_types, condition, if_true, if_false));
         }
         case loop_tok: {
             next_token(tokenizer);
             Nodes yield_types = accept_types(ctx, 0, NeverQualified);
             Nodes parameters;
-            Nodes default_values;
-            expect_parameters(ctx, &parameters, &default_values);
+            Nodes initial_arguments;
+            expect_parameters(ctx, &parameters, &initial_arguments);
             // by default loops continue forever
             const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
             const Node* body = case_(arena, parameters, expect_body(ctx, default_loop_end_behaviour));
-
-            return loop_instr(arena, (Loop) {
-                .initial_args = default_values,
-                .yield_types = yield_types,
-                .body = body
-            });
+            return quote_helper(arena, gen_loop(bb, yield_types, initial_arguments, body));
         }
         case control_tok: {
             next_token(tokenizer);
@@ -636,10 +626,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             }), str);
             expect(accept_token(ctx, rpar_tok));
             const Node* body = case_(arena, singleton(jp), expect_body(ctx, NULL));
-            return control(arena, (Control) {
-                .inside = body,
-                .yield_types = yield_types
-            });
+            return quote_helper(arena, gen_control(bb, yield_types, body));
         }
         default: break;
     }
@@ -1106,6 +1093,9 @@ Module* parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, co
     parse_shady_ir(pconfig, contents, m);
     Module** pmod = &m;
     Module* old_mod = NULL;
+
+    debugv_print("Parsed slim module:\n");
+    log_module(DEBUGV, config, *pmod);
 
     generate_dummy_constants(config, *pmod);
 
