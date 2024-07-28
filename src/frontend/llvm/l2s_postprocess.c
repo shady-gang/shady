@@ -8,6 +8,7 @@
 #include "../shady/type.h"
 #include "../shady/ir_private.h"
 #include "../shady/analysis/cfg.h"
+#include "../shady/transform/ir_gen_helpers.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -40,10 +41,7 @@ static const Node* wrap_in_controls(Context* ctx, Controls* controls, const Node
         const Node* dst = controls->destinations.nodes[i];
         Nodes o_dst_params = get_abstraction_params(dst);
         BodyBuilder* bb = begin_body(a);
-        Nodes results = bind_instruction(bb, control(a, (Control) {
-                .yield_types = get_param_types(a, o_dst_params),
-                .inside = case_(a, singleton(token), body)
-        }));
+        Nodes results = gen_control(bb, get_param_types(a, o_dst_params), case_(a, singleton(token), body));
         body = finish_body(bb, jump_helper(a, rewrite_node(&ctx->rewriter, dst), results));
     }
     return body;

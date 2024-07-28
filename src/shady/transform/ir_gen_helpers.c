@@ -254,6 +254,10 @@ Nodes gen_loop(BodyBuilder* bb, Nodes yield_types, Nodes initial_args, const Nod
     return bind_instruction(bb, loop_instr(bb->arena, (Loop) { .yield_types = yield_types, .initial_args = initial_args, .body = body }));
 }
 
+Nodes gen_control(BodyBuilder* bb, Nodes yield_types, const Node* body) {
+    return bind_instruction(bb, control(bb->arena, (Control) { .yield_types = yield_types, .inside = body }));
+}
+
 const Node* get_default_zero_value(IrArena* a, const Type* t) {
     switch (is_type(t)) {
         case NotAType: error("")

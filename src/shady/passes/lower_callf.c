@@ -130,7 +130,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .target = ncallee,
                 .args = nargs,
             });
-            const Node* control_lam = case_(a, nodes(a, 1, (const Node* []) {jp}), control_body);
+            const Node* control_lam = case_(a, singleton(jp), control_body);
             return control(a, (Control) { .yield_types = strip_qualifiers(a, returned_types), .inside = control_lam });
         }
         default: break;

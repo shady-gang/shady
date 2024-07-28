@@ -272,11 +272,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 register_processed(rewriter, node, cached_entry);
 
             BodyBuilder* inner_bb = begin_body(arena);
-            const Node* inner_control = control(arena, (Control) {
-                .inside = case_(arena, singleton(join_token_continue), loop_body),
-                .yield_types = inner_yield_types
-            });
-            Nodes inner_control_results = bind_instruction(inner_bb, inner_control);
+            Nodes inner_control_results = gen_control(inner_bb, inner_yield_types, case_(arena, singleton(join_token_continue), loop_body));
 
             Node* loop_outer = basic_block(arena, fn, inner_loop_params, "loop_outer");
 
@@ -284,15 +280,10 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     .target = loop_outer,
                     .args = inner_control_results
             }));
-            const Node* outer_control = control(arena, (Control) {
-                .inside = case_(arena, singleton(join_token_exit), jump(arena, (Jump) {
-                        .target = loop_outer,
-                        .args = nparams
-                })),
-                .yield_types = empty(arena)
-            });
-
-            bind_instruction(outer_bb, outer_control);
+            gen_control(outer_bb, empty(arena), case_(arena, singleton(join_token_exit), jump(arena, (Jump) {
+                    .target = loop_outer,
+                    .args = nparams
+            })));
 
             LARRAY(const Node*, exit_numbers, exiting_nodes_count);
             LARRAY(const Node*, exit_jumps, exiting_nodes_count);
@@ -514,17 +505,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 register_processed(rewriter, idom, cached);
 
             const Node* control_inner = case_(arena, singleton(join_token), inner_terminator);
-            const Node* control_instruction = control(arena, (Control) {
-                .inside = control_inner,
-                .yield_types = yield_types
-            });
-
             const Node* recreated_join = rewrite_node(rewriter, idom);
 
             switch (idom->tag) {
                 case BasicBlock_TAG: {
                     BodyBuilder* bb = begin_body(arena);
-                    Nodes results = bind_instruction(bb, control_instruction);
+                    Nodes results = gen_control(bb, yield_types, control_inner);
                     return finish_body(bb, jump(arena, (Jump) {
                         .target = recreated_join,
                         .args = results
