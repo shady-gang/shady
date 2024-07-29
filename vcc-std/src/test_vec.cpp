@@ -54,6 +54,7 @@ void check_swizzle_mut(vec4& v) {
 }
 
 #include <cassert>
+#include <cstdio>
 int main(int argc, char** argv) {
     vec4 v(1.0f, 0.5f, 0.0f, -1.0f);
     float f;
