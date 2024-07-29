@@ -124,7 +124,8 @@ static const Node* generate_decision_tree(Context* ctx, TreeNode* n, bool in_if,
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     switch (node->tag) {
         case Match_TAG: {
@@ -157,9 +158,11 @@ static const Node* process(Context* ctx, const Node* node) {
 
             // Check if we need to run the default case
             Nodes final_results = gen_if(bb, ctx2.yield_types, gen_load(bb, run_default_case), rewrite_node(&ctx->rewriter, node->payload.match_instr.default_case), case_(a, empty(a), gen_yield(ctx, true, matched_results)));
+            register_processed_list(r, get_abstraction_params(get_structured_construct_tail(node)), final_results);
 
             destroy_arena(arena);
-            return yield_values_and_wrap_in_block(bb, final_results);
+            return finish_body(bb, rewrite_node(r, get_abstraction_body(get_structured_construct_tail(node))));
+            // return yield_values_and_wrap_in_block(bb, final_results);
         }
         default: break;
     }

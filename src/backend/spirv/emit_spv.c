@@ -219,6 +219,69 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* pbb_build
     emit_terminator(emitter, fn_builder, *pbb_builder, *merge_targets, get_abstraction_body(if_instr.tail));
 }
 
+static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match) {
+    Nodes yield_types = match.yield_types;
+    Nodes results = get_abstraction_params(match.tail);
+    SpvId join_bb_id = spvb_fresh_id(emitter->file_builder);
+
+    assert(get_unqualified_type(match.inspect->type)->tag == Int_TAG);
+    SpvId inspectee = emit_value(emitter, *bb_builder, match.inspect);
+
+    SpvId default_id = spvb_fresh_id(emitter->file_builder);
+
+    const Type* inspectee_t = match.inspect->type;
+    deconstruct_qualified_type(&inspectee_t);
+    assert(inspectee_t->tag == Int_TAG);
+    size_t literal_width = inspectee_t->payload.int_type.width == IntTy64 ? 2 : 1;
+    size_t literal_case_entry_size = literal_width + 1;
+    LARRAY(uint32_t, literals_and_cases, match.cases.count * literal_case_entry_size);
+    for (size_t i = 0; i < match.cases.count; i++) {
+        uint64_t value = (uint64_t) get_int_literal_value(*resolve_to_int_literal(match.literals.nodes[i]), false);
+        if (inspectee_t->payload.int_type.width == IntTy64) {
+            literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) (value & 0xFFFFFFFF);
+            literals_and_cases[i * literal_case_entry_size + 1] = (SpvId) (uint32_t) (value >> 32);
+        } else {
+            literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) value;
+        }
+        literals_and_cases[i * literal_case_entry_size + literal_width] = spvb_fresh_id(emitter->file_builder);
+    }
+
+    spvb_selection_merge(*bb_builder, join_bb_id, 0);
+    spvb_switch(*bb_builder, inspectee, default_id, match.cases.count * literal_case_entry_size, literals_and_cases);
+
+    // When 'join' is codegen'd, these will be filled with the values given to it
+    BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
+    LARRAY(SpvbPhi*, join_phis, yield_types.count);
+    for (size_t i = 0; i < yield_types.count; i++) {
+        SpvId phi_id = spvb_fresh_id(emitter->file_builder);
+        SpvId type = emit_type(emitter, yield_types.nodes[i]);
+        SpvbPhi* phi = spvb_add_phi(join_bb, type, phi_id);
+        join_phis[i] = phi;
+        register_result(emitter, results.nodes[i], phi_id);
+    }
+
+    MergeTargets merge_targets_branches = *merge_targets;
+    merge_targets_branches.join_target = join_bb_id;
+    merge_targets_branches.join_phis = join_phis;
+
+    for (size_t i = 0; i < match.cases.count; i++) {
+        BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * literal_case_entry_size + literal_width]);
+        const Node* case_body = match.cases.nodes[i];
+        assert(is_case(case_body));
+        spvb_add_bb(fn_builder, case_bb);
+        emit_terminator(emitter, fn_builder, case_bb, merge_targets_branches, case_body->payload.case_.body);
+    }
+    BBBuilder default_bb = spvb_begin_bb(fn_builder, default_id);
+    assert(is_case(match.default_case));
+    spvb_add_bb(fn_builder, default_bb);
+    emit_terminator(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case->payload.case_.body);
+
+    spvb_add_bb(fn_builder, join_bb);
+    *bb_builder = join_bb;
+
+    emit_terminator(emitter, fn_builder, *bb_builder, *merge_targets, get_abstraction_body(match.tail));
+}
+
 void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_block_builder, MergeTargets merge_targets, const Node* terminator) {
     switch (is_terminator(terminator)) {
         case Return_TAG: {
@@ -261,6 +324,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             return;
         }
         case If_TAG: return emit_if(emitter, fn_builder, &basic_block_builder, &merge_targets, terminator->payload.if_instr);
+        case Match_TAG: return emit_match(emitter, fn_builder, &basic_block_builder, &merge_targets, terminator->payload.match_instr);
         case Switch_TAG: {
             SpvId inspectee = emit_value(emitter, basic_block_builder, terminator->payload.br_switch.switch_value);
             LARRAY(SpvId, targets, terminator->payload.br_switch.case_jumps.count * 2);

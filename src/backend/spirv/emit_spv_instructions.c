@@ -377,67 +377,6 @@ static void emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, 
     }
 }
 
-static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Match match, size_t results_count, SHADY_UNUSED SpvId results[]) {
-    Nodes yield_types = match.yield_types;
-    assert(yield_types.count == results_count);
-    SpvId join_bb_id = spvb_fresh_id(emitter->file_builder);
-
-    assert(get_unqualified_type(match.inspect->type)->tag == Int_TAG);
-    SpvId inspectee = emit_value(emitter, *bb_builder, match.inspect);
-
-    SpvId default_id = spvb_fresh_id(emitter->file_builder);
-
-    const Type* inspectee_t = match.inspect->type;
-    deconstruct_qualified_type(&inspectee_t);
-    assert(inspectee_t->tag == Int_TAG);
-    size_t literal_width = inspectee_t->payload.int_type.width == IntTy64 ? 2 : 1;
-    size_t literal_case_entry_size = literal_width + 1;
-    LARRAY(uint32_t, literals_and_cases, match.cases.count * literal_case_entry_size);
-    for (size_t i = 0; i < match.cases.count; i++) {
-        uint64_t value = (uint64_t) get_int_literal_value(*resolve_to_int_literal(match.literals.nodes[i]), false);
-        if (inspectee_t->payload.int_type.width == IntTy64) {
-            literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) (value & 0xFFFFFFFF);
-            literals_and_cases[i * literal_case_entry_size + 1] = (SpvId) (uint32_t) (value >> 32);
-        } else {
-            literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) value;
-        }
-        literals_and_cases[i * literal_case_entry_size + literal_width] = spvb_fresh_id(emitter->file_builder);
-    }
-
-    spvb_selection_merge(*bb_builder, join_bb_id, 0);
-    spvb_switch(*bb_builder, inspectee, default_id, match.cases.count * literal_case_entry_size, literals_and_cases);
-
-    // When 'join' is codegen'd, these will be filled with the values given to it
-    BBBuilder join_bb = spvb_begin_bb(fn_builder, join_bb_id);
-    LARRAY(SpvbPhi*, join_phis, yield_types.count);
-    for (size_t i = 0; i < yield_types.count; i++) {
-        SpvId phi_id = spvb_fresh_id(emitter->file_builder);
-        SpvId type = emit_type(emitter, yield_types.nodes[i]);
-        SpvbPhi* phi = spvb_add_phi(join_bb, type, phi_id);
-        join_phis[i] = phi;
-        results[i] = phi_id;
-    }
-
-    MergeTargets merge_targets_branches = *merge_targets;
-    merge_targets_branches.join_target = join_bb_id;
-    merge_targets_branches.join_phis = join_phis;
-
-    for (size_t i = 0; i < match.cases.count; i++) {
-        BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * literal_case_entry_size + literal_width]);
-        const Node* case_body = match.cases.nodes[i];
-        assert(is_case(case_body));
-        spvb_add_bb(fn_builder, case_bb);
-        emit_terminator(emitter, fn_builder, case_bb, merge_targets_branches, case_body->payload.case_.body);
-    }
-    BBBuilder default_bb = spvb_begin_bb(fn_builder, default_id);
-    assert(is_case(match.default_case));
-    spvb_add_bb(fn_builder, default_bb);
-    emit_terminator(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case->payload.case_.body);
-
-    spvb_add_bb(fn_builder, join_bb);
-    *bb_builder = join_bb;
-}
-
 static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Loop loop_instr, size_t results_count, SpvId results[]) {
     Nodes yield_types = loop_instr.yield_types;
     assert(yield_types.count == results_count);
@@ -532,7 +471,6 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Instruction_Block_TAG: error("Should be lowered elsewhere")
         case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.call, results_count, results);                 break;
         case PrimOp_TAG:              emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
-        case Match_TAG:                emit_match(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.match_instr, results_count, results); break;
         case Loop_TAG:                  emit_loop(emitter, fn_builder, bb_builder, merge_targets, instruction->payload.loop_instr, results_count, results);  break;
         case Comment_TAG: break;
         case Instruction_LocalAlloc_TAG: {

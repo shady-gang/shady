@@ -157,11 +157,6 @@ static void process_instruction(CfgBuildContext* ctx, CFNode* parent, const Node
             add_structural_dominance_edge(ctx, parent, instruction->payload.block.inside, StructuredEnterBodyEdge);
             add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
             return;
-        case Instruction_Match_TAG:
-            for (size_t i = 0; i < instruction->payload.match_instr.cases.count; i++)
-                add_structural_dominance_edge(ctx, parent, instruction->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
-            add_structural_dominance_edge(ctx, parent, instruction->payload.match_instr.default_case, StructuredEnterBodyEdge);
-            break;
         case Instruction_Loop_TAG:
             add_structural_dominance_edge(ctx, parent, instruction->payload.loop_instr.body, StructuredEnterBodyEdge);
             break;
@@ -213,7 +208,13 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
             add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_true, StructuredEnterBodyEdge);
             if(terminator->payload.if_instr.if_false)
                 add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_false, StructuredEnterBodyEdge);
-            add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.tail, StructuredPseudoExitEdge);
+            add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
+            break;
+        case Match_TAG:
+            for (size_t i = 0; i < terminator->payload.match_instr.cases.count; i++)
+                add_structural_dominance_edge(ctx, node, terminator->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
+            add_structural_dominance_edge(ctx, node, terminator->payload.match_instr.default_case, StructuredEnterBodyEdge);
+            add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
             break;
         case MergeSelection_TAG:
         case MergeContinue_TAG:

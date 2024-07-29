@@ -461,6 +461,7 @@ const Node* fold_node(IrArena* arena, const Node* node) {
                 .default_case = payload.default_case,
                 .literals = nodes(arena, new_cases_count, literals),
                 .cases = nodes(arena, new_cases_count, cases),
+                .tail = payload.tail,
             });
         }
         default: break;

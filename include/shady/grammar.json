@@ -410,13 +410,14 @@
     {
       "name": "Match",
       "snake_name": "match_instr",
-      "class": "instruction",
+      "class": ["terminator", "structured_construct"],
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "inspect", "class": "value" },
         { "name": "literals", "class": "value", "list": true },
         { "name": "cases", "class": "case", "list": true },
-        { "name": "default_case", "class": "case" }
+        { "name": "default_case", "class": "case" },
+        { "name": "tail", "class": "case" }
       ]
     },
     {

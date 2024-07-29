@@ -568,7 +568,6 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes
         case PrimOp_TAG:       return infer_primop(ctx, node, expected_types);
         case Call_TAG:         return infer_indirect_call(ctx, node, expected_types);
         case Loop_TAG:         return infer_loop  (ctx, node, expected_types);
-        case Match_TAG:        error("TODO")
         case Control_TAG:      return infer_control(ctx, node, expected_types);
         case Block_TAG:        return infer_block  (ctx, node, expected_types);
         case Instruction_Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
@@ -614,6 +613,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
     switch (is_terminator(node)) {
         case NotATerminator: assert(false);
         case If_TAG:           return infer_if    (ctx, node);
+        case Match_TAG:        error("TODO")
         case Let_TAG: {
             // const Node* otail = node->payload.let.ttail;
             // Nodes annotated_types = get_param_types(a, otail->payload.case_.params);

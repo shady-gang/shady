@@ -140,6 +140,10 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
                 entry.structured.payload.if_instr.tail = case_(bb->arena, entry.vars, terminator);
                 terminator = if_instr(a, entry.structured.payload.if_instr);
                 break;
+            case Structured_construct_Match_TAG:
+                entry.structured.payload.match_instr.tail = case_(bb->arena, entry.vars, terminator);
+                terminator = match_instr(a, entry.structured.payload.match_instr);
+                break;
         }
     }
     return terminator;
@@ -183,13 +187,13 @@ const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node*
 
 Nodes gen_if(BodyBuilder* bb, Nodes yield_types, const Node* condition, const Node* true_case, const Node* false_case) {
     IrArena* a = bb->arena;
+    Nodes qyield_types = add_qualifiers(a, yield_types, false);
     LARRAY(const Node*, tail_params, yield_types.count);
     for (size_t i = 0; i < yield_types.count; i++)
-        tail_params[i] = param(a, yield_types.nodes[i], NULL);
+        tail_params[i] = param(a, qyield_types.nodes[i], NULL);
 
     StackEntry entry = {
         .structured = {
-            //.stack = bb->stack,
             .tag = Structured_construct_If_TAG,
             .payload.if_instr = {
                 .condition = condition,
@@ -200,17 +204,32 @@ Nodes gen_if(BodyBuilder* bb, Nodes yield_types, const Node* condition, const No
         },
         .vars = nodes(a, yield_types.count, tail_params),
     };
-    //bb->stack = new_list(StackEntry);
     append_list(StackEntry , bb->stack, entry);
-
     return entry.vars;
-    // const Node* tail = case_(a, nodes(a, yield_types.count, tail_params), block_yield(a, (BlockYield) { nodes(a, yield_types.count, tail_params) }));
-    // const Node* instr = if_instr(a, (If) { .condition = condition, .yield_types = yield_types, .if_true = true_case, .if_false = false_case, .tail = tail });
-    // return bind_instruction_outputs_count(bb, block(a, (Block) { .yield_types = add_qualifiers(a, yield_types, false), .inside = case_(a, empty(a), instr) }),yield_types.count, NULL);
 }
 
 Nodes gen_match(BodyBuilder* bb, Nodes yield_types, const Node* inspectee, Nodes literals, Nodes cases, const Node* default_case) {
-    return bind_instruction_outputs_count(bb, match_instr(bb->arena, (Match) { .yield_types = yield_types, .inspect = inspectee, .literals = literals, .cases = cases, .default_case = default_case }), yield_types.count, NULL);
+    IrArena* a = bb->arena;
+    Nodes qyield_types = add_qualifiers(a, yield_types, false);
+    LARRAY(const Node*, tail_params, yield_types.count);
+    for (size_t i = 0; i < yield_types.count; i++)
+        tail_params[i] = param(a, qyield_types.nodes[i], NULL);
+
+    StackEntry entry = {
+        .structured = {
+            .tag = Structured_construct_Match_TAG,
+            .payload.match_instr = {
+                .yield_types = yield_types,
+                .inspect = inspectee,
+                .literals = literals,
+                .cases = cases,
+                .default_case = default_case
+            },
+        },
+        .vars = nodes(a, yield_types.count, tail_params),
+    };
+    append_list(StackEntry , bb->stack, entry);
+    return entry.vars;
 }
 
 Nodes gen_loop(BodyBuilder* bb, Nodes yield_types, Nodes initial_args, const Node* body) {

@@ -648,50 +648,6 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
     free_tmp_str(params);
 }
 
-static void emit_match(Emitter* emitter, Printer* p, const Node* match_instr, InstructionOutputs outputs) {
-    assert(match_instr->tag == Match_TAG);
-    const Match* match = &match_instr->payload.match_instr;
-    Emitter sub_emiter = *emitter;
-    Strings ephis = emit_variable_declarations(emitter, p, "match_phi", NULL, match->yield_types, true, NULL);
-    sub_emiter.phis.selection = ephis;
-
-    // Of course, the sensible thing to do here would be to emit a switch statement.
-    // ...
-    // Except that doesn't work, because C/GLSL have a baffling design wart: the `break` statement is overloaded,
-    // meaning that if you enter a switch statement, which should be orthogonal to loops, you can't actually break
-    // out of the outer loop anymore. Brilliant. So we do this terrible if-chain instead.
-    //
-    // We could do GOTO for C, but at the cost of arguably even more noise in the output, and two different codepaths.
-    // I don't think it's quite worth it, just like it's not worth doing some data-flow based solution either.
-
-    CValue inspectee = to_cvalue(emitter, emit_value(emitter, p, match->inspect));
-    bool first = true;
-    LARRAY(CValue, literals, match->cases.count);
-    for (size_t i = 0; i < match->cases.count; i++) {
-        literals[i] = to_cvalue(emitter, emit_value(emitter, p, match->literals.nodes[i]));
-    }
-    for (size_t i = 0; i < match->cases.count; i++) {
-        String case_body = emit_lambda_body(&sub_emiter, get_abstraction_body(match->cases.nodes[i]), NULL);
-        print(p, "\n");
-        if (!first)
-            print(p, "else ");
-        print(p, "if (%s == %s) { %s}", inspectee, literals[i], case_body);
-        free_tmp_str(case_body);
-        first = false;
-    }
-    if (match->default_case) {
-        String default_case_body = emit_lambda_body(&sub_emiter, get_abstraction_body(match->default_case), NULL);
-        print(p, "\nelse { %s}", default_case_body);
-        free_tmp_str(default_case_body);
-    }
-
-    assert(outputs.count == ephis.count);
-    for (size_t i = 0; i < outputs.count; i++) {
-        outputs.results[i] = term_from_cvalue(ephis.strings[i]);
-        outputs.binding[i] = NoBinding;
-    }
-}
-
 static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, InstructionOutputs outputs) {
     assert(loop_instr->tag == Loop_TAG);
     const Loop* loop = &loop_instr->payload.loop_instr;
@@ -826,7 +782,6 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_LetMut_TAG:       error("front-end only!");
         case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
         case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;
-        case Instruction_Match_TAG:        emit_match (emitter, p, instruction, outputs); break;
         case Instruction_Loop_TAG:         emit_loop  (emitter, p, instruction, outputs); break;
         case Instruction_Control_TAG:      error("TODO")
         case Instruction_Block_TAG:        error("Should be eliminated by the compiler")

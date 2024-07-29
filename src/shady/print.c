@@ -574,39 +574,6 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             print_param_list(ctx, body->payload.case_.params, &node->payload.loop_instr.initial_args);
             print_case_body(ctx, body);
             break;
-        } case Match_TAG: {
-            printf(GREEN);
-            printf("match");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.match_instr.yield_types);
-            printf("(");
-            print_node(node->payload.match_instr.inspect);
-            printf(")");
-            if (ctx->config.in_cfg)
-                break;
-            printf(" {");
-            indent(ctx->printer);
-            for (size_t i = 0; i < node->payload.match_instr.literals.count; i++) {
-                printf("\n");
-                printf(GREEN);
-                printf("case");
-                printf(RESET);
-                printf(" ");
-                print_node(node->payload.match_instr.literals.nodes[i]);
-                printf(": ");
-                print_case_body(ctx, node->payload.match_instr.cases.nodes[i]);
-            }
-
-            printf("\n");
-            printf(GREEN);
-            printf("default");
-            printf(RESET);
-            printf(": ");
-            print_case_body(ctx, node->payload.match_instr.default_case);
-
-            deindent(ctx->printer);
-            printf("\n}");
-            break;
         } case Control_TAG: {
             printf(BGREEN);
             if (ctx->uses) {
@@ -733,6 +700,42 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             }
             printf("\n");
             print_abs_body(ctx, node->payload.if_instr.tail);
+            break;
+        } case Match_TAG: {
+            print_structured_construct_results(ctx, node->payload.match_instr.tail);
+            printf(GREEN);
+            printf("match");
+            printf(RESET);
+            print_yield_types(ctx, node->payload.match_instr.yield_types);
+            printf("(");
+            print_node(node->payload.match_instr.inspect);
+            printf(")");
+            if (ctx->config.in_cfg)
+                break;
+            printf(" {");
+            indent(ctx->printer);
+            for (size_t i = 0; i < node->payload.match_instr.literals.count; i++) {
+                printf("\n");
+                printf(GREEN);
+                printf("case");
+                printf(RESET);
+                printf(" ");
+                print_node(node->payload.match_instr.literals.nodes[i]);
+                printf(": ");
+                print_case_body(ctx, node->payload.match_instr.cases.nodes[i]);
+            }
+
+            printf("\n");
+            printf(GREEN);
+            printf("default");
+            printf(RESET);
+            printf(": ");
+            print_case_body(ctx, node->payload.match_instr.default_case);
+
+            deindent(ctx->printer);
+            printf("\n}");
+            printf("\n");
+            print_abs_body(ctx, node->payload.match_instr.tail);
             break;
         } case Return_TAG:
             printf(BGREEN);

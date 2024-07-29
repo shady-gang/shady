@@ -454,6 +454,49 @@ static void emit_if(Emitter* emitter, Printer* p, If if_) {
     emit_terminator(emitter, p, get_abstraction_body(if_.tail));
 }
 
+static void emit_match(Emitter* emitter, Printer* p, Match match) {
+    Emitter sub_emiter = *emitter;
+    Strings ephis = emit_variable_declarations(emitter, p, "match_phi", NULL, match.yield_types, true, NULL);
+    sub_emiter.phis.selection = ephis;
+
+    // Of course, the sensible thing to do here would be to emit a switch statement.
+    // ...
+    // Except that doesn't work, because C/GLSL have a baffling design wart: the `break` statement is overloaded,
+    // meaning that if you enter a switch statement, which should be orthogonal to loops, you can't actually break
+    // out of the outer loop anymore. Brilliant. So we do this terrible if-chain instead.
+    //
+    // We could do GOTO for C, but at the cost of arguably even more noise in the output, and two different codepaths.
+    // I don't think it's quite worth it, just like it's not worth doing some data-flow based solution either.
+
+    CValue inspectee = to_cvalue(emitter, emit_value(emitter, p, match.inspect));
+    bool first = true;
+    LARRAY(CValue, literals, match.cases.count);
+    for (size_t i = 0; i < match.cases.count; i++) {
+        literals[i] = to_cvalue(emitter, emit_value(emitter, p, match.literals.nodes[i]));
+    }
+    for (size_t i = 0; i < match.cases.count; i++) {
+        String case_body = emit_lambda_body(&sub_emiter, get_abstraction_body(match.cases.nodes[i]), NULL);
+        print(p, "\n");
+        if (!first)
+            print(p, "else ");
+        print(p, "if (%s == %s) { %s}", inspectee, literals[i], case_body);
+        free_tmp_str(case_body);
+        first = false;
+    }
+    if (match.default_case) {
+        String default_case_body = emit_lambda_body(&sub_emiter, get_abstraction_body(match.default_case), NULL);
+        print(p, "\nelse { %s}", default_case_body);
+        free_tmp_str(default_case_body);
+    }
+
+    Nodes results = get_abstraction_params(match.tail);
+    for (size_t i = 0; i < ephis.count; i++) {
+        register_emitted(emitter, results.nodes[i], term_from_cvalue(ephis.strings[i]));
+    }
+
+    emit_terminator(emitter, p, get_abstraction_body(match.tail));
+}
+
 static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator) {
     switch (is_terminator(terminator)) {
         case NotATerminator: assert(false);
@@ -517,6 +560,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             break;
         }
         case If_TAG: return emit_if(emitter, block_printer, terminator->payload.if_instr);
+        case Match_TAG: return emit_match(emitter, block_printer, terminator->payload.match_instr);
         case Terminator_Return_TAG: {
             Nodes args = terminator->payload.fn_ret.args;
             if (args.count == 0) {
