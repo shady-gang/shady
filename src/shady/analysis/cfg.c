@@ -151,6 +151,11 @@ static void process_instruction(CfgBuildContext* ctx, CFNode* parent, const Node
         case Instruction_FillBytes_TAG:
         case Instruction_StackAlloc_TAG:
         case Instruction_LocalAlloc_TAG:
+        case Instruction_PushStack_TAG:
+        case Instruction_PopStack_TAG:
+        case Instruction_GetStackSize_TAG:
+        case Instruction_SetStackSize_TAG:
+        case Instruction_GetStackBaseAddr_TAG:
             add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
             return;
         case Instruction_Block_TAG:

@@ -40,7 +40,7 @@ const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes ty, Nodes nodes) {
 }
 
 void gen_push_value_stack(BodyBuilder* bb, const Node* value) {
-    gen_primop(bb, push_stack_op, singleton(get_unqualified_type(value->type)), singleton(value));
+    bind_instruction(bb, push_stack(bb->arena, (PushStack) { value }));
 }
 
 void gen_push_values_stack(BodyBuilder* bb, Nodes values) {
@@ -51,8 +51,20 @@ void gen_push_values_stack(BodyBuilder* bb, Nodes values) {
 }
 
 const Node* gen_pop_value_stack(BodyBuilder* bb, const Type* type) {
-    const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = pop_stack_op, .type_arguments = nodes(bb->arena, 1, (const Node*[]) { type }) });
+    const Node* instruction = pop_stack(bb->arena, (PopStack) { .type = type });
     return first(bind_instruction(bb, instruction));
+}
+
+const Node* gen_get_stack_base_addr(BodyBuilder* bb) {
+    return first(bind_instruction(bb, get_stack_base_addr(bb->arena)));
+}
+
+const Node* gen_get_stack_size(BodyBuilder* bb) {
+    return first(bind_instruction(bb, get_stack_size(bb->arena)));
+}
+
+void gen_set_stack_size(BodyBuilder* bb, const Node* new_size) {
+    bind_instruction(bb, set_stack_size(bb->arena, (SetStackSize) { new_size }));
 }
 
 const Node* gen_reinterpret_cast(BodyBuilder* bb, const Type* dst, const Node* src) {

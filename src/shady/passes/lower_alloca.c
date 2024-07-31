@@ -19,8 +19,8 @@ typedef struct Context_ {
 
     const CompilerConfig* config;
     struct Dict* prepared_offsets;
-    const Node* entry_base_stack_ptr;
-    const Node* entry_stack_offset;
+    const Node* base_stack_addr_on_entry;
+    const Node* stack_size_on_entry;
     size_t num_slots;
     const Node* frame_size;
 
@@ -94,9 +94,9 @@ static const Node* process(Context* ctx, const Node* node) {
 
             BodyBuilder* bb = begin_body(a);
             ctx2.prepared_offsets = new_dict(const Node*, StackSlot, (HashFn) hash_node, (CmpFn) compare_node);
-            ctx2.entry_base_stack_ptr = gen_primop_ce(bb, get_stack_base_op, 0, NULL);
-            String tmp_name = "stack_ptr_before_alloca";
-            ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_size_op } ), (String []) { tmp_name }));
+            ctx2.base_stack_addr_on_entry = gen_get_stack_base_addr(bb);
+            ctx2.stack_size_on_entry = gen_get_stack_size(bb);
+            set_variable_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
 
             Node* nom_t = nominal_type(m, empty(a), format_string_arena(a->arena, "%s_stack_frame", get_abstraction_name(node)));
             VContext vctx = {
@@ -140,21 +140,21 @@ static const Node* process(Context* ctx, const Node* node) {
                 }
 
                 BodyBuilder* bb = begin_body(a);
-                if (!ctx->entry_stack_offset) {
+                if (!ctx->stack_size_on_entry) {
                     //String tmp_name = format_string_arena(a->arena, "stack_ptr_before_alloca_%s", get_abstraction_name(fun));
                     assert(false);
                 }
 
                 //const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands)), found_slot->offset));
                 const Node* converted_offset = convert_int_extend_according_to_dst_t(bb, ctx->stack_ptr_t, found_slot->offset);
-                const Node* lea_instr = lea(a, (Lea) { ctx->entry_base_stack_ptr, gen_primop_e(bb, add_op, empty(a), mk_nodes(a, ctx->entry_stack_offset, converted_offset)), empty(a) });
+                const Node* lea_instr = lea(a, (Lea) {ctx->base_stack_addr_on_entry, gen_primop_e(bb, add_op, empty(a), mk_nodes(a, ctx->stack_size_on_entry, converted_offset)), empty(a) });
                 const Node* slot = first(bind_instruction_named(bb, lea_instr, (String []) { format_string_arena(a->arena, "stack_slot_%d", found_slot->i) }));
                 const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = found_slot->type, .address_space = found_slot->as });
                 slot = gen_reinterpret_cast(bb, ptr_t, slot);
                 //bool last = found_slot->i == ctx->num_slots - 1;
                 //if (last) {
-                    const Node* updated_stack_ptr = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, ctx->entry_stack_offset, ctx->frame_size));
-                    gen_primop(bb, set_stack_size_op, empty(a), singleton(updated_stack_ptr));
+                const Node* updated_stack_ptr = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, ctx->stack_size_on_entry, ctx->frame_size));
+                gen_set_stack_size(bb, updated_stack_ptr);
                 //}
 
                 return yield_values_and_wrap_in_block(bb, singleton(slot));

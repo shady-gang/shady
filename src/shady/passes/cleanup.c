@@ -145,7 +145,7 @@ const Node* process(Context* ctx, const Node* old) {
                     return finish_body(bb, instruction);
             }
             Nodes ovars = old->payload.let.variables;
-            // optimization: eliminate unecessary quotes by rewriting variables into their values directly
+            // optimization: eliminate unnecessary quotes by rewriting variables into their values directly
             if (instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
                 *ctx->todo = true;
                 register_processed_list(r, ovars, instruction->payload.prim_op.operands);

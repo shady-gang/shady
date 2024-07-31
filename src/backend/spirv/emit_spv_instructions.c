@@ -382,6 +382,11 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
 
     switch (is_instruction(instruction)) {
         case NotAnInstruction: error("");
+        case Instruction_PushStack_TAG:
+        case Instruction_PopStack_TAG:
+        case Instruction_GetStackSize_TAG:
+        case Instruction_SetStackSize_TAG:
+        case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
         case Instruction_CopyBytes_TAG:
         case Instruction_FillBytes_TAG:
         case Instruction_LetMut_TAG:

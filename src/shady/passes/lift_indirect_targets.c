@@ -54,15 +54,10 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, struct L
         const Type* t = nvar->type;
         deconstruct_qualified_type(&t);
         assert(t->tag != PtrType_TAG || !t->payload.ptr_type.is_reference && "References cannot be spilled");
-        const Node* save_instruction = prim_op(a, (PrimOp) {
-            .op = push_stack_op,
-            .type_arguments = singleton(get_unqualified_type(nvar->type)),
-            .operands = singleton(nvar),
-        });
-        bind_instruction(builder, save_instruction);
+        gen_push_value_stack(builder, nvar);
     }
 
-    const Node* sp = gen_primop_ce(builder, get_stack_size_op, 0, NULL);
+    const Node* sp = gen_get_stack_size(builder);
 
     return sp;
 }
@@ -137,7 +132,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, Nodes ovariable
 
     // Recover that stuff inside the new body
     BodyBuilder* bb = begin_body(a);
-    gen_primop(bb, set_stack_size_op, empty(a), singleton(payload));
+    gen_set_stack_size(bb, payload);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
         // assert(ovar->tag == Variable_TAG);
@@ -145,10 +140,9 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, Nodes ovariable
         const Type* value_type = rewrite_node(&ctx->rewriter, ovar->type);
 
         String param_name = get_value_name_unsafe(ovar);
-        const Node* recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) {
-            .op = pop_stack_op,
-            .type_arguments = singleton(get_unqualified_type(value_type))
-        }), &param_name));
+        const Node* recovered_value = gen_pop_value_stack(bb, get_unqualified_type(value_type));
+        if (param_name)
+            set_variable_name(recovered_value, param_name);
 
         if (is_qualified_type_uniform(ovar->type))
             recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = singleton(recovered_value) }), &param_name));

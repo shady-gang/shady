@@ -43,36 +43,25 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* old_instruction = node->payload.let.instruction;
             const Node* ntail = NULL;
             switch (is_instruction(old_instruction)) {
-                case PrimOp_TAG: {
-                    switch (old_instruction->payload.prim_op.op) {
-                        case push_stack_op: {
-                            const Node* value = rewrite_node(&ctx->rewriter, first(old_instruction->payload.prim_op.operands));
-                            entry = (StackState) {
-                                .prev = ctx->state,
-                                .type = VALUE,
-                                .value = value,
-                                .leaks = false,
-                            };
-                            child_ctx.state = &entry;
-                            is_push = true;
-                            break;
-                        }
-                        case pop_stack_op: {
-                            if (ctx->state) {
-                                child_ctx.state = ctx->state->prev;
-                                is_pop = true;
-                            }
-                            break;
-                        }
-                        default: break;
+                case Instruction_PushStack_TAG: {
+                    const Node* value = rewrite_node(&ctx->rewriter, old_instruction->payload.push_stack.value);
+                    entry = (StackState) {
+                        .prev = ctx->state,
+                        .type = VALUE,
+                        .value = value,
+                        .leaks = false,
+                    };
+                    child_ctx.state = &entry;
+                    is_push = true;
+                    break;
+                }
+                case Instruction_PopStack_TAG: {
+                    if (ctx->state) {
+                        child_ctx.state = ctx->state->prev;
+                        is_pop = true;
                     }
                     break;
                 }
-                // We sadly don't handle those yet:
-                case Match_TAG:
-                case Control_TAG:
-                case Loop_TAG:
-                case If_TAG:
                 case Instruction_Block_TAG:
                 // Leaf calls and indirect calls are not analysed and so they are considered to leak the state
                 // we also need to forget our information about the current state
@@ -81,7 +70,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     child_ctx.state = NULL;
                     break;
                 }
-                case Instruction_Comment_TAG: break;
+                default: break;
                 case NotAnInstruction: assert(false);
             }
 

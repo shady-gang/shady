@@ -110,53 +110,59 @@ static const Node* process_node(Context* ctx, const Node* old) {
         return new;
     }
 
-    if (old->tag == PrimOp_TAG) {
-        const PrimOp* oprim_op = &old->payload.prim_op;
-        switch (oprim_op->op) {
-            case get_stack_size_op: {
-                assert(ctx->stack);
-                BodyBuilder* bb = begin_body(a);
-                const Node* sp = gen_load(bb, ctx->stack_pointer);
-                return yield_values_and_wrap_in_block(bb, singleton(sp));
-            }
-            case set_stack_size_op: {
-                assert(ctx->stack);
-                BodyBuilder* bb = begin_body(a);
-                const Node* val = rewrite_node(&ctx->rewriter, oprim_op->operands.nodes[0]);
-                gen_store(bb, ctx->stack_pointer, val);
-                return yield_values_and_wrap_in_block(bb, empty(a));
-            }
-            case get_stack_base_op: {
-                assert(ctx->stack);
-                BodyBuilder* bb = begin_body(a);
-                const Node* stack_pointer = ctx->stack_pointer;
-                const Node* stack_size = gen_load(bb, stack_pointer);
-                const Node* stack_base_ptr = gen_lea(bb, ctx->stack, int32_literal(a, 0), singleton(stack_size));
-                if (ctx->config->printf_trace.stack_size) {
-                    bind_instruction(bb, prim_op(a, (PrimOp) {.op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) {.string = "trace: stack_size=%d\n"}), stack_size)}));
-                }
-                return yield_values_and_wrap_in_block(bb, singleton(stack_base_ptr));
-            }
-            case push_stack_op:
-            case pop_stack_op: {
-                assert(ctx->stack);
-                BodyBuilder* bb = begin_body(a);
-                const Type* element_type = rewrite_node(&ctx->rewriter, first(oprim_op->type_arguments));
-
-                bool push = oprim_op->op == push_stack_op;
-
-                const Node* fn = gen_fn(ctx, element_type, push);
-                Nodes args = push ? singleton(rewrite_node(&ctx->rewriter, first(oprim_op->operands))) : empty(a);
-                Nodes results = bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = args}));
-
-                if (push)
-                    return yield_values_and_wrap_in_block(bb, empty(a));
-
-                assert(results.count == 1);
-                return yield_values_and_wrap_in_block(bb, results);
-            }
-            default: break;
+    switch (old->tag) {
+        case GetStackSize_TAG: {
+            assert(ctx->stack);
+            BodyBuilder* bb = begin_body(a);
+            const Node* sp = gen_load(bb, ctx->stack_pointer);
+            return yield_values_and_wrap_in_block(bb, singleton(sp));
         }
+        case SetStackSize_TAG: {
+            assert(ctx->stack);
+            BodyBuilder* bb = begin_body(a);
+            const Node* val = rewrite_node(&ctx->rewriter, old->payload.set_stack_size.value);
+            gen_store(bb, ctx->stack_pointer, val);
+            return yield_values_and_wrap_in_block(bb, empty(a));
+        }
+        case GetStackBaseAddr_TAG: {
+            assert(ctx->stack);
+            BodyBuilder* bb = begin_body(a);
+            const Node* stack_pointer = ctx->stack_pointer;
+            const Node* stack_size = gen_load(bb, stack_pointer);
+            const Node* stack_base_ptr = gen_lea(bb, ctx->stack, int32_literal(a, 0), singleton(stack_size));
+            if (ctx->config->printf_trace.stack_size) {
+                bind_instruction(bb, prim_op(a, (PrimOp) {.op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) {.string = "trace: stack_size=%d\n"}), stack_size)}));
+            }
+            return yield_values_and_wrap_in_block(bb, singleton(stack_base_ptr));
+        }
+        case PushStack_TAG:{
+            assert(ctx->stack);
+            BodyBuilder* bb = begin_body(a);
+            const Type* element_type = rewrite_node(&ctx->rewriter, get_unqualified_type(old->payload.push_stack.value->type));
+
+            bool push = true;
+
+            const Node* fn = gen_fn(ctx, element_type, push);
+            Nodes args = singleton(rewrite_node(&ctx->rewriter, old->payload.push_stack.value));
+            Nodes results = bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = args}));
+
+            return yield_values_and_wrap_in_block(bb, empty(a));
+        }
+        case PopStack_TAG: {
+            assert(ctx->stack);
+            BodyBuilder* bb = begin_body(a);
+            const Type* element_type = rewrite_node(&ctx->rewriter, old->payload.pop_stack.type);
+
+            bool push = false;
+
+            const Node* fn = gen_fn(ctx, element_type, push);
+            Nodes args = empty(a);
+            Nodes results = bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = args}));
+
+            assert(results.count == 1);
+            return yield_values_and_wrap_in_block(bb, results);
+        }
+        default: break;
     }
 
     return recreate_node_identity(&ctx->rewriter, old);

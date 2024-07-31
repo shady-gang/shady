@@ -525,11 +525,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             term = term_from_cvalue(dst);
             break;
         }
-        case get_stack_base_op:
-        case push_stack_op:
-        case pop_stack_op:
-        case get_stack_size_op:
-        case set_stack_size_op: error("Stack operations need to be lowered.");
         case default_join_point_op:
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
         case subgroup_elect_first_op: {
@@ -746,6 +741,11 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
 
     switch (is_instruction(instruction)) {
         case NotAnInstruction: assert(false);
+        case Instruction_PushStack_TAG:
+        case Instruction_PopStack_TAG:
+        case Instruction_GetStackSize_TAG:
+        case Instruction_SetStackSize_TAG:
+        case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
         case Instruction_LetMut_TAG:       error("front-end only!");
         case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
         case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;

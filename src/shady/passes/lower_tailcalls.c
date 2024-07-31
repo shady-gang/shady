@@ -144,10 +144,12 @@ static const Node* process(Context* ctx, const Node* old) {
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
                 const Type* new_param_type = rewrite_node(&ctx->rewriter, get_unqualified_type(old_param->type));
-                const Node* popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = pop_stack_op, .type_arguments = singleton(new_param_type), .operands = empty(a) }), &old_param->payload.param.name));
+                const Node* popped = gen_pop_value_stack(bb, new_param_type);
+                if (old_param->payload.param.name)
+                    set_variable_name((Node*) popped, old_param->payload.param.name);
                 // TODO use the uniform stack instead ? or no ?
                 if (is_qualified_type_uniform(old_param->type))
-                    popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .type_arguments = empty(a), .operands =singleton(popped) }), &old_param->payload.param.name));
+                    popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .type_arguments = empty(a), .operands = singleton(popped) }), &old_param->payload.param.name));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
             fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));

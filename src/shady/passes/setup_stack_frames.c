@@ -17,7 +17,7 @@ typedef struct Context_ {
     bool disable_lowering;
 
     const CompilerConfig* config;
-    const Node* entry_stack_offset;
+    const Node* stack_size_on_entry;
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -34,7 +34,8 @@ static const Node* process(Context* ctx, const Node* node) {
 
             BodyBuilder* bb = begin_body(a);
             if (!ctx2.disable_lowering) {
-                ctx2.entry_stack_offset = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = get_stack_size_op } ), (String []) {format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)) }));
+                ctx2.stack_size_on_entry = gen_get_stack_size(bb);
+                set_variable_name((Node*) ctx2.stack_size_on_entry, format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)));
             }
             if (node->payload.fun.body)
                 fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
@@ -45,12 +46,9 @@ static const Node* process(Context* ctx, const Node* node) {
         case Return_TAG: {
             BodyBuilder* bb = begin_body(a);
             if (!ctx->disable_lowering) {
-                assert(ctx->entry_stack_offset);
+                assert(ctx->stack_size_on_entry);
                 // Restore SP before calling exit
-                bind_instruction(bb, prim_op(a, (PrimOp) {
-                    .op = set_stack_size_op,
-                    .operands = nodes(a, 1, (const Node* []) {ctx->entry_stack_offset })
-                }));
+                gen_set_stack_size(bb, ctx->stack_size_on_entry);
             }
             return finish_body(bb, recreate_node_identity(r, node));
         }

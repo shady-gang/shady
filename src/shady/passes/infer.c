@@ -361,21 +361,6 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* exp
     LARRAY(const Node*, new_operands, old_operands.count);
     Nodes input_types = empty(a);
     switch (node->payload.prim_op.op) {
-        case push_stack_op: {
-            assert(old_operands.count == 1);
-            assert(type_args.count == 1);
-            const Type* element_type = type_args.nodes[0];
-            assert(is_data_type(element_type));
-            new_operands[0] = infer(ctx, old_operands.nodes[0], qualified_type_helper(element_type, false));
-            goto rebuild;
-        }
-        case pop_stack_op: {
-            assert(old_operands.count == 0);
-            assert(type_args.count == 1);
-            const Type* element_type = type_args.nodes[0];
-            assert(is_data_type(element_type));
-            goto rebuild;
-        }
         case reinterpret_op:
         case convert_op: {
             new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
@@ -567,6 +552,14 @@ static const Node* infer_block(Context* ctx, const Node* node, const Nodes* expe
 static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes* expected_types) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_instruction(node)) {
+        case Instruction_PushStack_TAG: {
+            return push_stack(a, (PushStack) { infer_value(ctx, node->payload.push_stack.value, NULL) });
+        }
+        case Instruction_PopStack_TAG: {
+            const Type* element_type = node->payload.pop_stack.type;
+            assert(is_data_type(element_type));
+            return pop_stack(a, (PopStack) { element_type });
+        }
         case PrimOp_TAG:       return infer_primop(ctx, node, expected_types);
         case Call_TAG:         return infer_indirect_call(ctx, node, expected_types);
         case Block_TAG:        return infer_block  (ctx, node, expected_types);

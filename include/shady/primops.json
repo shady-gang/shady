@@ -16,12 +16,6 @@
       "name": "math"
     },
     {
-      "name": "stack"
-    },
-    {
-      "name": "memory"
-    },
-    {
       "name": "memory_layout"
     },
     {
@@ -187,29 +181,6 @@
       "class": "math"
     },
     {
-      "name": "push_stack",
-      "class": "stack",
-      "side-effects": true
-    },
-    {
-      "name": "pop_stack",
-      "class": "stack",
-      "side-effects": true
-    },
-    {
-      "name": "get_stack_size",
-      "class": "stack"
-    },
-    {
-      "name": "get_stack_base",
-      "class": "stack"
-    },
-    {
-      "name": "set_stack_size",
-      "class": "stack",
-      "side-effects": true
-    },
-    {
       "name": "size_of",
       "class": "memory_layout"
     },
@@ -372,6 +343,35 @@
         { "name": "src", "class": "value" },
         { "name": "count", "class": "value" }
       ]
+    },
+    {
+      "name": "PushStack",
+      "class": "instruction",
+      "ops": [
+        { "name": "value", "class": "value" }
+      ]
+    },
+    {
+      "name": "PopStack",
+      "class": "instruction",
+      "ops": [
+        { "name": "type", "class": "type" }
+      ]
+    },
+    {
+      "name": "GetStackSize",
+      "class": "instruction"
+    },
+    {
+      "name": "SetStackSize",
+      "class": "instruction",
+      "ops": [
+        { "name": "value", "class": "value" }
+      ]
+    },
+    {
+      "name": "GetStackBaseAddr",
+      "class": "instruction"
     }
   ]
 }
