@@ -149,33 +149,32 @@ const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
     return terminator;
 }
 
-const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, Nodes values, const Nodes* types) {
+const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, Nodes values, const Nodes types) {
     IrArena* arena = bb->arena;
-    assert(arena->config.check_types || types);
     const Node* terminator = block_yield(arena, (BlockYield) { .args = values });
     const Node* lam = case_(arena, empty(arena), finish_body(bb, terminator));
     return block(arena, (Block) {
-        .yield_types = arena->config.check_types ? get_values_types(arena, values) : *types,
+        .yield_types = types,
         .inside = lam,
     });
 }
 
 const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
-    return yield_values_and_wrap_in_block_explicit_return_types(bb, values, NULL);
+    return yield_values_and_wrap_in_block_explicit_return_types(bb, values, get_values_types(bb->arena, values));
 }
 
-const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, const Node* instruction, const Nodes* types) {
+const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, const Node* instruction, const Nodes types) {
     size_t stack_size = entries_count_list(bb->stack);
     if (stack_size == 0) {
         cancel_body(bb);
         return instruction;
     }
-    Nodes bound = bind_internal(bb, instruction, types ? types->count : SIZE_MAX, types ? types->nodes : NULL, NULL);
+    Nodes bound = bind_internal(bb, instruction, types.count, types.nodes, NULL);
     return yield_values_and_wrap_in_block_explicit_return_types(bb, bound, types);
 }
 
 const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node* instruction) {
-    return bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, instruction, NULL);
+    return bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type));
 }
 
 static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {

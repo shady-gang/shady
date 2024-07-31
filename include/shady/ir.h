@@ -300,9 +300,9 @@ Nodes bind_instruction_outputs_count(BodyBuilder*, const Node* initial_value, si
 
 const Node* finish_body(BodyBuilder*, const Node* terminator);
 void cancel_body(BodyBuilder*);
-const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder*, Nodes, const Nodes*);
+const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder*, Nodes, const Nodes);
 const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
-const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder*, const Node*, const Nodes*);
+const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder*, const Node*, const Nodes);
 const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder*, const Node*);
 
 #endif
