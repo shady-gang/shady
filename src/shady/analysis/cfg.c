@@ -137,36 +137,6 @@ static void add_jump_edge(CfgBuildContext* ctx, const Node* src, const Node* j) 
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static void process_instruction(CfgBuildContext* ctx, CFNode* parent, const Node* instruction, const Node* let_tail) {
-    switch (is_instruction(instruction)) {
-        case NotAnInstruction: error("Grammar problem");
-        case Instruction_Call_TAG:
-        case Instruction_PrimOp_TAG:
-        case Instruction_Comment_TAG:
-        case Instruction_LetMut_TAG:
-        case Instruction_Load_TAG:
-        case Instruction_Store_TAG:
-        case Instruction_Lea_TAG:
-        case Instruction_CopyBytes_TAG:
-        case Instruction_FillBytes_TAG:
-        case Instruction_StackAlloc_TAG:
-        case Instruction_LocalAlloc_TAG:
-        case Instruction_PushStack_TAG:
-        case Instruction_PopStack_TAG:
-        case Instruction_GetStackSize_TAG:
-        case Instruction_SetStackSize_TAG:
-        case Instruction_GetStackBaseAddr_TAG:
-            add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
-            return;
-        case Instruction_Block_TAG:
-            //error("no puppet you're the puppet")
-            add_structural_dominance_edge(ctx, parent, instruction->payload.block.inside, StructuredEnterBodyEdge);
-            add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
-            return;
-    }
-    add_structural_dominance_edge(ctx, parent, let_tail, StructuredPseudoExitEdge);
-}
-
 static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
     const Node* const abs = node->node;
     assert(is_abstraction(abs));
@@ -177,7 +147,7 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
     switch (is_terminator(terminator)) {
         case Let_TAG: {
             const Node* target = get_let_tail(terminator);
-            process_instruction(ctx, node, get_let_instruction(terminator), target);
+            add_structural_dominance_edge(ctx, node, target, LetTailEdge);
             break;
         }
         case Jump_TAG: {
