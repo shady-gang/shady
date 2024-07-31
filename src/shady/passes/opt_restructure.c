@@ -203,7 +203,6 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
             const Node* old_instr = get_let_instruction(body);
             switch (is_instruction(old_instr)) {
                 case NotAnInstruction: assert(false);
-                case Instruction_Loop_TAG:
                 case Instruction_Block_TAG: error("Should be eliminated by the compiler");
                 case Instruction_Call_TAG: {
                     const Node* callee = old_instr->payload.call.callee;
@@ -330,7 +329,8 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         case TailCall_TAG: longjmp(ctx->bail, 1);
 
         case If_TAG:
-        case Match_TAG: error("not supposed to exist in IR at this stage");
+        case Match_TAG:
+        case Loop_TAG: error("not supposed to exist in IR at this stage");
         case Terminator_BlockYield_TAG:
         case Terminator_MergeBreak_TAG:
         case Terminator_MergeContinue_TAG:

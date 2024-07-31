@@ -25,50 +25,6 @@ static const Node* process_instruction(Context* ctx, const Node* old_instruction
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (old_instruction->tag) {
-        // TODO: match
-        case Loop_TAG: {
-            const Node* old_loop_body = old_instruction->payload.loop_instr.body;
-            assert(is_case(old_loop_body));
-
-            Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_param_types(a, old_loop_body->payload.case_.params));
-            param_types = strip_qualifiers(a, param_types);
-
-            const Type* break_jp_type = qualified_type(a, (QualifiedType) {
-                .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
-                .is_uniform = false,
-            });
-            const Type* continue_jp_type = qualified_type(a, (QualifiedType) {
-                .type = join_point_type(a, (JoinPointType) { .yield_types = param_types }),
-                .is_uniform = false,
-            });
-            const Node* break_point = param(a, break_jp_type, "loop_break_point");
-            const Node* continue_point = param(a, continue_jp_type, "loop_continue_point");
-            Context join_context = *ctx;
-            Nodes jps = mk_nodes(a, break_point, continue_point);
-            insert_dict(const Node*, Nodes, ctx->structured_join_tokens, old_instruction, jps);
-
-            Nodes new_params = recreate_params(&ctx->rewriter, old_loop_body->payload.case_.params);
-            Node* loop_body = basic_block(a, new_params, unique_name(a, "loop_body"));
-            register_processed_list(&join_context.rewriter, old_loop_body->payload.case_.params, loop_body->payload.basic_block.params);
-
-            join_context.abs = old_loop_body;
-            const Node* inner_control_body = rewrite_node(&join_context.rewriter, old_loop_body->payload.case_.body);
-            const Node* inner_control_lam = case_(a, nodes(a, 1, (const Node* []) {continue_point}), inner_control_body);
-
-            BodyBuilder* inner_bb = begin_body(a);
-            Nodes args = gen_control(inner_bb, param_types, inner_control_lam);
-
-            // TODO let_in_block or use a Jump !
-            loop_body->payload.basic_block.body = finish_body(inner_bb, jump(a, (Jump) { .target = loop_body, .args = args }));
-
-            const Node* initial_jump = jump(a, (Jump) {
-                .target = loop_body,
-                .args = rewrite_nodes(&ctx->rewriter, old_instruction->payload.loop_instr.initial_args),
-            });
-            BodyBuilder* outer_bb = begin_body(a);
-            return yield_values_and_wrap_in_block(outer_bb, gen_control(outer_bb, yield_types, case_(a, singleton(break_point), initial_jump)));
-        }
         default:
             break;
     }
@@ -156,6 +112,57 @@ static const Node* process_node(Context* ctx, const Node* node) {
             // return control(a)
             //return yield_values_and_wrap_in_block(bb, );
         }
+        // TODO: match
+        case Loop_TAG: {
+            const Node* old_loop_body = node->payload.loop_instr.body;
+            assert(is_case(old_loop_body));
+
+            Nodes yield_types = rewrite_nodes(&ctx->rewriter, node->payload.loop_instr.yield_types);
+            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_param_types(a, old_loop_body->payload.case_.params));
+            param_types = strip_qualifiers(a, param_types);
+
+            const Type* break_jp_type = qualified_type(a, (QualifiedType) {
+                .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
+                .is_uniform = false,
+            });
+            const Type* continue_jp_type = qualified_type(a, (QualifiedType) {
+                .type = join_point_type(a, (JoinPointType) { .yield_types = param_types }),
+                .is_uniform = false,
+            });
+            const Node* break_point = param(a, break_jp_type, "loop_break_point");
+            const Node* continue_point = param(a, continue_jp_type, "loop_continue_point");
+            Context join_context = *ctx;
+            Nodes jps = mk_nodes(a, break_point, continue_point);
+            insert_dict(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
+
+            Nodes new_params = recreate_params(&ctx->rewriter, old_loop_body->payload.case_.params);
+            Node* loop_body = basic_block(a, new_params, unique_name(a, "loop_body"));
+            register_processed_list(&join_context.rewriter, old_loop_body->payload.case_.params, loop_body->payload.basic_block.params);
+
+            join_context.abs = old_loop_body;
+            const Node* inner_control_body = rewrite_node(&join_context.rewriter, old_loop_body->payload.case_.body);
+            const Node* inner_control_lam = case_(a, nodes(a, 1, (const Node* []) {continue_point}), inner_control_body);
+
+            BodyBuilder* inner_bb = begin_body(a);
+            Nodes args = gen_control(inner_bb, param_types, inner_control_lam);
+
+            // TODO let_in_block or use a Jump !
+            loop_body->payload.basic_block.body = finish_body(inner_bb, jump(a, (Jump) { .target = loop_body, .args = args }));
+
+            const Node* initial_jump = jump(a, (Jump) {
+                .target = loop_body,
+                .args = rewrite_nodes(&ctx->rewriter, node->payload.loop_instr.initial_args),
+            });
+            BodyBuilder* outer_bb = begin_body(a);
+
+            Nodes results = gen_control(outer_bb, yield_types, case_(a, singleton(break_point), initial_jump));
+
+            const Node* otail = get_structured_construct_tail(node);
+            Node* join = basic_block(a, recreate_params(r, get_abstraction_params(otail)), NULL);
+            register_processed_list(r, get_abstraction_params(otail), get_abstraction_params(join));
+            set_abstraction_body(join, rewrite_node(r, get_abstraction_body(otail)));
+            return finish_body(outer_bb, jump_helper(a, join, results));
+        }
         case MergeSelection_TAG: {
             if (!cfnode)
                 break;
@@ -163,13 +170,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* selection_instr = NULL;
             while (dom) {
                 const Node* body = get_abstraction_body(dom->node);
-                if (body->tag == Let_TAG) {
-                    const Node* instr = get_let_instruction(body);
-                    if (instr->tag == If_TAG || instr->tag == Match_TAG) {
-                        selection_instr = instr;
-                        break;
-                    }
-                } else if(body->tag == If_TAG) {
+                if(body->tag == If_TAG || body->tag == Match_TAG) {
                     selection_instr = body;
                     break;
                 }
@@ -198,12 +199,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* selection_instr = NULL;
             while (dom) {
                 const Node* body = get_abstraction_body(dom->node);
-                if (body->tag == Let_TAG) {
-                    const Node* instr = get_let_instruction(body);
-                    if (instr->tag == Loop_TAG) {
-                        selection_instr = instr;
-                        break;
-                    }
+                if (body->tag == Loop_TAG) {
+                    selection_instr = body;
+                    break;
                 }
                 dom = dom->idom;
             }
@@ -230,12 +228,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* selection_instr = NULL;
             while (dom) {
                 const Node* body = get_abstraction_body(dom->node);
-                if (body->tag == Let_TAG) {
-                    const Node* instr = get_let_instruction(body);
-                    if (instr->tag == Loop_TAG) {
-                        selection_instr = instr;
-                        break;
-                    }
+                if (body->tag == Loop_TAG) {
+                    selection_instr = body;
+                    break;
                 }
                 dom = dom->idom;
             }

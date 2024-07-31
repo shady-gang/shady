@@ -423,11 +423,12 @@
     {
       "name": "Loop",
       "snake_name": "loop_instr",
-      "class": "instruction",
+      "class": ["terminator", "structured_construct"],
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "body", "class": "case" },
-        { "name": "initial_args", "class": "value", "list": true }
+        { "name": "initial_args", "class": "value", "list": true },
+        { "name": "tail", "class": "case" }
       ]
     },
     {

@@ -1026,18 +1026,18 @@ const Type* check_type_if_instr(IrArena* arena, If if_instr) {
     return noret_type(arena);
 }
 
-const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
-    ensure_types_are_data_types(&loop_instr.yield_types);
-    // TODO check param against initial_args
-    // TODO check the contained Merge instrs
-    return wrap_multiple_yield_types(arena, add_qualifiers(arena, loop_instr.yield_types, false));
-}
-
 const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
     ensure_types_are_data_types(&match_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
-    return wrap_multiple_yield_types(arena, add_qualifiers(arena, match_instr.yield_types, false));
+    return noret_type(arena);
+}
+
+const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
+    ensure_types_are_data_types(&loop_instr.yield_types);
+    // TODO check param against initial_args
+    // TODO check the contained Merge instrs
+    return noret_type(arena);
 }
 
 const Type* check_type_control(IrArena* arena, Control control) {

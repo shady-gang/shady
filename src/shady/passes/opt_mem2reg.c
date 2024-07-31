@@ -444,10 +444,6 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
             break;
         case Instruction_Comment_TAG:
             break;
-        case Instruction_Loop_TAG:
-            mark_values_as_escaping(ctx, kb, oinstruction->payload.loop_instr.initial_args);
-            // assert(false && "unsupported");
-            break;
     }
 
     return recreate_node_identity(r, oinstruction);
@@ -500,6 +496,10 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
         case Terminator_Join_TAG:
             // TODO: local joins are fine
             mark_values_as_escaping(ctx, kb, old->payload.join.args);
+            break;
+        case Terminator_Loop_TAG:
+            mark_values_as_escaping(ctx, kb, old->payload.loop_instr.initial_args);
+            // assert(false && "unsupported");
             break;
         case Terminator_MergeContinue_TAG:
             break;

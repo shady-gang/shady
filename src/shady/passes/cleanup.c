@@ -6,6 +6,8 @@
 #include "portability.h"
 #include "log.h"
 
+#pragma GCC diagnostic error "-Wswitch"
+
 typedef struct {
     Rewriter rewriter;
     const UsesMap* map;
@@ -60,6 +62,20 @@ const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* 
             case Structured_construct_If_TAG: {
                 If payload = terminator->payload.if_instr;
                 Nodes results = gen_if(bb, payload.yield_types, payload.condition, payload.if_true, payload.if_false);
+                bind_variables(bb, get_abstraction_params(payload.tail), results);
+                terminator = get_abstraction_body(get_structured_construct_tail(terminator));
+                continue;
+            }
+            case Structured_construct_Match_TAG: {
+                Match payload = terminator->payload.match_instr;
+                Nodes results = gen_match(bb, payload.yield_types, payload.inspect, payload.literals, payload.cases, payload.default_case);
+                bind_variables(bb, get_abstraction_params(payload.tail), results);
+                terminator = get_abstraction_body(get_structured_construct_tail(terminator));
+                continue;
+            }
+            case Structured_construct_Loop_TAG: {
+                Loop payload = terminator->payload.loop_instr;
+                Nodes results = gen_loop(bb, payload.yield_types, payload.initial_args, payload.body);
                 bind_variables(bb, get_abstraction_params(payload.tail), results);
                 terminator = get_abstraction_body(get_structured_construct_tail(terminator));
                 continue;

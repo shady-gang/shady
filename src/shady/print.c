@@ -562,18 +562,6 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(")");
             print_args_list(ctx, node->payload.call.args);
             break;
-        } case Loop_TAG: {
-            printf(GREEN);
-            printf("loop");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.loop_instr.yield_types);
-            if (ctx->config.in_cfg)
-                break;
-            const Node* body = node->payload.loop_instr.body;
-            assert(is_case(body));
-            print_param_list(ctx, body->payload.case_.params, &node->payload.loop_instr.initial_args);
-            print_case_body(ctx, body);
-            break;
         } case Control_TAG: {
             printf(BGREEN);
             if (ctx->uses) {
@@ -681,7 +669,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case If_TAG: {
-            print_structured_construct_results(ctx, node->payload.if_instr.tail);
+            print_structured_construct_results(ctx, get_structured_construct_tail(node));
             printf(GREEN);
             printf("if");
             printf(RESET);
@@ -702,7 +690,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             print_abs_body(ctx, node->payload.if_instr.tail);
             break;
         } case Match_TAG: {
-            print_structured_construct_results(ctx, node->payload.match_instr.tail);
+            print_structured_construct_results(ctx, get_structured_construct_tail(node));
             printf(GREEN);
             printf("match");
             printf(RESET);
@@ -736,6 +724,21 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf("\n}");
             printf("\n");
             print_abs_body(ctx, node->payload.match_instr.tail);
+            break;
+        } case Loop_TAG: {
+            print_structured_construct_results(ctx, get_structured_construct_tail(node));
+            printf(GREEN);
+            printf("loop");
+            printf(RESET);
+            print_yield_types(ctx, node->payload.loop_instr.yield_types);
+            if (ctx->config.in_cfg)
+                break;
+            const Node* body = node->payload.loop_instr.body;
+            assert(is_case(body));
+            print_param_list(ctx, body->payload.case_.params, &node->payload.loop_instr.initial_args);
+            print_case_body(ctx, body);
+            printf("\n");
+            print_abs_body(ctx, node->payload.loop_instr.tail);
             break;
         } case Return_TAG:
             printf(BGREEN);

@@ -648,39 +648,6 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
     free_tmp_str(params);
 }
 
-static void emit_loop(Emitter* emitter, Printer* p, const Node* loop_instr, InstructionOutputs outputs) {
-    assert(loop_instr->tag == Loop_TAG);
-    const Loop* loop = &loop_instr->payload.loop_instr;
-
-    Emitter sub_emiter = *emitter;
-    Nodes params = get_abstraction_params(loop->body);
-    Nodes variables = params;
-    LARRAY(String, arr, variables.count);
-    for (size_t i = 0; i < variables.count; i++) {
-        arr[i] = get_value_name_unsafe(variables.nodes[i]);
-        if (!arr[i])
-            arr[i] = unique_name(emitter->arena, "phi");
-    }
-    Strings param_names = strings(emitter->arena, variables.count, arr);
-    Strings eparams = emit_variable_declarations(emitter, p, NULL, &param_names, get_param_types(emitter->arena, params), true, &loop_instr->payload.loop_instr.initial_args);
-    for (size_t i = 0; i < params.count; i++)
-        register_emitted(&sub_emiter, params.nodes[i], term_from_cvalue(eparams.strings[i]));
-
-    sub_emiter.phis.loop_continue = eparams;
-    Strings ephis = emit_variable_declarations(emitter, p, "loop_break_phi", NULL, loop->yield_types, true, NULL);
-    sub_emiter.phis.loop_break = ephis;
-
-    String body = emit_lambda_body(&sub_emiter, get_abstraction_body(loop->body), NULL);
-    print(p, "\nwhile(true) { %s}", body);
-    free_tmp_str(body);
-
-    assert(outputs.count == ephis.count);
-    for (size_t i = 0; i < outputs.count; i++) {
-        outputs.results[i] = term_from_cvalue(ephis.strings[i]);
-        outputs.binding[i] = NoBinding;
-    }
-}
-
 static void emit_lea(Emitter* emitter, Printer* p, Lea lea, InstructionOutputs outputs) {
     IrArena* arena = emitter->arena;
     CTerm acc = emit_value(emitter, p, lea.ptr);
@@ -782,7 +749,6 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_LetMut_TAG:       error("front-end only!");
         case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
         case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;
-        case Instruction_Loop_TAG:         emit_loop  (emitter, p, instruction, outputs); break;
         case Instruction_Control_TAG:      error("TODO")
         case Instruction_Block_TAG:        error("Should be eliminated by the compiler")
         case Instruction_Comment_TAG:      print(p, "/* %s */", instruction->payload.comment.string); break;
