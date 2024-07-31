@@ -285,8 +285,17 @@
   ],
   "nodes": [
     {
+      "name": "PrimOp",
+      "class": ["instruction", "value"],
+      "ops": [
+        { "name": "op", "type": "Op" },
+        { "name": "type_arguments", "class": "type", "list": true },
+        { "name": "operands", "class": "value", "list": true }
+      ]
+    },
+    {
       "name": "StackAlloc",
-      "class": "instruction",
+      "class": ["instruction", "value"],
       "nominal": true,
       "ops": [
         { "name": "type", "class": "type" }
@@ -294,7 +303,7 @@
     },
     {
       "name": "LocalAlloc",
-      "class": "instruction",
+      "class": ["instruction", "value"],
       "nominal": true,
       "ops": [
         { "name": "type", "class": "type" }
@@ -302,7 +311,7 @@
     },
     {
       "name": "Load",
-      "class": "instruction",
+      "class": ["instruction", "value"],
       "nominal": true,
       "ops": [
         { "name": "ptr", "class": "value" }
@@ -319,7 +328,7 @@
     },
     {
       "name": "Lea",
-      "class": "instruction",
+      "class": ["instruction", "value"],
       "ops": [
         { "name": "ptr", "class": "value" },
         { "name": "offset", "class": "value" },
@@ -356,7 +365,7 @@
     },
     {
       "name": "PopStack",
-      "class": "instruction",
+      "class": ["instruction", "value"],
       "nominal": true,
       "ops": [
         { "name": "type", "class": "type" }
@@ -364,7 +373,7 @@
     },
     {
       "name": "GetStackSize",
-      "class": "instruction",
+      "class": ["instruction", "value"],
       "nominal": true
     },
     {
@@ -377,7 +386,7 @@
     },
     {
       "name": "GetStackBaseAddr",
-      "class": "instruction",
+      "class": ["instruction", "value"],
       "nominal": true
     },
     {

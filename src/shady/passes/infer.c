@@ -285,7 +285,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             const Node* value = infer(ctx, node->payload.fill.value, qualified_type(a, (QualifiedType) { .is_uniform = uniform, .type = element_t }));
             return fill(a, (Fill) { .type = composite_t, .value = value });
         }
-        case Value_NullPtr_TAG: break;
+        default: break;
     }
     return recreate_node_identity(&ctx->rewriter, node);
 }

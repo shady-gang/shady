@@ -44,6 +44,10 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG:
         case Value_FnAddr_TAG: error("Should be lowered away earlier!");
+        default: {
+            assert(!is_instruction(node));
+            error("Unhandled value for code generation: %s", node_tags[node->tag]);
+        }
         case IntLiteral_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
             SpvId ty = emit_type(emitter, node->type);

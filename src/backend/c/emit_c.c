@@ -213,6 +213,10 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case Value_UntypedNumber_TAG: error("lower me");
         case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
         case Variablez_TAG: error("tried to emit a variable: all variables should be register by their binding let !");
+        default: {
+            assert(!is_instruction(value));
+            error("Unhandled value for code generation: %s", node_tags[value->tag]);
+        }
         case Value_IntLiteral_TAG: {
             if (value->payload.int_literal.is_signed)
                 emitted = format_string_arena(emitter->arena->arena, "%" PRIi64, value->payload.int_literal.value);

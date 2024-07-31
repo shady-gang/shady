@@ -389,15 +389,6 @@
       ]
     },
     {
-      "name": "PrimOp",
-      "class": "instruction",
-      "ops": [
-        { "name": "op", "type": "Op" },
-        { "name": "type_arguments", "class": "type", "list": true },
-        { "name": "operands", "class": "value", "list": true }
-      ]
-    },
-    {
       "name": "If",
       "snake_name": "if_instr",
       "class": ["terminator", "structured_construct"],
