@@ -30,7 +30,12 @@ static size_t count_calls(const UsesMap* map, const Node* bb) {
     return count;
 }
 
-void bind_variables2(BodyBuilder* bb, Nodes vars, const Node* instr);
+Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constructTag tag, union NodesUnion payload);
+
+static void reset_params(Nodes params) {
+    for (size_t i = 0; i < params.count; i++)
+        ((Node*) params.nodes[i])->payload.param.abs = NULL;
+}
 
 // eliminates blocks by "lifting" their contents out and replacing yield with the tail of the outer let
 // In other words, we turn these patterns:
@@ -57,42 +62,18 @@ const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* 
     assert(is_case(lam));
     const Node* terminator = get_abstraction_body(lam);
     while (true) {
-        switch (is_structured_construct(terminator)) {
-            case NotAStructured_construct: break;
-            case Structured_construct_If_TAG: {
-                If payload = terminator->payload.if_instr;
-                Nodes results = gen_if(bb, payload.yield_types, payload.condition, payload.if_true, payload.if_false);
-                bind_variables(bb, get_abstraction_params(payload.tail), results);
-                terminator = get_abstraction_body(get_structured_construct_tail(terminator));
-                continue;
-            }
-            case Structured_construct_Match_TAG: {
-                Match payload = terminator->payload.match_instr;
-                Nodes results = gen_match(bb, payload.yield_types, payload.inspect, payload.literals, payload.cases, payload.default_case);
-                bind_variables(bb, get_abstraction_params(payload.tail), results);
-                terminator = get_abstraction_body(get_structured_construct_tail(terminator));
-                continue;
-            }
-            case Structured_construct_Loop_TAG: {
-                Loop payload = terminator->payload.loop_instr;
-                Nodes results = gen_loop(bb, payload.yield_types, payload.initial_args, payload.body);
-                bind_variables(bb, get_abstraction_params(payload.tail), results);
-                terminator = get_abstraction_body(get_structured_construct_tail(terminator));
-                continue;
-            }
-            case Structured_construct_Control_TAG: {
-                Control payload = terminator->payload.control;
-                Nodes results = gen_control(bb, payload.yield_types, payload.inside);
-                bind_variables(bb, get_abstraction_params(payload.tail), results);
-                terminator = get_abstraction_body(get_structured_construct_tail(terminator));
-                continue;
-            }
+        if (is_structured_construct(terminator)) {
+            Nodes params = get_abstraction_params(get_structured_construct_tail(terminator));
+            reset_params(params);
+            add_structured_construct(bb, params, (Structured_constructTag) terminator->tag, terminator->payload);
+            terminator = get_abstraction_body(get_structured_construct_tail(terminator));
+            continue;
         }
 
         switch (is_terminator(terminator)) {
             case NotATerminator: assert(false);
             case Terminator_Let_TAG: {
-                bind_variables2(bb, terminator->payload.let.variables, terminator->payload.let.instruction);
+                add_structured_construct(bb, empty(arena), (Structured_constructTag) NotAStructured_construct, terminator->payload);
                 terminator = get_abstraction_body(terminator->payload.let.tail);
                 continue;
             }

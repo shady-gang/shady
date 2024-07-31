@@ -12,13 +12,11 @@
 #pragma GCC diagnostic error "-Wswitch"
 
 typedef struct {
-    //struct List* stack;
     Structured_constructTag tag;
     union NodesUnion payload;
 } BlockEntry;
 
 typedef struct {
-    const Node* instr;
     BlockEntry structured;
     Nodes vars;
 } StackEntry;
@@ -28,7 +26,6 @@ BodyBuilder* begin_body(IrArena* a) {
     *bb = (BodyBuilder) {
         .arena = a,
         .stack = new_list(StackEntry),
-        //.stack_stack = new_list(BlockEntry),
     };
     return bb;
 }
@@ -79,8 +76,11 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outp
     }
     Nodes params = create_output_variables(bb->arena, instruction, outputs_count, provided_types, output_names);
     StackEntry entry = {
-        .instr = instruction,
-        .vars = params,
+        .vars = empty(bb->arena),
+        .structured.payload.let = {
+            .instruction = instruction,
+            .variables = params,
+        }
     };
     append_list(StackEntry, bb->stack, entry);
     return params;
@@ -111,22 +111,6 @@ Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, s
     return bind_internal(bb, instruction, outputs_count, NULL, output_names);
 }
 
-void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {
-    StackEntry entry = {
-        .instr = quote_helper(bb->arena, values),
-        .vars = vars,
-    };
-    append_list(StackEntry, bb->stack, entry);
-}
-
-void bind_variables2(BodyBuilder* bb, Nodes vars, const Node* instr) {
-    StackEntry entry = {
-        .instr = instr,
-        .vars = vars,
-    };
-    append_list(StackEntry, bb->stack, entry);
-}
-
 static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
     IrArena* a = bb->arena;
     size_t stack_size = entries_count_list(bb->stack);
@@ -134,7 +118,8 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
         StackEntry entry = read_list(StackEntry, bb->stack)[i];
         switch (entry.structured.tag) {
             case NotAStructured_construct:
-                terminator = let(a, entry.instr, entry.vars, case_(bb->arena, empty(bb->arena), terminator));
+                entry.structured.payload.let.tail = case_(bb->arena, entry.vars, terminator);
+                terminator = let(a, entry.structured.payload.let.instruction, entry.structured.payload.let.variables, entry.structured.payload.let.tail);
                 break;
             case Structured_construct_If_TAG:
                 entry.structured.payload.if_instr.tail = case_(bb->arena, entry.vars, terminator);
@@ -193,22 +178,30 @@ const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node*
     return bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, instruction, NULL);
 }
 
-static Nodes gen_structured_construct(BodyBuilder* bb, Nodes yield_types, Structured_constructTag tag, union NodesUnion payload) {
+static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {
     IrArena* a = bb->arena;
+
     Nodes qyield_types = add_qualifiers(a, yield_types, false);
     LARRAY(const Node*, tail_params, yield_types.count);
     for (size_t i = 0; i < yield_types.count; i++)
         tail_params[i] = param(a, qyield_types.nodes[i], NULL);
+    return nodes(a, yield_types.count, tail_params);
+}
 
+Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constructTag tag, union NodesUnion payload) {
     StackEntry entry = {
         .structured = {
             .tag = tag,
             .payload = payload,
         },
-        .vars = nodes(a, yield_types.count, tail_params),
+        .vars = params,
     };
     append_list(StackEntry , bb->stack, entry);
     return entry.vars;
+}
+
+static Nodes gen_structured_construct(BodyBuilder* bb, Nodes yield_types, Structured_constructTag tag, union NodesUnion payload) {
+    return add_structured_construct(bb, gen_variables(bb, yield_types), tag, payload);
 }
 
 Nodes gen_if(BodyBuilder* bb, Nodes yield_types, const Node* condition, const Node* true_case, const Node* false_case) {

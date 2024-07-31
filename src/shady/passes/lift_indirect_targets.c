@@ -206,7 +206,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                 const Node* otail = get_structured_construct_tail(node);
                 BodyBuilder* bb = begin_body(a);
-                LiftedCont* lifted_tail = lambda_lift(ctx, otail, node->payload.let.variables);
+                LiftedCont* lifted_tail = lambda_lift(ctx, otail, get_abstraction_params(otail));
                 const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                 const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 

@@ -298,8 +298,6 @@ Nodes bind_instruction_explicit_result_types(BodyBuilder*, const Node* initial_v
 Nodes create_mutable_variables(BodyBuilder*, const Node* initial_value, Nodes provided_types, String const output_names[]);
 Nodes bind_instruction_outputs_count(BodyBuilder*, const Node* initial_value, size_t outputs_count, String const output_names[]);
 
-void bind_variables(BodyBuilder*, Nodes vars, Nodes values);
-
 const Node* finish_body(BodyBuilder*, const Node* terminator);
 void cancel_body(BodyBuilder*);
 const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder*, Nodes, const Nodes*);
