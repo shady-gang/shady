@@ -93,7 +93,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     if (old->tag == Function_TAG && strcmp(get_abstraction_name(old), "generated_init") == 0) {
         Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
@@ -120,7 +121,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case SetStackSize_TAG: {
             assert(ctx->stack);
             BodyBuilder* bb = begin_body(a);
-            const Node* val = rewrite_node(&ctx->rewriter, old->payload.set_stack_size.value);
+            const Node* val = rewrite_node(r, old->payload.set_stack_size.value);
             gen_store(bb, ctx->stack_pointer, val);
             return yield_values_and_wrap_in_block(bb, empty(a));
         }

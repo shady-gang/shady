@@ -1114,11 +1114,12 @@ static void print_operand_name_helper(Printer* p, PrintConfig config, String nam
 }
 
 static void print_operand_helper(Printer* p, PrintConfig config, NodeClass nc, const Node* op) {
+    // print(p, "%%%d ", op->id);
+    // print_node(p, op, config);
+
     if (is_instruction(op) && op->arena->config.check_types)
         print(p, "%%%d", op->id);
     else {
-        if (!op->arena->config.check_types)
-            print(p, "%%%d", op->id);
         print_node(p, op, config);
     }
 }

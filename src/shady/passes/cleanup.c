@@ -105,8 +105,8 @@ static bool has_side_effects(const Node* instr) {
 }
 
 const Node* process(Context* ctx, const Node* old) {
-    IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     if (old->tag == Function_TAG || old->tag == Constant_TAG) {
         Context c = *ctx;
         c.map = create_uses_map(old, NcType | NcDeclaration);
@@ -141,7 +141,15 @@ const Node* process(Context* ctx, const Node* old) {
             }
 
             BodyBuilder* bb = begin_body(a);
-            const Node* instruction = rewrite_node(r, old->payload.let.instruction);
+            const Node* oinstruction = old->payload.let.instruction;
+            if (oinstruction->tag == PrimOp_TAG && oinstruction->payload.prim_op.op == quote_op) {
+                Nodes args = oinstruction->payload.prim_op.operands;
+                if (args.count == 1) {
+                    register_processed(r, oinstruction, first(rewrite_nodes(r, args)));
+                    return finish_body(bb, rewrite_node(r, get_abstraction_body(old->payload.let.tail)));
+                }
+            }
+            const Node* instruction = rewrite_node(r, oinstruction);
             // optimization: fold blocks
             if (instruction->tag == Block_TAG) {
                 *ctx->todo = true;

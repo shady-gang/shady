@@ -35,6 +35,8 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outp
     if (bb->arena->config.check_types) {
         assert(is_instruction(instruction));
     }
+    if (bb->arena->config.allow_fold && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op)
+        return instruction->payload.prim_op.operands;
     StackEntry entry = {
         .vars = empty(bb->arena),
         .structured.payload.let = {

@@ -174,18 +174,9 @@ static ControlEntry* search_containing_control(Context* ctx, const Node* old_tok
     return entry;
 }
 
-static const Node* rebuild_let(Context* ctx, const Node* old_let, const Node* new_instruction, const Node* exit_ladder) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    const Node* old_tail = get_let_tail(old_let);
-    Nodes otail_params = get_abstraction_params(old_tail);
-    assert(otail_params.count == 0);
-
-    const Node* structured_lam = case_(a, empty(a), structure(ctx, old_tail, exit_ladder));
-    return let(a, new_instruction, structured_lam);
-}
-
 static const Node* structure(Context* ctx, const Node* abs, const Node* exit_ladder) {
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     const Node* body = get_abstraction_body(abs);
     assert(body);
@@ -215,7 +206,13 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     break;
                 }
             }
-            return rebuild_let(ctx, body, recreate_node_identity(&ctx->rewriter, old_instr), exit_ladder);
+            const Node* new_instruction = recreate_node_identity(&ctx->rewriter, old_instr);
+            register_processed(r, old_instr, new_instruction);
+            Nodes otail_params = get_abstraction_params(old_tail);
+            assert(otail_params.count == 0);
+
+            const Node* structured_lam = case_(a, empty(a), structure(ctx, old_tail, exit_ladder));
+            return let(a, new_instruction, structured_lam);
         }
         case Jump_TAG: {
             return handle_bb_callsite(ctx, abs, body, exit_ladder);
