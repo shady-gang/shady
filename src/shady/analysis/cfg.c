@@ -154,15 +154,10 @@ static void process_instruction(CfgBuildContext* ctx, CFNode* parent, const Node
             add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
             return;
         case Instruction_Block_TAG:
+            //error("no puppet you're the puppet")
             add_structural_dominance_edge(ctx, parent, instruction->payload.block.inside, StructuredEnterBodyEdge);
             add_structural_dominance_edge(ctx, parent, let_tail, LetTailEdge);
             return;
-        case Instruction_Control_TAG:
-            add_structural_dominance_edge(ctx, parent, instruction->payload.control.inside, StructuredEnterBodyEdge);
-            const Node* param = first(get_abstraction_params(instruction->payload.control.inside));
-            CFNode* let_tail_cfnode = get_or_enqueue(ctx, let_tail);
-            insert_dict(const Node*, CFNode*, ctx->join_point_values, param, let_tail_cfnode);
-            break;
     }
     add_structural_dominance_edge(ctx, parent, let_tail, StructuredPseudoExitEdge);
 }
@@ -215,6 +210,13 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
             break;
         case Loop_TAG:
             add_structural_dominance_edge(ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge);
+            add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
+            break;
+        case Control_TAG:
+            add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge);
+            const Node* param = first(get_abstraction_params(terminator->payload.control.inside));
+            CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
+            insert_dict(const Node*, CFNode*, ctx->join_point_values, param, let_tail_cfnode);
             add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
             break;
         case MergeSelection_TAG:

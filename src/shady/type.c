@@ -1056,7 +1056,7 @@ const Type* check_type_control(IrArena* arena, Control control) {
         assert(is_subtype(control.yield_types.nodes[i], join_point_yield_types.nodes[i]));
     }
 
-    return wrap_multiple_yield_types(arena, add_qualifiers(arena, join_point_yield_types, false));
+    return noret_type(arena);
 }
 
 const Type* check_type_block(IrArena* arena, Block payload) {

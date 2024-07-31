@@ -96,7 +96,8 @@ static const Node* process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     switch (old->tag) {
         case Function_TAG: {
             Context ctx2 = *ctx;
@@ -255,7 +256,8 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Node* new_body = case_(a, singleton(new_jp), rewrite_node(&ctx->rewriter, get_abstraction_body(old_inside)));
                 BodyBuilder* bb = begin_body(a);
                 Nodes nyield_types = rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types);
-                return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, new_body));
+                return control(a, (Control) { .yield_types = nyield_types, .inside = new_body, .tail = rewrite_node(r, get_structured_construct_tail(old))});
+                //return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, new_body));
             }
             break;
         }

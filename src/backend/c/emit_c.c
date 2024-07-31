@@ -593,6 +593,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
         case If_TAG: return emit_if(emitter, block_printer, terminator->payload.if_instr);
         case Match_TAG: return emit_match(emitter, block_printer, terminator->payload.match_instr);
         case Loop_TAG: return emit_loop(emitter, block_printer, terminator->payload.loop_instr);
+        case Control_TAG:      error("TODO")
         case Terminator_Return_TAG: {
             Nodes args = terminator->payload.fn_ret.args;
             if (args.count == 0) {

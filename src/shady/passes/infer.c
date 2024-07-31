@@ -522,7 +522,7 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
     });
 }
 
-static const Node* infer_control(Context* ctx, const Node* node, const Nodes* expected_types) {
+static const Node* infer_control(Context* ctx, const Node* node) {
     assert(node->tag == Control_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
 
@@ -533,7 +533,7 @@ static const Node* infer_control(Context* ctx, const Node* node, const Nodes* ex
 
     Context joinable_ctx = *ctx;
     const Type* jpt = join_point_type(a, (JoinPointType) {
-            .yield_types = yield_types
+        .yield_types = yield_types
     });
     jpt = qualified_type(a, (QualifiedType) { .is_uniform = true, .type = jpt });
     const Node* jp = param(a, jpt, ojp->payload.param.name);
@@ -543,7 +543,8 @@ static const Node* infer_control(Context* ctx, const Node* node, const Nodes* ex
 
     return control(a, (Control) {
         .yield_types = yield_types,
-        .inside = nlam
+        .inside = nlam,
+        .tail = infer_case(ctx, get_structured_construct_tail(node), add_qualifiers(a, yield_types, false))
     });
 }
 
@@ -568,7 +569,6 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return infer_primop(ctx, node, expected_types);
         case Call_TAG:         return infer_indirect_call(ctx, node, expected_types);
-        case Control_TAG:      return infer_control(ctx, node, expected_types);
         case Block_TAG:        return infer_block  (ctx, node, expected_types);
         case Instruction_Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
         case Instruction_Lea_TAG: {
@@ -615,6 +615,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         case If_TAG:           return infer_if    (ctx, node);
         case Match_TAG:        error("TODO")
         case Loop_TAG:         return infer_loop  (ctx, node);
+        case Control_TAG:      return infer_control(ctx, node);
         case Let_TAG: {
             // const Node* otail = node->payload.let.ttail;
             // Nodes annotated_types = get_param_types(a, otail->payload.case_.params);

@@ -438,8 +438,6 @@ static const Node* process_instruction(Context* ctx, KnowledgeBase* kb, const No
             mark_value_as_escaping(ctx, kb, oinstruction->payload.fill_bytes.dst);
             break;
         }
-        case Instruction_Control_TAG:
-            break;
         case Instruction_Block_TAG:
             break;
         case Instruction_Comment_TAG:
@@ -497,9 +495,15 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
             // TODO: local joins are fine
             mark_values_as_escaping(ctx, kb, old->payload.join.args);
             break;
+        case Terminator_If_TAG:
+            break;
+        case Terminator_Match_TAG:
+            break;
         case Terminator_Loop_TAG:
             mark_values_as_escaping(ctx, kb, old->payload.loop_instr.initial_args);
             // assert(false && "unsupported");
+            break;
+        case Control_TAG:
             break;
         case Terminator_MergeContinue_TAG:
             break;

@@ -80,6 +80,13 @@ const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* 
                 terminator = get_abstraction_body(get_structured_construct_tail(terminator));
                 continue;
             }
+            case Structured_construct_Control_TAG: {
+                Control payload = terminator->payload.control;
+                Nodes results = gen_control(bb, payload.yield_types, payload.inside);
+                bind_variables(bb, get_abstraction_params(payload.tail), results);
+                terminator = get_abstraction_body(get_structured_construct_tail(terminator));
+                continue;
+            }
         }
 
         switch (is_terminator(terminator)) {

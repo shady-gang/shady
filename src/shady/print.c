@@ -562,20 +562,6 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(")");
             print_args_list(ctx, node->payload.call.args);
             break;
-        } case Control_TAG: {
-            printf(BGREEN);
-            if (ctx->uses) {
-                if (is_control_static(ctx->uses, node))
-                    printf("static ");
-            }
-            printf("control");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.control.yield_types);
-            if (ctx->config.in_cfg)
-                break;
-            print_param_list(ctx, node->payload.control.inside->payload.case_.params, NULL);
-            print_case_body(ctx, node->payload.control.inside);
-            break;
         } case Block_TAG: {
             printf(BGREEN);
             printf("block");
@@ -687,7 +673,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 print_case_body(ctx, node->payload.if_instr.if_false);
             }
             printf("\n");
-            print_abs_body(ctx, node->payload.if_instr.tail);
+            print_abs_body(ctx, get_structured_construct_tail(node));
             break;
         } case Match_TAG: {
             print_structured_construct_results(ctx, get_structured_construct_tail(node));
@@ -723,7 +709,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             deindent(ctx->printer);
             printf("\n}");
             printf("\n");
-            print_abs_body(ctx, node->payload.match_instr.tail);
+            print_abs_body(ctx, get_structured_construct_tail(node));
             break;
         } case Loop_TAG: {
             print_structured_construct_results(ctx, get_structured_construct_tail(node));
@@ -738,7 +724,24 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             print_param_list(ctx, body->payload.case_.params, &node->payload.loop_instr.initial_args);
             print_case_body(ctx, body);
             printf("\n");
-            print_abs_body(ctx, node->payload.loop_instr.tail);
+            print_abs_body(ctx, get_structured_construct_tail(node));
+            break;
+        } case Control_TAG: {
+            print_structured_construct_results(ctx, get_structured_construct_tail(node));
+            printf(BGREEN);
+            if (ctx->uses) {
+                if (is_control_static(ctx->uses, node))
+                    printf("static ");
+            }
+            printf("control");
+            printf(RESET);
+            print_yield_types(ctx, node->payload.control.yield_types);
+            if (ctx->config.in_cfg)
+                break;
+            print_param_list(ctx, node->payload.control.inside->payload.case_.params, NULL);
+            print_case_body(ctx, node->payload.control.inside);
+            printf("\n");
+            print_abs_body(ctx, get_structured_construct_tail(node));
             break;
         } case Return_TAG:
             printf(BGREEN);

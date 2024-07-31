@@ -433,10 +433,11 @@
     },
     {
       "name": "Control",
-      "class": "instruction",
+      "class": ["terminator", "structured_construct"],
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inside", "class": "case" }
+        { "name": "inside", "class": "case" },
+        { "name": "tail", "class": "case" }
       ]
     },
     {

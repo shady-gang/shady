@@ -749,7 +749,6 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_LetMut_TAG:       error("front-end only!");
         case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
         case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;
-        case Instruction_Control_TAG:      error("TODO")
         case Instruction_Block_TAG:        error("Should be eliminated by the compiler")
         case Instruction_Comment_TAG:      print(p, "/* %s */", instruction->payload.comment.string); break;
         case Instruction_StackAlloc_TAG: return emit_alloca(emitter, p, instruction->payload.stack_alloc.type, outputs);

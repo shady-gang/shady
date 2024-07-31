@@ -198,27 +198,24 @@ static const Node* process_node(Context* ctx, const Node* node) {
          return recreate_node_identity(&ctx->rewriter, node);
 
     switch (node->tag) {
-        case Let_TAG: {
-            const Node* oinstruction = get_let_instruction(node);
-            if (oinstruction->tag == Control_TAG) {
-                const Node* oinside = oinstruction->payload.control.inside;
-                assert(is_case(oinside));
-                if (!is_control_static(ctx->uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
-                    *ctx->todo = true;
+        case Control_TAG: {
+            const Node* oinside = node->payload.control.inside;
+            assert(is_case(oinside));
+            if (!is_control_static(ctx->uses, node) || ctx->config->hacks.force_join_point_lifting) {
+                *ctx->todo = true;
 
-                    const Node* otail = get_let_tail(node);
-                    BodyBuilder* bb = begin_body(a);
-                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, node->payload.let.variables);
-                    const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
-                    const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
+                const Node* otail = get_structured_construct_tail(node);
+                BodyBuilder* bb = begin_body(a);
+                LiftedCont* lifted_tail = lambda_lift(ctx, otail, node->payload.let.variables);
+                const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
+                const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 
-                    const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), mk_nodes(a, tail_ptr, sp));
-                    // dumbass hack
-                    jp = gen_primop_e(bb, subgroup_assume_uniform_op, empty(a), singleton(jp));
+                const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types), mk_nodes(a, tail_ptr, sp));
+                // dumbass hack
+                jp = gen_primop_e(bb, subgroup_assume_uniform_op, empty(a), singleton(jp));
 
-                    register_processed(r, first(get_abstraction_params(oinside)), jp);
-                    return finish_body(bb, rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
-                }
+                register_processed(r, first(get_abstraction_params(oinside)), jp);
+                return finish_body(bb, rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
             }
             break;
         }

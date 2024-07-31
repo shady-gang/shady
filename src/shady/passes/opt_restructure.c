@@ -217,56 +217,6 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
                     assert(false); // actually that should not come up.
                     longjmp(ctx->bail, 1);
                 }
-                // let(control(body), tail)
-                // var phi = undef; level = N+1; structurize[body, if (level == N+1, _ => tail(load(phi))); structured_exit_terminator]
-                case Instruction_Control_TAG: {
-                    const Node* old_control_body = old_instr->payload.control.inside;
-                    assert(old_control_body->tag == Case_TAG);
-                    Nodes old_control_params = get_abstraction_params(old_control_body);
-                    assert(old_control_params.count == 1);
-
-                    // Create N temporary variables to hold the join point arguments
-                    BodyBuilder* bb_outer = begin_body(a);
-                    Nodes yield_types = rewrite_nodes(&ctx->rewriter, old_instr->payload.control.yield_types);
-                    LARRAY(const Node*, phis, yield_types.count);
-                    for (size_t i = 0; i < yield_types.count; i++) {
-                        const Type* type = yield_types.nodes[i];
-                        assert(is_data_type(type));
-                        phis[i] = gen_local_alloc(bb_outer, type);
-                    }
-
-                    // Create a new context to rewrite the body with
-                    // TODO: Bail if we try to re-enter the same control construct
-                    Context control_ctx = *ctx;
-                    ControlEntry control_entry = {
-                        .parent = ctx->control_stack,
-                        .old_token = first(old_control_params),
-                        .phis = phis,
-                        .depth = ctx->control_stack ? ctx->control_stack->depth + 1 : 1,
-                    };
-                    control_ctx.control_stack = &control_entry;
-
-                    // Set the depth for threads entering the control body
-                    gen_store(bb_outer, ctx->level_ptr, int32_literal(a, control_entry.depth));
-
-                    // Start building out the tail, first it needs to dereference the phi variables to recover the arguments given to join()
-                    BodyBuilder* bb2 = begin_body(a);
-                    LARRAY(const Node*, phi_values, yield_types.count);
-                    for (size_t i = 0; i < yield_types.count; i++) {
-                        phi_values[i] = gen_load(bb2, phis[i]);
-                        register_processed(&ctx->rewriter, ovars.nodes[i], phi_values[i]);
-                    }
-
-                    // Wrap the tail in a guarded if, to handle 'far' joins
-                    const Node* level_value = gen_load(bb2, ctx->level_ptr);
-                    const Node* guard = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
-                    const Node* true_body = structure(ctx, old_tail, merge_selection(a, (MergeSelection) { .args = empty(a) }));
-                    const Node* if_true_lam = case_(a, empty(a), true_body);
-                    gen_if(bb2, empty(a), guard, if_true_lam, NULL);
-
-                    const Node* tail_lambda = case_(a, empty(a), finish_body(bb2, exit_ladder));
-                    return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, quote_helper(a, empty(a)), empty(a), tail_lambda)));
-                }
                 default: {
                     break;
                 }
@@ -306,6 +256,56 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
             BodyBuilder* bb = begin_body(a);
             gen_match(bb, empty(a), switch_value, rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values), nodes(a, body->payload.br_switch.case_jumps.count, cases), default_case);
             finish_body(bb, exit_ladder);
+        }
+        // let(control(body), tail)
+        // var phi = undef; level = N+1; structurize[body, if (level == N+1, _ => tail(load(phi))); structured_exit_terminator]
+        case Control_TAG: {
+            const Node* old_control_body = body->payload.control.inside;
+            assert(old_control_body->tag == Case_TAG);
+            Nodes old_control_params = get_abstraction_params(old_control_body);
+            assert(old_control_params.count == 1);
+
+            // Create N temporary variables to hold the join point arguments
+            BodyBuilder* bb_outer = begin_body(a);
+            Nodes yield_types = rewrite_nodes(&ctx->rewriter, body->payload.control.yield_types);
+            LARRAY(const Node*, phis, yield_types.count);
+            for (size_t i = 0; i < yield_types.count; i++) {
+                const Type* type = yield_types.nodes[i];
+                assert(is_data_type(type));
+                phis[i] = gen_local_alloc(bb_outer, type);
+            }
+
+            // Create a new context to rewrite the body with
+            // TODO: Bail if we try to re-enter the same control construct
+            Context control_ctx = *ctx;
+            ControlEntry control_entry = {
+                    .parent = ctx->control_stack,
+                    .old_token = first(old_control_params),
+                    .phis = phis,
+                    .depth = ctx->control_stack ? ctx->control_stack->depth + 1 : 1,
+            };
+            control_ctx.control_stack = &control_entry;
+
+            // Set the depth for threads entering the control body
+            gen_store(bb_outer, ctx->level_ptr, int32_literal(a, control_entry.depth));
+
+            // Start building out the tail, first it needs to dereference the phi variables to recover the arguments given to join()
+            BodyBuilder* bb2 = begin_body(a);
+            LARRAY(const Node*, phi_values, yield_types.count);
+            for (size_t i = 0; i < yield_types.count; i++) {
+                phi_values[i] = gen_load(bb2, phis[i]);
+                register_processed(&ctx->rewriter, get_abstraction_params(get_structured_construct_tail(body)).nodes[i], phi_values[i]);
+            }
+
+            // Wrap the tail in a guarded if, to handle 'far' joins
+            const Node* level_value = gen_load(bb2, ctx->level_ptr);
+            const Node* guard = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
+            const Node* true_body = structure(ctx, get_structured_construct_tail(body), merge_selection(a, (MergeSelection) { .args = empty(a) }));
+            const Node* if_true_lam = case_(a, empty(a), true_body);
+            gen_if(bb2, empty(a), guard, if_true_lam, NULL);
+
+            const Node* tail_lambda = case_(a, empty(a), finish_body(bb2, exit_ladder));
+            return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, quote_helper(a, empty(a)), empty(a), tail_lambda)));
         }
         case Join_TAG: {
             ControlEntry* control = search_containing_control(ctx, body->payload.join.join_point);

@@ -148,6 +148,10 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
                 entry.structured.payload.loop_instr.tail = case_(bb->arena, entry.vars, terminator);
                 terminator = loop_instr(a, entry.structured.payload.loop_instr);
                 break;
+            case Structured_construct_Control_TAG:
+                entry.structured.payload.control.tail = case_(bb->arena, entry.vars, terminator);
+                terminator = control(a, entry.structured.payload.control);
+                break;
         }
     }
     return terminator;
@@ -259,7 +263,24 @@ Nodes gen_loop(BodyBuilder* bb, Nodes yield_types, Nodes initial_args, const Nod
 }
 
 Nodes gen_control(BodyBuilder* bb, Nodes yield_types, const Node* body) {
-    return bind_instruction_outputs_count(bb, control(bb->arena, (Control) { .yield_types = yield_types, .inside = body }), yield_types.count, NULL);
+    IrArena* a = bb->arena;
+    Nodes qyield_types = add_qualifiers(a, yield_types, false);
+    LARRAY(const Node*, tail_params, yield_types.count);
+    for (size_t i = 0; i < yield_types.count; i++)
+        tail_params[i] = param(a, qyield_types.nodes[i], NULL);
+
+    StackEntry entry = {
+        .structured = {
+            .tag = Structured_construct_Control_TAG,
+            .payload.control = {
+                .yield_types = yield_types,
+                .inside = body
+            },
+        },
+        .vars = nodes(a, yield_types.count, tail_params),
+    };
+    append_list(StackEntry , bb->stack, entry);
+    return entry.vars;
 }
 
 void cancel_body(BodyBuilder* bb) {
