@@ -112,6 +112,22 @@ static void generate_node_payload_cmp_fn(Growy* g, json_object* src, json_object
     growy_append_formatted(g, "}\n");
 }
 
+static void generate_node_is_nominal(Growy* g, json_object* nodes) {
+    growy_append_formatted(g, "bool is_nominal(const Node* node) {\n");
+    growy_append_formatted(g, "\tswitch (node->tag) { \n");
+    assert(json_object_get_type(nodes) == json_type_array);
+    for (size_t i = 0; i < json_object_array_length(nodes); i++) {
+        json_object* node = json_object_array_get_idx(nodes, i);
+        String name = json_object_get_string(json_object_object_get(node, "name"));
+        if (json_object_get_boolean(json_object_object_get(node, "nominal"))) {
+            growy_append_formatted(g, "\t\tcase %s_TAG: return true;\n", name);
+        }
+    }
+    growy_append_formatted(g, "\t\tdefault: return false;\n");
+    growy_append_formatted(g, "\t}\n");
+    growy_append_formatted(g, "}\n");
+}
+
 static void generate_isa_for_class(Growy* g, json_object* nodes, String class, String capitalized_class, bool use_enum) {
     assert(json_object_get_type(nodes) == json_type_array);
     if (use_enum)
@@ -190,6 +206,7 @@ void generate(Growy* g, json_object* src) {
     json_object* nodes = json_object_object_get(src, "nodes");
     generate_address_space_name_fn(g, json_object_object_get(src, "address-spaces"));
     generate_node_names_string_array(g, nodes);
+    generate_node_is_nominal(g, nodes);
     generate_node_has_payload_array(g, nodes);
     generate_node_payload_hash_fn(g, src, nodes);
     generate_node_payload_cmp_fn(g, src, nodes);

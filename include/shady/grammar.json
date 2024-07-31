@@ -254,6 +254,7 @@
       "name": "Param",
       "class": ["value", "param"],
       "constructor": "custom",
+      "nominal": true,
       "ops": [
         { "name": "type", "class": "type" },
         { "name": "name", "class": "string" },
@@ -266,6 +267,7 @@
       "snake_name": "varz",
       "class": ["value", "variable"],
       "constructor": "custom",
+      "nominal": true,
       "ops": [
         { "name": "name", "class": "string" },
         { "name": "instruction", "class": "instruction" },
@@ -576,6 +578,7 @@
       "snake_name": "fun",
       "class": "declaration",
       "constructor": "custom",
+      "nominal": true,
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
@@ -590,6 +593,7 @@
       "class": "declaration",
       "constructor": "custom",
       "description": "Constants are used to express possibly complicated compile-time expressions",
+      "nominal": true,
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
@@ -602,6 +606,7 @@
       "name": "GlobalVariable",
       "class": "declaration",
       "constructor": "custom",
+      "nominal": true,
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
@@ -616,6 +621,7 @@
       "snake_name": "nom_type",
       "class": "declaration",
       "constructor": "custom",
+      "nominal": true,
       "type": false,
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
@@ -664,6 +670,7 @@
       "constructor": "custom",
       "description": "A named abstraction that lives inside a function and can be jumped to",
       "class": "basic_block",
+      "nominal": true,
       "ops": [
         { "name": "params", "class": "param", "list": true },
         { "name": "body", "class": "terminator" },
@@ -675,6 +682,7 @@
       "snake_name": "case_",
       "constructor": "custom",
       "class": "case",
+      "nominal": true,
       "description": [
         "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs"
       ],

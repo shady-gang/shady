@@ -291,6 +291,7 @@
     {
       "name": "StackAlloc",
       "class": "instruction",
+      "nominal": true,
       "ops": [
         { "name": "type", "class": "type" }
       ]
@@ -298,6 +299,7 @@
     {
       "name": "LocalAlloc",
       "class": "instruction",
+      "nominal": true,
       "ops": [
         { "name": "type", "class": "type" }
       ]
@@ -305,6 +307,7 @@
     {
       "name": "Load",
       "class": "instruction",
+      "nominal": true,
       "ops": [
         { "name": "ptr", "class": "value" }
       ]
@@ -312,6 +315,7 @@
     {
       "name": "Store",
       "class": "instruction",
+      "nominal": true,
       "ops": [
         { "name": "ptr", "class": "value" },
         { "name": "value", "class": "value" }
@@ -329,6 +333,7 @@
     {
       "name": "CopyBytes",
       "class": "instruction",
+      "nominal": true,
       "ops": [
         { "name": "dst", "class": "value" },
         { "name": "src", "class": "value" },
@@ -338,6 +343,7 @@
     {
       "name": "FillBytes",
       "class": "instruction",
+      "nominal": true,
       "ops": [
         { "name": "dst", "class": "value" },
         { "name": "src", "class": "value" },
@@ -347,6 +353,7 @@
     {
       "name": "PushStack",
       "class": "instruction",
+      "nominal": true,
       "ops": [
         { "name": "value", "class": "value" }
       ]
@@ -354,24 +361,28 @@
     {
       "name": "PopStack",
       "class": "instruction",
+      "nominal": true,
       "ops": [
         { "name": "type", "class": "type" }
       ]
     },
     {
       "name": "GetStackSize",
-      "class": "instruction"
+      "class": "instruction",
+      "nominal": true
     },
     {
       "name": "SetStackSize",
       "class": "instruction",
+      "nominal": true,
       "ops": [
         { "name": "value", "class": "value" }
       ]
     },
     {
       "name": "GetStackBaseAddr",
-      "class": "instruction"
+      "class": "instruction",
+      "nominal": true
     }
   ]
 }
