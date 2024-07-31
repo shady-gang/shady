@@ -652,7 +652,7 @@ static void emit_lea(Emitter* emitter, Printer* p, Lea lea, InstructionOutputs o
     IrArena* arena = emitter->arena;
     CTerm acc = emit_value(emitter, p, lea.ptr);
 
-    const Type* src_qtype = lea.ptr->type->type;
+    const Type* src_qtype = lea.ptr->type;
     bool uniform = is_qualified_type_uniform(src_qtype);
     const Type* curr_ptr_type = get_unqualified_type(src_qtype);
     assert(curr_ptr_type->tag == PtrType_TAG);
