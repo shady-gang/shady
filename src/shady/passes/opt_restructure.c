@@ -379,7 +379,7 @@ static const Node* process(Context* ctx, const Node* node) {
             TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
             append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
             const Node* ptr = gen_local_alloc(bb, int32_type(a));
-            set_variable_name(ptr, "cf_depth");
+            set_value_name(ptr, "cf_depth");
             gen_store(bb, ptr, int32_literal(a, 0));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;

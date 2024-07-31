@@ -142,7 +142,7 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, Nodes ovariable
         String param_name = get_value_name_unsafe(ovar);
         const Node* recovered_value = gen_pop_value_stack(bb, get_unqualified_type(value_type));
         if (param_name)
-            set_variable_name(recovered_value, param_name);
+            set_value_name(recovered_value, param_name);
 
         if (is_qualified_type_uniform(ovar->type))
             recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = singleton(recovered_value) }), &param_name));

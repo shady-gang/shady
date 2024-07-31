@@ -26,9 +26,9 @@ String get_value_name_safe(const Node* v) {
     //return node_tags[v->tag];
 }
 
-void set_variable_name(Node* var, String name) {
-    assert(var->tag == Variablez_TAG);
-    var->payload.varz.name = string(var->arena, name);
+void set_value_name(Node* var, String name) {
+    if (var->tag == Variablez_TAG)
+        var->payload.varz.name = string(var->arena, name);
 }
 
 int64_t get_int_literal_value(IntLiteral literal, bool sign_extend) {

@@ -35,7 +35,7 @@ static const Node* process(Context* ctx, const Node* node) {
             BodyBuilder* bb = begin_body(a);
             if (!ctx2.disable_lowering) {
                 ctx2.stack_size_on_entry = gen_get_stack_size(bb);
-                set_variable_name((Node*) ctx2.stack_size_on_entry, format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)));
+                set_value_name((Node*) ctx2.stack_size_on_entry, format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)));
             }
             if (node->payload.fun.body)
                 fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));

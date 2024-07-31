@@ -501,7 +501,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                     const Node* name_node = meta->payload.composite.contents.nodes[2];
                     String name = get_string_literal(target->arena, name_node);
                     assert(name);
-                    set_variable_name((Node*) target, name);
+                    set_value_name((Node*) target, name);
                     return (EmittedInstr) { 0 };
                 }
                 if (strcmp(intrinsic, "llvm.dbg.label") == 0) {

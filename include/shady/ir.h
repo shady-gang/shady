@@ -154,7 +154,7 @@ const Node* get_node_by_id(const IrArena*, NodeId);
 /// Get the name out of a global variable, function or constant
 String get_value_name_safe(const Node*);
 String get_value_name_unsafe(const Node*);
-void set_variable_name(Node* var, String);
+void set_value_name(Node* var, String name);
 
 const Node* get_quoted_value(const Node* instruction);
 const IntLiteral* resolve_to_int_literal(const Node* node);

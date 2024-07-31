@@ -146,7 +146,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Type* new_param_type = rewrite_node(&ctx->rewriter, get_unqualified_type(old_param->type));
                 const Node* popped = gen_pop_value_stack(bb, new_param_type);
                 if (old_param->payload.param.name)
-                    set_variable_name((Node*) popped, old_param->payload.param.name);
+                    set_value_name((Node*) popped, old_param->payload.param.name);
                 // TODO use the uniform stack instead ? or no ?
                 if (is_qualified_type_uniform(old_param->type))
                     popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .type_arguments = empty(a), .operands = singleton(popped) }), &old_param->payload.param.name));
