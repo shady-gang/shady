@@ -97,6 +97,10 @@ static bool has_side_effects(const Node* instr) {
     bool side_effects = true;
     if (instr->tag == PrimOp_TAG)
         side_effects = has_primop_got_side_effects(instr->payload.prim_op.op);
+    switch (instr->tag) {
+        case Load_TAG: return false;
+        default: break;
+    }
     return side_effects;
 }
 
