@@ -605,6 +605,22 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                         r = prim_op_helper(a, op, empty(a), nodes(a, num_args, processed_ops));
                         free(str);
                         goto finish;
+                    } else if (strcmp(keyword, "instruction") == 0) {
+                        char* instructionname = strtok(NULL, "::");
+                        Nodes ops = convert_operands(p, num_args, instr);
+                        if (strcmp(instructionname, "DebugPrintf") == 0) {
+                            if (ops.count == 0)
+                                error("DebugPrintf called without arguments");
+                            size_t whocares;
+                            r = debug_printf(a, (DebugPrintf) {
+                                .string = LLVMGetAsString(LLVMGetInitializer(LLVMGetOperand(instr, 0)), &whocares),
+                                .args = nodes(a, ops.count - 1, &ops.nodes[1])
+                            });
+                            goto finish;
+                        }
+
+                        error_print("Unrecognised shady instruction '%s'\n", instructionname);
+                        error_die();
                     } else {
                         error_print("Unrecognised shady intrinsic '%s'\n", keyword);
                         error_die();

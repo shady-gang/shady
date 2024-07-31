@@ -555,33 +555,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         }
         case empty_mask_op:
         case mask_is_thread_active_op: error("lower_me");
-        case debug_printf_op: {
-            String args_list = "";
-            for (size_t i = 0; i < prim_op->operands.count; i++) {
-                CValue str = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[i]));
-
-                if (emitter->config.dialect == CDialect_ISPC && i > 0)
-                    str = format_string_arena(emitter->arena->arena, "extract(%s, printf_thread_index)", str);
-
-                if (i > 0)
-                    args_list = format_string_arena(emitter->arena->arena, "%s, %s", args_list, str);
-                else
-                    args_list = str;
-            }
-            switch (emitter->config.dialect) {
-                case CDialect_ISPC:
-                    print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
-                    break;
-                case CDialect_CUDA:
-                case CDialect_C11:
-                    print(p, "\nprintf(%s);", args_list);
-                    break;
-                case CDialect_GLSL: warn_print("printf is not supported in GLSL");
-                    break;
-            }
-
-            return;
-        }
         default: break;
         case PRIMOPS_COUNT: assert(false); break;
     }
@@ -786,6 +759,30 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_FillBytes_TAG:{
             FillBytes payload = instruction->payload.fill_bytes;
             print(p, "\nmemset(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, p, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, p, payload.src)), to_cvalue(emitter, c_emit_value(emitter, p, payload.count)));
+            return;
+        }
+        case Instruction_DebugPrintf_TAG: {
+            String args_list = format_string_interned(emitter->arena, "\"%s\"", instruction->payload.debug_printf.string);
+            for (size_t i = 0; i < instruction->payload.debug_printf.args.count; i++) {
+                CValue str = to_cvalue(emitter, emit_value(emitter, p, instruction->payload.debug_printf.args.nodes[i]));
+
+                if (emitter->config.dialect == CDialect_ISPC && i > 0)
+                    str = format_string_arena(emitter->arena->arena, "extract(%s, printf_thread_index)", str);
+
+                args_list = format_string_arena(emitter->arena->arena, "%s, %s", args_list, str);
+            }
+            switch (emitter->config.dialect) {
+                case CDialect_ISPC:
+                    print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
+                    break;
+                case CDialect_CUDA:
+                case CDialect_C11:
+                    print(p, "\nprintf(%s);", args_list);
+                    break;
+                case CDialect_GLSL: warn_print("printf is not supported in GLSL");
+                    break;
+            }
+
             return;
         }
     }

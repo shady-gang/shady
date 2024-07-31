@@ -108,15 +108,6 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
         case PrimOp_TAG: {
             Nodes old_operands = node->payload.prim_op.operands;
             switch (node->payload.prim_op.op) {
-                case debug_printf_op: {
-                    Nodes new_operands = rewrite_nodes(r, old_operands);
-                    String lit = get_string_literal(a, old_operands.nodes[0]);
-                    assert(lit && "debug_printf requires a string literal");
-                    new_operands = change_node_at_index(a, new_operands, 0, string_lit_helper(a, lit));
-                    // for (size_t i = 1; i < old_operands.count; i++)
-                    //     new_operands[i] = infer(ctx, old_operands.nodes[i], NULL);
-                    return prim_op_helper(a, debug_printf_op, empty(a), new_operands);
-                }
                 default: break;
             }
             break;

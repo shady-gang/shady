@@ -503,6 +503,11 @@ static const Node* accept_primary_expr(ctxparams) {
                     return stack_alloc(arena, (StackAlloc) {
                         .type = first(ty_args)
                     });
+                } else if (strcmp(callee_name, "debug_printf") == 0) {
+                    return debug_printf(arena, (DebugPrintf) {
+                        .string = get_string_literal(arena, first(ops)),
+                        .args = nodes(arena, ops.count - 1, &ops.nodes[1])
+                    });
                 }
 
                 assert(ty_args.count == 0 && "Function calls do not support type arguments");

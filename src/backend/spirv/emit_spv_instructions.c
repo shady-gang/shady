@@ -130,8 +130,6 @@ static const IselTableEntry isel_table[] = {
     [pow_op] = { Plain, Monomorphic, Same, .extended_set = "GLSL.std.450", .op = (SpvOp) GLSLstd450Pow },
     [fma_op] = { Plain, Monomorphic, Same, .extended_set = "GLSL.std.450", .op = (SpvOp) GLSLstd450Fma },
 
-    [debug_printf_op] = {Plain, Monomorphic, Void, .extended_set = "NonSemantic.DebugPrintf", .op = (SpvOp) NonSemanticDebugPrintfDebugPrintf},
-
     [sample_texture_op] = {Plain, Monomorphic, TyOperand, .op = SpvOpImageSampleImplicitLod },
 
     [subgroup_assume_uniform_op] = {Plain, Monomorphic, Same, .op = ISEL_IDENTITY },
@@ -471,6 +469,14 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
                 results[0] = result;
             }
             return;
+        }
+        case Instruction_DebugPrintf_TAG: {
+            SpvId set_id = get_extended_instruction_set(emitter, "NonSemantic.DebugPrintf");
+            LARRAY(SpvId, args, instruction->payload.debug_printf.args.count + 1);
+            args[0] = emit_value(emitter, *bb_builder, string_lit_helper(emitter->arena, instruction->payload.debug_printf.string));
+            for (size_t i = 0; i < instruction->payload.debug_printf.args.count; i++)
+                args[i + 1] = emit_value(emitter, *bb_builder, instruction->payload.debug_printf.args.nodes[i]);
+            spvb_ext_instruction(*bb_builder, emit_type(emitter, instruction->type), set_id, (SpvOp) NonSemanticDebugPrintfDebugPrintf, instruction->payload.debug_printf.args.count + 1, args);
         }
     }
 }

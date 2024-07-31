@@ -905,12 +905,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 0);
             return qualified_type(arena, (QualifiedType) { .type = join_point_type(arena, (JoinPointType) { .yield_types = empty(arena) }), .is_uniform = true });
         }
-        // Debugging ops
-        case debug_printf_op: {
-            assert(prim_op.type_arguments.count == 0);
-            // TODO ?
-            return empty_multiple_return_type(arena);
-        }
         case sample_texture_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
@@ -1183,6 +1177,10 @@ const Type* check_type_get_stack_size(IrArena* a) {
 const Type* check_type_get_stack_base_addr(IrArena* a) {
     const Node* ptr = ptr_type(a, (PtrType) { .pointed_type = uint8_type(a), .address_space = AsPrivate});
     return qualified_type(a, (QualifiedType) { .is_uniform = false, .type = ptr });
+}
+
+const Type* check_type_debug_printf(IrArena* a, DebugPrintf payload) {
+    return empty_multiple_return_type(a);
 }
 
 const Type* check_type_let(IrArena* arena, Let let) {

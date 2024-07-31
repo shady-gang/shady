@@ -76,8 +76,8 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     // store updated stack size
     gen_store(bb, stack_pointer, stack_size);
     if (ctx->config->printf_trace.stack_size) {
-        bind_instruction(bb, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = name })) }));
-        bind_instruction(bb, prim_op(a, (PrimOp) { .op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) { .string = "stack size after: %d\n" }), stack_size) }));
+        gen_debug_printf(bb, name, empty(a));
+        gen_debug_printf(bb, "stack size after: %d\n", singleton(stack_size));
     }
 
     if (push) {
@@ -131,7 +131,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             const Node* stack_size = gen_load(bb, stack_pointer);
             const Node* stack_base_ptr = gen_lea(bb, ctx->stack, int32_literal(a, 0), singleton(stack_size));
             if (ctx->config->printf_trace.stack_size) {
-                bind_instruction(bb, prim_op(a, (PrimOp) {.op = debug_printf_op, .operands = mk_nodes(a, string_lit(a, (StringLiteral) {.string = "trace: stack_size=%d\n"}), stack_size)}));
+                gen_debug_printf(bb, "trace: stack_size=%d\n", singleton(stack_size));
             }
             return yield_values_and_wrap_in_block(bb, singleton(stack_base_ptr));
         }

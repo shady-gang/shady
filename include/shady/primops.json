@@ -261,10 +261,6 @@
       "name": "shuffle"
     },
     {
-      "name": "debug_printf",
-      "side-effects": true
-    },
-    {
       "name": "sample_texture",
       "side-effects": true
     },
@@ -383,6 +379,15 @@
       "name": "GetStackBaseAddr",
       "class": "instruction",
       "nominal": true
+    },
+    {
+      "name": "DebugPrintf",
+      "class": "instruction",
+      "nominal": true,
+      "ops": [
+        { "name": "string", "class": "string" },
+        { "name": "args", "class": "value", "list": true }
+      ]
     }
   ]
 }

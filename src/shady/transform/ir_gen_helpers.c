@@ -126,6 +126,10 @@ void gen_comment(BodyBuilder* bb, String str) {
     bind_instruction(bb, comment(bb->arena, (Comment) { .string = str }));
 }
 
+void gen_debug_printf(BodyBuilder* bb, String pattern, Nodes args) {
+    bind_instruction(bb, debug_printf(bb->arena, (DebugPrintf) { pattern, args }));
+}
+
 const Node* get_builtin(Module* m, Builtin b) {
     Nodes decls = get_module_declarations(m);
     for (size_t i = 0; i < decls.count; i++) {
