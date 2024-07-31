@@ -462,7 +462,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             .op = shd_op.op,
             .type_arguments = empty(parser->arena),
             .operands = nodes(parser->arena, num_ops, ops)
-        }), results_count, NULL);
+        }), results_count);
         if (has_result) {
             parser->defs[result].type = Value;
             parser->defs[result].node = first(results);
@@ -742,13 +742,13 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             assert(is_data_type(contents_t));
 
             if (parser->fun) {
-                const Node* ptr = first(bind_instruction_outputs_count(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { contents_t }), 1, NULL));
+                const Node* ptr = first(bind_instruction_outputs_count(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { contents_t }), 1));
 
                 parser->defs[result].type = Value;
                 parser->defs[result].node = ptr;
 
                 if (size == 5)
-                    bind_instruction_outputs_count(parser->current_block.builder, store(parser->arena, (Store) { ptr, get_def_ssa_value(parser, instruction[4]) }), 1, NULL);
+                    bind_instruction_outputs_count(parser->current_block.builder, store(parser->arena, (Store) { ptr, get_def_ssa_value(parser, instruction[4]) }), 1);
             } else {
                 Nodes annotations = empty(parser->arena);
                 SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
@@ -967,7 +967,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .op = convert_op,
                     .type_arguments = singleton(dst_t),
                     .operands = singleton(src)
-            }), 1, NULL));
+            }), 1));
             break;
         }
         case SpvOpConvertPtrToU:
@@ -980,7 +980,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .op = reinterpret_op,
                     .type_arguments = singleton(dst_t),
                     .operands = singleton(src)
-            }), 1, NULL));
+            }), 1));
             break;
         }
         case SpvOpInBoundsPtrAccessChain:
@@ -1004,7 +1004,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 .ptr = ptr,
                 .offset = offset,
                 .indices = nodes(a, num_indices, indices),
-            }), 1, NULL));
+            }), 1));
             break;
         }
         case SpvOpCompositeExtract: {
@@ -1018,7 +1018,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .op = extract_op,
                     .type_arguments = empty(parser->arena),
                     .operands = nodes(parser->arena, 1 + num_indices, ops)
-            }), 1, NULL));
+            }), 1));
             break;
         }
         case SpvOpCompositeInsert: {
@@ -1033,7 +1033,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .op = insert_op,
                     .type_arguments = empty(parser->arena),
                     .operands = nodes(parser->arena, 2 + num_indices, ops)
-            }), 1, NULL));
+            }), 1));
             break;
         }
         case SpvOpVectorShuffle: {
@@ -1058,7 +1058,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .op = extract_op,
                     .type_arguments = empty(parser->arena),
                     .operands = mk_nodes(parser->arena, src, int32_literal(parser->arena, index))
-                }), 1, NULL));
+                }), 1));
             }
 
             parser->defs[result].type = Value;
@@ -1071,13 +1071,13 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpLoad: {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, load(a, (Load) { src }), 1, NULL));
+            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, load(a, (Load) { src }), 1));
             break;
         }
         case SpvOpStore: {
             const Type* ptr = get_def_ssa_value(parser, instruction[1]);
             const Type* value = get_def_ssa_value(parser, instruction[2]);
-            bind_instruction_outputs_count(parser->current_block.builder, store(a, (Store) { ptr, value }), 0, NULL);
+            bind_instruction_outputs_count(parser->current_block.builder, store(a, (Store) { ptr, value }), 0);
             break;
         }
         case SpvOpCopyMemory:
@@ -1093,7 +1093,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .op = size_of_op,
                     .type_arguments = singleton(elem_t),
                     .operands = empty(parser->arena)
-                }), 1, NULL));
+                }), 1));
             } else {
                 cnt = get_def_ssa_value(parser, instruction[3]);
             }
@@ -1101,7 +1101,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 .src = src,
                 .dst = dst,
                 .count = cnt,
-            }), 0, NULL);
+            }), 0);
             break;
         }
         case SpvOpSelectionMerge:
@@ -1143,7 +1143,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                         .op = op,
                         .type_arguments = empty(parser->arena),
                         .operands = nodes(parser->arena, num_args, args)
-                    }), rslts_count, NULL);
+                    }), rslts_count);
 
                     if (rslts_count == 1)
                         parser->defs[result].node = first(rslts);
@@ -1154,7 +1154,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             Nodes rslts = bind_instruction_outputs_count(parser->current_block.builder, call(parser->arena, (Call) {
                 .callee = fn_addr_helper(parser->arena, callee),
                 .args = nodes(parser->arena, num_args, args)
-            }), rslts_count, NULL);
+            }), rslts_count);
 
             if (rslts_count == 1)
                 parser->defs[result].node = first(rslts);
@@ -1274,7 +1274,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }
 
             parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, instr, 1, NULL));
+            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, instr, 1));
             break;
         }
         case SpvOpBranch: {

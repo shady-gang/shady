@@ -29,7 +29,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
             return *found;
         const Node* let_bound = process_node(ctx, node);
         insert_dict_and_get_result(const Node*, const Node*, ctx->bound, node, let_bound);
-        return first(bind_instruction_outputs_count(ctx->bb, let_bound, 1, NULL));
+        return first(bind_instruction_outputs_count(ctx->bb, let_bound, 1));
     }
 
     switch (node->tag) {

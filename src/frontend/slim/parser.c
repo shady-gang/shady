@@ -710,7 +710,7 @@ static bool accept_statement(ctxparams, BodyBuilder* bb) {
     } else {
         const Node* instr = accept_instruction(ctx, bb);
         if (!instr) return false;
-        bind_instruction_outputs_count(bb, instr, 0, NULL);
+        bind_instruction_outputs_count(bb, instr, 0);
     }
     return true;
 }

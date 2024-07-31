@@ -31,7 +31,7 @@ BodyBuilder* begin_body(IrArena* a) {
     return bb;
 }
 
-static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count, const Node** provided_types, String const output_names[]) {
+static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
     if (bb->arena->config.check_types) {
         assert(is_instruction(instruction));
     }
@@ -55,33 +55,29 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outp
 
 Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
     assert(bb->arena->config.check_types);
-    return bind_internal(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type).count, NULL, NULL);
+    return bind_internal(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type).count);
 }
 
 Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String const output_names[]) {
     assert(bb->arena->config.check_types);
     assert(output_names);
-    return bind_internal(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type).count, NULL, output_names);
-}
-
-Nodes bind_instruction_explicit_result_types(BodyBuilder* bb, const Node* instruction, Nodes provided_types, String const output_names[]) {
-    return bind_internal(bb, instruction, provided_types.count, provided_types.nodes, output_names);
+    return bind_internal(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type).count);
 }
 
 const Node* bind_identifiers(IrArena* arena, const Node* instruction, bool mut, Strings names, Nodes* types);
 
 Nodes parser_create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, Strings output_names) {
     const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, true, output_names, &provided_types);
-    return bind_internal(bb, let_mut_instr, 0, NULL, NULL);
+    return bind_internal(bb, let_mut_instr, 0);
 }
 
 Nodes parser_create_immutable_variables(BodyBuilder* bb, const Node* instruction, Strings output_names) {
     const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, false, output_names, NULL);
-    return bind_internal(bb, let_mut_instr, 0, NULL, NULL);
+    return bind_internal(bb, let_mut_instr, 0);
 }
 
-Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count, String const output_names[]) {
-    return bind_internal(bb, instruction, outputs_count, NULL, output_names);
+Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
+    return bind_internal(bb, instruction, outputs_count);
 }
 
 static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
@@ -142,7 +138,7 @@ const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBu
         cancel_body(bb);
         return instruction;
     }
-    Nodes bound = bind_internal(bb, instruction, types.count, types.nodes, NULL);
+    Nodes bound = bind_internal(bb, instruction, types.count);
     return yield_values_and_wrap_in_block_explicit_return_types(bb, bound, types);
 }
 

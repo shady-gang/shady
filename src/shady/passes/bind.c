@@ -121,16 +121,16 @@ static const Node* desugar_bind_identifiers(Context* ctx, BodyBuilder* bb, const
     const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.bind_identifiers.instruction);
 
     Strings names = node->payload.bind_identifiers.names;
-    Nodes results = bind_instruction_outputs_count(bb, ninstruction, names.count, NULL);
+    Nodes results = bind_instruction_outputs_count(bb, ninstruction, names.count);
     for (size_t i = 0; i < names.count; i++) {
         String name = names.strings[i];
         if (node->payload.bind_identifiers.mutable) {
             const Type* type_annotation = node->payload.bind_identifiers.types->nodes[i];
             assert(type_annotation);
             const Node* alloca = stack_alloc(a, (StackAlloc) {rewrite_node(&ctx->rewriter, type_annotation)});
-            const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1, NULL).nodes[0];
+            const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1).nodes[0];
             set_value_name(ptr, names.strings[i]);
-            bind_instruction_outputs_count(bb, store(a, (Store) {ptr, results.nodes[0]}), 0, NULL);
+            bind_instruction_outputs_count(bb, store(a, (Store) {ptr, results.nodes[0]}), 0);
 
             add_binding(ctx, true, name, ptr);
             log_string(DEBUGV, "Bound mutable variable '%s'\n", name);
