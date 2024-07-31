@@ -222,10 +222,7 @@ static const Node* process(Context* ctx, const Node* node) {
         default: break;
     }
 
-    const Node* new = recreate_node_identity(&ctx->rewriter, node);
-    if (node->tag == Case_TAG)
-        register_processed(&ctx->rewriter, node, new);
-    return new;
+    return recreate_node_identity(&ctx->rewriter, node);
 }
 
 KeyHash hash_node(const Node**);
