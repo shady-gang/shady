@@ -89,10 +89,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 ninstruction = recreate_node_identity(&ctx->rewriter, old_instruction);
             }
             assert(ninstruction);
-            Nodes ovars = node->payload.let.variables;
-            Nodes nvars = recreate_vars(a, ovars, ninstruction);
-            register_processed_list(&ctx->rewriter, ovars, nvars);
-            return let(a, ninstruction, nvars, ntail);
+            return let(a, ninstruction, ntail);
         }
         // Unreachable is assumed to never happen, so it doesn't observe the stack state
         case NotATerminator: break;

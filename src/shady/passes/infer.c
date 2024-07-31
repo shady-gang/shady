@@ -122,11 +122,11 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             const Node* instruction = NULL;
             if (imported_hint) {
                 assert(is_data_type(imported_hint));
-                Nodes s = singleton(qualified_type_helper(imported_hint, true));
+                const Node* s = qualified_type_helper(imported_hint, true);
                 if (oconstant->instruction)
-                    instruction = infer_instruction(ctx, oconstant->instruction, &s);
+                    instruction = infer(ctx, oconstant->instruction, s);
             } else if (oconstant->instruction) {
-                instruction = infer_instruction(ctx, oconstant->instruction, NULL);
+                instruction = infer(ctx, oconstant->instruction, NULL);
             }
             if (instruction)
                 imported_hint = get_unqualified_type(instruction->type);
@@ -173,7 +173,6 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
     switch (is_value(node)) {
         case NotAValue: error("");
         case Param_TAG:
-        case Variablez_TAG: return find_processed(&ctx->rewriter, node);
         case Value_ConstrainedValue_TAG: {
             const Type* type = infer(ctx, node->payload.constrained.type, NULL);
             bool expect_uniform = false;
@@ -545,7 +544,7 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_instruction(node)) {
         case Instruction_PushStack_TAG: {
-            return push_stack(a, (PushStack) { infer_value(ctx, node->payload.push_stack.value, NULL) });
+            return push_stack(a, (PushStack) { infer(ctx, node->payload.push_stack.value, NULL) });
         }
         case Instruction_PopStack_TAG: {
             const Type* element_type = node->payload.pop_stack.type;
@@ -604,17 +603,13 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         case Let_TAG: {
             // const Node* otail = node->payload.let.ttail;
             // Nodes annotated_types = get_param_types(a, otail->payload.case_.params);
-            const Node* inferred_instruction = infer_instruction(ctx, node->payload.let.instruction, NULL);
+            const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, NULL);
             Nodes inferred_yield_types = unwrap_multiple_yield_types(a, inferred_instruction->type);
             LARRAY(const Node*, vars, inferred_yield_types.count);
             for (size_t i = 0; i < inferred_yield_types.count; i++) {
                 assert(is_value_type(inferred_yield_types.nodes[i]));
             }
-            // const Node* inferred_tail = infer_case(ctx, otail, inferred_yield_types);
-            Nodes ovars = node->payload.let.variables;
-            Nodes nvars = recreate_vars(a, ovars, inferred_instruction);
-            register_processed_list(&ctx->rewriter, ovars, nvars);
-            return let(a, inferred_instruction, nvars, infer_case(ctx, node->payload.let.tail, empty(a)));
+            return let(a, inferred_instruction, infer_case(ctx, node->payload.let.tail, empty(a)));
         }
         case Return_TAG: {
             const Node* imported_fn = ctx->current_fn;
@@ -708,6 +703,8 @@ static const Node* process(Context* src_ctx, const Node* node) {
     Context ctx = *src_ctx;
     ctx.expected_type = NULL;
 
+    IrArena* a = ctx.rewriter.dst_arena;
+
     const Node* found = search_processed(&src_ctx->rewriter, node);
     if (found) {
         //if (expect)
@@ -718,13 +715,16 @@ static const Node* process(Context* src_ctx, const Node* node) {
     if (is_type(node)) {
         assert(expected_type == NULL);
         return infer_type(&ctx, node);
+    } else if (is_instruction(node)) {
+        if (expected_type) {
+            Nodes expected_types = unwrap_multiple_yield_types(a, expected_type);
+            return infer_instruction(&ctx, node, &expected_types);
+        }
+        return infer_instruction(&ctx, node, NULL);
     } else if (is_value(node)) {
         const Node* value = infer_value(&ctx, node, expected_type);
         assert(is_value_type(value->type));
         return value;
-    } else if (is_instruction(node)) {
-        assert(false);
-        //return infer_instruction(&ctx, node, expected_type);
     } else if (is_terminator(node)) {
         assert(expected_type == NULL);
         return infer_terminator(&ctx, node);
@@ -754,8 +754,8 @@ Module* infer_program(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };
-    ctx.rewriter.config.search_map = false;
-    ctx.rewriter.config.write_map = false;
+    //ctx.rewriter.config.search_map = false;
+    //ctx.rewriter.config.write_map = false;
     ctx.rewriter.config.rebind_let = true;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);

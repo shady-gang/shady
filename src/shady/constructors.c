@@ -74,10 +74,9 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
 
 #include "constructors_generated.c"
 
-const Node* let(IrArena* arena, const Node* instruction, Nodes vars, const Node* tail) {
+const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
     Let payload = {
         .instruction = instruction,
-        .variables = vars,
         .tail = tail,
     };
 
@@ -90,24 +89,6 @@ const Node* let(IrArena* arena, const Node* instruction, Nodes vars, const Node*
         .type = arena->config.check_types ? check_type_let(arena, payload) : NULL,
         .tag = Let_TAG,
         .payload.let = payload
-    };
-    return create_node_helper(arena, node, NULL);
-}
-
-const Node* var(IrArena* arena, const char* name, const Node* instruction, size_t i) {
-    Variablez variable = {
-        .name = string(arena, name),
-        .instruction = instruction,
-        .iindex = i,
-    };
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = arena,
-        .type = arena->config.check_types ? check_type_varz(arena, variable) : NULL,
-        .tag = Variablez_TAG,
-        .payload.varz = variable
     };
     return create_node_helper(arena, node, NULL);
 }
@@ -129,10 +110,11 @@ Node* param(IrArena* arena, const Type* type, const char* name) {
     return create_node_helper(arena, node, NULL);
 }
 
-const Node* let_mut(IrArena* arena, const Node* instruction, Nodes variables, Nodes types) {
-    LetMut payload = {
+const Node* bind_identifiers(IrArena* arena, const Node* instruction, bool mut, Strings names, Nodes* types) {
+    BindIdentifiers payload = {
         .instruction = instruction,
-        .variables = variables,
+        .mutable = mut,
+        .names = names,
         .types = types,
     };
 
@@ -141,8 +123,8 @@ const Node* let_mut(IrArena* arena, const Node* instruction, Nodes variables, No
     node = (Node) {
         .arena = arena,
         .type = NULL,
-        .tag = LetMut_TAG,
-        .payload.let_mut = payload
+        .tag = BindIdentifiers_TAG,
+        .payload.bind_identifiers = payload
     };
     return create_node_helper(arena, node, NULL);
 }
@@ -431,4 +413,9 @@ const Node* fp_literal_helper(IrArena* a, FloatSizes size, double value) {
             return float_literal(a, (FloatLiteral) { .width = size, .value = bits });
         }
     }
+}
+
+const Node* extract_helper(const Node* composite, const Node* index) {
+    IrArena* a = composite->arena;
+    return prim_op_helper(a, extract_op, empty(a), mk_nodes(a, composite, index));
 }

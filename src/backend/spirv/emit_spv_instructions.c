@@ -387,7 +387,7 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
         case Instruction_CopyBytes_TAG:
         case Instruction_FillBytes_TAG:
-        case Instruction_LetMut_TAG:
+        case Instruction_BindIdentifiers_TAG:
         case Instruction_StackAlloc_TAG:
         case Instruction_Block_TAG: error("Should be lowered elsewhere")
         case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.call, results_count, results);                 break;

@@ -719,7 +719,7 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_GetStackSize_TAG:
         case Instruction_SetStackSize_TAG:
         case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
-        case Instruction_LetMut_TAG:       error("front-end only!");
+        case Instruction_BindIdentifiers_TAG:       error("front-end only!");
         case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
         case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;
         case Instruction_Block_TAG:        error("Should be eliminated by the compiler")

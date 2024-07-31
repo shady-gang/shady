@@ -26,7 +26,7 @@ Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
             // fallthrough
         default:
             assert(is_value_type(type));
-            return nodes(arena, 1, (const Node* []) { type });
+            return singleton(type);
     }
 }
 
@@ -300,4 +300,11 @@ const Node* get_fill_type_size(const Type* composite_t) {
         case PackType_TAG: return int32_literal(composite_t->arena, composite_t->payload.pack_type.width);
         default: error("fill values need to be either array or pack types")
     }
+}
+
+const Node* extract_multiple_ret_types_helper(const Node* composite, int index) {
+    Nodes types = unwrap_multiple_yield_types(composite->arena, composite->type);
+    if (types.count > 1)
+        return extract_helper(composite, int32_literal(composite->arena, index));
+    return composite;
 }

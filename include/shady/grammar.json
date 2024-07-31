@@ -89,10 +89,6 @@
       "generate-enum": false
     },
     {
-      "name": "variable",
-      "generate-enum": false
-    },
-    {
       "name": "instruction"
     },
     {
@@ -263,18 +259,6 @@
       ]
     },
     {
-      "name": "Variablez",
-      "snake_name": "varz",
-      "class": ["value", "variable"],
-      "constructor": "custom",
-      "nominal": true,
-      "ops": [
-        { "name": "name", "class": "string" },
-        { "name": "instruction", "class": "instruction" },
-        { "name": "iindex", "type": "unsigned" }
-      ]
-    },
-    {
       "name": "ConstrainedValue",
       "snake_name": "constrained",
       "class": "value",
@@ -435,7 +419,7 @@
     },
     {
       "name": "Block",
-      "class": "instruction",
+      "class": ["instruction", "value"],
       "description": "Used as a helper to insert multiple instructions in place of one",
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
@@ -455,19 +439,19 @@
       "constructor": "custom",
       "ops": [
         { "name": "instruction", "class": "instruction" },
-        { "name": "variables", "class": "variable", "list": true },
         { "name": "tail", "class": "case" }
       ]
     },
     {
-      "name": "LetMut",
+      "name": "BindIdentifiers",
       "class": "instruction",
       "constructor": "custom",
       "front-end-only": true,
       "ops": [
         { "name": "instruction", "class": "instruction" },
-        { "name": "variables", "class": "param", "list": true },
-        { "name": "types", "class": "type", "list": true }
+        { "name": "mutable", "type": "bool" },
+        { "name": "names", "class": "string", "list": true },
+        { "name": "types", "type": "Nodes*" }
       ]
     },
     {

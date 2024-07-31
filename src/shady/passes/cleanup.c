@@ -2,6 +2,7 @@
 
 #include "../analysis/uses.h"
 #include "../ir_private.h"
+#include "../type.h"
 
 #include "portability.h"
 #include "log.h"
@@ -114,9 +115,9 @@ const Node* process(Context* ctx, const Node* old) {
         case Let_TAG: {
             Let payload = old->payload.let;
             bool consumed = false;
-            Nodes vars = payload.variables;
-            for (size_t i = 0; i < vars.count; i++) {
-                const Use* use = get_first_use(ctx->map, vars.nodes[i]);
+            Nodes result_types = unwrap_multiple_yield_types(a, payload.instruction->type);
+            for (size_t i = 0; i < result_types.count; i++) {
+                const Use* use = get_first_use(ctx->map, extract_multiple_ret_types_helper(payload.instruction, i));
                 assert(use);
                 for (;use; use = use->next_use) {
                     if (use->user == old)
@@ -144,17 +145,7 @@ const Node* process(Context* ctx, const Node* old) {
                 if (is_terminator(instruction))
                     return finish_body(bb, instruction);
             }
-            Nodes ovars = old->payload.let.variables;
-            // optimization: eliminate unnecessary quotes by rewriting variables into their values directly
-            if (instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
-                *ctx->todo = true;
-                register_processed_list(r, ovars, instruction->payload.prim_op.operands);
-                return finish_body(bb, get_abstraction_body(rewrite_node(r, old->payload.let.tail)));
-            }
-            // rewrite variables now
-            Nodes nvars = recreate_vars(a, ovars, instruction);
-            register_processed_list(r, ovars, nvars);
-            const Node* nlet = let(a, instruction, nvars, rewrite_node(r, old->payload.let.tail));
+            const Node* nlet = let(a, instruction, rewrite_node(r, old->payload.let.tail));
             return finish_body(bb, nlet);
         }
         case BasicBlock_TAG: {

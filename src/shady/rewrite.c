@@ -20,7 +20,7 @@ Rewriter create_rewriter_base(Module* src, Module* dst) {
         .dst_module = dst,
         .config = {
             .search_map = true,
-            //.write_map = true,
+            .write_map = true,
             .rebind_let = false,
             .fold_quote = true,
         },
@@ -37,6 +37,7 @@ Rewriter create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
 
 Rewriter create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn) {
     Rewriter r = create_rewriter_base(src, dst);
+    r.config.write_map = false;
     r.rewrite_op_fn = fn;
     r.decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     return r;
@@ -251,15 +252,6 @@ Nodes recreate_params(Rewriter* rewriter, Nodes oparams) {
     return nodes(rewriter->dst_arena, oparams.count, nparams);
 }
 
-Nodes recreate_vars(IrArena* arena, Nodes ovars, const Node* instruction) {
-    LARRAY(const Node*, nvars_arr, ovars.count);
-    for (size_t i = 0; i < ovars.count; i++) {
-        nvars_arr[i] = var(arena, ovars.nodes[i]->payload.varz.name, instruction, i);
-    }
-    Nodes nvars = nodes(arena, ovars.count, nvars_arr);
-    return nvars;
-}
-
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
     switch (is_declaration(old)) {
@@ -352,31 +344,12 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             log_node(ERROR, node);
             log_string(ERROR, ", params should be rewritten by the abstraction rewrite logic");
             error_die();
-        case Variablez_TAG:
-            log_string(ERROR, "Can't rewrite: ");
-            log_node(ERROR, node);
-            log_string(ERROR, ", variables should be rewritten by the binding let");
-            error_die();
         case Let_TAG: {
             BodyBuilder* bb = begin_body(arena);
             const Node* instruction = rewrite_op_helper(rewriter, NcInstruction, "instruction", node->payload.let.instruction);
-            // optimization: fold blocks
-            // if (instruction->tag == Block_TAG) {
-            //     instruction = quote_helper(arena, flatten_block(arena, instruction, bb));
-            // }
-            Nodes ovars = node->payload.let.variables;
-            // optimization: eliminate unecessary quotes by rewriting variables into their values directly
-            // if (instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op) {
-            //     register_processed_list(rewriter, ovars, instruction->payload.prim_op.operands);
-            //     return finish_body(bb, get_abstraction_body(rewrite_op_helper(rewriter, NcCase, "tail", node->payload.let.tail)));
-            // }
-            // rewrite variables now
-            Nodes nvars = recreate_vars(arena, ovars, instruction);
-            register_processed_list(rewriter, ovars, nvars);
-            const Node* nlet = let(arena, instruction, nvars, rewrite_op_helper(rewriter, NcCase, "tail", node->payload.let.tail));
+            const Node* nlet = let(arena, instruction, rewrite_op_helper(rewriter, NcCase, "tail", node->payload.let.tail));
             return finish_body(bb, nlet);
         }
-        case LetMut_TAG: error("De-sugar this by hand")
         case Case_TAG: {
             Nodes params = recreate_params(rewriter, node->payload.case_.params);
             register_processed_list(rewriter, node->payload.case_.params, params);

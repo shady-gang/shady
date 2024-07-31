@@ -190,8 +190,8 @@ static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
     int distance = 0;
     bool specialize_generic = false;
     AddressSpace src_as = t->payload.ptr_type.address_space;
-    while (ptr->tag == Variablez_TAG) {
-        const Node* def = get_var_def(ptr->payload.varz);
+    while (true) {
+        const Node* def = ptr;
         switch (def->tag) {
             case PrimOp_TAG: {
                 PrimOp instruction = def->payload.prim_op;

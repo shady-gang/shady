@@ -69,6 +69,7 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
 }
 
 static void add_binding(Context* ctx, bool is_var, String name, const Node* node) {
+    assert(name);
     NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
     *entry = (NamedBindEntry) {
         .name = string(ctx->rewriter.dst_arena, name),
@@ -114,25 +115,28 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
     return got;
 }
 
-static const Node* desugar_let_mut(Context* ctx, BodyBuilder* bb, const Node* node) {
-    assert(node->tag == LetMut_TAG);
+static const Node* desugar_bind_identifiers(Context* ctx, BodyBuilder* bb, const Node* node) {
+    assert(node->tag == BindIdentifiers_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
-    const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.let_mut.instruction);
+    const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.bind_identifiers.instruction);
 
-    Nodes old_params = node->payload.let_mut.variables;
-    Nodes initial_values = bind_instruction_outputs_count(bb, ninstruction, old_params.count, NULL);
-    for (size_t i = 0; i < old_params.count; i++) {
-        const Node* oparam = old_params.nodes[i];
-        const Type* type_annotation = node->payload.let_mut.types.nodes[i];
-        assert(type_annotation);
-        const Node* alloca = stack_alloc(a, (StackAlloc) { rewrite_node(&ctx->rewriter, type_annotation) });
-        const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1, &oparam->payload.varz.name).nodes[0];
-        bind_instruction_outputs_count(bb, store(a, (Store) { ptr, initial_values.nodes[0] }), 0, NULL);
+    Strings names = node->payload.bind_identifiers.names;
+    Nodes results = bind_instruction_outputs_count(bb, ninstruction, names.count, NULL);
+    for (size_t i = 0; i < names.count; i++) {
+        String name = names.strings[i];
+        if (node->payload.bind_identifiers.mutable) {
+            const Type* type_annotation = node->payload.bind_identifiers.types->nodes[i];
+            assert(type_annotation);
+            const Node* alloca = stack_alloc(a, (StackAlloc) {rewrite_node(&ctx->rewriter, type_annotation)});
+            const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1, NULL).nodes[0];
+            set_value_name(ptr, names.strings[i]);
+            bind_instruction_outputs_count(bb, store(a, (Store) {ptr, results.nodes[0]}), 0, NULL);
 
-        add_binding(ctx, true, oparam->payload.varz.name, ptr);
-        log_string(DEBUGV, "Lowered mutable variable ");
-        log_node(DEBUGV, oparam);
-        log_string(DEBUGV, ".\n;");
+            add_binding(ctx, true, name, ptr);
+            log_string(DEBUGV, "Bound mutable variable '%s'\n", name);
+        } else {
+            add_binding(ctx, false, name, results.nodes[i]);
+        }
     }
 
     Nodes e = empty(a);
@@ -207,7 +211,6 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             assert(is_declaration(node));
             return rewrite_decl(ctx, node);
         }
-        case Variablez_TAG:
         case Param_TAG: error("the binders should be handled such that this node is never reached");
         case Unbound_TAG: {
             Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
@@ -261,31 +264,26 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             return new_bb;
         }
         case Let_TAG: {
-            const Node* oinstruction = get_let_instruction(node);
+            const Node* oinstruction = node->payload.let.instruction;
             const Node* ninstr;
             BodyBuilder* bb = begin_body(a);
-            if (oinstruction->tag == LetMut_TAG) {
-                ninstr = desugar_let_mut(ctx, bb, oinstruction);
+            if (oinstruction->tag == BindIdentifiers_TAG) {
+                ninstr = desugar_bind_identifiers(ctx, bb, oinstruction);
             } else {
                 ninstr = rewrite_node(r, oinstruction);
             }
-            Nodes ovars = node->payload.let.variables;
-            Nodes nvars = recreate_vars(a, ovars, ninstr);
-            register_processed_list(r, ovars, nvars);
-            for (size_t i = 0; i < nvars.count; i++)
-                add_binding(ctx, false, nvars.nodes[i]->payload.varz.name, nvars.nodes[i]);
-            return finish_body(bb, let(a, ninstr, nvars, rewrite_node(r, get_let_tail(node))));
+            return finish_body(bb, let(a, ninstr, rewrite_node(r, get_let_tail(node))));
         }
         case Case_TAG: {
             Nodes old_params = node->payload.case_.params;
             Nodes new_params = recreate_params(&ctx->rewriter, old_params);
-            for (size_t i = 0; i < new_params.count; i++)
-                add_binding(ctx, false, old_params.nodes[i]->payload.param.name, new_params.nodes[i]);
+            // for (size_t i = 0; i < new_params.count; i++)
+            //     add_binding(ctx, false, old_params.nodes[i]->payload.param.name, new_params.nodes[i]);
             register_processed_list(&ctx->rewriter, old_params, new_params);
             const Node* new_body = rewrite_node(&ctx->rewriter, node->payload.case_.body);
             return case_(a, new_params, new_body);
         }
-        case LetMut_TAG: assert(false);
+        case BindIdentifiers_TAG: assert(false);
         case Return_TAG: {
             assert(ctx->current_function);
             return fn_ret(a, (Return) {

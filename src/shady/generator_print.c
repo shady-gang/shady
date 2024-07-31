@@ -15,7 +15,10 @@ void generate_node_print_fns(Growy* g, json_object* src) {
             alloc = (void*) snake_name;
         }
         growy_append_formatted(g, "\tcase %s_TAG: {\n", name);
-        growy_append_formatted(g, "\t\tprint(printer, \"%s \");\n", name);
+        growy_append_formatted(g, "\t\tprint(printer, GREEN);\n");
+        growy_append_formatted(g, "\t\tprint(printer, \"%s\");\n", name);
+        growy_append_formatted(g, "\t\tprint(printer, RESET);\n");
+        growy_append_formatted(g, "\t\tprint(printer, \"(\");\n");
         json_object* ops = json_object_object_get(node, "ops");
         if (ops) {
             assert(json_object_get_type(ops) == json_type_array);
@@ -61,8 +64,12 @@ void generate_node_print_fns(Growy* g, json_object* src) {
                     growy_append_formatted(g, "\t\tprint_node_operand_%s(printer, node, \"%s\", node->payload.%s.%s, config);\n", s, op_name, snake_name, op_name);
                     free(s);
                 }
+
+                if (j + 1 < json_object_array_length(ops))
+                    growy_append_formatted(g, "\t\tprint(printer, \", \");\n");
             }
         }
+        growy_append_formatted(g, "\t\tprint(printer, \")\");\n");
         growy_append_formatted(g, "\t\tbreak;\n");
         growy_append_formatted(g, "\t}\n", name);
         if (alloc)

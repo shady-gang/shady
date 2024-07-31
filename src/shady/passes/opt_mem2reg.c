@@ -284,8 +284,6 @@ static void mark_value_as_escaping(Context* ctx, KnowledgeBase* kb, const Node* 
     switch (is_value(value)) {
         case NotAValue: assert(false);
         case Value_Param_TAG:
-        case Value_Variablez_TAG:
-            break;
         case Value_ConstrainedValue_TAG:
             break;
         case Value_UntypedNumber_TAG:
@@ -452,22 +450,8 @@ static const Node* process_terminator(Context* ctx, KnowledgeBase* kb, const Nod
     Rewriter* r = &ctx->rewriter;
     switch (is_terminator(old)) {
         case NotATerminator: assert(false);
-        case Let_TAG: {
-            const Node* oinstruction = get_let_instruction(old);
-            const Node* ninstruction = rewrite_node(r, oinstruction);
-            PtrKnowledge** found = find_value_dict(const Node*, PtrKnowledge*, kb->map, oinstruction);
-            Nodes ovars = old->payload.let.variables;
-            if (found) { // copy any knownledge about an instruction to the bound variable
-                assert(ovars.count == 1);
-                PtrKnowledge* k = *found;
-                const Node* first_param = first(ovars);
-                insert_dict(const Node*, PtrKnowledge*, kb->map, first_param, k);
-            }
-
-            Nodes nvars = recreate_vars(a, ovars, ninstruction);
-            register_processed_list(r, ovars, nvars);
-            return let(a, ninstruction, nvars, rewrite_node(r, get_let_tail(old)));
-        }
+        case Let_TAG:
+            break;
         case Jump_TAG: {
             const Node* old_target = old->payload.jump.target;
             // rewrite_node(&ctx->rewriter, old_target);

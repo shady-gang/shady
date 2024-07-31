@@ -212,7 +212,6 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG: error("lower me");
         case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
-        case Variablez_TAG: error("tried to emit a variable: all variables should be register by their binding let !");
         default: {
             assert(!is_instruction(value));
             error("Unhandled value for code generation: %s", node_tags[value->tag]);
@@ -559,18 +558,18 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             const Node* tail = get_let_tail(terminator);
             assert(tail->tag == Case_TAG);
 
-            Nodes vars = terminator->payload.let.variables;
-            assert(vars.count == yield_types.count);
+            // Nodes vars = terminator->payload.let.variables;
+            // assert(vars.count == yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
                 bool has_result = results[i].value || results[i].var;
                 switch (bindings[i]) {
                     case NoBinding: {
                         assert(has_result && "unbound results can't be empty");
-                        register_emitted(emitter, vars.nodes[i], results[i]);
+                        register_emitted(emitter, extract_multiple_ret_types_helper(instruction, i), results[i]);
                         break;
                     }
                     case LetBinding: {
-                        String variable_name = get_value_name_unsafe(vars.nodes[i]);
+                        String variable_name = get_value_name_unsafe(extract_multiple_ret_types_helper(instruction, i));
 
                         if (!variable_name)
                             variable_name = "";
@@ -584,7 +583,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                         else
                             emit_variable_declaration(emitter, block_printer, t, bind_to, false, NULL);
 
-                        register_emitted(emitter, vars.nodes[i], term_from_cvalue(bind_to));
+                        register_emitted(emitter, extract_multiple_ret_types_helper(instruction, i), term_from_cvalue(bind_to));
                         break;
                     }
                     default: assert(false);

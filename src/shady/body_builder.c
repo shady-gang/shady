@@ -2,6 +2,7 @@
 #include "log.h"
 #include "portability.h"
 #include "type.h"
+#include "transform/ir_gen_helpers.h"
 
 #include "list.h"
 #include "dict.h"
@@ -30,80 +31,52 @@ BodyBuilder* begin_body(IrArena* a) {
     return bb;
 }
 
-const Node* var(IrArena* arena, const char* name, const Node* instruction, size_t i);
-
-static Nodes create_output_variables(IrArena* a, const Node* value, size_t outputs_count, const Node** output_types, String const output_names[]) {
-    Nodes types;
-    if (a->config.check_types) {
-        types = unwrap_multiple_yield_types(a, value->type);
-        // outputs count has to match or not be given
-        assert(outputs_count == types.count || outputs_count == SIZE_MAX);
-        if (output_types) {
-            // Check that the types we got are subtypes of what we care about
-            for (size_t i = 0; i < types.count; i++)
-                assert(is_subtype(output_types[i], types.nodes[i]));
-            types = nodes(a, outputs_count, output_types);
-        }
-        outputs_count = types.count;
-    } else {
-        assert(outputs_count != SIZE_MAX);
-        if (output_types) {
-            types = nodes(a, outputs_count, output_types);
-        } else {
-            LARRAY(const Type*, nulls, outputs_count);
-            for (size_t i = 0; i < outputs_count; i++)
-                nulls[i] = NULL;
-            types = nodes(a, outputs_count, nulls);
-        }
-    }
-
-    LARRAY(Node*, vars, types.count);
-    for (size_t i = 0; i < types.count; i++) {
-        String var_name = output_names ? output_names[i] : NULL;
-        vars[i] = (Node*) var(a, var_name, value, i);
-    }
-
-    // for (size_t i = 0; i < outputs_count; i++) {
-    //     vars[i]->payload.var.instruction = value;
-    //     vars[i]->payload.var.output = i;
-    // }
-    return nodes(a, outputs_count, (const Node**) vars);
-}
-
 static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count, const Node** provided_types, String const output_names[]) {
     if (bb->arena->config.check_types) {
         assert(is_instruction(instruction));
     }
-    Nodes params = create_output_variables(bb->arena, instruction, outputs_count, provided_types, output_names);
     StackEntry entry = {
         .vars = empty(bb->arena),
         .structured.payload.let = {
             .instruction = instruction,
-            .variables = params,
         }
     };
     append_list(StackEntry, bb->stack, entry);
-    return params;
+    if (outputs_count > 1) {
+        LARRAY(const Node*, extracted, outputs_count);
+        for (size_t i = 0; i < outputs_count; i++)
+            extracted[i] = gen_extract_single(bb, instruction, int32_literal(bb->arena, i));
+        return nodes(bb->arena, outputs_count, extracted);
+    } else if (outputs_count == 1)
+        return singleton(instruction);
+    else
+        return empty(bb->arena);
 }
 
 Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
     assert(bb->arena->config.check_types);
-    return bind_internal(bb, instruction, SIZE_MAX, NULL, NULL);
+    return bind_internal(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type).count, NULL, NULL);
 }
 
 Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String const output_names[]) {
     assert(bb->arena->config.check_types);
     assert(output_names);
-    return bind_internal(bb, instruction, SIZE_MAX, NULL, output_names);
+    return bind_internal(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type).count, NULL, output_names);
 }
 
 Nodes bind_instruction_explicit_result_types(BodyBuilder* bb, const Node* instruction, Nodes provided_types, String const output_names[]) {
     return bind_internal(bb, instruction, provided_types.count, provided_types.nodes, output_names);
 }
 
-Nodes create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, String const output_names[]) {
-    Nodes mutable_vars = create_output_variables(bb->arena, instruction, provided_types.count, provided_types.nodes, output_names);
-    const Node* let_mut_instr = let_mut(bb->arena, instruction, mutable_vars, provided_types);
+const Node* bind_identifiers(IrArena* arena, const Node* instruction, bool mut, Strings names, Nodes* types);
+
+Nodes parser_create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, Strings output_names) {
+    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, true, output_names, &provided_types);
+    return bind_internal(bb, let_mut_instr, 0, NULL, NULL);
+}
+
+Nodes parser_create_immutable_variables(BodyBuilder* bb, const Node* instruction, Strings output_names) {
+    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, false, output_names, NULL);
     return bind_internal(bb, let_mut_instr, 0, NULL, NULL);
 }
 
@@ -119,7 +92,7 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
         switch (entry.structured.tag) {
             case NotAStructured_construct:
                 entry.structured.payload.let.tail = case_(bb->arena, entry.vars, terminator);
-                terminator = let(a, entry.structured.payload.let.instruction, entry.structured.payload.let.variables, entry.structured.payload.let.tail);
+                terminator = let(a, entry.structured.payload.let.instruction, entry.structured.payload.let.tail);
                 break;
             case Structured_construct_If_TAG:
                 entry.structured.payload.if_instr.tail = case_(bb->arena, entry.vars, terminator);

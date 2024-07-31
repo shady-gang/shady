@@ -139,7 +139,7 @@ static const Node* handle_bb_callsite(Context* ctx, const Node* caller, const No
         // Just jumps to the actual ladder
         const Node* exit_ladder_trampoline = case_(a, empty(a), jump(a, (Jump) {.target = inner_exit_ladder_bb, .args = empty(a)}));
 
-        const Node* structured = structure(&ctx2, dst, let(a, quote_helper(a, empty(a)), empty(a), exit_ladder_trampoline));
+        const Node* structured = structure(&ctx2, dst, let(a, quote_helper(a, empty(a)), exit_ladder_trampoline));
         assert(is_terminator(structured));
         // forget we rewrote all that
         destroy_dict(tmp_processed);
@@ -180,12 +180,8 @@ static const Node* rebuild_let(Context* ctx, const Node* old_let, const Node* ne
     Nodes otail_params = get_abstraction_params(old_tail);
     assert(otail_params.count == 0);
 
-    Nodes ovars = old_let->payload.let.variables;
-    Nodes nvars = recreate_vars(a, ovars, new_instruction);
-    register_processed_list(&ctx->rewriter, ovars, nvars);
-
     const Node* structured_lam = case_(a, empty(a), structure(ctx, old_tail, exit_ladder));
-    return let(a, new_instruction, nvars, structured_lam);
+    return let(a, new_instruction, structured_lam);
 }
 
 static const Node* structure(Context* ctx, const Node* abs, const Node* exit_ladder) {
@@ -197,8 +193,6 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
         case NotATerminator:
         case Let_TAG: {
             const Node* old_tail = get_let_tail(body);
-            Nodes ovars = body->payload.let.variables;
-            //Nodes otail_params = get_abstraction_params(old_tail);
 
             const Node* old_instr = get_let_instruction(body);
             switch (is_instruction(old_instr)) {
@@ -305,7 +299,7 @@ static const Node* structure(Context* ctx, const Node* abs, const Node* exit_lad
             gen_if(bb2, empty(a), guard, if_true_lam, NULL);
 
             const Node* tail_lambda = case_(a, empty(a), finish_body(bb2, exit_ladder));
-            return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, quote_helper(a, empty(a)), empty(a), tail_lambda)));
+            return finish_body(bb_outer, structure(&control_ctx, old_control_body, let(a, quote_helper(a, empty(a)), tail_lambda)));
         }
         case Join_TAG: {
             ControlEntry* control = search_containing_control(ctx, body->payload.join.join_point);

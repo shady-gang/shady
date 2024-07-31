@@ -84,16 +84,6 @@ static void dump_free_variables(Context* ctx, CFNode* cfnode, int depth) {
 static void search_op_for_free_variables(Context* visitor, NodeClass class, String op_name, const Node* node) {
     assert(node);
     switch (node->tag) {
-        case Let_TAG: {
-            Nodes variables = node->payload.let.variables;
-            for (size_t j = 0; j < variables.count; j++) {
-                const Node* var = variables.nodes[j];
-                bool r = insert_set_get_result(const Node*, visitor->bound, var);
-                assert(r);
-            }
-            break;
-        }
-        case Variablez_TAG:
         case Param_TAG: {
             //const Node** found = find_key_dict(const Node*, visitor->bound, node);
             //if (!found)
@@ -105,7 +95,7 @@ static void search_op_for_free_variables(Context* visitor, NodeClass class, Stri
         case BasicBlock_TAG: assert(false);
         default: break;
     }
-    visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK | NcVariable, node);
+    visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node);
 }
 
 static CFNodeVariables* create_node_variables(CFNode* cfnode) {

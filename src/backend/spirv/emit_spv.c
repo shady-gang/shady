@@ -40,7 +40,6 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
     switch (is_value(node)) {
         case NotAValue: error("");
         case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
-        case Variablez_TAG: error("tried to emit a variable: all variables should be register by their binding let !");
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG:
         case Value_FnAddr_TAG: error("Should be lowered away earlier!");
@@ -388,13 +387,14 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
         }
         case Let_TAG: {
             const Node* tail = get_let_tail(terminator);
-            Nodes vars = terminator->payload.let.variables;
-            LARRAY(SpvId, results, vars.count);
-            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, get_let_instruction(terminator), vars.count, results);
+            const Node* instruction = terminator->payload.let.instruction;
+            Nodes types = unwrap_multiple_yield_types(emitter->arena, instruction);
+            LARRAY(SpvId, results, types.count);
+            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, instruction, types.count, results);
             assert(tail->tag == Case_TAG);
 
-            for (size_t i = 0; i < vars.count; i++)
-                register_result(emitter, vars.nodes[i], results[i]);
+            for (size_t i = 0; i < types.count; i++)
+                register_result(emitter, extract_multiple_ret_types_helper(instruction, i), results[i]);
             emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, tail->payload.case_.body);
             return;
         }

@@ -36,9 +36,6 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
             break;
         }
         case RefDecl_TAG: return get_req_cast(ctx, src->payload.ref_decl.decl);
-        case Variablez_TAG: {
-            return get_req_cast(ctx, get_var_def(src->payload.varz));
-        }
         case Lea_TAG: {
             const Type* src_req_cast = get_req_cast(ctx, src->payload.lea.ptr);
             if (src_req_cast) {

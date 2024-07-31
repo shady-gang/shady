@@ -691,19 +691,22 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
     destroy_list(tlist);
 }
 
+Nodes parser_create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, Strings output_names);
+Nodes parser_create_immutable_variables(BodyBuilder* bb, const Node* instruction, Strings output_names);
+
 static bool accept_statement(ctxparams, BodyBuilder* bb) {
     Strings ids;
     if (accept_token(ctx, val_tok)) {
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok));
         const Node* instruction = accept_instruction(ctx, bb);
-        bind_instruction_outputs_count(bb, instruction, ids.count, ids.strings);
+        parser_create_immutable_variables(bb, instruction, ids);
     } else if (accept_token(ctx, var_tok)) {
         Nodes types;
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok));
         const Node* instruction = accept_instruction(ctx, bb);
-        create_mutable_variables(bb, instruction, types, ids.strings);
+        parser_create_mutable_variables(bb, instruction, types, ids);
     } else {
         const Node* instr = accept_instruction(ctx, bb);
         if (!instr) return false;

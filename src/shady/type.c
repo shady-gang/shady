@@ -411,12 +411,6 @@ const Type* check_type_param(IrArena* arena, Param variable) {
     return variable.type;
 }
 
-const Type* check_type_varz(IrArena* arena, Variablez variable) {
-    Nodes types = unwrap_multiple_yield_types(arena, variable.instruction->type);
-    assert(variable.iindex < types.count);
-    return types.nodes[variable.iindex];
-}
-
 const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
     error("should never happen");
 }

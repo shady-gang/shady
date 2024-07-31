@@ -34,7 +34,7 @@ struct PrinterCtx_ {
 #define GREEN    COLOR("\033[0;32m")
 #define YELLOW   COLOR("\033[0;33m")
 #define BLUE     COLOR("\033[0;34m")
-#define MANGENTA COLOR("\033[0;35m")
+#define MAGENTA  COLOR("\033[0;35m")
 #define CYAN     COLOR("\033[0;36m")
 #define WHITE    COLOR("\033[0;37m")
 
@@ -406,7 +406,6 @@ static void print_value(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.constrained.value);
             break;
         }
-        case Value_Variablez_TAG:
         case Value_Param_TAG:
             if (ctx->uses) {
                 // if ((*find_value_dict(const Node*, Uses*, ctx->uses->map, node))->escapes_defining_block)
@@ -540,7 +539,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
     switch (is_instruction(node)) {
         case NotAnInstruction: assert(false); break;
         case Instruction_Comment_TAG: {
-            printf(GREY);
+            printf(MAGENTA);
             printf("/* %s */", node->payload.comment.string);
             printf(RESET);
             break;
@@ -605,36 +604,54 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
         case NotATerminator: assert(false);
         case Let_TAG: {
             const Node* instruction = get_let_instruction(node);
-            bool mut = false;
-            if (instruction->tag == LetMut_TAG)
-                mut = true;
+            const BindIdentifiers* binders = NULL;
+            if (instruction->tag == BindIdentifiers_TAG)
+                binders = &instruction->payload.bind_identifiers;
             const Node* tail = get_let_tail(node);
             if (!ctx->config.reparseable) {
-                // if the let tail is a case, we apply some syntactic sugar
-                Nodes variables = node->payload.let.variables;
-                if (mut || variables.count > 0) {
+                Nodes result_types = instruction->type ? unwrap_multiple_yield_types(node->arena, instruction->type) : empty(node->arena);
+                if (binders) {
+                    //printf("%%%d = ", instruction->id);
                     printf(GREEN);
-                    if (mut)
+                    if (binders && binders->mutable)
                         printf("var");
                     else
                         printf("val");
                     printf(RESET);
-                    if (mut) {
-                        variables = instruction->payload.let_mut.variables;
-                        instruction = instruction->payload.let_mut.instruction;
-                    }
-                    for (size_t i = 0; i < variables.count; i++) {
-                        // TODO: fix let mut
-                        if (node->arena->config.check_types && (mut || !ctx->config.reparseable)) {
+                }
+
+                if (binders) {
+                    Strings names = binders->names;
+                    instruction = binders->instruction;
+                    for (size_t i = 0; i < names.count; i++) {
+                        if (binders->types) {
                             printf(" ");
-                            print_node(variables.nodes[i]->type);
+                            print_node(binders->types->nodes[i]);
                         }
                         printf(" ");
-                        print_node(variables.nodes[i]);
+                        printf("%s", names.strings[i]);
                         printf(RESET);
                     }
+                    printf(" = %%%d = ", instruction->id);
+                } else {
+                    if (result_types.count > 1) {
+                        printf("[");
+                        for (size_t i = 0; i < result_types.count; i++) {
+                            if (node->arena->config.check_types && !ctx->config.reparseable) {
+                                printf(" ");
+                                print_node(result_types.nodes[i]);
+                            }
+                            printf("%s", get_value_name_safe(extract_multiple_ret_types_helper(instruction, i)));
+                            printf(RESET);
+                            if (i + 1 < result_types.count)
+                                printf(", ");
+                        }
+                        printf("]");
+                    }
+                    printf("%%%zu", instruction->id);
                     printf(" = ");
                 }
+
                 print_node(instruction);
                 if (!ctx->config.in_cfg) {
                     printf(";\n");
@@ -1087,16 +1104,37 @@ void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod)
     }
 }
 
+#define COLOR(x) (config.color ? (x) : "")
+
+static void print_operand_name_helper(Printer* p, PrintConfig config, String name) {
+    print(p, GREY);
+    print(p, "%s", name);
+    print(p, RESET);
+    print(p, ": ", name);
+}
+
+static void print_operand_helper(Printer* p, PrintConfig config, NodeClass nc, const Node* op) {
+    if (is_instruction(op) && op->arena->config.check_types)
+        print(p, "%%%d", op->id);
+    else {
+        if (!op->arena->config.check_types)
+            print(p, "%%%d", op->id);
+        print_node(p, op, config);
+    }
+}
+
 void print_node_operand(Printer* p, const Node* n, String name, NodeClass op_class, const Node* op, PrintConfig config) {
-    //print(p, " '%s': %%%d", name, op->id);
-    print(p, " '%s': ", name);
-    print_node(p, op, config);
+    print_operand_name_helper(p, config, name);
+    print_operand_helper(p, config, op_class, op);
+    // print(p, " '%s': ", name);
+    // print_node(p, op, config);
 }
 
 void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass op_class, Nodes ops, PrintConfig config) {
-    print(p, " '%s': [", name);
+    print_operand_name_helper(p, config, name);
+    print(p, "[");
     for (size_t i = 0; i < ops.count; i++) {
-        print(p, "%%%zu", (size_t) ops.nodes[i]);
+        print_operand_helper(p, config, op_class, ops.nodes[i]);
         if (i + 1 < ops.count)
             print(p, ", ");
     }
@@ -1104,19 +1142,31 @@ void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass o
 }
 
 void print_node_operand_const_Node_(Printer* p, const Node* n, String name, const Node* op, PrintConfig config) {
-    print(p, " '%s': %%%d", name, op->id);
+    print_operand_name_helper(p, config, name);
+    print_operand_helper(p, config, 0, op);
+}
+
+void print_node_operand_Nodes_(Printer* p, const Node* n, String name, Nodes* op, PrintConfig config) {
+    if (op) {
+        print_node_operand_list(p, n, name, 0, *op, config);
+    } else {
+        print_operand_name_helper(p, config, name);
+        print(p, "null");
+    }
 }
 
 void print_node_operand_AddressSpace(Printer* p, const Node* n, String name, AddressSpace as, PrintConfig config) {
-    print(p, " '%s': %s", name, get_address_space_name(as));
+    print_operand_name_helper(p, config, name);
+    print(p, "%s", get_address_space_name(as));
 }
 
 void print_node_operand_Op(Printer* p, const Node* n, String name, Op op, PrintConfig config) {
-    print(p, " '%s': %s", name, get_primop_name(op));
+    print_operand_name_helper(p, config, name);
+    print(p, "%s", get_primop_name(op));
 }
 
 void print_node_operand_RecordSpecialFlag(Printer* p, const Node* n, String name, RecordSpecialFlag flags, PrintConfig config) {
-    print(p, " '%s': ", name);
+    print_operand_name_helper(p, config, name);
     if (flags & MultipleReturn)
         print(p, "MultipleReturn");
     if (flags & DecorateBlock)
@@ -1124,15 +1174,17 @@ void print_node_operand_RecordSpecialFlag(Printer* p, const Node* n, String name
 }
 
 void print_node_operand_uint32_t(Printer* p, const Node* n, String name, uint32_t i, PrintConfig config) {
-    print(p, " '%s': %u", name, i);
+    print_operand_name_helper(p, config, name);
+    print(p, "%u", i);
 }
 
 void print_node_operand_uint64_t(Printer* p, const Node* n, String name, uint64_t i, PrintConfig config) {
-    print(p, " '%s': %zu", name, i);
+    print_operand_name_helper(p, config, name);
+    print(p, "%zu", i);
 }
 
 void print_node_operand_IntSizes(Printer* p, const Node* n, String name, IntSizes s, PrintConfig config) {
-    print(p, " '%s': ", name);
+    print_operand_name_helper(p, config, name);
     switch (s) {
         case IntTy8:  print(p, "8");  break;
         case IntTy16: print(p, "16"); break;
@@ -1142,7 +1194,7 @@ void print_node_operand_IntSizes(Printer* p, const Node* n, String name, IntSize
 }
 
 void print_node_operand_FloatSizes(Printer* p, const Node* n, String name, FloatSizes s, PrintConfig config) {
-    print(p, " '%s': ", name);
+    print_operand_name_helper(p, config, name);
     switch (s) {
         case FloatTy16: print(p, "16"); break;
         case FloatTy32: print(p, "32"); break;
@@ -1151,11 +1203,13 @@ void print_node_operand_FloatSizes(Printer* p, const Node* n, String name, Float
 }
 
 void print_node_operand_String(Printer* p, const Node* n, String name, String s, PrintConfig config) {
-    print(p, " '%s': \"%s\"", name, s);
+    print_operand_name_helper(p, config, name);
+    print(p, "\"%s\"", s);
 }
 
 void print_node_operand_Strings(Printer* p, const Node* n, String name, Strings ops, PrintConfig config) {
-    print(p, " '%s': [", name);
+    print_operand_name_helper(p, config, name);
+    print(p, "[");
     for (size_t i = 0; i < ops.count; i++) {
         print(p, "\"%s\"", (size_t) ops.strings[i]);
         if (i + 1 < ops.count)
@@ -1165,7 +1219,7 @@ void print_node_operand_Strings(Printer* p, const Node* n, String name, Strings 
 }
 
 void print_node_operand_bool(Printer* p, const Node* n, String name, bool b, PrintConfig config) {
-    print(p, " '%s': ", name);
+    print_operand_name_helper(p, config, name);
     if (b)
         print(p, "true");
     else
@@ -1173,7 +1227,8 @@ void print_node_operand_bool(Printer* p, const Node* n, String name, bool b, Pri
 }
 
 void print_node_operand_unsigned(Printer* p, const Node* n, String name, unsigned u, PrintConfig config) {
-    print(p, " '%s': %u", name, u);
+    print_operand_name_helper(p, config, name);
+    print(p, "%u", u);
 }
 
 #include "print_generated.c"

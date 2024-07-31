@@ -45,9 +45,6 @@ typedef struct {
 } StackSlot;
 
 static void search_operand_for_alloca(VContext* vctx, const Node* node) {
-    if (node->tag == Variablez_TAG)
-        return;
-
     IrArena* a = vctx->context->rewriter.dst_arena;
     switch (node->tag) {
         case StackAlloc_TAG: {

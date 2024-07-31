@@ -12,8 +12,6 @@ String get_value_name_unsafe(const Node* v) {
     assert(v && is_value(v));
     if (v->tag == Param_TAG)
         return v->payload.param.name;
-    if (v->tag == Variablez_TAG)
-        return v->payload.varz.name;
     return NULL;
 }
 
@@ -26,9 +24,10 @@ String get_value_name_safe(const Node* v) {
     //return node_tags[v->tag];
 }
 
-void set_value_name(Node* var, String name) {
-    if (var->tag == Variablez_TAG)
-        var->payload.varz.name = string(var->arena, name);
+void set_value_name(const Node* var, String name) {
+    // TODO: annotations
+    // if (var->tag == Variablez_TAG)
+    //     var->payload.varz.name = string(var->arena, name);
 }
 
 int64_t get_int_literal_value(IntLiteral literal, bool sign_extend) {
@@ -165,10 +164,6 @@ NodeResolveConfig default_node_resolve_config() {
     };
 }
 
-const Node* get_var_def(Variablez var) {
-    return var.instruction;
-}
-
 const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config) {
     while (node) {
         switch (node->tag) {
@@ -178,13 +173,6 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
             case RefDecl_TAG:
                 node = node->payload.ref_decl.decl;
                 continue;
-            case Variablez_TAG: {
-                const Node* def = get_var_def(node->payload.varz);
-                if (!def)
-                    break;
-                node = def;
-                continue;
-            }
             case Block_TAG: {
                 const Node* terminator = node->payload.block.inside->payload.case_.body;
                 while (true) {
@@ -373,7 +361,6 @@ Nodes get_abstraction_params(const Node* abs) {
 const Node* get_let_instruction(const Node* let) {
     switch (let->tag) {
         case Let_TAG: return let->payload.let.instruction;
-        case LetMut_TAG: return let->payload.let_mut.instruction;
         default: assert(false);
     }
 }
