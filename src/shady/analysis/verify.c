@@ -48,13 +48,19 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
         CFG* cfg = read_list(CFG*, cfgs)[i];
         struct Dict* map = compute_cfg_variables_map(cfg, CfgVariablesAnalysisFlagFreeSet);
         CFNodeVariables* entry_vars = *find_value_dict(CFNode*, CFNodeVariables*, map, cfg->entry);
-        size_t j = 0;
-        const Node* leaking;
-        while (dict_iter(entry_vars->free_set, &j, &leaking, NULL)) {
-            log_node(ERROR, leaking);
-            error_print("\n");
-        }
         if (entries_count_dict(entry_vars->free_set) > 0) {
+            log_string(ERROR, "Leaking variables in ");
+            log_node(ERROR, cfg->entry->node);
+            log_string(ERROR, ":\n");
+
+            size_t j = 0;
+            const Node* leaking;
+            while (dict_iter(entry_vars->free_set, &j, &leaking, NULL)) {
+                log_node(ERROR, leaking);
+                error_print("\n");
+            }
+
+            log_string(ERROR, "Problematic module:\n");
             log_module(ERROR, config, mod);
             error_die();
         }
@@ -120,6 +126,7 @@ static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
             log_string(ERROR, "Scheduling problem: ");
             log_node(ERROR, node);
             log_string(ERROR, "was encountered before we say it be bound by a let!\n");
+            log_string(ERROR, "Problematic module:\n");
             log_module(ERROR, ctx->config, ctx->mod);
             error_die();
         }

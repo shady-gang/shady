@@ -219,8 +219,12 @@ Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* const src) {
     Module* m = src;
     do {
         debugv_print("Cleanup round %d\n", r);
+        if (getenv("SHADY_DUMP_CLEAN_ROUNDS"))
+            log_module(DEBUGVV, config, m);
         todo = false;
         todo |= opt_demote_alloca(config, &m);
+        if (getenv("SHADY_DUMP_CLEAN_ROUNDS"))
+            log_module(DEBUGVV, config, m);
         todo |= simplify(config, &m);
         r++;
     } while (todo);

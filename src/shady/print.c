@@ -952,10 +952,10 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
 
     if (is_type(node))
         print_type(ctx, node);
-    else if (is_value(node))
-        print_value(ctx, node);
     else if (is_instruction(node))
         print_instruction(ctx, node);
+    else if (is_value(node))
+        print_value(ctx, node);
     else if (is_terminator(node))
         print_terminator(ctx, node);
     else if (node->tag == Case_TAG) {
