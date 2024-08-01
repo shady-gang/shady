@@ -48,9 +48,12 @@ struct PrinterCtx_ {
 #define BWHITE   COLOR("\033[0;97m")
 
 #define printf(...) print(ctx->printer, __VA_ARGS__)
-#define print_node(n) print_node_impl(ctx, n)
+#define print_node2(n) print_node_impl(ctx, n)
+#define print_node(n) print_operand_helper(ctx->printer, ctx->config, 0, n)
+#define print_operand(nc, n) print_operand_helper(ctx->printer, ctx->config, nc, n)
 
 static void print_node_impl(PrinterCtx* ctx, const Node* node);
+static void print_operand_helper(Printer* p, PrintConfig config, NodeClass nc, const Node* op);
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -160,7 +163,7 @@ static void print_abs_body(PrinterCtx* ctx, const Node* block) {
     assert(!ctx->fn || is_function(ctx->fn));
     assert(is_abstraction(block));
 
-    print_node(get_abstraction_body(block));
+    print_node2(get_abstraction_body(block));
 
     // TODO: it's likely cleaner to instead print things according to the dominator tree in the first place.
     if (ctx->cfg != NULL) {
@@ -618,7 +621,11 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                     else
                         printf("val");
                     printf(RESET);
-                }
+                }/* else {
+                    printf(GREEN);
+                    printf("let ");
+                    printf(RESET);
+                }*/
 
                 if (binders) {
                     Strings names = binders->names;
@@ -632,7 +639,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                         printf("%s", names.strings[i]);
                         printf(RESET);
                     }
-                    printf(" = %%%d = ", instruction->id);
+                    printf(" = ");
                 } else {
                     if (result_types.count > 1) {
                         printf("[");
@@ -647,12 +654,13 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                                 printf(", ");
                         }
                         printf("]");
+                        printf(" = ");
+                    } else {
+                        printf("%%%d = ", instruction->id);
                     }
-                    printf("%%%zu", instruction->id);
-                    printf(" = ");
                 }
 
-                print_node(instruction);
+                print_node_impl(ctx, instruction);
                 if (!ctx->config.in_cfg) {
                     printf(";\n");
                     print_abs_body(ctx, tail);
@@ -666,7 +674,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 printf(GREEN);
                 printf(" in ");
                 printf(RESET);
-                print_node(tail);
+                print_node2(tail);
                 printf(";");
             }
             break;
@@ -970,7 +978,7 @@ static void print_node_impl(PrinterCtx* ctx, const Node* node) {
         printf("`%s`", node->payload.unbound.name);
         printf(RESET);
     } else if (node->tag == UnboundBBs_TAG) {
-        print_node(node->payload.unbound_bbs.body);
+        print_node2(node->payload.unbound_bbs.body);
         for (size_t i = 0; i < node->payload.unbound_bbs.children_blocks.count; i++)
             print_basic_block(ctx, node->payload.unbound_bbs.children_blocks.nodes[i]);
     } else switch (node->tag) {
@@ -1054,6 +1062,8 @@ void print_node(Printer* printer, const Node* node, PrintConfig config) {
 void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
+    if (node)
+        print(p, "%%%d ", node->id);
     print_node(p, node, (PrintConfig) { .reparseable = true });
     destroy_printer(p);
     *size = growy_size(g);
@@ -1071,6 +1081,8 @@ void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
 
 void dump_node(const Node* node) {
     Printer* p = open_file_as_printer(stdout);
+    if (node)
+        print(p, "%%%d ", node->id);
     print_node(p, node, (PrintConfig) { .color = true });
     printf("\n");
 }
