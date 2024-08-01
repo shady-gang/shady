@@ -451,7 +451,7 @@
         { "name": "instruction", "class": "instruction" },
         { "name": "mutable", "type": "bool" },
         { "name": "names", "class": "string", "list": true },
-        { "name": "types", "type": "Nodes*" }
+        { "name": "types", "class": "type", "list": true }
       ]
     },
     {

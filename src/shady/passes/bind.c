@@ -125,7 +125,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, BodyBuilder* bb, const
     for (size_t i = 0; i < names.count; i++) {
         String name = names.strings[i];
         if (node->payload.bind_identifiers.mutable) {
-            const Type* type_annotation = node->payload.bind_identifiers.types->nodes[i];
+            const Type* type_annotation = node->payload.bind_identifiers.types.nodes[i];
             assert(type_annotation);
             const Node* alloca = stack_alloc(a, (StackAlloc) {rewrite_node(&ctx->rewriter, type_annotation)});
             const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1).nodes[0];
@@ -135,6 +135,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, BodyBuilder* bb, const
             add_binding(ctx, true, name, ptr);
             log_string(DEBUGV, "Bound mutable variable '%s'\n", name);
         } else {
+            log_string(DEBUGV, "Bound immutable variable '%s'\n", name);
             add_binding(ctx, false, name, results.nodes[i]);
         }
     }
@@ -277,8 +278,11 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case Case_TAG: {
             Nodes old_params = node->payload.case_.params;
             Nodes new_params = recreate_params(&ctx->rewriter, old_params);
-            // for (size_t i = 0; i < new_params.count; i++)
-            //     add_binding(ctx, false, old_params.nodes[i]->payload.param.name, new_params.nodes[i]);
+            for (size_t i = 0; i < new_params.count; i++) {
+                String name = old_params.nodes[i]->payload.param.name;
+                if (name)
+                    add_binding(ctx, false, name, new_params.nodes[i]);
+            }
             register_processed_list(&ctx->rewriter, old_params, new_params);
             const Node* new_body = rewrite_node(&ctx->rewriter, node->payload.case_.body);
             return case_(a, new_params, new_body);

@@ -110,7 +110,7 @@ Node* param(IrArena* arena, const Type* type, const char* name) {
     return create_node_helper(arena, node, NULL);
 }
 
-const Node* bind_identifiers(IrArena* arena, const Node* instruction, bool mut, Strings names, Nodes* types) {
+const Node* bind_identifiers(IrArena* arena, const Node* instruction, bool mut, Strings names, Nodes types) {
     BindIdentifiers payload = {
         .instruction = instruction,
         .mutable = mut,

@@ -66,15 +66,15 @@ Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String co
     return bind_internal(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type).count);
 }
 
-const Node* bind_identifiers(IrArena* arena, const Node* instruction, bool mut, Strings names, Nodes* types);
+const Node* bind_identifiers(IrArena* arena, const Node* instruction, bool mut, Strings names, Nodes types);
 
 Nodes parser_create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, Strings output_names) {
-    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, true, output_names, &provided_types);
+    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, true, output_names, provided_types);
     return bind_internal(bb, let_mut_instr, 0);
 }
 
 Nodes parser_create_immutable_variables(BodyBuilder* bb, const Node* instruction, Strings output_names) {
-    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, false, output_names, NULL);
+    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, false, output_names, empty(bb->arena));
     return bind_internal(bb, let_mut_instr, 0);
 }
 

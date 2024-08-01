@@ -624,9 +624,9 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                     Strings names = binders->names;
                     instruction = binders->instruction;
                     for (size_t i = 0; i < names.count; i++) {
-                        if (binders->types) {
+                        if (binders->mutable) {
                             printf(" ");
-                            print_node(binders->types->nodes[i]);
+                            print_node(binders->types.nodes[i]);
                         }
                         printf(" ");
                         printf("%s", names.strings[i]);
