@@ -24,6 +24,7 @@ void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial
     old_mod = *pmod;
     *pmod = pass(config, *pmod);
     (*pmod)->sealed = true;
+    debugvv_print("After pass %s: \n", pass_name);
     if (SHADY_RUN_VERIFY)
         verify_module(config, *pmod);
     if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena)
@@ -31,7 +32,6 @@ void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial
     old_mod = *pmod;
     if (config->optimisations.cleanup.after_every_pass)
         *pmod = cleanup(config, *pmod);
-    debugvv_print("After pass %s: \n", pass_name);
     log_module(DEBUGVV, config, *pmod);
     if (SHADY_RUN_VERIFY)
         verify_module(config, *pmod);

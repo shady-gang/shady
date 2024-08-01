@@ -370,3 +370,14 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
     }
     assert(false);
 }
+
+void dump_rewriter_map(Rewriter* r) {
+    size_t i = 0;
+    const Node* src, *dst;
+    while (dict_iter(r->map, &i, &src, &dst)) {
+        log_node(ERROR, src);
+        log_string(ERROR, " -> ");
+        log_node(ERROR, dst);
+        log_string(ERROR, "\n");
+    }
+}

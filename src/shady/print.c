@@ -1083,8 +1083,10 @@ void dump_module(Module* mod) {
 }
 
 void log_node(LogLevel level, const Node* node) {
-    if (level >= get_log_level()) {
+    if (level <= get_log_level()) {
         Printer* p = open_file_as_printer(stderr);
+        if (node)
+            print(p, "%%%d = ", node->id);
         print_node(p, node, (PrintConfig) { .color = true });
         destroy_printer(p);
     }
@@ -1097,7 +1099,7 @@ void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod)
         config.print_builtin = compiler_cfg->logging.print_builtin;
         config.print_internal = compiler_cfg->logging.print_internal;
     }
-    if (level >= get_log_level()) {
+    if (level <= get_log_level()) {
         Printer* p = open_file_as_printer(stderr);
         print_module(p, mod, config);
         destroy_printer(p);
@@ -1114,13 +1116,16 @@ static void print_operand_name_helper(Printer* p, PrintConfig config, String nam
 }
 
 static void print_operand_helper(Printer* p, PrintConfig config, NodeClass nc, const Node* op) {
-    // print(p, "%%%d ", op->id);
-    // print_node(p, op, config);
-
-    if (is_instruction(op) && op->arena->config.check_types)
-        print(p, "%%%d", op->id);
-    else {
+    if (get_log_level() >= DEBUGV && false) {
+        if (op && (is_value(op) || is_instruction(op)))
+            print(p, "%%%d ", op->id);
         print_node(p, op, config);
+    } else {
+        if (op && is_instruction(op) && op->arena->config.check_types)
+            print(p, "%%%d", op->id);
+        else {
+            print_node(p, op, config);
+        }
     }
 }
 

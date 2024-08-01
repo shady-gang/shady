@@ -77,7 +77,7 @@ typedef struct {
 static TodoBB prepare_bb(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
     IrArena* a = get_module_arena(p->dst);
     debug_print("l2s: preparing BB %s %d\n", LLVMGetBasicBlockName(bb), bb);
-    if (get_log_level() <= DEBUG)
+    if (get_log_level() >= DEBUG)
         LLVMDumpValue((LLVMValueRef)bb);
 
     struct List* phis = new_list(LLVMValueRef);

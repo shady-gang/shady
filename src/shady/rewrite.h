@@ -78,4 +78,6 @@ void register_processed(Rewriter*, const Node*, const Node*);
 void register_processed_list(Rewriter*, Nodes, Nodes);
 void clear_processed_non_decls(Rewriter*);
 
+void dump_rewriter_map(Rewriter*);
+
 #endif

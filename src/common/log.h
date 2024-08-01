@@ -7,12 +7,12 @@ typedef struct Node_ Node;
 typedef struct Module_ Module;
 
 typedef enum LogLevel_ {
-    DEBUGVV,
-    DEBUGV,
-    DEBUG,
-    INFO,
+    ERROR,
     WARN,
-    ERROR
+    INFO,
+    DEBUG,
+    DEBUGV,
+    DEBUGVV,
 } LogLevel;
 
 LogLevel get_log_level();

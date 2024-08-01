@@ -26,10 +26,14 @@ int main(int argc, char** argv) {
     IrArena* arena = new_ir_arena(&aconfig);
     Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
-    driver_load_source_files(&args, mod);
+    ShadyErrorCodes err = driver_load_source_files(&args, mod);
+    if (err)
+        exit(err);
 
-    driver_compile(&args, mod);
-    info_print("Done\n");
+    err = driver_compile(&args, mod);
+    if (err)
+        exit(err);
+    info_print("Compilation successful\n");
 
     destroy_ir_arena(arena);
     destroy_driver_config(&args);
