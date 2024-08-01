@@ -386,16 +386,14 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             }
         }
         case Let_TAG: {
-            const Node* tail = get_let_tail(terminator);
             const Node* instruction = terminator->payload.let.instruction;
             Nodes types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
             LARRAY(SpvId, results, types.count);
             emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, instruction, types.count, results);
-            assert(tail->tag == Case_TAG);
 
             for (size_t i = 0; i < types.count; i++)
                 register_result(emitter, extract_multiple_ret_types_helper(instruction, i), results[i]);
-            emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, tail->payload.case_.body);
+            emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, terminator->payload.let.in);
             return;
         }
         case Jump_TAG: {

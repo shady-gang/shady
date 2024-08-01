@@ -88,7 +88,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             const Node* ninside = rewrite_node(r, node->payload.block.inside);
             const Node* term = get_abstraction_body(ninside);
             while (term->tag == Let_TAG) {
-                term = get_abstraction_body(get_let_tail(term));
+                term = term->payload.let.in;
             }
             assert(term->tag == BlockYield_TAG);
             yield_types = get_values_types(a, term->payload.block_yield.args);

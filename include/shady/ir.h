@@ -187,7 +187,7 @@ Nodes       get_abstraction_params(const Node* abs);
 void        set_abstraction_body  (Node* abs, const Node* body);
 
 const Node* get_let_instruction(const Node* let);
-const Node* get_let_tail(const Node* let);
+const Node* get_let_chain_end(const Node* terminator);
 
 const Node* extract_helper(const Node* composite, const Node* index);
 const Node* extract_multiple_ret_types_helper(const Node* composite, int index);

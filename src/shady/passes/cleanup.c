@@ -75,7 +75,7 @@ const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* 
             case NotATerminator: assert(false);
             case Terminator_Let_TAG: {
                 add_structured_construct(bb, empty(arena), (Structured_constructTag) NotAStructured_construct, terminator->payload);
-                terminator = get_abstraction_body(terminator->payload.let.tail);
+                terminator = terminator->payload.let.in;
                 continue;
             }
             case Terminator_BlockYield_TAG: {
@@ -137,7 +137,7 @@ const Node* process(Context* ctx, const Node* old) {
                 log_node(DEBUGVV, payload.instruction);
                 debugvv_print("\n");
                 *ctx->todo = true;
-                return rewrite_node(&ctx->rewriter, get_abstraction_body(payload.tail));
+                return rewrite_node(&ctx->rewriter, payload.in);
             }
 
             BodyBuilder* bb = begin_body(a);
@@ -146,10 +146,10 @@ const Node* process(Context* ctx, const Node* old) {
                 Nodes args = oinstruction->payload.prim_op.operands;
                 if (args.count == 1) {
                     register_processed(r, oinstruction, first(rewrite_nodes(r, args)));
-                    return finish_body(bb, rewrite_node(r, get_abstraction_body(old->payload.let.tail)));
+                    return finish_body(bb, rewrite_node(r, old->payload.let.in));
                 } else {
                     register_processed(r, oinstruction, tuple_helper(a, rewrite_nodes(r, args)));
-                    return finish_body(bb, rewrite_node(r, get_abstraction_body(old->payload.let.tail)));
+                    return finish_body(bb, rewrite_node(r, old->payload.let.in));
                 }
             }
             const Node* instruction;
@@ -164,7 +164,7 @@ const Node* process(Context* ctx, const Node* old) {
                 instruction = rewrite_node(r, oinstruction);
                 register_processed(r, oinstruction, instruction);
             }
-            const Node* nlet = let(a, instruction, rewrite_node(r, old->payload.let.tail));
+            const Node* nlet = let(a, instruction, rewrite_node(r, old->payload.let.in));
             return finish_body(bb, nlet);
         }
         case BasicBlock_TAG: {

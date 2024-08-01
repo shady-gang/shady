@@ -30,8 +30,8 @@ static void print_node_helper(Printer* p, const Node* n) {
     Printer* tmp_p = open_growy_as_printer(tmp_g);
 
     PrintConfig config = {
-            .color = false,
-            .in_cfg = true,
+        .color = false,
+        .in_cfg = true,
     };
 
     print_node(tmp_p, n, config);
@@ -76,13 +76,8 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
         print_node_helper(p, body);
         print(p, "\\l");
 
-        const Node* abs = body->payload.let.tail;
-        print(p, "%%%d: ", abs->id);
-
         let_chain_end = read_list(CFEdge, let_chain_end->succ_edges)[0].dst;
-        assert(let_chain_end->node == abs);
-        assert(is_case(abs));
-        body = get_abstraction_body(abs);
+        body = body->payload.let.in;
     }
 
     print_node_helper(p, body);

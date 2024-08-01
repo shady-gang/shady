@@ -114,8 +114,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 if (old->payload.fun.body) {
                     const Node* nbody = rewrite_node(&ctx2.rewriter, old->payload.fun.body);
                     if (entry_point_annotation) {
-                        const Node* lam = case_(a, empty(a), nbody);
-                        nbody = let(a, call(a, (Call) { .callee = fn_addr_helper(a, ctx2.init_fn), .args = empty(a)}), lam);
+                        nbody = let(a, call(a, (Call) { .callee = fn_addr_helper(a, ctx2.init_fn), .args = empty(a)}), nbody);
                     }
                     fun->payload.fun.body = nbody;
                 }

@@ -555,9 +555,6 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             };
             emit_instruction(emitter, block_printer, instruction, ioutputs);
 
-            const Node* tail = get_let_tail(terminator);
-            assert(tail->tag == Case_TAG);
-
             // Nodes vars = terminator->payload.let.variables;
             // assert(vars.count == yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
@@ -589,7 +586,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
                     default: assert(false);
                 }
             }
-            emit_terminator(emitter, block_printer, tail->payload.case_.body);
+            emit_terminator(emitter, block_printer, terminator->payload.let.in);
 
             break;
         }

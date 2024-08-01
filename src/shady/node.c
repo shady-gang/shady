@@ -177,7 +177,7 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                 const Node* terminator = node->payload.block.inside->payload.case_.body;
                 while (true) {
                     if (terminator->tag == Let_TAG)
-                        terminator = terminator->payload.let.tail->payload.case_.body;
+                        terminator = terminator->payload.let.in;
                     else if (is_structured_construct(terminator))
                         terminator = get_abstraction_body(get_structured_construct_tail(terminator));
                     else
@@ -365,11 +365,11 @@ const Node* get_let_instruction(const Node* let) {
     }
 }
 
-const Node* get_let_tail(const Node* let) {
-    switch (let->tag) {
-        case Let_TAG: return let->payload.let.tail;
-        default: assert(false);
+const Node* get_let_chain_end(const Node* terminator) {
+    while (terminator->tag == Let_TAG) {
+        terminator = terminator->payload.let.in;
     }
+    return terminator;
 }
 
 KeyHash hash_node_payload(const Node* node);

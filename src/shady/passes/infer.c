@@ -610,7 +610,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             for (size_t i = 0; i < inferred_yield_types.count; i++) {
                 assert(is_value_type(inferred_yield_types.nodes[i]));
             }
-            return let(a, inferred_instruction, infer_case(ctx, node->payload.let.tail, empty(a)));
+            return let(a, inferred_instruction, infer(ctx, node->payload.let.in, NULL));
         }
         case Return_TAG: {
             const Node* imported_fn = ctx->current_fn;

@@ -1181,8 +1181,6 @@ const Type* check_type_debug_printf(IrArena* a, DebugPrintf payload) {
 
 const Type* check_type_let(IrArena* arena, Let let) {
     Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
-    Nodes param_types = get_param_types(arena, let.tail->payload.case_.params);
-    assert(param_types.count == 0);
     // check_arguments_types_against_parameters_helper(param_types, produced_types);
     return noret_type(arena);
 }

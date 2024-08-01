@@ -144,70 +144,76 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
     const Node* terminator = get_abstraction_body(abs);
     if (!terminator)
         return;
-    switch (is_terminator(terminator)) {
-        case Let_TAG: {
-            const Node* target = get_let_tail(terminator);
-            add_structural_dominance_edge(ctx, node, target, LetTailEdge);
-            break;
+    while (true) {
+        switch (is_terminator(terminator)) {
+            case Let_TAG: {
+                terminator = terminator->payload.let.in;
+                continue;
+                // const Node* target = get_let_tail(terminator);
+                // add_structural_dominance_edge(ctx, node, target, LetTailEdge);
+                // break;
+            }
+            case Jump_TAG: {
+                add_jump_edge(ctx, abs, terminator);
+                return;
+            }
+            case Branch_TAG: {
+                add_jump_edge(ctx, abs, terminator->payload.branch.true_jump);
+                add_jump_edge(ctx, abs, terminator->payload.branch.false_jump);
+                return;
+            }
+            case Switch_TAG: {
+                for (size_t i = 0; i < terminator->payload.br_switch.case_jumps.count; i++)
+                    add_jump_edge(ctx, abs, terminator->payload.br_switch.case_jumps.nodes[i]);
+                add_jump_edge(ctx, abs, terminator->payload.br_switch.default_jump);
+                return;
+            }
+            case Join_TAG: {
+                CFNode** dst = find_value_dict(const Node*, CFNode*, ctx->join_point_values, terminator->payload.join.join_point);
+                if (dst)
+                    add_edge(ctx, node->node, (*dst)->node, StructuredLeaveBodyEdge);
+                return;
+            }
+            case If_TAG:
+                add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_true, StructuredEnterBodyEdge);
+                if (terminator->payload.if_instr.if_false)
+                    add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_false, StructuredEnterBodyEdge);
+                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
+                return;
+            case Match_TAG:
+                for (size_t i = 0; i < terminator->payload.match_instr.cases.count; i++)
+                    add_structural_dominance_edge(ctx, node, terminator->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
+                add_structural_dominance_edge(ctx, node, terminator->payload.match_instr.default_case, StructuredEnterBodyEdge);
+                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
+                return;
+            case Loop_TAG:
+                add_structural_dominance_edge(ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge);
+                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
+                return;
+            case Control_TAG:
+                add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge);
+                const Node* param = first(get_abstraction_params(terminator->payload.control.inside));
+                CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
+                insert_dict(const Node*, CFNode*, ctx->join_point_values, param, let_tail_cfnode);
+                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
+                return;
+            case MergeSelection_TAG:
+            case MergeContinue_TAG:
+            case MergeBreak_TAG: {
+                return; // TODO i guess
+            }
+            case Terminator_BlockYield_TAG: {
+                return;
+            }
+            case TailCall_TAG:
+            case Return_TAG:
+            case Unreachable_TAG:
+                return;
+            case NotATerminator:
+                if (terminator->arena->config.check_types) {error("Grammar problem"); }
+                return;
         }
-        case Jump_TAG: {
-            add_jump_edge(ctx, abs, terminator);
-            break;
-        }
-        case Branch_TAG: {
-            add_jump_edge(ctx, abs, terminator->payload.branch.true_jump);
-            add_jump_edge(ctx, abs, terminator->payload.branch.false_jump);
-            break;
-        }
-        case Switch_TAG: {
-            for (size_t i = 0; i < terminator->payload.br_switch.case_jumps.count; i++)
-                add_jump_edge(ctx, abs, terminator->payload.br_switch.case_jumps.nodes[i]);
-            add_jump_edge(ctx, abs, terminator->payload.br_switch.default_jump);
-            break;
-        }
-        case Join_TAG: {
-            CFNode** dst = find_value_dict(const Node*, CFNode*, ctx->join_point_values, terminator->payload.join.join_point);
-            if (dst)
-                add_edge(ctx, node->node, (*dst)->node, StructuredLeaveBodyEdge);
-            break;
-        }
-        case If_TAG:
-            add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_true, StructuredEnterBodyEdge);
-            if(terminator->payload.if_instr.if_false)
-                add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_false, StructuredEnterBodyEdge);
-            add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
-            break;
-        case Match_TAG:
-            for (size_t i = 0; i < terminator->payload.match_instr.cases.count; i++)
-                add_structural_dominance_edge(ctx, node, terminator->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
-            add_structural_dominance_edge(ctx, node, terminator->payload.match_instr.default_case, StructuredEnterBodyEdge);
-            add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
-            break;
-        case Loop_TAG:
-            add_structural_dominance_edge(ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge);
-            add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
-            break;
-        case Control_TAG:
-            add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge);
-            const Node* param = first(get_abstraction_params(terminator->payload.control.inside));
-            CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
-            insert_dict(const Node*, CFNode*, ctx->join_point_values, param, let_tail_cfnode);
-            add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
-            break;
-        case MergeSelection_TAG:
-        case MergeContinue_TAG:
-        case MergeBreak_TAG: {
-            break; // TODO i guess
-        }
-        case Terminator_BlockYield_TAG: {
-            break;
-        }
-        case TailCall_TAG: {
-
-        }
-        case Return_TAG:
-        case Unreachable_TAG: break;
-        case NotATerminator: if (terminator->arena->config.check_types) { error("Grammar problem"); } break;
+        SHADY_UNREACHABLE;
     }
 }
 

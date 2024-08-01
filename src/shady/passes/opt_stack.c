@@ -74,7 +74,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 case NotAnInstruction: assert(false);
             }
 
-            ntail = rewrite_node(&child_ctx.rewriter, node->payload.let.tail);
+            ntail = rewrite_node(&child_ctx.rewriter, node->payload.let.in);
 
             const Node* ninstruction = NULL;
             if (is_push && !child_ctx.state->leaks) {

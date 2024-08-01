@@ -169,7 +169,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             CFNode* dom = cfnode->idom;
             const Node* selection_instr = NULL;
             while (dom) {
-                const Node* body = get_abstraction_body(dom->node);
+                const Node* body = get_let_chain_end(get_abstraction_body(dom->node));
                 if(body->tag == If_TAG || body->tag == Match_TAG) {
                     selection_instr = body;
                     break;
@@ -198,7 +198,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             CFNode* dom = cfnode->idom;
             const Node* selection_instr = NULL;
             while (dom) {
-                const Node* body = get_abstraction_body(dom->node);
+                const Node* body = get_let_chain_end(get_abstraction_body(dom->node));
                 if (body->tag == Loop_TAG) {
                     selection_instr = body;
                     break;
@@ -227,7 +227,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             CFNode* dom = cfnode->idom;
             const Node* selection_instr = NULL;
             while (dom) {
-                const Node* body = get_abstraction_body(dom->node);
+                const Node* body = get_let_chain_end(get_abstraction_body(dom->node));
                 if (body->tag == Loop_TAG) {
                     selection_instr = body;
                     break;

@@ -74,13 +74,11 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
 
 #include "constructors_generated.c"
 
-const Node* let(IrArena* arena, const Node* instruction, const Node* tail) {
+const Node* let(IrArena* arena, const Node* instruction, const Node* in) {
     Let payload = {
         .instruction = instruction,
-        .tail = tail,
+        .in = in,
     };
-
-    assert(is_case(tail) && get_abstraction_params(tail).count == 0);
 
     Node node;
     memset((void*) &node, 0, sizeof(Node));

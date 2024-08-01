@@ -391,11 +391,10 @@ const Node* fold_node(IrArena* arena, const Node* node) {
             } else if (body->tag == Let_TAG) {
                 // fold block { let x, y, z = I; yield (x, y, z); } back to I
                 const Node* instr = get_let_instruction(body);
-                const Node* let_case = get_let_tail(body);
-                const Node* let_case_body = get_abstraction_body(let_case);
+                const Node* let_case_body = body->payload.let.in;
                 if (let_case_body->tag == BlockYield_TAG) {
                     bool only_forwards = true;
-                    Nodes let_case_params = get_abstraction_params(let_case);
+                    Nodes let_case_params = empty(arena);
                     Nodes yield_args = let_case_body->payload.block_yield.args;
                     if (let_case_params.count == yield_args.count) {
                         for (size_t i = 0; i < yield_args.count; i++) {

@@ -125,7 +125,7 @@ static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
         if (!search) {
             log_string(ERROR, "Scheduling problem: ");
             log_node(ERROR, node);
-            log_string(ERROR, "was encountered before we say it be bound by a let!\n");
+            log_string(ERROR, "was encountered before we saw it be bound by a let!\n");
             log_string(ERROR, "Problematic module:\n");
             log_module(ERROR, ctx->config, ctx->mod);
             error_die();
@@ -154,7 +154,7 @@ static void verify_schedule_node(ScheduleContext* parent, CompilerConfig* config
         const Node* instr = get_let_instruction(terminator);
         insert_set_get_key(const Node*, new.bound, instr);
         visit_node_operands(&new.visitor, NcTerminator | NcDeclaration, instr);
-        terminator = get_abstraction_body(get_let_tail(terminator));
+        terminator = terminator->payload.let.in;
     }
 
     for (size_t i = 0; i < len; i++) {

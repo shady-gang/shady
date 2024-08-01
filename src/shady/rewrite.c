@@ -362,7 +362,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             BodyBuilder* bb = begin_body(arena);
             const Node* instruction = rewrite_op_helper(rewriter, NcInstruction, "instruction", node->payload.let.instruction);
             //register_processed(rewriter, node->payload.let.instruction, instruction);
-            const Node* nlet = let(arena, instruction, rewrite_op_helper(rewriter, NcCase, "tail", node->payload.let.tail));
+            const Node* nlet = let(arena, instruction, rewrite_op_helper(rewriter, NcTerminator, "in", node->payload.let.in));
             return finish_body(bb, nlet);
         }
         case Case_TAG: {

@@ -610,7 +610,6 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             const BindIdentifiers* binders = NULL;
             if (instruction->tag == BindIdentifiers_TAG)
                 binders = &instruction->payload.bind_identifiers;
-            const Node* tail = get_let_tail(node);
             if (!ctx->config.reparseable) {
                 Nodes result_types = instruction->type ? unwrap_multiple_yield_types(node->arena, instruction->type) : empty(node->arena);
                 if (binders) {
@@ -663,7 +662,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 print_node_impl(ctx, instruction);
                 if (!ctx->config.in_cfg) {
                     printf(";\n");
-                    print_abs_body(ctx, tail);
+                    print_node2(node->payload.let.in);
                 }
             } else {
                 printf(GREEN);
@@ -674,7 +673,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 printf(GREEN);
                 printf(" in ");
                 printf(RESET);
-                print_node2(tail);
+                print_node2(node->payload.let.in);
                 printf(";");
             }
             break;
@@ -1128,7 +1127,7 @@ static void print_operand_name_helper(Printer* p, PrintConfig config, String nam
 }
 
 static void print_operand_helper(Printer* p, PrintConfig config, NodeClass nc, const Node* op) {
-    if (get_log_level() >= DEBUGV && false) {
+    if (getenv("SHADY_SUPER_VERBOSE_NODE_DEBUG")) {
         if (op && (is_value(op) || is_instruction(op)))
             print(p, "%%%d ", op->id);
         print_node(p, op, config);

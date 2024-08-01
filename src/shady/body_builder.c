@@ -89,8 +89,7 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
         StackEntry entry = read_list(StackEntry, bb->stack)[i];
         switch (entry.structured.tag) {
             case NotAStructured_construct:
-                entry.structured.payload.let.tail = case_(bb->arena, entry.vars, terminator);
-                terminator = let(a, entry.structured.payload.let.instruction, entry.structured.payload.let.tail);
+                terminator = let(a, entry.structured.payload.let.instruction, terminator);
                 break;
             case Structured_construct_If_TAG:
                 entry.structured.payload.if_instr.tail = case_(bb->arena, entry.vars, terminator);

@@ -149,15 +149,19 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case Let_TAG: {
             const Node* oinstr = get_let_instruction(node);
-            const Node* found = search_processed(r, oinstr);
+            //const Node* found = search_processed(r, oinstr);
+            const Node** found = find_value_dict(const Node*, const Node*, ctx->bound, node);
             if (found)
-                return rewrite_node(r, get_abstraction_body(get_let_tail(node)));
-            const Node* ninstr = rewrite_node(r, oinstr);
+                return rewrite_node(r, node->payload.let.in);
+            const Node* ninstr = rewrite_op(r, NcInstruction, "instruction", oinstr);
             insert_dict_and_get_result(const Node*, const Node*, ctx->bound, oinstr, ninstr);
             register_processed(r, oinstr, ninstr);
-            const Node* new = recreate_node_identity(r, node);
+            bind_instruction_outputs_count(ctx->bb, ninstr, 0);
+            return rewrite_node(r, node->payload.let.in);
+
+            //const Node* new = recreate_node_identity(r, node);
             //register_processed(r, node, new);
-            return new;
+            //return new;
         }
         default: break;
     }

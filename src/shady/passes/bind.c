@@ -273,7 +273,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             } else {
                 ninstr = rewrite_node(r, oinstruction);
             }
-            return finish_body(bb, let(a, ninstr, rewrite_node(r, get_let_tail(node))));
+            return finish_body(bb, let(a, ninstr, rewrite_node(r, node->payload.let.in)));
         }
         case Case_TAG: {
             Nodes old_params = node->payload.case_.params;

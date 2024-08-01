@@ -87,7 +87,7 @@ static void search_op_for_free_variables(Context* visitor, NodeClass class, Stri
         case Let_TAG: {
             const Node* instr = get_let_instruction(node);
             bool r = insert_set_get_result(const Node*, visitor->bound, instr);
-            assert(r);
+            //assert(r);
             break;
         }
         case Function_TAG:
