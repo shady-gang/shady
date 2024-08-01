@@ -100,7 +100,69 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
     }
 }
 
-static void verify_bodies(Module* mod) {
+typedef struct ScheduleContext_ {
+    Visitor visitor;
+    struct Dict* bound;
+    struct ScheduleContext_* parent;
+    CompilerConfig* config;
+    Module* mod;
+} ScheduleContext;
+
+static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
+    if (is_instruction(node)) {
+        ScheduleContext* search = ctx;
+        while (search) {
+            if (find_key_dict(const Node*, search->bound, node))
+                break;
+            search = search->parent;
+        }
+        if (!search) {
+            log_string(ERROR, "Scheduling problem: ");
+            log_node(ERROR, node);
+            log_string(ERROR, "was encountered before we say it be bound by a let!\n");
+            log_module(ERROR, ctx->config, ctx->mod);
+            error_die();
+        }
+    }
+    visit_node_operands(&ctx->visitor, NcTerminator | NcDeclaration, node);
+}
+
+static void verify_schedule_node(ScheduleContext* parent, CompilerConfig* config, Module* mod, CFNode* node) {
+    ScheduleContext new = {
+        .visitor = {
+            .visit_node_fn = (VisitNodeFn) verify_schedule_visitor
+        },
+        .bound = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .parent = parent,
+        .config = config,
+        .mod = mod,
+    };
+    struct List* dominated = node->dominates;
+    size_t len = entries_count_list(dominated);
+
+    const Node* terminator = get_abstraction_body(node->node);
+    while (terminator) {
+        if (terminator->tag != Let_TAG)
+            break;
+        const Node* instr = get_let_instruction(terminator);
+        insert_set_get_key(const Node*, new.bound, instr);
+        visit_node_operands(&new.visitor, NcTerminator | NcDeclaration, instr);
+        terminator = get_abstraction_body(get_let_tail(terminator));
+    }
+
+    for (size_t i = 0; i < len; i++) {
+        verify_schedule_node(&new, config, mod, read_list(CFNode*, dominated)[i]);
+    }
+
+    destroy_dict(new.bound);
+}
+
+static void verify_schedule(const CompilerConfig* config, Module* mod, CFG* cfg) {
+    compute_domtree(cfg);
+    verify_schedule_node(NULL, config, mod, cfg->entry);
+}
+
+static void verify_bodies(const CompilerConfig* config, Module* mod) {
     struct List* cfgs = build_cfgs(mod);
     for (size_t i = 0; i < entries_count_list(cfgs); i++) {
         CFG* cfg = read_list(CFG*, cfgs)[i];
@@ -111,6 +173,8 @@ static void verify_bodies(Module* mod) {
                 verify_nominal_node(cfg->entry->node, n->node);
             }
         }
+
+        verify_schedule(config, mod, cfg);
 
         destroy_cfg(cfg);
     }
@@ -129,6 +193,6 @@ void verify_module(const CompilerConfig* config, Module* mod) {
     // TODO add a normalized flag to the IR and check grammar is adhered to strictly
     if (get_module_arena(mod)->config.check_types) {
         verify_scoping(config, mod);
-        verify_bodies(mod);
+        verify_bodies(config, mod);
     }
 }
