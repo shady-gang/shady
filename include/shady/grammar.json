@@ -366,7 +366,8 @@
     },
     {
       "name": "Call",
-      "class": "instruction",
+      "class": ["instruction", "value"],
+      "nominal": true,
       "ops": [
         { "name": "callee", "class": "value" },
         { "name": "args", "class": "value", "list": true }
@@ -511,6 +512,7 @@
     {
       "name": "MergeContinue",
       "class": "terminator",
+      "nominal": true,
       "ops": [
         { "name": "args", "class": "value", "list": true }
       ]
@@ -518,6 +520,7 @@
     {
       "name": "MergeBreak",
       "class": "terminator",
+      "nominal": true,
       "ops": [
         { "name": "args", "class": "value", "list": true }
       ]
@@ -525,6 +528,7 @@
     {
       "name": "MergeSelection",
       "class": "terminator",
+      "nominal": true,
       "ops": [
         { "name": "args", "class": "value", "list": true }
       ]
@@ -532,6 +536,7 @@
     {
       "name": "BlockYield",
       "class": "terminator",
+      "nominal": true,
       "ops": [
         { "name": "args", "class": "value", "list": true }
       ]
@@ -540,6 +545,7 @@
       "name": "Return",
       "snake_name": "fn_ret",
       "class": "terminator",
+      "nominal": true,
       "ops": [
         { "name": "args", "class": "value", "list": true }
       ]

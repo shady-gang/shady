@@ -70,6 +70,14 @@ Rewriter create_children_rewriter(Rewriter* parent) {
     return r;
 }
 
+static bool should_memoize(const Node* node) {
+    if (is_declaration(node))
+        return false;
+    if (node->tag == BasicBlock_TAG)
+        return false;
+    return true;
+}
+
 const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNodeFn fn) {
     assert(rewriter->rewrite_fn);
     if (!node)
@@ -84,7 +92,7 @@ const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNo
     const Node* rewritten = fn(rewriter, node);
     if (is_declaration(node))
         return rewritten;
-    if (rewriter->config.write_map) {
+    if (rewriter->config.write_map && should_memoize(node)) {
         register_processed(rewriter, node, rewritten);
     }
     return rewritten;
@@ -121,7 +129,7 @@ const Node* rewrite_op_with_fn(Rewriter* rewriter, NodeClass class, String op_na
     const Node* rewritten = fn(rewriter, class, op_name, node);
     if (is_declaration(node))
         return rewritten;
-    if (rewriter->config.write_map) {
+    if (rewriter->config.write_map && should_memoize(node)) {
         register_processed(rewriter, node, rewritten);
     }
     return rewritten;
@@ -193,6 +201,12 @@ void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
 #ifndef NDEBUG
     const Node* found = search_processed_(ctx, old, false);
     if (found) {
+        // this can happen and is typically harmless
+        // ie: when rewriting a jump into a loop, the outer jump cannot be finished until the loop body is rebuilt
+        // and therefore the back-edge jump inside the loop will be rebuilt while the outer one isn't done.
+        // as long as there is no conflict, this is correct, but this might hide perf hazards if we fail to cache things
+        if (found == new)
+            return;
         error_print("Trying to replace ");
         log_node(ERROR, old);
         error_print(" with ");
@@ -347,6 +361,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
         case Let_TAG: {
             BodyBuilder* bb = begin_body(arena);
             const Node* instruction = rewrite_op_helper(rewriter, NcInstruction, "instruction", node->payload.let.instruction);
+            //register_processed(rewriter, node->payload.let.instruction, instruction);
             const Node* nlet = let(arena, instruction, rewrite_op_helper(rewriter, NcCase, "tail", node->payload.let.tail));
             return finish_body(bb, nlet);
         }

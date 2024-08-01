@@ -153,14 +153,12 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             if (exiting_nodes_count > 1)
                 exit_destination_alloca = gen_stack_alloc(outer_bb, int32_type(arena));
 
-            Node* fn = (Node*) find_processed(rewriter, ctx->current_fn);
-
             const Node* join_token_exit = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
-                    .yield_types = empty(arena)
+                .yield_types = empty(arena)
             }), true), "jp_exit");
 
             const Node* join_token_continue = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
-                    .yield_types = inner_yield_types
+                .yield_types = inner_yield_types
             }), true), "jp_continue");
 
             LARRAY(const Node*, exit_wrappers, exiting_nodes_count);
@@ -277,12 +275,12 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             Node* loop_outer = basic_block(arena, inner_loop_params, "loop_outer");
 
             loop_outer->payload.basic_block.body = finish_body(inner_bb, jump(arena, (Jump) {
-                    .target = loop_outer,
-                    .args = inner_control_results
+                .target = loop_outer,
+                .args = inner_control_results
             }));
             gen_control(outer_bb, empty(arena), case_(arena, singleton(join_token_exit), jump(arena, (Jump) {
-                    .target = loop_outer,
-                    .args = nparams
+                .target = loop_outer,
+                .args = nparams
             })));
 
             LARRAY(const Node*, exit_numbers, exiting_nodes_count);

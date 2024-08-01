@@ -17,7 +17,8 @@ static const Node* process(Context* ctx, NodeClass class, String op_name, const 
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     switch (node->tag) {
         case PtrType_TAG: {
@@ -69,7 +70,10 @@ static const Node* process(Context* ctx, NodeClass class, String op_name, const 
         c.b = b;
         return finish_body(b, recreate_node_identity(&c.rewriter, node));
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    const Node* new = recreate_node_identity(&ctx->rewriter, node);
+    if (class == NcInstruction)
+        register_processed(r, node, new);
+    return new;
 }
 
 Module* lower_subgroup_vars(const CompilerConfig* config, Module* src) {

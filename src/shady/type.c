@@ -1006,6 +1006,8 @@ const Type* check_type_control(IrArena* arena, Control control) {
         assert(is_subtype(control.yield_types.nodes[i], join_point_yield_types.nodes[i]));
     }
 
+    assert(get_abstraction_params(control.tail).count == control.yield_types.count);
+
     return noret_type(arena);
 }
 

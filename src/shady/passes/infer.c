@@ -604,6 +604,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             // const Node* otail = node->payload.let.ttail;
             // Nodes annotated_types = get_param_types(a, otail->payload.case_.params);
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, NULL);
+            register_processed(&ctx->rewriter, node->payload.let.instruction, inferred_instruction);
             Nodes inferred_yield_types = unwrap_multiple_yield_types(a, inferred_instruction->type);
             LARRAY(const Node*, vars, inferred_yield_types.count);
             for (size_t i = 0; i < inferred_yield_types.count; i++) {

@@ -78,7 +78,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED Str
         case NcInstruction: {
             if (is_instruction(node)) {
                 const Node* new = process_node(ctx, node);
-                register_processed(r, node, new);
+                //register_processed(r, node, new);
                 return new;
             }
             const Node* val = force_to_be_value(ctx, node);
@@ -148,11 +148,15 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return case_(a, new_params, new_body);
         }
         case Let_TAG: {
-            const Node* new = recreate_node_identity(r, node);
             const Node* oinstr = get_let_instruction(node);
-            const Node* ninstr = get_let_instruction(new);
+            const Node* found = search_processed(r, oinstr);
+            if (found)
+                return rewrite_node(r, get_abstraction_body(get_let_tail(node)));
+            const Node* ninstr = rewrite_node(r, oinstr);
             insert_dict_and_get_result(const Node*, const Node*, ctx->bound, oinstr, ninstr);
-            register_processed(r, node, new);
+            register_processed(r, oinstr, ninstr);
+            const Node* new = recreate_node_identity(r, node);
+            //register_processed(r, node, new);
             return new;
         }
         default: break;
@@ -172,7 +176,7 @@ Module* normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
         .bound = NULL,
     };
 
-    ctx.rewriter.config.search_map = true;
+    ctx.rewriter.config.search_map = false;
     ctx.rewriter.config.write_map = false;
 
     rewrite_module(&ctx.rewriter);

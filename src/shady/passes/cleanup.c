@@ -147,15 +147,22 @@ const Node* process(Context* ctx, const Node* old) {
                 if (args.count == 1) {
                     register_processed(r, oinstruction, first(rewrite_nodes(r, args)));
                     return finish_body(bb, rewrite_node(r, get_abstraction_body(old->payload.let.tail)));
+                } else {
+                    register_processed(r, oinstruction, tuple_helper(a, rewrite_nodes(r, args)));
+                    return finish_body(bb, rewrite_node(r, get_abstraction_body(old->payload.let.tail)));
                 }
             }
-            const Node* instruction = rewrite_node(r, oinstruction);
+            const Node* instruction;
             // optimization: fold blocks
-            if (instruction->tag == Block_TAG) {
+            if (oinstruction->tag == Block_TAG) {
                 *ctx->todo = true;
-                instruction = flatten_block(a, instruction, bb);
+                instruction = flatten_block(a, recreate_node_identity(r, oinstruction), bb);
+                register_processed(r, oinstruction, instruction);
                 if (is_terminator(instruction))
                     return finish_body(bb, instruction);
+            } else {
+                instruction = rewrite_node(r, oinstruction);
+                register_processed(r, oinstruction, instruction);
             }
             const Node* nlet = let(a, instruction, rewrite_node(r, old->payload.let.tail));
             return finish_body(bb, nlet);
