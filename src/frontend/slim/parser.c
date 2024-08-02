@@ -187,7 +187,7 @@ static const Node* accept_value(ctxparams) {
         case lpar_tok: {
             next_token(tokenizer);
             if (accept_token(ctx, rpar_tok)) {
-                return quote_helper(arena, empty(arena));
+                return tuple_helper(arena, empty(arena));
             }
             const Node* atom = config.front_end ? accept_expr(ctx, max_precedence()) : accept_value(ctx);
             expect(atom);
@@ -607,7 +607,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             if (has_else) {
                 if_false = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, merge));
             }
-            return quote_helper(arena, gen_if(bb, yield_types, condition, if_true, if_false));
+            return maybe_tuple_helper(arena, gen_if(bb, yield_types, condition, if_true, if_false));
         }
         case loop_tok: {
             next_token(tokenizer);
@@ -618,7 +618,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             // by default loops continue forever
             const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
             const Node* body = case_(arena, parameters, expect_body(ctx, default_loop_end_behaviour));
-            return quote_helper(arena, gen_loop(bb, yield_types, initial_arguments, body));
+            return maybe_tuple_helper(arena, gen_loop(bb, yield_types, initial_arguments, body));
         }
         case control_tok: {
             next_token(tokenizer);
@@ -631,7 +631,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             }), str);
             expect(accept_token(ctx, rpar_tok));
             const Node* body = case_(arena, singleton(jp), expect_body(ctx, NULL));
-            return quote_helper(arena, gen_control(bb, yield_types, body));
+            return maybe_tuple_helper(arena, gen_control(bb, yield_types, body));
         }
         default: break;
     }

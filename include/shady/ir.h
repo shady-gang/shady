@@ -156,7 +156,6 @@ String get_value_name_safe(const Node*);
 String get_value_name_unsafe(const Node*);
 void set_value_name(const Node* var, String name);
 
-const Node* get_quoted_value(const Node* instruction);
 const IntLiteral* resolve_to_int_literal(const Node* node);
 int64_t get_int_literal_value(IntLiteral, bool sign_extend);
 const FloatLiteral* resolve_to_float_literal(const Node* node);
@@ -189,6 +188,7 @@ void        set_abstraction_body  (Node* abs, const Node* body);
 const Node* get_let_instruction(const Node* let);
 const Node* get_let_chain_end(const Node* terminator);
 
+const Node* maybe_tuple_helper(IrArena* a, Nodes values);
 const Node* extract_helper(const Node* composite, const Node* index);
 const Node* extract_multiple_ret_types_helper(const Node* composite, int index);
 
@@ -253,10 +253,8 @@ const Node* string_lit_helper(IrArena* a, String s);
 const Node* annotation_value_helper(IrArena* a, String n, const Node* v);
 
 // instructions
-/// Turns a value into an 'instruction' (the enclosing let will be folded away later)
-/// Useful for local rewrites
-const Node* quote_helper(IrArena*, Nodes values);
 const Node* prim_op_helper(IrArena*, Op, Nodes, Nodes);
+const Node* compound_instruction(IrArena* arena, Nodes instructions, Nodes results);
 
 // terminators
 const Node* let(IrArena*, const Node* instruction, const Node* tail);

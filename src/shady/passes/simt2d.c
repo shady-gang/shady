@@ -49,7 +49,6 @@ static const Node* process(Context* ctx, const Node* node) {
         case PrimOp_TAG: {
             Op op = node->payload.prim_op.op;
             switch (op) {
-                case quote_op: goto rewrite;
                 default: break;
             }
 

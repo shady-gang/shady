@@ -1000,10 +1000,7 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(RESET);
             if (cnst->instruction) {
                 printf(" = ");
-                if (get_quoted_value(cnst->instruction))
-                    print_node(get_quoted_value(cnst->instruction));
-                else
-                    print_node_impl(ctx, cnst->instruction);
+                print_node_impl(ctx, cnst->instruction);
             }
             printf(";\n");
             break;

@@ -12,7 +12,7 @@
 #include <math.h>
 
 static const Node* quote_single(IrArena* a, const Node* value) {
-    return quote_helper(a, singleton(value));
+    return value;
 }
 
 static bool is_zero(const Node* node) {
@@ -338,7 +338,7 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
         }
         case Store_TAG: {
             if (node->payload.store.ptr->tag == Undef_TAG)
-                return quote_helper(arena, empty(arena));
+                return tuple_helper(arena, empty(arena));
             break;
         }
         case Lea_TAG: {
@@ -387,7 +387,7 @@ const Node* fold_node(IrArena* arena, const Node* node) {
             const Node* lam = node->payload.block.inside;
             const Node* body = lam->payload.case_.body;
             if (body->tag == BlockYield_TAG) {
-                return quote_helper(arena, body->payload.block_yield.args);
+                return maybe_tuple_helper(arena, body->payload.block_yield.args);
             } else if (body->tag == Let_TAG) {
                 // fold block { let x, y, z = I; yield (x, y, z); } back to I
                 const Node* instr = get_let_instruction(body);
@@ -468,7 +468,7 @@ const Node* fold_node(IrArena* arena, const Node* node) {
 
     // catch bad folding rules that mess things up
     if (is_value(original_node)) assert(is_value(node));
-    if (is_instruction(original_node)) assert(is_instruction(node));
+    if (is_instruction(original_node)) assert(is_instruction(node) || is_value(node));
     if (is_terminator(original_node)) assert(is_terminator(node));
 
     if (node->type)

@@ -243,14 +243,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         case deref_op:
         case assign_op:
         case subscript_op: assert(false);
-        case quote_op: {
-            assert(outputs.count == 1);
-            for (size_t i = 0; i < prim_op->operands.count; i++) {
-                outputs.results[i] = emit_value(emitter, p, prim_op->operands.nodes[i]);
-                outputs.binding[i] = NoBinding;
-            }
-            break;
-        }
         case add_carry_op:
         case sub_borrow_op:
         case mul_extended_op:

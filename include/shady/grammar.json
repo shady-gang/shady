@@ -431,6 +431,7 @@
       "name": "CompoundInstruction",
       "class": ["instruction", "value"],
       "description": "Used as a helper to insert multiple instructions in place of one",
+      "constructor": "custom",
       "ops": [
         { "name": "instructions", "class": "instruction", "list": true },
         { "name": "results", "class": "value", "list": "true" }

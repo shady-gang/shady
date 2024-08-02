@@ -72,12 +72,6 @@ double get_float_literal_value(FloatLiteral literal) {
     return r;
 }
 
-const Node* get_quoted_value(const Node* instruction) {
-    if (instruction->payload.prim_op.op == quote_op)
-        return first(instruction->payload.prim_op.operands);
-    return NULL;
-}
-
 static bool is_zero(const Node* node) {
     const IntLiteral* lit = resolve_to_int_literal(node);
     if (lit && get_int_literal_value(*lit, false) == 0)
@@ -206,10 +200,6 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
             }
             case PrimOp_TAG: {
                 switch (node->payload.prim_op.op) {
-                    case quote_op: {
-                        node = first(node->payload.prim_op.operands);
-                        continue;
-                    }
                     case convert_op:
                     case reinterpret_op: {
                         if (config.allow_incompatible_types) {

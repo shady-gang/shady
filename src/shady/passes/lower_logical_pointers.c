@@ -77,7 +77,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Type* osrc_t = osrc->type;
                     deconstruct_qualified_type(&osrc_t);
                     if (osrc_t->tag == PtrType_TAG && !get_arena_config(a)->address_spaces[osrc_t->payload.ptr_type.address_space].physical)
-                        return prim_op_helper(a, quote_op, empty(a), singleton(rewrite_node(r, osrc)));
+                        return rewrite_node(r, osrc);
                     break;
                 }
                 default: break;

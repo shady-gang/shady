@@ -82,7 +82,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED Str
                 return new;
             }
             const Node* val = force_to_be_value(ctx, node);
-            return quote_helper(a, singleton(val));
+            return val;
         }
         case NcTerminator:
             break;

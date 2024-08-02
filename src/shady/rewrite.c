@@ -353,6 +353,9 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             recreate_decl_body_identity(rewriter, node, new);
             return new;
         }
+        case CompoundInstruction_TAG: {
+            return compound_instruction(arena, rewrite_ops_helper(rewriter, NcInstruction, "instructions", node->payload.compound_instruction.instructions), rewrite_ops_helper(rewriter, NcValue, "results", node->payload.compound_instruction.results));
+        }
         case Param_TAG:
             log_string(ERROR, "Can't rewrite: ");
             log_node(ERROR, node);

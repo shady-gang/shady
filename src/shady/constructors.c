@@ -75,6 +75,10 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
 #include "constructors_generated.c"
 
 const Node* let(IrArena* arena, const Node* instruction, const Node* in) {
+    // This is like a folding opt, but earlier, simplifies things by allowing to rewrite an instruction into a value
+    if (!is_instruction(instruction) && is_value(instruction))
+        return in;
+
     Let payload = {
         .instruction = instruction,
         .in = in,
@@ -87,6 +91,32 @@ const Node* let(IrArena* arena, const Node* instruction, const Node* in) {
         .type = arena->config.check_types ? check_type_let(arena, payload) : NULL,
         .tag = Let_TAG,
         .payload.let = payload
+    };
+    return create_node_helper(arena, node, NULL);
+}
+
+const Node* compound_instruction(IrArena* arena, Nodes instructions, Nodes results) {
+    LARRAY(const Node*, ninstructions, instructions.count);
+    size_t count = 0;
+    for (size_t i = 0; i < instructions.count; i++) {
+        const Node* instr = instructions.nodes[i];
+        if (is_instruction(instr))
+            ninstructions[count++] = instr;
+    }
+    instructions = nodes(arena, count, ninstructions);
+
+    CompoundInstruction payload = {
+        .instructions = instructions,
+        .results = results,
+    };
+
+    Node node;
+    memset((void*) &node, 0, sizeof(Node));
+    node = (Node) {
+        .arena = arena,
+        .type = arena->config.check_types ? check_type_compound_instruction(arena, payload) : NULL,
+        .tag = CompoundInstruction_TAG,
+        .payload.compound_instruction = payload
     };
     return create_node_helper(arena, node, NULL);
 }
@@ -323,17 +353,6 @@ Type* nominal_type(Module* mod, Nodes annotations, String name) {
     return decl;
 }
 
-const Node* quote_helper(IrArena* a, Nodes values) {
-    for (size_t i = 0; i < values.count; i++)
-        assert(is_value(values.nodes[i]));
-
-    return prim_op(a, (PrimOp) {
-        .op = quote_op,
-        .type_arguments = nodes(a, 0, NULL),
-        .operands = values
-    });
-}
-
 const Node* prim_op_helper(IrArena* a, Op op, Nodes types, Nodes operands) {
     return prim_op(a, (PrimOp) {
         .op = op,
@@ -350,9 +369,10 @@ const Node* jump_helper(IrArena* a, const Node* dst, Nodes args) {
 }
 
 const Node* unit_type(IrArena* arena) {
-     return record_type(arena, (RecordType) {
+     /*return record_type(arena, (RecordType) {
          .members = empty(arena),
-     });
+     });*/
+     return empty_multiple_return_type(arena);
 }
 
 const Node* empty_multiple_return_type(IrArena* arena) {
@@ -416,4 +436,10 @@ const Node* fp_literal_helper(IrArena* a, FloatSizes size, double value) {
 const Node* extract_helper(const Node* composite, const Node* index) {
     IrArena* a = composite->arena;
     return prim_op_helper(a, extract_op, empty(a), mk_nodes(a, composite, index));
+}
+
+const Node* maybe_tuple_helper(IrArena* a, Nodes values) {
+    if (values.count == 1)
+        return first(values);
+    return tuple_helper(a, values);
 }

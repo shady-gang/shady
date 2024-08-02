@@ -127,7 +127,7 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
                     break;
                 }
                 case Constant_TAG: {
-                    const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
+                    const Node* init_value = resolve_node_to_definition(decl->payload.constant.instruction, (NodeResolveConfig) { 0 });
                     if (!init_value && bb_builder) {
                         SpvId r;
                         emit_instruction(emitter, NULL, &bb_builder, NULL, decl->payload.constant.instruction, 1, &r);

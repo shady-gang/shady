@@ -79,7 +79,7 @@ const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* 
                 continue;
             }
             case Terminator_BlockYield_TAG: {
-                return quote_helper(arena, terminator->payload.block_yield.args);
+                return maybe_tuple_helper(arena, terminator->payload.block_yield.args);
             }
             case Terminator_Return_TAG:
             case Terminator_TailCall_TAG: {
@@ -142,16 +142,6 @@ const Node* process(Context* ctx, const Node* old) {
 
             BodyBuilder* bb = begin_body(a);
             const Node* oinstruction = old->payload.let.instruction;
-            if (oinstruction->tag == PrimOp_TAG && oinstruction->payload.prim_op.op == quote_op) {
-                Nodes args = oinstruction->payload.prim_op.operands;
-                if (args.count == 1) {
-                    register_processed(r, oinstruction, first(rewrite_nodes(r, args)));
-                    return finish_body(bb, rewrite_node(r, old->payload.let.in));
-                } else {
-                    register_processed(r, oinstruction, tuple_helper(a, rewrite_nodes(r, args)));
-                    return finish_body(bb, rewrite_node(r, old->payload.let.in));
-                }
-            }
             const Node* instruction;
             // optimization: fold blocks
             if (oinstruction->tag == Block_TAG) {

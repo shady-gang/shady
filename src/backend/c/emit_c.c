@@ -777,7 +777,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             emit_as = term_from_cvalue(name);
             register_emitted(emitter, decl, emit_as);
 
-            const Node* init_value = get_quoted_value(decl->payload.constant.instruction);
+            const Node* init_value = resolve_node_to_definition(decl->payload.constant.instruction, (NodeResolveConfig) { 0 });
             assert(init_value && "TODO: support some measure of constant expressions");
             String init = to_cvalue(emitter, emit_value(emitter, NULL, init_value));
             emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init);

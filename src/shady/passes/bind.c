@@ -140,8 +140,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, BodyBuilder* bb, const
         }
     }
 
-    Nodes e = empty(a);
-    return prim_op_helper(a, quote_op, empty(a), empty(a));
+    return tuple_helper(a, empty(a));
 }
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {

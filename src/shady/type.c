@@ -449,6 +449,8 @@ const Type* check_type_null_ptr(IrArena* a, NullPtr payload) {
 }
 
 const Type* check_type_composite(IrArena* arena, Composite composite) {
+    if (composite.contents.count == 0)
+        return unit_type(arena);
     assert(is_data_type(composite.type));
     Nodes expected_member_types = get_composite_type_element_types(composite.type);
     bool is_uniform = true;
@@ -529,10 +531,6 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case assign_op:
         case addrof_op:
         case subscript_op: error("These ops are only allowed in untyped IR before desugaring. They don't type to anything.");
-        case quote_op: {
-            assert(prim_op.type_arguments.count == 0);
-            return wrap_multiple_yield_types(arena, get_values_types(arena, prim_op.operands));
-        }
         case neg_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);

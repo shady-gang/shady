@@ -225,7 +225,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
 
         if (UNTYPED_POINTERS) {
             Node* untyped_wrapper = constant(p->dst, singleton(annotation(a, (Annotation) { .name = "Inline" })), ptr_t, format_string_interned(a, "%s_untyped", name));
-            untyped_wrapper->payload.constant.instruction = quote_helper(a, singleton(ref_decl_helper(a, decl)));
+            untyped_wrapper->payload.constant.instruction = ref_decl_helper(a, decl);
             untyped_wrapper->payload.constant.instruction = prim_op_helper(a, reinterpret_op, singleton(ptr_t), singleton(ref_decl_helper(a, decl)));
             decl = untyped_wrapper;
         }

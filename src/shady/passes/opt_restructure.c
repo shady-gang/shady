@@ -137,7 +137,7 @@ static const Node* handle_bb_callsite(Context* ctx, const Node* j, const Node* e
         Node* inner_exit_ladder_bb = basic_block(a, empty(a), unique_name(a, "exit_ladder_inline_me"));
 
         // Just jumps to the actual ladder
-        const Node* structured = structure(&ctx2, get_abstraction_body(dst), let(a, quote_helper(a, empty(a)), jump(a, (Jump) {.target = inner_exit_ladder_bb, .args = empty(a)})));
+        const Node* structured = structure(&ctx2, get_abstraction_body(dst), jump(a, (Jump) {.target = inner_exit_ladder_bb, .args = empty(a)}));
         assert(is_terminator(structured));
         // forget we rewrote all that
         destroy_dict(tmp_processed);
@@ -287,7 +287,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit_la
             const Node* if_true_lam = case_(a, empty(a), true_body);
             gen_if(bb2, empty(a), guard, if_true_lam, NULL);
 
-            return finish_body(bb_outer, structure(&control_ctx, get_abstraction_body(old_control_body), let(a, quote_helper(a, empty(a)), finish_body(bb2, exit_ladder))));
+            return finish_body(bb_outer, structure(&control_ctx, get_abstraction_body(old_control_body), finish_body(bb2, exit_ladder)));
         }
         case Join_TAG: {
             ControlEntry* control = search_containing_control(ctx, body->payload.join.join_point);

@@ -33,17 +33,17 @@ BodyBuilder* begin_body(IrArena* a) {
 
 static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
     if (bb->arena->config.check_types) {
-        assert(is_instruction(instruction));
+        assert(is_instruction(instruction) || is_value(instruction));
     }
-    if (bb->arena->config.allow_fold && instruction->tag == PrimOp_TAG && instruction->payload.prim_op.op == quote_op)
-        return instruction->payload.prim_op.operands;
-    StackEntry entry = {
-        .vars = empty(bb->arena),
-        .structured.payload.let = {
-            .instruction = instruction,
-        }
-    };
-    append_list(StackEntry, bb->stack, entry);
+    if (is_instruction(instruction)) {
+        StackEntry entry = {
+            .vars = empty(bb->arena),
+            .structured.payload.let = {
+                .instruction = instruction,
+            }
+        };
+        append_list(StackEntry, bb->stack, entry);
+    }
     if (outputs_count > 1) {
         LARRAY(const Node*, extracted, outputs_count);
         for (size_t i = 0; i < outputs_count; i++)
@@ -166,7 +166,7 @@ static Nodes finish_with_instruction_list(BodyBuilder* bb) {
 
 const Node* yield_values_and_wrap_in_compound_instruction_explicit_return_types(BodyBuilder* bb, Nodes values, const Nodes types) {
     IrArena* arena = bb->arena;
-    return compound_instruction(arena, (CompoundInstruction) { .instructions = finish_with_instruction_list(bb), .results = values });
+    return compound_instruction(arena, finish_with_instruction_list(bb), values);
 }
 
 const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes values) {
@@ -176,7 +176,7 @@ const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes
 const Node* bind_last_instruction_and_wrap_in_compound_instruction_explicit_return_types(BodyBuilder* bb, const Node* instruction, const Nodes types) {
     IrArena* arena = bb->arena;
     Nodes values = bind_instruction_outputs_count(bb, instruction, types.count);
-    return compound_instruction(arena, (CompoundInstruction) { .instructions = finish_with_instruction_list(bb), .results = values });
+    return compound_instruction(arena, finish_with_instruction_list(bb), values);
 }
 
 const Node* bind_last_instruction_and_wrap_in_compound_instruction(BodyBuilder* bb, const Node* instruction) {
