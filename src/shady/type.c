@@ -1185,6 +1185,10 @@ const Type* check_type_let(IrArena* arena, Let let) {
     return noret_type(arena);
 }
 
+const Type* check_type_compound_instruction(IrArena* arena, CompoundInstruction payload) {
+    return wrap_multiple_yield_types(arena, get_values_types(arena, payload.results));
+}
+
 const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
     Nodes args = tail_call.args;
     for (size_t i = 0; i < args.count; i++) {

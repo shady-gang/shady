@@ -393,6 +393,23 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.call, results_count, results);                 break;
         case PrimOp_TAG:              emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
         case Comment_TAG: break;
+        case Instruction_CompoundInstruction_TAG: {
+            Nodes instructions = instruction->payload.compound_instruction.instructions;
+            for (size_t i = 0; i < instructions.count; i++) {
+                const Node* instruction2 = instructions.nodes[i];
+
+                // we declare N local variables in order to store the result of the instruction
+                Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction2->type);
+
+                LARRAY(SpvId, results2, yield_types.count);
+                emit_instruction(emitter, fn_builder, bb_builder, merge_targets, instruction2, yield_types.count, results2);
+            }
+            Nodes results2 = instruction->payload.compound_instruction.results;
+            for (size_t i = 0; i < results2.count; i++) {
+                results[0] = emit_value(emitter, *bb_builder, results2.nodes[i]);
+            }
+            return;
+        }
         case Instruction_LocalAlloc_TAG: {
             SpvId result = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
                 .address_space = AsFunction,

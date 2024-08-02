@@ -428,6 +428,15 @@
       ]
     },
     {
+      "name": "CompoundInstruction",
+      "class": ["instruction", "value"],
+      "description": "Used as a helper to insert multiple instructions in place of one",
+      "ops": [
+        { "name": "instructions", "class": "instruction", "list": true },
+        { "name": "results", "class": "value", "list": "true" }
+      ]
+    },
+    {
       "name": "Comment",
       "class": "instruction",
       "ops": [
