@@ -227,7 +227,7 @@
       "class": "type",
       "ops": [
         { "name": "element_type", "class": "type" },
-        { "name": "size", "class": "value" }
+        { "name": "size", "class": "value", "nullable": true }
       ]
     },
     {
@@ -326,7 +326,7 @@
         "Re-ordering values does not count as a computation here !"
       ],
       "ops": [
-        { "name": "type", "class": "type" },
+        { "name": "type", "class": "type", "nullable": true },
         { "name": "contents", "class": "value", "list": true }
       ]
     },
@@ -381,7 +381,7 @@
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "condition", "class": "value" },
         { "name": "if_true", "class": "case" },
-        { "name": "if_false", "class": "case" },
+        { "name": "if_false", "class": "case", "nullable": true },
         { "name": "tail", "class": "case" }
       ]
     },
@@ -575,7 +575,7 @@
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
         { "name": "params", "class": "param", "list": true },
-        { "name": "body", "class": "terminator" },
+        { "name": "body", "class": "terminator", "nullable": true },
         { "name": "return_types", "class": "type", "list": true }
       ]
     },
@@ -590,7 +590,7 @@
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type_hint", "class": "type" },
-        { "name": "instruction", "class": "instruction" }
+        { "name": "instruction", "class": "instruction", "nullable": true }
       ]
     },
     {
@@ -604,7 +604,7 @@
         { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type", "class": "type" },
         { "name": "address_space", "type": "AddressSpace"},
-        { "name": "init", "class": "value", "ignore": true }
+        { "name": "init", "class": "value", "nullable": true }
       ]
     },
     {
@@ -618,7 +618,7 @@
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
-        { "name": "body", "class": "type" }
+        { "name": "body", "class": "type", "nullable": true }
       ]
     },
     {
@@ -664,7 +664,7 @@
       "nominal": true,
       "ops": [
         { "name": "params", "class": "param", "list": true },
-        { "name": "body", "class": "terminator" },
+        { "name": "body", "class": "terminator", "nullable": true },
         { "name": "name", "class": "string" }
       ]
     },
