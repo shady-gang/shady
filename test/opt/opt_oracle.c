@@ -1,8 +1,8 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
+#include "shady/print.h"
 
 #include "../shady/visit.h"
-#include "../shady/print.h"
 
 #include "log.h"
 

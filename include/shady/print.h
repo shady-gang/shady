@@ -16,6 +16,9 @@ typedef struct {
     bool in_cfg;
 } PrintConfig;
 
+void print_module_into_str(Module* mod, char** str_ptr, size_t* size);
+void print_node_into_str(const Node* node, char** str_ptr, size_t* size);
+
 void print_module(Printer* printer, Module* mod, PrintConfig config);
 void print_node(Printer* printer, const Node* node, PrintConfig config);
 void print_node_operand(Printer* printer, const Node* node, String op_name, NodeClass op_class, const Node* op, PrintConfig config);

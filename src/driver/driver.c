@@ -1,11 +1,9 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
-
+#include "shady/print.h"
 #include "shady/be/c.h"
 #include "shady/be/spirv.h"
 #include "shady/be/dump.h"
-
-#include "print.h"
 
 #include "../frontend/slim/parser.h"
 
