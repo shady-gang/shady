@@ -24,7 +24,7 @@ static const Node* make_nullptr(Context* ctx, const Type* t) {
     Node* decl = constant(ctx->rewriter.dst_module, singleton(annotation(a, (Annotation) {
         .name = "Generated",
     })), t, format_string_interned(a, "nullptr_%s", name_type_safe(a, t)));
-    decl->payload.constant.instruction = yield_values_and_wrap_in_block(bb, singleton(nul));
+    decl->payload.constant.instruction = yield_values_and_wrap_in_compound_instruction(bb, singleton(nul));
     const Node* ref = ref_decl_helper(a, decl);
     insert_dict(const Type*, const Node*, ctx->map, t, ref);
     return ref;

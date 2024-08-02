@@ -189,6 +189,11 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                 }
                 return NULL;
             }
+            case CompoundInstruction_TAG: {
+                if (node->payload.compound_instruction.results.count == 1)
+                    return resolve_node_to_definition(first(node->payload.compound_instruction.results), config);
+                return NULL;
+            }
             case Load_TAG: {
                 if (config.enter_loads) {
                     const Node* source = node->payload.load.ptr;

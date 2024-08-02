@@ -102,7 +102,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             BodyBuilder* bb = begin_body(a);
             const Node* value = first(bind_instruction(bb, new->payload.constant.instruction));
             value = first(bind_instruction(bb, prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(value))));
-            new->payload.constant.instruction = yield_values_and_wrap_in_block(bb, singleton(value));
+            new->payload.constant.instruction = yield_values_and_wrap_in_compound_instruction(bb, singleton(value));
             return new;
         }
         case PrimOp_TAG: {

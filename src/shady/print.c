@@ -655,6 +655,19 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(RESET);
             print_case_body(ctx, node->payload.block.inside);
             break;
+        } case CompoundInstruction_TAG: {
+            printf("{\n");
+            indent(ctx->printer);
+            Nodes instructions = node->payload.compound_instruction.instructions;
+            for (size_t i = 0; i < instructions.count; i++) {
+                print_instruction(ctx, instructions.nodes[i]);
+                printf(";\n");
+            }
+            printf("}\n");
+            deindent(ctx->printer);
+            printf("yields ");
+            print_args_list(ctx, node->payload.compound_instruction.results);
+            break;
         }
         default: print_node_generated(ctx, node);
     }
@@ -990,7 +1003,7 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
                 if (get_quoted_value(cnst->instruction))
                     print_node(get_quoted_value(cnst->instruction));
                 else
-                    print_node(cnst->instruction);
+                    print_node_impl(ctx, cnst->instruction);
             }
             printf(";\n");
             break;

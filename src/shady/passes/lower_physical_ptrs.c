@@ -416,7 +416,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         BodyBuilder* bb = begin_body(a);
         const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(size_t_literal(a,  i)));
         // const Node* offset_in_words = bytes_to_words(bb, offset);
-        new_address->payload.constant.instruction = yield_values_and_wrap_in_block(bb, singleton(offset));
+        new_address->payload.constant.instruction = yield_values_and_wrap_in_compound_instruction(bb, singleton(offset));
 
         register_processed(&ctx->rewriter, decl, new_address);
     }
@@ -472,7 +472,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     const Node* size_in_words = bytes_to_words(bb, size_of);
 
     Node* constant_decl = constant(m, annotations, ptr_size_type, format_string_interned(a, "memory_%s_size", as_name));
-    constant_decl->payload.constant.instruction = yield_values_and_wrap_in_block(bb, singleton(size_in_words));
+    constant_decl->payload.constant.instruction = yield_values_and_wrap_in_compound_instruction(bb, singleton(size_in_words));
 
     const Type* words_array_type = arr_type(a, (ArrType) {
         .element_type = word_type,

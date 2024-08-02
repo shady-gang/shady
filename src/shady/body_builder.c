@@ -147,6 +147,42 @@ const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node*
     return bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type));
 }
 
+static Nodes finish_with_instruction_list(BodyBuilder* bb) {
+    IrArena* a = bb->arena;
+    size_t count = entries_count_list(bb->stack);
+    LARRAY(const Node*, list, count);
+    for (size_t i = 0; i < count; i++) {
+        StackEntry entry = read_list(StackEntry, bb->stack)[i];
+        if (entry.structured.tag != NotAStructured_construct) {
+            error("When using a BodyBuilder to create compound instructions, control flow is not allowed.")
+        }
+        list[i] = entry.structured.payload.let.instruction;
+    }
+
+    destroy_list(bb->stack);
+    free(bb);
+    return nodes(a, count, list);
+}
+
+const Node* yield_values_and_wrap_in_compound_instruction_explicit_return_types(BodyBuilder* bb, Nodes values, const Nodes types) {
+    IrArena* arena = bb->arena;
+    return compound_instruction(arena, (CompoundInstruction) { .instructions = finish_with_instruction_list(bb), .results = values });
+}
+
+const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes values) {
+    return yield_values_and_wrap_in_compound_instruction_explicit_return_types(bb, values, get_values_types(bb->arena, values));
+}
+
+const Node* bind_last_instruction_and_wrap_in_compound_instruction_explicit_return_types(BodyBuilder* bb, const Node* instruction, const Nodes types) {
+    IrArena* arena = bb->arena;
+    Nodes values = bind_instruction_outputs_count(bb, instruction, types.count);
+    return compound_instruction(arena, (CompoundInstruction) { .instructions = finish_with_instruction_list(bb), .results = values });
+}
+
+const Node* bind_last_instruction_and_wrap_in_compound_instruction(BodyBuilder* bb, const Node* instruction) {
+    return bind_last_instruction_and_wrap_in_compound_instruction_explicit_return_types(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type));
+}
+
 static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {
     IrArena* a = bb->arena;
 

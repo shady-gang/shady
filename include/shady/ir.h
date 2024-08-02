@@ -297,4 +297,9 @@ const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
 const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder*, const Node*, const Nodes);
 const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder*, const Node*);
 
+const Node* yield_values_and_wrap_in_compound_instruction_explicit_return_types(BodyBuilder*, Nodes, const Nodes);
+const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder*, Nodes);
+const Node* bind_last_instruction_and_wrap_in_compound_instruction_explicit_return_types(BodyBuilder*, const Node*, const Nodes);
+const Node* bind_last_instruction_and_wrap_in_compound_instruction(BodyBuilder*, const Node*);
+
 #endif

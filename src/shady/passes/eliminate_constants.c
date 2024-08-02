@@ -33,7 +33,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
             if (decl->tag == Constant_TAG && decl->payload.constant.instruction) {
-                const Node* value = get_quoted_value(decl->payload.constant.instruction);
+                const Node* value = resolve_node_to_definition(decl->payload.constant.instruction, (NodeResolveConfig) { 0 });
                 if (value)
                     return rewrite_node(&ctx->rewriter, value);
                 c.rewriter.map = clone_dict(c.rewriter.map);
