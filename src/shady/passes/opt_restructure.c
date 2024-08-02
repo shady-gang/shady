@@ -201,9 +201,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit_la
                     break;
                 }
             }
-            const Node* new_instruction = recreate_node_identity(&ctx->rewriter, old_instr);
-            register_processed(r, old_instr, new_instruction);
-
+            const Node* new_instruction = rewrite_node(&ctx->rewriter, old_instr);
             return let(a, new_instruction, structure(ctx, body->payload.let.in, exit_ladder));
         }
         case Jump_TAG: {
