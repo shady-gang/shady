@@ -21,11 +21,11 @@ typedef struct PrinterCtx_ PrinterCtx;
 
 struct PrinterCtx_ {
     Printer* printer;
+    PrintConfig config;
     const Node* fn;
     CFG* cfg;
     const UsesMap* uses;
     long int min_rpo;
-    PrintConfig config;
 };
 
 #define COLOR(x) (ctx->config.color ? (x) : "")
@@ -55,6 +55,11 @@ struct PrinterCtx_ {
 
 static void print_node_impl(PrinterCtx* ctx, const Node* node);
 static void print_operand_helper(Printer* p, PrintConfig config, NodeClass nc, const Node* op);
+
+void print_node_operand(Printer* printer, const Node* node, String op_name, NodeClass op_class, const Node* op, PrintConfig config);
+void print_node_operand_list(Printer* printer, const Node* node, String op_name, NodeClass op_class, Nodes ops, PrintConfig config);
+
+void print_node_generated(Printer* printer, const Node* node, PrintConfig config);
 
 #pragma GCC diagnostic error "-Wswitch"
 

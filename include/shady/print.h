@@ -21,9 +21,5 @@ void print_node_into_str(const Node* node, char** str_ptr, size_t* size);
 
 void print_module(Printer* printer, Module* mod, PrintConfig config);
 void print_node(Printer* printer, const Node* node, PrintConfig config);
-void print_node_operand(Printer* printer, const Node* node, String op_name, NodeClass op_class, const Node* op, PrintConfig config);
-void print_node_operand_list(Printer* printer, const Node* node, String op_name, NodeClass op_class, Nodes ops, PrintConfig config);
-
-void print_node_generated(Printer* printer, const Node* node, PrintConfig config);
 
 #endif
