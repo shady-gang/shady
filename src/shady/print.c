@@ -21,7 +21,7 @@ typedef struct PrinterCtx_ PrinterCtx;
 
 struct PrinterCtx_ {
     Printer* printer;
-    PrintConfig config;
+    NodePrintConfig config;
     const Node* fn;
     CFG* cfg;
     const UsesMap* uses;
@@ -54,12 +54,12 @@ struct PrinterCtx_ {
 #define print_operand(nc, n) print_operand_helper(ctx->printer, ctx->config, nc, n)
 
 static void print_node_impl(PrinterCtx* ctx, const Node* node);
-static void print_operand_helper(Printer* p, PrintConfig config, NodeClass nc, const Node* op);
+static void print_operand_helper(Printer* p, NodePrintConfig config, NodeClass nc, const Node* op);
 
-void print_node_operand(Printer* printer, const Node* node, String op_name, NodeClass op_class, const Node* op, PrintConfig config);
-void print_node_operand_list(Printer* printer, const Node* node, String op_name, NodeClass op_class, Nodes ops, PrintConfig config);
+void print_node_operand(Printer* printer, const Node* node, String op_name, NodeClass op_class, const Node* op, NodePrintConfig config);
+void print_node_operand_list(Printer* printer, const Node* node, String op_name, NodeClass op_class, Nodes ops, NodePrintConfig config);
 
-void print_node_generated(Printer* printer, const Node* node, PrintConfig config);
+void print_node_generated(Printer* printer, const Node* node, NodePrintConfig config);
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -1046,7 +1046,7 @@ static void print_mod_impl(PrinterCtx* ctx, Module* mod) {
 #undef print_node
 #undef printf
 
-void print_module(Printer* printer, Module* mod, PrintConfig config) {
+void print_module(Printer* printer, NodePrintConfig config, Module* mod) {
     PrinterCtx ctx = {
         .printer = printer,
         .config = config,
@@ -1055,7 +1055,7 @@ void print_module(Printer* printer, Module* mod, PrintConfig config) {
     flush(ctx.printer);
 }
 
-void print_node(Printer* printer, const Node* node, PrintConfig config) {
+void print_node(Printer* printer, NodePrintConfig config, const Node* node) {
     PrinterCtx ctx = {
         .printer = printer,
         .config = config,
@@ -1069,7 +1069,7 @@ void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     Printer* p = open_growy_as_printer(g);
     if (node)
         print(p, "%%%d ", node->id);
-    print_node(p, node, (PrintConfig) { .reparseable = true });
+    print_node(p, (NodePrintConfig) {.reparseable = true}, node);
     destroy_printer(p);
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
@@ -1078,7 +1078,7 @@ void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
 void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
-    print_module(p, mod, (PrintConfig) { .reparseable = true, });
+    print_module(p, (NodePrintConfig) {.reparseable = true,}, mod);
     destroy_printer(p);
     *size = growy_size(g);
     *str_ptr = growy_deconstruct(g);
@@ -1088,13 +1088,13 @@ void dump_node(const Node* node) {
     Printer* p = open_file_as_printer(stdout);
     if (node)
         print(p, "%%%d ", node->id);
-    print_node(p, node, (PrintConfig) { .color = true });
+    print_node(p, (NodePrintConfig) {.color = true}, node);
     printf("\n");
 }
 
 void dump_module(Module* mod) {
     Printer* p = open_file_as_printer(stdout);
-    print_module(p, mod, (PrintConfig) { .color = true });
+    print_module(p, (NodePrintConfig) {.color = true}, mod);
     destroy_printer(p);
     printf("\n");
 }
@@ -1104,13 +1104,13 @@ void log_node(LogLevel level, const Node* node) {
         Printer* p = open_file_as_printer(stderr);
         if (node)
             print(p, "%%%d = ", node->id);
-        print_node(p, node, (PrintConfig) { .color = true });
+        print_node(p, (NodePrintConfig) {.color = true}, node);
         destroy_printer(p);
     }
 }
 
 void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod) {
-    PrintConfig config = { .color = true };
+    NodePrintConfig config = { .color = true };
     if (compiler_cfg) {
         config.print_generated = compiler_cfg->logging.print_generated;
         config.print_builtin = compiler_cfg->logging.print_builtin;
@@ -1118,42 +1118,42 @@ void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod)
     }
     if (level <= get_log_level()) {
         Printer* p = open_file_as_printer(stderr);
-        print_module(p, mod, config);
+        print_module(p, config, mod);
         destroy_printer(p);
     }
 }
 
 #define COLOR(x) (config.color ? (x) : "")
 
-static void print_operand_name_helper(Printer* p, PrintConfig config, String name) {
+static void print_operand_name_helper(Printer* p, NodePrintConfig config, String name) {
     print(p, GREY);
     print(p, "%s", name);
     print(p, RESET);
     print(p, ": ", name);
 }
 
-static void print_operand_helper(Printer* p, PrintConfig config, NodeClass nc, const Node* op) {
+static void print_operand_helper(Printer* p, NodePrintConfig config, NodeClass nc, const Node* op) {
     if (getenv("SHADY_SUPER_VERBOSE_NODE_DEBUG")) {
         if (op && (is_value(op) || is_instruction(op)))
             print(p, "%%%d ", op->id);
-        print_node(p, op, config);
+        print_node(p, config, op);
     } else {
         if (op && is_instruction(op) && op->arena->config.check_types)
             print(p, "%%%d", op->id);
         else {
-            print_node(p, op, config);
+            print_node(p, config, op);
         }
     }
 }
 
-void print_node_operand(Printer* p, const Node* n, String name, NodeClass op_class, const Node* op, PrintConfig config) {
+void print_node_operand(Printer* p, const Node* n, String name, NodeClass op_class, const Node* op, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     print_operand_helper(p, config, op_class, op);
     // print(p, " '%s': ", name);
     // print_node(p, op, config);
 }
 
-void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass op_class, Nodes ops, PrintConfig config) {
+void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass op_class, Nodes ops, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     print(p, "[");
     for (size_t i = 0; i < ops.count; i++) {
@@ -1164,12 +1164,12 @@ void print_node_operand_list(Printer* p, const Node* n, String name, NodeClass o
     print(p, "]");
 }
 
-void print_node_operand_const_Node_(Printer* p, const Node* n, String name, const Node* op, PrintConfig config) {
+void print_node_operand_const_Node_(Printer* p, const Node* n, String name, const Node* op, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     print_operand_helper(p, config, 0, op);
 }
 
-void print_node_operand_Nodes_(Printer* p, const Node* n, String name, Nodes* op, PrintConfig config) {
+void print_node_operand_Nodes_(Printer* p, const Node* n, String name, Nodes* op, NodePrintConfig config) {
     if (op) {
         print_node_operand_list(p, n, name, 0, *op, config);
     } else {
@@ -1178,17 +1178,17 @@ void print_node_operand_Nodes_(Printer* p, const Node* n, String name, Nodes* op
     }
 }
 
-void print_node_operand_AddressSpace(Printer* p, const Node* n, String name, AddressSpace as, PrintConfig config) {
+void print_node_operand_AddressSpace(Printer* p, const Node* n, String name, AddressSpace as, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     print(p, "%s", get_address_space_name(as));
 }
 
-void print_node_operand_Op(Printer* p, const Node* n, String name, Op op, PrintConfig config) {
+void print_node_operand_Op(Printer* p, const Node* n, String name, Op op, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     print(p, "%s", get_primop_name(op));
 }
 
-void print_node_operand_RecordSpecialFlag(Printer* p, const Node* n, String name, RecordSpecialFlag flags, PrintConfig config) {
+void print_node_operand_RecordSpecialFlag(Printer* p, const Node* n, String name, RecordSpecialFlag flags, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     if (flags & MultipleReturn)
         print(p, "MultipleReturn");
@@ -1196,17 +1196,17 @@ void print_node_operand_RecordSpecialFlag(Printer* p, const Node* n, String name
         print(p, "DecorateBlock");
 }
 
-void print_node_operand_uint32_t(Printer* p, const Node* n, String name, uint32_t i, PrintConfig config) {
+void print_node_operand_uint32_t(Printer* p, const Node* n, String name, uint32_t i, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     print(p, "%u", i);
 }
 
-void print_node_operand_uint64_t(Printer* p, const Node* n, String name, uint64_t i, PrintConfig config) {
+void print_node_operand_uint64_t(Printer* p, const Node* n, String name, uint64_t i, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     print(p, "%zu", i);
 }
 
-void print_node_operand_IntSizes(Printer* p, const Node* n, String name, IntSizes s, PrintConfig config) {
+void print_node_operand_IntSizes(Printer* p, const Node* n, String name, IntSizes s, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     switch (s) {
         case IntTy8:  print(p, "8");  break;
@@ -1216,7 +1216,7 @@ void print_node_operand_IntSizes(Printer* p, const Node* n, String name, IntSize
     }
 }
 
-void print_node_operand_FloatSizes(Printer* p, const Node* n, String name, FloatSizes s, PrintConfig config) {
+void print_node_operand_FloatSizes(Printer* p, const Node* n, String name, FloatSizes s, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     switch (s) {
         case FloatTy16: print(p, "16"); break;
@@ -1225,12 +1225,12 @@ void print_node_operand_FloatSizes(Printer* p, const Node* n, String name, Float
     }
 }
 
-void print_node_operand_String(Printer* p, const Node* n, String name, String s, PrintConfig config) {
+void print_node_operand_String(Printer* p, const Node* n, String name, String s, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     print(p, "\"%s\"", s);
 }
 
-void print_node_operand_Strings(Printer* p, const Node* n, String name, Strings ops, PrintConfig config) {
+void print_node_operand_Strings(Printer* p, const Node* n, String name, Strings ops, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     print(p, "[");
     for (size_t i = 0; i < ops.count; i++) {
@@ -1241,7 +1241,7 @@ void print_node_operand_Strings(Printer* p, const Node* n, String name, Strings 
     print(p, "]");
 }
 
-void print_node_operand_bool(Printer* p, const Node* n, String name, bool b, PrintConfig config) {
+void print_node_operand_bool(Printer* p, const Node* n, String name, bool b, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     if (b)
         print(p, "true");
@@ -1249,7 +1249,7 @@ void print_node_operand_bool(Printer* p, const Node* n, String name, bool b, Pri
         print(p, "false");
 }
 
-void print_node_operand_unsigned(Printer* p, const Node* n, String name, unsigned u, PrintConfig config) {
+void print_node_operand_unsigned(Printer* p, const Node* n, String name, unsigned u, NodePrintConfig config) {
     print_operand_name_helper(p, config, name);
     print(p, "%u", u);
 }

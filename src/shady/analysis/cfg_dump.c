@@ -29,12 +29,12 @@ static void print_node_helper(Printer* p, const Node* n) {
     Growy* tmp_g = new_growy();
     Printer* tmp_p = open_growy_as_printer(tmp_g);
 
-    PrintConfig config = {
+    NodePrintConfig config = {
         .color = false,
         .in_cfg = true,
     };
 
-    print_node(tmp_p, n, config);
+    print_node(tmp_p, config, n);
 
     String label = printer_growy_unwrap(tmp_p);
     char* escaped_label = calloc(strlen(label) * 2, 1);
