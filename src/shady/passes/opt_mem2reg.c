@@ -716,6 +716,8 @@ static const Node* process(Context* ctx, const Node* old) {
 RewritePass cleanup;
 
 Module* opt_mem2reg(const CompilerConfig* config, Module* src) {
+    return src;
+
     ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     IrArena* initial_arena = get_module_arena(src);
     IrArena* a = new_ir_arena(&aconfig);
