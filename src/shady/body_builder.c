@@ -177,13 +177,9 @@ static Nodes finish_with_instruction_list(BodyBuilder* bb) {
     return nodes(a, count, list);
 }
 
-const Node* yield_values_and_wrap_in_compound_instruction_explicit_return_types(BodyBuilder* bb, Nodes values, const Nodes types) {
+const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes values) {
     IrArena* arena = bb->arena;
     return compound_instruction(arena, finish_with_instruction_list(bb), values);
-}
-
-const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes values) {
-    return yield_values_and_wrap_in_compound_instruction_explicit_return_types(bb, values, get_values_types(bb->arena, values));
 }
 
 const Node* bind_last_instruction_and_wrap_in_compound_instruction_explicit_return_types(BodyBuilder* bb, const Node* instruction, const Nodes types) {
