@@ -100,13 +100,10 @@ static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
     return false;
 }
 
-static bool is_structural_edge(CFEdgeType edge_type) { return edge_type != JumpEdge; }
-
 /// Adds an edge to somewhere inside a basic block
 static void add_edge(CfgBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type) {
     assert(is_abstraction(src) && is_abstraction(dst));
     assert(!is_function(dst));
-    assert(is_structural_edge(type) == (bool) is_case(dst));
     if (ctx->lt && !in_loop(ctx->lt, ctx->entry, dst))
         return;
     if (ctx->lt && dst == ctx->entry) {
@@ -178,24 +175,24 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                 add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_true, StructuredEnterBodyEdge);
                 if (terminator->payload.if_instr.if_false)
                     add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_false, StructuredEnterBodyEdge);
-                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
+                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
             case Match_TAG:
                 for (size_t i = 0; i < terminator->payload.match_instr.cases.count; i++)
                     add_structural_dominance_edge(ctx, node, terminator->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
                 add_structural_dominance_edge(ctx, node, terminator->payload.match_instr.default_case, StructuredEnterBodyEdge);
-                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
+                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
             case Loop_TAG:
                 add_structural_dominance_edge(ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge);
-                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
+                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
             case Control_TAG:
                 add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge);
                 const Node* param = first(get_abstraction_params(terminator->payload.control.inside));
                 CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
                 insert_dict(const Node*, CFNode*, ctx->join_point_values, param, let_tail_cfnode);
-                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredPseudoExitEdge);
+                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
             case MergeSelection_TAG:
             case MergeContinue_TAG:
@@ -297,7 +294,7 @@ static void validate_cfg(CFG* cfg) {
                     case StructuredEnterBodyEdge:
                         structured_body_uses += 1;
                         break;
-                    case StructuredPseudoExitEdge:
+                    case StructuredTailEdge:
                         structured_body_uses += 1;
                     case StructuredLeaveBodyEdge:
                         break;

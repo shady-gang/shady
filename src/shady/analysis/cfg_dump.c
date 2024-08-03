@@ -127,7 +127,7 @@ static void dump_cfg(FILE* output, CFG* cfg) {
                 case LetTailEdge:             edge_color = "green"; break;
                 case StructuredEnterBodyEdge: edge_color = "blue"; break;
                 case StructuredLeaveBodyEdge: edge_color = "red"; break;
-                case StructuredPseudoExitEdge: edge_color = "darkred"; break;
+                case StructuredTailEdge: edge_color = "darkred"; break;
                 default: break;
             }
 

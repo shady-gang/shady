@@ -92,28 +92,28 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
                 terminator = let(a, entry.structured.payload.let.instruction, terminator);
                 break;
             case Structured_construct_If_TAG: {
-                Node* tail = case_(bb->arena, entry.vars);
+                Node* tail = basic_block(bb->arena, entry.vars, NULL);
                 set_abstraction_body(tail, terminator);
                 entry.structured.payload.if_instr.tail = tail;
                 terminator = if_instr(a, entry.structured.payload.if_instr);
                 break;
             }
             case Structured_construct_Match_TAG: {
-                Node* tail = case_(bb->arena, entry.vars);
+                Node* tail = basic_block(bb->arena, entry.vars, NULL);
                 set_abstraction_body(tail, terminator);
                 entry.structured.payload.match_instr.tail = tail;
                 terminator = match_instr(a, entry.structured.payload.match_instr);
                 break;
             }
             case Structured_construct_Loop_TAG: {
-                Node* tail = case_(bb->arena, entry.vars);
+                Node* tail = basic_block(bb->arena, entry.vars, NULL);
                 set_abstraction_body(tail, terminator);
                 entry.structured.payload.loop_instr.tail = tail;
                 terminator = loop_instr(a, entry.structured.payload.loop_instr);
                 break;
             }
             case Structured_construct_Control_TAG: {
-                Node* tail = case_(bb->arena, entry.vars);
+                Node* tail = basic_block(bb->arena, entry.vars, NULL);
                 set_abstraction_body(tail, terminator);
                 entry.structured.payload.control.tail = tail;
                 terminator = control(a, entry.structured.payload.control);

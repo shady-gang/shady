@@ -461,7 +461,8 @@ static const Node* infer_if(Context* ctx, const Node* node) {
         .condition = condition,
         .if_true = true_body,
         .if_false = false_body,
-        .tail = infer_case(ctx, node->payload.if_instr.tail, expected_join_types)
+        //.tail = infer_case(ctx, node->payload.if_instr.tail, expected_join_types)
+        .tail = infer(ctx, node->payload.if_instr.tail, NULL)
     });
 }
 
@@ -495,7 +496,8 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
         .yield_types = loop_yield_types,
         .initial_args = nodes(a, old_params.count, new_initial_args),
         .body = nbody,
-        .tail = infer_case(ctx, node->payload.loop_instr.tail, qual_yield_types)
+        //.tail = infer_case(ctx, node->payload.loop_instr.tail, qual_yield_types)
+        .tail = infer(ctx, node->payload.loop_instr.tail, NULL)
     });
 }
 
@@ -522,7 +524,7 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     return control(a, (Control) {
         .yield_types = yield_types,
         .inside = new_case,
-        .tail = infer_case(ctx, get_structured_construct_tail(node), add_qualifiers(a, yield_types, false))
+        .tail = infer(ctx, get_structured_construct_tail(node), NULL /*add_qualifiers(a, yield_types, false)*/)
     });
 }
 

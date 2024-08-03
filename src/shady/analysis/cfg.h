@@ -14,7 +14,7 @@ typedef enum {
     /// tail of the enclosing let, which would make it look like dead code.
     /// This edge type accounts for that risk, they can be ignored where more precise info is available
     /// (see is_control_static for example)
-    StructuredPseudoExitEdge,
+    StructuredTailEdge,
 } CFEdgeType;
 
 typedef struct {

@@ -533,6 +533,8 @@ static void emit_function(Emitter* emitter, const Node* node) {
                 assert(cfnode == cfg->entry);
             if (is_case(cfnode->node))
                 continue;
+            if (entries_count_list(cfnode->pred_edges) == 1 && read_list(CFEdge, cfnode->pred_edges)[0].type == StructuredTailEdge)
+                continue;
             emit_basic_block(emitter, fn_builder, cfg, cfnode);
         }
 

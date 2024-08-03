@@ -27,6 +27,8 @@ static size_t count_calls(const UsesMap* map, const Node* bb) {
                 count++;
             }
         }
+        if (is_structured_construct(use->user) && use->operand_class == NcBasic_block)
+            count+=2;
     }
     return count;
 }

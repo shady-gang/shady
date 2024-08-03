@@ -254,10 +254,12 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case BasicBlock_TAG: {
             assert(is_basic_block(node));
             Nodes new_bb_params = recreate_params(&ctx->rewriter, node->payload.basic_block.params);
-            Node* new_bb = basic_block(a, new_bb_params, node->payload.basic_block.name);
+            String name = node->payload.basic_block.name;
+            Node* new_bb = basic_block(a, new_bb_params, name);
             Context bb_ctx = *ctx;
             ctx = &bb_ctx;
-            add_binding(ctx, false, node->payload.basic_block.name, new_bb);
+            if (name)
+                add_binding(ctx, false, name, new_bb);
             register_processed(&ctx->rewriter, node, new_bb);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new_bb_params);
             new_bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, node->payload.basic_block.body);

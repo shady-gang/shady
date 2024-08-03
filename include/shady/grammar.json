@@ -120,7 +120,7 @@
     {
       "name": "structured_construct",
       "ops": [
-        { "name": "tail", "class": "case" }
+        { "name": "tail", "class": "basic_block" }
       ]
     }
   ],
@@ -382,7 +382,7 @@
         { "name": "condition", "class": "value" },
         { "name": "if_true", "class": "case" },
         { "name": "if_false", "class": "case", "nullable": true },
-        { "name": "tail", "class": "case" }
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
@@ -395,7 +395,7 @@
         { "name": "literals", "class": "value", "list": true },
         { "name": "cases", "class": "case", "list": true },
         { "name": "default_case", "class": "case" },
-        { "name": "tail", "class": "case" }
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
@@ -406,7 +406,7 @@
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "body", "class": "case" },
         { "name": "initial_args", "class": "value", "list": true },
-        { "name": "tail", "class": "case" }
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
@@ -415,7 +415,7 @@
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "inside", "class": "case" },
-        { "name": "tail", "class": "case" }
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {

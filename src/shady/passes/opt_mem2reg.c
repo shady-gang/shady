@@ -535,7 +535,7 @@ static void handle_bb(Context* ctx, const Node* old) {
         // check if all the edges have a value for this!
         for (size_t j = 0; j < entries_count_list(cfnode->pred_edges); j++) {
             CFEdge edge = read_list(CFEdge, cfnode->pred_edges)[j];
-            if (edge.type == StructuredPseudoExitEdge)
+            if (edge.type == StructuredTailEdge)
                 continue; // these are not real edges...
             KnowledgeBase* kb_at_src = get_kb(ctx, edge.src->node);
             if (!kb_at_src) {
