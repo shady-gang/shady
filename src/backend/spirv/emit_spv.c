@@ -130,7 +130,7 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
                     const Node* init_value = resolve_node_to_definition(decl->payload.constant.instruction, (NodeResolveConfig) { 0 });
                     if (!init_value && bb_builder) {
                         SpvId r;
-                        emit_instruction(emitter, NULL, &bb_builder, NULL, decl->payload.constant.instruction, 1, &r);
+                        emit_instruction(emitter, NULL, bb_builder, decl->payload.constant.instruction, 1, &r);
                         return r;
                     }
                     assert(init_value && "TODO: support some measure of constant expressions");
@@ -389,7 +389,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             const Node* instruction = terminator->payload.let.instruction;
             Nodes types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
             LARRAY(SpvId, results, types.count);
-            emit_instruction(emitter, fn_builder, &basic_block_builder, &merge_targets, instruction, types.count, results);
+            emit_instruction(emitter, fn_builder, basic_block_builder, instruction, types.count, results);
 
             for (size_t i = 0; i < types.count; i++)
                 register_result(emitter, extract_multiple_ret_types_helper(instruction, i), results[i]);

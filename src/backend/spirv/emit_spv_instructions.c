@@ -249,7 +249,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 SpvId local_id;
                 const Node* b = ref_decl_helper(emitter->arena, get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
                 // TODO: very hacky indeed
-                emit_instruction(emitter, fn_builder, &bb_builder, NULL, load(emitter->arena, (Load) { b }), 1, &local_id);
+                emit_instruction(emitter, fn_builder, bb_builder, load(emitter->arena, (Load) { b }), 1, &local_id);
                 result = spvb_group_shuffle(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), scope_subgroup, emit_value(emitter, bb_builder, first(args)), local_id);
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
             } else {
@@ -375,7 +375,7 @@ static void emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, 
     }
 }
 
-void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, const Node* instruction, size_t results_count, SpvId results[]) {
+void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_builder, const Node* instruction, size_t results_count, SpvId results[]) {
     assert(is_instruction(instruction));
 
     switch (is_instruction(instruction)) {
@@ -390,8 +390,8 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Instruction_BindIdentifiers_TAG:
         case Instruction_StackAlloc_TAG:
         case Instruction_Block_TAG: error("Should be lowered elsewhere")
-        case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, *bb_builder, instruction->payload.call, results_count, results);                 break;
-        case PrimOp_TAG:              emit_primop(emitter, fn_builder, *bb_builder, instruction, results_count, results);                                    break;
+        case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, bb_builder, instruction->payload.call, results_count, results);                 break;
+        case PrimOp_TAG:              emit_primop(emitter, fn_builder, bb_builder, instruction, results_count, results);                                    break;
         case Comment_TAG: break;
         case Instruction_CompoundInstruction_TAG: {
             Nodes instructions = instruction->payload.compound_instruction.instructions;
@@ -402,11 +402,11 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
                 Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, instruction2->type);
 
                 LARRAY(SpvId, results2, yield_types.count);
-                emit_instruction(emitter, fn_builder, bb_builder, merge_targets, instruction2, yield_types.count, results2);
+                emit_instruction(emitter, fn_builder, bb_builder, instruction2, yield_types.count, results2);
             }
             Nodes results2 = instruction->payload.compound_instruction.results;
             for (size_t i = 0; i < results2.count; i++) {
-                results[0] = emit_value(emitter, *bb_builder, results2.nodes[i]);
+                results[0] = emit_value(emitter, bb_builder, results2.nodes[i]);
             }
             return;
         }
@@ -436,8 +436,8 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
                 operands_count += 2;
             }
 
-            SpvId eptr = emit_value(emitter, *bb_builder, payload.ptr);
-            SpvId result = spvb_load(*bb_builder, emit_type(emitter, elem_type), eptr, operands_count, operands);
+            SpvId eptr = emit_value(emitter, bb_builder, payload.ptr);
+            SpvId result = spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, operands_count, operands);
             assert(results_count == 1);
             results[0] = result;
             return;
@@ -459,29 +459,29 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
                 operands_count += 2;
             }
 
-            SpvId eptr = emit_value(emitter, *bb_builder, payload.ptr);
-            SpvId eval = emit_value(emitter, *bb_builder, payload.value);
-            spvb_store(*bb_builder, eval, eptr, operands_count, operands);
+            SpvId eptr = emit_value(emitter, bb_builder, payload.ptr);
+            SpvId eval = emit_value(emitter, bb_builder, payload.value);
+            spvb_store(bb_builder, eval, eptr, operands_count, operands);
             assert(results_count == 0);
             return;
         }
         case Lea_TAG: {
             Lea payload = instruction->payload.lea;
-            SpvId base = emit_value(emitter, *bb_builder, payload.ptr);
+            SpvId base = emit_value(emitter, bb_builder, payload.ptr);
 
             LARRAY(SpvId, indices, payload.indices.count);
             for (size_t i = 0; i < payload.indices.count; i++)
-                indices[i] = payload.indices.nodes[i] ? emit_value(emitter, *bb_builder, payload.indices.nodes[i]) : 0;
+                indices[i] = payload.indices.nodes[i] ? emit_value(emitter, bb_builder, payload.indices.nodes[i]) : 0;
 
             const IntLiteral* known_offset = resolve_to_int_literal(payload.offset);
             if (known_offset && known_offset->value == 0) {
                 const Type* target_type = instruction->type;
-                SpvId result = spvb_access_chain(*bb_builder, emit_type(emitter, target_type), base, payload.indices.count, indices);
+                SpvId result = spvb_access_chain(bb_builder, emit_type(emitter, target_type), base, payload.indices.count, indices);
                 assert(results_count == 1);
                 results[0] = result;
             } else {
                 const Type* target_type = instruction->type;
-                SpvId result = spvb_ptr_access_chain(*bb_builder, emit_type(emitter, target_type), base, emit_value(emitter, *bb_builder, payload.offset), payload.indices.count, indices);
+                SpvId result = spvb_ptr_access_chain(bb_builder, emit_type(emitter, target_type), base, emit_value(emitter, bb_builder, payload.offset), payload.indices.count, indices);
                 assert(results_count == 1);
                 results[0] = result;
             }
@@ -490,10 +490,10 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         case Instruction_DebugPrintf_TAG: {
             SpvId set_id = get_extended_instruction_set(emitter, "NonSemantic.DebugPrintf");
             LARRAY(SpvId, args, instruction->payload.debug_printf.args.count + 1);
-            args[0] = emit_value(emitter, *bb_builder, string_lit_helper(emitter->arena, instruction->payload.debug_printf.string));
+            args[0] = emit_value(emitter, bb_builder, string_lit_helper(emitter->arena, instruction->payload.debug_printf.string));
             for (size_t i = 0; i < instruction->payload.debug_printf.args.count; i++)
-                args[i + 1] = emit_value(emitter, *bb_builder, instruction->payload.debug_printf.args.nodes[i]);
-            spvb_ext_instruction(*bb_builder, emit_type(emitter, instruction->type), set_id, (SpvOp) NonSemanticDebugPrintfDebugPrintf, instruction->payload.debug_printf.args.count + 1, args);
+                args[i + 1] = emit_value(emitter, bb_builder, instruction->payload.debug_printf.args.nodes[i]);
+            spvb_ext_instruction(bb_builder, emit_type(emitter, instruction->type), set_id, (SpvOp) NonSemanticDebugPrintfDebugPrintf, instruction->payload.debug_printf.args.count + 1, args);
         }
     }
 }
