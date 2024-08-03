@@ -247,10 +247,9 @@ Node* basic_block(IrArena* arena, Nodes params, const char* name) {
     return bb;
 }
 
-const Node* case_(IrArena* a, Nodes params, const Node* body) {
+Node* case_(IrArena* a, Nodes params) {
     Case payload = {
         .params = params,
-        .body = body,
     };
 
     Node node;
@@ -263,19 +262,19 @@ const Node* case_(IrArena* a, Nodes params, const Node* body) {
     };
 
     bool fresh;
-    const Node* lam = create_node_helper(a, node, &fresh);
+    Node* ncase = create_node_helper(a, node, &fresh);
 
     if (fresh || true) {
         for (size_t i = 0; i < params.count; i++) {
             Node* param = (Node*) params.nodes[i];
             assert(param->tag == Param_TAG);
             assert(!param->payload.param.abs);
-            param->payload.param.abs = lam;
+            param->payload.param.abs = ncase;
             param->payload.param.pindex = i;
         }
     }
 
-    return lam;
+    return ncase;
 }
 
 Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {

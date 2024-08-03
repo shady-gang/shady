@@ -124,11 +124,14 @@ static const Node* process(Context* ctx, const Node* node) {
                         assert(false);
                     for (int dim = 0; dim < 3; dim++) {
                         BodyBuilder* body_bb = begin_body(a);
-                        gen_if(body_bb, empty(a), gen_primop_e(body_bb, gte_op, empty(a), mk_nodes(a, params[dim], maxes[dim])), case_(a, empty(a), merge_break(a, (MergeBreak) {.args = empty(a)})), NULL);
+                        Node* out_of_bounds_case = case_(a, empty(a));
+                        set_abstraction_body(out_of_bounds_case, merge_break(a, (MergeBreak) {.args = empty(a)}));
+                        gen_if(body_bb, empty(a), gen_primop_e(body_bb, gte_op, empty(a), mk_nodes(a, params[dim], maxes[dim])), out_of_bounds_case, NULL);
                         bind_instruction(body_bb, instr);
 
                         BodyBuilder* bb3 = begin_body(a);
-                        const Node* loop_body = case_(a, singleton(params[dim]), finish_body(body_bb, merge_continue(a, (MergeContinue) {.args = singleton(gen_primop_e(body_bb, add_op, empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1))))})));
+                        Node* loop_body = case_(a, singleton(params[dim]));
+                        set_abstraction_body(loop_body, finish_body(body_bb, merge_continue(a, (MergeContinue) {.args = singleton(gen_primop_e(body_bb, add_op, empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1))))})));
                         gen_loop(bb3, empty(a), singleton(uint32_literal(a, 0)), loop_body);
                         instr = yield_values_and_wrap_in_block(bb3, empty(a));
                     }

@@ -184,9 +184,11 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Node* join_point = param(a, qualified_type_helper(jp_type, true), format_string_arena(a->arena, "inlined_return_%s", get_abstraction_name(ocallee)));
 
                     const Node* nbody = inline_call(ctx, ocallee, nargs, join_point);
+                    Node* control_case = case_(a, singleton(join_point));
+                    set_abstraction_body(control_case, nbody);
 
                     BodyBuilder* bb = begin_body(a);
-                    return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, case_(a, singleton(join_point), nbody)));
+                    return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, control_case));
                 }
             }
             break;

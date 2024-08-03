@@ -372,9 +372,10 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             Nodes params = recreate_params(rewriter, node->payload.case_.params);
             register_processed_list(rewriter, node->payload.case_.params, params);
             const Node* nterminator = rewrite_op_helper(rewriter, NcTerminator, "body", node->payload.case_.body);
-            const Node* nlam = case_(rewriter->dst_arena, params, nterminator);
+            Node* ncase = case_(rewriter->dst_arena, params);
+            set_abstraction_body(ncase, nterminator);
             // register_processed(rewriter, node, nlam);
-            return nlam;
+            return ncase;
         }
         case BasicBlock_TAG: {
             Nodes params = recreate_params(rewriter, node->payload.basic_block.params);

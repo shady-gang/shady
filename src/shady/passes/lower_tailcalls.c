@@ -254,10 +254,11 @@ static const Node* process(Context* ctx, const Node* old) {
                 });
                 const Node* new_jp = param(a, qualified_type_helper(new_jp_type, true), old_jp->payload.param.name);
                 register_processed(&ctx->rewriter, old_jp, new_jp);
-                const Node* new_body = case_(a, singleton(new_jp), rewrite_node(&ctx->rewriter, get_abstraction_body(old_inside)));
+                const Node* new_control_case = case_(a, singleton(new_jp));
+                set_abstraction_body(new_control_case, rewrite_node(&ctx->rewriter, get_abstraction_body(old_inside)));
                 BodyBuilder* bb = begin_body(a);
                 Nodes nyield_types = rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types);
-                return control(a, (Control) { .yield_types = nyield_types, .inside = new_body, .tail = rewrite_node(r, get_structured_construct_tail(old))});
+                return control(a, (Control) { .yield_types = nyield_types, .inside = new_control_case, .tail = rewrite_node(r, get_structured_construct_tail(old))});
                 //return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, new_body));
             }
             break;
@@ -306,8 +307,9 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
         const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, empty(a), mk_nodes(a, iterations_count_param, int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
-        const Node* bail_true_lam = case_(a, empty(a), break_terminator);
-        gen_if(loop_body_builder, empty(a), bail_condition, bail_true_lam, NULL);
+        Node* true_case = case_(a, empty(a));
+        set_abstraction_body(true_case, break_terminator);
+        gen_if(loop_body_builder, empty(a), bail_condition, true_case, NULL);
     }
 
     struct List* literals = new_list(const Node*);
@@ -320,14 +322,16 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         gen_debug_printf(zero_if_case_builder, "trace: kill thread %d:%d\n", mk_nodes(a, sid, local_id));
     }
-    const Node* zero_if_true_lam = case_(a, empty(a), finish_body(zero_if_case_builder, break_terminator));
+    Node* zero_if_true_lam = case_(a, empty(a));
+    set_abstraction_body(zero_if_true_lam, finish_body(zero_if_case_builder, break_terminator));
     gen_if(zero_case_builder, empty(a), should_run, zero_if_true_lam, NULL);
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         gen_debug_printf(zero_case_builder, "trace: thread %d:%d escaped death!\n", mk_nodes(a, sid, local_id));
     }
 
-    const Node* zero_case_lam = case_(a, nodes(a, 0, NULL), finish_body(zero_case_builder, continue_terminator));
+    Node* zero_case_lam = case_(a, nodes(a, 0, NULL));
+    set_abstraction_body(zero_case_lam, finish_body(zero_case_builder, continue_terminator));
     const Node* zero_lit = uint64_literal(a, 0);
     append_list(const Node*, literals, zero_lit);
     append_list(const Node*, cases, zero_case_lam);
@@ -350,26 +354,30 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .callee = fn_addr_helper(a, find_processed(&ctx->rewriter, decl)),
                 .args = nodes(a, 0, NULL)
             }));
-            const Node* if_true_lam = case_(a, empty(a), finish_body(if_builder, merge_selection(a, (MergeSelection) {.args = nodes(a, 0, NULL)})));
+            Node* if_true_lam = case_(a, empty(a));
+            set_abstraction_body(if_true_lam, finish_body(if_builder, merge_selection(a, (MergeSelection) {.args = nodes(a, 0, NULL)})));
             BodyBuilder* case_builder = begin_body(a);
             gen_if(case_builder, empty(a), should_run, if_true_lam, NULL);
-            const Node* case_lam = case_(a, nodes(a, 0, NULL), finish_body(case_builder, continue_terminator));
+            Node* case_lam = case_(a, nodes(a, 0, NULL));
+            set_abstraction_body(case_lam, finish_body(case_builder, continue_terminator));
 
             append_list(const Node*, literals, fn_lit);
             append_list(const Node*, cases, case_lam);
         }
     }
 
-    const Node* default_case_lam = case_(a, nodes(a, 0, NULL), unreachable(a));
-    gen_match(loop_body_builder, empty(a), next_function, nodes(a, entries_count_list(literals), read_list(const Node*, literals)), nodes(a, entries_count_list(cases), read_list(const Node*, cases)), default_case_lam);
+    Node* default_case = case_(a, nodes(a, 0, NULL));
+    set_abstraction_body(default_case, unreachable(a));
+    gen_match(loop_body_builder, empty(a), next_function, nodes(a, entries_count_list(literals), read_list(const Node*, literals)), nodes(a, entries_count_list(cases), read_list(const Node*, cases)), default_case);
 
     destroy_list(literals);
     destroy_list(cases);
 
-    const Node* loop_inside_lam = case_(a, count_iterations ? singleton(iterations_count_param) : nodes(a, 0, NULL), finish_body(loop_body_builder, unreachable(a)));
+    Node* loop_inside_case = case_(a, count_iterations ? singleton(iterations_count_param) : nodes(a, 0, NULL));
+    set_abstraction_body(loop_inside_case, finish_body(loop_body_builder, unreachable(a)));
 
     BodyBuilder* dispatcher_body_builder = begin_body(a);
-    gen_loop(dispatcher_body_builder, empty(a), count_iterations ? singleton(int32_literal(a, 0)) : nodes(a, 0, NULL), loop_inside_lam);
+    gen_loop(dispatcher_body_builder, empty(a), count_iterations ? singleton(int32_literal(a, 0)) : nodes(a, 0, NULL), loop_inside_case);
 
     if (ctx->config->printf_trace.god_function)
         gen_debug_printf(dispatcher_body_builder, "trace: end of top\n", empty(a));

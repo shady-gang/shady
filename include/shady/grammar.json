@@ -679,7 +679,7 @@
       ],
       "ops": [
         { "name": "params", "class": "param", "list": true },
-        { "name": "body", "class": "terminator" },
+        { "name": "body", "class": "terminator", "nullable": true },
         { "name": "structured_construct", "type": "const Node*", "ignored": true }
       ]
     },

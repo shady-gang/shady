@@ -100,18 +100,20 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     switch (which) {
         case LoadFn: {
             LARRAY(const Node*, literals, max_tag);
-            LARRAY(const Node*, cases, max_tag);
+            LARRAY(Node*, cases, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
-                    cases[tag] = case_(a, empty(a), unreachable(a));
+                    cases[tag] = case_(a, empty(a));
+                    set_abstraction_body(cases[tag], unreachable(a));
                     continue;
                 }
                 BodyBuilder* case_bb = begin_body(a);
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
-                cases[tag] = case_(a, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
-                        .args = singleton(loaded_value),
+                cases[tag] = case_(a, empty(a));
+                set_abstraction_body(cases[tag], finish_body(case_bb, merge_selection(a, (MergeSelection) {
+                    .args = singleton(loaded_value),
                 })));
             }
 
@@ -120,24 +122,28 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             //          extracted_tag = nptr >> (64 - 2), for example
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
-            const Node* loaded_value = first(gen_match(bb, singleton(t), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), case_(a, empty(a), unreachable(a))));
+            Node* default_case = case_(a, empty(a));
+            set_abstraction_body(default_case, unreachable(a));
+            const Node* loaded_value = first(gen_match(bb, singleton(t), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), default_case));
             new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value) }));
             break;
         }
         case StoreFn: {
             LARRAY(const Node*, literals, max_tag);
-            LARRAY(const Node*, cases, max_tag);
+            LARRAY(Node*, cases, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
-                    cases[tag] = case_(a, empty(a), unreachable(a));
+                    cases[tag] = case_(a, empty(a));
+                    set_abstraction_body(cases[tag],  unreachable(a));
                     continue;
                 }
                 BodyBuilder* case_bb = begin_body(a);
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 gen_store(case_bb, reinterpreted_ptr, value_param);
-                cases[tag] = case_(a, empty(a), finish_body(case_bb, merge_selection(a, (MergeSelection) {
-                        .args = empty(a),
+                cases[tag] = case_(a, empty(a));
+                set_abstraction_body(cases[tag], finish_body(case_bb, merge_selection(a, (MergeSelection) {
+                    .args = empty(a),
                 })));
             }
 
@@ -146,7 +152,9 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             //          extracted_tag = nptr >> (64 - 2), for example
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
-            gen_match(bb, empty(a), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), case_(a, empty(a), unreachable(a)));
+            Node* default_case = case_(a, empty(a));
+            set_abstraction_body(default_case, unreachable(a));
+            gen_match(bb, empty(a), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), default_case);
             new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a) }));
             break;
         }

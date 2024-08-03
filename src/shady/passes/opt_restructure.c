@@ -145,8 +145,9 @@ static const Node* handle_bb_callsite(Context* ctx, const Node* j, const Node* e
         pop_list_impl(ctx->cleanup_stack);
 
         if (dfs_entry.loop_header) {
-            const Node* body = case_(a, nodes(a, oargs.count, nparams), structured);
-            gen_loop(bb, empty(a), rewrite_nodes(&ctx->rewriter, oargs), body);
+            Node* loop_case = case_(a, nodes(a, oargs.count, nparams));
+            set_abstraction_body(loop_case, structured);
+            gen_loop(bb, empty(a), rewrite_nodes(&ctx->rewriter, oargs), loop_case);
             // we decide 'late' what the exit ladder should be
             inner_exit_ladder_bb->payload.basic_block.body = merge_break(a, (MergeBreak) { .args = empty(a) });
             return finish_body(bb, exit_ladder);
@@ -213,25 +214,26 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit_la
         case Branch_TAG: {
             const Node* condition = rewrite_node(&ctx->rewriter, body->payload.branch.condition);
 
-            const Node* true_body = handle_bb_callsite(ctx, body->payload.branch.true_jump, merge_selection(a, (MergeSelection) { .args = empty(a) }));
-            const Node* if_true_lam = case_(a, empty(a), true_body);
+            Node* true_case = case_(a, empty(a));
+            set_abstraction_body(true_case, handle_bb_callsite(ctx, body->payload.branch.true_jump, merge_selection(a, (MergeSelection) { .args = empty(a) })));
 
-            const Node* false_body = handle_bb_callsite(ctx, body->payload.branch.false_jump, merge_selection(a, (MergeSelection) { .args = empty(a) }));
-            const Node* if_false_lam = case_(a, empty(a), false_body);
+            Node* false_case = case_(a, empty(a));
+            set_abstraction_body(false_case, handle_bb_callsite(ctx, body->payload.branch.false_jump, merge_selection(a, (MergeSelection) { .args = empty(a) })));
 
             BodyBuilder* bb = begin_body(a);
-            gen_if(bb, empty(a), condition, if_true_lam, if_false_lam);
+            gen_if(bb, empty(a), condition, true_case, false_case);
             return finish_body(bb, exit_ladder);
         }
         case Switch_TAG: {
             const Node* switch_value = rewrite_node(&ctx->rewriter, body->payload.br_switch.switch_value);
 
-            const Node* default_body = handle_bb_callsite(ctx, body->payload.br_switch.default_jump, merge_selection(a, (MergeSelection) { .args = empty(a) }));
-            const Node* default_case = case_(a, empty(a), default_body);
+            Node* default_case = case_(a, empty(a));
+            set_abstraction_body(default_case, handle_bb_callsite(ctx, body->payload.br_switch.default_jump, merge_selection(a, (MergeSelection) { .args = empty(a) })));
 
-            LARRAY(const Node*, cases, body->payload.br_switch.case_jumps.count);
+            LARRAY(Node*, cases, body->payload.br_switch.case_jumps.count);
             for (size_t i = 0; i < body->payload.br_switch.case_jumps.count; i++) {
-                cases[i] = case_(a, empty(a), handle_bb_callsite(ctx, body->payload.br_switch.case_jumps.nodes[i], merge_selection(a, (MergeSelection) {.args = empty(a)})));
+                cases[i] = case_(a, empty(a));
+                set_abstraction_body(cases[i], handle_bb_callsite(ctx, body->payload.br_switch.case_jumps.nodes[i], merge_selection(a, (MergeSelection) {.args = empty(a)})));
             }
 
             BodyBuilder* bb = begin_body(a);
@@ -281,9 +283,9 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit_la
             // Wrap the tail in a guarded if, to handle 'far' joins
             const Node* level_value = gen_load(bb2, ctx->level_ptr);
             const Node* guard = first(bind_instruction(bb2, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
-            const Node* true_body = structure(ctx, get_abstraction_body(get_structured_construct_tail(body)), merge_selection(a, (MergeSelection) { .args = empty(a) }));
-            const Node* if_true_lam = case_(a, empty(a), true_body);
-            gen_if(bb2, empty(a), guard, if_true_lam, NULL);
+            const Node* true_case = case_(a, empty(a));
+            set_abstraction_body(true_case, structure(ctx, get_abstraction_body(get_structured_construct_tail(body)), merge_selection(a, (MergeSelection) { .args = empty(a) })));
+            gen_if(bb2, empty(a), guard, true_case, NULL);
 
             return finish_body(bb_outer, structure(&control_ctx, get_abstraction_body(old_control_body), finish_body(bb2, exit_ladder)));
         }

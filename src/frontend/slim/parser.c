@@ -599,15 +599,17 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             expect(accept_token(ctx, rpar_tok));
             const Node* merge = config.front_end ? merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }) : NULL;
 
-            const Node* if_true = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, merge));
+            Node* true_case = case_(arena, nodes(arena, 0, NULL));
+            set_abstraction_body(true_case, expect_body(ctx, merge));
 
             // else defaults to an empty body
             bool has_else = accept_token(ctx, else_tok);
-            const Node* if_false = NULL;
+            Node* false_case = NULL;
             if (has_else) {
-                if_false = case_(arena, nodes(arena, 0, NULL), expect_body(ctx, merge));
+                false_case = case_(arena, nodes(arena, 0, NULL));
+                set_abstraction_body(false_case, expect_body(ctx, merge));
             }
-            return maybe_tuple_helper(arena, gen_if(bb, yield_types, condition, if_true, if_false));
+            return maybe_tuple_helper(arena, gen_if(bb, yield_types, condition, true_case, false_case));
         }
         case loop_tok: {
             next_token(tokenizer);
@@ -617,8 +619,9 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             expect_parameters(ctx, &parameters, &initial_arguments);
             // by default loops continue forever
             const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
-            const Node* body = case_(arena, parameters, expect_body(ctx, default_loop_end_behaviour));
-            return maybe_tuple_helper(arena, gen_loop(bb, yield_types, initial_arguments, body));
+            Node* loop_case = case_(arena, parameters);
+            set_abstraction_body(loop_case, expect_body(ctx, default_loop_end_behaviour));
+            return maybe_tuple_helper(arena, gen_loop(bb, yield_types, initial_arguments, loop_case));
         }
         case control_tok: {
             next_token(tokenizer);
@@ -630,8 +633,9 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
                 .yield_types = yield_types,
             }), str);
             expect(accept_token(ctx, rpar_tok));
-            const Node* body = case_(arena, singleton(jp), expect_body(ctx, NULL));
-            return maybe_tuple_helper(arena, gen_control(bb, yield_types, body));
+            Node* control_case = case_(arena, singleton(jp));
+            set_abstraction_body(control_case, expect_body(ctx, NULL));
+            return maybe_tuple_helper(arena, gen_control(bb, yield_types, control_case));
         }
         default: break;
     }

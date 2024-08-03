@@ -91,22 +91,34 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
             case NotAStructured_construct:
                 terminator = let(a, entry.structured.payload.let.instruction, terminator);
                 break;
-            case Structured_construct_If_TAG:
-                entry.structured.payload.if_instr.tail = case_(bb->arena, entry.vars, terminator);
+            case Structured_construct_If_TAG: {
+                Node* tail = case_(bb->arena, entry.vars);
+                set_abstraction_body(tail, terminator);
+                entry.structured.payload.if_instr.tail = tail;
                 terminator = if_instr(a, entry.structured.payload.if_instr);
                 break;
-            case Structured_construct_Match_TAG:
-                entry.structured.payload.match_instr.tail = case_(bb->arena, entry.vars, terminator);
+            }
+            case Structured_construct_Match_TAG: {
+                Node* tail = case_(bb->arena, entry.vars);
+                set_abstraction_body(tail, terminator);
+                entry.structured.payload.match_instr.tail = tail;
                 terminator = match_instr(a, entry.structured.payload.match_instr);
                 break;
-            case Structured_construct_Loop_TAG:
-                entry.structured.payload.loop_instr.tail = case_(bb->arena, entry.vars, terminator);
+            }
+            case Structured_construct_Loop_TAG: {
+                Node* tail = case_(bb->arena, entry.vars);
+                set_abstraction_body(tail, terminator);
+                entry.structured.payload.loop_instr.tail = tail;
                 terminator = loop_instr(a, entry.structured.payload.loop_instr);
                 break;
-            case Structured_construct_Control_TAG:
-                entry.structured.payload.control.tail = case_(bb->arena, entry.vars, terminator);
+            }
+            case Structured_construct_Control_TAG: {
+                Node* tail = case_(bb->arena, entry.vars);
+                set_abstraction_body(tail, terminator);
+                entry.structured.payload.control.tail = tail;
                 terminator = control(a, entry.structured.payload.control);
                 break;
+            }
         }
     }
     return terminator;
@@ -122,10 +134,11 @@ const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
 const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, Nodes values, const Nodes types) {
     IrArena* arena = bb->arena;
     const Node* terminator = block_yield(arena, (BlockYield) { .args = values });
-    const Node* lam = case_(arena, empty(arena), finish_body(bb, terminator));
+    const Node* block_case = case_(arena, empty(arena));
+    set_abstraction_body(block_case, finish_body(bb, terminator));
     return block(arena, (Block) {
         .yield_types = types,
-        .inside = lam,
+        .inside = block_case,
     });
 }
 
@@ -209,7 +222,7 @@ static Nodes gen_structured_construct(BodyBuilder* bb, Nodes yield_types, Struct
     return add_structured_construct(bb, gen_variables(bb, yield_types), tag, payload);
 }
 
-Nodes gen_if(BodyBuilder* bb, Nodes yield_types, const Node* condition, const Node* true_case, const Node* false_case) {
+Nodes gen_if(BodyBuilder* bb, Nodes yield_types, const Node* condition, const Node* true_case, Node* false_case) {
     return gen_structured_construct(bb, yield_types, Structured_construct_If_TAG, (union NodesUnion) {
         .if_instr = {
             .condition = condition,
@@ -220,7 +233,7 @@ Nodes gen_if(BodyBuilder* bb, Nodes yield_types, const Node* condition, const No
     });
 }
 
-Nodes gen_match(BodyBuilder* bb, Nodes yield_types, const Node* inspectee, Nodes literals, Nodes cases, const Node* default_case) {
+Nodes gen_match(BodyBuilder* bb, Nodes yield_types, const Node* inspectee, Nodes literals, Nodes cases, Node* default_case) {
     return gen_structured_construct(bb, yield_types, Structured_construct_Match_TAG, (union NodesUnion) {
         .match_instr = {
             .yield_types = yield_types,
@@ -232,7 +245,7 @@ Nodes gen_match(BodyBuilder* bb, Nodes yield_types, const Node* inspectee, Nodes
     });
 }
 
-Nodes gen_loop(BodyBuilder* bb, Nodes yield_types, Nodes initial_args, const Node* body) {
+Nodes gen_loop(BodyBuilder* bb, Nodes yield_types, Nodes initial_args, Node* body) {
     return gen_structured_construct(bb, yield_types, Structured_construct_Loop_TAG, (union NodesUnion) {
         .loop_instr = {
             .yield_types = yield_types,
@@ -242,7 +255,7 @@ Nodes gen_loop(BodyBuilder* bb, Nodes yield_types, Nodes initial_args, const Nod
     });
 }
 
-Nodes gen_control(BodyBuilder* bb, Nodes yield_types, const Node* body) {
+Nodes gen_control(BodyBuilder* bb, Nodes yield_types, Node* body) {
     return gen_structured_construct(bb, yield_types, Structured_construct_Control_TAG, (union NodesUnion) {
         .control = {
             .yield_types = yield_types,

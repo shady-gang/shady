@@ -284,7 +284,9 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             }
             register_processed_list(&ctx->rewriter, old_params, new_params);
             const Node* new_body = rewrite_node(&ctx->rewriter, node->payload.case_.body);
-            return case_(a, new_params, new_body);
+            Node* new_case = case_(a, new_params);
+            set_abstraction_body(new_case, new_body);
+            return new_case;
         }
         case BindIdentifiers_TAG: assert(false);
         case Return_TAG: {

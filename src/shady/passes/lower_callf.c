@@ -130,9 +130,10 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .target = ncallee,
                 .args = nargs,
             });
-            const Node* control_lam = case_(a, singleton(jp), control_body);
+            const Node* control_case = case_(a, singleton(jp));
+            set_abstraction_body(control_case, control_body);
             BodyBuilder* bb = begin_body(a);
-            return yield_values_and_wrap_in_block(bb, gen_control(bb, strip_qualifiers(a, returned_types), control_lam));
+            return yield_values_and_wrap_in_block(bb, gen_control(bb, strip_qualifiers(a, returned_types), control_case));
         }
         default: break;
     }

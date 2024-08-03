@@ -40,8 +40,10 @@ static const Node* wrap_in_controls(Context* ctx, Controls* controls, const Node
         const Node* token = controls->tokens.nodes[i];
         const Node* dst = controls->destinations.nodes[i];
         Nodes o_dst_params = get_abstraction_params(dst);
+        Node* control_case = case_(a, singleton(token));
+        set_abstraction_body(control_case, body);
         BodyBuilder* bb = begin_body(a);
-        Nodes results = gen_control(bb, get_param_types(a, o_dst_params), case_(a, singleton(token), body));
+        Nodes results = gen_control(bb, get_param_types(a, o_dst_params), control_case);
         body = finish_body(bb, jump_helper(a, rewrite_node(&ctx->rewriter, dst), results));
     }
     return body;

@@ -314,8 +314,9 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
         }
     }
 
-    const Node* new_body = infer(&body_context, node->payload.case_.body, NULL);
-    return case_(a, nodes(a, inferred_arg_type.count, nparams), new_body);
+    Node* new_case = case_(a, nodes(a, inferred_arg_type.count, nparams));
+    set_abstraction_body(new_case, infer(&body_context, node->payload.case_.body, NULL));
+    return new_case;
 }
 
 static const Node* _infer_basic_block(Context* ctx, const Node* node) {
@@ -515,11 +516,12 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     const Node* jp = param(a, jpt, ojp->payload.param.name);
     register_processed(&joinable_ctx.rewriter, ojp, jp);
 
-    const Node* nlam = case_(a, singleton(jp), infer(&joinable_ctx, get_abstraction_body(olam), NULL));
+    Node* new_case = case_(a, singleton(jp));
+    set_abstraction_body(new_case, infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 
     return control(a, (Control) {
         .yield_types = yield_types,
-        .inside = nlam,
+        .inside = new_case,
         .tail = infer_case(ctx, get_structured_construct_tail(node), add_qualifiers(a, yield_types, false))
     });
 }
@@ -531,12 +533,12 @@ static const Node* infer_block(Context* ctx, const Node* node, const Nodes* expe
     Context block_inside_ctx = *ctx;
     Nodes nyield_types = infer_nodes(ctx, node->payload.block.yield_types);
     block_inside_ctx.merge_types = &nyield_types;
-    const Node* olam = node->payload.block.inside;
-    const Node* nlam = case_(a, empty(a), infer(&block_inside_ctx, get_abstraction_body(olam), NULL));
+    Node* new_case = case_(a, empty(a));
+    set_abstraction_body(new_case, infer(&block_inside_ctx, get_abstraction_body(node->payload.block.inside), NULL));
 
     return block(a, (Block) {
         .yield_types = nyield_types,
-        .inside = nlam
+        .inside = new_case
     });
 }
 

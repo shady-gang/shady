@@ -145,7 +145,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             ctx2.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
 
             const Node* new_body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.case_.body));
-            return case_(a, new_params, new_body);
+            Node* new_case = case_(a, new_params);
+            set_abstraction_body(new_case, new_body);
+            return new_case;
         }
         case Let_TAG: {
             const Node* oinstr = get_let_instruction(node);

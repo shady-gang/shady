@@ -161,7 +161,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 .yield_types = inner_yield_types
             }), true), "jp_continue");
 
-            LARRAY(const Node*, exit_wrappers, exiting_nodes_count);
+            LARRAY(Node*, exit_wrappers, exiting_nodes_count);
             LARRAY(Node*, exit_helpers, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 exit_helpers[i] = basic_block(arena, empty(arena), format_string_arena(arena->arena, "exit_helper_%d", i));
@@ -178,7 +178,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                         break;
                     }
                     case Case_TAG:
-                        exit_wrappers[i] = case_(arena, exit_wrapper_params, jump_helper(arena, exit_helpers[i], empty(arena)));
+                        exit_wrappers[i] = case_(arena, exit_wrapper_params);
+                        set_abstraction_body(exit_wrappers[i], jump_helper(arena, exit_helpers[i], empty(arena)));
                         break;
                     default:
                         assert(false);
@@ -190,16 +191,16 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 .join_point = join_token_continue,
                 .args = continue_wrapper_params
             });
-            const Node* continue_wrapper;
+            Node* continue_wrapper;
             switch (node->tag) {
                 case BasicBlock_TAG: {
-                    Node* pre_join_continue_bb = basic_block(arena, continue_wrapper_params, "continue");
-                    pre_join_continue_bb->payload.basic_block.body = continue_wrapper_body;
-                    continue_wrapper = pre_join_continue_bb;
+                    continue_wrapper = basic_block(arena, continue_wrapper_params, "continue");
+                    set_abstraction_body(continue_wrapper, continue_wrapper_body);
                     break;
                 }
                 case Case_TAG:
-                    continue_wrapper = case_(arena, continue_wrapper_params, continue_wrapper_body);
+                    continue_wrapper = case_(arena, continue_wrapper_params);
+                    set_abstraction_body(continue_wrapper, continue_wrapper_body);
                     break;
                 default:
                     assert(false);
@@ -270,7 +271,9 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 register_processed(rewriter, node, cached_entry);
 
             BodyBuilder* inner_bb = begin_body(arena);
-            Nodes inner_control_results = gen_control(inner_bb, inner_yield_types, case_(arena, singleton(join_token_continue), loop_body));
+            Node* inner_control_case = case_(arena, singleton(join_token_continue));
+            set_abstraction_body(inner_control_case, loop_body);
+            Nodes inner_control_results = gen_control(inner_bb, inner_yield_types, inner_control_case);
 
             Node* loop_outer = basic_block(arena, inner_loop_params, "loop_outer");
 
@@ -278,10 +281,12 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 .target = loop_outer,
                 .args = inner_control_results
             }));
-            gen_control(outer_bb, empty(arena), case_(arena, singleton(join_token_exit), jump(arena, (Jump) {
+            Node* outer_control_case = case_(arena, singleton(join_token_exit));
+            set_abstraction_body(outer_control_case, jump(arena, (Jump) {
                 .target = loop_outer,
                 .args = nparams
-            })));
+            }));
+            gen_control(outer_bb, empty(arena), outer_control_case);
 
             LARRAY(const Node*, exit_numbers, exiting_nodes_count);
             LARRAY(const Node*, exit_jumps, exiting_nodes_count);
@@ -332,16 +337,16 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 }));
             }
 
-            const Node* loop_container;
+            Node* loop_container;
             switch (node->tag) {
                 case BasicBlock_TAG: {
-                    Node* bb = basic_block(arena, nparams, node->payload.basic_block.name);
-                    bb->payload.basic_block.body = outer_body;
-                    loop_container = bb;
+                    loop_container = basic_block(arena, nparams, node->payload.basic_block.name);
+                    set_abstraction_body(loop_container, outer_body);
                     break;
                 }
                 case Case_TAG:
-                    loop_container = case_(arena, nparams, outer_body);
+                    loop_container = case_(arena, nparams);
+                    set_abstraction_body(loop_container, outer_body);
                     break;
                 default:
                     assert(false);
@@ -502,15 +507,16 @@ static const Node* process_node(Context* ctx, const Node* node) {
             if (cached)
                 register_processed(rewriter, idom, cached);
 
-            const Node* control_inner = case_(arena, singleton(join_token), inner_terminator);
-            const Node* recreated_join = rewrite_node(rewriter, idom);
+            Node* control_case = case_(arena, singleton(join_token));
+            set_abstraction_body(control_case, inner_terminator);
+            const Node* join_target = rewrite_node(rewriter, idom);
 
             switch (idom->tag) {
                 case BasicBlock_TAG: {
                     BodyBuilder* bb = begin_body(arena);
-                    Nodes results = gen_control(bb, yield_types, control_inner);
+                    Nodes results = gen_control(bb, yield_types, control_case);
                     return finish_body(bb, jump(arena, (Jump) {
-                        .target = recreated_join,
+                        .target = join_target,
                         .args = results
                     }));
                 }

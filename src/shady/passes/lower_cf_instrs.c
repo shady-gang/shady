@@ -102,7 +102,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
 
             BodyBuilder* bb = begin_body(a);
-            Nodes results = gen_control(bb, yield_types, case_(a, singleton(jp), control_body));
+            Node* control_case = case_(a, singleton(jp));
+            set_abstraction_body(control_case, control_body);
+            Nodes results = gen_control(bb, yield_types, control_case);
 
             const Node* otail = node->payload.if_instr.tail;
             Node* join = basic_block(a, recreate_params(r, get_abstraction_params(otail)), NULL);
@@ -141,10 +143,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             join_context.abs = old_loop_body;
             const Node* inner_control_body = rewrite_node(&join_context.rewriter, old_loop_body->payload.case_.body);
-            const Node* inner_control_lam = case_(a, nodes(a, 1, (const Node* []) {continue_point}), inner_control_body);
+            Node* inner_control_case = case_(a, singleton(continue_point));
+            set_abstraction_body(inner_control_case, inner_control_body);
 
             BodyBuilder* inner_bb = begin_body(a);
-            Nodes args = gen_control(inner_bb, param_types, inner_control_lam);
+            Nodes args = gen_control(inner_bb, param_types, inner_control_case);
 
             // TODO let_in_block or use a Jump !
             loop_body->payload.basic_block.body = finish_body(inner_bb, jump(a, (Jump) { .target = loop_body, .args = args }));
@@ -155,7 +158,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
             BodyBuilder* outer_bb = begin_body(a);
 
-            Nodes results = gen_control(outer_bb, yield_types, case_(a, singleton(break_point), initial_jump));
+            Node* outer_control_case = case_(a, singleton(break_point));
+            Nodes results = gen_control(outer_bb, yield_types, outer_control_case);
+            set_abstraction_body(outer_control_case, initial_jump);
 
             const Node* otail = get_structured_construct_tail(node);
             Node* join = basic_block(a, recreate_params(r, get_abstraction_params(otail)), NULL);
