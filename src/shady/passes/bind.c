@@ -253,15 +253,20 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         }
         case BasicBlock_TAG: {
             assert(is_basic_block(node));
-            Nodes new_bb_params = recreate_params(&ctx->rewriter, node->payload.basic_block.params);
+            Nodes new_params = recreate_params(&ctx->rewriter, node->payload.basic_block.params);
             String name = node->payload.basic_block.name;
-            Node* new_bb = basic_block(a, new_bb_params, name);
+            Node* new_bb = basic_block(a, new_params, name);
             Context bb_ctx = *ctx;
             ctx = &bb_ctx;
             if (name)
                 add_binding(ctx, false, name, new_bb);
+            for (size_t i = 0; i < new_params.count; i++) {
+                String param_name = new_params.nodes[i]->payload.param.name;
+                if (param_name)
+                    add_binding(ctx, false, param_name, new_params.nodes[i]);
+            }
             register_processed(&ctx->rewriter, node, new_bb);
-            register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new_bb_params);
+            register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new_params);
             new_bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, node->payload.basic_block.body);
             return new_bb;
         }
@@ -275,20 +280,6 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 ninstr = rewrite_node(r, oinstruction);
             }
             return finish_body(bb, let(a, ninstr, rewrite_node(r, node->payload.let.in)));
-        }
-        case Case_TAG: {
-            Nodes old_params = node->payload.case_.params;
-            Nodes new_params = recreate_params(&ctx->rewriter, old_params);
-            for (size_t i = 0; i < new_params.count; i++) {
-                String name = old_params.nodes[i]->payload.param.name;
-                if (name)
-                    add_binding(ctx, false, name, new_params.nodes[i]);
-            }
-            register_processed_list(&ctx->rewriter, old_params, new_params);
-            const Node* new_body = rewrite_node(&ctx->rewriter, node->payload.case_.body);
-            Node* new_case = case_(a, new_params);
-            set_abstraction_body(new_case, new_body);
-            return new_case;
         }
         case BindIdentifiers_TAG: assert(false);
         case Return_TAG: {

@@ -13,23 +13,6 @@
 Strings import_strings(IrArena*, Strings);
 bool compare_nodes(Nodes* a, Nodes* b);
 
-typedef struct { Visitor visitor; const Node* parent; } VisitorPCV;
-
-static void post_construction_validation_visit_op(VisitorPCV* v, NodeClass class, SHADY_UNUSED String op_name, const Node* node) {
-    if (class == NcCase)
-        ((Node*) node)->payload.case_.structured_construct = v->parent;
-}
-
-static void post_construction_validation(IrArena* arena, Node* node) {
-    VisitorPCV v = {
-        .visitor = {
-            .visit_op_fn = (VisitOpFn) post_construction_validation_visit_op
-        },
-        .parent = node,
-    };
-    visit_node_operands(&v.visitor, 0, node);
-}
-
 static void pre_construction_validation(IrArena* arena, Node* node);
 
 static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
@@ -54,7 +37,6 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
         if (folded != ptr) {
             // The folding process simplified the node, we store a mapping to that simplified node and bail out !
             insert_set_get_result(Node*, arena->node_set, folded);
-            post_construction_validation(arena, folded);
             return folded;
         }
     }
@@ -68,7 +50,6 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     alloc->id = allocate_node_id(arena, alloc);
     insert_set_get_result(const Node*, arena->node_set, alloc);
 
-    post_construction_validation(arena, alloc);
     return alloc;
 }
 
@@ -245,36 +226,6 @@ Node* basic_block(IrArena* arena, Nodes params, const char* name) {
     }
 
     return bb;
-}
-
-Node* case_(IrArena* a, Nodes params) {
-    Case payload = {
-        .params = params,
-    };
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = a,
-        .type = a->config.check_types ? check_type_case_(a, payload) : NULL,
-        .tag = Case_TAG,
-        .payload.case_ = payload
-    };
-
-    bool fresh;
-    Node* ncase = create_node_helper(a, node, &fresh);
-
-    if (fresh || true) {
-        for (size_t i = 0; i < params.count; i++) {
-            Node* param = (Node*) params.nodes[i];
-            assert(param->tag == Param_TAG);
-            assert(!param->payload.param.abs);
-            param->payload.param.abs = ncase;
-            param->payload.param.pindex = i;
-        }
-    }
-
-    return ncase;
 }
 
 Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {

@@ -244,7 +244,6 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit_la
         // var phi = undef; level = N+1; structurize[body, if (level == N+1, _ => tail(load(phi))); structured_exit_terminator]
         case Control_TAG: {
             const Node* old_control_body = body->payload.control.inside;
-            assert(old_control_body->tag == Case_TAG);
             Nodes old_control_params = get_abstraction_params(old_control_body);
             assert(old_control_params.count == 1);
 

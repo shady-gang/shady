@@ -102,9 +102,6 @@
       ]
     },
     {
-      "name": "case"
-    },
-    {
       "name": "basic_block"
     },
     {
@@ -380,8 +377,8 @@
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "condition", "class": "value" },
-        { "name": "if_true", "class": "case" },
-        { "name": "if_false", "class": "case", "nullable": true },
+        { "name": "if_true", "class": "basic_block" },
+        { "name": "if_false", "class": "basic_block", "nullable": true },
         { "name": "tail", "class": "basic_block" }
       ]
     },
@@ -393,8 +390,8 @@
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "inspect", "class": "value" },
         { "name": "literals", "class": "value", "list": true },
-        { "name": "cases", "class": "case", "list": true },
-        { "name": "default_case", "class": "case" },
+        { "name": "cases", "class": "basic_block", "list": true },
+        { "name": "default_case", "class": "basic_block" },
         { "name": "tail", "class": "basic_block" }
       ]
     },
@@ -404,7 +401,7 @@
       "class": ["terminator", "structured_construct"],
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
-        { "name": "body", "class": "case" },
+        { "name": "body", "class": "basic_block" },
         { "name": "initial_args", "class": "value", "list": true },
         { "name": "tail", "class": "basic_block" }
       ]
@@ -414,7 +411,7 @@
       "class": ["terminator", "structured_construct"],
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inside", "class": "case" },
+        { "name": "inside", "class": "basic_block" },
         { "name": "tail", "class": "basic_block" }
       ]
     },
@@ -424,7 +421,7 @@
       "description": "Used as a helper to insert multiple instructions in place of one",
       "ops": [
         { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inside", "class": "case" }
+        { "name": "inside", "class": "basic_block" }
       ]
     },
     {
@@ -666,21 +663,6 @@
         { "name": "params", "class": "param", "list": true },
         { "name": "body", "class": "terminator", "nullable": true },
         { "name": "name", "class": "string" }
-      ]
-    },
-    {
-      "name": "Case",
-      "snake_name": "case_",
-      "constructor": "custom",
-      "class": "case",
-      "nominal": true,
-      "description": [
-        "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs"
-      ],
-      "ops": [
-        { "name": "params", "class": "param", "list": true },
-        { "name": "body", "class": "terminator", "nullable": true },
-        { "name": "structured_construct", "type": "const Node*", "ignored": true }
       ]
     },
     {

@@ -65,8 +65,7 @@ static void search_for_callsites(CGVisitor* visitor, const Node* node) {
             // analyze_fn(visitor->graph, node)->is_address_captured = true;
             break;
         }
-        case BasicBlock_TAG:
-        case Case_TAG: {
+        case BasicBlock_TAG: {
             const Node* old_abs = visitor->abs;
             visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node);
             visitor->abs = old_abs;

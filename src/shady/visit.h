@@ -24,6 +24,6 @@ void visit_ops(Visitor* visitor, NodeClass, String, Nodes nodes);
 // visits the abstractions in the function, _except_ for the entry block (ie the function itself)
 void visit_function_rpo(Visitor* visitor, const Node* function);
 // use this in visit_node_operands to avoid visiting nodes in non-rpo order
-#define IGNORE_ABSTRACTIONS_MASK NcBasic_block | NcCase | NcDeclaration
+#define IGNORE_ABSTRACTIONS_MASK NcBasic_block | NcDeclaration
 
 #endif

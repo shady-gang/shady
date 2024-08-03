@@ -366,7 +366,7 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
 }
 
 static bool is_unreachable_case(const Node* c) {
-    assert(c && c->tag == Case_TAG);
+    assert(c && c->tag == BasicBlock_TAG);
     const Node* b = get_abstraction_body(c);
     return b->tag == Unreachable_TAG;
 }
@@ -385,7 +385,7 @@ const Node* fold_node(IrArena* arena, const Node* node) {
         case PrimOp_TAG: node = fold_prim_op(arena, node); break;
         case Block_TAG: {
             const Node* lam = node->payload.block.inside;
-            const Node* body = lam->payload.case_.body;
+            const Node* body = get_abstraction_body(lam);
             if (body->tag == BlockYield_TAG) {
                 return maybe_tuple_helper(arena, body->payload.block_yield.args);
             } else if (body->tag == Let_TAG) {

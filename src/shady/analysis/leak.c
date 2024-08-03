@@ -23,7 +23,6 @@ void visit_enclosing_abstractions(UsesMap* map, const Node* n, void* uptr, Visit
 bool is_control_static(const UsesMap* map, const Node* control) {
     assert(control->tag == Control_TAG);
     const Node* inside = control->payload.control.inside;
-    assert(is_case(inside));
     const Node* jp = first(get_abstraction_params(inside));
 
     bool found_binding_abs = false;
@@ -41,4 +40,18 @@ bool is_control_static(const UsesMap* map, const Node* control) {
     }
     assert(found_binding_abs);
     return true;
+}
+
+const Node* get_control_for_jp(const UsesMap* map, const Node* jp) {
+    assert(is_param(jp));
+    const Node* abs = jp->payload.param.abs;
+    assert(is_abstraction(abs));
+
+    const Use* use = get_first_use(map, abs);
+    for (;use; use = use->next_use) {
+        if (use->user->tag == Control_TAG && use->operand_class == NcBasic_block && strcmp(use->operand_name, "inside") == 0)
+            return use->user;
+    }
+
+    return NULL;
 }

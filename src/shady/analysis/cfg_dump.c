@@ -13,18 +13,6 @@
 
 static int extra_uniqueness = 0;
 
-static CFNode* get_let_pred(const CFNode* n) {
-    if (entries_count_list(n->pred_edges) == 1) {
-        CFEdge pred = read_list(CFEdge, n->pred_edges)[0];
-        assert(pred.dst == n);
-        if (pred.type == LetTailEdge && entries_count_list(pred.src->succ_edges) == 1) {
-            assert(is_case(n->node));
-            return pred.src;
-        }
-    }
-    return NULL;
-}
-
 static void print_node_helper(Printer* p, const Node* n) {
     Growy* tmp_g = new_growy();
     Printer* tmp_p = open_growy_as_printer(tmp_g);
@@ -50,33 +38,22 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     const Node* body = get_abstraction_body(bb);
     if (!body)
         return;
-    if (get_let_pred(n))
-        return;
 
     String color = "black";
-    if (is_case(bb))
-        color = "green";
-    else if (is_basic_block(bb))
+    if (is_basic_block(bb))
         color = "blue";
 
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
 
-    String abs_name = get_abstraction_name_unsafe(bb);
-    if (!abs_name)
-        abs_name = format_string_interned(bb->arena, "%%%d", bb->id);
+    String abs_name = get_abstraction_name_safe(bb);
 
     print(p, "%s: \n%s: ", abs_name, abs_name);
 
-    const CFNode* let_chain_end = n;
     while (body->tag == Let_TAG) {
-        if (entries_count_list(let_chain_end->succ_edges) != 1 || read_list(CFEdge, let_chain_end->succ_edges)[0].type != LetTailEdge)
-            break;
-
         print_node_helper(p, body);
         print(p, "\\l");
 
-        let_chain_end = read_list(CFEdge, let_chain_end->succ_edges)[0].dst;
         body = body->payload.let.in;
     }
 
@@ -87,19 +64,19 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     fprintf(output, "bb_%zu [nojustify=true, label=\"%s\", color=\"%s\", shape=box];\n", (size_t) n, label, color);
     free((void*) label);
 
-    for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
-        CFNode* d = read_list(CFNode*, n->dominates)[i];
-        if (!find_key_dict(const Node*, n->structurally_dominates, d->node))
-        dump_cf_node(output, d);
-    }
+    //for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
+    //    CFNode* d = read_list(CFNode*, n->dominates)[i];
+    //    if (!find_key_dict(const Node*, n->structurally_dominates, d->node))
+    //    dump_cf_node(output, d);
+    //}
 }
 
 static void dump_cfg(FILE* output, CFG* cfg) {
     extra_uniqueness++;
 
     const Node* entry = cfg->entry->node;
-    fprintf(output, "subgraph cluster_%s {\n", get_abstraction_name(entry));
-    fprintf(output, "label = \"%s\";\n", get_abstraction_name(entry));
+    fprintf(output, "subgraph cluster_%s {\n", get_abstraction_name_safe(entry));
+    fprintf(output, "label = \"%s\";\n", get_abstraction_name_safe(entry));
     for (size_t i = 0; i < entries_count_list(cfg->contents); i++) {
         const CFNode* n = read_list(const CFNode*, cfg->contents)[i];
         dump_cf_node(output, n);
@@ -107,24 +84,12 @@ static void dump_cfg(FILE* output, CFG* cfg) {
     for (size_t i = 0; i < entries_count_list(cfg->contents); i++) {
         const CFNode* bb_node = read_list(const CFNode*, cfg->contents)[i];
         const CFNode* src_node = bb_node;
-        while (true) {
-            const CFNode* let_parent = get_let_pred(src_node);
-            if (let_parent)
-                src_node = let_parent;
-            else
-                break;
-        }
 
         for (size_t j = 0; j < entries_count_list(bb_node->succ_edges); j++) {
             CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
             const CFNode* target_node = edge.dst;
-
-            if (edge.type == LetTailEdge && get_let_pred(target_node) == bb_node)
-                continue;
-
             String edge_color = "black";
             switch (edge.type) {
-                case LetTailEdge:             edge_color = "green"; break;
                 case StructuredEnterBodyEdge: edge_color = "blue"; break;
                 case StructuredLeaveBodyEdge: edge_color = "red"; break;
                 case StructuredTailEdge: edge_color = "darkred"; break;
@@ -135,6 +100,24 @@ static void dump_cfg(FILE* output, CFG* cfg) {
         }
     }
     fprintf(output, "}\n");
+}
+
+void dump_existing_cfg_auto(CFG* cfg) {
+    FILE* f = fopen("cfg.dot", "wb");
+    fprintf(f, "digraph G {\n");
+    dump_cfg(f, cfg);
+    fprintf(f, "}\n");
+    fclose(f);
+}
+
+void dump_cfg_auto(const Node* fn) {
+    FILE* f = fopen("cfg.dot", "wb");
+    fprintf(f, "digraph G {\n");
+    CFG* cfg = build_fn_cfg(fn);
+    dump_cfg(f, cfg);
+    destroy_cfg(cfg);
+    fprintf(f, "}\n");
+    fclose(f);
 }
 
 void dump_cfgs(FILE* output, Module* mod) {
@@ -152,14 +135,14 @@ void dump_cfgs(FILE* output, Module* mod) {
     fprintf(output, "}\n");
 }
 
-void dump_cfg_auto(Module* mod) {
+void dump_cfgs_auto(Module* mod) {
     FILE* f = fopen("cfg.dot", "wb");
     dump_cfgs(f, mod);
     fclose(f);
 }
 
 static void dump_domtree_cfnode(Printer* p, CFNode* idom) {
-    String name = get_abstraction_name_unsafe(idom->node);
+    String name = get_abstraction_name_safe(idom->node);
     if (name)
         print(p, "bb_%zu [label=\"%s\", shape=box];\n", (size_t) idom, name);
     else
@@ -173,7 +156,7 @@ static void dump_domtree_cfnode(Printer* p, CFNode* idom) {
 }
 
 void dump_domtree_cfg(Printer* p, CFG* s) {
-    print(p, "subgraph cluster_%s {\n", get_abstraction_name(s->entry->node));
+    print(p, "subgraph cluster_%s {\n", get_abstraction_name_safe(s->entry->node));
     dump_domtree_cfnode(p, s->entry);
     print(p, "}\n");
 }

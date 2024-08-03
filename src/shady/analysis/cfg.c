@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#pragma GCC diagnostic error "-Wswitch"
+
 struct List* build_cfgs(Module* mod) {
     struct List* cfgs = new_list(CFG*);
 
@@ -280,29 +282,42 @@ static void flip_cfg(CFG* cfg) {
 static void validate_cfg(CFG* cfg) {
     for (size_t i = 0; i < cfg->size; i++) {
         CFNode* node = read_list(CFNode*, cfg->contents)[i];
-        if (is_case(node->node)) {
-            size_t structured_body_uses = 0;
-            for (size_t j = 0; j < entries_count_list(node->pred_edges); j++) {
-                CFEdge edge = read_list(CFEdge, node->pred_edges)[j];
-                switch (edge.type) {
-                    case JumpEdge:
-                        error_print("Error: cases cannot be jumped to directly.");
-                        error_die();
-                    case LetTailEdge:
-                        structured_body_uses += 1;
-                        break;
-                    case StructuredEnterBodyEdge:
-                        structured_body_uses += 1;
-                        break;
-                    case StructuredTailEdge:
-                        structured_body_uses += 1;
-                    case StructuredLeaveBodyEdge:
-                        break;
-                }
+        size_t structured_body_uses = 0;
+        size_t num_jumps = 0;
+        size_t num_exits = 0;
+        bool is_tail = false;
+        for (size_t j = 0; j < entries_count_list(node->pred_edges); j++) {
+            CFEdge edge = read_list(CFEdge, node->pred_edges)[j];
+            switch (edge.type) {
+                case JumpEdge:
+                    num_jumps++;
+                    break;
+                case StructuredEnterBodyEdge:
+                    structured_body_uses += 1;
+                    break;
+                case StructuredTailEdge:
+                    structured_body_uses += 1;
+                    is_tail = true;
+                    break;
+                case StructuredLeaveBodyEdge:
+                    num_exits += 1;
+                    break;
             }
-            if (structured_body_uses != 1 && node != cfg->entry /* this exception exists since we might build CFGs rooted in cases */) {
-                error_print("reachable cases must be used be as bodies exactly once (actual uses: %zu)", structured_body_uses);
-                error_die();
+        }
+        if (node != cfg->entry /* this exception exists since we might build CFGs rooted in cases */) {
+            if (structured_body_uses > 0) {
+                if (structured_body_uses > 1) {
+                    error_print("Basic block %s is used as a structural target more than once (structured_body_uses: %zu)", get_abstraction_name_safe(node->node), structured_body_uses);
+                    error_die();
+                }
+                if (num_jumps > 0) {
+                    error_print("Basic block %s is used as structural target, but is also jumped into (num_jumps: %zu)", get_abstraction_name_safe(node->node), num_jumps);
+                    error_die();
+                }
+                if (!is_tail && num_exits > 0) {
+                    error_print("Basic block %s is not a merge target yet is used as once (num_exits: %zu)", get_abstraction_name_safe(node->node), num_exits);
+                    error_die();
+                }
             }
         }
     }
@@ -405,6 +420,10 @@ void compute_rpo(CFG* cfg) {
     //     debug_print("%s, ", cfg->rpo[i]->node->payload.lam.name);
     // }
     // debug_print("\n");
+}
+
+bool is_cfnode_structural_target(CFNode* cfn) {
+    return entries_count_list(cfn->pred_edges) == 1 && read_list(CFEdge, cfn->pred_edges)[0].type != JumpEdge;
 }
 
 CFNode* least_common_ancestor(CFNode* i, CFNode* j) {

@@ -177,10 +177,6 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                         exit_wrappers[i] = pre_join_exit_bb;
                         break;
                     }
-                    case Case_TAG:
-                        exit_wrappers[i] = case_(arena, exit_wrapper_params);
-                        set_abstraction_body(exit_wrappers[i], jump_helper(arena, exit_helpers[i], empty(arena)));
-                        break;
                     default:
                         assert(false);
                 }
@@ -198,10 +194,6 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     set_abstraction_body(continue_wrapper, continue_wrapper_body);
                     break;
                 }
-                case Case_TAG:
-                    continue_wrapper = case_(arena, continue_wrapper_params);
-                    set_abstraction_body(continue_wrapper, continue_wrapper_body);
-                    break;
                 default:
                     assert(false);
             }
@@ -344,10 +336,6 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     set_abstraction_body(loop_container, outer_body);
                     break;
                 }
-                case Case_TAG:
-                    loop_container = case_(arena, nparams);
-                    set_abstraction_body(loop_container, outer_body);
-                    break;
                 default:
                     assert(false);
             }
@@ -392,7 +380,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
             rewriter = &ctx->rewriter;
             break;
         }
-        case Case_TAG:
         case BasicBlock_TAG:
             if (!ctx->current_fn || !(lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->hacks.restructure_everything))
                 break;
@@ -520,9 +507,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
                         .args = results
                     }));
                 }
-                case Case_TAG:
-                    error("todo");
-                    // return let(arena, control_instruction, recreated_join);
                 default:
                     assert(false);
             }

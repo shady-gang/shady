@@ -26,9 +26,8 @@ static size_t count_calls(const UsesMap* map, const Node* bb) {
                     return SIZE_MAX; // you can never inline conditional jumps
                 count++;
             }
-        }
-        if (is_structured_construct(use->user) && use->operand_class == NcBasic_block)
-            count+=2;
+        } else if (use->operand_class == NcBasic_block)
+            return SIZE_MAX; // you can never inline basic blocks used for other purposes
     }
     return count;
 }
@@ -62,7 +61,6 @@ const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* 
     assert(instruction->tag == Block_TAG);
     // follow the terminator of the block until we hit a yield()
     const Node* const lam = instruction->payload.block.inside;
-    assert(is_case(lam));
     const Node* terminator = get_abstraction_body(lam);
     while (true) {
         if (is_structured_construct(terminator)) {
@@ -162,7 +160,7 @@ const Node* process(Context* ctx, const Node* old) {
         case BasicBlock_TAG: {
             size_t uses = count_calls(ctx->map, old);
             if (uses <= 1) {
-                log_string(DEBUGVV, "Eliminating basic block '%s' since it's used only %d times.\n", get_abstraction_name(old), uses);
+                log_string(DEBUGVV, "Eliminating basic block '%s' since it's used only %d times.\n", get_abstraction_name_safe(old), uses);
                 return NULL;
             }
             break;

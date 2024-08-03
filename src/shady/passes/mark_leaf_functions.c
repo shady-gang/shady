@@ -127,7 +127,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Control_TAG: {
             if (!is_control_static(ctx->uses, node)) {
                 debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->cfg->entry->node));
-                log_node(DEBUGV, first(node->payload.control.inside->payload.case_.params));
+                log_node(DEBUGV, first(get_abstraction_params(node->payload.control.inside)));
                 debugv_print("escapes its control block, preventing restructuring.\n");
                 ctx->is_leaf = false;
             }
@@ -135,22 +135,14 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case Join_TAG: {
             const Node* old_jp = node->payload.join.join_point;
-            // is it associated with a control node ?
             if (old_jp->tag == Param_TAG) {
-                const Node* abs = old_jp->payload.param.abs;
-                assert(abs);
-                if (abs->tag == Case_TAG) {
-                    const Node* structured = abs->payload.case_.structured_construct;
-                    assert(structured);
-                    // this join point is defined by a control - we can be a leaf :)
-                    if (structured->tag == Control_TAG)
-                        break;
-                }
+                const Node* control = get_control_for_jp(ctx->uses, old_jp);
+                if (control && is_control_static(ctx->uses, control))
+                    break;
             }
             debugv_print("Function %s can't be a leaf function because it joins with ", get_abstraction_name(ctx->cfg->entry->node));
             log_node(DEBUGV, old_jp);
             debugv_print("which is not bound by a control node within that function.\n");
-            // we join with some random join point; we can't be a leaf :(
             ctx->is_leaf = false;
             break;
         }

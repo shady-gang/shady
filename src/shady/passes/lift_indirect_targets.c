@@ -73,7 +73,7 @@ static void add_to_recover_context(struct List* recover_context, struct Dict* se
 }
 
 static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, Nodes ovariables) {
-    assert(is_basic_block(liftee) || is_case(liftee));
+    assert(is_basic_block(liftee));
     LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, liftee);
     if (found)
         return *found;
@@ -194,7 +194,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Control_TAG: {
             const Node* oinside = node->payload.control.inside;
-            assert(is_case(oinside));
             if (!is_control_static(ctx->uses, node) || ctx->config->hacks.force_join_point_lifting) {
                 *ctx->todo = true;
 

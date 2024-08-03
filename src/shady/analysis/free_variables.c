@@ -91,7 +91,6 @@ static void search_op_for_free_variables(Context* visitor, NodeClass class, Stri
             break;
         }
         case Function_TAG:
-        case Case_TAG:
         case BasicBlock_TAG: assert(false);
         default: break;
     }

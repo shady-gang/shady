@@ -88,8 +88,6 @@ static const Node* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED Str
             break;
         case NcDeclaration:
             break;
-        case NcCase:
-            break;
         case NcBasic_block:
             break;
         case NcAnnotation:
@@ -133,21 +131,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Context ctx2 = *ctx;
             ctx2.bb = bb;
             ctx2.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
-            new->payload.basic_block.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.basic_block.body));
+            set_abstraction_body(new, finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.basic_block.body)));
             return new;
-        }
-        case Case_TAG: {
-            Nodes new_params = recreate_params(&ctx->rewriter, node->payload.case_.params);
-            register_processed_list(&ctx->rewriter, node->payload.case_.params, new_params);
-            BodyBuilder* bb = begin_body(a);
-            Context ctx2 = *ctx;
-            ctx2.bb = bb;
-            ctx2.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
-
-            const Node* new_body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.case_.body));
-            Node* new_case = case_(a, new_params);
-            set_abstraction_body(new_case, new_body);
-            return new_case;
         }
         case Let_TAG: {
             const Node* oinstr = get_let_instruction(node);

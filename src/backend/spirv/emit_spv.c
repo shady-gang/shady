@@ -207,13 +207,11 @@ static void emit_if(Emitter* emitter, FnBuilder fn_builder, BBBuilder* pbb_build
 
     BBBuilder true_bb = spvb_begin_bb(fn_builder, true_id);
     spvb_add_bb(fn_builder, true_bb);
-    assert(is_case(if_instr.if_true));
-    emit_terminator(emitter, fn_builder, true_bb, merge_targets_branches, if_instr.if_true->payload.case_.body);
+    emit_terminator(emitter, fn_builder, true_bb, merge_targets_branches, get_abstraction_body(if_instr.if_true));
     if (if_instr.if_false) {
         BBBuilder false_bb = spvb_begin_bb(fn_builder, false_id);
         spvb_add_bb(fn_builder, false_bb);
-        assert(is_case(if_instr.if_false));
-        emit_terminator(emitter, fn_builder, false_bb, merge_targets_branches, if_instr.if_false->payload.case_.body);
+        emit_terminator(emitter, fn_builder, false_bb, merge_targets_branches, get_abstraction_body(if_instr.if_false));
     }
 
     spvb_add_bb(fn_builder, join_bb);
@@ -269,15 +267,13 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
 
     for (size_t i = 0; i < match.cases.count; i++) {
         BBBuilder case_bb = spvb_begin_bb(fn_builder, literals_and_cases[i * literal_case_entry_size + literal_width]);
-        const Node* case_body = match.cases.nodes[i];
-        assert(is_case(case_body));
+        const Node* case_ = match.cases.nodes[i];
         spvb_add_bb(fn_builder, case_bb);
-        emit_terminator(emitter, fn_builder, case_bb, merge_targets_branches, case_body->payload.case_.body);
+        emit_terminator(emitter, fn_builder, case_bb, merge_targets_branches, get_abstraction_body(case_));
     }
     BBBuilder default_bb = spvb_begin_bb(fn_builder, default_id);
-    assert(is_case(match.default_case));
     spvb_add_bb(fn_builder, default_bb);
-    emit_terminator(emitter, fn_builder, default_bb, merge_targets_branches, match.default_case->payload.case_.body);
+    emit_terminator(emitter, fn_builder, default_bb, merge_targets_branches, get_abstraction_body(match.default_case));
 
     spvb_add_bb(fn_builder, join_bb);
     *bb_builder = join_bb;
@@ -288,9 +284,8 @@ static void emit_match(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_bui
 static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_builder, MergeTargets* merge_targets, Loop loop_instr) {
     Nodes yield_types = loop_instr.yield_types;
 
-    const Node* body = loop_instr.body;
-    assert(is_case(body));
-    Nodes body_params = body->payload.case_.params;
+    const Node* loop_inside = loop_instr.body;
+    Nodes loop_params = get_abstraction_params(loop_inside);
 
     // First we create all the basic blocks we'll need
     SpvId header_id = spvb_fresh_id(emitter->file_builder);
@@ -322,9 +317,9 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     }
 
     // Wire up the phi nodes for the loop contents
-    LARRAY(SpvbPhi*, loop_continue_phis, body_params.count);
-    for (size_t i = 0; i < body_params.count; i++) {
-        SpvId loop_param_type = emit_type(emitter, get_unqualified_type(body_params.nodes[i]->type));
+    LARRAY(SpvbPhi*, loop_continue_phis, loop_params.count);
+    for (size_t i = 0; i < loop_params.count; i++) {
+        SpvId loop_param_type = emit_type(emitter, get_unqualified_type(loop_params.nodes[i]->type));
 
         SpvId continue_phi_id = spvb_fresh_id(emitter->file_builder);
         SpvbPhi* continue_phi = spvb_add_phi(continue_builder, loop_param_type, continue_phi_id);
@@ -337,7 +332,7 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
         SpvId param_initial_value = emit_value(emitter, *bb_builder, loop_instr.initial_args.nodes[i]);
         spvb_add_phi_source(loop_param_phi, get_block_builder_id(*bb_builder), param_initial_value);
         spvb_add_phi_source(loop_param_phi, get_block_builder_id(continue_builder), continue_phi_id);
-        register_result(emitter, body_params.nodes[i], loop_param_id);
+        register_result(emitter, loop_params.nodes[i], loop_param_id);
     }
 
     // The current block goes to the header (it can't be the header itself !)
@@ -355,7 +350,7 @@ static void emit_loop(Emitter* emitter, FnBuilder fn_builder, BBBuilder* bb_buil
     merge_targets_branches.continue_phis = loop_continue_phis;
     merge_targets_branches.break_target = next_id;
     merge_targets_branches.break_phis = loop_break_phis;
-    emit_terminator(emitter, fn_builder, body_builder, merge_targets_branches, body->payload.case_.body);
+    emit_terminator(emitter, fn_builder, body_builder, merge_targets_branches, get_abstraction_body(loop_inside));
 
     // the continue block just jumps back into the header
     spvb_branch(continue_builder, header_id);
@@ -507,7 +502,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
             CFNode* cfnode = read_list(CFNode*, cfg->contents)[i];
             assert(cfnode);
             const Node* bb = cfnode->node;
-            if (is_case(bb))
+            if (is_cfnode_structural_target(cfnode))
                 continue;
             assert(is_basic_block(bb) || bb == node);
             SpvId bb_id = spvb_fresh_id(emitter->file_builder);
@@ -531,9 +526,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
             CFNode* cfnode = cfg->rpo[i];
             if (i == 0)
                 assert(cfnode == cfg->entry);
-            if (is_case(cfnode->node))
-                continue;
-            if (entries_count_list(cfnode->pred_edges) == 1 && read_list(CFEdge, cfnode->pred_edges)[0].type == StructuredTailEdge)
+            if (is_cfnode_structural_target(cfnode))
                 continue;
             emit_basic_block(emitter, fn_builder, cfg, cfnode);
         }

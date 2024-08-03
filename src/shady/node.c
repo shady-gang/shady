@@ -168,7 +168,7 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                 node = node->payload.ref_decl.decl;
                 continue;
             case Block_TAG: {
-                const Node* terminator = node->payload.block.inside->payload.case_.body;
+                const Node* terminator = get_abstraction_body(node->payload.block.inside);
                 while (true) {
                     if (terminator->tag == Let_TAG)
                         terminator = terminator->payload.let.in;
@@ -272,7 +272,7 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
                     return NULL;
                 return get_string_literal(arena, decl->payload.global_variable.init);
             }
-            return NULL;
+            break;
         }
         case StringLiteral_TAG: return node->payload.string_lit.string;
         case Composite_TAG: {
@@ -286,13 +286,14 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
             assert(chars[contents.count - 1] == 0);
             return string(arena, chars);
         }
-        default: return NULL; // error("This is not a string literal and it doesn't look like one either");
+        default: break;
     }
+    return NULL;
 }
 
 bool is_abstraction(const Node* node) {
     NodeTag tag = node->tag;
-    return tag == Function_TAG || tag == BasicBlock_TAG || tag == Case_TAG;
+    return tag == Function_TAG || tag == BasicBlock_TAG;
 }
 
 String get_abstraction_name(const Node* abs) {
@@ -300,7 +301,6 @@ String get_abstraction_name(const Node* abs) {
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.name;
         case BasicBlock_TAG: return abs->payload.basic_block.name;
-        case Case_TAG: return "case";
         default: assert(false);
     }
 }
@@ -310,7 +310,6 @@ String get_abstraction_name_unsafe(const Node* abs) {
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.name;
         case BasicBlock_TAG: return abs->payload.basic_block.name;
-        case Case_TAG: return NULL;
         default: assert(false);
     }
 }
@@ -327,7 +326,6 @@ const Node* get_abstraction_body(const Node* abs) {
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.body;
         case BasicBlock_TAG: return abs->payload.basic_block.body;
-        case Case_TAG: return abs->payload.case_.body;
         default: assert(false);
     }
 }
@@ -338,7 +336,6 @@ void set_abstraction_body(Node* abs, const Node* body) {
     switch (abs->tag) {
         case Function_TAG: abs->payload.fun.body = body; break;
         case BasicBlock_TAG: abs->payload.basic_block.body = body; break;
-        case Case_TAG: abs->payload.case_.body = body; break;
         default: assert(false);
     }
 }
@@ -348,7 +345,6 @@ Nodes get_abstraction_params(const Node* abs) {
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.params;
         case BasicBlock_TAG: return abs->payload.basic_block.params;
-        case Case_TAG: return abs->payload.case_.params;
         default: assert(false);
     }
 }

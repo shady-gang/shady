@@ -266,9 +266,11 @@ Node* constant    (Module*, Nodes annotations, const Type*, const char* name);
 Node* global_var  (Module*, Nodes annotations, const Type*, String, AddressSpace);
 Type* nominal_type(Module*, Nodes annotations, String name);
 
-// basic blocks, lambdas and their helpers
+// basic blocks
 Node* basic_block(IrArena*, Nodes params, const char* name);
-Node* case_(IrArena* a, Nodes params);
+static inline Node* case_(IrArena* a, Nodes params) {
+    return basic_block(a, params, NULL);
+}
 
 /// Used to build a chain of let
 typedef struct BodyBuilder_ BodyBuilder;

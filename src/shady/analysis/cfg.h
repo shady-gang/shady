@@ -7,7 +7,6 @@ typedef struct CFNode_ CFNode;
 
 typedef enum {
     JumpEdge,
-    LetTailEdge,
     StructuredEnterBodyEdge,
     StructuredLeaveBodyEdge,
     /// Join points might leak, and as a consequence, there might be no static edge to the
@@ -98,6 +97,8 @@ CFG* build_cfg(const Node* fn, const Node* entry, LoopTree* lt, bool flipped);
 CFNode* cfg_lookup(CFG* cfg, const Node* abs);
 void compute_rpo(CFG*);
 void compute_domtree(CFG*);
+
+bool is_cfnode_structural_target(CFNode*);
 
 CFNode* least_common_ancestor(CFNode* i, CFNode* j);
 

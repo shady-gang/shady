@@ -84,12 +84,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             Node* true_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_true"));
             join_context.abs = node->payload.if_instr.if_true;
-            true_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, node->payload.if_instr.if_true->payload.case_.body);
+            true_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, get_abstraction_body(node->payload.if_instr.if_true));
 
             Node* flse_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_false"));
             if (has_false_branch) {
                 join_context.abs = node->payload.if_instr.if_false;
-                flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, node->payload.if_instr.if_false->payload.case_.body);
+                flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, get_abstraction_body(node->payload.if_instr.if_false));
             } else {
                 assert(yield_types.count == 0);
                 flse_block->payload.basic_block.body = join(a, (Join) { .join_point = jp, .args = nodes(a, 0, NULL) });
@@ -102,7 +102,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
 
             BodyBuilder* bb = begin_body(a);
-            Node* control_case = case_(a, singleton(jp));
+            Node* control_case = basic_block(a, singleton(jp), NULL);
             set_abstraction_body(control_case, control_body);
             Nodes results = gen_control(bb, yield_types, control_case);
 
@@ -117,10 +117,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
         // TODO: match
         case Loop_TAG: {
             const Node* old_loop_body = node->payload.loop_instr.body;
-            assert(is_case(old_loop_body));
 
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, node->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_param_types(a, old_loop_body->payload.case_.params));
+            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_param_types(a, get_abstraction_params(old_loop_body)));
             param_types = strip_qualifiers(a, param_types);
 
             const Type* break_jp_type = qualified_type(a, (QualifiedType) {
@@ -137,12 +136,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes jps = mk_nodes(a, break_point, continue_point);
             insert_dict(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
-            Nodes new_params = recreate_params(&ctx->rewriter, old_loop_body->payload.case_.params);
+            Nodes new_params = recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_body));
             Node* loop_body = basic_block(a, new_params, unique_name(a, "loop_body"));
-            register_processed_list(&join_context.rewriter, old_loop_body->payload.case_.params, loop_body->payload.basic_block.params);
+            register_processed_list(&join_context.rewriter, get_abstraction_params(old_loop_body), loop_body->payload.basic_block.params);
 
             join_context.abs = old_loop_body;
-            const Node* inner_control_body = rewrite_node(&join_context.rewriter, old_loop_body->payload.case_.body);
+            const Node* inner_control_body = rewrite_node(&join_context.rewriter, get_abstraction_body(old_loop_body));
             Node* inner_control_case = case_(a, singleton(continue_point));
             set_abstraction_body(inner_control_case, inner_control_body);
 

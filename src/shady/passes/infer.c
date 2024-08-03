@@ -291,17 +291,16 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
 
 static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg_type) {
     IrArena* a = ctx->rewriter.dst_arena;
-    assert(is_case(node));
-    assert(inferred_arg_type.count == node->payload.case_.params.count || node->payload.case_.params.count == 0);
+    assert(inferred_arg_type.count == node->payload.basic_block.params.count || node->payload.basic_block.params.count == 0);
 
     Context body_context = *ctx;
     LARRAY(const Node*, nparams, inferred_arg_type.count);
     for (size_t i = 0; i < inferred_arg_type.count; i++) {
-        if (node->payload.case_.params.count == 0) {
+        if (node->payload.basic_block.params.count == 0) {
             // syntax sugar: make up a parameter if there was none
             nparams[i] = param(a, inferred_arg_type.nodes[i], unique_name(a, "_"));
         } else {
-            const Param* old_param = &node->payload.case_.params.nodes[i]->payload.param;
+            const Param* old_param = &node->payload.basic_block.params.nodes[i]->payload.param;
             // for the param type: use the inferred one if none is already provided
             // if one is provided, check the inferred argument type is a subtype of the param type
             const Type* param_type = old_param->type ? infer_type(ctx, old_param->type) : NULL;
@@ -310,12 +309,12 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
                 param_type = inferred_arg_type.nodes[i];
             assert(is_subtype(param_type, inferred_arg_type.nodes[i]));
             nparams[i] = param(a, param_type, old_param->name);
-            register_processed(&body_context.rewriter, node->payload.case_.params.nodes[i], nparams[i]);
+            register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
         }
     }
 
-    Node* new_case = case_(a, nodes(a, inferred_arg_type.count, nparams));
-    set_abstraction_body(new_case, infer(&body_context, node->payload.case_.body, NULL));
+    Node* new_case = basic_block(a, nodes(a, inferred_arg_type.count, nparams), get_abstraction_name_unsafe(node));
+    set_abstraction_body(new_case, infer(&body_context, node->payload.basic_block.body, NULL));
     return new_case;
 }
 
@@ -518,7 +517,7 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     const Node* jp = param(a, jpt, ojp->payload.param.name);
     register_processed(&joinable_ctx.rewriter, ojp, jp);
 
-    Node* new_case = case_(a, singleton(jp));
+    Node* new_case = basic_block(a, singleton(jp), NULL);
     set_abstraction_body(new_case, infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 
     return control(a, (Control) {
@@ -535,7 +534,7 @@ static const Node* infer_block(Context* ctx, const Node* node, const Nodes* expe
     Context block_inside_ctx = *ctx;
     Nodes nyield_types = infer_nodes(ctx, node->payload.block.yield_types);
     block_inside_ctx.merge_types = &nyield_types;
-    Node* new_case = case_(a, empty(a));
+    Node* new_case = basic_block(a, empty(a), NULL);
     set_abstraction_body(new_case, infer(&block_inside_ctx, get_abstraction_body(node->payload.block.inside), NULL));
 
     return block(a, (Block) {
@@ -738,10 +737,6 @@ static const Node* process(Context* src_ctx, const Node* node) {
     } else if (is_annotation(node)) {
         assert(expected_type == NULL);
         return infer_annotation(&ctx, node);
-    } else if (is_case(node)) {
-        assert(false);
-        //assert(expected_types != NULL);
-        //return infer_case(&ctx, node, expected_types);
     } else if (is_basic_block(node)) {
         return _infer_basic_block(&ctx, node);
     }

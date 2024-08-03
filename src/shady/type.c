@@ -991,8 +991,7 @@ const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
 const Type* check_type_control(IrArena* arena, Control control) {
     ensure_types_are_data_types(&control.yield_types);
     // TODO check it then !
-    assert(is_case(control.inside));
-    const Node* join_point = first(control.inside->payload.case_.params);
+    const Node* join_point = first(get_abstraction_params(control.inside));
 
     const Type* join_point_type = join_point->type;
     deconstruct_qualified_type(&join_point_type);
@@ -1011,8 +1010,7 @@ const Type* check_type_control(IrArena* arena, Control control) {
 
 const Type* check_type_block(IrArena* arena, Block payload) {
     ensure_types_are_value_types(&payload.yield_types);
-    assert(is_case(payload.inside));
-    assert(payload.inside->payload.case_.params.count == 0);
+    assert(get_abstraction_params(payload.inside).count == 0);
 
     /*const Node* lam = payload.inside;
     const Node* yield_instr = NULL;
@@ -1286,10 +1284,6 @@ const Type* check_type_fun(IrArena* arena, Function fn) {
 
 const Type* check_type_basic_block(IrArena* arena, BasicBlock bb) {
     return bb_type(arena, (BBType) { .param_types = get_param_types(arena, (&bb)->params) });
-}
-
-const Type* check_type_case_(IrArena* arena, Case lam) {
-    return lam_type(arena, (LamType) { .param_types = get_param_types(arena, (&lam)->params) });
 }
 
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
