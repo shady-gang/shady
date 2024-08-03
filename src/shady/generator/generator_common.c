@@ -40,16 +40,7 @@ void generate_node_ctor(Growy* g, json_object* nodes, bool definition) {
             growy_append_formatted(g, "\t\t.tag = %s_TAG,\n", name);
             if (ops)
                 growy_append_formatted(g, "\t\t.payload.%s = payload,\n", snake_name);
-            json_object* t = json_object_object_get(node, "type");
-            if (!t || json_object_get_boolean(t)) {
-                growy_append_formatted(g, "\t\t.type = arena->config.check_types ? ");
-                if (ops)
-                    growy_append_formatted(g, "check_type_%s(arena, payload)", snake_name);
-                else
-                    growy_append_formatted(g, "check_type_%s(arena)", snake_name);
-                growy_append_formatted(g, ": NULL,\n");
-            } else
-                growy_append_formatted(g, "\t\t.type = NULL,\n");
+            growy_append_formatted(g, "\t\t.type = NULL,\n");
             growy_append_formatted(g, "\t};\n");
             growy_append_formatted(g, "\treturn create_node_helper(arena, node, NULL);\n");
             growy_append_formatted(g, "}\n");

@@ -1318,4 +1318,6 @@ const Type* check_type_constant(IrArena* arena, Constant cnst) {
     return cnst.type_hint;
 }
 
+#include "type_generated.c"
+
 #pragma GCC diagnostic pop

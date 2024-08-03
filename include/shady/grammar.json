@@ -455,6 +455,7 @@
       "class": "instruction",
       "constructor": "custom",
       "front-end-only": true,
+      "type": false,
       "ops": [
         { "name": "instruction", "class": "instruction" },
         { "name": "mutable", "type": "bool" },

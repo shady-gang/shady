@@ -15,8 +15,12 @@ bool compare_nodes(Nodes* a, Nodes* b);
 
 static void pre_construction_validation(IrArena* arena, Node* node);
 
+const Type* check_type_generated(IrArena* a, const Node* node);
+
 static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     pre_construction_validation(arena, &node);
+    if (arena->config.check_types)
+        node.type = check_type_generated(arena, &node);
 
     if (pfresh)
         *pfresh = false;
@@ -69,7 +73,6 @@ const Node* let(IrArena* arena, const Node* instruction, const Node* in) {
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_let(arena, payload) : NULL,
         .tag = Let_TAG,
         .payload.let = payload
     };
@@ -95,7 +98,6 @@ const Node* compound_instruction(IrArena* arena, Nodes instructions, Nodes resul
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_compound_instruction(arena, payload) : NULL,
         .tag = CompoundInstruction_TAG,
         .payload.compound_instruction = payload
     };
@@ -112,7 +114,6 @@ Node* param(IrArena* arena, const Type* type, const char* name) {
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_param(arena, param) : NULL,
         .tag = Param_TAG,
         .payload.param = param
     };
@@ -181,7 +182,6 @@ Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, N
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_fun(arena, payload) : NULL,
         .tag = Function_TAG,
         .payload.fun = payload
     };
@@ -210,7 +210,6 @@ Node* basic_block(IrArena* arena, Nodes params, const char* name) {
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_basic_block(arena, payload) : NULL,
         .tag = BasicBlock_TAG,
         .payload.basic_block = payload
     };
@@ -240,7 +239,6 @@ Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_constant(arena, cnst) : NULL,
         .tag = Constant_TAG,
         .payload.constant = cnst
     };
@@ -272,7 +270,6 @@ Node* global_var(Module* mod, Nodes annotations, const Type* type, const char* n
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
         .arena = arena,
-        .type = arena->config.check_types ? check_type_global_variable(arena, gvar) : NULL,
         .tag = GlobalVariable_TAG,
         .payload.global_variable = gvar
     };

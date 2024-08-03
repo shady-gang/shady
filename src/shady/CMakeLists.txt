@@ -8,7 +8,7 @@ add_subdirectory(api)
 
 get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
 
-add_generated_file(FILE_NAME type_generated.h         TARGET_NAME type_generated         SOURCES generator_type.c)
+add_generated_file(FILE_NAME type_generated.c         TARGET_NAME type_generated         SOURCES generator_type.c)
 add_generated_file(FILE_NAME node_generated.c         TARGET_NAME node_generated         SOURCES generator_node.c)
 add_generated_file(FILE_NAME primops_generated.c      TARGET_NAME primops_generated      SOURCES generator_primops.c)
 add_generated_file(FILE_NAME constructors_generated.c TARGET_NAME constructors_generated SOURCES generator_constructors.c)
