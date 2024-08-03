@@ -281,6 +281,8 @@ BodyBuilder* begin_body(IrArena*);
 Nodes bind_instruction(BodyBuilder*, const Node* instruction);
 Nodes bind_instruction_named(BodyBuilder*, const Node* instruction, String const output_names[]);
 
+Nodes deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size_t outputs_count);
+
 Nodes gen_if(BodyBuilder*, Nodes, const Node*, const Node*, Node*);
 Nodes gen_match(BodyBuilder*, Nodes, const Node*, Nodes, Nodes, Node*);
 Nodes gen_loop(BodyBuilder*, Nodes, Nodes, Node*);

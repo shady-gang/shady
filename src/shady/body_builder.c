@@ -31,11 +31,23 @@ BodyBuilder* begin_body(IrArena* a) {
     return bb;
 }
 
+Nodes deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size_t outputs_count) {
+    if (outputs_count > 1) {
+        LARRAY(const Node*, extracted, outputs_count);
+        for (size_t i = 0; i < outputs_count; i++)
+            extracted[i] = gen_extract_single(bb, value, int32_literal(bb->arena, i));
+        return nodes(bb->arena, outputs_count, extracted);
+    } else if (outputs_count == 1)
+        return singleton(value);
+    else
+        return empty(bb->arena);
+}
+
 static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
     if (bb->arena->config.check_types) {
         assert(is_instruction(instruction) || is_value(instruction));
     }
-    if (is_instruction(instruction)) {
+    if (is_instruction(instruction) || !bb->arena->config.check_types) {
         StackEntry entry = {
             .vars = empty(bb->arena),
             .structured.payload.let = {
@@ -44,15 +56,7 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outp
         };
         append_list(StackEntry, bb->stack, entry);
     }
-    if (outputs_count > 1) {
-        LARRAY(const Node*, extracted, outputs_count);
-        for (size_t i = 0; i < outputs_count; i++)
-            extracted[i] = gen_extract_single(bb, instruction, int32_literal(bb->arena, i));
-        return nodes(bb->arena, outputs_count, extracted);
-    } else if (outputs_count == 1)
-        return singleton(instruction);
-    else
-        return empty(bb->arena);
+    return deconstruct_composite(bb->arena, bb, instruction, outputs_count);
 }
 
 Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {

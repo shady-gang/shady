@@ -87,6 +87,10 @@ static const Node* accept_expr(ctxparams, BodyBuilder*, int);
 static Nodes expect_operands(ctxparams, BodyBuilder*);
 static const Node* expect_operand(ctxparams, BodyBuilder*);
 
+static const Node* bind_instruction_single(BodyBuilder* bb, const Node* instr) {
+    return first(bind_instruction_outputs_count(bb, instr, 1));
+}
+
 static const Type* accept_numerical_type(ctxparams) {
     if (accept_token(ctx, i8_tok)) {
         return int8_type(arena);
@@ -154,6 +158,22 @@ static const Node* accept_numerical_literal(ctxparams) {
     return n;
 }
 
+static Nodes accept_type_arguments(ctxparams) {
+    Nodes ty_args = empty(arena);
+    if (accept_token(ctx, lsbracket_tok)) {
+        while (true) {
+            const Type* t = accept_unqualified_type(ctx);
+            expect(t);
+            ty_args = append_nodes(arena, ty_args, t);
+            if (accept_token(ctx, comma_tok))
+                continue;
+            if (accept_token(ctx, rsbracket_tok))
+                break;
+        }
+    }
+    return ty_args;
+}
+
 static const Node* accept_value(ctxparams, BodyBuilder* bb) {
     Token tok = curr_token(tokenizer);
     size_t size = tok.end - tok.start;
@@ -166,6 +186,37 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
         case identifier_tok: {
             const char* id = string_sized(arena, (int) size, &contents[tok.start]);
             next_token(tokenizer);
+
+            Op op = PRIMOPS_COUNT;
+            for (size_t i = 0; i < PRIMOPS_COUNT; i++) {
+                if (strcmp(id, get_primop_name(i)) == 0) {
+                    op = i;
+                    break;
+                }
+            }
+
+            if (op != PRIMOPS_COUNT) {
+                if (!bb)
+                    error("can't have primops here");
+                return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
+                    .op = op,
+                    .type_arguments = accept_type_arguments(ctx),
+                    .operands = expect_operands(ctx, bb)
+                }));
+            } else if (strcmp(id, "alloca") == 0) {
+                return bind_instruction_single(bb, stack_alloc(arena, (StackAlloc) {
+                    .type = first(accept_type_arguments(ctx))
+                }));
+            } else if (strcmp(id, "debug_printf") == 0) {
+                Nodes ops = expect_operands(ctx, bb);
+                return bind_instruction_single(bb, debug_printf(arena, (DebugPrintf) {
+                    .string = get_string_literal(arena, first(ops)),
+                    .args = nodes(arena, ops.count - 1, &ops.nodes[1])
+                }));
+            }
+
+            if (bb)
+                return bind_instruction_single(bb, unbound(arena, (Unbound) { .name = id }));
             return unbound(arena, (Unbound) { .name = id });
         }
         case hex_lit_tok:
@@ -428,6 +479,7 @@ static Nodes accept_types(ctxparams, TokenTag separator, Qualified qualified) {
 }
 
 static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
+    assert(bb);
     if (accept_token(ctx, minus_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr);
@@ -437,38 +489,39 @@ static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
                 .value = -get_int_literal_value(*resolve_to_int_literal(expr), true)
             });
         } else {
-            return prim_op(arena, (PrimOp) {
+            return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
                 .op = neg_op,
                 .operands = nodes(arena, 1, (const Node* []) {expr})
-            });
+            }));
         }
     } else if (accept_token(ctx, unary_excl_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr);
-        return prim_op(arena, (PrimOp) {
+        return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
             .op = not_op,
             .operands = singleton(expr),
-        });
+        }));
     } else if (accept_token(ctx, star_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr);
-        return prim_op(arena, (PrimOp) {
+        return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
             .op = deref_op,
             .operands = singleton(expr),
-        });
+        }));
     } else if (accept_token(ctx, infix_and_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr);
-        return prim_op(arena, (PrimOp) {
+        return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
             .op = addrof_op,
             .operands = singleton(expr),
-        });
+        }));
     }
 
     return accept_value(ctx, bb);
 }
 
 static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence) {
+    assert(bb);
     const Node* expr = accept_primary_expr(ctx, bb);
     while (expr) {
         InfixOperators infix;
@@ -481,78 +534,26 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
             expect(rhs);
             Op primop_op;
             if (is_primop_op(infix, &primop_op)) {
-                expr = prim_op(arena, (PrimOp) {
+                expr = bind_instruction_single(bb, prim_op(arena, (PrimOp) {
                     .op = primop_op,
                     .operands = nodes(arena, 2, (const Node* []) {expr, rhs})
-                });
+                }));
             } else switch (infix) {
                 default: error("unknown infix operator")
             }
             continue;
         }
 
-        Nodes ty_args = nodes(arena, 0, NULL);
-        bool parse_ty_args = false;
-        if (accept_token(ctx, lsbracket_tok)) {
-            parse_ty_args = true;
-            while (true) {
-                const Type* t = accept_unqualified_type(ctx);
-                expect(t);
-                ty_args = append_nodes(arena, ty_args, t);
-                if (accept_token(ctx, comma_tok))
-                    continue;
-                if (accept_token(ctx, rsbracket_tok))
-                    break;
-            }
-        }
         switch (curr_token(tokenizer).tag) {
             case lpar_tok: {
                 Nodes ops = expect_operands(ctx, bb);
-
-                Op op = PRIMOPS_COUNT;
-                String callee_name = NULL;
-                if (expr->tag == Unbound_TAG) {
-                    callee_name = expr->payload.unbound.name;
-                    for (size_t i = 0; i < PRIMOPS_COUNT; i++) {
-                        if (strcmp(callee_name, get_primop_name(i)) == 0) {
-                            op = i;
-                            break;
-                        }
-                    }
-                }
-
-                if (op != PRIMOPS_COUNT) {
-                    expr = prim_op(arena, (PrimOp) {
-                        .op = op,
-                        .type_arguments = ty_args,
-                        .operands = ops
-                    });
-                    continue;
-                }
-
-                if (strcmp(callee_name, "alloca") == 0) {
-                    expr = stack_alloc(arena, (StackAlloc) {
-                        .type = first(ty_args)
-                    });
-                    continue;
-                } else if (strcmp(callee_name, "debug_printf") == 0) {
-                    expr = debug_printf(arena, (DebugPrintf) {
-                        .string = get_string_literal(arena, first(ops)),
-                        .args = nodes(arena, ops.count - 1, &ops.nodes[1])
-                    });
-                    continue;
-                }
-
-                assert(ty_args.count == 0 && "Function calls do not support type arguments");
-                expr = call(arena, (Call) {
+                expr = bind_instruction_single(bb, call(arena, (Call) {
                     .callee = expr,
                     .args = ops
-                });
+                }));
                 continue;
             }
             default:
-                if (parse_ty_args)
-                    expect(false && "expected function call arguments");
                 break;
         }
 
@@ -721,7 +722,7 @@ static bool accept_statement(ctxparams, BodyBuilder* bb) {
     } else {
         const Node* instr = accept_instruction(ctx, bb);
         if (!instr) return false;
-        bind_instruction_outputs_count(bb, instr, 0);
+        //bind_instruction_outputs_count(bb, instr, 0);
     }
     return true;
 }
@@ -731,8 +732,8 @@ static const Node* expect_jump(ctxparams, BodyBuilder* bb) {
     expect(target);
     Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : nodes(arena, 0, NULL);
     return jump(arena, (Jump) {
-            .target = unbound(arena, (Unbound) { .name = target }),
-            .args = args
+        .target = unbound(arena, (Unbound) { .name = target }),
+        .args = args
     });
 }
 

@@ -121,7 +121,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, BodyBuilder* bb, const
     const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.bind_identifiers.instruction);
 
     Strings names = node->payload.bind_identifiers.names;
-    Nodes results = bind_instruction_outputs_count(bb, ninstruction, names.count);
+    Nodes results = deconstruct_composite(a, bb, ninstruction, names.count);
     for (size_t i = 0; i < names.count; i++) {
         String name = names.strings[i];
         if (node->payload.bind_identifiers.mutable) {

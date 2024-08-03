@@ -8,13 +8,8 @@
 
 #include <assert.h>
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 typedef struct Context_ {
     Rewriter rewriter;
-    BodyBuilder* bb;
-    struct Dict* bound;
 } Context;
 
 static const Node* process_node(Context* ctx, const Node* node);
@@ -22,15 +17,6 @@ static const Node* process_node(Context* ctx, const Node* node);
 static const Node* force_to_be_value(Context* ctx, const Node* node) {
     if (node == NULL) return NULL;
     IrArena* a = ctx->rewriter.dst_arena;
-
-    if (is_instruction(node)) {
-        const Node** found = find_value_dict(const Node*, const Node*, ctx->bound, node);
-        if (found)
-            return *found;
-        const Node* let_bound = process_node(ctx, node);
-        insert_dict_and_get_result(const Node*, const Node*, ctx->bound, node, let_bound);
-        return first(bind_instruction_outputs_count(ctx->bb, let_bound, 1));
-    }
 
     switch (node->tag) {
         // All decls map to refdecl/fnaddr
@@ -112,48 +98,18 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     // add a builder to each abstraction...
     switch (node->tag) {
-        case Function_TAG: {
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-            BodyBuilder* bb = begin_body(a);
-            Context ctx2 = *ctx;
-            ctx2.bb = bb;
-            ctx2.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
-            ctx2.bound = new_dict(const Node*, const Node*, (HashFn) hash_node, (CmpFn) compare_node);
-            new->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
-            destroy_dict(ctx2.bound);
-            return new;
-        }
-        case BasicBlock_TAG: {
-            Node* new = basic_block(a, recreate_params(&ctx->rewriter, node->payload.basic_block.params), node->payload.basic_block.name);
-            register_processed(&ctx->rewriter, node, new);
-            register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new->payload.basic_block.params);
-            BodyBuilder* bb = begin_body(a);
-            Context ctx2 = *ctx;
-            ctx2.bb = bb;
-            ctx2.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
-            set_abstraction_body(new, finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.basic_block.body)));
-            return new;
-        }
-        case Let_TAG: {
-            const Node* oinstr = get_let_instruction(node);
-            //const Node* found = search_processed(r, oinstr);
-            const Node** found = find_value_dict(const Node*, const Node*, ctx->bound, node);
-            if (found)
-                return rewrite_node(r, node->payload.let.in);
-            const Node* ninstr = rewrite_op(r, NcInstruction, "instruction", oinstr);
-            insert_dict_and_get_result(const Node*, const Node*, ctx->bound, oinstr, ninstr);
-            register_processed(r, oinstr, ninstr);
-            bind_instruction_outputs_count(ctx->bb, ninstr, 0);
-            return rewrite_node(r, node->payload.let.in);
-
-            //const Node* new = recreate_node_identity(r, node);
-            //register_processed(r, node, new);
-            //return new;
-        }
+        // case Let_TAG: {
+        //     const Node* ninstr = rewrite_op(r, NcInstruction, "instruction", get_let_instruction(node));
+        //     register_processed(r, get_let_instruction(node), ninstr);
+        //     return let(a, ninstr, rewrite_op(r, NcTerminator, "in", node->payload.let.in));
+        // }
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    const Node* new = recreate_node_identity(&ctx->rewriter, node);
+    if (is_instruction(new))
+        register_processed(r, node, new);
+    return new;
 }
 
 Module* normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -163,8 +119,6 @@ Module* normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_op_rewriter(src, dst, (RewriteOpFn) process_op),
-        .bb = NULL,
-        .bound = NULL,
     };
 
     ctx.rewriter.config.search_map = false;
