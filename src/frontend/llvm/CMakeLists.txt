@@ -4,7 +4,7 @@ else ()
     option (SHADY_ENABLE_LLVM_FRONTEND "Uses LLVM-C to parse and then convert LLVM IR into Shady IR" ON)
 endif ()
 
-if (SHADY_ENABLE_LLVM_FRONTEND)
+if (LLVM_FOUND AND SHADY_ENABLE_LLVM_FRONTEND)
     add_generated_file(FILE_NAME l2s_generated.c SOURCES generator_l2s.c)
 
     add_library(shady_fe_llvm STATIC l2s.c l2s_type.c l2s_value.c l2s_instr.c l2s_meta.c l2s_postprocess.c l2s_annotations.c ${CMAKE_CURRENT_BINARY_DIR}/l2s_generated.c)
