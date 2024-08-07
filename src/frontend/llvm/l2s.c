@@ -45,7 +45,7 @@ int vcc_get_linked_major_llvm_version() {
 #endif
 
 static const Node* write_bb_tail(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
-    BodyBuilder* b = begin_body(fn_or_bb->arena);
+    BodyBuilder* b = begin_body_with_mem(fn_or_bb->arena, get_abstraction_mem(fn_or_bb));
     LLVMValueRef instr;
     for (instr = first_instr; instr; instr = LLVMGetNextInstruction(instr)) {
         bool last = instr == LLVMGetLastInstruction(bb);
@@ -225,14 +225,14 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
 
         if (UNTYPED_POINTERS) {
             Node* untyped_wrapper = constant(p->dst, singleton(annotation(a, (Annotation) { .name = "Inline" })), ptr_t, format_string_interned(a, "%s_untyped", name));
-            untyped_wrapper->payload.constant.instruction = ref_decl_helper(a, decl);
-            untyped_wrapper->payload.constant.instruction = prim_op_helper(a, reinterpret_op, singleton(ptr_t), singleton(ref_decl_helper(a, decl)));
+            untyped_wrapper->payload.constant.value = ref_decl_helper(a, decl);
+            untyped_wrapper->payload.constant.value = prim_op_helper(a, reinterpret_op, singleton(ptr_t), singleton(ref_decl_helper(a, decl)));
             decl = untyped_wrapper;
         }
     } else {
         const Type* type = convert_type(p, LLVMTypeOf(global));
         decl = constant(p->dst, empty(a), type, name);
-        decl->payload.constant.instruction = convert_value(p, global);
+        decl->payload.constant.value = convert_value(p, global);
     }
 
     assert(decl && is_declaration(decl));

@@ -56,7 +56,7 @@ LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
     return v;
 }
 
-static const Node* convert_jump_lazy(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef dst) {
+static const Node* convert_jump_lazy(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef dst, const Node* mem) {
     IrArena* a = fn_or_bb->arena;
     Node* wrapper_bb = basic_block(a, empty(a), NULL);
     JumpTodo todo = {
@@ -67,7 +67,7 @@ static const Node* convert_jump_lazy(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_
     append_list(JumpTodo, fn_ctx->jumps_todo, todo);
     const Node* dst2 = convert_basic_block(p, fn_ctx, dst);
     insert_dict(Node*, const Node*, p->wrappers_map, wrapper_bb, dst2);
-    return jump_helper(a, wrapper_bb, empty(a));
+    return jump_helper(a, wrapper_bb, empty(a), mem);
 }
 
 void convert_jump_finish(Parser* p, FnParseCtx* fn_ctx, JumpTodo todo) {
@@ -88,7 +88,7 @@ void convert_jump_finish(Parser* p, FnParseCtx* fn_ctx, JumpTodo todo) {
         assert(false && "failed to find the appropriate source");
         next: continue;
     }
-    todo.wrapper->payload.basic_block.body = jump_helper(a, dst_bb, nodes(a, params_count, params));
+    todo.wrapper->payload.basic_block.body = jump_helper(a, dst_bb, nodes(a, params_count, params), get_abstraction_mem(todo.wrapper));
 }
 
 static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* element_type) {
@@ -146,7 +146,8 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
     switch (opcode) {
         case LLVMRet: return (EmittedInstr) {
                 .terminator = fn_ret(a, (Return) {
-                    .args = num_ops == 0 ? empty(a) : convert_operands(p, num_ops, instr)
+                    .args = num_ops == 0 ? empty(a) : convert_operands(p, num_ops, instr),
+                    .mem = bb_mem(b),
                 })
             };
         case LLVMBr: {
@@ -160,33 +161,35 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 return (EmittedInstr) {
                     .terminator = branch(a, (Branch) {
                         .condition = condition,
-                        .true_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0]),
-                        .false_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[1]),
+                        .true_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0], bb_mem(b)),
+                        .false_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[1], bb_mem(b)),
+                        .mem = bb_mem(b),
                     })
                 };
             } else {
                 assert(n_targets == 1);
                 return (EmittedInstr) {
-                    .terminator = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0])
+                    .terminator = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0], bb_mem(b))
                 };
             }
         }
         case LLVMSwitch: {
             const Node* inspectee = convert_value(p, LLVMGetOperand(instr, 0));
-            const Node* default_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, 1));
+            const Node* default_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, 1), bb_mem(b));
             int n_targets = LLVMGetNumOperands(instr) / 2 - 1;
             LARRAY(const Node*, targets, n_targets);
             LARRAY(const Node*, literals, n_targets);
             for (size_t i = 0; i < n_targets; i++) {
                 literals[i] = convert_value(p, LLVMGetOperand(instr, i * 2 + 2));
-                targets[i] = convert_jump_lazy(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, i * 2 + 3));
+                targets[i] = convert_jump_lazy(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, i * 2 + 3), bb_mem(b));
             }
             return (EmittedInstr) {
                 .terminator = br_switch(a, (Switch) {
-                        .switch_value = inspectee,
-                        .default_jump = default_jump,
-                        .case_values = nodes(a, n_targets, literals),
-                        .case_jumps = nodes(a, n_targets, targets)
+                    .switch_value = inspectee,
+                    .default_jump = default_jump,
+                    .case_values = nodes(a, n_targets, literals),
+                    .case_jumps = nodes(a, n_targets, targets),
+                    .mem = bb_mem(b),
                 })
             };
         }
@@ -195,7 +198,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
         case LLVMInvoke:
             goto unimplemented;
         case LLVMUnreachable: return (EmittedInstr) {
-                .terminator = unreachable(a)
+                .terminator = unreachable(a, (Unreachable) { .mem = bb_mem(b) })
             };
         case LLVMCallBr:
             goto unimplemented;

@@ -83,9 +83,9 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             Node* decl = constant(p->dst, annotations, t, name);
             r = ref_decl_helper(a, decl);
             insert_dict(LLVMTypeRef, const Type*, p->map, v, r);
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_block_pure(a);
             EmittedInstr emitted = convert_instruction(p, NULL, NULL, bb, v);
-            decl->payload.constant.value = bind_last_instruction_and_wrap_in_compound_instruction_explicit_return_types(bb, emitted.instruction, singleton(t));
+            decl->payload.constant.value = bind_last_instruction_and_wrap_in_block(bb, emitted.instruction);
             return r;
         }
         case LLVMConstantDataArrayValueKind: {

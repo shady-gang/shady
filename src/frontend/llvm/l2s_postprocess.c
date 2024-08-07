@@ -32,21 +32,31 @@ static void initialize_controls(Context* ctx, Controls* controls, const Node* fn
     insert_dict(const Node*, Controls*, ctx->controls, fn_or_bb, controls);
 }
 
-static const Node* wrap_in_controls(Context* ctx, Controls* controls, const Node* body) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    if (!body)
-        return NULL;
+static void wrap_in_controls(Context* ctx, Controls* controls, Node* nabs, const Node* oabs) {
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
+    const Node* obody = get_abstraction_body(oabs);
+    if (!obody)
+        return;
+    // const Node* mem = get_abstraction_mem(nabs);
+    Node* c = case_(a, empty(a));
+    register_processed(r, get_abstraction_mem(oabs), get_abstraction_mem(c));
+    set_abstraction_body(c, rewrite_node(r, obody));
     for (size_t i = 0; i < controls->destinations.count; i++) {
         const Node* token = controls->tokens.nodes[i];
         const Node* dst = controls->destinations.nodes[i];
         Nodes o_dst_params = get_abstraction_params(dst);
         Node* control_case = case_(a, singleton(token));
-        set_abstraction_body(control_case, body);
-        BodyBuilder* bb = begin_body(a);
+        set_abstraction_body(control_case, jump_helper(a, c, empty(a), get_abstraction_mem(control_case)));
+
+        Node* c2 = case_(a, empty(a));
+        BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(c2));
         Nodes results = gen_control(bb, get_param_types(a, o_dst_params), control_case);
-        body = finish_body(bb, jump_helper(a, rewrite_node(&ctx->rewriter, dst), results));
+        set_abstraction_body(c2, finish_body(bb, jump_helper(a, rewrite_node(&ctx->rewriter, dst), results, bb_mem(bb))));
+        c = c2;
     }
-    return body;
+    const Node* body = jump_helper(a, c, empty(a), get_abstraction_mem(nabs));
+    return set_abstraction_body(nabs, body);
 }
 
 KeyHash hash_node(Node**);
@@ -85,26 +95,12 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                 return param(a, node->payload.param.type ? rewrite_node(&ctx->rewriter, node->payload.param.type) : NULL, node->payload.param.name);
             return param(a, qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.param.type), false), node->payload.param.name);
         }
-        case Block_TAG: {
-            Nodes yield_types = rewrite_nodes(r, node->payload.block.yield_types);
-            const Node* ninside = rewrite_node(r, node->payload.block.inside);
-            const Node* term = get_abstraction_body(ninside);
-            while (term->tag == Let_TAG) {
-                term = term->payload.let.in;
-            }
-            assert(term->tag == BlockYield_TAG);
-            yield_types = get_values_types(a, term->payload.block_yield.args);
-            return block(a, (Block) {
-                .yield_types = yield_types,
-                .inside = ninside,
-            });
-        }
         case Constant_TAG: {
             Node* new = (Node*) recreate_node_identity(r, node);
-            BodyBuilder* bb = begin_body(a);
-            const Node* value = first(bind_instruction(bb, new->payload.constant.instruction));
+            BodyBuilder* bb = begin_block_pure(a);
+            const Node* value = first(bind_instruction(bb, new->payload.constant.value));
             value = first(bind_instruction(bb, prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(value))));
-            new->payload.constant.instruction = yield_values_and_wrap_in_compound_instruction(bb, singleton(value));
+            new->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, singleton(value));
             return new;
         }
         case PrimOp_TAG: {
@@ -149,11 +145,12 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             Node* decl = function(ctx->rewriter.dst_module, new_params, get_abstraction_name(node), new_annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             register_processed(&ctx->rewriter, node, decl);
             if (primop_intrinsic != PRIMOPS_COUNT) {
-                decl->payload.fun.body = fn_ret(a, (Return) {
-                        .args = singleton(prim_op_helper(a, primop_intrinsic, empty(a), get_abstraction_params(decl)))
-                });
+                set_abstraction_body(decl, fn_ret(a, (Return) {
+                        .args = singleton(prim_op_helper(a, primop_intrinsic, empty(a), get_abstraction_params(decl))),
+                        .mem = get_abstraction_mem(decl),
+                }));
             } else
-                decl->payload.fun.body = rewrite_node(&fn_ctx.rewriter, node->payload.fun.body);
+                wrap_in_controls(ctx, &controls, decl, node);
             destroy_cfg(fn_ctx.cfg);
             return decl;
         }
@@ -162,7 +159,11 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             bb_ctx.old_fn_or_bb = node;
             Controls controls;
             initialize_controls(ctx, &controls, node);
-            Node* new_bb = (Node*) recreate_node_identity(&bb_ctx.rewriter, node);
+            Nodes nparams = recreate_params(&ctx->rewriter, get_abstraction_params(node));
+            register_processed_list(r, get_abstraction_params(node), nparams);
+            Node* new_bb = (Node*) basic_block(a, nparams, get_abstraction_name_unsafe(node));
+            register_processed(r, node, new_bb);
+            wrap_in_controls(ctx, &controls, new_bb, node);
             // new_bb->payload.basic_block.body = wrap_in_controls(ctx, &controls, new_bb->payload.basic_block.body);
             return new_bb;
         }
@@ -233,9 +234,10 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                                 Node* wrapper = basic_block(a, nparams, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
                                 wrapper->payload.basic_block.body = join(a, (Join) {
                                     .args = nparams,
-                                    .join_point = join_token
+                                    .join_point = join_token,
+                                    .mem = get_abstraction_mem(wrapper),
                                 });
-                                return jump_helper(a, wrapper, rewrite_nodes(&ctx->rewriter, node->payload.jump.args));
+                                return jump_helper(a, wrapper, rewrite_nodes(&ctx->rewriter, node->payload.jump.args), rewrite_node(r, node->payload.jump.mem));
                             } else {
                                 assert(false);
                             }
@@ -274,7 +276,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                 Node* c = constant(ctx->rewriter.dst_module, singleton(annotation(a, (Annotation) {
                     .name = "Inline"
                 })), pt, format_string_interned(a, "%s_proxy", get_declaration_name(decl)));
-                c->payload.constant.instruction = prim_op_helper(a, convert_op, singleton(pt), singleton(
+                c->payload.constant.value = prim_op_helper(a, convert_op, singleton(pt), singleton(
                         ref_decl_helper(a, decl)));
                 result = c;
             }
@@ -288,12 +290,12 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
     }
 
     // This is required so we don't wrap jumps that are part of branches!
-    if (ctx->old_fn_or_bb && op_class == NcTerminator && node->tag != Let_TAG) {
-        Controls** found = find_value_dict(const Node, Controls*, ctx->controls, ctx->old_fn_or_bb);
-        assert(found);
-        Controls* controls = *found;
-        return wrap_in_controls(ctx, controls, recreate_node_identity(&ctx->rewriter, node));
-    }
+    // if (ctx->old_fn_or_bb && op_class == NcTerminator) {
+    //     Controls** found = find_value_dict(const Node, Controls*, ctx->controls, ctx->old_fn_or_bb);
+    //     assert(found);
+    //     Controls* controls = *found;
+    //     return wrap_in_controls(ctx, controls, recreate_node_identity(&ctx->rewriter, node));
+    // }
 
     return recreate_node_identity(&ctx->rewriter, node);
 }
