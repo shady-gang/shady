@@ -22,13 +22,31 @@ typedef struct {
     Nodes vars;
 } StackEntry;
 
-BodyBuilder* begin_body(IrArena* a) {
+BodyBuilder* begin_body_with_mem(IrArena* a, const Node* mem) {
     BodyBuilder* bb = malloc(sizeof(BodyBuilder));
     *bb = (BodyBuilder) {
         .arena = a,
         .stack = new_list(StackEntry),
+        .mem0 = mem,
+        .mem = mem,
     };
     return bb;
+}
+
+BodyBuilder* begin_block_with_side_effects(IrArena* a) {
+    Node* block = basic_block(a, empty(a), NULL);
+    BodyBuilder* builder = begin_body_with_mem(a, get_abstraction_mem(block));
+    builder->bb = block;
+    return builder;
+}
+
+BodyBuilder* begin_block_pure(IrArena* a) {
+    BodyBuilder* builder = begin_body_with_mem(a, NULL);
+    return builder;
+}
+
+const Node* bb_mem(BodyBuilder* bb) {
+    return bb->mem;
 }
 
 Nodes deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size_t outputs_count) {
@@ -47,15 +65,8 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outp
     if (bb->arena->config.check_types) {
         assert(is_instruction(instruction) || is_value(instruction));
     }
-    if (is_instruction(instruction) || !bb->arena->config.check_types) {
-        StackEntry entry = {
-            .vars = empty(bb->arena),
-            .structured.payload.let = {
-                .instruction = instruction,
-            }
-        };
-        append_list(StackEntry, bb->stack, entry);
-    }
+    if (is_mem(instruction))
+        bb->mem = instruction;
     return deconstruct_composite(bb->arena, bb, instruction, outputs_count);
 }
 
@@ -70,15 +81,15 @@ Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String co
     return bind_internal(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type).count);
 }
 
-const Node* bind_identifiers(IrArena* arena, const Node* instruction, bool mut, Strings names, Nodes types);
+const Node* bind_identifiers(IrArena* arena, const Node* instruction, const Node* mem, bool mut, Strings names, Nodes types);
 
 Nodes parser_create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, Strings output_names) {
-    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, true, output_names, provided_types);
+    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, bb->mem, true, output_names, provided_types);
     return bind_internal(bb, let_mut_instr, 0);
 }
 
 Nodes parser_create_immutable_variables(BodyBuilder* bb, const Node* instruction, Strings output_names) {
-    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, false, output_names, empty(bb->arena));
+    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, bb->mem, false, output_names, empty(bb->arena));
     return bind_internal(bb, let_mut_instr, 0);
 }
 
@@ -92,9 +103,7 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
     for (size_t i = stack_size - 1; i < stack_size; i--) {
         StackEntry entry = read_list(StackEntry, bb->stack)[i];
         switch (entry.structured.tag) {
-            case NotAStructured_construct:
-                terminator = let(a, entry.structured.payload.let.instruction, terminator);
-                break;
+            case NotAStructured_construct: error("")
             case Structured_construct_If_TAG: {
                 Node* tail = basic_block(bb->arena, entry.vars, NULL);
                 set_abstraction_body(tail, terminator);
@@ -129,71 +138,52 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
 }
 
 const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
+    assert(bb->mem0);
     terminator = build_body(bb, terminator);
     destroy_list(bb->stack);
     free(bb);
     return terminator;
 }
 
-const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, Nodes values, const Nodes types) {
-    IrArena* arena = bb->arena;
-    const Node* terminator = block_yield(arena, (BlockYield) { .args = values });
-    const Node* block_case = case_(arena, empty(arena));
-    set_abstraction_body(block_case, finish_body(bb, terminator));
-    return block(arena, (Block) {
-        .yield_types = types,
-        .inside = block_case,
+const Node* yield_value_and_wrap_in_block(BodyBuilder* bb, const Node* value) {
+    IrArena* a = bb->arena;
+    if (entries_count_list(bb->stack) == 0) {
+        const Node* last_mem = bb_mem(bb);
+        cancel_body(bb);
+        if (last_mem)
+            return mem_and_value(a, (MemAndValue) {
+                .mem = last_mem,
+                .value = value
+            });
+        return value;
+    }
+    assert(bb->bb && "This builder wasn't started with 'begin_block'");
+    bb->bb->payload.basic_block.insert = bb;
+    const Node* r = mem_and_value(bb->arena, (MemAndValue) {
+        .mem = bb_mem(bb),
+        .value = value
     });
+    return r;
 }
 
 const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
-    return yield_values_and_wrap_in_block_explicit_return_types(bb, values, get_values_types(bb->arena, values));
+    return yield_value_and_wrap_in_block(bb, maybe_tuple_helper(bb->arena, values));
 }
 
-const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, const Node* instruction, const Nodes types) {
+const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node* instruction) {
     size_t stack_size = entries_count_list(bb->stack);
     if (stack_size == 0) {
         cancel_body(bb);
         return instruction;
     }
-    Nodes bound = bind_internal(bb, instruction, types.count);
-    return yield_values_and_wrap_in_block_explicit_return_types(bb, bound, types);
-}
-
-const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node* instruction) {
-    return bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type));
-}
-
-static Nodes finish_with_instruction_list(BodyBuilder* bb) {
-    IrArena* a = bb->arena;
-    size_t count = entries_count_list(bb->stack);
-    LARRAY(const Node*, list, count);
-    for (size_t i = 0; i < count; i++) {
-        StackEntry entry = read_list(StackEntry, bb->stack)[i];
-        if (entry.structured.tag != NotAStructured_construct) {
-            error("When using a BodyBuilder to create compound instructions, control flow is not allowed.")
-        }
-        list[i] = entry.structured.payload.let.instruction;
-    }
-
-    destroy_list(bb->stack);
-    free(bb);
-    return nodes(a, count, list);
+    bind_internal(bb, instruction, 0);
+    return yield_value_and_wrap_in_block(bb, instruction);
 }
 
 const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes values) {
     IrArena* arena = bb->arena;
-    return compound_instruction(arena, finish_with_instruction_list(bb), values);
-}
-
-const Node* bind_last_instruction_and_wrap_in_compound_instruction_explicit_return_types(BodyBuilder* bb, const Node* instruction, const Nodes types) {
-    IrArena* arena = bb->arena;
-    Nodes values = bind_instruction_outputs_count(bb, instruction, types.count);
-    return compound_instruction(arena, finish_with_instruction_list(bb), values);
-}
-
-const Node* bind_last_instruction_and_wrap_in_compound_instruction(BodyBuilder* bb, const Node* instruction) {
-    return bind_last_instruction_and_wrap_in_compound_instruction_explicit_return_types(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type));
+    assert(!bb->mem0 && !bb->stack);
+    return maybe_tuple_helper(arena, values);
 }
 
 static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {

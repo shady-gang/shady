@@ -127,6 +127,8 @@ typedef enum {
 String get_primop_name(Op op);
 bool has_primop_got_side_effects(Op op);
 
+typedef struct BodyBuilder_ BodyBuilder;
+
 // see grammar.json
 #include "grammar_generated.h"
 
@@ -176,21 +178,18 @@ const char* get_annotation_string_payload(const Node* annotation);
 bool lookup_annotation_with_string_payload(const Node* decl, const char* annotation_name, const char* expected_payload);
 Nodes filter_out_annotation(IrArena*, Nodes, const char* name);
 
-bool        is_abstraction        (const Node*);
+const Node* get_abstraction_mem(const Node* abs);
 String      get_abstraction_name  (const Node* abs);
 String      get_abstraction_name_unsafe(const Node* abs);
 String      get_abstraction_name_safe(const Node* abs);
-const Node* get_abstraction_body  (const Node* abs);
-Nodes       get_abstraction_params(const Node* abs);
 
 void        set_abstraction_body  (Node* abs, const Node* body);
-
-const Node* get_let_instruction(const Node* let);
-const Node* get_let_chain_end(const Node* terminator);
 
 const Node* maybe_tuple_helper(IrArena* a, Nodes values);
 const Node* extract_helper(const Node* composite, const Node* index);
 const Node* extract_multiple_ret_types_helper(const Node* composite, int index);
+
+const Node* maybe_tuple_helper(IrArena* a, Nodes values);
 
 typedef struct {
     bool enter_loads;
@@ -257,8 +256,7 @@ const Node* prim_op_helper(IrArena*, Op, Nodes, Nodes);
 const Node* compound_instruction(IrArena* arena, Nodes instructions, Nodes results);
 
 // terminators
-const Node* let(IrArena*, const Node* instruction, const Node* tail);
-const Node* jump_helper(IrArena* a, const Node* dst, Nodes args);
+const Node* jump_helper(IrArena* a, const Node* dst, Nodes args, const Node* mem);
 
 // decl ctors
 Node* function    (Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
@@ -273,8 +271,9 @@ static inline Node* case_(IrArena* a, Nodes params) {
 }
 
 /// Used to build a chain of let
-typedef struct BodyBuilder_ BodyBuilder;
-BodyBuilder* begin_body(IrArena*);
+BodyBuilder* begin_body_with_mem(IrArena*, const Node*);
+BodyBuilder* begin_block_pure(IrArena*);
+BodyBuilder* begin_block_with_side_effects(IrArena*);
 
 /// Appends an instruction to the builder, may apply optimisations.
 /// If the arena is typed, returns a list of variables bound to the values yielded by that instruction
@@ -288,19 +287,19 @@ Nodes gen_match(BodyBuilder*, Nodes, const Node*, Nodes, Nodes, Node*);
 Nodes gen_loop(BodyBuilder*, Nodes, Nodes, Node*);
 Nodes gen_control(BodyBuilder*, Nodes, Node*);
 
+const Node* bb_mem(BodyBuilder*);
+
 /// Like append bind_instruction, but you explicitly give it information about any yielded values
 /// ! In untyped arenas, you need to call this because we can't guess how many things are returned without typing info !
 Nodes bind_instruction_outputs_count(BodyBuilder*, const Node* initial_value, size_t outputs_count);
 
 const Node* finish_body(BodyBuilder*, const Node* terminator);
 void cancel_body(BodyBuilder*);
-const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder*, Nodes, const Nodes);
+
+const Node* yield_value_and_wrap_in_block(BodyBuilder*, const Node*);
 const Node* yield_values_and_wrap_in_block(BodyBuilder*, Nodes);
-const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder*, const Node*, const Nodes);
 const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder*, const Node*);
 
 const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder*, Nodes);
-const Node* bind_last_instruction_and_wrap_in_compound_instruction_explicit_return_types(BodyBuilder*, const Node*, const Nodes);
-const Node* bind_last_instruction_and_wrap_in_compound_instruction(BodyBuilder*, const Node*);
 
 #endif

@@ -32,11 +32,12 @@ static const Node* process(Context* ctx, const Node* node) {
             Context ctx2 = *ctx;
             ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
 
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
             if (!ctx2.disable_lowering) {
                 ctx2.stack_size_on_entry = gen_get_stack_size(bb);
                 set_value_name((Node*) ctx2.stack_size_on_entry, format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)));
             }
+            register_processed(&ctx2.rewriter, get_abstraction_mem(node), bb_mem(bb));
             if (node->payload.fun.body)
                 fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
             else
@@ -44,13 +45,17 @@ static const Node* process(Context* ctx, const Node* node) {
             return fun;
         }
         case Return_TAG: {
-            BodyBuilder* bb = begin_body(a);
+            Return payload = node->payload.fn_ret;
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             if (!ctx->disable_lowering) {
                 assert(ctx->stack_size_on_entry);
                 // Restore SP before calling exit
                 gen_set_stack_size(bb, ctx->stack_size_on_entry);
             }
-            return finish_body(bb, recreate_node_identity(r, node));
+            return finish_body(bb, fn_ret(a, (Return) {
+                .mem = bb_mem(bb),
+                .args = rewrite_nodes(r, payload.args),
+            }));
         }
         default: break;
     }

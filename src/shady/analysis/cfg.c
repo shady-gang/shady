@@ -145,13 +145,6 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
         return;
     while (true) {
         switch (is_terminator(terminator)) {
-            case Let_TAG: {
-                terminator = terminator->payload.let.in;
-                continue;
-                // const Node* target = get_let_tail(terminator);
-                // add_structural_dominance_edge(ctx, node, target, LetTailEdge);
-                // break;
-            }
             case Jump_TAG: {
                 add_jump_edge(ctx, abs, terminator);
                 return;
@@ -200,9 +193,6 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
             case MergeContinue_TAG:
             case MergeBreak_TAG: {
                 return; // TODO i guess
-            }
-            case Terminator_BlockYield_TAG: {
-                return;
             }
             case TailCall_TAG:
             case Return_TAG:

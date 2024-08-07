@@ -72,6 +72,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case If_TAG: {
             bool has_false_branch = node->payload.if_instr.if_false;
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, node->payload.if_instr.yield_types);
+            const Node* nmem = rewrite_node(r, node->payload.if_instr.mem);
 
             const Type* jp_type = qualified_type(a, (QualifiedType) {
                 .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
@@ -95,14 +96,14 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 flse_block->payload.basic_block.body = join(a, (Join) { .join_point = jp, .args = nodes(a, 0, NULL) });
             }
 
+            BodyBuilder* bb = begin_body_with_mem(a, nmem);
+            Node* control_case = basic_block(a, singleton(jp), NULL);
             const Node* control_body = branch(a, (Branch) {
                 .condition = rewrite_node(r, node->payload.if_instr.condition),
-                .true_jump = jump_helper(a, true_block, empty(a)),
-                .false_jump = jump_helper(a, flse_block, empty(a)),
+                .true_jump = jump_helper(a, true_block, empty(a), get_abstraction_mem(control_case)),
+                .false_jump = jump_helper(a, flse_block, empty(a), get_abstraction_mem(control_case)),
+                .mem = get_abstraction_mem(control_case),
             });
-
-            BodyBuilder* bb = begin_body(a);
-            Node* control_case = basic_block(a, singleton(jp), NULL);
             set_abstraction_body(control_case, control_body);
             Nodes results = gen_control(bb, yield_types, control_case);
 
@@ -110,7 +111,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* join = basic_block(a, recreate_params(r, get_abstraction_params(otail)), NULL);
             register_processed_list(r, get_abstraction_params(otail), get_abstraction_params(join));
             set_abstraction_body(join, rewrite_node(r, get_abstraction_body(otail)));
-            return finish_body(bb, jump_helper(a, join, results));
+            return finish_body(bb, jump_helper(a, join, results, bb_mem(bb)));
             // return control(a)
             //return yield_values_and_wrap_in_block(bb, );
         }
@@ -145,7 +146,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* inner_control_case = case_(a, singleton(continue_point));
             set_abstraction_body(inner_control_case, inner_control_body);
 
-            BodyBuilder* inner_bb = begin_body(a);
+            BodyBuilder* inner_bb = begin_body_with_mem(a, get_abstraction_mem(inner_control_case));
             Nodes args = gen_control(inner_bb, param_types, inner_control_case);
 
             // TODO let_in_block or use a Jump !
@@ -155,9 +156,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .target = loop_body,
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.loop_instr.initial_args),
             });
-            BodyBuilder* outer_bb = begin_body(a);
 
             Node* outer_control_case = case_(a, singleton(break_point));
+            BodyBuilder* outer_bb = begin_body_with_mem(a, get_abstraction_mem(outer_control_case));
             Nodes results = gen_control(outer_bb, yield_types, outer_control_case);
             set_abstraction_body(outer_control_case, initial_jump);
 
@@ -165,7 +166,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* join = basic_block(a, recreate_params(r, get_abstraction_params(otail)), NULL);
             register_processed_list(r, get_abstraction_params(otail), get_abstraction_params(join));
             set_abstraction_body(join, rewrite_node(r, get_abstraction_body(otail)));
-            return finish_body(outer_bb, jump_helper(a, join, results));
+            return finish_body(outer_bb, jump_helper(a, join, results, bb_mem(outer_bb)));
         }
         case MergeSelection_TAG: {
             if (!cfnode)
@@ -173,7 +174,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             CFNode* dom = cfnode->idom;
             const Node* selection_instr = NULL;
             while (dom) {
-                const Node* body = get_let_chain_end(get_abstraction_body(dom->node));
+                const Node* body = get_abstraction_body(dom->node);
                 if(body->tag == If_TAG || body->tag == Match_TAG) {
                     selection_instr = body;
                     break;
@@ -195,6 +196,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return join(a, (Join) {
                 .join_point = jp,
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_selection.args),
+                .mem = rewrite_node(r, node->payload.merge_selection.mem)
             });
         }
         case MergeContinue_TAG: {
@@ -202,7 +204,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             CFNode* dom = cfnode->idom;
             const Node* selection_instr = NULL;
             while (dom) {
-                const Node* body = get_let_chain_end(get_abstraction_body(dom->node));
+                const Node* body = get_abstraction_body(dom->node);
                 if (body->tag == Loop_TAG) {
                     selection_instr = body;
                     break;
@@ -224,6 +226,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return join(a, (Join) {
                 .join_point = jp,
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_continue.args),
+                .mem = rewrite_node(r, node->payload.merge_continue.mem)
             });
         }
         case MergeBreak_TAG: {
@@ -231,7 +234,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             CFNode* dom = cfnode->idom;
             const Node* selection_instr = NULL;
             while (dom) {
-                const Node* body = get_let_chain_end(get_abstraction_body(dom->node));
+                const Node* body = get_abstraction_body(dom->node);
                 if (body->tag == Loop_TAG) {
                     selection_instr = body;
                     break;
@@ -253,6 +256,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return join(a, (Join) {
                 .join_point = jp,
                 .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_break.args),
+                .mem = rewrite_node(r, node->payload.merge_break.mem)
             });
         }
         default: break;
@@ -271,7 +275,6 @@ Module* lower_cf_instrs(SHADY_UNUSED const CompilerConfig* config, Module* src) 
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .structured_join_tokens = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
     };
-    ctx.rewriter.config.fold_quote = false;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     destroy_dict(ctx.structured_join_tokens);

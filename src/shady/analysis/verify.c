@@ -85,8 +85,8 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
             break;
         }
         case Constant_TAG: {
-            if (n->payload.constant.instruction) {
-                const Type* t = n->payload.constant.instruction->type;
+            if (n->payload.constant.value) {
+                const Type* t = n->payload.constant.value->type;
                 bool u = deconstruct_qualified_type(&t);
                 assert(u);
                 assert(is_subtype(n->payload.constant.type_hint, t));
@@ -134,41 +134,6 @@ static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
     visit_node_operands(&ctx->visitor, NcTerminator | NcDeclaration, node);
 }
 
-static void verify_schedule_node(ScheduleContext* parent, CompilerConfig* config, Module* mod, CFNode* node) {
-    ScheduleContext new = {
-        .visitor = {
-            .visit_node_fn = (VisitNodeFn) verify_schedule_visitor
-        },
-        .bound = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
-        .parent = parent,
-        .config = config,
-        .mod = mod,
-    };
-    struct List* dominated = node->dominates;
-    size_t len = entries_count_list(dominated);
-
-    const Node* terminator = get_abstraction_body(node->node);
-    while (terminator) {
-        if (terminator->tag != Let_TAG)
-            break;
-        const Node* instr = get_let_instruction(terminator);
-        insert_set_get_key(const Node*, new.bound, instr);
-        visit_node_operands(&new.visitor, NcTerminator | NcDeclaration, instr);
-        terminator = terminator->payload.let.in;
-    }
-
-    for (size_t i = 0; i < len; i++) {
-        verify_schedule_node(&new, config, mod, read_list(CFNode*, dominated)[i]);
-    }
-
-    destroy_dict(new.bound);
-}
-
-static void verify_schedule(const CompilerConfig* config, Module* mod, CFG* cfg) {
-    compute_domtree(cfg);
-    verify_schedule_node(NULL, config, mod, cfg->entry);
-}
-
 static void verify_bodies(const CompilerConfig* config, Module* mod) {
     struct List* cfgs = build_cfgs(mod);
     for (size_t i = 0; i < entries_count_list(cfgs); i++) {
@@ -180,8 +145,6 @@ static void verify_bodies(const CompilerConfig* config, Module* mod) {
                 verify_nominal_node(cfg->entry->node, n->node);
             }
         }
-
-        verify_schedule(config, mod, cfg);
 
         destroy_cfg(cfg);
     }

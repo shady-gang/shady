@@ -59,51 +59,6 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
 
 #include "constructors_generated.c"
 
-const Node* let(IrArena* arena, const Node* instruction, const Node* in) {
-    // This is like a folding opt, but earlier, simplifies things by allowing to rewrite an instruction into a value
-    if (!is_instruction(instruction) && is_value(instruction))
-        return in;
-
-    Let payload = {
-        .instruction = instruction,
-        .in = in,
-    };
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = arena,
-        .tag = Let_TAG,
-        .payload.let = payload
-    };
-    return create_node_helper(arena, node, NULL);
-}
-
-const Node* compound_instruction(IrArena* arena, Nodes instructions, Nodes results) {
-    LARRAY(const Node*, ninstructions, instructions.count);
-    size_t count = 0;
-    for (size_t i = 0; i < instructions.count; i++) {
-        const Node* instr = instructions.nodes[i];
-        if (is_instruction(instr))
-            ninstructions[count++] = instr;
-    }
-    instructions = nodes(arena, count, ninstructions);
-
-    CompoundInstruction payload = {
-        .instructions = instructions,
-        .results = results,
-    };
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = arena,
-        .tag = CompoundInstruction_TAG,
-        .payload.compound_instruction = payload
-    };
-    return create_node_helper(arena, node, NULL);
-}
-
 Node* param(IrArena* arena, const Type* type, const char* name) {
     Param param = {
         .type = type,
@@ -120,12 +75,13 @@ Node* param(IrArena* arena, const Type* type, const char* name) {
     return create_node_helper(arena, node, NULL);
 }
 
-const Node* bind_identifiers(IrArena* arena, const Node* instruction, bool mut, Strings names, Nodes types) {
+const Node* bind_identifiers(IrArena* arena, const Node* value, const Node* mem, bool mut, Strings names, Nodes types) {
     BindIdentifiers payload = {
-        .instruction = instruction,
+        .value = value,
         .mutable = mut,
         .names = names,
         .types = types,
+        .mem = mem,
     };
 
     Node node;
@@ -233,7 +189,7 @@ Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
         .annotations = annotations,
         .name = string(arena, name),
         .type_hint = hint,
-        .instruction = NULL,
+        .value = NULL,
     };
     Node node;
     memset((void*) &node, 0, sizeof(Node));
@@ -308,10 +264,11 @@ const Node* prim_op_helper(IrArena* a, Op op, Nodes types, Nodes operands) {
     });
 }
 
-const Node* jump_helper(IrArena* a, const Node* dst, Nodes args) {
+const Node* jump_helper(IrArena* a, const Node* dst, Nodes args, const Node* mem) {
     return jump(a, (Jump) {
         .target = dst,
         .args = args,
+        .mem = mem,
     });
 }
 

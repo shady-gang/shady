@@ -538,9 +538,8 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
         case Jump_TAG:
         case Branch_TAG:
         case Switch_TAG:
-        case Terminator_BlockYield_TAG:
         case TailCall_TAG: error("TODO");
-        case Let_TAG: {
+        /*case Let_TAG: {
             const Node* instruction = get_let_instruction(terminator);
 
             // we declare N local variables in order to store the result of the instruction
@@ -589,7 +588,7 @@ static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node
             emit_terminator(emitter, block_printer, terminator->payload.let.in);
 
             break;
-        }
+        }*/
         case If_TAG: return emit_if(emitter, block_printer, terminator->payload.if_instr);
         case Match_TAG: return emit_match(emitter, block_printer, terminator->payload.match_instr);
         case Loop_TAG: return emit_loop(emitter, block_printer, terminator->payload.loop_instr);
@@ -777,9 +776,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             emit_as = term_from_cvalue(name);
             register_emitted(emitter, decl, emit_as);
 
-            const Node* init_value = resolve_node_to_definition(decl->payload.constant.instruction, (NodeResolveConfig) { 0 });
-            assert(init_value && "TODO: support some measure of constant expressions");
-            String init = to_cvalue(emitter, emit_value(emitter, NULL, init_value));
+            String init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.constant.value));
             emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init);
             return;
         }

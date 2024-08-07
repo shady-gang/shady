@@ -25,7 +25,8 @@ static const Node* process(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     switch (node->tag) {
         case QualifiedType_TAG: {
             if (!node->payload.qualified_type.is_uniform) return qualified_type(a, (QualifiedType) {
@@ -35,7 +36,8 @@ static const Node* process(Context* ctx, const Node* node) {
             goto rewrite;
         }
         case LocalAlloc_TAG: {
-            BodyBuilder* bb = begin_body(a);
+            LocalAlloc payload = node->payload.local_alloc;
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Node* type = rewrite_node(&ctx->rewriter, node->payload.local_alloc.type);
             LARRAY(const Node*, allocated, ctx->width);
             for (size_t i = 0; i < ctx->width; i++) {

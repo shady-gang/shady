@@ -84,17 +84,11 @@ static void dump_free_variables(Context* ctx, CFNode* cfnode, int depth) {
 static void search_op_for_free_variables(Context* visitor, NodeClass class, String op_name, const Node* node) {
     assert(node);
     switch (node->tag) {
-        case Let_TAG: {
-            const Node* instr = get_let_instruction(node);
-            bool r = insert_set_get_result(const Node*, visitor->bound, instr);
-            //assert(r);
-            break;
-        }
         case Function_TAG:
         case BasicBlock_TAG: assert(false);
         default: break;
     }
-    if (node->tag == Param_TAG || is_instruction(node))
+    if (node->tag == Param_TAG)
         insert_set_get_result(const Node*, visitor->live, node);
     visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node);
 }

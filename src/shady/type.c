@@ -486,6 +486,10 @@ const Type* check_type_undef(IrArena* arena, Undef payload) {
     });
 }
 
+const Type* check_type_mem_and_value(IrArena* arena, MemAndValue mav) {
+    return mav.value->type;
+}
+
 const Type* check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
     assert(fn_addr.fn->type->tag == FnType_TAG);
     assert(fn_addr.fn->tag == Function_TAG);
@@ -1008,32 +1012,6 @@ const Type* check_type_control(IrArena* arena, Control control) {
     return noret_type(arena);
 }
 
-const Type* check_type_block(IrArena* arena, Block payload) {
-    ensure_types_are_value_types(&payload.yield_types);
-    assert(get_abstraction_params(payload.inside).count == 0);
-
-    /*const Node* lam = payload.inside;
-    const Node* yield_instr = NULL;
-    while (true) {
-        assert(lam->tag == Case_TAG);
-        const Node* terminator = lam->payload.case_.body;
-        switch (terminator->tag) {
-            case Let_TAG: {
-                lam = terminator->payload.let.tail;
-                continue;
-            }
-            case Yield_TAG:
-                yield_instr = terminator;
-                break;
-            default: assert(false);
-        }
-        break;
-    }
-
-    Nodes yield_values = yield_instr->payload.yield.args;*/
-    return wrap_multiple_yield_types(arena, payload.yield_types);
-}
-
 const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
     return empty_multiple_return_type(arena);
 }
@@ -1162,27 +1140,17 @@ const Type* check_type_set_stack_size(IrArena* a, SetStackSize payload) {
     return empty_multiple_return_type(a);
 }
 
-const Type* check_type_get_stack_size(IrArena* a) {
+const Type* check_type_get_stack_size(IrArena* a, SHADY_UNUSED GetStackSize ss) {
     return qualified_type(a, (QualifiedType) { .is_uniform = false, .type = uint32_type(a) });
 }
 
-const Type* check_type_get_stack_base_addr(IrArena* a) {
+const Type* check_type_get_stack_base_addr(IrArena* a, SHADY_UNUSED GetStackBaseAddr gsba) {
     const Node* ptr = ptr_type(a, (PtrType) { .pointed_type = uint8_type(a), .address_space = AsPrivate});
     return qualified_type(a, (QualifiedType) { .is_uniform = false, .type = ptr });
 }
 
 const Type* check_type_debug_printf(IrArena* a, DebugPrintf payload) {
     return empty_multiple_return_type(a);
-}
-
-const Type* check_type_let(IrArena* arena, Let let) {
-    Nodes produced_types = unwrap_multiple_yield_types(arena, let.instruction->type);
-    // check_arguments_types_against_parameters_helper(param_types, produced_types);
-    return noret_type(arena);
-}
-
-const Type* check_type_compound_instruction(IrArena* arena, CompoundInstruction payload) {
-    return wrap_multiple_yield_types(arena, get_values_types(arena, payload.results));
 }
 
 const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
@@ -1245,7 +1213,7 @@ const Type* check_type_join(IrArena* arena, Join join) {
     return noret_type(arena);
 }
 
-const Type* check_type_unreachable(IrArena* arena) {
+const Type* check_type_unreachable(IrArena* arena, SHADY_UNUSED Unreachable u) {
     return noret_type(arena);
 }
 
@@ -1260,11 +1228,6 @@ const Type* check_type_merge_break(IrArena* arena, MergeBreak mc) {
 }
 
 const Type* check_type_merge_selection(IrArena* arena, SHADY_UNUSED MergeSelection payload) {
-    // TODO check it
-    return noret_type(arena);
-}
-
-const Type* check_type_block_yield(IrArena* arena, SHADY_UNUSED BlockYield payload) {
     // TODO check it
     return noret_type(arena);
 }

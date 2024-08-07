@@ -64,7 +64,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* expected_type = rewrite_node(r, optr_t);
             const Node* ptr = rewrite_node(r, payload.ptr);
             const Type* actual_type = get_unqualified_type(ptr->type);
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
             return bind_last_instruction_and_wrap_in_block(bb, lea(a, (Lea) { ptr, rewrite_node(r, payload.offset), rewrite_nodes(r, payload.indices)}));
@@ -92,10 +92,10 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* expected_type = rewrite_node(r, optr_t);
             const Node* ptr = rewrite_node(r, payload.ptr);
             const Type* actual_type = get_unqualified_type(ptr->type);
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
-            return bind_last_instruction_and_wrap_in_block(bb, load(a, (Load) { ptr }));
+            return load(a, (Load) { .ptr = yield_value_and_wrap_in_block(bb, ptr), .mem = rewrite_node(r, payload.mem) });
         }
         case Store_TAG: {
             Store payload = old->payload.store;
@@ -105,10 +105,11 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* expected_type = rewrite_node(r, optr_t);
             const Node* ptr = rewrite_node(r, payload.ptr);
             const Type* actual_type = get_unqualified_type(ptr->type);
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
             return bind_last_instruction_and_wrap_in_block(bb, store(a, (Store) { ptr, rewrite_node(r, payload.value) }));
+            return store(a, (Store) { .ptr = ptr, .value = rewrite_node(r, payload.value), .mem = rewrite_node(r, payload.mem) });
         }
         case GlobalVariable_TAG: {
             AddressSpace as = old->payload.global_variable.address_space;

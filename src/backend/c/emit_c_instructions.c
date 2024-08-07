@@ -714,7 +714,7 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_BindIdentifiers_TAG:       error("front-end only!");
         case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
         case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;
-        case Instruction_CompoundInstruction_TAG: {
+        /*case Instruction_CompoundInstruction_TAG: {
             Nodes instructions = instruction->payload.compound_instruction.instructions;
             for (size_t i = 0; i < instructions.count; i++) {
                 const Node* instruction2 = instructions.nodes[i];
@@ -738,9 +738,8 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
                 outputs.binding[0] = NoBinding;
             }
             return;
-        }
-        case Instruction_Block_TAG:        error("Should be eliminated by the compiler")
-        case Instruction_Comment_TAG:      print(p, "/* %s */", instruction->payload.comment.string); break;
+        }*/
+        case Instruction_Comment_TAG: print(p, "/* %s */", instruction->payload.comment.string); break;
         case Instruction_StackAlloc_TAG: return emit_alloca(emitter, p, instruction->payload.stack_alloc.type, outputs);
         case Instruction_LocalAlloc_TAG: return emit_alloca(emitter, p, instruction->payload.local_alloc.type, outputs);
         case Instruction_Load_TAG: {

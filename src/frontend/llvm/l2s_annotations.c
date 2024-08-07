@@ -31,7 +31,7 @@ static const Node* assert_and_strip_fn_addr(const Node* fn) {
 
 static const Node* look_past_stuff(const Node* thing) {
     if (thing->tag == Constant_TAG) {
-        const Node* instr = thing->payload.constant.instruction;
+        const Node* instr = thing->payload.constant.value;
         assert(instr->tag == PrimOp_TAG);
         thing = instr;
     }

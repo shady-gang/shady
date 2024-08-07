@@ -898,7 +898,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             Node* block = basic_block(parser->arena, params, bb_name);
             parser->defs[result].node = block;
 
-            BodyBuilder* bb = begin_body(parser->arena);
+            BodyBuilder* bb = begin_body_with_mem(parser->arena, get_abstraction_mem(block));
             parser->current_block.builder = bb;
             parser->current_block.finished = NULL;
             while (parser->current_block.builder) {
@@ -1280,8 +1280,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpBranch: {
             BodyBuilder* bb = parser->current_block.builder;
             parser->current_block.finished = finish_body(bb, jump(parser->arena, (Jump) {
-                    .target = get_def_block(parser, instruction[1]),
-                    .args = get_args_from_phi(parser, instruction[1], parser->current_block.id),
+                .target = get_def_block(parser, instruction[1]),
+                .args = get_args_from_phi(parser, instruction[1], parser->current_block.id),
+                .mem = bb_mem(bb)
             }));
             parser->current_block.builder = NULL;
             break;
@@ -1290,9 +1291,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             SpvId destinations[2] = { instruction[2], instruction[3] };
             BodyBuilder* bb = parser->current_block.builder;
             parser->current_block.finished = finish_body(bb, branch(parser->arena, (Branch) {
-                    .true_jump = jump_helper(parser->arena, get_def_block(parser, destinations[0]), get_args_from_phi(parser, destinations[0], parser->current_block.id)),
-                    .false_jump = jump_helper(parser->arena, get_def_block(parser, destinations[1]), get_args_from_phi(parser, destinations[1], parser->current_block.id)),
-                    .condition = get_def_ssa_value(parser, instruction[1]),
+                .true_jump = jump_helper(parser->arena, get_def_block(parser, destinations[0]), get_args_from_phi(parser, destinations[0], parser->current_block.id), bb_mem(bb)),
+                .false_jump = jump_helper(parser->arena, get_def_block(parser, destinations[1]), get_args_from_phi(parser, destinations[1], parser->current_block.id), bb_mem(bb)),
+                .condition = get_def_ssa_value(parser, instruction[1]),
             }));
             parser->current_block.builder = NULL;
             break;

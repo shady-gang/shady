@@ -76,15 +76,15 @@ TreeNode* insert(TreeNode* t, TreeNode* x) {
     return t;
 }
 
-static const Node* gen_yield(Context* ctx, bool in_if, Nodes args) {
+/*static const Node* gen_yield(Context* ctx, bool in_if, const Node* mem, Nodes args) {
     if (in_if)
-        return merge_selection(ctx->rewriter.dst_arena, (MergeSelection) { args });
+        return merge_selection(ctx->rewriter.dst_arena, (MergeSelection) { .args = args, .mem = mem });
     return block_yield(ctx->rewriter.dst_arena, (BlockYield) { args });
 }
 
-static const Node* generate_default_fallback_case(Context* ctx, bool in_if) {
+static const Node* generate_default_fallback_case(Context* ctx, bool in_if, const Node* mem) {
     IrArena* a = ctx->rewriter.dst_arena;
-    BodyBuilder* bb = begin_body(a);
+    BodyBuilder* bb = begin_body_with_mem(a, mem);
     gen_store(bb, ctx->run_default_case, true_lit(a));
     LARRAY(const Node*, undefs, ctx->yield_types.count);
     for (size_t i = 0; i < ctx->yield_types.count; i++)
@@ -127,7 +127,7 @@ static const Node* generate_decision_tree(Context* ctx, TreeNode* n, bool in_if,
     }
 
     return body;
-}
+}*/
 
 static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
@@ -135,6 +135,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Match_TAG: {
+            Match payload = node->payload.match_instr;
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, node->payload.match_instr.yield_types);
             Nodes literals = rewrite_nodes(&ctx->rewriter, node->payload.match_instr.literals);
             Nodes cases = rewrite_nodes(&ctx->rewriter, node->payload.match_instr.cases);
@@ -152,11 +153,11 @@ static const Node* process(Context* ctx, const Node* node) {
                 root = insert(root, t);
             }
 
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Node* run_default_case = gen_stack_alloc(bb, bool_type(a));
             gen_store(bb, run_default_case, false_lit(a));
 
-            Context ctx2 = *ctx;
+            /*Context ctx2 = *ctx;
             ctx2.run_default_case = run_default_case;
             ctx2.yield_types = yield_types;
             ctx2.inspectee = rewrite_node(&ctx->rewriter, node->payload.match_instr.inspect);
@@ -169,7 +170,8 @@ static const Node* process(Context* ctx, const Node* node) {
             register_processed_list(r, get_abstraction_params(get_structured_construct_tail(node)), final_results);
 
             destroy_arena(arena);
-            return finish_body(bb, rewrite_node(r, get_abstraction_body(get_structured_construct_tail(node))));
+            return finish_body(bb, rewrite_node(r, get_abstraction_body(get_structured_construct_tail(node))));*/
+            error("TODO")
             // return yield_values_and_wrap_in_block(bb, final_results);
         }
         default: break;

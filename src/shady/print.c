@@ -648,25 +648,6 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
             printf(")");
             print_args_list(ctx, node->payload.call.args);
             break;
-        } case Block_TAG: {
-            printf(BGREEN);
-            printf("block");
-            printf(RESET);
-            print_case_body(ctx, node->payload.block.inside);
-            break;
-        } case CompoundInstruction_TAG: {
-            printf("{\n");
-            indent(ctx->printer);
-            Nodes instructions = node->payload.compound_instruction.instructions;
-            for (size_t i = 0; i < instructions.count; i++) {
-                print_instruction(ctx, instructions.nodes[i]);
-                printf(";\n");
-            }
-            printf("}\n");
-            deindent(ctx->printer);
-            printf("yields ");
-            print_args_list(ctx, node->payload.compound_instruction.results);
-            break;
         }
         default: print_node_generated(ctx, node);
     }
@@ -702,7 +683,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
     TerminatorTag tag = is_terminator(node);
     switch (tag) {
         case NotATerminator: assert(false);
-        case Let_TAG: {
+        /*case Let_TAG: {
             const Node* instruction = get_let_instruction(node);
             const BindIdentifiers* binders = NULL;
             if (instruction->tag == BindIdentifiers_TAG)
@@ -717,11 +698,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                     else
                         printf("val");
                     printf(RESET);
-                }/* else {
-                    printf(GREEN);
-                    printf("let ");
-                    printf(RESET);
-                }*/
+                }
 
                 if (binders) {
                     Strings names = binders->names;
@@ -774,7 +751,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
                 printf(";");
             }
             break;
-        }
+        }*/
         case If_TAG: {
             print_structured_construct_results(ctx, get_structured_construct_tail(node));
             printf(GREEN);
@@ -943,13 +920,6 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             print_args_list(ctx, node->payload.merge_selection.args);
             printf(";");
             break;
-        case Terminator_BlockYield_TAG:
-            printf(BGREEN);
-            printf("%s", node_tags[node->tag]);
-            printf(RESET);
-            print_args_list(ctx, node->payload.block_yield.args);
-            printf(";");
-            break;
     }
 }
 
@@ -996,9 +966,9 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(BYELLOW);
             printf(" %s", cnst->name);
             printf(RESET);
-            if (cnst->instruction) {
+            if (cnst->value) {
                 printf(" = ");
-                print_node_impl(ctx, cnst->instruction);
+                print_node_impl(ctx, cnst->value);
             }
             printf(";\n");
             break;

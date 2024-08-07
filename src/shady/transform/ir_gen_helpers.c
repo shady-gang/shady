@@ -56,11 +56,11 @@ const Node* gen_pop_value_stack(BodyBuilder* bb, const Type* type) {
 }
 
 const Node* gen_get_stack_base_addr(BodyBuilder* bb) {
-    return first(bind_instruction(bb, get_stack_base_addr(bb->arena)));
+    return first(bind_instruction(bb, get_stack_base_addr(bb->arena, (GetStackBaseAddr) { .mem = bb_mem(bb) })));
 }
 
 const Node* gen_get_stack_size(BodyBuilder* bb) {
-    return first(bind_instruction(bb, get_stack_size(bb->arena)));
+    return first(bind_instruction(bb, get_stack_size(bb->arena, (GetStackSize) { bb_mem(bb) })));
 }
 
 void gen_set_stack_size(BodyBuilder* bb, const Node* new_size) {

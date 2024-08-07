@@ -115,10 +115,12 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
     return got;
 }
 
-static const Node* desugar_bind_identifiers(Context* ctx, BodyBuilder* bb, const Node* node) {
+static const Node* desugar_bind_identifiers(Context* ctx, const Node* node) {
     assert(node->tag == BindIdentifiers_TAG);
-    IrArena* a = ctx->rewriter.dst_arena;
-    const Node* ninstruction = rewrite_node(&ctx->rewriter, node->payload.bind_identifiers.instruction);
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
+    BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.bind_identifiers.mem));
+    const Node* ninstruction = rewrite_node(r, node->payload.bind_identifiers.value);
 
     Strings names = node->payload.bind_identifiers.names;
     Nodes results = deconstruct_composite(a, bb, ninstruction, names.count);
@@ -140,7 +142,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, BodyBuilder* bb, const
         }
     }
 
-    return tuple_helper(a, empty(a));
+    return yield_values_and_wrap_in_block(bb, empty(a));
 }
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {
@@ -157,7 +159,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
             const Constant* cnst = &decl->payload.constant;
             Node* bound = constant(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, cnst->annotations), rewrite_node(&ctx->rewriter, decl->payload.constant.type_hint), cnst->name);
             register_processed(&ctx->rewriter, decl, bound);
-            bound->payload.constant.instruction = rewrite_node(&ctx->rewriter, decl->payload.constant.instruction);
+            bound->payload.constant.value = rewrite_node(&ctx->rewriter, decl->payload.constant.value);
             return bound;
         }
         case Function_TAG: {
@@ -270,18 +272,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             new_bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, node->payload.basic_block.body);
             return new_bb;
         }
-        case Let_TAG: {
-            const Node* oinstruction = node->payload.let.instruction;
-            const Node* ninstr;
-            BodyBuilder* bb = begin_body(a);
-            if (oinstruction->tag == BindIdentifiers_TAG) {
-                ninstr = desugar_bind_identifiers(ctx, bb, oinstruction);
-            } else {
-                ninstr = rewrite_node(r, oinstruction);
-            }
-            return finish_body(bb, let(a, ninstr, rewrite_node(r, node->payload.let.in)));
-        }
-        case BindIdentifiers_TAG: assert(false);
+        case BindIdentifiers_TAG: return desugar_bind_identifiers(ctx, node);
         case Return_TAG: {
             assert(ctx->current_function);
             return fn_ret(a, (Return) {

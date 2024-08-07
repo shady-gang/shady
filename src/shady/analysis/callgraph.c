@@ -235,7 +235,7 @@ CallGraph* new_callgraph(Module* mod) {
                 .abs = NULL,
             };
             search_for_callsites(&v, decl->payload.global_variable.init);
-        } else if (decl->tag == Constant_TAG && decl->payload.constant.instruction) {
+        } else if (decl->tag == Constant_TAG && decl->payload.constant.value) {
             CGVisitor v = {
                 .visitor = {
                     .visit_node_fn = (VisitNodeFn) search_for_callsites
@@ -244,7 +244,7 @@ CallGraph* new_callgraph(Module* mod) {
                 .root = NULL,
                 .abs = NULL,
             };
-            search_for_callsites(&v, decl->payload.constant.instruction);
+            search_for_callsites(&v, decl->payload.constant.value);
         }
     }
 

@@ -74,11 +74,12 @@ static const Node* process(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
-    Module* m = ctx->rewriter.dst_module;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
+    Module* m = r->dst_module;
     switch (node->tag) {
         case Function_TAG: {
-            Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
+            Node* fun = recreate_decl_header_identity_no_register(&ctx->rewriter, node);
             if (!node->payload.fun.body)
                 return fun;
 
@@ -89,7 +90,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 return fun;
             }
 
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
             ctx2.prepared_offsets = new_dict(const Node*, StackSlot, (HashFn) hash_node, (CmpFn) compare_node);
             ctx2.base_stack_addr_on_entry = gen_get_stack_base_addr(bb);
             ctx2.stack_size_on_entry = gen_get_stack_size(bb);
@@ -120,7 +121,9 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.frame_size = gen_primop_e(bb, size_of_op, singleton(type_decl_ref_helper(a, vctx.nom_t)), empty(a));
             ctx2.frame_size = convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
 
-            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
+            // make sure to use the new mem from then on
+            register_processed(r, get_abstraction_mem(node), bb_mem(bb));
+            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, get_abstraction_body(node)));
 
             destroy_dict(ctx2.prepared_offsets);
             return fun;
@@ -136,7 +139,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     error_die();
                 }
 
-                BodyBuilder* bb = begin_body(a);
+                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.stack_alloc.mem));
                 if (!ctx->stack_size_on_entry) {
                     //String tmp_name = format_string_arena(a->arena, "stack_ptr_before_alloca_%s", get_abstraction_name(fun));
                     assert(false);

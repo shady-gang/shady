@@ -20,26 +20,26 @@ static const Node* process(Context* ctx, const Node* node) {
     Context c = *ctx;
     ctx = &c;
     if (is_abstraction(node)) {
-        c.bb = abs_bb = begin_body(a);
+        c.bb = abs_bb = begin_block_pure(a);
     }
 
     switch (node->tag) {
         case Constant_TAG:
-            if (!node->payload.constant.instruction)
+            if (!node->payload.constant.value)
                 break;
             if (!ctx->all && !lookup_annotation(node, "Inline"))
                 break;
             return NULL;
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
-            if (decl->tag == Constant_TAG && decl->payload.constant.instruction) {
-                const Node* value = resolve_node_to_definition(decl->payload.constant.instruction, (NodeResolveConfig) { 0 });
+            if (decl->tag == Constant_TAG && decl->payload.constant.value) {
+                const Node* value = resolve_node_to_definition(decl->payload.constant.value, (NodeResolveConfig) { 0 });
                 if (value)
                     return rewrite_node(&ctx->rewriter, value);
                 c.rewriter.map = clone_dict(c.rewriter.map);
                 assert(ctx->bb);
                 // TODO: actually _copy_ the instruction so we can duplicate the code safely!
-                const Node* rewritten = first(bind_instruction(ctx->bb, rewrite_node(&ctx->rewriter, decl->payload.constant.instruction)));
+                const Node* rewritten = first(bind_instruction(ctx->bb, rewrite_node(&ctx->rewriter, decl->payload.constant.value)));
                 destroy_dict(c.rewriter.map);
                 return rewritten;
             }

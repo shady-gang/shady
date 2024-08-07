@@ -30,7 +30,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     return prim_op(a, (PrimOp) { .op = subgroup_ballot_op, .type_arguments = empty(a), .operands = singleton(true_lit(ctx->rewriter.dst_arena)) });
                 // extract the relevant bit
                 case mask_is_thread_active_op: {
-                    BodyBuilder* bb = begin_body(a);
+                    BodyBuilder* bb = begin_block_pure(a);
                     const Node* mask = rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
                     const Node* index = rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
                     index = gen_conversion(bb, get_actual_mask_type(ctx->rewriter.dst_arena), index);
@@ -41,7 +41,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     acc = gen_primop_ce(bb, and_op, 2, (const Node* []) { acc, ctx->one });
                     // acc == 1
                     acc = gen_primop_ce(bb, eq_op, 2, (const Node* []) { acc, ctx->one });
-                    return yield_values_and_wrap_in_block(bb, singleton(acc));
+                    return yield_value_and_wrap_in_block(bb, acc);
                 }
                 default: break;
             }

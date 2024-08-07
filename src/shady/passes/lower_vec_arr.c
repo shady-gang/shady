@@ -18,7 +18,7 @@ static const Node* scalarify_primop(Context* ctx, const Node* old) {
     if (width == 1)
         return recreate_node_identity(&ctx->rewriter, old);
     LARRAY(const Node*, elements, width);
-    BodyBuilder* bb = begin_body(a);
+    BodyBuilder* bb = begin_block_pure(a);
     Nodes noperands = rewrite_nodes(&ctx->rewriter, old->payload.prim_op.operands);
     for (size_t i = 0; i < width; i++) {
         LARRAY(const Node*, nops, noperands.count);

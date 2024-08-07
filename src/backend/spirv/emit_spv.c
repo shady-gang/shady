@@ -127,14 +127,7 @@ SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
                     break;
                 }
                 case Constant_TAG: {
-                    const Node* init_value = resolve_node_to_definition(decl->payload.constant.instruction, (NodeResolveConfig) { 0 });
-                    if (!init_value && bb_builder) {
-                        SpvId r;
-                        emit_instruction(emitter, NULL, bb_builder, decl->payload.constant.instruction, 1, &r);
-                        return r;
-                    }
-                    assert(init_value && "TODO: support some measure of constant expressions");
-                    new = emit_value(emitter, NULL, init_value);
+                    new = emit_value(emitter, NULL, decl->payload.constant.value);
                     break;
                 }
                 default: error("RefDecl must reference a constant or global");
@@ -380,7 +373,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
                 }
             }
         }
-        case Let_TAG: {
+        /*case Let_TAG: {
             const Node* instruction = terminator->payload.let.instruction;
             Nodes types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
             LARRAY(SpvId, results, types.count);
@@ -390,7 +383,7 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
                 register_result(emitter, extract_multiple_ret_types_helper(instruction, i), results[i]);
             emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, terminator->payload.let.in);
             return;
-        }
+        }*/
         case Jump_TAG: {
             add_branch_phis(emitter, fn_builder, basic_block_builder, terminator);
             spvb_branch(basic_block_builder, find_reserved_id(emitter, terminator->payload.jump.target));
@@ -420,7 +413,6 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
             return;
         }
         case Terminator_Control_TAG:
-        case Terminator_BlockYield_TAG:
         case TailCall_TAG:
         case Join_TAG: error("Lower me");
         case MergeSelection_TAG: {

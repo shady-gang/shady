@@ -33,8 +33,6 @@ struct Rewriter_ {
     struct {
         bool search_map;
         bool write_map;
-        bool rebind_let;
-        bool fold_quote;
         bool process_params;
     } config;
 
@@ -60,6 +58,7 @@ void rewrite_module(Rewriter*);
 const Node* recreate_node_identity(Rewriter*, const Node*);
 
 /// Rewrites a constant / function header
+Node* recreate_decl_header_identity_no_register(Rewriter*, const Node*);
 Node* recreate_decl_header_identity(Rewriter*, const Node*);
 void  recreate_decl_body_identity(Rewriter*, const Node*, Node*);
 

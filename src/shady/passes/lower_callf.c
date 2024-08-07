@@ -32,7 +32,6 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         ctx2.return_jp = NULL;
         Node* fun = NULL;
 
-        BodyBuilder* bb = begin_body(a);
         if (!ctx2.disable_lowering) {
             Nodes oparams = get_abstraction_params(old);
             Nodes nparams = recreate_params(&ctx->rewriter, oparams);
@@ -44,7 +43,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             });
 
             if (lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
-                ctx2.return_jp = gen_primop_e(bb, default_join_point_op, empty(a), empty(a));
+                ctx2.return_jp = prim_op_helper(a, default_join_point_op, empty(a), empty(a));
             } else {
                 const Node* jp_variable = param(a, qualified_type_helper(jp_type, false), "return_jp");
                 nparams = append_nodes(a, nparams, jp_variable);
@@ -58,9 +57,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         } else
             fun = recreate_decl_header_identity(&ctx->rewriter, old);
         if (old->payload.fun.body)
-            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
-        else
-            cancel_body(bb);
+            set_abstraction_body(fun, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
         return fun;
     }
 
@@ -86,12 +83,13 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
             const Node* return_jp = ctx->return_jp;
             if (return_jp) {
-                BodyBuilder* bb = begin_body(a);
+                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, old->payload.fn_ret.mem));
                 return_jp = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) {return_jp});
                 // Join up at the return address instead of returning
                 return finish_body(bb, join(a, (Join) {
-                        .join_point = return_jp,
-                        .args = nargs,
+                    .join_point = return_jp,
+                    .args = nargs,
+                    .mem = bb_mem(bb),
                 }));
             } else {
                 assert(false);
@@ -100,7 +98,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         // we convert calls to tail-calls within a control - only if the
         // call_indirect(...) to control(jp => save(jp); tailcall(...))
         case Call_TAG: {
-            const Node* ocallee = old->payload.call.callee;
+            Call payload = old->payload.call;
+            const Node* ocallee = payload.callee;
             // if we know the callee and it's a leaf - then we don't change the call
             if (ocallee->tag == FnAddr_TAG && lookup_annotation(ocallee->payload.fn_addr.fn, "Leaf"))
                 break;
@@ -113,7 +112,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
             // Rewrite the callee and its arguments
             const Node* ncallee = rewrite_node(&ctx->rewriter, ocallee);
-            Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.call.args);
+            Nodes nargs = rewrite_nodes(&ctx->rewriter, payload.args);
 
             // Create the body of the control that receives the appropriately typed join point
             const Type* jp_type = qualified_type(a, (QualifiedType) {
@@ -130,9 +129,9 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .target = ncallee,
                 .args = nargs,
             });
-            const Node* control_case = case_(a, singleton(jp));
+            Node* control_case = case_(a, singleton(jp));
             set_abstraction_body(control_case, control_body);
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, old->payload.call.mem));
             return yield_values_and_wrap_in_block(bb, gen_control(bb, strip_qualifiers(a, returned_types), control_case));
         }
         default: break;

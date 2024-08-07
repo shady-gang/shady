@@ -388,12 +388,11 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_build
         case Instruction_CopyBytes_TAG:
         case Instruction_FillBytes_TAG:
         case Instruction_BindIdentifiers_TAG:
-        case Instruction_StackAlloc_TAG:
-        case Instruction_Block_TAG: error("Should be lowered elsewhere")
+        case Instruction_StackAlloc_TAG: error("Should be lowered elsewhere")
         case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, bb_builder, instruction->payload.call, results_count, results);                 break;
         case PrimOp_TAG:              emit_primop(emitter, fn_builder, bb_builder, instruction, results_count, results);                                    break;
         case Comment_TAG: break;
-        case Instruction_CompoundInstruction_TAG: {
+        /*case Instruction_CompoundInstruction_TAG: {
             Nodes instructions = instruction->payload.compound_instruction.instructions;
             for (size_t i = 0; i < instructions.count; i++) {
                 const Node* instruction2 = instructions.nodes[i];
@@ -409,7 +408,7 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_build
                 results[0] = emit_value(emitter, bb_builder, results2.nodes[i]);
             }
             return;
-        }
+        }*/
         case Instruction_LocalAlloc_TAG: {
             SpvId result = spvb_local_variable(fn_builder, emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
                 .address_space = AsFunction,

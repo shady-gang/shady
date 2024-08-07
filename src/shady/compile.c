@@ -54,7 +54,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(reconvergence_heuristics)
 
     RUN_PASS(lower_cf_instrs)
-    RUN_PASS(opt_mem2reg) // run because control-flow is now normalized
+    //RUN_PASS(opt_mem2reg) // run because control-flow is now normalized
     RUN_PASS(setup_stack_frames)
     if (!config->hacks.force_join_point_lifting)
         RUN_PASS(mark_leaf_functions)
@@ -63,7 +63,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(opt_inline)
 
     RUN_PASS(lift_indirect_targets)
-    RUN_PASS(opt_mem2reg) // run because we can now weaken non-leaking allocas
+    //RUN_PASS(opt_mem2reg) // run because we can now weaken non-leaking allocas
 
     RUN_PASS(specialize_execution_model)
 
@@ -72,7 +72,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_tailcalls)
     RUN_PASS(lower_switch_btree)
     RUN_PASS(opt_restructurize)
-    RUN_PASS(opt_mem2reg)
+    //RUN_PASS(opt_mem2reg)
 
     if (config->specialization.entry_point)
         RUN_PASS(specialize_entry_point)
@@ -85,7 +85,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     if (config->lower.emulate_physical_memory) {
         RUN_PASS(lower_alloca)
     }
-    RUN_PASS(lower_stack)
+    //RUN_PASS(lower_stack)
     RUN_PASS(lower_lea)
     RUN_PASS(lower_generic_globals)
     if (config->lower.emulate_generic_ptrs) {

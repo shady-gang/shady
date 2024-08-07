@@ -18,8 +18,9 @@ typedef struct {
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    Module* m = ctx->rewriter.dst_module;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
+    Module* m = r->dst_module;
 
     switch (node->tag) {
         case GlobalVariable_TAG: {
@@ -62,7 +63,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
                 inner->payload.fun.body = recreate_node_identity(&ctx->rewriter, node->payload.fun.body);
 
-                BodyBuilder* bb = begin_body(a);
+                BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(wrapper));
                 const Node* num_workgroups_var = rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinNumWorkgroups, NULL));
                 const Node* workgroup_num_vec3 = gen_load(bb, ref_decl_helper(a, num_workgroups_var));
 
@@ -90,7 +91,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     num_subgroups_literals[dim] = uint32_literal(a, num_subgroups[dim]);
                 }
 
-                BodyBuilder* bb2 = begin_body(a);
+                BodyBuilder* bb2 = begin_block_with_side_effects(a);
                 // write the workgroup ID
                 gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinWorkgroupId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
                 // write the local ID
@@ -123,14 +124,14 @@ static const Node* process(Context* ctx, const Node* node) {
                     } else
                         assert(false);
                     for (int dim = 0; dim < 3; dim++) {
-                        BodyBuilder* body_bb = begin_body(a);
+                        Node* loop_body = case_(a, singleton(params[dim]));
+                        BodyBuilder* body_bb = begin_body_with_mem(a, get_abstraction_mem(loop_body));
                         Node* out_of_bounds_case = case_(a, empty(a));
-                        set_abstraction_body(out_of_bounds_case, merge_break(a, (MergeBreak) {.args = empty(a)}));
+                        set_abstraction_body(out_of_bounds_case, merge_break(a, (MergeBreak) {.args = empty(a), .mem = get_abstraction_mem(out_of_bounds_case)}));
                         gen_if(body_bb, empty(a), gen_primop_e(body_bb, gte_op, empty(a), mk_nodes(a, params[dim], maxes[dim])), out_of_bounds_case, NULL);
                         bind_instruction(body_bb, instr);
 
-                        BodyBuilder* bb3 = begin_body(a);
-                        Node* loop_body = case_(a, singleton(params[dim]));
+                        BodyBuilder* bb3 = begin_block_with_side_effects(a);
                         set_abstraction_body(loop_body, finish_body(body_bb, merge_continue(a, (MergeContinue) {.args = singleton(gen_primop_e(body_bb, add_op, empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1))))})));
                         gen_loop(bb3, empty(a), singleton(uint32_literal(a, 0)), loop_body);
                         instr = yield_values_and_wrap_in_block(bb3, empty(a));
@@ -144,11 +145,12 @@ static const Node* process(Context* ctx, const Node* node) {
             return recreate_node_identity(&ctx2.rewriter, node);
         }
         case Load_TAG: {
-            const Node* ptr = node->payload.load.ptr;
+            Load payload = node->payload.load;
+            const Node* ptr = payload.ptr;
             if (ptr->tag == RefDecl_TAG)
                 ptr = ptr->payload.ref_decl.decl;
             if (ptr == get_or_create_builtin(ctx->rewriter.src_module, BuiltinSubgroupId, NULL)) {
-                BodyBuilder* bb = begin_body(a);
+                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                 const Node* loaded = first(bind_instruction(bb, recreate_node_identity(&ctx->rewriter, node)));
                 const Node* uniformized = first(gen_primop(bb, subgroup_broadcast_first_op, empty(a), singleton(loaded)));
                 return yield_values_and_wrap_in_block(bb, singleton(uniformized));
@@ -169,7 +171,6 @@ Module* lower_workgroups(const CompilerConfig* config, Module* src) {
         .config = config,
         .globals = calloc(sizeof(Node*), PRIMOPS_COUNT),
     };
-    ctx.rewriter.config.rebind_let = true;
     rewrite_module(&ctx.rewriter);
     free(ctx.globals);
     destroy_rewriter(&ctx.rewriter);

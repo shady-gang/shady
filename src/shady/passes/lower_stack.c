@@ -44,7 +44,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(a, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
-    BodyBuilder* bb = begin_body(a);
+    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
 
     const Node* element_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
     element_size = gen_conversion(bb, uint32_type(a), element_size);
@@ -98,7 +98,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
     if (old->tag == Function_TAG && strcmp(get_abstraction_name(old), "generated_init") == 0) {
         Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
-        BodyBuilder* bb = begin_body(a);
+        BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new));
 
         // Make sure to zero-init the stack pointers
         // TODO isn't this redundant with thoose things having an initial value already ?
@@ -107,6 +107,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             const Node* stack_pointer = ctx->stack_pointer;
             gen_store(bb, stack_pointer, uint32_literal(a, 0));
         }
+        register_processed(r, get_abstraction_mem(old), bb_mem(bb));
         new->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body));
         return new;
     }
@@ -114,20 +115,23 @@ static const Node* process_node(Context* ctx, const Node* old) {
     switch (old->tag) {
         case GetStackSize_TAG: {
             assert(ctx->stack);
-            BodyBuilder* bb = begin_body(a);
+            GetStackSize payload = old->payload.get_stack_size;
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Node* sp = gen_load(bb, ctx->stack_pointer);
             return yield_values_and_wrap_in_block(bb, singleton(sp));
         }
         case SetStackSize_TAG: {
             assert(ctx->stack);
-            BodyBuilder* bb = begin_body(a);
+            SetStackSize payload = old->payload.set_stack_size;
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Node* val = rewrite_node(r, old->payload.set_stack_size.value);
             gen_store(bb, ctx->stack_pointer, val);
             return yield_values_and_wrap_in_block(bb, empty(a));
         }
         case GetStackBaseAddr_TAG: {
             assert(ctx->stack);
-            BodyBuilder* bb = begin_body(a);
+            GetStackBaseAddr payload = old->payload.get_stack_base_addr;
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Node* stack_pointer = ctx->stack_pointer;
             const Node* stack_size = gen_load(bb, stack_pointer);
             const Node* stack_base_ptr = gen_lea(bb, ctx->stack, int32_literal(a, 0), singleton(stack_size));
@@ -138,7 +142,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
         }
         case PushStack_TAG:{
             assert(ctx->stack);
-            BodyBuilder* bb = begin_body(a);
+            PushStack payload = old->payload.push_stack;
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Type* element_type = rewrite_node(&ctx->rewriter, get_unqualified_type(old->payload.push_stack.value->type));
 
             bool push = true;
@@ -151,7 +156,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
         }
         case PopStack_TAG: {
             assert(ctx->stack);
-            BodyBuilder* bb = begin_body(a);
+            PopStack payload = old->payload.pop_stack;
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Type* element_type = rewrite_node(&ctx->rewriter, old->payload.pop_stack.type);
 
             bool push = false;

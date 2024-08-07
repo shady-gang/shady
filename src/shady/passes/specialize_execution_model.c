@@ -24,7 +24,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Constant_TAG: {
             Node* ncnst = (Node*) recreate_node_identity(&ctx->rewriter, node);
             if (strcmp(get_declaration_name(ncnst), "SUBGROUP_SIZE") == 0) {
-                ncnst->payload.constant.instruction = uint32_literal(a, ctx->config->specialization.subgroup_size);
+                ncnst->payload.constant.value = uint32_literal(a, ctx->config->specialization.subgroup_size);
             }
             return ncnst;
         }

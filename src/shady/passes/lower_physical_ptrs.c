@@ -276,7 +276,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     Node* fun = function(ctx->rewriter.dst_module, params, name, singleton(annotation(a, (Annotation) { .name = "Generated" })), return_ts);
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
-    BodyBuilder* bb = begin_body(a);
+    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
     const Node* address = bytes_to_words(bb, address_param);
     const Node* base = *get_emulated_as_word_array(ctx, as);
     if (ser) {
@@ -294,7 +294,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     switch (old->tag) {
         case Load_TAG: {
@@ -304,7 +305,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(payload.mem));
             const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, payload.ptr);
             const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, false, ptr_type->payload.ptr_type.address_space);
@@ -318,7 +319,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(payload.mem));
 
             const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, payload.ptr);
@@ -349,13 +350,13 @@ static const Node* process_node(Context* ctx, const Node* old) {
         }
         case Function_TAG: {
             if (strcmp(get_abstraction_name(old), "generated_init") == 0) {
-                Node *new = recreate_decl_header_identity(&ctx->rewriter, old);
-                BodyBuilder *bb = begin_body(a);
-
+                Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
+                BodyBuilder *bb = begin_body_with_mem(a, get_abstraction_mem(new));
                 for (AddressSpace as = 0; as < NumAddressSpaces; as++) {
                     if (is_as_emulated(ctx, as))
                         store_init_data(ctx, as, ctx->collected[as], bb);
                 }
+                register_processed(&ctx->rewriter, get_abstraction_mem(old), bb_mem(bb));
                 new->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body));
                 return new;
             }
@@ -413,10 +414,10 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
 
         // we need to compute the actual pointer by getting the offset and dividing it
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
-        BodyBuilder* bb = begin_body(a);
+        BodyBuilder* bb = begin_block_pure(a);
         const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(size_t_literal(a,  i)));
         // const Node* offset_in_words = bytes_to_words(bb, offset);
-        new_address->payload.constant.instruction = yield_values_and_wrap_in_compound_instruction(bb, singleton(offset));
+        new_address->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, singleton(offset));
 
         register_processed(&ctx->rewriter, decl, new_address);
     }
@@ -467,12 +468,12 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     Nodes annotations = singleton(annotation(a, (Annotation) { .name = "Generated" }));
 
     // compute the size
-    BodyBuilder* bb = begin_body(a);
+    BodyBuilder* bb = begin_block_pure(a);
     const Node* size_of = gen_primop_e(bb, size_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), empty(a));
     const Node* size_in_words = bytes_to_words(bb, size_of);
 
     Node* constant_decl = constant(m, annotations, ptr_size_type, format_string_interned(a, "memory_%s_size", as_name));
-    constant_decl->payload.constant.instruction = yield_values_and_wrap_in_compound_instruction(bb, singleton(size_in_words));
+    constant_decl->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, singleton(size_in_words));
 
     const Type* words_array_type = arr_type(a, (ArrType) {
         .element_type = word_type,

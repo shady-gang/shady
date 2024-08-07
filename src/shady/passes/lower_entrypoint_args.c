@@ -57,10 +57,10 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
     return ref_decl_helper(a, var);
 }
 
-static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const Node* arg_struct) {
+static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const Node* new, const Node* arg_struct) {
     IrArena* a = ctx->rewriter.dst_arena;
 
-    BodyBuilder* bb = begin_body(a);
+    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new));
 
     Nodes params = old_entry_point->payload.fun.params;
 
@@ -70,6 +70,7 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
         register_processed(&ctx->rewriter, params.nodes[i], val);
     }
 
+    register_processed(&ctx->rewriter, get_abstraction_mem(old_entry_point), bb_mem(bb));
     return finish_body(bb, rewrite_node(&ctx->rewriter, old_entry_point->payload.fun.body));
 }
 
@@ -83,7 +84,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {
                 Node* new_entry_point = rewrite_entry_point_fun(ctx, node);
                 const Node* arg_struct = generate_arg_struct(&ctx->rewriter, node, new_entry_point);
-                new_entry_point->payload.fun.body = rewrite_body(ctx, node, arg_struct);
+                new_entry_point->payload.fun.body = rewrite_body(ctx, node, new_entry_point, arg_struct);
                 return new_entry_point;
             }
             break;

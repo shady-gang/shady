@@ -47,15 +47,7 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
     for (;use; use = use->next_use) {
         if (is_abstraction(use->user) && use->operand_class == NcParam)
             continue;
-        else if (use->user->tag == Let_TAG && use->operand_class == NcInstruction) {
-            /*Nodes vars = use->user->payload.let.variables;
-            for (size_t i = 0; i < vars.count; i++) {
-                debugv_print("demote_alloca leak analysis: following let-bound variable: ");
-                log_node(DEBUGV, vars.nodes[i]);
-                debugv_print(".\n");
-                visit_ptr_uses(vars.nodes[i], slice_type, k, map);
-            }*/
-        } else if (use->user->tag == Load_TAG) {
+        else if (use->user->tag == Load_TAG) {
             //if (get_pointer_type_element(ptr_type) != slice_type)
             //    k->reinterpreted = true;
             k->read_from = true;
@@ -189,8 +181,9 @@ static const Node* process(Context* ctx, const Node* old) {
     const Node* found = search_processed(&ctx->rewriter, old);
     if (found) return found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
+
     switch (old->tag) {
         case Function_TAG: {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
@@ -216,10 +209,10 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k.src_alloca->new == rewrite_node(r, payload.ptr))
                         break;
                     ctx->todo |= true;
-                    BodyBuilder* bb = begin_body(a);
+                    BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                     const Node* data = gen_load(bb, k.src_alloca->new);
                     data = gen_reinterpret_cast(bb, access_type, data);
-                    return yield_values_and_wrap_in_block(bb, singleton(data));
+                    return yield_value_and_wrap_in_block(bb, data);
                 }
             }
             break;
@@ -233,7 +226,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k.src_alloca->new == rewrite_node(r, payload.ptr))
                         break;
                     ctx->todo |= true;
-                    BodyBuilder* bb = begin_body(a);
+                    BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                     const Node* data = gen_reinterpret_cast(bb, access_type, rewrite_node(r, payload.value));
                     gen_store(bb, k.src_alloca->new, data);
                     return yield_values_and_wrap_in_block(bb, empty(a));
@@ -271,7 +264,6 @@ bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
         .alloca_info = new_dict(const Node*, AllocaInfo*, (HashFn) hash_node, (CmpFn) compare_node),
         .todo = false
     };
-    ctx.rewriter.config.rebind_let = true;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     destroy_dict(ctx.alloca_info);

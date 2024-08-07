@@ -292,35 +292,39 @@
     },
     {
       "name": "StackAlloc",
-      "class": ["instruction", "value"],
+      "class": ["instruction", "value", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "type", "class": "type" }
+        { "name": "type", "class": "type" },
+        { "name": "mem", "class": "mem" }
       ]
     },
     {
       "name": "LocalAlloc",
-      "class": ["instruction", "value"],
+      "class": ["instruction", "value", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "type", "class": "type" }
+        { "name": "type", "class": "type" },
+        { "name": "mem", "class": "mem" }
       ]
     },
     {
       "name": "Load",
-      "class": ["instruction", "value"],
+      "class": ["instruction", "value", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "ptr", "class": "value" }
+        { "name": "ptr", "class": "value" },
+        { "name": "mem", "class": "mem" }
       ]
     },
     {
       "name": "Store",
-      "class": "instruction",
+      "class": ["instruction", "mem"],
       "nominal": true,
       "ops": [
         { "name": "ptr", "class": "value" },
-        { "name": "value", "class": "value" }
+        { "name": "value", "class": "value" },
+        { "name": "mem", "class": "mem" }
       ]
     },
     {
@@ -334,65 +338,77 @@
     },
     {
       "name": "CopyBytes",
-      "class": "instruction",
+      "class": ["instruction", "mem"],
       "nominal": true,
       "ops": [
         { "name": "dst", "class": "value" },
         { "name": "src", "class": "value" },
-        { "name": "count", "class": "value" }
+        { "name": "count", "class": "value" },
+        { "name": "mem", "class": "mem" }
       ]
     },
     {
       "name": "FillBytes",
-      "class": "instruction",
+      "class": ["instruction", "mem"],
       "nominal": true,
       "ops": [
         { "name": "dst", "class": "value" },
         { "name": "src", "class": "value" },
-        { "name": "count", "class": "value" }
+        { "name": "count", "class": "value" },
+        { "name": "mem", "class": "mem" }
       ]
     },
     {
       "name": "PushStack",
-      "class": "instruction",
+      "class": ["instruction", "mem", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "value", "class": "value" }
+        { "name": "value", "class": "value" },
+        { "name": "mem", "class": "mem" }
       ]
     },
     {
       "name": "PopStack",
-      "class": ["instruction", "value"],
+      "class": ["instruction", "value", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "type", "class": "type" }
+        { "name": "type", "class": "type" },
+        { "name": "mem", "class": "mem" }
       ]
     },
     {
       "name": "GetStackSize",
-      "class": ["instruction", "value"],
-      "nominal": true
+      "class": ["instruction", "value", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" }
+      ]
     },
     {
       "name": "SetStackSize",
-      "class": "instruction",
+      "class": ["instruction", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "value", "class": "value" }
+        { "name": "value", "class": "value" },
+        { "name": "mem", "class": "mem" }
       ]
     },
     {
       "name": "GetStackBaseAddr",
       "class": ["instruction", "value"],
-      "nominal": true
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" }
+      ]
     },
     {
       "name": "DebugPrintf",
-      "class": "instruction",
+      "class": ["instruction", "mem"],
       "nominal": true,
       "ops": [
         { "name": "string", "class": "string" },
-        { "name": "args", "class": "value", "list": true }
+        { "name": "args", "class": "value", "list": true },
+        { "name": "mem", "class": "mem" }
       ]
     }
   ]

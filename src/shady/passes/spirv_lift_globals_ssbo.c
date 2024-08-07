@@ -10,7 +10,7 @@
 typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
-    BodyBuilder* bb;
+    //BodyBuilder* bb;
     Node* lifted_globals_decl;
 } Context;
 
@@ -21,7 +21,7 @@ static const Node* process(Context* ctx, const Node* node) {
     Context c = *ctx;
     ctx = &c;
     if (is_abstraction(node)) {
-        c.bb = abs_bb = begin_body(a);
+        //c.bb = abs_bb = begin_body(a);
     }
 
     switch (node->tag) {
@@ -29,10 +29,11 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* odecl = node->payload.ref_decl.decl;
             if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
                 break;
-            assert(ctx->bb && "this RefDecl node isn't appearing in an abstraction - we cannot replace it with a load!");
-            const Node* ptr_addr = gen_lea(ctx->bb, ref_decl_helper(a, ctx->lifted_globals_decl), int32_literal(a, 0), singleton(rewrite_node(&ctx->rewriter, odecl)));
+            error("TODO")
+            /*assert(ctx->bb && "this RefDecl node isn't appearing in an abstraction - we cannot replace it with a load!");
+             const Node* ptr_addr = gen_lea(ctx->bb, ref_decl_helper(a, ctx->lifted_globals_decl), int32_literal(a, 0), singleton(rewrite_node(&ctx->rewriter, odecl)));
             const Node* ptr = gen_load(ctx->bb, ptr_addr);
-            return ptr;
+            return ptr;*/
         }
         case GlobalVariable_TAG:
             if (node->payload.global_variable.address_space != AsGlobal)
@@ -42,13 +43,13 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 
     Node* new = (Node*) recreate_node_identity(&ctx->rewriter, node);
-    if (abs_bb) {
+    /*if (abs_bb) {
         assert(is_abstraction(new));
         if (get_abstraction_body(new))
             set_abstraction_body(new, finish_body(abs_bb, get_abstraction_body(new)));
         else
             cancel_body(abs_bb);
-    }
+    }*/
     return new;
 }
 

@@ -32,67 +32,6 @@ static size_t count_calls(const UsesMap* map, const Node* bb) {
     return count;
 }
 
-Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constructTag tag, union NodesUnion payload);
-
-static void reset_params(Nodes params) {
-    for (size_t i = 0; i < params.count; i++)
-        ((Node*) params.nodes[i])->payload.param.abs = NULL;
-}
-
-// eliminates blocks by "lifting" their contents out and replacing yield with the tail of the outer let
-// In other words, we turn these patterns:
-//
-// let block {
-//   let I in case(x) =>
-//   let J in case(y) =>
-//   let K in case(z) =>
-//      ...
-//   yield (x, y, z) }
-// in case(a, b, c) => R
-//
-// into these:
-//
-// let I in case(x) =>
-// let J in case(y) =>
-// let K in case(z) =>
-// ...
-// R[a->x, b->y, c->z]
-const Node* flatten_block(IrArena* arena, const Node* instruction, BodyBuilder* bb) {
-    assert(instruction->tag == Block_TAG);
-    // follow the terminator of the block until we hit a yield()
-    const Node* const lam = instruction->payload.block.inside;
-    const Node* terminator = get_abstraction_body(lam);
-    while (true) {
-        if (is_structured_construct(terminator)) {
-            Nodes params = get_abstraction_params(get_structured_construct_tail(terminator));
-            reset_params(params);
-            add_structured_construct(bb, params, (Structured_constructTag) terminator->tag, terminator->payload);
-            terminator = get_abstraction_body(get_structured_construct_tail(terminator));
-            continue;
-        }
-
-        switch (is_terminator(terminator)) {
-            case NotATerminator: assert(false);
-            case Terminator_Let_TAG: {
-                add_structured_construct(bb, empty(arena), (Structured_constructTag) NotAStructured_construct, terminator->payload);
-                terminator = terminator->payload.let.in;
-                continue;
-            }
-            case Terminator_BlockYield_TAG: {
-                return maybe_tuple_helper(arena, terminator->payload.block_yield.args);
-            }
-            case Terminator_Return_TAG:
-            case Terminator_TailCall_TAG: {
-                return terminator;
-            }
-            // if we see anything else, give up
-            default: {
-                assert(false && "invalid block");
-            }
-        }
-    }
-}
-
 static bool has_side_effects(const Node* instr) {
     bool side_effects = true;
     if (instr->tag == PrimOp_TAG)
@@ -116,47 +55,6 @@ const Node* process(Context* ctx, const Node* old) {
     }
 
     switch (old->tag) {
-        case Let_TAG: {
-            Let payload = old->payload.let;
-            bool consumed = false;
-            Nodes result_types = unwrap_multiple_yield_types(a, payload.instruction->type);
-            for (size_t i = 0; i < result_types.count; i++) {
-                const Use* use = get_first_use(ctx->map, extract_multiple_ret_types_helper(payload.instruction, i));
-                assert(use);
-                for (;use; use = use->next_use) {
-                    if (use->user == old)
-                        continue;
-                    consumed = true;
-                    break;
-                }
-                if (consumed)
-                    break;
-            }
-            if (!consumed && !has_side_effects(payload.instruction) && ctx->rewriter.dst_arena) {
-                debugvv_print("Cleanup: found an unused instruction: ");
-                log_node(DEBUGVV, payload.instruction);
-                debugvv_print("\n");
-                *ctx->todo = true;
-                return rewrite_node(&ctx->rewriter, payload.in);
-            }
-
-            BodyBuilder* bb = begin_body(a);
-            const Node* oinstruction = old->payload.let.instruction;
-            const Node* instruction;
-            // optimization: fold blocks
-            if (oinstruction->tag == Block_TAG) {
-                *ctx->todo = true;
-                instruction = flatten_block(a, recreate_node_identity(r, oinstruction), bb);
-                register_processed(r, oinstruction, instruction);
-                if (is_terminator(instruction))
-                    return finish_body(bb, instruction);
-            } else {
-                instruction = rewrite_node(r, oinstruction);
-                register_processed(r, oinstruction, instruction);
-            }
-            const Node* nlet = let(a, instruction, rewrite_node(r, old->payload.let.in));
-            return finish_body(bb, nlet);
-        }
         case BasicBlock_TAG: {
             size_t uses = count_calls(ctx->map, old);
             if (uses <= 1) {

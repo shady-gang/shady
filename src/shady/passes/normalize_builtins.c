@@ -55,7 +55,8 @@ static const Node* process(Context* ctx, const Node* node) {
     const Node* found = search_processed(&ctx->rewriter, node);
     if (found) return found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     switch (node->tag) {
         case GlobalVariable_TAG: {
@@ -67,8 +68,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (ctx->builtins[b])
                     return ctx->builtins[b];
                 const Type* t = get_builtin_type(a, b);
-                Node* ndecl = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, global_variable.annotations), t, global_variable.name, get_builtin_as(b));
-                register_processed(&ctx->rewriter, node, ndecl);
+                Node* ndecl = global_var(r->dst_module, rewrite_nodes(r, global_variable.annotations), t, global_variable.name, get_builtin_as(b));
+                register_processed(r, node, ndecl);
                 // no 'init' for builtins, right ?
                 assert(!global_variable.init);
                 ctx->builtins[b] = ndecl;
@@ -80,9 +81,9 @@ static const Node* process(Context* ctx, const Node* node) {
             const Type* req_cast = get_req_cast(ctx, node->payload.load.ptr);
             if (req_cast) {
                 assert(is_data_type(req_cast));
-                BodyBuilder* bb = begin_body(a);
-                const Node* r = first(bind_instruction(bb, recreate_node_identity(&ctx->rewriter, node)));
-                const Node* r2 = first(gen_primop(bb, reinterpret_op, singleton(req_cast), singleton(r)));
+                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.load.mem));
+                const Node* r1 = first(bind_instruction(bb, recreate_node_identity(r, node)));
+                const Node* r2 = first(gen_primop(bb, reinterpret_op, singleton(req_cast), singleton(r1)));
                 return yield_values_and_wrap_in_block(bb, singleton(r2));
             }
             break;

@@ -80,7 +80,7 @@ static const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-static const Node* expect_body(ctxparams, const Node* default_terminator);
+static const Node* expect_body(ctxparams, const Node* mem, const Node* default_terminator);
 static const Node* accept_value(ctxparams, BodyBuilder*);
 static const Type* accept_unqualified_type(ctxparams);
 static const Node* accept_expr(ctxparams, BodyBuilder*, int);
@@ -608,14 +608,14 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             const Node* merge = config.front_end ? merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }) : NULL;
 
             Node* true_case = case_(arena, nodes(arena, 0, NULL));
-            set_abstraction_body(true_case, expect_body(ctx, merge));
+            set_abstraction_body(true_case, expect_body(ctx, get_abstraction_mem(true_case), merge));
 
             // else defaults to an empty body
             bool has_else = accept_token(ctx, else_tok);
             Node* false_case = NULL;
             if (has_else) {
                 false_case = case_(arena, nodes(arena, 0, NULL));
-                set_abstraction_body(false_case, expect_body(ctx, merge));
+                set_abstraction_body(false_case, expect_body(ctx, get_abstraction_mem(false_case), merge));
             }
             return maybe_tuple_helper(arena, gen_if(bb, yield_types, condition, true_case, false_case));
         }
@@ -628,7 +628,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             // by default loops continue forever
             const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
             Node* loop_case = case_(arena, parameters);
-            set_abstraction_body(loop_case, expect_body(ctx, default_loop_end_behaviour));
+            set_abstraction_body(loop_case, expect_body(ctx, get_abstraction_mem(loop_case), default_loop_end_behaviour));
             return maybe_tuple_helper(arena, gen_loop(bb, yield_types, initial_arguments, loop_case));
         }
         case control_tok: {
@@ -642,7 +642,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             }), str);
             expect(accept_token(ctx, rpar_tok));
             Node* control_case = case_(arena, singleton(jp));
-            set_abstraction_body(control_case, expect_body(ctx, NULL));
+            set_abstraction_body(control_case, expect_body(ctx, get_abstraction_mem(control_case), NULL));
             return maybe_tuple_helper(arena, gen_control(bb, yield_types, control_case));
         }
         default: break;
@@ -733,7 +733,8 @@ static const Node* expect_jump(ctxparams, BodyBuilder* bb) {
     Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : nodes(arena, 0, NULL);
     return jump(arena, (Jump) {
         .target = unbound(arena, (Unbound) { .name = target }),
-        .args = args
+        .args = args,
+        .mem = bb_mem(bb)
     });
 }
 
@@ -756,11 +757,11 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             const Node* false_target = expect_jump(ctx, bb);
             expect(accept_token(ctx, rpar_tok));
 
-            Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : nodes(arena, 0, NULL);
             return branch(arena, (Branch) {
                 .condition = condition,
                 .true_jump = true_target,
                 .false_jump = false_target,
+                .mem = bb_mem(bb)
             });
         }
         case switch_tok: {
@@ -794,34 +795,39 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
                 .case_values = values,
                 .case_jumps = cases,
                 .default_jump = default_jump,
+                .mem = bb_mem(bb)
             });
         }
         case return_tok: {
             next_token(tokenizer);
             Nodes args = expect_operands(ctx, bb);
             return fn_ret(arena, (Return) {
-                .args = args
+                .args = args,
+                .mem = bb_mem(bb)
             });
         }
         case merge_selection_tok: {
             next_token(tokenizer);
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : nodes(arena, 0, NULL);
             return merge_selection(arena, (MergeSelection) {
-                .args = args
+                .args = args,
+                .mem = bb_mem(bb)
             });
         }
         case continue_tok: {
             next_token(tokenizer);
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : nodes(arena, 0, NULL);
             return merge_continue(arena, (MergeContinue) {
-                .args = args
+                .args = args,
+                .mem = bb_mem(bb)
             });
         }
         case break_tok: {
             next_token(tokenizer);
             Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : nodes(arena, 0, NULL);
             return merge_break(arena, (MergeBreak) {
-                .args = args
+                .args = args,
+                .mem = bb_mem(bb)
             });
         }
         case join_tok: {
@@ -832,23 +838,24 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             Nodes args = expect_operands(ctx, bb);
             return join(arena, (Join) {
                 .join_point = jp,
-                .args = args
+                .args = args,
+                .mem = bb_mem(bb)
             });
         }
         case unreachable_tok: {
             next_token(tokenizer);
             expect(accept_token(ctx, lpar_tok));
             expect(accept_token(ctx, rpar_tok));
-            return unreachable(arena);
+            return unreachable(arena, (Unreachable) { bb_mem(bb) });
         }
         default: break;
     }
     return NULL;
 }
 
-static const Node* expect_body(ctxparams, const Node* default_terminator) {
+static const Node* expect_body(ctxparams, const Node* mem, const Node* default_terminator) {
     expect(accept_token(ctx, lbracket_tok));
-    BodyBuilder* bb = begin_body(arena);
+    BodyBuilder* bb = begin_body_with_mem(arena, mem);
 
     while (true) {
         if (!accept_statement(ctx, bb))
@@ -877,7 +884,7 @@ static const Node* expect_body(ctxparams, const Node* default_terminator) {
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL, bb);
             Node* continuation = basic_block(arena, parameters, name);
-            continuation->payload.basic_block.body = expect_body(ctx, NULL);
+            continuation->payload.basic_block.body = expect_body(ctx, get_abstraction_mem(continuation), NULL);
             append_list(Node*, conts, continuation);
         }
 
@@ -958,14 +965,14 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
     const char* id = accept_identifier(ctx);
     expect(id);
     expect(accept_token(ctx, equal_tok));
-    BodyBuilder* bb = begin_body(arena);
+    BodyBuilder* bb = begin_block_pure(arena);
     const Node* definition = accept_expr(ctx, bb, max_precedence());
     expect(definition);
 
     expect(accept_token(ctx, semi_tok));
 
     Node* cnst = constant(mod, annotations, type, id);
-    cnst->payload.constant.instruction = yield_values_and_wrap_in_compound_instruction(bb, singleton(definition));
+    cnst->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, singleton(definition));
     return cnst;
 }
 
@@ -982,7 +989,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
 
     Node* fn = function(mod, parameters, name, annotations, types);
     if (!accept_token(ctx, semi_tok))
-        fn->payload.fun.body = expect_body(ctx, types.count == 0 ? fn_ret(arena, (Return) { .args = types }) : NULL);
+        fn->payload.fun.body = expect_body(ctx, get_abstraction_mem(fn), types.count == 0 ? fn_ret(arena, (Return) { .args = types }) : NULL);
 
     const Node* declaration = fn;
     expect(declaration);

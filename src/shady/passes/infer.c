@@ -123,10 +123,10 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             if (imported_hint) {
                 assert(is_data_type(imported_hint));
                 const Node* s = qualified_type_helper(imported_hint, true);
-                if (oconstant->instruction)
-                    instruction = infer(ctx, oconstant->instruction, s);
-            } else if (oconstant->instruction) {
-                instruction = infer(ctx, oconstant->instruction, NULL);
+                if (oconstant->value)
+                    instruction = infer(ctx, oconstant->value, s);
+            } else if (oconstant->value) {
+                instruction = infer(ctx, oconstant->value, NULL);
             }
             if (instruction)
                 imported_hint = get_unqualified_type(instruction->type);
@@ -134,7 +134,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
 
             Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
             register_processed(&ctx->rewriter, node, nconstant);
-            nconstant->payload.constant.instruction = instruction;
+            nconstant->payload.constant.value = instruction;
 
             return nconstant;
         }
@@ -355,7 +355,7 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* exp
     Nodes type_args = infer_nodes(ctx, old_type_args);
     Nodes old_operands = node->payload.prim_op.operands;
 
-    BodyBuilder* bb = begin_body(a);
+    BodyBuilder* bb = begin_block_pure(a);
     Op op = node->payload.prim_op.op;
     LARRAY(const Node*, new_operands, old_operands.count);
     Nodes input_types = empty(a);
@@ -527,22 +527,6 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     });
 }
 
-static const Node* infer_block(Context* ctx, const Node* node, const Nodes* expected_types) {
-    assert(node->tag == Block_TAG);
-    IrArena* a = ctx->rewriter.dst_arena;
-
-    Context block_inside_ctx = *ctx;
-    Nodes nyield_types = infer_nodes(ctx, node->payload.block.yield_types);
-    block_inside_ctx.merge_types = &nyield_types;
-    Node* new_case = basic_block(a, empty(a), NULL);
-    set_abstraction_body(new_case, infer(&block_inside_ctx, get_abstraction_body(node->payload.block.inside), NULL));
-
-    return block(a, (Block) {
-        .yield_types = nyield_types,
-        .inside = new_case
-    });
-}
-
 static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes* expected_types) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_instruction(node)) {
@@ -556,7 +540,6 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes
         }
         case PrimOp_TAG:       return infer_primop(ctx, node, expected_types);
         case Call_TAG:         return infer_indirect_call(ctx, node, expected_types);
-        case Block_TAG:        return infer_block  (ctx, node, expected_types);
         case Instruction_Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
         case Instruction_Lea_TAG: {
             Lea payload = node->payload.lea;
@@ -603,7 +586,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         case Match_TAG:        error("TODO")
         case Loop_TAG:         return infer_loop  (ctx, node);
         case Control_TAG:      return infer_control(ctx, node);
-        case Let_TAG: {
+        /*case Let_TAG: {
             // const Node* otail = node->payload.let.ttail;
             // Nodes annotated_types = get_param_types(a, otail->payload.case_.params);
             const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, NULL);
@@ -614,7 +597,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                 assert(is_value_type(inferred_yield_types.nodes[i]));
             }
             return let(a, inferred_instruction, infer(ctx, node->payload.let.in, NULL));
-        }
+        }*/
         case Return_TAG: {
             const Node* imported_fn = ctx->current_fn;
             Nodes return_types = imported_fn->payload.fun.return_types;
@@ -644,7 +627,6 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             });
         }
         case Branch_TAG:
-        case Terminator_BlockYield_TAG:
         case Terminator_Switch_TAG: break;
         case Terminator_TailCall_TAG: break;
         case Terminator_MergeSelection_TAG: {
@@ -693,11 +675,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
                 .args = nodes(a, old_args.count, new_args)
             });
         }
-        case Unreachable_TAG: return unreachable(a);
-        case Terminator_Join_TAG: return join(a, (Join) {
-            .join_point = infer(ctx, node->payload.join.join_point, NULL),
-            .args = infer_nodes(ctx, node->payload.join.args),
-        });
+        default: break;
     }
     return recreate_node_identity(&ctx->rewriter, node);
 }
@@ -756,7 +734,6 @@ Module* infer_program(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     };
     //ctx.rewriter.config.search_map = false;
     //ctx.rewriter.config.write_map = false;
-    ctx.rewriter.config.rebind_let = true;
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     return dst;

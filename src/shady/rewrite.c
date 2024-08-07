@@ -21,8 +21,6 @@ Rewriter create_rewriter_base(Module* src, Module* dst) {
         .config = {
             .search_map = true,
             .write_map = true,
-            .rebind_let = false,
-            .fold_quote = true,
         },
         .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
@@ -266,7 +264,7 @@ Nodes recreate_params(Rewriter* rewriter, Nodes oparams) {
     return nodes(rewriter->dst_arena, oparams.count, nparams);
 }
 
-Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
+Node* recreate_decl_header_identity_no_register(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
     switch (is_declaration(old)) {
         case GlobalVariable_TAG: {
@@ -305,6 +303,11 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
         case NotADeclaration: error("not a decl");
     }
     assert(new);
+    return new;
+}
+
+Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
+    Node* new = recreate_decl_header_identity_no_register(rewriter, old);
     register_processed(rewriter, old, new);
     return new;
 }
@@ -317,7 +320,7 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             break;
         }
         case Constant_TAG: {
-            new->payload.constant.instruction = rewrite_op_helper(rewriter, NcInstruction, "instruction", old->payload.constant.instruction);
+            new->payload.constant.value = rewrite_op_helper(rewriter, NcValue, "value", old->payload.constant.value);
             // TODO check type now ?
             break;
         }
@@ -353,21 +356,11 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             recreate_decl_body_identity(rewriter, node, new);
             return new;
         }
-        case CompoundInstruction_TAG: {
-            return compound_instruction(arena, rewrite_ops_helper(rewriter, NcInstruction, "instructions", node->payload.compound_instruction.instructions), rewrite_ops_helper(rewriter, NcValue, "results", node->payload.compound_instruction.results));
-        }
         case Param_TAG:
             log_string(ERROR, "Can't rewrite: ");
             log_node(ERROR, node);
             log_string(ERROR, ", params should be rewritten by the abstraction rewrite logic");
             error_die();
-        case Let_TAG: {
-            BodyBuilder* bb = begin_body(arena);
-            const Node* instruction = rewrite_op_helper(rewriter, NcInstruction, "instruction", node->payload.let.instruction);
-            //register_processed(rewriter, node->payload.let.instruction, instruction);
-            const Node* nlet = let(arena, instruction, rewrite_op_helper(rewriter, NcTerminator, "in", node->payload.let.in));
-            return finish_body(bb, nlet);
-        }
         case BasicBlock_TAG: {
             Nodes params = recreate_params(rewriter, node->payload.basic_block.params);
             register_processed_list(rewriter, node->payload.basic_block.params, params);

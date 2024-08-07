@@ -122,7 +122,7 @@ static const Node* process(Context* ctx, const Node* old) {
             must_lower |= ctx->config->lower.emulate_physical_memory && !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
             if (!must_lower)
                 break;
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_block_pure(a);
             // Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
             const Node* cast_base = gen_reinterpret_cast(bb, emulated_ptr_t, rewrite_node(r, lea.ptr));
             const Type* new_base_t = rewrite_node(&ctx->rewriter, old_base_ptr_t);

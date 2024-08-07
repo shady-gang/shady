@@ -62,7 +62,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     Nodes rewritten_params = recreate_params(&ctx2.rewriter, old->payload.fun.params);
     Node* new_entry_pt = function(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), nodes(a, 0, NULL));
 
-    BodyBuilder* bb = begin_body(a);
+    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_entry_pt));
 
     bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, ctx->init_fn), .args = empty(a) }));
     bind_instruction(bb, call(a, (Call) { .callee = access_decl(&ctx->rewriter, "builtin_init_scheduler"), .args = empty(a) }));
@@ -87,9 +87,10 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
         .args = nodes(a, 0, NULL)
     }));
 
-    new_entry_pt->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
-        .args = nodes(a, 0, NULL)
-    }));
+    set_abstraction_body(new_entry_pt, finish_body(bb, fn_ret(a, (Return) {
+        .args = nodes(a, 0, NULL),
+        .mem = bb_mem(bb),
+    })));
 }
 
 static const Node* process(Context* ctx, const Node* old) {
@@ -112,11 +113,13 @@ static const Node* process(Context* ctx, const Node* old) {
             if (ctx2.disable_lowering) {
                 Node* fun = recreate_decl_header_identity(&ctx2.rewriter, old);
                 if (old->payload.fun.body) {
+                    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
                     const Node* nbody = rewrite_node(&ctx2.rewriter, old->payload.fun.body);
                     if (entry_point_annotation) {
-                        nbody = let(a, call(a, (Call) { .callee = fn_addr_helper(a, ctx2.init_fn), .args = empty(a)}), nbody);
+                        gen_call(bb, fn_addr_helper(a, ctx2.init_fn), empty(a));
                     }
-                    fun->payload.fun.body = nbody;
+                    register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
+                    set_abstraction_body(fun, finish_body(bb, rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
                 }
 
                 destroy_uses_map(ctx2.uses);
@@ -138,7 +141,7 @@ static const Node* process(Context* ctx, const Node* old) {
             if (entry_point_annotation)
                 lift_entry_point(ctx, old, fun);
 
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
@@ -151,7 +154,8 @@ static const Node* process(Context* ctx, const Node* old) {
                     popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .type_arguments = empty(a), .operands = singleton(popped) }), &old_param->payload.param.name));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
-            fun->payload.fun.body = finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
+            register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
+            set_abstraction_body(fun, finish_body(bb, rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
             destroy_uses_map(ctx2.uses);
             destroy_cfg(ctx2.cfg);
             return fun;
@@ -170,7 +174,7 @@ static const Node* process(Context* ctx, const Node* old) {
         });
         case PrimOp_TAG: {
             switch (old->payload.prim_op.op) {
-                case create_joint_point_op: {
+                /*case create_joint_point_op: {
                     BodyBuilder* bb = begin_body(a);
                     Nodes args = rewrite_nodes(&ctx->rewriter, old->payload.prim_op.operands);
                     assert(args.count == 2);
@@ -190,16 +194,18 @@ static const Node* process(Context* ctx, const Node* old) {
                             .args = empty(a)
                     }));
                     return yield_values_and_wrap_in_block(bb, r);
-                }
+                }*/
+                error("TODO: unprimop-ify these")
                 default: return recreate_node_identity(&ctx->rewriter, old);
             }
         }
         case TailCall_TAG: {
             //if (ctx->disable_lowering)
             //    return recreate_node_identity(&ctx->rewriter, old);
-            BodyBuilder* bb = begin_body(a);
-            gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.tail_call.args));
-            const Node* target = rewrite_node(&ctx->rewriter, old->payload.tail_call.target);
+            TailCall payload = old->payload.tail_call;
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, payload.args));
+            const Node* target = rewrite_node(&ctx->rewriter, payload.target);
             target = gen_conversion(bb, uint32_type(a), target);
 
             const Node* fork_call = call(a, (Call) {
@@ -210,6 +216,7 @@ static const Node* process(Context* ctx, const Node* old) {
             return finish_body(bb, fn_ret(a, (Return) { .args = nodes(a, 0, NULL) }));
         }
         case Join_TAG: {
+            Join payload = old->payload.join;
             //if (ctx->disable_lowering)
             //    return recreate_node_identity(&ctx->rewriter, old);
 
@@ -219,10 +226,10 @@ static const Node* process(Context* ctx, const Node* old) {
             if (jp_type->tag == JoinPointType_TAG)
                 break;
 
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
-            const Node* payload = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 2)));
-            gen_push_value_stack(bb, payload);
+            const Node* jp_payload = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 2)));
+            gen_push_value_stack(bb, jp_payload);
             const Node* dst = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 1)));
             const Node* tree_node = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 0)));
 
@@ -242,6 +249,7 @@ static const Node* process(Context* ctx, const Node* old) {
             break;
         }
         case Control_TAG: {
+            Control payload = old->payload.control;
             if (is_control_static(ctx->uses, old)) {
                 const Node* old_inside = old->payload.control.inside;
                 const Node* old_jp = first(get_abstraction_params(old_inside));
@@ -254,11 +262,16 @@ static const Node* process(Context* ctx, const Node* old) {
                 });
                 const Node* new_jp = param(a, qualified_type_helper(new_jp_type, true), old_jp->payload.param.name);
                 register_processed(&ctx->rewriter, old_jp, new_jp);
-                const Node* new_control_case = case_(a, singleton(new_jp));
+                Node* new_control_case = case_(a, singleton(new_jp));
                 set_abstraction_body(new_control_case, rewrite_node(&ctx->rewriter, get_abstraction_body(old_inside)));
-                BodyBuilder* bb = begin_body(a);
+                // BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                 Nodes nyield_types = rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types);
-                return control(a, (Control) { .yield_types = nyield_types, .inside = new_control_case, .tail = rewrite_node(r, get_structured_construct_tail(old))});
+                return control(a, (Control) {
+                    .yield_types = nyield_types,
+                    .inside = new_control_case,
+                    .tail = rewrite_node(r, get_structured_construct_tail(old)),
+                    .mem = rewrite_node(r, payload.mem),
+                });
                 //return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, new_body));
             }
             break;
@@ -275,18 +288,20 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     assert((*ctx->top_dispatcher_fn)->tag == Function_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
 
-    BodyBuilder* loop_body_builder = begin_body(a);
+    bool count_iterations = ctx->config->shader_diagnostics.max_top_iterations > 0;
+
+    const Node* iterations_count_param = NULL;
+    if (count_iterations)
+        iterations_count_param = param(a, qualified_type(a, (QualifiedType) { .type = int32_type(a), .is_uniform = true }), "iterations");
+
+    Node* loop_inside_case = case_(a, count_iterations ? singleton(iterations_count_param) : nodes(a, 0, NULL));
+    BodyBuilder* loop_body_builder = begin_body_with_mem(a, get_abstraction_mem(loop_inside_case));
 
     const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, "next_fn"));
     const Node* get_active_branch_fn = access_decl(&ctx->rewriter, "builtin_get_active_branch");
     const Node* next_mask = first(bind_instruction(loop_body_builder, call(a, (Call) { .callee = get_active_branch_fn, .args = empty(a) })));
     const Node* local_id = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);
     const Node* should_run = gen_primop_e(loop_body_builder, mask_is_thread_active_op, empty(a), mk_nodes(a, next_mask, local_id));
-
-    bool count_iterations = ctx->config->shader_diagnostics.max_top_iterations > 0;
-    const Node* iterations_count_param = NULL;
-    if (count_iterations)
-        iterations_count_param = param(a, qualified_type(a, (QualifiedType) { .type = int32_type(a), .is_uniform = true }), "iterations");
 
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
@@ -316,13 +331,14 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     struct List* cases = new_list(const Node*);
 
     // Build 'zero' case (exits the program)
-    BodyBuilder* zero_case_builder = begin_body(a);
-    BodyBuilder* zero_if_case_builder = begin_body(a);
+    Node* zero_case_lam = case_(a, nodes(a, 0, NULL));
+    BodyBuilder* zero_case_builder = begin_body_with_mem(a, get_abstraction_mem(zero_case_lam));
+    Node* zero_if_true_lam = case_(a, empty(a));
+    BodyBuilder* zero_if_case_builder = begin_body_with_mem(a, get_abstraction_mem(zero_if_true_lam));
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         gen_debug_printf(zero_if_case_builder, "trace: kill thread %d:%d\n", mk_nodes(a, sid, local_id));
     }
-    Node* zero_if_true_lam = case_(a, empty(a));
     set_abstraction_body(zero_if_true_lam, finish_body(zero_if_case_builder, break_terminator));
     gen_if(zero_case_builder, empty(a), should_run, zero_if_true_lam, NULL);
     if (ctx->config->printf_trace.god_function) {
@@ -330,7 +346,6 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         gen_debug_printf(zero_case_builder, "trace: thread %d:%d escaped death!\n", mk_nodes(a, sid, local_id));
     }
 
-    Node* zero_case_lam = case_(a, nodes(a, 0, NULL));
     set_abstraction_body(zero_case_lam, finish_body(zero_case_builder, continue_terminator));
     const Node* zero_lit = uint64_literal(a, 0);
     append_list(const Node*, literals, zero_lit);
@@ -345,7 +360,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             const Node* fn_lit = lower_fn_addr(ctx, decl);
 
-            BodyBuilder* if_builder = begin_body(a);
+            Node* if_true_lam = case_(a, empty(a));
+            BodyBuilder* if_builder = begin_body_with_mem(a, get_abstraction_mem(if_true_lam));
             if (ctx->config->printf_trace.god_function) {
                 const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
                 gen_debug_printf(if_builder, "trace: thread %d:%d will run fn %ul with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
@@ -354,11 +370,11 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .callee = fn_addr_helper(a, find_processed(&ctx->rewriter, decl)),
                 .args = nodes(a, 0, NULL)
             }));
-            Node* if_true_lam = case_(a, empty(a));
             set_abstraction_body(if_true_lam, finish_body(if_builder, merge_selection(a, (MergeSelection) {.args = nodes(a, 0, NULL)})));
-            BodyBuilder* case_builder = begin_body(a);
-            gen_if(case_builder, empty(a), should_run, if_true_lam, NULL);
+
             Node* case_lam = case_(a, nodes(a, 0, NULL));
+            BodyBuilder* case_builder = begin_body_with_mem(a, get_abstraction_mem(case_lam));
+            gen_if(case_builder, empty(a), should_run, if_true_lam, NULL);
             set_abstraction_body(case_lam, finish_body(case_builder, continue_terminator));
 
             append_list(const Node*, literals, fn_lit);
@@ -367,24 +383,24 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     }
 
     Node* default_case = case_(a, nodes(a, 0, NULL));
-    set_abstraction_body(default_case, unreachable(a));
+    set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(default_case) }));
     gen_match(loop_body_builder, empty(a), next_function, nodes(a, entries_count_list(literals), read_list(const Node*, literals)), nodes(a, entries_count_list(cases), read_list(const Node*, cases)), default_case);
 
     destroy_list(literals);
     destroy_list(cases);
 
-    Node* loop_inside_case = case_(a, count_iterations ? singleton(iterations_count_param) : nodes(a, 0, NULL));
-    set_abstraction_body(loop_inside_case, finish_body(loop_body_builder, unreachable(a)));
+    set_abstraction_body(loop_inside_case, finish_body(loop_body_builder, unreachable(a, (Unreachable) { .mem = bb_mem(loop_body_builder) })));
 
-    BodyBuilder* dispatcher_body_builder = begin_body(a);
+    BodyBuilder* dispatcher_body_builder = begin_body_with_mem(a, get_abstraction_mem(*ctx->top_dispatcher_fn));
     gen_loop(dispatcher_body_builder, empty(a), count_iterations ? singleton(int32_literal(a, 0)) : nodes(a, 0, NULL), loop_inside_case);
 
     if (ctx->config->printf_trace.god_function)
         gen_debug_printf(dispatcher_body_builder, "trace: end of top\n", empty(a));
 
-    (*ctx->top_dispatcher_fn)->payload.fun.body = finish_body(dispatcher_body_builder, fn_ret(a, (Return) {
+    set_abstraction_body(*ctx->top_dispatcher_fn, finish_body(dispatcher_body_builder, fn_ret(a, (Return) {
         .args = nodes(a, 0, NULL),
-    }));
+        .mem = bb_mem(dispatcher_body_builder),
+    })));
 }
 
 KeyHash hash_node(Node**);

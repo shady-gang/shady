@@ -44,7 +44,7 @@ const Node* import_node(Rewriter* r, const Node* node) {
                     replace_or_compare(&existing->payload.fun.body, rewrite_node(r, node->payload.fun.body));
                     break;
                 case Declaration_Constant_TAG:
-                    replace_or_compare(&existing->payload.constant.instruction, rewrite_node(r, node->payload.constant.instruction));
+                    replace_or_compare(&existing->payload.constant.value, rewrite_node(r, node->payload.constant.value));
                     break;
                 case Declaration_GlobalVariable_TAG:
                     replace_or_compare(&existing->payload.global_variable.init, rewrite_node(r, node->payload.global_variable.init));

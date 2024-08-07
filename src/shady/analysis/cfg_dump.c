@@ -50,13 +50,6 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
 
     print(p, "%s: \n%s: ", abs_name, abs_name);
 
-    while (body->tag == Let_TAG) {
-        print_node_helper(p, body);
-        print(p, "\\l");
-
-        body = body->payload.let.in;
-    }
-
     print_node_helper(p, body);
     print(p, "\\l");
 

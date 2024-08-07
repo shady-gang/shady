@@ -120,7 +120,8 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, Nodes ovariable
 
     Context lifting_ctx = *ctx;
     lifting_ctx.rewriter = create_children_rewriter(&ctx->rewriter);
-    register_processed_list(&lifting_ctx.rewriter, ovariables, new_params);
+    Rewriter* r = &lifting_ctx.rewriter;
+    register_processed_list(r, ovariables, new_params);
 
     const Node* payload = param(a, qualified_type_helper(uint32_type(a), false), "sp");
 
@@ -131,13 +132,13 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, Nodes ovariable
     lifted_cont->lifted_fn = new_fn;
 
     // Recover that stuff inside the new body
-    BodyBuilder* bb = begin_body(a);
+    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
     gen_set_stack_size(bb, payload);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = read_list(const Node*, recover_context)[i];
         // assert(ovar->tag == Variable_TAG);
 
-        const Type* value_type = rewrite_node(&ctx->rewriter, ovar->type);
+        const Type* value_type = rewrite_node(r, ovar->type);
 
         String param_name = get_value_name_unsafe(ovar);
         const Node* recovered_value = gen_pop_value_stack(bb, get_unqualified_type(value_type));
@@ -147,14 +148,15 @@ static LiftedCont* lambda_lift(Context* ctx, const Node* liftee, Nodes ovariable
         if (is_qualified_type_uniform(ovar->type))
             recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = singleton(recovered_value) }), &param_name));
 
-        register_processed(&lifting_ctx.rewriter, ovar, recovered_value);
+        register_processed(r, ovar, recovered_value);
     }
 
-    const Node* substituted = rewrite_node(&lifting_ctx.rewriter, obody);
-    destroy_rewriter(&lifting_ctx.rewriter);
+    register_processed(r, get_abstraction_mem(liftee), bb_mem(bb));
+    const Node* substituted = rewrite_node(r, obody);
+    destroy_rewriter(r);
 
     assert(is_terminator(substituted));
-    new_fn->payload.fun.body = finish_body(bb, substituted);
+    set_abstraction_body(new_fn, finish_body(bb, substituted));
 
     return lifted_cont;
 }
@@ -198,7 +200,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 *ctx->todo = true;
 
                 const Node* otail = get_structured_construct_tail(node);
-                BodyBuilder* bb = begin_body(a);
+                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.control.mem));
                 LiftedCont* lifted_tail = lambda_lift(ctx, otail, get_abstraction_params(otail));
                 const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                 const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);

@@ -9,7 +9,6 @@
 typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
-    BodyBuilder* b;
 } Context;
 
 static const Node* process(Context* ctx, NodeClass class, String op_name, const Node* node) {
@@ -32,11 +31,12 @@ static const Node* process(Context* ctx, NodeClass class, String op_name, const 
             const Node* odecl = node->payload.ref_decl.decl;
             if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsSubgroup)
                 break;
-            assert(ctx->b);
             const Node* ndecl = rewrite_op(&ctx->rewriter, NcDeclaration, "decl", odecl);
-            const Node* index = gen_builtin_load(ctx->rewriter.dst_module, ctx->b, BuiltinSubgroupId);
-            const Node* slice = gen_lea(ctx->b, ref_decl_helper(a, ndecl), int32_literal(a, 0), mk_nodes(a, index));
-            return slice;
+            error("TODO")
+            // assert(ctx->b);
+            // const Node* index = gen_builtin_load(ctx->rewriter.dst_module, ctx->b, BuiltinSubgroupId);
+            // const Node* slice = gen_lea(ctx->b, ref_decl_helper(a, ndecl), int32_literal(a, 0), mk_nodes(a, index));
+            // return slice;
         }
         case GlobalVariable_TAG: {
             AddressSpace as = node->payload.global_variable.address_space;
@@ -64,12 +64,6 @@ static const Node* process(Context* ctx, NodeClass class, String op_name, const 
         default: break;
     }
 
-    if (class == NcTerminator) {
-        BodyBuilder* b = begin_body(a);
-        Context c = *ctx;
-        c.b = b;
-        return finish_body(b, recreate_node_identity(&c.rewriter, node));
-    }
     const Node* new = recreate_node_identity(&ctx->rewriter, node);
     if (class == NcInstruction)
         register_processed(r, node, new);

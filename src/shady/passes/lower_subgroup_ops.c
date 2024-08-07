@@ -82,11 +82,12 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* t, const 
 
 static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Type* t) {
     IrArena* a = ctx->rewriter.dst_arena;
-    BodyBuilder* bb = begin_body(a);
+    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fn));
     const Node* result = generate(ctx, bb, t, param);
     if (result) {
         fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) {
-            .args = singleton(result)
+            .args = singleton(result),
+            .mem = bb_mem(bb),
         }));
         return;
     }
@@ -131,9 +132,10 @@ static const Node* process(Context* ctx, const Node* node) {
             PrimOp payload = node->payload.prim_op;
             switch (payload.op) {
                 case subgroup_broadcast_first_op: {
-                    BodyBuilder* bb = begin_body(a);
+                    error("TODO")
+                    /*BodyBuilder* bb = begin_body(a);
                     return yield_values_and_wrap_in_block(bb, singleton(
-                            build_subgroup_first(ctx, bb, rewrite_node(r, first(payload.operands)))));
+                            build_subgroup_first(ctx, bb, rewrite_node(r, first(payload.operands)))));*/
                 }
                 default: break;
             }

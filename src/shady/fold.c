@@ -178,7 +178,7 @@ static inline const Node* fold_simplify_math(const Node* node) {
     return NULL;
 }
 
-static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
+static inline const Node* resolve_ptr_source(const Node* ptr) {
     const Node* original_ptr = ptr;
     IrArena* a = ptr->arena;
     const Type* t = ptr->type;
@@ -241,30 +241,28 @@ static inline const Node* resolve_ptr_source(BodyBuilder* bb, const Node* ptr) {
         if (new_src_ptr_type->tag != PtrType_TAG || new_src_ptr_type->payload.ptr_type.pointed_type != desired_pointee_type) {
             PtrType payload = t->payload.ptr_type;
             payload.address_space = src_as;
-            ptr = gen_reinterpret_cast(bb, ptr_type(a, payload), ptr);
+            ptr = prim_op_helper(a, reinterpret_op, singleton(ptr_type(a, payload)), singleton(ptr));
         }
         return ptr;
     }
-    return original_ptr;
+    return NULL;
 }
 
-static inline const Node* simplify_ptr_operand(IrArena* a, BodyBuilder* bb, const Node* old_op) {
+static inline const Node* simplify_ptr_operand(IrArena* a, const Node* old_op) {
     const Type* ptr_t = old_op->type;
     deconstruct_qualified_type(&ptr_t);
     if (ptr_t->payload.ptr_type.is_reference)
         return NULL;
-    const Node* new_op = resolve_ptr_source(bb, old_op);
-    return old_op != new_op ? new_op : NULL;
+    return resolve_ptr_source(old_op);
 }
 
 static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     IrArena* arena = node->arena;
-    BodyBuilder* bb = begin_body(arena);
     const Node* r = NULL;
     switch (node->tag) {
         case Load_TAG: {
             Load payload = node->payload.load;
-            const Node* nptr = simplify_ptr_operand(arena, bb, payload.ptr);
+            const Node* nptr = simplify_ptr_operand(arena, payload.ptr);
             if (!nptr) break;
             payload.ptr = nptr;
             r = load(arena, payload);
@@ -272,7 +270,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
         }
         case Store_TAG: {
             Store payload = node->payload.store;
-            const Node* nptr = simplify_ptr_operand(arena, bb, payload.ptr);
+            const Node* nptr = simplify_ptr_operand(arena, payload.ptr);
             if (!nptr) break;
             payload.ptr = nptr;
             r = store(arena, payload);
@@ -280,28 +278,21 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
         }
         case Lea_TAG: {
             Lea payload = node->payload.lea;
-            const Node* nptr = simplify_ptr_operand(arena, bb, payload.ptr);
+            const Node* nptr = simplify_ptr_operand(arena, payload.ptr);
             if (!nptr) break;
             payload.ptr = nptr;
             r = lea(arena, payload);
             break;
         }
-        default: {
-            cancel_body(bb);
-            return node;
-        }
+        default: return node;
     }
 
-    if (!r) {
-        cancel_body(bb);
+    if (!r)
         return node;
-    }
 
-    if (!is_subtype(node->type, r->type)) {
-        r = gen_conversion(bb, get_unqualified_type(node->type), first(bind_instruction(bb, r)));
-        return yield_values_and_wrap_in_block(bb, singleton(r));
-    }
-    return bind_last_instruction_and_wrap_in_block(bb, r);
+    if (!is_subtype(node->type, r->type))
+        r = prim_op_helper(arena, convert_op, singleton(get_unqualified_type(node->type)), singleton(r));
+    return r;
 }
 
 static const Node* fold_prim_op(IrArena* arena, const Node* node) {
@@ -383,36 +374,6 @@ const Node* fold_node(IrArena* arena, const Node* node) {
     node = fold_simplify_ptr_operand(node);
     switch (node->tag) {
         case PrimOp_TAG: node = fold_prim_op(arena, node); break;
-        case Block_TAG: {
-            const Node* lam = node->payload.block.inside;
-            const Node* body = get_abstraction_body(lam);
-            if (body->tag == BlockYield_TAG) {
-                return maybe_tuple_helper(arena, body->payload.block_yield.args);
-            } else if (body->tag == Let_TAG) {
-                // fold block { let x, y, z = I; yield (x, y, z); } back to I
-                const Node* instr = get_let_instruction(body);
-                const Node* let_case_body = body->payload.let.in;
-                if (let_case_body->tag == BlockYield_TAG) {
-                    bool only_forwards = true;
-                    Nodes let_case_params = empty(arena);
-                    Nodes yield_args = let_case_body->payload.block_yield.args;
-                    if (let_case_params.count == yield_args.count) {
-                        for (size_t i = 0; i < yield_args.count; i++) {
-                            only_forwards &= yield_args.nodes[i] == let_case_params.nodes[i];
-                        }
-                        if (only_forwards) {
-                            log_string(DEBUGVV, "Fold: simplify ");
-                            log_node(DEBUGVV, node);
-                            log_string(DEBUGVV, " into just ");
-                            log_node(DEBUGVV, instr);
-                            log_string(DEBUGVV, ".\n");
-                            return instr;
-                        }
-                    }
-                }
-            }
-            break;
-        }
         case Branch_TAG: {
             Branch payload = node->payload.branch;
             if (arena->config.optimisations.fold_static_control_flow) {
@@ -448,11 +409,11 @@ const Node* fold_node(IrArena* arena, const Node* node) {
             if (new_cases_count == old_cases.count)
                 break;
 
-            if (new_cases_count == 1 && is_unreachable_case(payload.default_case))
+            /*if (new_cases_count == 1 && is_unreachable_case(payload.default_case))
                 return block(arena, (Block) { .inside = cases[0], .yield_types = add_qualifiers(arena, payload.yield_types, false) });
 
             if (new_cases_count == 0)
-                return block(arena, (Block) { .inside = payload.default_case, .yield_types = add_qualifiers(arena, payload.yield_types, false) });
+                return block(arena, (Block) { .inside = payload.default_case, .yield_types = add_qualifiers(arena, payload.yield_types, false) });*/
 
             return match_instr(arena, (Match) {
                 .inspect = payload.inspect,

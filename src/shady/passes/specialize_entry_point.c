@@ -59,7 +59,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / ctx->config->specialization.subgroup_size;
                 if (subgroups_per_wg == 0)
                     subgroups_per_wg = 1; // uh-oh
-                ncnst->payload.constant.instruction = uint32_literal(a, subgroups_per_wg);
+                ncnst->payload.constant.value = uint32_literal(a, subgroups_per_wg);
             }
             return ncnst;
         }

@@ -162,32 +162,11 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
     while (node) {
         switch (node->tag) {
             case Constant_TAG:
-                node = node->payload.constant.instruction;
+                node = node->payload.constant.value;
                 continue;
             case RefDecl_TAG:
                 node = node->payload.ref_decl.decl;
                 continue;
-            case Block_TAG: {
-                const Node* terminator = get_abstraction_body(node->payload.block.inside);
-                while (true) {
-                    if (terminator->tag == Let_TAG)
-                        terminator = terminator->payload.let.in;
-                    else if (is_structured_construct(terminator))
-                        terminator = get_abstraction_body(get_structured_construct_tail(terminator));
-                    else
-                        break;
-                }
-                if (terminator->tag == BlockYield_TAG) {
-                    assert(terminator->payload.block_yield.args.count == 1);
-                    return resolve_node_to_definition(first(terminator->payload.block_yield.args), config);
-                }
-                return NULL;
-            }
-            case CompoundInstruction_TAG: {
-                if (node->payload.compound_instruction.results.count == 1)
-                    return resolve_node_to_definition(first(node->payload.compound_instruction.results), config);
-                return NULL;
-            }
             case Load_TAG: {
                 if (config.enter_loads) {
                     const Node* source = node->payload.load.ptr;
@@ -255,7 +234,7 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
             break;
         }
         case Declaration_Constant_TAG: {
-            return get_string_literal(arena, node->payload.constant.instruction);
+            return get_string_literal(arena, node->payload.constant.value);
         }
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
@@ -291,9 +270,8 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
     return NULL;
 }
 
-bool is_abstraction(const Node* node) {
-    NodeTag tag = node->tag;
-    return tag == Function_TAG || tag == BasicBlock_TAG;
+const Node* get_abstraction_mem(const Node* abs) {
+    return abs_mem(abs->arena, (AbsMem) { abs });
 }
 
 String get_abstraction_name(const Node* abs) {
@@ -321,46 +299,39 @@ String get_abstraction_name_safe(const Node* abs) {
     return format_string_interned(abs->arena, "%%%d", abs->id);
 }
 
-const Node* get_abstraction_body(const Node* abs) {
-    assert(is_abstraction(abs));
-    switch (abs->tag) {
-        case Function_TAG: return abs->payload.fun.body;
-        case BasicBlock_TAG: return abs->payload.basic_block.body;
-        default: assert(false);
-    }
+const Node* get_original_mem(const Node* mem) {
+    error("TODO");
+    return mem;
 }
 
 void set_abstraction_body(Node* abs, const Node* body) {
     assert(is_abstraction(abs));
     assert(!body || is_terminator(body));
+    IrArena* a = abs->arena;
     switch (abs->tag) {
         case Function_TAG: abs->payload.fun.body = body; break;
-        case BasicBlock_TAG: abs->payload.basic_block.body = body; break;
+        case BasicBlock_TAG: {
+            while (true) {
+                const Node* mem0 = get_original_mem(get_terminator_mem(body));
+                assert(is_abstraction(mem0));
+                if (is_basic_block(mem0)) {
+                    BodyBuilder* insert = mem0->payload.basic_block.insert;
+                    if (insert) {
+                        const Node* mem = insert->mem0;
+                        set_abstraction_body((Node*) mem0, finish_body(insert, body));
+                        body = jump_helper(a, mem0, empty(a), mem);
+                        continue;
+                    }
+                    assert(mem0 == abs);
+                }
+                break;
+            }
+
+            abs->payload.basic_block.body = body;
+            break;
+        }
         default: assert(false);
     }
-}
-
-Nodes get_abstraction_params(const Node* abs) {
-    assert(is_abstraction(abs));
-    switch (abs->tag) {
-        case Function_TAG: return abs->payload.fun.params;
-        case BasicBlock_TAG: return abs->payload.basic_block.params;
-        default: assert(false);
-    }
-}
-
-const Node* get_let_instruction(const Node* let) {
-    switch (let->tag) {
-        case Let_TAG: return let->payload.let.instruction;
-        default: assert(false);
-    }
-}
-
-const Node* get_let_chain_end(const Node* terminator) {
-    while (terminator->tag == Let_TAG) {
-        terminator = terminator->payload.let.in;
-    }
-    return terminator;
 }
 
 KeyHash hash_node_payload(const Node* node);

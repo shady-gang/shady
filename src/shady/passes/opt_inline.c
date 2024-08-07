@@ -168,15 +168,15 @@ static const Node* process(Context* ctx, const Node* node) {
         case Call_TAG: {
             if (!ctx->graph)
                 break;
-            const Node* ocallee = node->payload.call.callee;
-            Nodes oargs = node->payload.call.args;
+            Call payload = node->payload.call;
+            const Node* ocallee = payload.callee;
 
             ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {
                 CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined && is_call_potentially_inlineable(ctx->old_fun, ocallee)) {
                     debugv_print("Inlining call to %s\n", get_abstraction_name(ocallee));
-                    Nodes nargs = rewrite_nodes(&ctx->rewriter, oargs);
+                    Nodes nargs = rewrite_nodes(&ctx->rewriter, payload.args);
 
                     // Prepare a join point to replace the old function return
                     Nodes nyield_types = strip_qualifiers(a, rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
@@ -187,7 +187,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     Node* control_case = case_(a, singleton(join_point));
                     set_abstraction_body(control_case, nbody);
 
-                    BodyBuilder* bb = begin_body(a);
+                    BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                     return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, control_case));
                 }
             }

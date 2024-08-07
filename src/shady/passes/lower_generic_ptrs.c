@@ -105,10 +105,10 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
                     cases[tag] = case_(a, empty(a));
-                    set_abstraction_body(cases[tag], unreachable(a));
+                    set_abstraction_body(cases[tag], unreachable(a, (Unreachable) { .mem = get_abstraction_mem(cases[tag]) }));
                     continue;
                 }
-                BodyBuilder* case_bb = begin_body(a);
+                BodyBuilder* case_bb = begin_body_with_mem(a, get_abstraction_mem(cases[tag]));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
                 cases[tag] = case_(a, empty(a));
@@ -117,15 +117,15 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 })));
             }
 
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
             gen_comment(bb, "Generated generic ptr store");
             //          extracted_tag = nptr >> (64 - 2), for example
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             Node* default_case = case_(a, empty(a));
-            set_abstraction_body(default_case, unreachable(a));
+            set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(default_case) }));
             const Node* loaded_value = first(gen_match(bb, singleton(t), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), default_case));
-            new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value) }));
+            new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value), .mem = bb_mem(bb) }));
             break;
         }
         case StoreFn: {
@@ -135,10 +135,10 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
                     cases[tag] = case_(a, empty(a));
-                    set_abstraction_body(cases[tag],  unreachable(a));
+                    set_abstraction_body(cases[tag], unreachable(a, (Unreachable) { .mem = get_abstraction_mem(cases[tag]) }));
                     continue;
                 }
-                BodyBuilder* case_bb = begin_body(a);
+                BodyBuilder* case_bb = begin_body_with_mem(a, get_abstraction_mem(cases[tag]));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 gen_store(case_bb, reinterpreted_ptr, value_param);
                 cases[tag] = case_(a, empty(a));
@@ -147,15 +147,15 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 })));
             }
 
-            BodyBuilder* bb = begin_body(a);
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
             gen_comment(bb, "Generated generic ptr store");
             //          extracted_tag = nptr >> (64 - 2), for example
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             Node* default_case = case_(a, empty(a));
-            set_abstraction_body(default_case, unreachable(a));
+            set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(new_fn) }));
             gen_match(bb, empty(a), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), default_case);
-            new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a) }));
+            new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .mem = bb_mem(bb) }));
             break;
         }
     }
@@ -219,7 +219,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         // cast _into_ generic
                         AddressSpace src_as = old_src_t->payload.ptr_type.address_space;
                         size_t tag = get_tag_for_addr_space(src_as);
-                        BodyBuilder* bb = begin_body(a);
+                        BodyBuilder* bb = begin_block_pure(a);
                         String x = format_string_arena(a->arena, "Generated generic ptr convert src %d tag %d", src_as, tag);
                         gen_comment(bb, x);
                         const Node* src_ptr = rewrite_node(&ctx->rewriter, old_src);
