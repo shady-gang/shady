@@ -294,6 +294,9 @@ const Node* bb_mem(BodyBuilder*);
 Nodes bind_instruction_outputs_count(BodyBuilder*, const Node* initial_value, size_t outputs_count);
 
 const Node* finish_body(BodyBuilder*, const Node* terminator);
+const Node* finish_body_with_return(BodyBuilder*, Nodes args);
+const Node* finish_body_with_unreachable(BodyBuilder*);
+
 void cancel_body(BodyBuilder*);
 
 const Node* yield_value_and_wrap_in_block(BodyBuilder*, const Node*);

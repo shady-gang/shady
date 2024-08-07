@@ -281,11 +281,11 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     const Node* base = *get_emulated_as_word_array(ctx, as);
     if (ser) {
         gen_serialisation(ctx, bb, element_type, base, address, value_param);
-        fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a) }));
+        set_abstraction_body(fun, finish_body(bb, fn_ret(a, (Return) { .args = empty(a) })));
     } else {
         const Node* loaded_value = gen_deserialisation(ctx, bb, element_type, base, address);
         assert(loaded_value);
-        fun->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value) }));
+        set_abstraction_body(fun, finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value) })));
     }
     return fun;
 }
@@ -357,7 +357,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
                         store_init_data(ctx, as, ctx->collected[as], bb);
                 }
                 register_processed(&ctx->rewriter, get_abstraction_mem(old), bb_mem(bb));
-                new->payload.fun.body = finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body));
+                set_abstraction_body(new, finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body)));
                 return new;
             }
             break;

@@ -846,7 +846,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
 
             // steal the body of the first block, it can't be jumped to anyways!
             if (first_block)
-                fun->payload.fun.body = first_block->payload.basic_block.body;
+                set_abstraction_body(fun, first_block->payload.basic_block.body);
             parser->fun = old_fun;
             break;
         }
@@ -908,7 +908,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 instruction_offset += s;
             }
             assert(parser->current_block.finished);
-            block->payload.basic_block.body = parser->current_block.finished;
+            set_abstraction_body(block, parser->current_block.finished);
             parser->current_block = old;
             break;
         }

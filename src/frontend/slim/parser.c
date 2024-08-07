@@ -80,7 +80,7 @@ static const char* accept_identifier(ctxparams) {
     return NULL;
 }
 
-static const Node* expect_body(ctxparams, const Node* mem, const Node* default_terminator);
+static const Node* expect_body(ctxparams, const Node* mem, const Node* default_terminator(const Node*));
 static const Node* accept_value(ctxparams, BodyBuilder*);
 static const Type* accept_unqualified_type(ctxparams);
 static const Node* accept_expr(ctxparams, BodyBuilder*, int);
@@ -595,6 +595,16 @@ static Nodes expect_operands(ctxparams, BodyBuilder* bb) {
     return final;
 }
 
+static const Node* make_selection_merge(const Node* mem) {
+    IrArena* a = mem->arena;
+    return merge_selection(a, (MergeSelection) { .args = nodes(a, 0, NULL), .mem = mem });
+}
+
+static const Node* make_loop_continue(const Node* mem) {
+    IrArena* a = mem->arena;
+    return merge_continue(a, (MergeContinue) { .args = nodes(a, 0, NULL), .mem = mem });
+}
+
 static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
     Token current_token = curr_token(tokenizer);
     switch (current_token.tag) {
@@ -605,7 +615,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             const Node* condition = accept_operand(ctx, bb);
             expect(condition);
             expect(accept_token(ctx, rpar_tok));
-            const Node* merge = config.front_end ? merge_selection(arena, (MergeSelection) { .args = nodes(arena, 0, NULL) }) : NULL;
+            const Node* (*merge)(const Node*) = config.front_end ? make_selection_merge : NULL;
 
             Node* true_case = case_(arena, nodes(arena, 0, NULL));
             set_abstraction_body(true_case, expect_body(ctx, get_abstraction_mem(true_case), merge));
@@ -626,7 +636,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             Nodes initial_arguments;
             expect_parameters(ctx, &parameters, &initial_arguments, bb);
             // by default loops continue forever
-            const Node* default_loop_end_behaviour = config.front_end ? merge_continue(arena, (MergeContinue) { .args = nodes(arena, 0, NULL) }) : NULL;
+            const Node* (*default_loop_end_behaviour)(const Node*) = config.front_end ? make_loop_continue : NULL;
             Node* loop_case = case_(arena, parameters);
             set_abstraction_body(loop_case, expect_body(ctx, get_abstraction_mem(loop_case), default_loop_end_behaviour));
             return maybe_tuple_helper(arena, gen_loop(bb, yield_types, initial_arguments, loop_case));
@@ -853,7 +863,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
     return NULL;
 }
 
-static const Node* expect_body(ctxparams, const Node* mem, const Node* default_terminator) {
+static const Node* expect_body(ctxparams, const Node* mem, const Node* default_terminator(const Node*)) {
     expect(accept_token(ctx, lbracket_tok));
     BodyBuilder* bb = begin_body_with_mem(arena, mem);
 
@@ -869,7 +879,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
 
     if (!terminator) {
         if (default_terminator)
-            terminator = default_terminator;
+            terminator = default_terminator(bb_mem(bb));
         else
             error("expected terminator: return, jump, branch ...");
     }
@@ -884,7 +894,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL, bb);
             Node* continuation = basic_block(arena, parameters, name);
-            continuation->payload.basic_block.body = expect_body(ctx, get_abstraction_mem(continuation), NULL);
+            set_abstraction_body(continuation, expect_body(ctx, get_abstraction_mem(continuation), NULL));
             append_list(Node*, conts, continuation);
         }
 
@@ -976,6 +986,11 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
     return cnst;
 }
 
+static const Node* make_return_void(const Node* mem) {
+    IrArena* a = mem->arena;
+    return fn_ret(a, (Return) { .args = empty(a), .mem = mem });
+}
+
 static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     if (!accept_token(ctx, fn_tok))
         return NULL;
@@ -989,7 +1004,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
 
     Node* fn = function(mod, parameters, name, annotations, types);
     if (!accept_token(ctx, semi_tok))
-        fn->payload.fun.body = expect_body(ctx, get_abstraction_mem(fn), types.count == 0 ? fn_ret(arena, (Return) { .args = types }) : NULL);
+        set_abstraction_body(fn, expect_body(ctx, get_abstraction_mem(fn), types.count == 0 ? make_return_void : NULL));
 
     const Node* declaration = fn;
     expect(declaration);

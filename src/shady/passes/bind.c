@@ -173,7 +173,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
             register_processed_list(&ctx->rewriter, decl->payload.fun.params, new_fn_params);
 
             fn_ctx.current_function = bound;
-            bound->payload.fun.body = rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body);
+            set_abstraction_body(bound, rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body));
             return bound;
         }
         case NominalType_TAG: {
@@ -247,7 +247,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                 for (size_t j = 0; j < new_bb_params.count; j++)
                     add_binding(&bb_ctx, false, new_bb->payload.basic_block.params.nodes[j]->payload.param.name, new_bb_params.nodes[j]);
 
-                new_bb->payload.basic_block.body = rewrite_node(&bb_ctx.rewriter, old_bb->payload.basic_block.body);
+                set_abstraction_body(new_bb, rewrite_node(&bb_ctx.rewriter, old_bb->payload.basic_block.body));
                 debugv_print("Bound basic block %s\n", new_bb->payload.basic_block.name);
             }
 
@@ -269,16 +269,10 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             }
             register_processed(&ctx->rewriter, node, new_bb);
             register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new_params);
-            new_bb->payload.basic_block.body = rewrite_node(&ctx->rewriter, node->payload.basic_block.body);
+            set_abstraction_body(new_bb, rewrite_node(&ctx->rewriter, node->payload.basic_block.body));
             return new_bb;
         }
         case BindIdentifiers_TAG: return desugar_bind_identifiers(ctx, node);
-        case Return_TAG: {
-            assert(ctx->current_function);
-            return fn_ret(a, (Return) {
-                .args = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.args)
-            });
-        }
         default: {
             if (node->tag == PrimOp_TAG && node->payload.prim_op.op == assign_op) {
                 const Node* target_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);

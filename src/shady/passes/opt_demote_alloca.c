@@ -191,7 +191,7 @@ static const Node* process(Context* ctx, const Node* old) {
             fun_ctx.uses = create_uses_map(old, (NcDeclaration | NcType));
             fun_ctx.disable_lowering = lookup_annotation_with_string_payload(old, "DisableOpt", "demote_alloca");
             if (old->payload.fun.body)
-                fun->payload.fun.body = rewrite_node(&fun_ctx.rewriter, old->payload.fun.body);
+                set_abstraction_body(fun, rewrite_node(&fun_ctx.rewriter, old->payload.fun.body));
             destroy_uses_map(fun_ctx.uses);
             return fun;
         }

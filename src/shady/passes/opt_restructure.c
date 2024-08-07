@@ -157,12 +157,12 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* exit)
             set_abstraction_body(loop_case, structured);
             gen_loop(bb, empty(a), rewrite_nodes(&ctx->rewriter, oargs), loop_case);
             // we decide 'late' what the exit ladder should be
-            inner_exit_ladder_bb->payload.basic_block.body = merge_break(a, (MergeBreak) { .args = empty(a), .mem = get_abstraction_mem(inner_exit_ladder_bb) });
+            set_abstraction_body(inner_exit_ladder_bb, merge_break(a, (MergeBreak) { .args = empty(a), .mem = get_abstraction_mem(inner_exit_ladder_bb) }));
             return finish_body(bb, jump_helper(a, exit, empty(a), bb_mem(bb)));
         } else {
             Node* bb2 = basic_block(a, nodes(a, oargs.count, nparams), NULL);
-            bb2->payload.basic_block.body = structured;
-            inner_exit_ladder_bb->payload.basic_block.body = jump_helper(a, exit, empty(a), get_abstraction_mem(inner_exit_ladder_bb));
+            set_abstraction_body(bb2, structured);
+            set_abstraction_body(inner_exit_ladder_bb, jump_helper(a, exit, empty(a), get_abstraction_mem(inner_exit_ladder_bb)));
             return finish_body(bb, jump_helper(a, bb2, rewrite_nodes(&ctx->rewriter, oargs), bb_mem(bb)));
         }
     }
@@ -339,7 +339,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.lower = false;
             ctx2.rewriter.map = ctx->rewriter.map;
             if (node->payload.fun.body)
-                new->payload.fun.body = rewrite_node(&ctx2.rewriter, node->payload.fun.body);
+                set_abstraction_body(new, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
             // builtin functions are always considered leaf functions
             is_leaf = is_builtin || !node->payload.fun.body;
         } else {
@@ -357,7 +357,7 @@ static const Node* process(Context* ctx, const Node* node) {
             append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
             ctx2.rewriter.map = tmp_processed;
             register_processed(r, get_abstraction_mem(node), bb_mem(bb));
-            new->payload.fun.body = finish_body(bb, structure(&ctx2, get_abstraction_body(node), make_unreachable_case(a) ));
+            set_abstraction_body(new, finish_body(bb, structure(&ctx2, get_abstraction_body(node), make_unreachable_case(a))));
             is_leaf = true;
             // We made it! Pop off the pending cleanup stuff and do it ourselves.
             pop_list_impl(ctx->cleanup_stack);

@@ -113,7 +113,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             Node* fun = function(ctx->rewriter.dst_module, nodes(a, node->payload.fun.params.count, nparams), string(a, node->payload.fun.name), infer_nodes(ctx, node->payload.fun.annotations), nret_types);
             register_processed(&ctx->rewriter, node, fun);
             body_context.current_fn = fun;
-            fun->payload.fun.body = infer(&body_context, node->payload.fun.body, NULL);
+            set_abstraction_body(fun, infer(&body_context, node->payload.fun.body, NULL));
             return fun;
         }
         case Constant_TAG: {
@@ -338,7 +338,7 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
     assert(bb);
     register_processed(&ctx->rewriter, node, bb);
 
-    bb->payload.basic_block.body = infer(&body_context, node->payload.basic_block.body, NULL);
+    set_abstraction_body(bb, infer(&body_context, node->payload.basic_block.body, NULL));
     return bb;
 }
 
@@ -602,12 +602,13 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             const Node* imported_fn = ctx->current_fn;
             Nodes return_types = imported_fn->payload.fun.return_types;
 
-            const Nodes* old_values = &node->payload.fn_ret.args;
-            LARRAY(const Node*, nvalues, old_values->count);
-            for (size_t i = 0; i < old_values->count; i++)
-                nvalues[i] = infer(ctx, old_values->nodes[i], return_types.nodes[i]);
+            Return payload = node->payload.fn_ret;
+            LARRAY(const Node*, nvalues, payload.args.count);
+            for (size_t i = 0; i < payload.args.count; i++)
+                nvalues[i] = infer(ctx, payload.args.nodes[i], return_types.nodes[i]);
             return fn_ret(a, (Return) {
-                .args = nodes(a, old_values->count, nvalues),
+                .args = nodes(a, payload.args.count, nvalues),
+                .mem = infer(ctx, payload.mem, NULL),
             });
         }
         case Jump_TAG: {
@@ -717,6 +718,8 @@ static const Node* process(Context* src_ctx, const Node* node) {
         return infer_annotation(&ctx, node);
     } else if (is_basic_block(node)) {
         return _infer_basic_block(&ctx, node);
+    }else if (is_mem(node)) {
+        return recreate_node_identity(&ctx.rewriter, node);
     }
     assert(false);
 }

@@ -173,7 +173,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 switch (exiting_node->node->tag) {
                     case BasicBlock_TAG: {
                         Node* pre_join_exit_bb = basic_block(arena, exit_wrapper_params, format_string_arena(arena->arena, "exit_wrapper_%d", i));
-                        pre_join_exit_bb->payload.basic_block.body = jump_helper(arena, exit_helpers[i], empty(arena), get_abstraction_mem(pre_join_exit_bb));
+                        set_abstraction_body(pre_join_exit_bb, jump_helper(arena, exit_helpers[i], empty(arena), get_abstraction_mem(pre_join_exit_bb)));
                         exit_wrappers[i] = pre_join_exit_bb;
                         break;
                     }
@@ -245,7 +245,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     .args = empty(arena)
                 }));
 
-                exit_helpers[i]->payload.basic_block.body = exit_wrapper_body;
+                set_abstraction_body(exit_helpers[i], exit_wrapper_body);
             }
 
             destroy_dict(rewriter->map);
@@ -301,10 +301,10 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 exit_numbers[i] = int32_literal(arena, i);
                 if (recreated_exit->tag == BasicBlock_TAG) {
-                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
+                    set_abstraction_body(exit_bb, finish_body(exit_recover_bb, jump(arena, (Jump) {
                         .target = recreated_exit,
                         .args = nodes(arena, exit_param_allocas[i].count, recovered_args),
-                    }));
+                    })));
                 } else {
                     // TODO: rewrite
                     assert(get_abstraction_params(recreated_exit).count == 0);
@@ -465,10 +465,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }), true), "jp_postdom");
 
             Node* pre_join = basic_block(a, exit_args, format_string_arena(a->arena, "merge_%s_%s", get_abstraction_name_safe(ctx->current_abstraction) , get_abstraction_name_safe(idom)));
-            pre_join->payload.basic_block.body = join(a, (Join) {
+            set_abstraction_body(pre_join, join(a, (Join) {
                 .join_point = join_token,
                 .args = exit_args
-            });
+            }));
 
             const Node* cached = search_processed(r, idom);
             if (cached)

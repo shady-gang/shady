@@ -414,7 +414,7 @@ Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
 
     Node* init_fn = function(dst, nodes(a, 0, NULL), "generated_init", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" }), annotation(a, (Annotation) { .name = "Structured" })), nodes(a, 0, NULL));
-    init_fn->payload.fun.body = fn_ret(a, (Return) { .args = empty(a) });
+    set_abstraction_body(init_fn, fn_ret(a, (Return) { .args = empty(a), .mem = get_abstraction_mem(init_fn) }));
 
     FnPtr next_fn_ptr = 1;
 

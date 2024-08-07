@@ -193,14 +193,14 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             break;
         }
-        case BasicBlock_TAG: {
+        /*case BasicBlock_TAG: {
             Nodes nparams = recreate_params(r, get_abstraction_params(node));
             register_processed_list(r, get_abstraction_params(node), nparams);
             Node* bb = basic_block(a, nparams, get_abstraction_name(node));
             register_processed(r, node, bb);
-            bb->payload.basic_block.body = rewrite_node(r, get_abstraction_body(node));
+            set_abstraction_body(bb, rewrite_node(r, get_abstraction_body(node)));
             return bb;
-        }
+        }*/
         case Return_TAG: {
             if (ctx->inlined_call)
                 return join(a, (Join) { .join_point = ctx->inlined_call->return_jp, .args = rewrite_nodes(r, node->payload.fn_ret.args )});

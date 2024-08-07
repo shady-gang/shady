@@ -61,7 +61,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 Nodes nparams = recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* inner = function(m, nparams, format_string_arena(a->arena, "%s_wrapped", get_abstraction_name(node)), nannotations, empty(a));
                 register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
-                inner->payload.fun.body = recreate_node_identity(&ctx->rewriter, node->payload.fun.body);
+                set_abstraction_body(inner, recreate_node_identity(&ctx->rewriter, node->payload.fun.body));
 
                 BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(wrapper));
                 const Node* num_workgroups_var = rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinNumWorkgroups, NULL));
@@ -139,7 +139,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 }
 
                 bind_instruction(bb, instr);
-                wrapper->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a) }));
+                set_abstraction_body(wrapper, finish_body(bb, fn_ret(a, (Return) { .args = empty(a) })));
                 return wrapper;
             }
             return recreate_node_identity(&ctx2.rewriter, node);

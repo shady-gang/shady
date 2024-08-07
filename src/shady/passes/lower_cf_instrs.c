@@ -47,7 +47,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         sub_ctx.current_fn = fun;
         sub_ctx.cfg = build_fn_cfg(node);
         sub_ctx.abs = node;
-        fun->payload.fun.body = rewrite_node(&sub_ctx.rewriter, node->payload.fun.body);
+        set_abstraction_body(fun, rewrite_node(&sub_ctx.rewriter, node->payload.fun.body));
         destroy_cfg(sub_ctx.cfg);
         return fun;
     } else if (node->tag == Constant_TAG) {
@@ -85,15 +85,15 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             Node* true_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_true"));
             join_context.abs = node->payload.if_instr.if_true;
-            true_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, get_abstraction_body(node->payload.if_instr.if_true));
+            set_abstraction_body(true_block, rewrite_node(&join_context.rewriter, get_abstraction_body(node->payload.if_instr.if_true)));
 
             Node* flse_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_false"));
             if (has_false_branch) {
                 join_context.abs = node->payload.if_instr.if_false;
-                flse_block->payload.basic_block.body = rewrite_node(&join_context.rewriter, get_abstraction_body(node->payload.if_instr.if_false));
+                set_abstraction_body(flse_block, rewrite_node(&join_context.rewriter, get_abstraction_body(node->payload.if_instr.if_false)));
             } else {
                 assert(yield_types.count == 0);
-                flse_block->payload.basic_block.body = join(a, (Join) { .join_point = jp, .args = nodes(a, 0, NULL) });
+                set_abstraction_body(flse_block, join(a, (Join) { .join_point = jp, .args = nodes(a, 0, NULL) }));
             }
 
             BodyBuilder* bb = begin_body_with_mem(a, nmem);
@@ -150,7 +150,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes args = gen_control(inner_bb, param_types, inner_control_case);
 
             // TODO let_in_block or use a Jump !
-            loop_body->payload.basic_block.body = finish_body(inner_bb, jump(a, (Jump) { .target = loop_body, .args = args }));
+            set_abstraction_body(loop_body, finish_body(inner_bb, jump(a, (Jump) { .target = loop_body, .args = args })));
 
             const Node* initial_jump = jump(a, (Jump) {
                 .target = loop_body,

@@ -84,7 +84,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {
                 Node* new_entry_point = rewrite_entry_point_fun(ctx, node);
                 const Node* arg_struct = generate_arg_struct(&ctx->rewriter, node, new_entry_point);
-                new_entry_point->payload.fun.body = rewrite_body(ctx, node, new_entry_point, arg_struct);
+                set_abstraction_body(new_entry_point, rewrite_body(ctx, node, new_entry_point, arg_struct));
                 return new_entry_point;
             }
             break;
