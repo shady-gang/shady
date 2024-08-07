@@ -24,6 +24,7 @@ target_link_libraries(api INTERFACE "$<BUILD_INTERFACE:shady_generated>")
 set(SHADY_SOURCES
     ir.c
     node.c
+    node_helpers.c
     constructors.c
     type.c
     type_helpers.c

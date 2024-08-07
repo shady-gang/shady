@@ -191,6 +191,9 @@ const Node* extract_multiple_ret_types_helper(const Node* composite, int index);
 
 const Node* maybe_tuple_helper(IrArena* a, Nodes values);
 
+const Node* get_parent_mem(const Node* mem);
+const Node* get_original_mem(const Node* mem);
+
 typedef struct {
     bool enter_loads;
     bool allow_incompatible_types;

@@ -264,7 +264,7 @@ Nodes recreate_params(Rewriter* rewriter, Nodes oparams) {
     return nodes(rewriter->dst_arena, oparams.count, nparams);
 }
 
-Node* recreate_decl_header_identity_no_register(Rewriter* rewriter, const Node* old) {
+Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
     Node* new = NULL;
     switch (is_declaration(old)) {
         case GlobalVariable_TAG: {
@@ -303,11 +303,6 @@ Node* recreate_decl_header_identity_no_register(Rewriter* rewriter, const Node* 
         case NotADeclaration: error("not a decl");
     }
     assert(new);
-    return new;
-}
-
-Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
-    Node* new = recreate_decl_header_identity_no_register(rewriter, old);
     register_processed(rewriter, old, new);
     return new;
 }

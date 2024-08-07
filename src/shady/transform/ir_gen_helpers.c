@@ -14,7 +14,7 @@
 
 Nodes gen_call(BodyBuilder* bb, const Node* callee, Nodes args) {
     assert(bb->arena->config.check_types);
-    const Node* instruction = call(bb->arena, (Call) { .callee = callee, .args = args });
+    const Node* instruction = call(bb->arena, (Call) { .callee = callee, .args = args, .mem = bb_mem(bb) });
     return bind_instruction(bb, instruction);
 }
 

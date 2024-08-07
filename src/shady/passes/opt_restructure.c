@@ -399,8 +399,9 @@ static const Node* process(Context* ctx, const Node* node) {
             assert(false); // actually that should not come up.
             longjmp(ctx->bail, 1);
         }
-        default: return recreate_node_identity(&ctx->rewriter, node);
+        default: break;
     }
+    return recreate_node_identity(&ctx->rewriter, node);
 }
 
 Module* opt_restructurize(SHADY_UNUSED const CompilerConfig* config, Module* src) {

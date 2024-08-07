@@ -114,7 +114,6 @@ static const Node* process(Context* ctx, const Node* old) {
                 Node* fun = recreate_decl_header_identity(&ctx2.rewriter, old);
                 if (old->payload.fun.body) {
                     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
-                    const Node* nbody = rewrite_node(&ctx2.rewriter, old->payload.fun.body);
                     if (entry_point_annotation) {
                         gen_call(bb, fn_addr_helper(a, ctx2.init_fn), empty(a));
                     }

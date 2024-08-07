@@ -79,7 +79,7 @@ static const Node* process(Context* ctx, const Node* node) {
     Module* m = r->dst_module;
     switch (node->tag) {
         case Function_TAG: {
-            Node* fun = recreate_decl_header_identity_no_register(&ctx->rewriter, node);
+            Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
             if (!node->payload.fun.body)
                 return fun;
 

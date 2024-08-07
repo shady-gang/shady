@@ -299,11 +299,6 @@ String get_abstraction_name_safe(const Node* abs) {
     return format_string_interned(abs->arena, "%%%d", abs->id);
 }
 
-const Node* get_original_mem(const Node* mem) {
-    error("TODO");
-    return mem;
-}
-
 void set_abstraction_body(Node* abs, const Node* body) {
     assert(is_abstraction(abs));
     assert(!body || is_terminator(body));
@@ -313,16 +308,17 @@ void set_abstraction_body(Node* abs, const Node* body) {
         case BasicBlock_TAG: {
             while (true) {
                 const Node* mem0 = get_original_mem(get_terminator_mem(body));
-                assert(is_abstraction(mem0));
-                if (is_basic_block(mem0)) {
-                    BodyBuilder* insert = mem0->payload.basic_block.insert;
+                assert(mem0->tag == AbsMem_TAG);
+                const Node* mem_abs = mem0->payload.abs_mem.abs;
+                if (is_basic_block(mem_abs)) {
+                    BodyBuilder* insert = mem_abs->payload.basic_block.insert;
                     if (insert) {
                         const Node* mem = insert->mem0;
-                        set_abstraction_body((Node*) mem0, finish_body(insert, body));
-                        body = jump_helper(a, mem0, empty(a), mem);
+                        set_abstraction_body((Node*) mem_abs, finish_body(insert, body));
+                        body = jump_helper(a, mem_abs, empty(a), mem);
                         continue;
                     }
-                    assert(mem0 == abs);
+                    assert(mem_abs == abs);
                 }
                 break;
             }
