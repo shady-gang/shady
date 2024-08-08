@@ -167,7 +167,7 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
         }
         if (!k->non_logical_use && get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
             ctx->todo |= true;
-            const Node* new =  local_alloc(a, (LocalAlloc) {rewrite_node(r, old_type )});
+            const Node* new = local_alloc(a, (LocalAlloc) { rewrite_node(r, old_type), .mem = rewrite_node(r, old->tag == StackAlloc_TAG ? old->payload.stack_alloc.mem : old->payload.local_alloc.mem) });
             k->new = new;
             return new;
         }
