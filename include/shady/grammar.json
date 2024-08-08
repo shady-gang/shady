@@ -699,7 +699,7 @@
         { "name": "result_t", "class": "type" },
         { "name": "set", "class": "string" },
         { "name": "opcode", "type": "uint32_t" },
-        { "name": "operands", "type": "Nodes" }
+        { "name": "operands", "class": "value", "list": true }
       ]
     }
   ]
