@@ -30,10 +30,6 @@ typedef struct {
 
     const Node* current_fn;
     const Type* expected_type;
-
-    const Nodes* merge_types;
-    const Nodes* break_types;
-    const Nodes* continue_types;
 } Context;
 
 static const Node* infer_value(Context* ctx, const Node* node, const Type* expected_type);
@@ -450,7 +446,6 @@ static const Node* infer_if(Context* ctx, const Node* node) {
     Context infer_if_body_ctx = *ctx;
     // When we infer the types of the arguments to a call to merge(), they are expected to be varying
     Nodes expected_join_types = add_qualifiers(a, join_types, false);
-    infer_if_body_ctx.merge_types = &expected_join_types;
 
     const Node* true_body = infer_case(&infer_if_body_ctx, node->payload.if_instr.if_true, nodes(a, 0, NULL));
     // don't allow seeing the variables made available in the true branch
@@ -486,10 +481,6 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
 
     Nodes loop_yield_types = infer_nodes(ctx, node->payload.loop_instr.yield_types);
     Nodes qual_yield_types = add_qualifiers(a, loop_yield_types, false);
-
-    loop_body_ctx.merge_types = NULL;
-    loop_body_ctx.break_types = &qual_yield_types;
-    loop_body_ctx.continue_types = &new_params_types;
 
     const Node* nbody = infer_case(&loop_body_ctx, old_body, new_params_types);
     // TODO check new body params match continue types
@@ -589,18 +580,6 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         case Match_TAG:        error("TODO")
         case Loop_TAG:         return infer_loop  (ctx, node);
         case Control_TAG:      return infer_control(ctx, node);
-        /*case Let_TAG: {
-            // const Node* otail = node->payload.let.ttail;
-            // Nodes annotated_types = get_param_types(a, otail->payload.case_.params);
-            const Node* inferred_instruction = infer(ctx, node->payload.let.instruction, NULL);
-            register_processed(&ctx->rewriter, node->payload.let.instruction, inferred_instruction);
-            Nodes inferred_yield_types = unwrap_multiple_yield_types(a, inferred_instruction->type);
-            LARRAY(const Node*, vars, inferred_yield_types.count);
-            for (size_t i = 0; i < inferred_yield_types.count; i++) {
-                assert(is_value_type(inferred_yield_types.nodes[i]));
-            }
-            return let(a, inferred_instruction, infer(ctx, node->payload.let.in, NULL));
-        }*/
         case Return_TAG: {
             const Node* imported_fn = ctx->current_fn;
             Nodes return_types = imported_fn->payload.fun.return_types;
@@ -612,71 +591,6 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             return fn_ret(a, (Return) {
                 .args = nodes(a, payload.args.count, nvalues),
                 .mem = infer(ctx, payload.mem, NULL),
-            });
-        }
-        case Jump_TAG: {
-            assert(is_basic_block(node->payload.jump.target));
-            const Node* ntarget = infer(ctx, node->payload.jump.target, NULL);
-            Nodes param_types = get_param_types(a, get_abstraction_params(ntarget));
-
-            LARRAY(const Node*, tmp, node->payload.jump.args.count);
-            for (size_t i = 0; i < node->payload.jump.args.count; i++)
-                tmp[i] = infer(ctx, node->payload.jump.args.nodes[i], param_types.nodes[i]);
-
-            Nodes new_args = nodes(a, node->payload.jump.args.count, tmp);
-
-            return jump(a, (Jump) {
-                .target = ntarget,
-                .args = new_args
-            });
-        }
-        case Branch_TAG:
-        case Terminator_Switch_TAG: break;
-        case Terminator_TailCall_TAG: break;
-        case Terminator_MergeSelection_TAG: {
-            // TODO: block nodes should set merge types
-            assert(ctx->merge_types && "Merge terminator found but we're not within a suitable if instruction !");
-            Nodes expected_types = *ctx->merge_types;
-            Nodes old_args = node->payload.merge_selection.args;
-            assert(expected_types.count == old_args.count);
-            LARRAY(const Node*, new_args, old_args.count);
-            for (size_t i = 0; i < old_args.count; i++) {
-                const Node* e = expected_types.nodes[i];
-                assert(is_value_type(e));
-                new_args[i] = infer(ctx, old_args.nodes[i], e);
-            }
-            return merge_selection(a, (MergeSelection) {
-                .args = nodes(a, old_args.count, new_args)
-            });
-        }
-        case MergeContinue_TAG: {
-            assert(ctx->continue_types && "Merge terminator found but we're not within a suitable loop instruction !");
-            Nodes expected_types = *ctx->continue_types;
-            Nodes old_args = node->payload.merge_continue.args;
-            assert(expected_types.count == old_args.count);
-            LARRAY(const Node*, new_args, old_args.count);
-            for (size_t i = 0; i < old_args.count; i++) {
-                const Node* e = expected_types.nodes[i];
-                assert(is_value_type(e));
-                new_args[i] = infer(ctx, old_args.nodes[i], e);
-            }
-            return merge_continue(a, (MergeContinue) {
-                .args = nodes(a, old_args.count, new_args)
-            });
-        }
-        case MergeBreak_TAG: {
-            assert(ctx->break_types && "Merge terminator found but we're not within a suitable loop instruction !");
-            Nodes expected_types = *ctx->break_types;
-            Nodes old_args = node->payload.merge_break.args;
-            assert(expected_types.count == old_args.count);
-            LARRAY(const Node*, new_args, old_args.count);
-            for (size_t i = 0; i < old_args.count; i++) {
-                const Node* e = expected_types.nodes[i];
-                assert(is_value_type(e));
-                new_args[i] = infer(ctx, old_args.nodes[i], e);
-            }
-            return merge_break(a, (MergeBreak) {
-                .args = nodes(a, old_args.count, new_args)
             });
         }
         default: break;
