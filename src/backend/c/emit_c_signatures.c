@@ -99,7 +99,7 @@ String emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const 
     }
     free_tmp_str(parameters);
 
-    String c_decl = emit_type(emitter, wrap_multiple_yield_types(emitter->arena, codom), center);
+    String c_decl = emit_type(emitter, maybe_tuple_helper(emitter->arena, codom), center);
     if (entry_point) {
         switch (emitter->config.dialect) {
             case CDialect_C11:

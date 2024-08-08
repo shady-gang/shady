@@ -234,8 +234,6 @@ bool is_data_type(const Type* type) {
         case Type_PackType_TAG:
             return is_data_type(type->payload.pack_type.element_type);
         case Type_RecordType_TAG: {
-            if (type->payload.record_type.members.count == 0)
-                return false;
             for (size_t i = 0; i < type->payload.record_type.members.count; i++)
                 if (!is_data_type(type->payload.record_type.members.nodes[i]))
                     return false;
@@ -355,11 +353,7 @@ const Type* check_type_join_point_type(IrArena* arena, JoinPointType type) {
 const Type* check_type_record_type(IrArena* arena, RecordType type) {
     assert(type.names.count == 0 || type.names.count == type.members.count);
     for (size_t i = 0; i < type.members.count; i++) {
-        // member types are value types iff this is a return tuple
-        if (type.special == MultipleReturn)
-            assert(is_value_type(type.members.nodes[i]));
-        else
-            assert(is_data_type(type.members.nodes[i]));
+        assert(is_data_type(type.members.nodes[i]));
     }
     return NULL;
 }
@@ -449,8 +443,6 @@ const Type* check_type_null_ptr(IrArena* a, NullPtr payload) {
 }
 
 const Type* check_type_composite(IrArena* arena, Composite composite) {
-    if (composite.contents.count == 0)
-        return unit_type(arena);
     assert(is_data_type(composite.type));
     Nodes expected_member_types = get_composite_type_element_types(composite.type);
     bool is_uniform = true;
@@ -950,7 +942,7 @@ const Type* check_type_call(IrArena* arena, Call call) {
         assert(is_value(argument));
     }
     Nodes argument_types = get_values_types(arena, args);
-    return wrap_multiple_yield_types(arena, check_value_call(call.callee, argument_types));
+    return maybe_tuple_helper(arena, check_value_call(call.callee, argument_types));
 }
 
 static void ensure_types_are_data_types(const Nodes* yield_types) {
@@ -1014,7 +1006,7 @@ const Type* check_type_control(IrArena* arena, Control control) {
 }
 
 const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
-    return empty_multiple_return_type(arena);
+    return qualified_type_helper(unit_type(arena), true);
 }
 
 const Type* check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
@@ -1069,7 +1061,7 @@ const Type* check_type_store(IrArena* a, Store store) {
     });
 
     assert(is_subtype(val_expected_type, store.value->type));
-    return empty_multiple_return_type(a);
+    return qualified_type_helper(unit_type(a), true);
 }
 
 const Type* check_type_lea(IrArena* a, Lea lea) {
@@ -1111,7 +1103,7 @@ const Type* check_type_copy_bytes(IrArena* a, CopyBytes copy_bytes) {
     const Type* cnt_t = copy_bytes.count->type;
     deconstruct_qualified_type(&cnt_t);
     assert(cnt_t->tag == Int_TAG);
-    return empty_multiple_return_type(a);
+    return qualified_type_helper(unit_type(a), true);
 }
 
 const Type* check_type_fill_bytes(IrArena* a, FillBytes fill_bytes) {
@@ -1124,12 +1116,12 @@ const Type* check_type_fill_bytes(IrArena* a, FillBytes fill_bytes) {
     const Type* cnt_t = fill_bytes.count->type;
     deconstruct_qualified_type(&cnt_t);
     assert(cnt_t->tag == Int_TAG);
-    return empty_multiple_return_type(a);
+    return qualified_type_helper(unit_type(a), true);
 }
 
 const Type* check_type_push_stack(IrArena* a, PushStack payload) {
     assert(payload.value);
-    return empty_multiple_return_type(a);
+    return qualified_type_helper(unit_type(a), true);
 }
 
 const Type* check_type_pop_stack(IrArena* a, PopStack payload) {
@@ -1138,7 +1130,7 @@ const Type* check_type_pop_stack(IrArena* a, PopStack payload) {
 
 const Type* check_type_set_stack_size(IrArena* a, SetStackSize payload) {
     assert(get_unqualified_type(payload.value->type) == uint32_type(a));
-    return empty_multiple_return_type(a);
+    return qualified_type_helper(unit_type(a), true);
 }
 
 const Type* check_type_get_stack_size(IrArena* a, SHADY_UNUSED GetStackSize ss) {
@@ -1151,7 +1143,7 @@ const Type* check_type_get_stack_base_addr(IrArena* a, SHADY_UNUSED GetStackBase
 }
 
 const Type* check_type_debug_printf(IrArena* a, DebugPrintf payload) {
-    return empty_multiple_return_type(a);
+    return qualified_type_helper(unit_type(a), true);;
 }
 
 const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {

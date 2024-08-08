@@ -5,31 +5,6 @@
 
 #include <assert.h>
 
-const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types) {
-    switch (types.count) {
-        case 0: return empty_multiple_return_type(arena);
-        case 1: return types.nodes[0];
-        default: return record_type(arena, (RecordType) {
-            .members = types,
-            .names = strings(arena, 0, NULL),
-            .special = MultipleReturn,
-        });
-    }
-    SHADY_UNREACHABLE;
-}
-
-Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
-    switch (type->tag) {
-        case RecordType_TAG:
-            if (type->payload.record_type.special == MultipleReturn)
-                return type->payload.record_type.members;
-            // fallthrough
-        default:
-            assert(is_value_type(type));
-            return singleton(type);
-    }
-}
-
 bool is_arrow_type(const Node* node) {
     NodeTag tag = node->tag;
     return tag == FnType_TAG || tag == BBType_TAG || tag == LamType_TAG;
@@ -300,11 +275,4 @@ const Node* get_fill_type_size(const Type* composite_t) {
         case PackType_TAG: return int32_literal(composite_t->arena, composite_t->payload.pack_type.width);
         default: error("fill values need to be either array or pack types")
     }
-}
-
-const Node* extract_multiple_ret_types_helper(const Node* composite, int index) {
-    Nodes types = unwrap_multiple_yield_types(composite->arena, composite->type);
-    if (types.count > 1)
-        return extract_helper(composite, int32_literal(composite->arena, index));
-    return composite;
 }

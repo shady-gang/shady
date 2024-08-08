@@ -233,7 +233,7 @@ static String index_into_array(Emitter* emitter, const Type* arr_type, CTerm exp
         return format_string_arena(arena->arena, "(%s.arr[%s])", deref_term(emitter, expr), index2);
 }
 
-static void emit_primop(Emitter* emitter, Printer* p, const Node* node, InstructionOutputs outputs) {
+static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
     assert(node->tag == PrimOp_TAG);
     IrArena* arena = emitter->arena;
     const PrimOp* prim_op = &node->payload.prim_op;
@@ -330,7 +330,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             break;
         }
         case convert_op: {
-            assert(outputs.count == 1);
             CTerm src = emit_value(emitter, p, first(prim_op->operands));
             const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
@@ -347,7 +346,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
             break;
         }
         case reinterpret_op: {
-            assert(outputs.count == 1);
             CTerm src_value = emit_value(emitter, p, first(prim_op->operands));
             const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
@@ -359,38 +357,34 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                     print(p, "\n%s = %s;", emit_type(emitter, src_type, src), to_cvalue(emitter, src_value));
                     print(p, "\n%s;", emit_type(emitter, dst_type, dst));
                     print(p, "\nmemcpy(&%s, &%s, sizeof(%s));", dst, src, src);
-                    outputs.results[0] = term_from_cvalue(dst);
-                    outputs.binding[0] = NoBinding;
-                    break;
+                    return term_from_cvalue(dst);
                 }
+                // GLSL does not feature arbitrary casts, instead we need to run specialized conversion functions...
                 case CDialect_GLSL: {
-                    String n = NULL;
+                    String conv_fn = NULL;
                     if (dst_type->tag == Float_TAG) {
                         assert(src_type->tag == Int_TAG);
                         switch (dst_type->payload.float_type.width) {
                             case FloatTy16: break;
-                            case FloatTy32: n = src_type->payload.int_type.is_signed ? "intBitsToFloat" : "uintBitsToFloat";
+                            case FloatTy32: conv_fn = src_type->payload.int_type.is_signed ? "intBitsToFloat" : "uintBitsToFloat";
                                 break;
                             case FloatTy64: break;
                         }
                     } else if (dst_type->tag == Int_TAG) {
                         if (src_type->tag == Int_TAG) {
-                            outputs.results[0] = src_value;
-                            outputs.binding[0] = NoBinding;
-                            break;
+                            return src_value;
                         }
                         assert(src_type->tag == Float_TAG);
                         switch (src_type->payload.float_type.width) {
                             case FloatTy16: break;
-                            case FloatTy32: n = dst_type->payload.int_type.is_signed ? "floatBitsToInt" : "floatBitsToUint";
+                            case FloatTy32: conv_fn = dst_type->payload.int_type.is_signed ? "floatBitsToInt" : "floatBitsToUint";
                                 break;
                             case FloatTy64: break;
                         }
                     }
-                    if (n) {
-                        outputs.results[0] = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", n, to_cvalue(emitter, src_value)));
-                        outputs.binding[0] = LetBinding;
-                        break;
+                    if (conv_fn) {
+                        CTerm converted = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", conv_fn, to_cvalue(emitter, src_value)));
+                        return bind_intermediary_result(emitter, p, node->type, converted);
                     }
                     error_print("glsl: unsupported bit cast from ");
                     log_node(ERROR, src_type);
@@ -411,23 +405,21 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
                             case FloatTy64: n = "doublebits";
                                 break;
                         }
-                        outputs.results[0] = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", n, to_cvalue(emitter, src_value)));
-                        outputs.binding[0] = LetBinding;
+                        CTerm converted = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", n, to_cvalue(emitter, src_value)));
+                        return bind_intermediary_result(emitter, p, node->type, converted);
                         break;
                     } else if (src_type->tag == Float_TAG) {
                         assert(dst_type->tag == Int_TAG);
-                        outputs.results[0] = term_from_cvalue(format_string_arena(emitter->arena->arena, "intbits(%s)", to_cvalue(emitter, src_value)));
-                        outputs.binding[0] = LetBinding;
+                        CTerm converted = term_from_cvalue(format_string_arena(emitter->arena->arena, "intbits(%s)", to_cvalue(emitter, src_value)));
+                        return bind_intermediary_result(emitter, p, node->type, converted);
                         break;
                     }
 
                     CType t = emit_type(emitter, dst_type, NULL);
-                    outputs.results[0] = term_from_cvalue(format_string_arena(emitter->arena->arena, "((%s) %s)", t, to_cvalue(emitter, src_value)));
-                    outputs.binding[0] = NoBinding;
-                    break;
+                    return term_from_cvalue(format_string_arena(emitter->arena->arena, "((%s) %s)", t, to_cvalue(emitter, src_value)));
                 }
             }
-            return;
+            SHADY_UNREACHABLE;
         }
         case insert_op:
         case extract_dynamic_op:
@@ -527,9 +519,7 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
         }
         case subgroup_assume_uniform_op: {
             if (emitter->config.dialect != CDialect_ISPC) {
-                outputs.results[0] = emit_value(emitter, p, prim_op->operands.nodes[0]);
-                outputs.binding[0] = NoBinding;
-                return;
+                return emit_value(emitter, p, prim_op->operands.nodes[0]);
             }
         }
         case subgroup_broadcast_first_op: {
@@ -551,13 +541,10 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     if (isel_entry->isel_mechanism != IsNone)
         emit_using_entry(&term, emitter, p, isel_entry, prim_op->operands);
 
-    assert(outputs.count == 1);
-    outputs.binding[0] = LetBinding;
-    outputs.results[0] = term;
-    return;
+    return term;
 }
 
-static void emit_call(Emitter* emitter, Printer* p, const Node* call, InstructionOutputs outputs) {
+static CTerm emit_call(Emitter* emitter, Printer* p, const Node* call) {
     Nodes args;
     if (call->tag == Call_TAG)
         args = call->payload.call.args;
@@ -586,26 +573,14 @@ static void emit_call(Emitter* emitter, Printer* p, const Node* call, Instructio
 
     String params = printer_growy_unwrap(paramsp);
 
-    Nodes yield_types = unwrap_multiple_yield_types(emitter->arena, call->type);
-    assert(yield_types.count == outputs.count);
-    if (yield_types.count > 1) {
-        String named = unique_name(emitter->arena, "result");
-        print(p, "\n%s = %s(%s);", emit_type(emitter, call->type, named), e_callee, params);
-        for (size_t i = 0; i < yield_types.count; i++) {
-            outputs.results[i] = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s->_%d", named, i));
-            // we have let-bound the actual result already, and extracting their components can be done inline
-            outputs.binding[i] = NoBinding;
-        }
-    } else if (yield_types.count == 1) {
-        outputs.results[0] = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", e_callee, params));
-        outputs.binding[0] = LetBinding;
-    } else {
-        print(p, "\n%s(%s);", e_callee, params);
-    }
+    CTerm called = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", e_callee, params));
+    called = bind_intermediary_result(emitter, p, call->type, called);
+
     free_tmp_str(params);
+    return called;
 }
 
-static void emit_lea(Emitter* emitter, Printer* p, Lea lea, InstructionOutputs outputs) {
+static CTerm emit_lea(Emitter* emitter, Printer* p, Lea lea) {
     IrArena* arena = emitter->arena;
     CTerm acc = emit_value(emitter, p, lea.ptr);
 
@@ -678,26 +653,24 @@ static void emit_lea(Emitter* emitter, Printer* p, Lea lea, InstructionOutputs o
             default: error("lea can't work on this");
         }
     }
-    assert(outputs.count == 1);
-    outputs.results[0] = acc;
-    outputs.binding[0] = emitter->config.dialect == CDialect_ISPC ? LetBinding : NoBinding;
-    outputs.binding[0] = NoBinding;
-    return;
+
+    if (emitter->config.dialect == CDialect_ISPC)
+        acc = bind_intermediary_result(emitter, p, curr_ptr_type, acc);
+
+    return acc;
 }
 
-static void emit_alloca(Emitter* emitter, Printer* p, const Type* type, InstructionOutputs outputs) {
-    assert(outputs.count == 1);
+static CTerm emit_alloca(Emitter* emitter, Printer* p, const Type* type) {
     String variable_name = unique_name(emitter->arena, "alloca");
     CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
     emit_variable_declaration(emitter, p, type, variable_name, true, NULL);
-    outputs.results[0] = variable;
     if (emitter->config.dialect == CDialect_ISPC) {
-        outputs.results[0] = ispc_varying_ptr_helper(emitter, p, type, variable);
+        variable = ispc_varying_ptr_helper(emitter, p, type, variable);
     }
-    outputs.binding[0] = NoBinding;
+   return variable;
 }
 
-void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, InstructionOutputs outputs) {
+CTerm emit_instruction(Emitter* emitter, Printer* p, const Node* instruction) {
     assert(is_instruction(instruction));
     IrArena* a = emitter->arena;
 
@@ -710,8 +683,8 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
         case Instruction_BindIdentifiers_TAG:  error("front-end only!");
         case Instruction_ExtInstr_TAG: error("Extended instructions are not supported in C");
-        case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
-        case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;
+        case Instruction_PrimOp_TAG: return emit_primop(emitter, p, instruction);
+        case Instruction_Call_TAG: return emit_call(emitter, p, instruction);
         /*case Instruction_CompoundInstruction_TAG: {
             Nodes instructions = instruction->payload.compound_instruction.instructions;
             for (size_t i = 0; i < instructions.count; i++) {
@@ -738,14 +711,13 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
             return;
         }*/
         case Instruction_Comment_TAG: print(p, "/* %s */", instruction->payload.comment.string); break;
-        case Instruction_StackAlloc_TAG: return emit_alloca(emitter, p, instruction->payload.stack_alloc.type, outputs);
-        case Instruction_LocalAlloc_TAG: return emit_alloca(emitter, p, instruction->payload.local_alloc.type, outputs);
+        case Instruction_StackAlloc_TAG: return emit_alloca(emitter, p, instruction->payload.stack_alloc.type);
+        case Instruction_LocalAlloc_TAG: return emit_alloca(emitter, p, instruction->payload.local_alloc.type);
         case Instruction_Load_TAG: {
             Load payload = instruction->payload.load;
             CAddr dereferenced = deref_term(emitter, emit_value(emitter, p, payload.ptr));
-            outputs.results[0] = term_from_cvalue(dereferenced);
-            outputs.binding[0] = LetBinding;
-            return;
+            // we must bind the intermediary result here, otherwise we duplicate the load everwhere it is consumed
+            return bind_intermediary_result(emitter, p, instruction->type, term_from_cvalue(dereferenced));
         }
         case Instruction_Store_TAG: {
             Store payload = instruction->payload.store;
@@ -760,20 +732,19 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
                 cvalue = format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", cvalue);
 
             print(p, "\n%s = %s;", dereferenced, cvalue);
-            return;
+            return empty_term();
         }
         case Instruction_Lea_TAG:
-            emit_lea(emitter, p, instruction->payload.lea, outputs);
-            return;
+            return emit_lea(emitter, p, instruction->payload.lea);
         case Instruction_CopyBytes_TAG: {
             CopyBytes payload = instruction->payload.copy_bytes;
             print(p, "\nmemcpy(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, p, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, p, payload.src)), to_cvalue(emitter, c_emit_value(emitter, p, payload.count)));
-            return;
+            return empty_term();
         }
         case Instruction_FillBytes_TAG:{
             FillBytes payload = instruction->payload.fill_bytes;
             print(p, "\nmemset(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, p, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, p, payload.src)), to_cvalue(emitter, c_emit_value(emitter, p, payload.count)));
-            return;
+            return empty_term();
         }
         case Instruction_DebugPrintf_TAG: {
             String args_list = format_string_interned(emitter->arena, "\"%s\"", instruction->payload.debug_printf.string);
@@ -797,7 +768,7 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
                     break;
             }
 
-            return;
+            return empty_term();
         }
     }
 }

@@ -531,6 +531,12 @@ static void emit_loop(Emitter* emitter, Printer* p, Loop loop) {
     emit_terminator(emitter, p, get_abstraction_body(loop.tail));
 }
 
+CTerm bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CTerm term) {
+    String bind_to = unique_name(emitter->arena, "");
+    emit_variable_declaration(emitter, p, t, bind_to, false, &term);
+    return term_from_cvalue(bind_to);
+}
+
 static void emit_terminator(Emitter* emitter, Printer* block_printer, const Node* terminator) {
     switch (is_terminator(terminator)) {
         case NotATerminator: assert(false);

@@ -79,16 +79,9 @@ String legalize_c_identifier(Emitter*, String);
 String get_record_field_name(const Type* t, size_t i);
 CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Type* ptr_type, CTerm term);
 
-typedef enum { NoBinding, LetBinding } InstrResultBinding;
+CTerm bind_intermediary_result(Emitter*, Printer* p, const Type* t, CTerm term);
 
-typedef struct {
-    size_t count;
-    CTerm* results;
-    /// What to do with the results at the call site
-    InstrResultBinding* binding;
-} InstructionOutputs;
-
-void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, InstructionOutputs);
+CTerm emit_instruction(Emitter* emitter, Printer* p, const Node* instruction);
 String emit_lambda_body   (Emitter*,           const Node*, const Nodes* nested_basic_blocks);
 void   emit_lambda_body_at(Emitter*, Printer*, const Node*, const Nodes* nested_basic_blocks);
 

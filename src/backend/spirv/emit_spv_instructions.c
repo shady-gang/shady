@@ -190,7 +190,8 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                     return;
                 }
 
-                Nodes results_ts = unwrap_multiple_yield_types(emitter->arena, instr->type);
+                error("TODO: convert spirv backend away from multiple returns")
+                /*Nodes results_ts = unwrap_multiple_yield_types(emitter->arena, instr->type);
                 SpvId result_t = results_ts.count >= 1 ? emit_type(emitter, instr->type) : emitter->void_t;
 
                 if (opcode == SpvOpMax)
@@ -207,7 +208,7 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                     if (results_count == 1)
                         results[0] = result;
                 }
-                return;
+                return;*/
             }
             case Custom: SHADY_UNREACHABLE;
         }

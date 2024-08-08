@@ -72,13 +72,13 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outp
 
 Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
     assert(bb->arena->config.check_types);
-    return bind_internal(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type).count);
+    return bind_internal(bb, instruction, singleton(instruction->type).count);
 }
 
 Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String const output_names[]) {
     assert(bb->arena->config.check_types);
     assert(output_names);
-    return bind_internal(bb, instruction, unwrap_multiple_yield_types(bb->arena, instruction->type).count);
+    return bind_internal(bb, instruction, singleton(instruction->type).count);
 }
 
 const Node* bind_identifiers(IrArena* arena, const Node* instruction, const Node* mem, bool mut, Strings names, Nodes types);

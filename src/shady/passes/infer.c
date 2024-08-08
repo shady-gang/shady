@@ -37,7 +37,7 @@ typedef struct {
 } Context;
 
 static const Node* infer_value(Context* ctx, const Node* node, const Type* expected_type);
-static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes* expected_types);
+static const Node* infer_instruction(Context* ctx, const Node* node, const Node* expected_type);
 
 static const Node* infer(Context* ctx, const Node* node, const Type* expect) {
     Context ctx2 = *ctx;
@@ -342,7 +342,7 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
     return bb;
 }
 
-static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* expected_types) {
+static const Node* infer_primop(Context* ctx, const Node* node, const Node* expected_type) {
     assert(node->tag == PrimOp_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
 
@@ -409,7 +409,7 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Nodes* exp
     }
 }
 
-static const Node* infer_indirect_call(Context* ctx, const Node* node, const Nodes* expected_types) {
+static const Node* infer_indirect_call(Context* ctx, const Node* node, const Node* expected_type) {
     assert(node->tag == Call_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
 
@@ -527,7 +527,7 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     });
 }
 
-static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes* expected_types) {
+static const Node* infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_instruction(node)) {
         case Instruction_PushStack_TAG: {
@@ -538,8 +538,8 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Nodes
             assert(is_data_type(element_type));
             return pop_stack(a, (PopStack) { element_type });
         }
-        case PrimOp_TAG:       return infer_primop(ctx, node, expected_types);
-        case Call_TAG:         return infer_indirect_call(ctx, node, expected_types);
+        case PrimOp_TAG:       return infer_primop(ctx, node, expected_type);
+        case Call_TAG:         return infer_indirect_call(ctx, node, expected_type);
         case Instruction_Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
         case Instruction_Lea_TAG: {
             Lea payload = node->payload.lea;
@@ -700,8 +700,7 @@ static const Node* process(Context* src_ctx, const Node* node) {
         return infer_type(&ctx, node);
     } else if (is_instruction(node)) {
         if (expected_type) {
-            Nodes expected_types = unwrap_multiple_yield_types(a, expected_type);
-            return infer_instruction(&ctx, node, &expected_types);
+            return infer_instruction(&ctx, node, expected_type);
         }
         return infer_instruction(&ctx, node, NULL);
     } else if (is_value(node)) {

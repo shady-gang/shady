@@ -69,7 +69,7 @@ SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
         case 0: return emitter->void_t;
         case 1: return emit_type(emitter, return_types.nodes[0]);
         default: {
-            const Type* codom_ret_type = record_type(emitter->arena, (RecordType) { .members = return_types, .special = MultipleReturn });
+            const Type* codom_ret_type = record_type(emitter->arena, (RecordType) { .members = return_types, .special = 0 });
             return emit_type(emitter, codom_ret_type);
         }
     }

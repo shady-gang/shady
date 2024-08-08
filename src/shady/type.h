@@ -29,9 +29,6 @@ bool is_conversion_legal(const Type* src_type, const Type* dst_type);
 
 const Type* get_actual_mask_type(IrArena* arena);
 
-const Type* wrap_multiple_yield_types(IrArena* arena, Nodes types);
-Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
-
 /// Returns the (possibly qualified) pointee type from a (possibly qualified) ptr type
 const Type* get_pointee_type(IrArena*, const Type*);
 

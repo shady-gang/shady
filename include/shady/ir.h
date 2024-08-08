@@ -115,8 +115,6 @@ ExecutionModel execution_model_from_string(const char*);
 
 typedef enum {
     NotSpecial,
-    /// for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else
-    MultipleReturn,
     /// Gets the 'Block' SPIR-V annotation, needed for UBO/SSBO variables
     DecorateBlock
 } RecordSpecialFlag;
@@ -187,7 +185,6 @@ void        set_abstraction_body  (Node* abs, const Node* body);
 
 const Node* maybe_tuple_helper(IrArena* a, Nodes values);
 const Node* extract_helper(const Node* composite, const Node* index);
-const Node* extract_multiple_ret_types_helper(const Node* composite, int index);
 
 const Node* maybe_tuple_helper(IrArena* a, Nodes values);
 
@@ -207,12 +204,12 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
 
 //////////////////////////////// Constructors ////////////////////////////////
 
-/// For typing things that don't return at all
+/// Empty type: there are no values of this type.
+/// Useful for the codomain of things that don't return at all
 const Type* noret_type(IrArena*);
-/// For making pointers to nothing in particular (equivalent to C's void*)
+/// Unit type, carries no information (equivalent to C's void)
+/// There is exactly one possible value of this type: ()
 const Node* unit_type(IrArena*);
-/// For typing instructions that return nothing (equivalent to C's void f())
-const Node* empty_multiple_return_type(IrArena*);
 
 const Type* int_type_helper(IrArena*, bool, IntSizes);
 
