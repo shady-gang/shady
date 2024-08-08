@@ -4,6 +4,8 @@
 
 #include "shady/ir.h"
 
+#include "shady/fe/slim.h"
+
 typedef struct {
     bool front_end;
 } ParserConfig;
@@ -26,8 +28,8 @@ INFIX_OPERATOR(Gt,  infix_gt_tok,             gt_op,             7) \
 INFIX_OPERATOR(Ge,  infix_geq_tok,            gte_op,            7) \
 INFIX_OPERATOR(Lt,  infix_ls_tok,             lt_op,             7) \
 INFIX_OPERATOR(Le,  infix_leq_tok,            lte_op,            7) \
-INFIX_OPERATOR(Sbs, pound_tok,                subscript_op,      0) \
-INFIX_OPERATOR(Ass, equal_tok,                assign_op,        10) \
+INFIX_OPERATOR(Sbs, pound_tok,                -1,                0) \
+INFIX_OPERATOR(Ass, equal_tok,                -1,               10) \
 
 typedef enum {
 #define INFIX_OPERATOR(name, token, primop, precedence) Infix##name,

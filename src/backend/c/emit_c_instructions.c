@@ -240,9 +240,6 @@ static void emit_primop(Emitter* emitter, Printer* p, const Node* node, Instruct
     CTerm term = term_from_cvalue(format_string_interned(emitter->arena, "/* todo %s */", get_primop_name(prim_op->op)));
     const ISelTableEntry* isel_entry = lookup_entry(emitter, prim_op->op);
     switch (prim_op->op) {
-        case deref_op:
-        case assign_op:
-        case subscript_op: assert(false);
         case add_carry_op:
         case sub_borrow_op:
         case mul_extended_op:
@@ -711,7 +708,8 @@ void emit_instruction(Emitter* emitter, Printer* p, const Node* instruction, Ins
         case Instruction_GetStackSize_TAG:
         case Instruction_SetStackSize_TAG:
         case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
-        case Instruction_BindIdentifiers_TAG:       error("front-end only!");
+        case Instruction_BindIdentifiers_TAG:  error("front-end only!");
+        case Instruction_ExtInstr_TAG: error("Extended instructions are not supported in C");
         case Instruction_PrimOp_TAG:       emit_primop(emitter, p, instruction, outputs); break;
         case Instruction_Call_TAG:         emit_call  (emitter, p, instruction, outputs); break;
         /*case Instruction_CompoundInstruction_TAG: {

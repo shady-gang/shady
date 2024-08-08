@@ -389,6 +389,7 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_build
         case Instruction_FillBytes_TAG:
         case Instruction_BindIdentifiers_TAG:
         case Instruction_StackAlloc_TAG: error("Should be lowered elsewhere")
+        case Instruction_ExtInstr_TAG: error("Extended instructions are not supported yet");
         case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, bb_builder, instruction->payload.call, results_count, results);                 break;
         case PrimOp_TAG:              emit_primop(emitter, fn_builder, bb_builder, instruction, results_count, results);                                    break;
         case Comment_TAG: break;

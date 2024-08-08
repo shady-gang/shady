@@ -55,6 +55,9 @@ const Node* get_parent_mem(const Node* mem) {
         case Mem_DebugPrintf_TAG:
             mem = mem->payload.debug_printf.mem;
             return mem;
+        case Mem_ExtInstr_TAG:
+            mem = mem->payload.ext_instr.mem;
+            return mem;
     }
 }
 

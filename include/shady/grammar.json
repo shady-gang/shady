@@ -691,6 +691,18 @@
       ]
     },
     {
+      "name": "ExtInstr",
+      "description": "Turns a pointer into an assignable L-value",
+      "class": ["mem", "value", "instruction"],
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "result_t", "class": "type" },
+        { "name": "set", "class": "string" },
+        { "name": "opcode", "type": "uint32_t" },
+        { "name": "operands", "type": "Nodes" }
+      ]
+    },
+    {
       "name": "UnboundBBs",
       "description": "A node together with unbound basic blocks it dominates, obtained by parsing a file",
       "type": false,

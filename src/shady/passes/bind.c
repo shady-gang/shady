@@ -9,6 +9,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include "shady/fe/slim.h"
+
 typedef struct NamedBindEntry_ NamedBindEntry;
 struct NamedBindEntry_ {
     const char* name;
@@ -83,25 +85,40 @@ static void add_binding(Context* ctx, bool is_var, String name, const Node* node
 
 static const Node* get_node_address(Context* ctx, const Node* node);
 static const Node* get_node_address_safe(Context* ctx, const Node* node) {
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     switch (node->tag) {
         case Unbound_TAG: {
+            if (node->payload.unbound.mem)
+                rewrite_node(&ctx->rewriter, node->payload.unbound.mem);
             Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
             // can't take the address if it's not a var!
             if (!entry.is_var)
                 return NULL;
             return entry.node;
         }
-        case PrimOp_TAG: {
-            if (node->tag == PrimOp_TAG && node->payload.prim_op.op == subscript_op) {
-                const Node* src_ptr = get_node_address_safe(ctx, node->payload.prim_op.operands.nodes[0]);
-                if (src_ptr == NULL)
-                    return NULL;
-                const Node* index = rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]);
-                return lea(a, (Lea) { .ptr = src_ptr, .offset = int32_literal(a, 0), singleton(index) });
-            } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == deref_op) {
-                return rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands));
+        case ExtInstr_TAG: {
+            ExtInstr payload = node->payload.ext_instr;
+            if (strcmp(payload.set, "shady.frontend") == 0) {
+                if (payload.opcode == SlimOpSubscript) {
+                    assert(payload.operands.count == 2);
+                    const Node* src_ptr = get_node_address_safe(ctx, first(payload.operands));
+                    if (src_ptr == NULL)
+                        return NULL;
+                    const Node* index = rewrite_node(&ctx->rewriter, payload.operands.nodes[1]);
+                    return mem_and_value(a, (MemAndValue) {
+                        .mem = rewrite_node(r, payload.mem),
+                        .value = lea(a, (Lea) { .ptr = src_ptr, .offset = int32_literal(a, 0), singleton(index) }),
+                    });
+                } else if (payload.opcode == SlimOpDereference) {
+                    assert(payload.operands.count == 1);
+                    return mem_and_value(a, (MemAndValue) {
+                        .mem = rewrite_node(r, payload.mem),
+                        .value = rewrite_node(&ctx->rewriter, first(payload.operands)),
+                    });
+                }
             }
+            break;
         }
         default: break;
     }
@@ -129,7 +146,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, const Node* node) {
         if (node->payload.bind_identifiers.mutable) {
             const Type* type_annotation = node->payload.bind_identifiers.types.nodes[i];
             assert(type_annotation);
-            const Node* alloca = stack_alloc(a, (StackAlloc) {rewrite_node(&ctx->rewriter, type_annotation)});
+            const Node* alloca = stack_alloc(a, (StackAlloc) { .type = rewrite_node(&ctx->rewriter, type_annotation), .mem = bb_mem(bb) });
             const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1).nodes[0];
             set_value_name(ptr, names.strings[i]);
             bind_instruction_outputs_count(bb, store(a, (Store) {ptr, results.nodes[0]}), 0);
@@ -200,10 +217,10 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     if (found) return found;
 
     // in case the node is an l-value, we load it
-    const Node* lhs = get_node_address_safe(ctx, node);
-    if (lhs) {
-        return load(a, (Load) { lhs });
-    }
+    // const Node* lhs = get_node_address_safe(ctx, node);
+    // if (lhs) {
+    //     return load(a, (Load) { lhs, .mem = rewrite_node() });
+    // }
 
     switch (node->tag) {
         case Function_TAG:
@@ -215,6 +232,8 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         }
         case Param_TAG: error("the binders should be handled such that this node is never reached");
         case Unbound_TAG: {
+            if (node->payload.unbound.mem)
+                rewrite_node(r, node->payload.unbound.mem);
             Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
             assert(!entry.is_var);
             return entry.node;
@@ -273,24 +292,41 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             return new_bb;
         }
         case BindIdentifiers_TAG: return desugar_bind_identifiers(ctx, node);
-        default: {
-            if (node->tag == PrimOp_TAG && node->payload.prim_op.op == assign_op) {
-                const Node* target_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);
-                assert(target_ptr);
-                const Node* value = rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]);
-                return store(a, (Store) { target_ptr, value });
-            } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == subscript_op) {
-                return prim_op(a, (PrimOp) {
-                    .op = extract_op,
-                    .operands = mk_nodes(a, rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[0]), rewrite_node(&ctx->rewriter, node->payload.prim_op.operands.nodes[1]))
-                });
-            } else if (node->tag == PrimOp_TAG && node->payload.prim_op.op == addrof_op) {
-                const Node* target_ptr = get_node_address(ctx, node->payload.prim_op.operands.nodes[0]);
-                return target_ptr;
+        case ExtInstr_TAG: {
+            ExtInstr payload = node->payload.ext_instr;
+            if (strcmp("shady.frontend", payload.set) == 0) {
+                switch ((SlimFrontEndOpCodes) payload.opcode) {
+                    case SlimOpDereference:
+                        return load(a, (Load) {
+                            .ptr = rewrite_node(r, first(payload.operands)),
+                            .mem = rewrite_node(r, payload.mem),
+                        });
+                    case SlimOpAssign: {
+                        const Node* target_ptr = get_node_address(ctx, payload.operands.nodes[0]);
+                        assert(target_ptr);
+                        const Node* value = rewrite_node(r, payload.operands.nodes[1]);
+                        return store(a, (Store) { target_ptr, value, .mem = rewrite_node(r, payload.mem) });
+                    }
+                    case SlimOpAddrOf: {
+                        const Node* target_ptr = get_node_address(ctx, payload.operands.nodes[0]);
+                        return mem_and_value(a, (MemAndValue) { .value = target_ptr, .mem = rewrite_node(r, payload.mem) });
+                    }
+                    case SlimOpSubscript: {
+                        return mem_and_value(a, (MemAndValue) {
+                            .value = prim_op(a, (PrimOp) {
+                                .op = extract_op,
+                                .operands = mk_nodes(a, rewrite_node(r, payload.operands.nodes[0]), rewrite_node(r, payload.operands.nodes[1]))
+                            }),
+                            .mem = rewrite_node(r, payload.mem) }
+                        );
+                    }
+                }
             }
-            return recreate_node_identity(&ctx->rewriter, node);
+            break;
         }
+        default: break;
     }
+    return recreate_node_identity(&ctx->rewriter, node);
 }
 
 Module* bind_program(SHADY_UNUSED const CompilerConfig* compiler_config, Module* src) {

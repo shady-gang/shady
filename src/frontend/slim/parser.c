@@ -204,8 +204,12 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                     .operands = expect_operands(ctx, bb)
                 }));
             } else if (strcmp(id, "alloca") == 0) {
+                const Node* type = first(accept_type_arguments(ctx));
+                Nodes ops = expect_operands(ctx, bb);
+                expect(ops.count == 0);
                 return bind_instruction_single(bb, stack_alloc(arena, (StackAlloc) {
-                    .type = first(accept_type_arguments(ctx))
+                    .type = type,
+                    .mem = bb_mem(bb),
                 }));
             } else if (strcmp(id, "debug_printf") == 0) {
                 Nodes ops = expect_operands(ctx, bb);
@@ -216,7 +220,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
             }
 
             if (bb)
-                return bind_instruction_single(bb, unbound(arena, (Unbound) { .name = id }));
+                return bind_instruction_single(bb, unbound(arena, (Unbound) { .name = id, .mem = bb_mem(bb) }));
             return unbound(arena, (Unbound) { .name = id });
         }
         case hex_lit_tok:
@@ -504,16 +508,16 @@ static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
     } else if (accept_token(ctx, star_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr);
-        return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
-            .op = deref_op,
-            .operands = singleton(expr),
-        }));
+        return bind_instruction_single(bb, ext_instr(arena, (ExtInstr) { .set = "shady.frontend", .result_t = unit_type(arena), .opcode = SlimOpDereference, .operands = singleton(expr), .mem = bb_mem(bb) }));
     } else if (accept_token(ctx, infix_and_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr);
-        return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
-            .op = addrof_op,
+        return bind_instruction_single(bb, ext_instr(arena, (ExtInstr) {
+            .set = "shady.frontend",
+            .result_t = unit_type(arena),
+            .opcode = SlimOpAddrOf,
             .operands = singleton(expr),
+            .mem = bb_mem(bb),
         }));
     }
 
@@ -539,6 +543,26 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
                     .operands = nodes(arena, 2, (const Node* []) {expr, rhs})
                 }));
             } else switch (infix) {
+                case InfixAss: {
+                    expr = bind_instruction_single(bb, ext_instr(arena, (ExtInstr) {
+                        .set = "shady.frontend",
+                        .opcode = SlimOpAssign,
+                        .result_t = unit_type(arena),
+                        .operands = nodes(arena, 2, (const Node* []) {expr, rhs}),
+                        .mem = bb_mem(bb),
+                    }));
+                    break;
+                }
+                case InfixSbs: {
+                    expr = bind_instruction_single(bb, ext_instr(arena, (ExtInstr) {
+                        .set = "shady.frontend",
+                        .opcode = SlimOpSubscript,
+                        .result_t = unit_type(arena),
+                        .operands = nodes(arena, 2, (const Node* []) {expr, rhs}),
+                        .mem = bb_mem(bb),
+                    }));
+                    break;
+                }
                 default: error("unknown infix operator")
             }
             continue;
@@ -549,7 +573,8 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
                 Nodes ops = expect_operands(ctx, bb);
                 expr = bind_instruction_single(bb, call(arena, (Call) {
                     .callee = expr,
-                    .args = ops
+                    .args = ops,
+                    .mem = bb_mem(bb),
                 }));
                 continue;
             }

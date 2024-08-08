@@ -22,9 +22,6 @@
       "name": "subgroup_intrinsic"
     },
     {
-      "name": "ast"
-    },
-    {
       "name": "join_point"
     },
     {
@@ -215,26 +212,6 @@
     {
       "name": "subgroup_ballot",
       "class": "subgroup_intrinsic"
-    },
-    {
-      "name": "assign",
-      "class": "ast",
-      "side-effects": true
-    },
-    {
-      "name": "subscript",
-      "class": "ast",
-      "side-effects": true
-    },
-    {
-      "name": "deref",
-      "class": "ast",
-      "side-effects": true
-    },
-    {
-      "name": "addrof",
-      "class": "ast",
-      "side-effects": true
     },
     {
       "name": "select"
